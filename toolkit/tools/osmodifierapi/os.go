@@ -17,6 +17,8 @@ type OS struct {
 	SELinux           imagecustomizerapi.SELinux           `yaml:"selinux"`
 	Users             []imagecustomizerapi.User            `yaml:"users"`
 	Overlays          *[]Overlay                           `yaml:"overlays"`
+	Services          imagecustomizerapi.Services          `yaml:"services"`
+	Modules           imagecustomizerapi.ModuleList        `yaml:"modules"`
 	KernelCommandLine imagecustomizerapi.KernelCommandLine `yaml:"kernelCommandLine"`
 }
 
@@ -69,6 +71,14 @@ func (s *OS) IsValid() error {
 	err = s.KernelCommandLine.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid kernelCommandLine:\n%w", err)
+	}
+
+	if err := s.Services.IsValid(); err != nil {
+		return err
+	}
+
+	if err := s.Modules.IsValid(); err != nil {
+		return err
 	}
 
 	return nil
