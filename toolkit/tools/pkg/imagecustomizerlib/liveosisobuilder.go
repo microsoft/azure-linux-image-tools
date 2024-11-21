@@ -315,7 +315,7 @@ func (b *LiveOSIsoBuilder) prepareRootfsForDracut(writeableRootfsDir string) err
 //
 // outputs:
 // - returns a SavedConfigs objects with the new merged values.
-func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs imagecustomizerapi.KernelExtraArguments,
+func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *DracutPackageInformation) (updatedSavedConfigs *SavedConfigs, err error) {
 	updatedSavedConfigs = &SavedConfigs{}
 	updatedSavedConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
@@ -337,7 +337,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs imagecustomiz
 
 			// Combine saved arguments with new ones
 			combinedArgs := append(savedArgs, newArgs...)
-			updatedSavedConfigs.Iso.KernelCommandLine.ExtraCommandLine = imagecustomizerapi.KernelExtraArguments(combinedArgs)
+			updatedSavedConfigs.Iso.KernelCommandLine.ExtraCommandLine = combinedArgs
 		}
 
 		// if the PXE iso image url is not set, set it to the value from the previous run.
@@ -796,7 +796,7 @@ func (b *LiveOSIsoBuilder) findKernelVersion(writeableRootfsDir string) error {
 //   - customized writeableRootfsDir (new files, deleted files, etc)
 //   - extracted artifacts
 func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, writeableRootfsDir string,
-	isoMakerArtifactsStagingDir string, extraCommandLine imagecustomizerapi.KernelExtraArguments, pxeIsoImageBaseUrl string,
+	isoMakerArtifactsStagingDir string, extraCommandLine []string, pxeIsoImageBaseUrl string,
 	pxeIsoImageFileUrl string, outputImageBase string) error {
 
 	logger.Log.Debugf("Creating LiveOS squashfs image")
@@ -979,7 +979,7 @@ func (b *LiveOSIsoBuilder) generateInitrdImage(rootfsSourceDir, artifactsSourceD
 //     `LiveOSIsoBuilder.workingDirs.isoArtifactsDir` folder.
 //   - the paths to individual artifaces are found in the
 //     `LiveOSIsoBuilder.artifacts` data structure.
-func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePath string, rawImageFile string, extraCommandLine imagecustomizerapi.KernelExtraArguments,
+func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePath string, rawImageFile string, extraCommandLine []string,
 	pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
 
 	logger.Log.Infof("Preparing iso artifacts")
@@ -1155,7 +1155,7 @@ func (b *LiveOSIsoBuilder) createIsoImage(additionalIsoFiles []safechroot.FileTo
 // outputs:
 //   - 'additionalIsoFiles'
 //     list of files to copy from the build machine to the iso media.
-func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomizerapi.Iso) (additionalIsoFiles []safechroot.FileToCopy, extraCommandLine imagecustomizerapi.KernelExtraArguments, err error) {
+func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomizerapi.Iso) (additionalIsoFiles []safechroot.FileToCopy, extraCommandLine []string, err error) {
 
 	if isoConfig == nil {
 		return
