@@ -114,4 +114,4 @@ When creating your PR, please ensure the following:
 
 ## Bugs
 
-If the bug is security related, please use the [security guidelines](#security-vulnerabilities) above. Otherwise, please use the [issues page](https://github.com/microsoft/azurelinux/issues) on Azure Linux Image Tools to file bugs.
+If the bug is security related, please use the [security guidelines](#security-vulnerabilities) above. Otherwise, please use the [issues page](https://github.com/microsoft/azure-linux-image-tools/issues) on Azure Linux Image Tools to file bugs.
