@@ -9,8 +9,7 @@ nav:
     link: /toolkit/tools/imagecustomizer/docs/cli/
   - name: Configuration
     link: /toolkit/tools/imagecustomizer/docs/configuration/
-    subnav:
-      - name: PXE
-        link: /toolkit/tools/imagecustomizer/docs/pxe/
-      - name: Verity
-        link: /toolkit/tools/imagecustomizer/docs/verity/
+  - name: PXE
+    link: /toolkit/tools/imagecustomizer/docs/pxe/
+  - name: Verity
+    link: /toolkit/tools/imagecustomizer/docs/verity/
