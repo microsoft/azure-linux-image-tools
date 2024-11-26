@@ -223,15 +223,15 @@ include $(SCRIPTS_DIR)/chroot.mk
 
 # Create SRPMS from local SPECS with:
 #   input-srpms, clean-input-srpms
-include $(SCRIPTS_DIR)/srpm_pack.mk
+# include $(SCRIPTS_DIR)/srpm_pack.mk
 
 # Create local build env for building RPMs with:
 #   containerized-rpmbuild containerized-rpmbuild-help
-include $(SCRIPTS_DIR)/containerized-build.mk
+# include $(SCRIPTS_DIR)/containerized-build.mk
 
 # Expand local SRPMS into sources and SPECS with:
 #   expand-specs clean-expand-specs
-include $(SCRIPTS_DIR)/srpm_expand.mk
+# include $(SCRIPTS_DIR)/srpm_expand.mk
 
 # Create self contained toolkit archive contianing all the required tools with:
 #   package-toolkit, clean-package-toolkit
@@ -251,7 +251,7 @@ include $(SCRIPTS_DIR)/repoquerywrapper.mk
 #   build-packages clean-build-packages
 # Either create or consume compressed folders of rpms with:
 #   hydrate-rpms, compress-rpms, clean-compress-rpms, compress-srpms, clean-compress-srpms
-include $(SCRIPTS_DIR)/pkggen.mk
+# include $(SCRIPTS_DIR)/pkggen.mk
 
 # Create images with:
 #   image, iso, clean-imagegen
