@@ -96,7 +96,6 @@ RESOURCES_DIR    ?= $(toolkit_root)/resources
 PROJECT_ROOT     ?= $(realpath $(toolkit_root)/..)
 BUILD_DIR        ?= $(PROJECT_ROOT)/build
 OUT_DIR          ?= $(PROJECT_ROOT)/out
-SPECS_DIR        ?= $(PROJECT_ROOT)/SPECS
 CCACHE_DIR       ?= $(PROJECT_ROOT)/ccache
 CCACHE_CONFIG    ?= $(RESOURCES_DIR)/manifests/package/ccache-configuration.json
 
@@ -107,7 +106,6 @@ CACHED_RPMS_DIR    ?= $(BUILD_DIR)/rpm_cache
 REPO_QUERY_DIR     ?= $(BUILD_DIR)/repo_query
 BUILD_SRPMS_DIR    ?= $(BUILD_DIR)/INTERMEDIATE_SRPMS
 MACRO_DIR          ?= $(BUILD_DIR)/macros
-BUILD_SPECS_DIR    ?= $(BUILD_DIR)/INTERMEDIATE_SPECS
 STATUS_FLAGS_DIR   ?= $(BUILD_DIR)/make_status
 CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
 IMAGEGEN_DIR       ?= $(BUILD_DIR)/imagegen
@@ -156,8 +154,6 @@ else
 VALIDATE_TOOLCHAIN_GPG ?= y
 endif
 endif
-
-TOOLCHAIN_GPG_VALIDATION_KEYS ?= $(wildcard $(PROJECT_ROOT)/SPECS/azurelinux-repos/MICROSOFT-*-GPG-KEY) $(wildcard $(toolkit_root)/repos/MICROSOFT-*-GPG-KEY)
 
 ######## COMMON MAKEFILE UTILITIES ########
 
