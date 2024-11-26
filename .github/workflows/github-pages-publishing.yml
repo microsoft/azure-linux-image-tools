@@ -25,10 +25,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Copy files from toolkit to docs
+        run: |
+          mkdir -p docs/imagecustomizer
+          cp -r toolkit/tools/imagecustomizer/* docs/imagecustomizer/
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
-          source: ./
+          source: ./docs
           destination: ./_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

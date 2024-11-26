@@ -1,0 +1,13 @@
+- name: Image Customizer
+  link: "/azure-linux-image-tools/imagecustomizer/"
+- name: CLI
+  link: "/azure-linux-image-tools/imagecustomizer/docs/cli"
+- name: Configuration
+  link: "/azure-linux-image-tools/imagecustomizer/docs/configuration"
+  subnav:
+    - name: PXE
+      link: "/azure-linux-image-tools/imagecustomizer/docs/pxe"
+    - name: Verity
+      link: "/azure-linux-image-tools/imagecustomizer/docs/verity"
+- name: Contributing
+  link: "/azure-linux-image-tools/imagecustomizer/DEV"

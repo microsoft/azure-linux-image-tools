@@ -1,3 +1,4 @@
 title: Azure Linux Image Tools
 description: Documentation for Microsoft Image Customizer & other image tools
-theme: jekyll-theme-modernist
+theme: jekyll-theme-minimal
+baseurl: "/azure-linux-image-tools"
