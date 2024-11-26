@@ -1,3 +1,16 @@
 title: Azure Linux Image Tools
 description: Documentation for Microsoft Image Customizer & other image tools
-theme: jekyll-theme-modernist
+theme: jekyll-theme-minimal
+
+nav:
+  - name: Image Customizer
+    link: /toolkit/tools/imagecustomizer/
+  - name: CLI
+    link: /toolkit/tools/imagecustomizer/docs/cli/
+  - name: Configuration
+    link: /toolkit/tools/imagecustomizer/docs/configuration/
+    subnav:
+      - name: PXE
+        link: /toolkit/tools/imagecustomizer/docs/pxe/
+      - name: Verity
+        link: /toolkit/tools/imagecustomizer/docs/verity/
