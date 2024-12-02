@@ -195,7 +195,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer espLoopback.Close()
+	defer rootfsLoopback.Close()
 
 	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
 	if !assert.NoError(t, err) {
@@ -235,4 +235,53 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	// In particular, bigfile, which is all 0s, should compress down to basically nothing.
 	rootfsSizeLessBigFile := int64(rootfsStat.Blocks)*rootfsStat.Frsize - bigFileStat.Size()
 	assert.LessOrEqual(t, rootfsZstFileStat.Size(), rootfsSizeLessBigFile, "check compression size")
+}
+
+func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
+	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	buildDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	configFile := filepath.Join(testDir, "partitions-unformatted-partition.yaml")
+	outImageFilePath := filepath.Join(buildDir, "image.raw")
+
+	// Customize image.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	espPartitionFilePath := filepath.Join(buildDir, "image_1.raw")
+	rootfsPartitionFilePath := filepath.Join(buildDir, "image_2.raw")
+
+	// Mount the partitions.
+	mountsDir := filepath.Join(buildDir, "testmounts")
+	espMountDir := filepath.Join(mountsDir, "esp")
+	rootfsMountDir := filepath.Join(mountsDir, "rootfs")
+
+	espLoopback, err := safeloopback.NewLoopback(espPartitionFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espLoopback.Close()
+
+	rootfsLoopback, err := safeloopback.NewLoopback(rootfsPartitionFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espLoopback.Close()
+
+	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espMount.Close()
+
+	rootfsMount, err := safemount.NewMount(rootfsLoopback.DevicePath(), rootfsMountDir, "ext4", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer rootfsMount.Close()
 }
