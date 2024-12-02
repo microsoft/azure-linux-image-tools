@@ -1,0 +1,34 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      label: rootfs
+      size: 2G
+
+    - id: empty
+      size: 2G
+      
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  resetBootLoaderType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine: console=tty0 console=ttyS0

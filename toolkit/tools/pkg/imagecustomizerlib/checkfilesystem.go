@@ -69,6 +69,12 @@ func checkFileSystemsHelper(diskDevice string) error {
 }
 
 func checkFileSystemFile(fileSystemType string, path string) error {
+	if fileSystemType == "" {
+		// Skip partitions that don't have a known file system type (e.g. the BIOS boot partition).
+		logger.Log.Debugf("Skipping file system check (%s)", path)
+		return nil
+	}
+
 	loopback, err := safeloopback.NewLoopback(path)
 	if err != nil {
 		return err
