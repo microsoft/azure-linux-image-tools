@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: build
+name: build & test
 
 on:
   push:
@@ -65,7 +65,7 @@ jobs:
           exit 1
         fi
 
-    - name: build
+    - name: build & test
       run: |
         pushd toolkit
         sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
