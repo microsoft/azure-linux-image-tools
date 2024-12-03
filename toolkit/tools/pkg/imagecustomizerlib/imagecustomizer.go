@@ -792,6 +792,12 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 	}
 	rootHash = rootHashMatches[1]
 
+	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
+	diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
+	if err != nil {
+		return err
+	}
+
 	systemBootPartition, err := findSystemBootPartition(diskPartitions)
 	if err != nil {
 		return err
