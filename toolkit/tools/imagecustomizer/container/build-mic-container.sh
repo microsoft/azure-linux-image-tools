@@ -32,12 +32,12 @@ fi
 
 # ---- main ----
 
-buildDir="$(mktemp -d)"
+buildDir="$scriptDir/build"
 containerStagingFolder="$buildDir/container"
 
 function cleanUp() {
     local exit_code=$?
-    rm -rf "$buildDir"
+    rm -rf "$containerStagingFolder"
     exit $exit_code
 }
 trap 'cleanUp' ERR
@@ -56,14 +56,17 @@ cp "$runScriptPath" "${stagingBinDir}"
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
 # download oras
-ORAS_TAR="${buildDir}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz"
+orasUnzipDir="${buildDir}/oras-install/"
+if [ ! -d "$orasUnzipDir" ]; then
+  ORAS_TAR="${buildDir}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz"
 
-curl -L "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz" \
-  -o "$ORAS_TAR"
+  curl -L "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz" \
+    -o "$ORAS_TAR"
 
-mkdir "${buildDir}/oras-install/"
-tar -zxf "$ORAS_TAR" -C "${buildDir}/oras-install/"
-mv "${buildDir}/oras-install/oras" "${stagingBinDir}"
+  mkdir "$orasUnzipDir"
+  tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
+  cp "$orasUnzipDir/oras" "${stagingBinDir}"
+fi
 
 # build the container
 docker build -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
