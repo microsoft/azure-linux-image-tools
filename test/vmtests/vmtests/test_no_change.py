@@ -6,8 +6,9 @@ from typing import List, Tuple
 import libvirt  # type: ignore
 from docker import DockerClient
 
-from .conftest import TEST_CONFIGS_DIR, Closeable
+from .conftest import TEST_CONFIGS_DIR
 from .utils import local_client
+from .utils.closeable import Closeable
 from .utils.imagecustomizer import run_image_customizer
 from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from .utils.libvirt_vm import LibvirtVm
@@ -41,6 +42,7 @@ def test_no_change(
         ssh_public_key,
         "qcow2",
         output_image_path,
+        close_list,
     )
 
     # Create a differencing disk for the VM.

@@ -10,6 +10,7 @@ from paramiko import AutoAddPolicy, SSHClient
 from paramiko.channel import ChannelFile, ChannelStderrFile
 
 
+# The result of a SSH process execution.
 class SshExecutableResult:
     def __init__(
         self,
@@ -35,6 +36,8 @@ class SshExecutableResult:
             raise Exception(f"SSH process failed with exit code: {self.exit_code}")
 
 
+# Handles reading an SSH pipe (stdout or stderr).
+# The contents are both collected as a string and logged.
 class _SshChannelFileReader:
     def __init__(self, channel_file: ChannelFile, log_level: int, log_name: str) -> None:
         self._channel_file = channel_file

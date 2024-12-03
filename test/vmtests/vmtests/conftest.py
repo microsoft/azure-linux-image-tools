@@ -4,12 +4,14 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
-from typing import Generator, List, Protocol, Tuple
+from typing import Generator, List, Tuple
 
 import docker
 import libvirt  # type: ignore
 import pytest
 from docker import DockerClient
+
+from .utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
 TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomizerlib/testdata")
@@ -119,13 +121,6 @@ def libvirt_conn() -> Generator[libvirt.virConnect, None, None]:
     yield libvirt_conn
 
     libvirt_conn.close()
-
-
-class Closeable(Protocol):
-    def close(
-        self,
-    ) -> None:
-        pass
 
 
 # Fixture that will close resources after a test has run, so long as the '--keep-environment' flag is not specified.

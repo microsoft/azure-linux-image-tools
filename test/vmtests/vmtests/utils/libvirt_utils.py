@@ -107,6 +107,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     return xml
 
 
+# Adds a disk to a libvirt domain XML document.
 def _add_disk_xml(
     devices: ET.Element,
     file_path: str,

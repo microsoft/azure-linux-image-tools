@@ -10,6 +10,7 @@ from threading import Thread
 from typing import IO, Any, Dict, List, Optional, Union
 
 
+# The result of a subprocess execution.
 class LocalExecutableResult:
     def __init__(
         self,
@@ -35,6 +36,8 @@ class LocalExecutableResult:
             raise Exception(f"Process failed with exit code: {self.exit_code}")
 
 
+# Handles reading a pipe (stdout or stderr).
+# The contents are both collected as a string and logged.
 class _PipeReader:
     def __init__(self, pipe: IO[str], log_level: int, log_name: str) -> None:
         self._pipe = pipe
@@ -115,6 +118,8 @@ class LocalProcess:
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.close()
 
+    # Wait for the subprocess to exit.
+    # If the timeout expires, the subprocess is killed.
     def wait(
         self,
         timeout: float = 600,
@@ -145,6 +150,8 @@ class LocalProcess:
         return result
 
 
+# Runs a subprocess and wait for the result.
+# Stdout and stderr are both logged and collected as strings that are returned as part of the result.
 def run(
     cmd: Union[str, List[str]],
     shell: bool = False,
@@ -167,6 +174,8 @@ def run(
         )
 
 
+# Runs a subprocess.
+# Stdout and stderr are both logged and collected as strings that are returned as part of the result.
 def popen(
     cmd: Union[str, List[str]],
     shell: bool = False,
