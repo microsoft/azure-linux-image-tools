@@ -1,0 +1,71 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: build & test
+
+on:
+  push:
+    branches: [main, release/*]
+  pull_request:
+    branches: [main, release/*]
+
+env:
+  EXPECTED_GO_VERSION: "1.21"
+
+jobs:
+  build:
+    name: go build and validate
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: '${{ env.EXPECTED_GO_VERSION }}'
+      id: go
+
+    - name: check active go version
+      run: |
+        go version && which go
+
+    - name: check go.mod
+      run: |
+        if grep -q "go $EXPECTED_GO_VERSION" ./toolkit/tools/go.mod; then
+          echo "go.mod has correct version ($EXPECTED_GO_VERSION)"
+        else
+          actual_version="$(grep -E '^go [0-9]+\.[0-9]+' ./toolkit/tools/go.mod)"
+          echo "go.mod has bad version expected:$EXPECTED_GO_VERSION, found: $actual_version"
+          echo "UPDATE ./github/workflows/go-test-coverage.yml AND prerequisite documentation if minimum go version changed"
+          exit 1
+        fi
+                
+    - name: Check for bad go formatting
+      run: |
+        pushd toolkit
+        sudo env "PATH=$PATH" make go-fmt-all
+        changes=$(git diff *.go)
+        if [ -n "$changes" ]; then
+          echo Unformatted go files!
+          git diff *.go
+          exit 1
+        fi
+        
+    - name: check for out of date go modules
+      run: |
+        pushd toolkit
+        sudo env "PATH=$PATH" make go-mod-tidy
+        modchanges=$(git diff tools/go.mod)
+        sumchanges=$(git diff tools/go.sum)
+        if [ -n "$modchanges$sumchanges" ]; then
+          echo Module files out of date!
+          git diff tools/go.mod
+          git diff tools/go.sum
+          exit 1
+        fi
+
+    - name: build & test
+      run: |
+        pushd toolkit
+        sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
