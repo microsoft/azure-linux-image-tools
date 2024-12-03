@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# However, do NOT cancel in-progress runs as we want to allow these in-progress deployments to complete.
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -22,17 +22,21 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        
       - name: setup pages
         uses: actions/configure-pages@v5
+        
       - name: copy files from toolkit to docs
         run: |
           mkdir -p docs/imagecustomizer
           cp -r toolkit/tools/imagecustomizer/* docs/imagecustomizer/
+          
       - name: build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
+          
       - name: upload artifact
         uses: actions/upload-pages-artifact@v3
 
