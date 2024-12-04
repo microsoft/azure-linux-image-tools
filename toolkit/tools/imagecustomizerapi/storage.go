@@ -5,6 +5,9 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 type Storage struct {
@@ -157,6 +160,11 @@ func (s *Storage) IsValid() error {
 		if verity.Name != VerityRootDeviceName {
 			return fmt.Errorf("verity 'name' (%s) must be \"%s\" for filesystem (%s) partition (%s)", verity.Name,
 				VerityRootDeviceName, filesystem.MountPoint.Path, verity.DataDeviceId)
+		}
+
+		mountOptions := strings.Split(filesystem.MountPoint.Options, ",")
+		if !sliceutils.ContainsValue(mountOptions, "ro") {
+			return fmt.Errorf("verity device's (%s) filesystem must include the 'ro' mount option", verity.Id)
 		}
 	}
 

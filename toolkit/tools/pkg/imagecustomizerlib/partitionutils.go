@@ -20,6 +20,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -244,17 +245,20 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			return nil, err
 		}
 
+		// Unset read-only flag so that read-only partitions can be customized.
+		vfsOptions := fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY)
+
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
 				source, fstabEntry.Target, fstabEntry.FsType,
-				uintptr(fstabEntry.VfsOptions), fstabEntry.FsOptions)
+				uintptr(vfsOptions), fstabEntry.FsOptions)
 
 			foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
 				source, fstabEntry.Target, fstabEntry.FsType,
-				uintptr(fstabEntry.VfsOptions), fstabEntry.FsOptions)
+				uintptr(vfsOptions), fstabEntry.FsOptions)
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
