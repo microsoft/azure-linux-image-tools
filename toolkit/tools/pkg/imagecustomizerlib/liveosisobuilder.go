@@ -48,6 +48,10 @@ const (
 	isoKernelPath     = "/boot/vmlinuz"
 	isoBootloadersDir = "/efi/boot"
 
+	// This folder is necessary to include in the initrd image so that the
+	// emergency shell can work correctly with the keyboard.
+	usrLibLocaleDir = "/usr/lib/locale"
+
 	// kernel arguments template
 	kernelArgsLiveOSTemplate = " rd.shell rd.live.image rd.live.dir=%s rd.live.squashimg=%s rd.live.overlay=1 rd.live.overlay.overlayfs rd.live.overlay.nouserconfirmprompt "
 
@@ -911,7 +915,8 @@ func (b *LiveOSIsoBuilder) generateInitrdImage(rootfsSourceDir, artifactsSourceD
 			initrdPathInChroot,
 			"--kver", b.artifacts.kernelVersion,
 			"--filesystems", "squashfs",
-			"--include", artifactsSourceDir, artifactsTargetDir}
+			"--include", artifactsSourceDir, artifactsTargetDir,
+			"--include", usrLibLocaleDir, usrLibLocaleDir}
 
 		return shell.ExecuteLive(true /*squashErrors*/, "dracut", dracutParams...)
 	})
