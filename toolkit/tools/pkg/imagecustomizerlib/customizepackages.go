@@ -231,8 +231,10 @@ func callTdnf(tdnfArgs []string, tdnfMessagePrefix string, imageChroot *safechro
 }
 
 func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool {
+
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.ExecuteLive(true /*squashErrors*/, "rpm", "-qi", packageName)
+		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
+		return err
 	})
 	if err != nil {
 		return false
@@ -272,23 +274,32 @@ func parseReleaseString(releaseInfo string) (packageRelease uint32, distroName s
 }
 
 func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (info packageInformation, err error) {
-	var packageVersion string
+	var packageInfo string
 	err = imageChroot.UnsafeRun(func() error {
-		packageVersion, _, err = shell.Execute("rpm", "-q", "--queryformat", "%{VERSION}", packageName)
+		packageInfo, _, err = shell.Execute("tdnf", "info", packageName, "--repo", "@system")
 		return err
 	})
 	if err != nil {
-		return info, fmt.Errorf("failed to query current package information for (%s):\n%w", packageName, err)
+		return info, fmt.Errorf("failed to query (%s) package information:\n%w", packageName, err)
 	}
 
-	releaseInfo := ""
-	err = imageChroot.UnsafeRun(func() error {
-		releaseInfo, _, err = shell.Execute("rpm", "-q", "--queryformat", "%{RELEASE}", packageName)
-		return err
-	})
-	if err != nil {
-		return info, fmt.Errorf("failed to query current package information for (%s):\n%w", packageName, err)
+	// Regular expressions to match Version and Release
+	versionRegex := regexp.MustCompile(`(?m)^Version\s+:\s+(\S+)`)
+	versionMatch := versionRegex.FindStringSubmatch(packageInfo)
+	var packageVersion string
+	if len(versionMatch) != 2 {
+		return info, fmt.Errorf("failed to extract version information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
 	}
+	packageVersion = versionMatch[1]
+
+	// Extract Release
+	releaseRegex := regexp.MustCompile(`(?m)^Release\s+:\s+(\S+)`)
+	releaseMatch := releaseRegex.FindStringSubmatch(packageInfo)
+	var releaseInfo string
+	if len(releaseMatch) != 2 {
+		return info, fmt.Errorf("failed to extract release information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
+	}
+	releaseInfo = releaseMatch[1]
 
 	packageRelease, distroName, distroVersion, err := parseReleaseString(releaseInfo)
 	if err != nil {
