@@ -679,6 +679,13 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 	defer imageConnection.Close()
 
+	imageConnection.Chroot().UnsafeRun(func() error {
+		distro, version := getDistroAndVersion()
+		logger.Log.Infof("Base OS distro: %s", distro)
+		logger.Log.Infof("Base OS version: %s", version)
+		return nil
+	})
+
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
 		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
