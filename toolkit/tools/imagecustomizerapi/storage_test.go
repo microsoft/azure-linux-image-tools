@@ -603,7 +603,8 @@ func TestStorageIsValidVerityRoot(t *testing.T) {
 				DeviceId: "rootverity",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -677,7 +678,8 @@ func TestStorageIsValidVerityUsr(t *testing.T) {
 				DeviceId: "usrverity",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/usr",
+					Path:    "/usr",
+					Options: "ro",
 				},
 			},
 		},
@@ -738,7 +740,8 @@ func TestStorageIsValidVerityInvalidName(t *testing.T) {
 				DeviceId: "root",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -798,7 +801,8 @@ func TestStorageIsValidVerityDuplicateId(t *testing.T) {
 				DeviceId: "root",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -859,7 +863,8 @@ func TestStorageIsValidVerityBadDataId(t *testing.T) {
 				DeviceId: "root",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -920,7 +925,8 @@ func TestStorageIsValidVerityBadHashId(t *testing.T) {
 				DeviceId: "root",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -981,7 +987,8 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 				DeviceId: "rootverity",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -1041,7 +1048,8 @@ func TestStorageIsValidVerityHashFileSystem(t *testing.T) {
 				DeviceId: "rootverity",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 			{
@@ -1107,8 +1115,9 @@ func TestStorageIsValidVerityFileSystemHasIdType(t *testing.T) {
 				DeviceId: "rootverity",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path:   "/",
-					IdType: MountIdentifierTypeUuid,
+					Path:    "/",
+					IdType:  MountIdentifierTypeUuid,
+					Options: "ro",
 				},
 			},
 		},
@@ -1222,7 +1231,8 @@ func TestStorageIsValidVerityTwoVerity(t *testing.T) {
 				DeviceId: "rootverity",
 				Type:     "ext4",
 				MountPoint: &MountPoint{
-					Path: "/",
+					Path:    "/",
+					Options: "ro",
 				},
 			},
 		},
@@ -1246,4 +1256,64 @@ func TestStorageIsValidVerityTwoVerity(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid verity item at index 1")
 	assert.ErrorContains(t, err, "invalid 'dataDeviceId'")
 	assert.ErrorContains(t, err, "device (root) is used by multiple things")
+}
+
+func TestStorageIsValidVerityMissingReadonly(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "verity device's (rootverity) filesystem must include the 'ro' mount option")
 }

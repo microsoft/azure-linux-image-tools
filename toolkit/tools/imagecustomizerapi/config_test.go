@@ -416,7 +416,8 @@ func TestConfigIsValidVerityValid(t *testing.T) {
 					DeviceId: "rootverity",
 					Type:     "ext4",
 					MountPoint: &MountPoint{
-						Path: "/",
+						Path:    "/",
+						Options: "ro",
 					},
 				},
 			},
