@@ -575,6 +575,9 @@ Specifies the configuration for dm-verity integrity verification.
 Note: Currently only root partition (`/`) is supported. Support for other partitions
 (e.g. `/usr`) may be added in the future.
 
+Note: The [filesystem](#filesystem-type) item pointing to this verity device, must
+include the `ro` option in the [mountPoint.options](#options-string).
+
 There are multiple ways to configure a verity enabled image. For
 recommendations, see [Verity Image Recommendations](./verity.md).
 
