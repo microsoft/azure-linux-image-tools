@@ -33,10 +33,11 @@ func logVersionsOfToolDeps() {
 
 	// Get distro and version
 	distro, version := getDistroAndVersion()
-	logger.Log.Debugf("Distro: %s, Version: %s", distro, version)
+	logger.Log.Debugf("Host OS distro: %s", distro)
+	logger.Log.Debugf("Host OS version: %s", version)
 
 	// Get versions of packages
-	logger.Log.Debugf("Tool Dependencies:")
+	logger.Log.Debugf("Host Tools:")
 	for versionFlag, pkgList := range versionFlags {
 		for _, pkg := range pkgList {
 			version, err := getPackageVersion(pkg, versionFlag)
