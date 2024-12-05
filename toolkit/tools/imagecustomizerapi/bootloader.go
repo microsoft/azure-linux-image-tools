@@ -13,7 +13,7 @@ type BootLoader struct {
 }
 
 func (b BootLoader) IsValid() error {
-	err := b.Type.IsValid() 
+	err := b.Type.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid 'type' field in BootLoader: %w", err)
 	}
