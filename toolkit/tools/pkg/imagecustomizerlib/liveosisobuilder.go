@@ -27,19 +27,19 @@ import (
 )
 
 const (
-	rawBootloaderDir = "/boot/efi/EFI/BOOT"
-	isoBootloaderDir = "/efi/boot"
+	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
+	isoBootloaderDir   = "/efi/boot"
 
-	bootx64Binary        = "bootx64.efi"
-	rawBootx64BinaryPath = rawBootloaderDir + "/" + bootx64Binary
-	isoBootx64BinaryPath = isoBootloaderDir + "/" + bootx64Binary
+	bootx64Binary          = "bootx64.efi"
+	osEspBootx64BinaryPath = osEspBootloaderDir + "/" + bootx64Binary
+	isoBootx64BinaryPath   = isoBootloaderDir + "/" + bootx64Binary
 
-	grubx64Binary        = "grubx64.efi"
-	rawGrubx64BinaryPath = rawBootloaderDir + "/" + grubx64Binary
-	isoGrubx64BinaryPath = isoBootloaderDir + "/" + grubx64Binary
+	grubx64Binary          = "grubx64.efi"
+	osEspGrubx64BinaryPath = osEspBootloaderDir + "/" + grubx64Binary
+	isoGrubx64BinaryPath   = isoBootloaderDir + "/" + grubx64Binary
 
-	grubx64NoPrefixBinary        = "grubx64-noprefix.efi"
-	rawGrubx64NoPrefixBinaryPath = rawBootloaderDir + "/" + grubx64NoPrefixBinary
+	grubx64NoPrefixBinary          = "grubx64-noprefix.efi"
+	osEspGrubx64NoPrefixBinaryPath = osEspBootloaderDir + "/" + grubx64NoPrefixBinary
 
 	grubCfgDir     = "/boot/grub2"
 	isoGrubCfg     = "grub.cfg"
@@ -639,13 +639,13 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 		scheduleAdditionalFile := true
 
 		switch relativeFilePath {
-		case rawBootx64BinaryPath:
+		case osEspBootx64BinaryPath:
 			b.artifacts.bootx64EfiPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
 			scheduleAdditionalFile = false
-		case rawGrubx64BinaryPath, rawGrubx64NoPrefixBinaryPath:
+		case osEspGrubx64BinaryPath, osEspGrubx64NoPrefixBinaryPath:
 			b.artifacts.grubx64EfiPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
