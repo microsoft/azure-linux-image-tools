@@ -73,7 +73,6 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 			if entry.Target == mountPath {
 				// Replace mount's source with verity device.
 				entry.Source = verityDevicePath(verity)
-				entry.Options = "ro," + entry.Options
 			}
 		}
 	}

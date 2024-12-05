@@ -51,6 +51,7 @@ storage:
     type: ext4
     mountPoint:
       path: /
+      options: ro
 
   - deviceId: var
     type: ext4
