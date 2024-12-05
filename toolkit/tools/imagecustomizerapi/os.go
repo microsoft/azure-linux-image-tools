@@ -12,22 +12,23 @@ import (
 
 // OS defines how each system present on the image is supposed to be configured.
 type OS struct {
-	ResetBootLoaderType ResetBootLoaderType `yaml:"resetBootLoaderType"`
-	Hostname            string              `yaml:"hostname"`
-	Packages            Packages            `yaml:"packages"`
-	SELinux             SELinux             `yaml:"selinux"`
-	KernelCommandLine   KernelCommandLine   `yaml:"kernelCommandLine"`
-	AdditionalFiles     AdditionalFileList  `yaml:"additionalFiles"`
-	AdditionalDirs      DirConfigList       `yaml:"additionalDirs"`
-	Users               []User              `yaml:"users"`
-	Services            Services            `yaml:"services"`
-	Modules             []Module            `yaml:"modules"`
-	Overlays            *[]Overlay          `yaml:"overlays"`
+	Hostname          string             `yaml:"hostname"`
+	Packages          Packages           `yaml:"packages"`
+	SELinux           SELinux            `yaml:"selinux"`
+	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine"`
+	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles"`
+	AdditionalDirs    DirConfigList      `yaml:"additionalDirs"`
+	Users             []User             `yaml:"users"`
+	Services          Services           `yaml:"services"`
+	Modules           []Module           `yaml:"modules"`
+	Overlays          *[]Overlay         `yaml:"overlays"`
+	BootLoader        BootLoader         `yaml:"bootloader"`
+	Uki               *Uki               `yaml:"uki"`
 }
 
 func (s *OS) IsValid() error {
 	var err error
-	err = s.ResetBootLoaderType.IsValid()
+	err = s.BootLoader.Reset.IsValid()
 	if err != nil {
 		return err
 	}
