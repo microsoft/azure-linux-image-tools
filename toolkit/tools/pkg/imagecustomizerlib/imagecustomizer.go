@@ -391,7 +391,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		}
 	}
 
-	if ic.config.OS.Uki != nil{
+	if ic.config.OS.Uki != nil {
 		err = customizeUkiImageHelper(ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
