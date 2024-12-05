@@ -27,12 +27,24 @@ import (
 )
 
 const (
-	bootx64Binary         = "bootx64.efi"
-	grubx64Binary         = "grubx64.efi"
-	grubx64NoPrefixBinary = "grubx64-noprefix.efi"
+	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
+	isoBootloaderDir   = "/efi/boot"
 
-	grubCfgDir                 = "/boot/grub2"
-	isoGrubCfg                 = "grub.cfg"
+	bootx64Binary          = "bootx64.efi"
+	osEspBootx64BinaryPath = osEspBootloaderDir + "/" + bootx64Binary
+	isoBootx64BinaryPath   = isoBootloaderDir + "/" + bootx64Binary
+
+	grubx64Binary          = "grubx64.efi"
+	osEspGrubx64BinaryPath = osEspBootloaderDir + "/" + grubx64Binary
+	isoGrubx64BinaryPath   = isoBootloaderDir + "/" + grubx64Binary
+
+	grubx64NoPrefixBinary          = "grubx64-noprefix.efi"
+	osEspGrubx64NoPrefixBinaryPath = osEspBootloaderDir + "/" + grubx64NoPrefixBinary
+
+	grubCfgDir     = "/boot/grub2"
+	isoGrubCfg     = "grub.cfg"
+	isoGrubCfgPath = grubCfgDir + "/" + isoGrubCfg
+
 	pxeGrubCfg                 = "grub-pxe.cfg"
 	pxeKernelsArgs             = "ip=dhcp rd.live.azldownloader=enable"
 	pxeImageBaseUrlPlaceHolder = "http://pxe-image-base-url-place-holder"
@@ -55,8 +67,9 @@ const (
 	// kernel arguments template
 	kernelArgsLiveOSTemplate = " rd.shell rd.live.image rd.live.dir=%s rd.live.squashimg=%s rd.live.overlay=1 rd.live.overlay.overlayfs rd.live.overlay.nouserconfirmprompt "
 
-	liveOSDir   = "liveos"
-	liveOSImage = "rootfs.img"
+	liveOSDir       = "liveos"
+	liveOSImage     = "rootfs.img"
+	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
 
 	// location on output iso where some of the input mic configuration will be
 	// saved for future iso-to-iso customizations.
@@ -64,7 +77,8 @@ const (
 	// file holding the iso kernel parameters from the input mic configuration
 	// to be re-appended/merged with newer configures for future iso-to-iso
 	// customizations.
-	savedConfigsFileName = "saved-configs.yaml"
+	savedConfigsFileName     = "saved-configs.yaml"
+	savedConfigsFileNamePath = "/" + savedConfigsDir + "/" + savedConfigsFileName
 
 	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet "
 add_drivers+=" overlay "
@@ -619,25 +633,25 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 			continue
 		}
 
+		relativeFilePath := strings.TrimPrefix(sourcePath, writeableRootfsDir)
 		targetPath := strings.Replace(sourcePath, writeableRootfsDir, b.workingDirs.isoArtifactsDir, -1)
-		targetFileName := filepath.Base(targetPath)
 
 		scheduleAdditionalFile := true
 
-		switch targetFileName {
-		case bootx64Binary:
+		switch relativeFilePath {
+		case osEspBootx64BinaryPath:
 			b.artifacts.bootx64EfiPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
 			scheduleAdditionalFile = false
-		case grubx64Binary, grubx64NoPrefixBinary:
+		case osEspGrubx64BinaryPath, osEspGrubx64NoPrefixBinaryPath:
 			b.artifacts.grubx64EfiPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
 			scheduleAdditionalFile = false
-		case isoGrubCfg:
+		case isoGrubCfgPath:
 			if usingGrubNoPrefix {
 				// When using the grubx64-noprefix.efi, the 'prefix' grub
 				// variable is set to an empty string. When 'prefix' is an
@@ -662,7 +676,7 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 			// grub.cfg is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
 		}
-		if strings.HasPrefix(targetFileName, vmLinuzPrefix) {
+		if strings.HasPrefix(filepath.Base(targetPath), vmLinuzPrefix) {
 			targetPath = filepath.Join(filepath.Dir(targetPath), "vmlinuz")
 			b.artifacts.vmlinuzPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
@@ -1433,18 +1447,18 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 	isoBuilder.artifacts.additionalFiles = make(map[string]string)
 
 	for _, isoFile := range isoFiles {
-		fileName := filepath.Base(isoFile)
+		relativeFilePath := strings.TrimPrefix(isoFile, isoExpansionFolder)
 
 		scheduleAdditionalFile := true
 
-		switch fileName {
-		case bootx64Binary:
+		switch relativeFilePath {
+		case isoBootx64BinaryPath:
 			isoBuilder.artifacts.bootx64EfiPath = isoFile
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
 			scheduleAdditionalFile = false
-		case grubx64Binary:
+		case isoGrubx64BinaryPath:
 			// Note that grubx64NoPrefixBinary is not expected to on an existing
 			// iso - and hence we do not look for it here. grubx64NoPrefixBinary
 			// may exist only on a vhdx/qcow when the grub-noprefix package is
@@ -1455,26 +1469,26 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 			// in the iso media - so no need to schedule it as an additional
 			// file.
 			scheduleAdditionalFile = false
-		case isoGrubCfg:
+		case isoGrubCfgPath:
 			isoBuilder.artifacts.isoGrubCfgPath = isoFile
 			// We will place the pxe grub config next to the iso grub config.
 			isoBuilder.artifacts.pxeGrubCfgPath = filepath.Join(filepath.Dir(isoBuilder.artifacts.isoGrubCfgPath), pxeGrubCfg)
 			// grub.cfg is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
-		case liveOSImage:
+		case liveOSImagePath:
 			isoBuilder.artifacts.squashfsImagePath = isoFile
 			// the squashfs image file is added to the additional file list
 			// by a different part of the code
 			scheduleAdditionalFile = false
-		case initrdImage:
+		case isoInitrdPath:
 			isoBuilder.artifacts.initrdImagePath = isoFile
 			// initrd.img is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
-		case savedConfigsFileName:
+		case savedConfigsFileNamePath:
 			isoBuilder.artifacts.savedConfigsFilePath = isoFile
 			scheduleAdditionalFile = false
 		}
-		if strings.HasPrefix(fileName, vmLinuzPrefix) {
+		if strings.HasPrefix(filepath.Base(isoFile), vmLinuzPrefix) {
 			isoBuilder.artifacts.vmlinuzPath = isoFile
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
