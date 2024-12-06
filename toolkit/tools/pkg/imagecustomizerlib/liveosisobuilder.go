@@ -441,7 +441,7 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 	}
 
 	liveosKernelArgs := fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
-	savedArgs := strings.Join(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine, " ")
+	savedArgs := GrubArgsToString(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
 	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline,

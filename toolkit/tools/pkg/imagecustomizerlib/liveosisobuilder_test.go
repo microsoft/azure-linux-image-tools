@@ -166,7 +166,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	savedConfigs = &SavedConfigs{}
 	err = imagecustomizerapi.UnmarshalYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
-	assert.Equal(t, "rd.info rd.debug", strings.Join(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine, " "))
+	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
 	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, isoMountDir, pxeKernelIpArg, pxeKernelRootArgV2,
 		pxeArtifactsPathIsoToIso)
