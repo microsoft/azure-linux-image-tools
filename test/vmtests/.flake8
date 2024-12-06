@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 120
+select = B,BLK,C90,E,F,I,W,N
+exclude = __pycache__, venv
+
+# E501: flake8's long line error sometimes disagrees with the `black` linter.
+# F541: 'f-string is missing placeholders' (not really a problem)
+# W503: 'Line break occurred before a binary operator' (black formats differently)
+ignore = E501 F541 W503
