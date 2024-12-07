@@ -1,1 +1,9 @@
 os:
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      capsh --print
+      getcap /usr/sbin/iptables
+      iptables -L

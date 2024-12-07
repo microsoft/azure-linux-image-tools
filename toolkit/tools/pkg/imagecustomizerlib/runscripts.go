@@ -103,12 +103,14 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 	}
 
 	// Run the script.
-	err = imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(process, args...).
-			EnvironmentVariables(envVars).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err = shell.NewExecBuilder(process, args...).
+		Chroot(imageChroot.RootDir()).
+		EnvironmentVariables(envVars).
+		Capabilities([]uintptr{unix.CAP_CHOWN, unix.CAP_DAC_OVERRIDE, unix.CAP_DAC_READ_SEARCH, unix.CAP_FOWNER,
+			unix.CAP_SETFCAP}).
+		WorkingDirectory(configDirMountPathInChroot).
+		ErrorStderrLines(1).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("script (%s) failed:\n%w", scriptLogName, err)
 	}
