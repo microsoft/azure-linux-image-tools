@@ -1,0 +1,7 @@
+os:
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      modprobe nbd
