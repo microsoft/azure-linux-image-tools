@@ -1,0 +1,11 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+[tool.isort]
+line_length = 120
+
+# Make isort compatible with black formatting.
+profile = "black"
+
+[tool.black]
+line-length = 120
