@@ -22,12 +22,14 @@ Steps:
 
 ## Linting, mypy, and other code checks
 
-To run the automatic code formatter, run the type checker, and to check the code
-formatting rules, run:
+This project uses Black for automatic code formatting, isort for sorting imports, mypy
+for type checking, and flake8 for code format checking.
 
-   ```bash
-   make fix check
-   ```
+All of these tools can be run together by running:
+
+```bash
+make fix check
+```
 
 ## Adding Python packages
 
