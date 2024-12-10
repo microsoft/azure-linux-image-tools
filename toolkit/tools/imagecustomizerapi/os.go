@@ -28,7 +28,7 @@ type OS struct {
 
 func (s *OS) IsValid() error {
 	var err error
-	err = s.BootLoader.Reset.IsValid()
+	err = s.BootLoader.IsValid()
 	if err != nil {
 		return err
 	}
