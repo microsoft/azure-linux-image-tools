@@ -80,7 +80,7 @@ const (
 	savedConfigsFileName     = "saved-configs.yaml"
 	savedConfigsFileNamePath = "/" + savedConfigsDir + "/" + savedConfigsFileName
 
-	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet "
+	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
 add_drivers+=" overlay "
 hostonly="no"
 `
@@ -105,17 +105,18 @@ type IsoWorkingDirs struct {
 // `IsoArtifacts` holds the extracted/generated artifacts necessary to build
 // a LiveOS ISO image.
 type IsoArtifacts struct {
-	kernelVersion        string
-	dracutPackageInfo    *DracutPackageInformation
-	bootx64EfiPath       string
-	grubx64EfiPath       string
-	isoGrubCfgPath       string
-	pxeGrubCfgPath       string
-	savedConfigsFilePath string
-	vmlinuzPath          string
-	initrdImagePath      string
-	squashfsImagePath    string
-	additionalFiles      map[string]string // local-build-path -> iso-media-path
+	kernelVersion            string
+	dracutPackageInfo        *PackageVersionInformation
+	selinuxPolicyPackageInfo *PackageVersionInformation
+	bootx64EfiPath           string
+	grubx64EfiPath           string
+	isoGrubCfgPath           string
+	pxeGrubCfgPath           string
+	savedConfigsFilePath     string
+	vmlinuzPath              string
+	initrdImagePath          string
+	squashfsImagePath        string
+	additionalFiles          map[string]string // local-build-path -> iso-media-path
 }
 
 type LiveOSIsoBuilder struct {
@@ -316,12 +317,14 @@ func (b *LiveOSIsoBuilder) prepareRootfsForDracut(writeableRootfsDir string) err
 // outputs:
 // - returns a SavedConfigs objects with the new merged values.
 func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs imagecustomizerapi.KernelExtraArguments,
-	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *DracutPackageInformation) (updatedSavedConfigs *SavedConfigs, err error) {
+	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
+	newSELinuxPackageInfo *PackageVersionInformation) (updatedSavedConfigs *SavedConfigs, err error) {
 	updatedSavedConfigs = &SavedConfigs{}
 	updatedSavedConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
 	updatedSavedConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
 	updatedSavedConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
 	updatedSavedConfigs.OS.DracutPackageInfo = newDracutPackageInfo
+	updatedSavedConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
 
 	savedConfigs, err := loadSavedConfigs(savedConfigsFilePath)
 	if err != nil {
@@ -365,6 +368,9 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs imagecustomiz
 		// the dracut version.
 		if newDracutPackageInfo == nil {
 			updatedSavedConfigs.OS.DracutPackageInfo = savedConfigs.OS.DracutPackageInfo
+		}
+		if newSELinuxPackageInfo == nil {
+			updatedSavedConfigs.OS.SELinuxPolicyPackageInfo = savedConfigs.OS.SELinuxPolicyPackageInfo
 		}
 	}
 
@@ -431,10 +437,15 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 	}
 
-	inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
-		true /*allowMultiple*/, false /*requireKernelOpts*/)
+	err = verifyLiveOsSelinuxSupport(savedConfigs.OS.DracutPackageInfo, savedConfigs.OS.SELinuxPolicyPackageInfo)
 	if err != nil {
-		return fmt.Errorf("failed to set SELinux mode:\n%w", err)
+		logger.Log.Warnf("SELinux cannot be enabled due to older dracut and selinux-policy package versions.\n%w", err)
+
+		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
+			true /*allowMultiple*/, false /*requireKernelOpts*/)
+		if err != nil {
+			return fmt.Errorf("failed to set SELinux mode:\n%w", err)
+		}
 	}
 
 	liveosKernelArgs := fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
@@ -802,7 +813,12 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 		return err
 	}
 
-	b.artifacts.dracutPackageInfo, err = getDracutVersion(writeableRootfsDir)
+	b.artifacts.dracutPackageInfo, err = getPackageInformationFromRootfsDir(writeableRootfsDir, "dracut")
+	if err != nil {
+		return err
+	}
+
+	b.artifacts.selinuxPolicyPackageInfo, err = getPackageInformationFromRootfsDir(writeableRootfsDir, "selinux-policy")
 	if err != nil {
 		return err
 	}
@@ -824,7 +840,7 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 	}
 
 	updatedSavedConfigs, err := updateSavedConfigs(b.artifacts.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo)
+		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo, b.artifacts.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -872,7 +888,8 @@ func (b *LiveOSIsoBuilder) createSquashfsImage(writeableRootfsDir string) error 
 		}
 	}
 
-	mksquashfsParams := []string{writeableRootfsDir, squashfsImagePath}
+	// '-xattrs' allows SELinux labeling to be retained within the squashfs.
+	mksquashfsParams := []string{writeableRootfsDir, squashfsImagePath, "-xattrs"}
 	err = shell.ExecuteLive(false, "mksquashfs", mksquashfsParams...)
 	if err != nil {
 		return fmt.Errorf("failed to create squashfs:\n%w", err)
@@ -1554,7 +1571,7 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	}
 
 	updatedSavedConfigs, err := updateSavedConfigs(b.artifacts.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo)
+		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo, b.artifacts.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -1563,6 +1580,7 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	b.artifacts.dracutPackageInfo = updatedSavedConfigs.OS.DracutPackageInfo
+	b.artifacts.selinuxPolicyPackageInfo = updatedSavedConfigs.OS.SELinuxPolicyPackageInfo
 
 	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, updatedSavedConfigs, outputImageBase)
 	if err != nil {
