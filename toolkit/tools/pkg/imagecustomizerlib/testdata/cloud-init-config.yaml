@@ -10,4 +10,5 @@ os:
     destination: /var/lib/cloud/seed/nocloud/meta-data
 
   kernelCommandLine:
-    extraCommandLine: "ds=nocloud"
+    extraCommandLine:
+    - "ds=nocloud"
