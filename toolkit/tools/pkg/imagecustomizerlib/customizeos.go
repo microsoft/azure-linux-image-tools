@@ -92,7 +92,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = prepareUki(config.OS.Uki, imageChroot)
+	err = prepareUki(buildDir, config.PreviewFeatures.Uki, imageChroot)
 	if err != nil {
 		return err
 	}

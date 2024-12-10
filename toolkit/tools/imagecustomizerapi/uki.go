@@ -11,10 +11,10 @@ type Uki struct {
 	Kernels UkiKernels `yaml:"kernels"`
 }
 
-func (u Uki) IsValid() error {
+func (u *Uki) IsValid() error {
 	err := u.Kernels.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid uki kernels: %w", err)
+		return fmt.Errorf("invalid uki kernels:\n%w", err)
 	}
 
 	return nil

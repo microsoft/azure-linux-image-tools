@@ -23,12 +23,11 @@ type OS struct {
 	Modules           []Module           `yaml:"modules"`
 	Overlays          *[]Overlay         `yaml:"overlays"`
 	BootLoader        BootLoader         `yaml:"bootloader"`
-	Uki               *Uki               `yaml:"uki"`
 }
 
 func (s *OS) IsValid() error {
 	var err error
-	err = s.BootLoader.Reset.IsValid()
+	err = s.BootLoader.IsValid()
 	if err != nil {
 		return err
 	}
