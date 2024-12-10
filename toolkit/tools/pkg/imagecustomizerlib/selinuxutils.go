@@ -23,7 +23,7 @@ func verifySELinuxPolicyLiveOSISOSupport(packageInfo *PackageVersionInformation)
 		DistroVersion:            SELinuxPolicyMinDistroVersion,
 	}
 	packageName := "selinux-policy"
-	err := verifyMinimumVersion(packageName, packageInfo, minimumVersionPackageInfo)
+	err := verifyMinimumVersion(packageInfo, minimumVersionPackageInfo)
 	if err != nil {
 		return fmt.Errorf("did not find the minimum (%s) required version to support SELinux with LiveOS ISOs.", packageName)
 	}

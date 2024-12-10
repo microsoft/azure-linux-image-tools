@@ -69,7 +69,7 @@ func verifyDracutPXESupport(packageVersionInfo *PackageVersionInformation) error
 		DistroVersion:            PxeDracutMinDistroVersion,
 	}
 	packageName := "dracut"
-	err := verifyMinimumVersion(packageName, packageVersionInfo, minimumVersionPackageInfo)
+	err := verifyMinimumVersion(packageVersionInfo, minimumVersionPackageInfo)
 	if err != nil {
 		return fmt.Errorf("did not find the minimum (%s) required version to support PXE boot with LiveOS ISOs.", packageName)
 	}
@@ -84,7 +84,7 @@ func verifyDracutLiveISOSELinuxSupport(packageVersionInfo *PackageVersionInforma
 		DistroVersion:            LiveISOSelinuxDracutMinDistroVersion,
 	}
 	packageName := "dracut"
-	err := verifyMinimumVersion(packageName, packageVersionInfo, minimumVersionPackageInfo)
+	err := verifyMinimumVersion(packageVersionInfo, minimumVersionPackageInfo)
 	if err != nil {
 		return fmt.Errorf("did not find the minimum (%s) required version to support SELinux with LiveOS ISOs.", packageName)
 	}
