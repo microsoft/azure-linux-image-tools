@@ -54,6 +54,8 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		return nil
 	}
 
+	combinedArgs := GrubArgsToString(extraCommandLine)
+
 	if b.isGrubMkconfig {
 		defaultGrubFileContent, err := addExtraCommandLineToDefaultGrubFile(b.defaultGrubFileContent, combinedArgs)
 		if err != nil {
