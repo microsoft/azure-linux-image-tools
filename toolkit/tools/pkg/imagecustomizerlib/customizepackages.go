@@ -26,11 +26,25 @@ var (
 	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
 )
 
-type packageInformation struct {
-	packageVersion string
-	packageRelease uint32
-	distroName     string
-	distroVersion  uint32
+type PackageVersionInformation struct {
+	PackageVersionComponents []uint64 `yaml:"PackageVersionComponents"`
+	PackageRelease           uint32   `yaml:"PackageRelease"`
+	DistroName               string   `yaml:"DistroName"`
+	DistroVersion            uint32   `yaml:"DistroVersion"`
+}
+
+func (pi *PackageVersionInformation) getVersionString() (version string, err error) {
+	if len(pi.PackageVersionComponents) == 0 {
+		return "", fmt.Errorf("no version defined")
+	}
+
+	for i, versionComponent := range pi.PackageVersionComponents {
+		if i != 0 {
+			version += "."
+		}
+		version += strconv.FormatUint(versionComponent, 10)
+	}
+	return version, nil
 }
 
 func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
@@ -242,7 +256,7 @@ func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool
 	return true
 }
 
-func parseReleaseString(releaseInfo string) (packageRelease uint32, distroName string, distroVersion uint32, err error) {
+func parseReleaseString(releaseInfo string) (PackageRelease uint32, DistroName string, DistroVersion uint32, err error) {
 	pattern := `([0-9]+)\.([a-zA-Z]+)([0-9]+)`
 	re := regexp.MustCompile(pattern)
 	matches := re.FindStringSubmatch(releaseInfo)
@@ -257,10 +271,10 @@ func parseReleaseString(releaseInfo string) (packageRelease uint32, distroName s
 	if err != nil {
 		return 0, "", 0, fmt.Errorf("failed to parse package release version (%s) into an unsigned integer:\n%w", packageReleaseString, err)
 	}
-	packageRelease = uint32(packageReleaseUint64)
+	PackageRelease = uint32(packageReleaseUint64)
 
 	// distro name
-	distroName = matches[2]
+	DistroName = matches[2]
 
 	// distro version
 	distroVersionString := matches[3]
@@ -268,19 +282,47 @@ func parseReleaseString(releaseInfo string) (packageRelease uint32, distroName s
 	if err != nil {
 		return 0, "", 0, fmt.Errorf("failed to parse distro version (%s) into an unsigned integer:\n%w", distroVersionString, err)
 	}
-	distroVersion = uint32(distroVersionUint64)
+	DistroVersion = uint32(distroVersionUint64)
 
-	return packageRelease, distroName, distroVersion, nil
+	return PackageRelease, DistroName, DistroVersion, nil
 }
 
-func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (info packageInformation, err error) {
+func parseVersionString(version string) ([]uint64, error) {
+	// Regular expression to capture version components
+	// Expected patterns are: "number(.number)*"
+	re := regexp.MustCompile(`^(\d+)(?:\.(\d+))*$`)
+
+	// Match the version string against the regex
+	matches := re.FindStringSubmatch(version)
+	if matches == nil {
+		return nil, fmt.Errorf("invalid version format: %s", version)
+	}
+
+	// Extract all captured groups
+	var versionComponents []uint64
+	for _, match := range matches[1:] {
+		if match == "" {
+			continue
+		}
+
+		versionComponent, err := strconv.ParseUint(match, 10 /*base*/, 64 /*size*/)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse package version component (%s) into an unsigned integer:\n%w", match, err)
+		}
+		versionComponents = append(versionComponents, versionComponent)
+	}
+
+	return versionComponents, nil
+}
+
+func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (info *PackageVersionInformation, err error) {
 	var packageInfo string
 	err = imageChroot.UnsafeRun(func() error {
 		packageInfo, _, err = shell.Execute("tdnf", "info", packageName, "--repo", "@system")
 		return err
 	})
 	if err != nil {
-		return info, fmt.Errorf("failed to query (%s) package information:\n%w", packageName, err)
+		return nil, fmt.Errorf("failed to query (%s) package information:\n%w", packageName, err)
 	}
 
 	// Regular expressions to match Version and Release
@@ -288,31 +330,95 @@ func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (
 	versionMatch := versionRegex.FindStringSubmatch(packageInfo)
 	var packageVersion string
 	if len(versionMatch) != 2 {
-		return info, fmt.Errorf("failed to extract version information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
+		return nil, fmt.Errorf("failed to extract version information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
 	}
 	packageVersion = versionMatch[1]
+
+	versionComponents, err := parseVersionString(packageVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the (%s) package version information:\n%w", packageName, err)
+	}
 
 	// Extract Release
 	releaseRegex := regexp.MustCompile(`(?m)^Release\s+:\s+(\S+)`)
 	releaseMatch := releaseRegex.FindStringSubmatch(packageInfo)
 	var releaseInfo string
 	if len(releaseMatch) != 2 {
-		return info, fmt.Errorf("failed to extract release information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
+		return nil, fmt.Errorf("failed to extract release information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
 	}
 	releaseInfo = releaseMatch[1]
 
-	packageRelease, distroName, distroVersion, err := parseReleaseString(releaseInfo)
+	PackageRelease, DistroName, DistroVersion, err := parseReleaseString(releaseInfo)
 	if err != nil {
-		return info, fmt.Errorf("failed to parse release information for package (%s)\n%w", packageName, err)
+		return nil, fmt.Errorf("failed to parse release information for package (%s)\n%w", packageName, err)
 	}
 
 	// Set return values
-	info.packageVersion = packageVersion
-	info.packageRelease = packageRelease
-	info.distroName = distroName
-	info.distroVersion = distroVersion
+	info = &PackageVersionInformation{
+		PackageVersionComponents: versionComponents,
+		PackageRelease:           PackageRelease,
+		DistroName:               DistroName,
+		DistroVersion:            DistroVersion,
+	}
 
 	return info, nil
+}
+
+func verifyMinimumVersion(packageName string, packageInfo *PackageVersionInformation, minimumVersionInfo *PackageVersionInformation) error {
+	if packageInfo == nil {
+		return fmt.Errorf("no package information provided")
+	}
+
+	if packageInfo.DistroName != minimumVersionInfo.DistroName {
+		return fmt.Errorf("did not find required Azure Linux distro (%s) - found (%s)", minimumVersionInfo.DistroName, packageInfo.DistroName)
+	}
+
+	if packageInfo.DistroVersion < minimumVersionInfo.DistroVersion {
+		return fmt.Errorf("did not find required Azure Linux distro version (%d) - found (%d)", minimumVersionInfo.DistroVersion, packageInfo.DistroVersion)
+	}
+
+	// Note that, theoretically, a newer distro version could still have an older package version.
+	// So, it is not sufficient to check that packageInfo.DistroVersion > MinDistroVersion.
+	// We need to check the package version number.
+	expectedVersion := fmt.Sprintf("%d-%d.%s%d", minimumVersionInfo.PackageVersionComponents[0], minimumVersionInfo.PackageRelease,
+		minimumVersionInfo.DistroName, minimumVersionInfo.DistroVersion)
+
+	if len(minimumVersionInfo.PackageVersionComponents) != len(packageInfo.PackageVersionComponents) {
+		return fmt.Errorf("unexpected number of version components (%d) for the (%s) package - found (%d)",
+			len(minimumVersionInfo.PackageVersionComponents), packageName, len(packageInfo.PackageVersionComponents))
+	}
+
+	currentVersion := fmt.Sprintf("%d-%d.%s%d", packageInfo.PackageVersionComponents[0], packageInfo.PackageRelease, packageInfo.DistroName, packageInfo.DistroVersion)
+
+	for i, versionComponent := range packageInfo.PackageVersionComponents {
+		if versionComponent < minimumVersionInfo.PackageVersionComponents[i] {
+			return fmt.Errorf("did not find required package version (%s) (or newer) - found (%s)", expectedVersion, currentVersion)
+		} else if versionComponent > minimumVersionInfo.PackageVersionComponents[i] {
+			return nil
+		}
+	}
+
+	if packageInfo.PackageRelease < minimumVersionInfo.PackageRelease {
+		return fmt.Errorf("did not find required package version (%s) (or newer) - found (%s)",
+			expectedVersion, currentVersion)
+	}
+
+	return nil
+}
+
+func getPackageInformationFromRootfsDir(rootfsSourceDir string, packageName string) (info *PackageVersionInformation, err error) {
+	chroot := safechroot.NewChroot(rootfsSourceDir, true /*isExistingDir*/)
+	if chroot == nil {
+		return info, fmt.Errorf("failed to create a new chroot object for %s.", rootfsSourceDir)
+	}
+	defer chroot.Close(true /*leaveOnDisk*/)
+
+	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
+	if err != nil {
+		return info, fmt.Errorf("failed to initialize chroot object for %s:\n%w", rootfsSourceDir, err)
+	}
+
+	return getPackageInformation(chroot, packageName)
 }
 
 func cleanTdnfCache(imageChroot *safechroot.Chroot) error {
