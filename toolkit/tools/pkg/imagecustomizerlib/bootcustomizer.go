@@ -50,8 +50,7 @@ func (b *BootCustomizer) IsGrubMkconfigImage() bool {
 
 // Inserts new kernel command-line args into the grub config file.
 func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
-	combinedArgs := GrubArgsToString(extraCommandLine)
-	if combinedArgs == "" {
+	if len(extraCommandLine) <= 0 {
 		return nil
 	}
 

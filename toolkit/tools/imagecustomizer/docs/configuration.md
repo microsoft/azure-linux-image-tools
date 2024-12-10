@@ -780,7 +780,7 @@ Optional settings for where and how to mount the filesystem.
 
 Options for configuring the kernel.
 
-### extraCommandLine [string]
+### extraCommandLine [string[]]
 
 Additional Linux kernel command line options to add to the image.
 
