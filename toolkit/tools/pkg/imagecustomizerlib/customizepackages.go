@@ -256,7 +256,7 @@ func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool
 	return true
 }
 
-func parseReleaseString(releaseInfo string) (PackageRelease uint32, DistroName string, DistroVersion uint32, err error) {
+func parseReleaseString(releaseInfo string) (packageRelease uint32, distroName string, distroVersion uint32, err error) {
 	pattern := `([0-9]+)\.([a-zA-Z]+)([0-9]+)`
 	re := regexp.MustCompile(pattern)
 	matches := re.FindStringSubmatch(releaseInfo)
@@ -271,10 +271,10 @@ func parseReleaseString(releaseInfo string) (PackageRelease uint32, DistroName s
 	if err != nil {
 		return 0, "", 0, fmt.Errorf("failed to parse package release version (%s) into an unsigned integer:\n%w", packageReleaseString, err)
 	}
-	PackageRelease = uint32(packageReleaseUint64)
+	packageRelease = uint32(packageReleaseUint64)
 
 	// distro name
-	DistroName = matches[2]
+	distroName = matches[2]
 
 	// distro version
 	distroVersionString := matches[3]
@@ -282,9 +282,9 @@ func parseReleaseString(releaseInfo string) (PackageRelease uint32, DistroName s
 	if err != nil {
 		return 0, "", 0, fmt.Errorf("failed to parse distro version (%s) into an unsigned integer:\n%w", distroVersionString, err)
 	}
-	DistroVersion = uint32(distroVersionUint64)
+	distroVersion = uint32(distroVersionUint64)
 
-	return PackageRelease, DistroName, DistroVersion, nil
+	return packageRelease, distroName, distroVersion, nil
 }
 
 func parseVersionString(version string) ([]uint64, error) {
@@ -348,7 +348,7 @@ func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (
 	}
 	releaseInfo = releaseMatch[1]
 
-	PackageRelease, DistroName, DistroVersion, err := parseReleaseString(releaseInfo)
+	packageRelease, distroName, distroVersion, err := parseReleaseString(releaseInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse release information for package (%s)\n%w", packageName, err)
 	}
@@ -356,9 +356,9 @@ func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (
 	// Set return values
 	info = &PackageVersionInformation{
 		PackageVersionComponents: versionComponents,
-		PackageRelease:           PackageRelease,
-		DistroName:               DistroName,
-		DistroVersion:            DistroVersion,
+		PackageRelease:           packageRelease,
+		DistroName:               distroName,
+		DistroVersion:            distroVersion,
 	}
 
 	return info, nil
