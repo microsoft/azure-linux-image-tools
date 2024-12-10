@@ -108,7 +108,6 @@ type IsoArtifacts struct {
 	kernelVersion            string
 	dracutPackageInfo        *PackageVersionInformation
 	selinuxPolicyPackageInfo *PackageVersionInformation
-	selinuxEnabled           bool
 	bootx64EfiPath           string
 	grubx64EfiPath           string
 	isoGrubCfgPath           string
@@ -450,15 +449,9 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 		selinuxPolicySupportsLiveOSIso = false
 	}
 
-	selinuxSupported := dracutSupportsSELinux && selinuxPolicySupportsLiveOSIso
+	if !dracutSupportsSELinux || !selinuxPolicySupportsLiveOSIso {
+		logger.Log.Warnf("SELinux cannot be enabled due to older dracut and selinux-policy package versions.")
 
-	if !selinuxSupported {
-
-		// if SELinux enabled {
-		// 	-- warning: disabling selinux
-		// }
-
-		// disable SELinux
 		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
 			true /*allowMultiple*/, false /*requireKernelOpts*/)
 		if err != nil {
@@ -837,11 +830,6 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 	}
 
 	b.artifacts.selinuxPolicyPackageInfo, err = getPackageInformationFromRootfsDir(writeableRootfsDir, "selinux-policy")
-	if err != nil {
-		return err
-	}
-
-	b.artifacts.selinuxEnabled, err = isSELinuxEnabled(writeableRootfsDir)
 	if err != nil {
 		return err
 	}
