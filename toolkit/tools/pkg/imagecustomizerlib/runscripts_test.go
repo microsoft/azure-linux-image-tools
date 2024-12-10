@@ -66,3 +66,37 @@ resolv.conf exists
 
 	verifyFileContentsSame(t, aOrigFilePath, aNewFilePath)
 }
+
+func TestCustomizeImageRunScriptsIptables(t *testing.T) {
+	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageRunScriptsIptables")
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "runscripts-iptables.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Customize image.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	assert.ErrorContains(t, err, "failed to customize raw image")
+	assert.ErrorContains(t, err, "script (postCustomization[0]) failed")
+}
+
+func TestCustomizeImageRunScriptsModprobe(t *testing.T) {
+	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageRunScriptsModprobe")
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "runscripts-modprobe.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Customize image.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	assert.ErrorContains(t, err, "failed to customize raw image")
+	assert.ErrorContains(t, err, "script (postCustomization[0]) failed")
+}

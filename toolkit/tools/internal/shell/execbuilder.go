@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,8 @@ type ExecBuilder struct {
 	stderrCallback       LogCallback
 	errorStderrLines     int
 	warnLogLines         int
+	chrootDir            string
+	capabilities         []uintptr
 }
 
 // NewExecBuilder initializes a new execution builder object.
@@ -55,6 +58,18 @@ func NewExecBuilder(command string, args ...string) ExecBuilder {
 // WorkingDirectory sets the working directory for the command to be executed.
 func (b ExecBuilder) WorkingDirectory(path string) ExecBuilder {
 	b.workingDirectory = path
+	return b
+}
+
+// Chroot sets
+func (b ExecBuilder) Chroot(chrootDir string) ExecBuilder {
+	b.chrootDir = chrootDir
+	return b
+}
+
+// Chroot sets
+func (b ExecBuilder) Capabilities(capabilities []uintptr) ExecBuilder {
+	b.capabilities = capabilities
 	return b
 }
 
@@ -164,6 +179,9 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 	cmd := exec.Command(b.command, b.args...)
 	cmd.Dir = b.workingDirectory
 	cmd.Env = b.environmentVariables
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Chroot: b.chrootDir,
+	}
 
 	if b.stdinString != "" {
 		cmd.Stdin = strings.NewReader(b.stdinString)
@@ -184,7 +202,7 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 	defer stderrPipe.Close()
 
 	// Start process.
-	err = trackAndStartProcess(cmd)
+	err = trackAndStartProcess(cmd, b.capabilities)
 	if err != nil {
 		err = fmt.Errorf("failed to start process:\n%w", err)
 		return "", "", err

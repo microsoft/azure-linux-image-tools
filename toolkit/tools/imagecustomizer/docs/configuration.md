@@ -1171,6 +1171,20 @@ For example, `/boot` will be mounted before `/boot/efi`.
 
 Points to a script file (typically a Bash script) to be run during customization.
 
+Scripts are run with a limited set of capabilities. Specifically:
+
+- `CAP_CHOWN`
+- `CAP_DAC_OVERRIDE`
+- `CAP_DAC_READ_SEARCH`
+- `CAP_FOWNER`
+- `CAP_SETFCAP`
+
+Restricting the set of capabilities helps prevent scripts from accidentally affecting
+the host kernel.
+
+WARNING: Custom scripts are not considered to be on security boundary.
+Only use config files that you trust (or run image customizer in a security sandbox).
+
 <div id="script-path"></div>
 
 ### path [string]
