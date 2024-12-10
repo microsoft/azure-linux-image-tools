@@ -12,6 +12,16 @@ BLACK=${VENV_BIN_DIR}/black
 ISORT=${VENV_BIN_DIR}/isort
 MYPY=${VENV_BIN_DIR}/mypy
 
+TOOLKIT_DIR=../../toolkit
+TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
+IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
+
+IMAGE_CUSTOMIZER_CONTAINER_TAG=imagecustomizer:dev
+
+SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
+
+KEEP_ENVIRONMENT ?= n
+
 .PHONY: create-venv
 create-venv:
 	rm -rf "${VENV_DIR}"
@@ -44,9 +54,21 @@ fix-isort:
 fix-black:
 	${BLACK} vmtests
 
+.PHONY: ${IMAGE_CUSTOMIZER_BIN}
+${IMAGE_CUSTOMIZER_BIN}:
+	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer REBUILD_TOOLS=y
+
+.PHONY: image-customizer-container
+image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
+	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-mic-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
+
 .PHONY: run
-run:
+run: image-customizer-container
 	${PYTEST} \
+		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+		--core-efi-azl2="${CORE_EFI_AZL2}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
 		--show-capture=all \
 		--tb=short \
