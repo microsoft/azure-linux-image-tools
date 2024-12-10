@@ -10,9 +10,15 @@ import (
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+)
+
+const (
+	BootDir = "/boot"
+	UkiOutputDir = "/EFI/Linux"
 )
 
 func prepareUki(uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
@@ -22,7 +28,7 @@ func prepareUki(uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) err
 		return nil
 	}
 
-	logger.Log.Infof("Enable uki")
+	logger.Log.Infof("Enabling UKI")
 
 	// Check UKI dependency packages.
 	err = validateUkiDependencies(imageChroot)
@@ -38,20 +44,21 @@ func prepareUki(uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) err
 
 	// Install systemd-boot.
 	err = imageChroot.UnsafeRun(func() error {
-		return shell.ExecuteLiveWithErr(1, "sudo", "bootctl", "install", "--no-variables")
+		return shell.ExecuteLiveWithErr(1, "bootctl", "install", "--no-variables")
 	})
 	if err != nil {
 		return fmt.Errorf("failed to install systemd-boot:\n%w", err)
 	}
 
-	// Copy UKI specific files.
+	// Copy UKI-specific files such as the OS release file and UKI stub file. 
+	// The list of files may expand as the UKI feature evolves during development.
 	err = copyUkiFiles(imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to copy UKI files:\n%w", err)
 	}
 
 	// Prepare ukify config files.
-	bootDir := filepath.Join(imageChroot.RootDir(), "/boot")
+	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
 
 	kernels, err := findKernelImages(bootDir)
 	if err != nil {
@@ -66,7 +73,7 @@ func prepareUki(uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) err
 	for _, kernel := range kernels {
 		err = createUkifyConfig(bootDir, kernel)
 		if err != nil {
-			return fmt.Errorf("failed to create ukify config: %w", err)
+			return fmt.Errorf("failed to create ukify config:\n%w", err)
 		}
 	}
 
@@ -74,6 +81,11 @@ func prepareUki(uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) err
 }
 
 func validateUkiDependencies(imageChroot *safechroot.Chroot) error {
+	// The following packages are required for the UKI feature:
+	// - "systemd-ukify": Required to build the Unified Kernel Image.
+	// - "systemd-boot": Checked as a package dependency here to ensure installation,
+	//    but additional configuration is handled elsewhere in the UKI workflow.
+	// - "efibootmgr": Used for managing EFI boot entries.
 	requiredRpms := []string{"systemd-ukify", "systemd-boot", "efibootmgr"}
 
 	// Iterate over each required package and check if it's installed.
@@ -90,14 +102,14 @@ func validateUkiDependencies(imageChroot *safechroot.Chroot) error {
 func createUkiDirectories(imageChroot *safechroot.Chroot) error {
 	// Default directories required for the UKI setup. This list may expand as additional directories are needed.
 	dirsToCreate := []string{
-		filepath.Join(imageChroot.RootDir(), "/boot/efi/EFI/Linux"),
+		filepath.Join(imageChroot.RootDir(), BootDir, "efi", UkiOutputDir),
 	}
 
 	// Iterate over each directory and create it if it doesn't exist.
 	for _, dir := range dirsToCreate {
 		err := os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("failed to create directory (%s): %w", dir, err)
+			return fmt.Errorf("failed to create directory %s:\n%w", dir, err)
 		}
 	}
 
@@ -107,16 +119,16 @@ func createUkiDirectories(imageChroot *safechroot.Chroot) error {
 func copyUkiFiles(imageChroot *safechroot.Chroot) error {
 	// Define the files to copy with their source and destination paths.
 	filesToCopy := map[string]string{
-		"/etc/os-release": "/boot/os-release",
-		"/usr/lib/systemd/boot/efi/linuxx64.efi.stub": "/boot/linuxx64.efi.stub",
+		"/etc/os-release": filepath.Join(BootDir, "os-release"),
+		"/usr/lib/systemd/boot/efi/linuxx64.efi.stub": filepath.Join(BootDir, "linuxx64.efi.stub"),
 	}
 
 	for src, dest := range filesToCopy {
 		err := imageChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "sudo", "cp", src, dest)
+			return file.Copy(src, dest)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to copy file from %s to %s: %w", src, dest, err)
+			return fmt.Errorf("failed to copy file from %s to %s:\n%w", src, dest, err)
 		}
 	}
 
@@ -126,21 +138,18 @@ func copyUkiFiles(imageChroot *safechroot.Chroot) error {
 func findKernelImages(bootDir string) ([]string, error) {
 	var kernelImages []string
 
-	// Walk through the aimed directory to find matching kernel images.
-	err := filepath.Walk(bootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("error accessing path %s: %w", path, err)
-		}
-
-		// Check if the file name matches the kernel image pattern.
-		if !info.IsDir() && strings.HasPrefix(info.Name(), "vmlinuz-") && strings.HasSuffix(info.Name(), ".azl3") {
-			kernelImages = append(kernelImages, filepath.Base(path))
-		}
-
-		return nil
-	})
+	// Read the directory entries in the specified boot directory.
+	dirEntries, err := os.ReadDir(bootDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read boot directory %s:\n%w", bootDir, err)
+	}
+
+	// Iterate through the directory entries to find kernel images.
+	for _, entry := range dirEntries {
+		// Check if the entry is a regular file and matches the kernel image pattern.
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "vmlinuz-") {
+			kernelImages = append(kernelImages, entry.Name())
+		}
 	}
 
 	return kernelImages, nil
@@ -150,39 +159,22 @@ func ensureInitramfsForKernels(bootDir string, kernels []string) error {
 	// Prepare a map to store required initramfs paths for the given kernels.
 	requiredInitramfs := make(map[string]string)
 	for _, kernel := range kernels {
-		if strings.HasPrefix(kernel, "vmlinuz-") {
-			kernelVersion := strings.TrimPrefix(kernel, "vmlinuz-")
-			initramfsFile := fmt.Sprintf("initramfs-%s.img", kernelVersion)
-			requiredInitramfs[kernelVersion] = filepath.Join(bootDir, initramfsFile)
+		if !strings.HasPrefix(kernel, "vmlinuz-") {
+			return fmt.Errorf("invalid kernel image:\n%s", kernel)
 		}
+		kernelVersion := strings.TrimPrefix(kernel, "vmlinuz-")
+		initramfsFile := fmt.Sprintf("initramfs-%s.img", kernelVersion)
+		requiredInitramfs[kernelVersion] = filepath.Join(bootDir, initramfsFile)
 	}
 
-	// Keep track of found initramfs files.
-	foundInitramfs := make(map[string]bool)
-
-	// Walk through the boot directory to find initramfs files.
-	err := filepath.Walk(bootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("error accessing path %s: %w", path, err)
-		}
-
-		// Check if the file matches the required initramfs paths.
-		for _, initramfsPath := range requiredInitramfs {
-			if path == initramfsPath {
-				foundInitramfs[initramfsPath] = true
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	// Check if all required initramfs files were found.
+	// Check if all required initramfs files exist.
 	for kernelVersion, initramfsPath := range requiredInitramfs {
-		if !foundInitramfs[initramfsPath] {
-			return fmt.Errorf("missing initramfs for kernel: vmlinuz-%s (expected at %s)", kernelVersion, initramfsPath)
+		exists, err := file.PathExists(initramfsPath)
+		if err != nil {
+			return fmt.Errorf("error checking existence of initramfs %s:\n%w", initramfsPath, err)
+		}
+		if !exists {
+			return fmt.Errorf("missing initramfs for kernel: vmlinuz-%s, expected at %s", kernelVersion, initramfsPath)
 		}
 	}
 
@@ -200,9 +192,9 @@ func createUkifyConfig(bootDir string, kernel string) error {
 	configContent := fmt.Sprintf("[UKI]\nLinux=%s\nInitrd=%s\n", kernel, initramfs)
 
 	// Write the config content to the file.
-	err := os.WriteFile(configFilePath, []byte(configContent), 0644)
+	err := os.WriteFile(configFilePath, []byte(configContent), 0o644)
 	if err != nil {
-		return fmt.Errorf("failed to write ukify config file for kernel (%s): %w", kernelVersion, err)
+		return fmt.Errorf("failed to write ukify config file for kernel %s:\n%w", kernelVersion, err)
 	}
 
 	// Log the updated config content.
@@ -212,10 +204,10 @@ func createUkifyConfig(bootDir string, kernel string) error {
 }
 
 func retrieveLinuxFromUkifyConf(ukifyConfigFullPath string) (string, error) {
-	// Read the ukify.conf file
+	// Read the ukify config file
 	ukifyConfigContent, err := os.ReadFile(ukifyConfigFullPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read ukify.conf file (%s):\n%w", ukifyConfigFullPath, err)
+		return "", fmt.Errorf("failed to read ukify config file %s:\n%w", ukifyConfigFullPath, err)
 	}
 
 	// Split the content into lines and search for the 'Linux=' line
@@ -229,21 +221,17 @@ func retrieveLinuxFromUkifyConf(ukifyConfigFullPath string) (string, error) {
 	}
 
 	if linuxLine == "" {
-		return "", fmt.Errorf("failed to find 'Linux=' entry in ukify.conf (%s)", ukifyConfigFullPath)
+		return "", fmt.Errorf("failed to find 'Linux=' entry in ukify config file %s", ukifyConfigFullPath)
 	}
 
-	// Remove the /boot prefix if present
-	linuxValue := strings.TrimPrefix(linuxLine, "/boot")
-
-	// Return the Linux value
-	return linuxValue, nil
+	return linuxLine, nil
 }
 
 func retrieveInitramfsFromUkifyConf(ukifyConfigFullPath string) (string, error) {
-	// Read the ukify.conf file
+	// Read the ukify config file
 	ukifyConfigContent, err := os.ReadFile(ukifyConfigFullPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read ukify.conf file (%s):\n%w", ukifyConfigFullPath, err)
+		return "", fmt.Errorf("failed to read ukify config file %s:\n%w", ukifyConfigFullPath, err)
 	}
 
 	// Split the content into lines and search for the 'Linux=' line
@@ -257,7 +245,7 @@ func retrieveInitramfsFromUkifyConf(ukifyConfigFullPath string) (string, error) 
 	}
 
 	if initrdLine == "" {
-		return "", fmt.Errorf("failed to find 'Linux=' entry in ukify.conf (%s)", ukifyConfigFullPath)
+		return "", fmt.Errorf("failed to find 'Linux=' entry in ukify config %s", ukifyConfigFullPath)
 	}
 
 	// Remove the /boot prefix if present

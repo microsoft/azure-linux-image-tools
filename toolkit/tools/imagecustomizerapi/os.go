@@ -28,7 +28,7 @@ type OS struct {
 
 func (s *OS) IsValid() error {
 	var err error
-	err = s.BootLoader.Reset.IsValid()
+	err = s.BootLoader.IsValid()
 	if err != nil {
 		return err
 	}
@@ -112,6 +112,13 @@ func (s *OS) IsValid() error {
 				return fmt.Errorf("duplicate workDir (%s) found in overlay at index %d", overlay.WorkDir, i)
 			}
 			workDirs[overlay.WorkDir] = true
+		}
+	}
+
+	if s.Uki != nil {
+		err = s.Uki.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid UKI:\n%w", err)
 		}
 	}
 
