@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	tmpParitionDirName = "tmppartition"
+	tmpParitionDirName    = "tmp-partition"
+	tmpEspParitionDirName = "tmp-esp-partition"
 
 	// supported input formats
 	ImageFormatVhd      = "vhd"
@@ -385,6 +386,13 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ic.config.PreviewFeatures.Uki != nil {
+		err = createUki(ic.config.PreviewFeatures.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
 		}
