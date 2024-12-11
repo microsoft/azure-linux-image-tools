@@ -6,7 +6,8 @@ iso:
     destination: /a.txt
 
   kernelCommandLine:
-    extraCommandLine: rd.info
+    extraCommandLine:
+    - rd.info
 
 os:
   packages:

@@ -17,4 +17,5 @@ iso:
     destination: /cloud-init-data/meta-data
 
   kernelCommandLine:
-    extraCommandLine: "ds=nocloud"
+    extraCommandLine:
+    - "ds=nocloud"

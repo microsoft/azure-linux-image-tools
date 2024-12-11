@@ -64,7 +64,8 @@ os:
     mode: disabled
 
   kernelCommandLine:
-    extraCommandLine: "rd.info"
+    extraCommandLine:
+    - "rd.info"
 
   packages:
     install:
