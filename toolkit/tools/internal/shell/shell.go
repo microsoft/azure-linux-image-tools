@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -157,22 +158,68 @@ func MustExecuteLive(command string, args ...string) {
 	}
 }
 
-func trackAndStartProcess(cmd *exec.Cmd) (err error) {
+func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr) (err error) {
 	logger.Log.Debugf("Executing: %v", cmd.Args)
 
 	if cmd.Env == nil && len(currentEnv) > 0 {
 		cmd.Env = currentEnv
 	}
 
+	// Make the process, and any children it spawns, belong to a new process group
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &unix.SysProcAttr{}
+	}
+
+	cmd.SysProcAttr.Setpgid = true
+
+	if capabilities != nil {
+		err = setCapabilitiesAndStartCmd(cmd, capabilities)
+	} else {
+		err = startCmd(cmd)
+	}
+
+	return
+}
+
+func setCapabilitiesAndStartCmd(cmd *exec.Cmd, capabilities []uintptr) error {
+	result := make(chan error)
+	go setCapabilitiesAndStartCmdWorker(cmd, capabilities, result)
+	err := <-result
+	return err
+}
+
+func setCapabilitiesAndStartCmdWorker(cmd *exec.Cmd, capabilities []uintptr, result chan<- error) {
+	err := setCapabilitiesAndStartCmdHelper(cmd, capabilities)
+	result <- err
+	close(result)
+}
+
+func setCapabilitiesAndStartCmdHelper(cmd *exec.Cmd, capabilities []uintptr) error {
+	// Lock the OS thread so that capabilities can be dropped without affecting other threads.
+	// Note: Dropping capabilities cannot be undone. Hence, the OS thread needs to be thrown away.
+	// Hence, UnlockOSThread is not called and a goroutine is used.
+	runtime.LockOSThread()
+
+	err := setOSThreadCapabilities(capabilities)
+	if err != nil {
+		return fmt.Errorf("failed to set process capabilities:\n%w", err)
+	}
+
+	err = startCmd(cmd)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func startCmd(cmd *exec.Cmd) (err error) {
 	activeCommandsMutex.Lock()
 	defer activeCommandsMutex.Unlock()
 
 	if !allowProcessCreation {
 		return fmt.Errorf("process creation is not allowed")
 	}
-
-	// Make the process, and any children it spawns, belong to a new process group
-	cmd.SysProcAttr = &unix.SysProcAttr{Setpgid: true}
 
 	err = cmd.Start()
 	if err != nil {
