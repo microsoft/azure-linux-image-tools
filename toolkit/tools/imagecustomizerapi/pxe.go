@@ -13,8 +13,8 @@ var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://"
 
 // Iso defines how the generated iso media should be configured.
 type Pxe struct {
-	IsoImageBaseUrl string `yaml:"isoImageBaseUrl"`
-	IsoImageFileUrl string `yaml:"isoImageFileUrl"`
+	IsoImageBaseUrl string `yaml:"isoImageBaseUrl" json:"isoImageBaseUrl,omitempty"`
+	IsoImageFileUrl string `yaml:"isoImageFileUrl" json:"isoImageFileUrl,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {

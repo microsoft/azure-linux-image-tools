@@ -4,7 +4,7 @@
 package imagecustomizerapi
 
 type PackageList struct {
-	Packages []string `yaml:"packages"`
+	Packages []string `yaml:"packages" json:"packages,omitempty"`
 }
 
 func (s *PackageList) IsValid() error {

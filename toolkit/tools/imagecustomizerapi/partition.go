@@ -10,18 +10,18 @@ import (
 
 type Partition struct {
 	// ID is used to correlate `Partition` objects with `FileSystem` objects.
-	Id string `yaml:"id"`
+	Id string `yaml:"id" json:"id,omitempty"`
 	// Name is the label to assign to the partition.
-	Label string `yaml:"label"`
+	Label string `yaml:"label" json:"label,omitempty"`
 	// Start is the offset where the partition begins (inclusive).
 	// Note: When not provided, value is filled in by Disk.IsValid().
-	Start *DiskSize `yaml:"start"`
+	Start *DiskSize `yaml:"start" json:"start,omitempty"`
 	// End is the offset where the partition ends (exclusive).
-	End *DiskSize `yaml:"end"`
+	End *DiskSize `yaml:"end" json:"end,omitempty"`
 	// Size is the size of the partition.
-	Size PartitionSize `yaml:"size"`
+	Size PartitionSize `yaml:"size" json:"size,omitempty"`
 	// Type specifies the type of partition the partition is.
-	Type PartitionType `yaml:"type"`
+	Type PartitionType `yaml:"type" json:"type,omitempty"`
 }
 
 func (p *Partition) IsValid() error {

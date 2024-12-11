@@ -9,9 +9,9 @@ import (
 
 type Password struct {
 	// The way the password is provided.
-	Type PasswordType `yaml:"type"`
+	Type PasswordType `yaml:"type" json:"type,omitempty"`
 	// The value of the password.
-	Value string `yaml:"value"`
+	Value string `yaml:"value" json:"value,omitempty"`
 }
 
 func (p *Password) IsValid() error {

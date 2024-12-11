@@ -10,16 +10,16 @@ import (
 )
 
 type User struct {
-	Name                string    `yaml:"name"`
-	UID                 *int      `yaml:"uid"`
-	Password            *Password `yaml:"password"`
-	PasswordExpiresDays *int64    `yaml:"passwordExpiresDays"`
-	SSHPublicKeyPaths   []string  `yaml:"sshPublicKeyPaths"`
-	SSHPublicKeys       []string  `yaml:"sshPublicKeys"`
-	PrimaryGroup        string    `yaml:"primaryGroup"`
-	SecondaryGroups     []string  `yaml:"secondaryGroups"`
-	StartupCommand      string    `yaml:"startupCommand"`
-	HomeDirectory       string    `yaml:"homeDirectory"`
+	Name                string    `yaml:"name" json:"name,omitempty"`
+	UID                 *int      `yaml:"uid" json:"uid,omitempty"`
+	Password            *Password `yaml:"password" json:"password,omitempty"`
+	PasswordExpiresDays *int64    `yaml:"passwordExpiresDays" json:"passwordExpiresDays,omitempty"`
+	SSHPublicKeyPaths   []string  `yaml:"sshPublicKeyPaths" json:"sshPublicKeyPaths,omitempty"`
+	SSHPublicKeys       []string  `yaml:"sshPublicKeys" json:"sshPublicKeys,omitempty"`
+	PrimaryGroup        string    `yaml:"primaryGroup" json:"primaryGroup,omitempty"`
+	SecondaryGroups     []string  `yaml:"secondaryGroups" json:"secondaryGroups,omitempty"`
+	StartupCommand      string    `yaml:"startupCommand" json:"startupCommand,omitempty"`
+	HomeDirectory       string    `yaml:"homeDirectory" json:"homeDirectory,omitempty"`
 }
 
 func (u *User) IsValid() error {
