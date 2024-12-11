@@ -1151,7 +1151,8 @@ Supported options:
 
 The additional options used when mounting the file system.
 
-These options are in the same format as [mount](https://linux.die.net/man/8/mount)'s
+These options are in the same format as
+[mount](https://man7.org/linux/man-pages/man8/mount.8.html)'s
 `-o` option (or the `fs_mntops` field of the
 [fstab](https://man7.org/linux/man-pages/man5/fstab.5.html) file).
 
@@ -1171,7 +1172,8 @@ For example, `/boot` will be mounted before `/boot/efi`.
 
 Points to a script file (typically a Bash script) to be run during customization.
 
-Scripts are run with a limited set of capabilities. Specifically:
+Scripts are run with a limited set of
+[capabilities](https://man7.org/linux/man-pages/man7/capabilities.7.html). Specifically:
 
 - `CAP_CHOWN`
 - `CAP_DAC_OVERRIDE`
