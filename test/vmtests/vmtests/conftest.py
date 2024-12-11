@@ -52,9 +52,8 @@ def test_instance_name(request: pytest.FixtureRequest) -> Generator[str, None, N
     yield request.node.name + "-" + instance_suffix
 
 
-# pytest has a in-built fixture called tmp_path. But that uses /tmp, which sits in memory.
+# pytest has an in-built fixture called tmp_path. But that uses /tmp, which sits in memory.
 # That can be problematic when dealing with image files, which can be quite large.
-# So,
 @pytest.fixture(scope="function")
 def test_temp_dir(
     request: pytest.FixtureRequest, session_temp_dir: Path, test_instance_name: str, keep_environment: bool
