@@ -11,18 +11,20 @@ type AdditionalFileList []AdditionalFile
 
 type AdditionalFile struct {
 	// The destination file path in the target OS that the file will be copied to.
-	Destination string `yaml:"destination"`
+	Destination string `yaml:"destination" json:"destination,omitempty"`
 
 	// The source file path of the file that will copied.
 	// Mutally exclusive with 'contents'.
-	Source string `yaml:"source"`
+	Source string `yaml:"source" json:"source,omitempty"`
 
 	// A string that will be used as the contents of the file.
 	// Mutally exclusive with 'source'.
-	Content *string `yaml:"content"`
+	Content *string `yaml:"content" json:"content,omitempty"`
 
 	// The file permissions to set on the file.
-	Permissions *FilePermissions `yaml:"permissions"`
+	Permissions *FilePermissions `yaml:"permissions" json:"permissions,omitempty"`
+
+	SHA256Hash string `yaml:"sha256hash" json:"sha256hash,omitempty"`
 }
 
 func (l AdditionalFileList) IsValid() (err error) {

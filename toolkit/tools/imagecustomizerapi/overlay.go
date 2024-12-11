@@ -10,13 +10,13 @@ import (
 )
 
 type Overlay struct {
-	LowerDirs         []string `yaml:"lowerDirs"`
-	UpperDir          string   `yaml:"upperDir"`
-	WorkDir           string   `yaml:"workDir"`
-	MountPoint        string   `yaml:"mountPoint"`
-	IsInitrdOverlay   bool     `yaml:"isInitrdOverlay"`
-	MountDependencies []string `yaml:"mountDependencies"`
-	MountOptions      string   `yaml:"mountOptions"`
+	LowerDirs         []string `yaml:"lowerDirs" json:"lowerDirs,omitempty"`
+	UpperDir          string   `yaml:"upperDir" json:"upperDir,omitempty"`
+	WorkDir           string   `yaml:"workDir" json:"workDir,omitempty"`
+	MountPoint        string   `yaml:"mountPoint" json:"mountPoint,omitempty"`
+	IsInitrdOverlay   bool     `yaml:"isInitrdOverlay" json:"isInitrdOverlay,omitempty"`
+	MountDependencies []string `yaml:"mountDependencies" json:"mountDependencies,omitempty"`
+	MountOptions      string   `yaml:"mountOptions" json:"mountOptions,omitempty"`
 }
 
 func (o *Overlay) IsValid() error {
