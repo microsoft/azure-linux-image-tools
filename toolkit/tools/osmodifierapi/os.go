@@ -18,6 +18,8 @@ type OS struct {
 	Users             []imagecustomizerapi.User            `yaml:"users"`
 	Overlays          *[]Overlay                           `yaml:"overlays"`
 	KernelCommandLine imagecustomizerapi.KernelCommandLine `yaml:"kernelCommandLine"`
+	Services          imagecustomizerapi.Services          `yaml:"services"`
+	Modules           imagecustomizerapi.ModuleList        `yaml:"modules"`
 }
 
 func (s *OS) IsValid() error {
@@ -66,9 +68,12 @@ func (s *OS) IsValid() error {
 		}
 	}
 
-	err = s.KernelCommandLine.IsValid()
-	if err != nil {
-		return fmt.Errorf("invalid kernelCommandLine:\n%w", err)
+	if err := s.Services.IsValid(); err != nil {
+		return err
+	}
+
+	if err := s.Modules.IsValid(); err != nil {
+		return err
 	}
 
 	return nil
