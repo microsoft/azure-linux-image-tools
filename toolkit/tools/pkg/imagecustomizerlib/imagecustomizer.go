@@ -383,16 +383,21 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		}
 	}
 
+	ukiEnabled := false
+	if ic.config.OS.Uki != nil {
+		ukiEnabled = true
+	}
+
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
+		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid, ukiEnabled)
 		if err != nil {
 			return err
 		}
 	}
 
-	if ic.config.PreviewFeatures.Uki != nil {
-		err = createUki(ic.config.PreviewFeatures.Uki, ic.buildDirAbs, ic.rawImageFile)
+	if ukiEnabled {
+		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
 		}
@@ -763,7 +768,7 @@ func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.
 }
 
 func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	buildImageFile string, partIdToPartUuid map[string]string,
+	buildImageFile string, partIdToPartUuid map[string]string, ukiEnabled bool,
 ) error {
 	var err error
 
@@ -839,9 +844,23 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions)
-	if err != nil {
-		return err
+	if ukiEnabled {
+		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
+		newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions)
+		if err != nil {
+			return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
+		}
+
+		err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
+		if err != nil {
+			return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+		}
+	} else {
+		// UKI is not enabled, update grub.cfg as usual.
+		err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions)
+		if err != nil {
+			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
+		}
 	}
 
 	err = bootPartitionMount.CleanClose()
