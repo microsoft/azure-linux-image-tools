@@ -23,6 +23,7 @@ import (
 
 const (
 	BootDir      = "boot"
+	GrubCfgDir   = "grub2/grub.cfg"
 	UkiBuildDir  = "UkiBuildDir"
 	UkiOutputDir = "EFI/Linux"
 )
@@ -49,6 +50,8 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	}
 
 	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
+	// Note: When proper support for systemd-boot is implemented, the `bootctl install` command
+	// will likely be invoked as part of the `hardResetBootLoader()` function.
 	//
 	// The command being executed is:
 	//     bootctl install --no-variables
@@ -74,27 +77,30 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 
 	// Start mapping kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
-	var kernelToInitramfs map[string]string
 
-	// Check if the user provided a specific list of kernel versions.
-	if uki.Kernels.Auto {
-		// Auto mode: Find all kernels and their initramfs.
-		kernelToInitramfs, err = findKernelsAndInitramfs(bootDir)
-		if err != nil {
-			return err
-		}
-	} else {
-		// User-specified mode: Match kernels and initramfs with the specified versions.
-		kernelToInitramfs, err = findSpecificKernelsAndInitramfs(bootDir, uki.Kernels.Kernels)
-		if err != nil {
-			return fmt.Errorf("failed to find specific kernels and initramfs:\n%w", err)
-		}
+	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir, uki.Kernels)
+	if err != nil {
+		return err
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
 	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to copy UKI files:\n%w", err)
+	}
+
+	// Extract kernel command line arguments from grub.cfg.
+	grubCfgPath := filepath.Join(bootDir, GrubCfgDir)
+	cmdlineArgs, err := extractKernelCmdlineFromGrub(grubCfgPath)
+	if err != nil {
+		return fmt.Errorf("failed to extract kernel command line arguments:\n%w", err)
+	}
+
+	// Dump kernel command line arguments to a file in buildDir.
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, "kernel-cmdline-args")
+	err = os.WriteFile(cmdlineFilePath, []byte(cmdlineArgs), 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to write kernel command line arguments to (%s):\n%w", cmdlineFilePath, err)
 	}
 
 	return nil
@@ -112,7 +118,7 @@ func validateUkiDependencies(imageChroot *safechroot.Chroot) error {
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
 		if !isPackageInstalled(imageChroot, pkg) {
-			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Uki: %v", pkg, requiredRpms)
+			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Uki: (%v)", pkg, requiredRpms)
 		}
 	}
 
@@ -128,79 +134,11 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 	for _, dir := range dirsToCreate {
 		err := os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("failed to create directory %s:\n%w", dir, err)
+			return fmt.Errorf("failed to create directory (%s):\n%w", dir, err)
 		}
 	}
 
 	return nil
-}
-
-func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
-	kernelToInitramfs := make(map[string]string)
-
-	dirEntries, err := os.ReadDir(bootDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read boot directory %s:\n%w", bootDir, err)
-	}
-
-	for _, entry := range dirEntries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "vmlinuz-") {
-			kernelName := entry.Name()
-			kernelVersion := strings.TrimPrefix(kernelName, "vmlinuz-")
-			initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
-			initramfsPath := filepath.Join(bootDir, initramfsName)
-
-			exists, err := file.PathExists(initramfsPath)
-			if err != nil {
-				return nil, fmt.Errorf("error checking existence of initramfs %s:\n%w", initramfsPath, err)
-			}
-			if !exists {
-				return nil, fmt.Errorf("missing initramfs for kernel: %s, expected at %s", kernelName, initramfsPath)
-			}
-
-			kernelToInitramfs[kernelName] = initramfsName
-		}
-	}
-
-	if len(kernelToInitramfs) == 0 {
-		return nil, fmt.Errorf("no kernel images found in boot directory\n%s", bootDir)
-	}
-
-	return kernelToInitramfs, nil
-}
-
-func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[string]string, error) {
-	kernelToInitramfs := make(map[string]string)
-
-	for _, version := range versions {
-		kernelName := fmt.Sprintf("vmlinuz-%s", version)
-		initramfsName := fmt.Sprintf("initramfs-%s.img", version)
-
-		// Check if both files exist in the boot directory.
-		kernelPath := filepath.Join(bootDir, kernelName)
-		initramfsPath := filepath.Join(bootDir, initramfsName)
-
-		kernelExists, err := file.PathExists(kernelPath)
-		if err != nil {
-			return nil, fmt.Errorf("error checking existence of kernel %s:\n%w", kernelPath, err)
-		}
-		if !kernelExists {
-			return nil, fmt.Errorf("missing kernel: %s", kernelName)
-		}
-
-		initramfsExists, err := file.PathExists(initramfsPath)
-		if err != nil {
-			return nil, fmt.Errorf("error checking existence of initramfs %s:\n%w", initramfsPath, err)
-		}
-		if !initramfsExists {
-			return nil, fmt.Errorf("missing initramfs for kernel: %s, expected %s", kernelName, initramfsName)
-		}
-
-		// Add to the map if both exist.
-		kernelToInitramfs[kernelName] = initramfsName
-	}
-
-	return kernelToInitramfs, nil
 }
 
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot) error {
@@ -222,11 +160,98 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 	for src, dest := range filesToCopy {
 		err := file.Copy(src, dest)
 		if err != nil {
-			return fmt.Errorf("failed to copy file from %s to %s:\n%w", src, dest, err)
+			return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", src, dest, err)
 		}
 	}
 
 	return nil
+}
+
+func getKernelToInitramfsMap(bootPartitionTmpDir string, ukiKernels imagecustomizerapi.UkiKernels) (map[string]string, error) {
+	if ukiKernels.Auto {
+		// Auto mode: Find all kernels and their initramfs.
+		kernelToInitramfs, err := findKernelsAndInitramfs(bootPartitionTmpDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find kernels and initramfs in auto mode:\n%w", err)
+		}
+		return kernelToInitramfs, nil
+	}
+
+	// User-specified mode: Match kernels and initramfs with the specified versions.
+	kernelToInitramfs, err := findSpecificKernelsAndInitramfs(bootPartitionTmpDir, ukiKernels.Kernels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find specific kernels and initramfs:\n%w", err)
+	}
+
+	return kernelToInitramfs, nil
+}
+
+func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
+	kernelToInitramfs := make(map[string]string)
+
+	dirEntries, err := os.ReadDir(bootDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read boot directory (%s):\n%w", bootDir, err)
+	}
+
+	for _, entry := range dirEntries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "vmlinuz-") {
+			kernelName := entry.Name()
+			kernelVersion := strings.TrimPrefix(kernelName, "vmlinuz-")
+			initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
+			initramfsPath := filepath.Join(bootDir, initramfsName)
+
+			exists, err := file.PathExists(initramfsPath)
+			if err != nil {
+				return nil, fmt.Errorf("error checking existence of initramfs (%s):\n%w", initramfsPath, err)
+			}
+			if !exists {
+				return nil, fmt.Errorf("missing initramfs for kernel: (%s), expected at (%s)", kernelName, initramfsPath)
+			}
+
+			kernelToInitramfs[kernelName] = initramfsName
+		}
+	}
+
+	if len(kernelToInitramfs) == 0 {
+		return nil, fmt.Errorf("no kernel images found in boot directory (%s)", bootDir)
+	}
+
+	return kernelToInitramfs, nil
+}
+
+func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[string]string, error) {
+	kernelToInitramfs := make(map[string]string)
+
+	for _, version := range versions {
+		kernelName := fmt.Sprintf("vmlinuz-%s", version)
+		initramfsName := fmt.Sprintf("initramfs-%s.img", version)
+
+		// Check if both files exist in the boot directory.
+		kernelPath := filepath.Join(bootDir, kernelName)
+		initramfsPath := filepath.Join(bootDir, initramfsName)
+
+		kernelExists, err := file.PathExists(kernelPath)
+		if err != nil {
+			return nil, fmt.Errorf("error checking existence of kernel (%s):\n%w", kernelPath, err)
+		}
+		if !kernelExists {
+			return nil, fmt.Errorf("missing kernel: (%s)", kernelName)
+		}
+
+		initramfsExists, err := file.PathExists(initramfsPath)
+		if err != nil {
+			return nil, fmt.Errorf("error checking existence of initramfs (%s):\n%w", initramfsPath, err)
+		}
+		if !initramfsExists {
+			return nil, fmt.Errorf("missing initramfs for kernel: (%s), expected (%s)", kernelName, initramfsName)
+		}
+
+		// Add to the map if both exist.
+		kernelToInitramfs[kernelName] = initramfsName
+	}
+
+	return kernelToInitramfs, nil
 }
 
 func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
@@ -257,26 +282,20 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspParitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("failed to mount esp partition %s:\n%w", bootPartition.Path, err)
+		return fmt.Errorf("failed to mount esp partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpParitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("failed to mount partition %s:\n%w", bootPartition.Path, err)
+		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
 	stubPath := filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub")
-
-	// Prepare kernel cmdline arguments.
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, "grub2/grub.cfg")
-	linuxLine, err := extractKernelCmdlineFromGrub(grubCfgFullPath)
-	if err != nil {
-		return fmt.Errorf("failed to extract kernel cmdline arguments:\n%w", err)
-	}
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, "kernel-cmdline-args")
 
 	// Get mapped kernels and initramfs.
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootPartitionTmpDir, uki.Kernels)
@@ -285,17 +304,17 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	}
 
 	for kernel, initramfs := range kernelToInitramfs {
-		err := buildUki(kernel, initramfs, linuxLine, osSubreleaseFullPath, stubPath, buildDir,
+		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, stubPath, buildDir,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to build UKI for kernel %s:\n%w", kernel, err)
+			return fmt.Errorf("failed to build UKI for kernel (%s):\n%w", kernel, err)
 		}
 	}
 
 	err = cleanupUkiBuildDir(buildDir)
 	if err != nil {
-		logger.Log.Errorf("Error during cleanup UKI build dir:\n%w", err)
+		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
 	}
 
 	err = cleanupBootPartition(bootPartitionTmpDir)
@@ -321,41 +340,10 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	return nil
 }
 
-func cleanupUkiBuildDir(buildDir string) error {
-	ukiBuildDirPath := filepath.Join(buildDir, UkiBuildDir)
-
-	err := os.RemoveAll(ukiBuildDirPath)
-	if err != nil {
-		return fmt.Errorf("failed to clean up UkiBuildDir at %s:\n%w", ukiBuildDirPath, err)
-	}
-
-	logger.Log.Infof("Successfully cleaned up UkiBuildDir: %s", ukiBuildDirPath)
-	return nil
-}
-
-func cleanupBootPartition(bootPartitionTmpDir string) error {
-	dirEntries, err := os.ReadDir(bootPartitionTmpDir)
-	if err != nil {
-		return fmt.Errorf("failed to read boot partition directory %s:\n%w", bootPartitionTmpDir, err)
-	}
-
-	for _, entry := range dirEntries {
-		entryPath := filepath.Join(bootPartitionTmpDir, entry.Name())
-
-		err := os.RemoveAll(entryPath)
-		if err != nil {
-			return fmt.Errorf("failed to remove %s:\n%w", entryPath, err)
-		}
-	}
-
-	logger.Log.Infof("Successfully cleaned up boot partition: %s", bootPartitionTmpDir)
-	return nil
-}
-
 func extractKernelCmdlineFromGrub(grubCfgPath string) (string, error) {
 	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read grub.cfg file at %s:\n%w", grubCfgPath, err)
+		return "", fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
 	// Define a regex to match lines starting with 'linux' and containing '/vmlinuz-*'.
@@ -373,29 +361,10 @@ func extractKernelCmdlineFromGrub(grubCfgPath string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("failed to find a valid 'linux /vmlinuz-*' line in grub.cfg file at %s", grubCfgPath)
+	return "", fmt.Errorf("failed to find a valid 'linux /vmlinuz-*' line in grub.cfg file at (%s)", grubCfgPath)
 }
 
-func getKernelToInitramfsMap(bootPartitionTmpDir string, ukiKernels imagecustomizerapi.UkiKernels) (map[string]string, error) {
-	if ukiKernels.Auto {
-		// Auto mode: Find all kernels and their initramfs.
-		kernelToInitramfs, err := findKernelsAndInitramfs(bootPartitionTmpDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kernels and initramfs in auto mode:\n%w", err)
-		}
-		return kernelToInitramfs, nil
-	}
-
-	// User-specified mode: Match kernels and initramfs with the specified versions.
-	kernelToInitramfs, err := findSpecificKernelsAndInitramfs(bootPartitionTmpDir, ukiKernels.Kernels)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find specific kernels and initramfs:\n%w", err)
-	}
-
-	return kernelToInitramfs, nil
-}
-
-func buildUki(kernel string, initramfs string, linuxLine string, osSubreleaseFullPath string,
+func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubreleaseFullPath string,
 	stubPath string, buildDir string, systemBootPartitionTmpDir string,
 ) error {
 	kernelVersion := strings.TrimPrefix(kernel, "vmlinuz-")
@@ -406,34 +375,34 @@ func buildUki(kernel string, initramfs string, linuxLine string, osSubreleaseFul
 	cfg := ini.Empty()
 	section, err := cfg.NewSection("UKI")
 	if err != nil {
-		return fmt.Errorf("failed to create INI section: %w", err)
+		return fmt.Errorf("failed to create INI section:\n%w", err)
 	}
 
 	// Add keys to the INI file.
 	_, err = section.NewKey("Linux", filepath.Join(buildDir, UkiBuildDir, kernel))
 	if err != nil {
-		return fmt.Errorf("failed to add 'Linux' key to INI file: %w", err)
+		return fmt.Errorf("failed to add 'Linux' key to INI file:\n%w", err)
 	}
 
 	_, err = section.NewKey("Initrd", filepath.Join(buildDir, UkiBuildDir, initramfs))
 	if err != nil {
-		return fmt.Errorf("failed to add 'Initrd' key to INI file: %w", err)
+		return fmt.Errorf("failed to add 'Initrd' key to INI file:\n%w", err)
 	}
 
-	_, err = section.NewKey("Cmdline", linuxLine)
+	_, err = section.NewKey("Cmdline", fmt.Sprintf("@%s", cmdlineFilePath))
 	if err != nil {
-		return fmt.Errorf("failed to add 'Cmdline' key to INI file: %w", err)
+		return fmt.Errorf("failed to add 'Cmdline' key to INI file:\n%w", err)
 	}
 
 	_, err = section.NewKey("OSRelease", fmt.Sprintf("@%s", osSubreleaseFullPath))
 	if err != nil {
-		return fmt.Errorf("failed to add 'OSRelease' key to INI file: %w", err)
+		return fmt.Errorf("failed to add 'OSRelease' key to INI file:\n%w", err)
 	}
 
 	// Save the INI file.
 	err = cfg.SaveTo(configFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to save INI file for kernel %s:\n%w", kernelVersion, err)
+		return fmt.Errorf("failed to save INI file for kernel (%s):\n%w", kernelVersion, err)
 	}
 
 	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.unsigned.efi", kernel))
@@ -447,9 +416,61 @@ func buildUki(kernel string, initramfs string, linuxLine string, osSubreleaseFul
 
 	err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
 	if err != nil {
-		return fmt.Errorf("failed to build UKI for config %s:\n%w", configFilePath, err)
+		return fmt.Errorf("failed to build UKI for config (%s):\n%w", configFilePath, err)
 	}
 
-	logger.Log.Infof("Successfully built UKI: %s", ukiFullPath)
+	logger.Log.Infof("Successfully built UKI: (%s)", ukiFullPath)
+	return nil
+}
+
+func cleanupUkiBuildDir(buildDir string) error {
+	ukiBuildDirPath := filepath.Join(buildDir, UkiBuildDir)
+
+	err := os.RemoveAll(ukiBuildDirPath)
+	if err != nil {
+		return fmt.Errorf("failed to clean up UkiBuildDir at (%s):\n%w", ukiBuildDirPath, err)
+	}
+
+	logger.Log.Infof("Successfully cleaned up UkiBuildDir: (%s)", ukiBuildDirPath)
+	return nil
+}
+
+func cleanupBootPartition(bootPartitionTmpDir string) error {
+	dirEntries, err := os.ReadDir(bootPartitionTmpDir)
+	if err != nil {
+		return fmt.Errorf("failed to read boot partition directory (%s):\n%w", bootPartitionTmpDir, err)
+	}
+
+	for _, entry := range dirEntries {
+		entryPath := filepath.Join(bootPartitionTmpDir, entry.Name())
+
+		err := os.RemoveAll(entryPath)
+		if err != nil {
+			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
+		}
+	}
+
+	logger.Log.Infof("Successfully cleaned up boot partition: (%s)", bootPartitionTmpDir)
+	return nil
+}
+
+func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, "kernel-cmdline-args")
+
+	existingArgs, err := file.Read(cmdlineFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read kernel cmdline args file at (%s):\n%w", cmdlineFilePath, err)
+	}
+
+	existingArgsSlice := strings.Fields(string(existingArgs))
+
+	updatedArgsSlice := append(existingArgsSlice, newArgs...)
+
+	updatedArgs := strings.Join(updatedArgsSlice, " ")
+	err = os.WriteFile(cmdlineFilePath, []byte(updatedArgs), 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated kernel cmdline args to (%s):\n%w", cmdlineFilePath, err)
+	}
+
 	return nil
 }

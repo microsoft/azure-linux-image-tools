@@ -23,6 +23,7 @@ type OS struct {
 	Modules           []Module           `yaml:"modules"`
 	Overlays          *[]Overlay         `yaml:"overlays"`
 	BootLoader        BootLoader         `yaml:"bootloader"`
+	Uki               *Uki               `yaml:"uki"`
 }
 
 func (s *OS) IsValid() error {
@@ -111,6 +112,13 @@ func (s *OS) IsValid() error {
 				return fmt.Errorf("duplicate workDir (%s) found in overlay at index %d", overlay.WorkDir, i)
 			}
 			workDirs[overlay.WorkDir] = true
+		}
+	}
+
+	if s.Uki != nil {
+		err = s.Uki.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid uki:\n%w", err)
 		}
 	}
 

@@ -42,7 +42,7 @@ func (u *UkiKernels) UnmarshalYAML(value *yaml.Node) error {
 	}
 }
 
-func (u UkiKernels) IsValid() error {
+func (u *UkiKernels) IsValid() error {
 	if u.Auto && len(u.Kernels) > 0 {
 		return fmt.Errorf("invalid uki kernels: 'auto' cannot coexist with a list of kernel names")
 	}
