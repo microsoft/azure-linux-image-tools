@@ -590,25 +590,38 @@ func GrubArgsToString(args []string) string {
 	return combinedString
 }
 
-// Converts an SELinux mode into the list of required command-line args for that mode.
-func selinuxModeToArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string, error) {
-	newSELinuxArgs := []string(nil)
+// Helper function to get common SELinux args based on mode
+func getCommonSELinuxArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string, error) {
 	switch selinuxMode {
 	case imagecustomizerapi.SELinuxModeDisabled:
-		newSELinuxArgs = []string{installutils.CmdlineSELinuxDisabledArg}
-
+		return []string{installutils.CmdlineSELinuxDisabledArg}, nil
 	case imagecustomizerapi.SELinuxModeForceEnforcing:
-		newSELinuxArgs = []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg,
-			installutils.CmdlineSELinuxEnforcingArg}
-
+		return []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg,
+			installutils.CmdlineSELinuxEnforcingArg}, nil
 	case imagecustomizerapi.SELinuxModePermissive, imagecustomizerapi.SELinuxModeEnforcing:
-		newSELinuxArgs = []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg}
-
+		return []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg}, nil
 	default:
 		return nil, fmt.Errorf("unknown SELinux mode (%s)", selinuxMode)
 	}
+}
 
-	return newSELinuxArgs, nil
+// Converts an SELinux mode into the list of required command-line args for that mode.
+func selinuxModeToArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string, error) {
+	return getCommonSELinuxArgs(selinuxMode)
+}
+
+// Converts an SELinux mode into the list of command-line args for that mode, with addtional enforcing=0 for permissive mode.
+func selinuxModeToArgsWithPermissiveFlag(selinuxMode imagecustomizerapi.SELinuxMode) ([]string, error) {
+	args, err := getCommonSELinuxArgs(selinuxMode)
+	if err != nil {
+		return nil, err
+	}
+
+	if selinuxMode == imagecustomizerapi.SELinuxModePermissive {
+		args = append(args, installutils.CmdlineSELinuxPermissiveArg)
+	}
+
+	return args, nil
 }
 
 // Update the SELinux kernel command-line args.
