@@ -7,11 +7,14 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
-from typing import Generator
+from typing import Generator, List
 
 import docker
+import libvirt  # type: ignore
 import pytest
 from docker import DockerClient
+
+from .utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
 TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomizerlib/testdata")
@@ -91,3 +94,35 @@ def docker_client() -> Generator[DockerClient, None, None]:
     yield client
 
     client.close()  # type: ignore
+
+
+@pytest.fixture(scope="session")
+def libvirt_conn() -> Generator[libvirt.virConnect, None, None]:
+    # Connect to libvirt.
+    libvirt_conn_str = f"qemu:///system"
+    libvirt_conn = libvirt.open(libvirt_conn_str)
+
+    yield libvirt_conn
+
+    libvirt_conn.close()
+
+
+# Fixture that will close resources after a test has run, so long as the '--keep-environment' flag is not specified.
+@pytest.fixture(scope="function")
+def close_list(keep_environment: bool) -> Generator[List[Closeable], None, None]:
+    vm_delete_list: List[Closeable] = []
+
+    yield vm_delete_list
+
+    if keep_environment:
+        return
+
+    exceptions = []
+    for vm in reversed(vm_delete_list):
+        try:
+            vm.close()
+        except Exception as ex:
+            exceptions.append(ex)
+
+    if len(exceptions) > 0:
+        raise ExceptionGroup("failed to close resources", exceptions)
