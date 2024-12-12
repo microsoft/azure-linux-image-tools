@@ -76,16 +76,26 @@ func verifySelinuxPolicyLiveOsSupport(selinuxPolicyVersionInfo *PackageVersionIn
 	return nil
 }
 
-// verifies that SELinux is supported for LiveOS images.
-func verifyLiveOsSelinuxSupport(dracutVersionInfo *PackageVersionInformation, selinuxPolicyVersionInfo *PackageVersionInformation) error {
-	err := verifyDracutLiveOsSELinuxSupport(dracutVersionInfo)
-	if err != nil {
-		return err
+// verifies that SELinux is can work for LiveOS images.
+func verifyNoLiveOsSelinuxBlockers(dracutVersionInfo *PackageVersionInformation, selinuxPolicyVersionInfo *PackageVersionInformation) error {
+	if dracutVersionInfo != nil {
+		err := verifyDracutLiveOsSELinuxSupport(dracutVersionInfo)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("dracut package information is missing")
 	}
 
-	err = verifySelinuxPolicyLiveOsSupport(selinuxPolicyVersionInfo)
-	if err != nil {
-		return err
+	// selinuxPolicyVersionInfo is nil when selinux-policy is not installed.
+	// If selinux is enabled, and selinux-policy is not installed, it means that
+	// the user has a policy installed through a package unknown to us.
+	// We will not report an error in such cases.
+	if selinuxPolicyVersionInfo != nil {
+		err := verifySelinuxPolicyLiveOsSupport(selinuxPolicyVersionInfo)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
