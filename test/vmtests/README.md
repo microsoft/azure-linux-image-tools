@@ -1,10 +1,13 @@
 # VM Tests
 
+A test suite that runs the containerized version of the image customizer tool.
+
 ## How to run
 
 Requirements:
 
 - Python3
+- Docker
 
 Steps:
 
@@ -14,11 +17,33 @@ Steps:
    make create-venv
    ```
 
-2. Run:
+2. Download a copy of the Azure Linux 2.0 core-efi VHDX image file.
+
+3. Run:
 
    ```bash
-   make run
+   CORE_EFI_AZL2="<core-efi-vhdx>"
+   make run CORE_EFI_AZL2="$CORE_EFI_AZL2"
    ```
+
+   Where:
+
+   - `<core-efi-vhdx>` is the path of the VHDX file downloaded in Step 2.
+
+   Note: By default, the `${HOME}/.ssh/id_ed25519` SSH private key is used. If you want
+   to use a different private key, then set the `SSH_PRIVATE_KEY_FILE` variable when
+   calling `make`.
+
+## Debugging
+
+If you want to keep the resources that the test creates around after the test has
+finished running, then add:
+
+```bash
+KEEP_ENVIRONMENT=y
+```
+
+to the `make` call.
 
 ## Linting, mypy, and other code checks
 
