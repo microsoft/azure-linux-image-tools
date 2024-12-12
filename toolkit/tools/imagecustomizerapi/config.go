@@ -3,15 +3,17 @@
 
 package imagecustomizerapi
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Config struct {
-	Storage         Storage          `yaml:"storage"`
-	Iso             *Iso             `yaml:"iso"`
-	Pxe             *Pxe             `yaml:"pxe"`
-	OS              *OS              `yaml:"os"`
-	Scripts         Scripts          `yaml:"scripts"`
-	PreviewFeatures *PreviewFeatures `yaml:"previewFeatures"`
+	Storage         Storage  `yaml:"storage"`
+	Iso             *Iso     `yaml:"iso"`
+	Pxe             *Pxe     `yaml:"pxe"`
+	OS              *OS      `yaml:"os"`
+	Scripts         Scripts  `yaml:"scripts"`
+	PreviewFeatures []string `yaml:"previewFeatures"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -42,12 +44,17 @@ func (c *Config) IsValid() (err error) {
 		if err != nil {
 			return fmt.Errorf("invalid 'os' field:\n%w", err)
 		}
-		hasResetBootLoader = c.OS.BootLoader.Reset != ResetBootLoaderTypeDefault
+		hasResetBootLoader = c.OS.BootLoader.ResetType != ResetBootLoaderTypeDefault
 
-		if c.PreviewFeatures.Uki != nil {
+		if c.OS.Uki != nil {
+			// Ensure "uki" is included in PreviewFeatures at this time.
+			if !containsPreviewFeature(c.PreviewFeatures, "uki") {
+				return fmt.Errorf("the 'uki' preview feature must be enabled to use 'os.uki'")
+			}
+
 			// Temporary limitation: We currently require 'os.bootloader.reset' to be 'hard-reset' when 'os.uki' is enabled.
 			// In the future, as we design and develop the bootloader further, this hard-reset limitation may be lifted.
-			if c.OS.BootLoader.Reset != ResetBootLoaderTypeHard {
+			if c.OS.BootLoader.ResetType != ResetBootLoaderTypeHard {
 				return fmt.Errorf(
 					"'os.bootloader.reset' must be '%s' when 'os.uki' is enabled", ResetBootLoaderTypeHard,
 				)
@@ -73,4 +80,13 @@ func (c *Config) IsValid() (err error) {
 
 func (c *Config) CustomizePartitions() bool {
 	return c.Storage.CustomizePartitions()
+}
+
+func containsPreviewFeature(features []string, feature string) bool {
+	for _, f := range features {
+		if f == feature {
+			return true
+		}
+	}
+	return false
 }

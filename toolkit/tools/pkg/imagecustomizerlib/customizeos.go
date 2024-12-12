@@ -69,7 +69,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(config.OS.SELinux.Mode, config.OS.BootLoader.Reset,
+	selinuxMode, err := handleSELinux(config.OS.SELinux.Mode, config.OS.BootLoader.ResetType,
 		imageChroot)
 	if err != nil {
 		return err
@@ -92,12 +92,12 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = prepareUki(buildDir, config.PreviewFeatures.Uki, imageChroot)
+	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = prepareUki(buildDir, config.OS.Uki, imageChroot)
 	if err != nil {
 		return err
 	}

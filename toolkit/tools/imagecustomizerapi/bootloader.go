@@ -8,13 +8,13 @@ import (
 )
 
 type BootLoader struct {
-	Reset ResetBootLoaderType `yaml:"reset"`
+	ResetType ResetBootLoaderType `yaml:"resetType"`
 }
 
 func (b *BootLoader) IsValid() error {
-	err := b.Reset.IsValid()
+	err := b.ResetType.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid bootloader reset:\n%w", err)
+		return fmt.Errorf("invalid bootloader reset type:\n%w", err)
 	}
 
 	return nil
