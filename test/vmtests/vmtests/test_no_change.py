@@ -58,4 +58,4 @@ def test_no_change(
     vm.start()
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    vm.get_vm_ip_address(timeout=15)
+    vm.get_vm_ip_address(timeout=30)

@@ -145,7 +145,7 @@ def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str
         case "vd" | "sd":
             # The disk device name is required to follow the standard Linux device naming
             # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
-            # unlikely that someone will ever need more than 26 disks. So, keep is simple
+            # unlikely that someone will ever need more than 26 disks. So, keep it simple
             # for now.
             if disk_index < 0 or disk_index > 25:
                 raise Exception(f"Unsupported disk index: {disk_index}.")

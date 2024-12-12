@@ -31,15 +31,20 @@ class LibvirtVm:
 
     # Wait for the VM to boot and then get the IP address.
     def get_vm_ip_address(self, timeout: float = 30) -> str:
-        timeout_time = time.time() + timeout
+        start_time = time.time()
+        timeout_time = start_time + timeout
 
         while True:
             addr = self.try_get_vm_ip_address()
             if addr:
+                total_wait_time = time.time() - start_time
+                logging.debug(f"Wait for VM ({self.vm_name}) boot / request IP address: {total_wait_time:.0f}s")
                 return addr
 
             if time.time() > timeout_time:
                 raise Exception(f"No IP addresses found for '{self.vm_name}'. OS might have failed to boot.")
+
+            time.sleep(1)
 
     # Try to get the IP address of the VM.
     def try_get_vm_ip_address(self) -> Optional[str]:
