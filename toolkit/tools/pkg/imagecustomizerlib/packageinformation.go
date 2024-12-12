@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
@@ -21,20 +21,19 @@ type PackageVersionInformation struct {
 }
 
 func (pi *PackageVersionInformation) getVersionString() string {
-	var version string
+	var version strings.Builder
 	for i, versionComponent := range pi.PackageVersionComponents {
 		if i != 0 {
-			version += "."
+			version.WriteString(".")
 		}
-		version += strconv.FormatUint(versionComponent, 10)
+		version.WriteString(strconv.FormatUint(versionComponent, 10))
 	}
-	return version
+	return version.String()
 }
 
 func (pi *PackageVersionInformation) getFullVersionString() string {
 	// yy.yy.yy-zz.azl3
-	return pi.getVersionString() + "-" + strconv.FormatUint(uint64(pi.PackageRelease), 10) + "." +
-		pi.DistroName + strconv.FormatUint(uint64(pi.DistroVersion), 10)
+	return fmt.Sprintf("%s-%d.%s%d", pi.getVersionString(), pi.PackageRelease, pi.DistroName, pi.DistroVersion)
 }
 
 func (pi *PackageVersionInformation) verifyMinimumVersion(minimumVersionInfo *PackageVersionInformation) error {
@@ -186,19 +185,4 @@ func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (
 	}
 
 	return info, nil
-}
-
-func getPackageInformationFromRootfsDir(rootfsSourceDir string, packageName string) (info *PackageVersionInformation, err error) {
-	chroot := safechroot.NewChroot(rootfsSourceDir, true /*isExistingDir*/)
-	if chroot == nil {
-		return info, fmt.Errorf("failed to create a new chroot object for %s.", rootfsSourceDir)
-	}
-	defer chroot.Close(true /*leaveOnDisk*/)
-
-	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
-	if err != nil {
-		return info, fmt.Errorf("failed to initialize chroot object for %s:\n%w", rootfsSourceDir, err)
-	}
-
-	return getPackageInformation(chroot, packageName)
 }

@@ -423,8 +423,12 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 
 	case ImageFormatIso:
 		if ic.customizeOSPartitions || inputIsoArtifacts == nil {
-			err := createLiveOSIsoImage(ic.buildDir, ic.configPath, inputIsoArtifacts, ic.config.Iso, ic.config.Pxe, ic.rawImageFile,
-				ic.outputImageDir, ic.outputImageBase, ic.outputPXEArtifactsDir)
+			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
+			if ic.config.OS != nil {
+				requestedSELinuxMode = ic.config.OS.SELinux.Mode
+			}
+			err := createLiveOSIsoImage(ic.buildDir, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
+				ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputPXEArtifactsDir)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
