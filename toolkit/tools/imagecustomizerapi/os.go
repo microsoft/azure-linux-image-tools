@@ -106,5 +106,12 @@ func (s *OS) IsValid() error {
 		}
 	}
 
+	if s.Uki != nil {
+		err = s.Uki.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid uki:\n%w", err)
+		}
+	}
+
 	return nil
 }
