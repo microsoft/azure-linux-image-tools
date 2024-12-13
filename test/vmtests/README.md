@@ -10,6 +10,7 @@ Requirements:
 - Python3
 - QEMU/KVM
 - libvirt
+- A generated SSH private/public key pair.
 
 Steps:
 
