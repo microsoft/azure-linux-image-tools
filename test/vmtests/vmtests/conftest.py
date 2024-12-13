@@ -7,7 +7,7 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
-from typing import Generator, List
+from typing import Generator, List, Tuple
 
 import docker
 import libvirt  # type: ignore
@@ -24,6 +24,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
     parser.addoption("--core-efi-azl2", action="store", help="Path to Azure Linux 2.0 core-efi qcow2 image")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
+    parser.addoption(
+        "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -94,6 +97,21 @@ def docker_client() -> Generator[DockerClient, None, None]:
     yield client
 
     client.close()  # type: ignore
+
+
+@pytest.fixture(scope="session")
+def ssh_key(request: pytest.FixtureRequest) -> Generator[Tuple[str, Path], None, None]:
+    ssh_private_key_path_str = request.config.getoption("--ssh-private-key")
+    if not ssh_private_key_path_str:
+        raise Exception("--ssh-private-key is required for test")
+
+    ssh_private_key_path = Path(ssh_private_key_path_str)
+
+    ssh_public_key_path = ssh_private_key_path.with_name(ssh_private_key_path.name + ".pub")
+    ssh_public_key = ssh_public_key_path.read_text()
+    ssh_public_key = ssh_public_key.strip()
+
+    yield (ssh_public_key, ssh_private_key_path)
 
 
 @pytest.fixture(scope="session")

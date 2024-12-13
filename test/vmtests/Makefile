@@ -18,6 +18,8 @@ IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG=imagecustomizer:dev
 
+SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
+
 KEEP_ENVIRONMENT ?= n
 
 .PHONY: create-venv
@@ -65,6 +67,7 @@ run: image-customizer-container
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--core-efi-azl2="${CORE_EFI_AZL2}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
 		--show-capture=all \
