@@ -270,3 +270,20 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 
 	return nil
 }
+
+func updateKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string,
+	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+) error {
+	// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
+	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions)
+	if err != nil {
+		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
+	}
+
+	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
+	if err != nil {
+		return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+	}
+
+	return nil
+}

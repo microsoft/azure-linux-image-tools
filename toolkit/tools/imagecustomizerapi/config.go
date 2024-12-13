@@ -5,6 +5,8 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 type Config struct {
@@ -48,7 +50,7 @@ func (c *Config) IsValid() (err error) {
 
 		if c.OS.Uki != nil {
 			// Ensure "uki" is included in PreviewFeatures at this time.
-			if !containsPreviewFeature(c.PreviewFeatures, "uki") {
+			if !sliceutils.ContainsValue(c.PreviewFeatures, "uki") {
 				return fmt.Errorf("the 'uki' preview feature must be enabled to use 'os.uki'")
 			}
 
@@ -80,13 +82,4 @@ func (c *Config) IsValid() (err error) {
 
 func (c *Config) CustomizePartitions() bool {
 	return c.Storage.CustomizePartitions()
-}
-
-func containsPreviewFeature(features []string, feature string) bool {
-	for _, f := range features {
-		if f == feature {
-			return true
-		}
-	}
-	return false
 }

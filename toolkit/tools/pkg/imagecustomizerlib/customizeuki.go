@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"encoding/json"
 	"fmt"
 	"gopkg.in/ini.v1"
 	"os"
@@ -22,10 +23,12 @@ import (
 )
 
 const (
-	BootDir      = "boot"
-	GrubCfgDir   = "grub2/grub.cfg"
-	UkiBuildDir  = "UkiBuildDir"
-	UkiOutputDir = "EFI/Linux"
+	BootDir           = "boot"
+	GrubCfgDir        = "grub2/grub.cfg"
+	KernelCmdlineArgs = "kernel-cmdline-args"
+	KernelPrefix      = "vmlinuz-"
+	UkiBuildDir       = "UkiBuildDir"
+	UkiOutputDir      = "EFI/Linux"
 )
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
@@ -51,7 +54,7 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 
 	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
 	// Note: When proper support for systemd-boot is implemented, the `bootctl install` command
-	// will likely be invoked as part of the `hardResetBootLoader()` function.
+	// will likely be invoked as part of the `hardResetBootLoader()` function under BootLoader structure.
 	//
 	// The command being executed is:
 	//     bootctl install --no-variables
@@ -91,16 +94,16 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 
 	// Extract kernel command line arguments from grub.cfg.
 	grubCfgPath := filepath.Join(bootDir, GrubCfgDir)
-	cmdlineArgs, err := extractKernelCmdlineFromGrub(grubCfgPath)
+	kernelToArgs, err := extractKernelToArgsFromGrub2(grubCfgPath)
 	if err != nil {
-		return fmt.Errorf("failed to extract kernel command line arguments:\n%w", err)
+		return fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err)
 	}
 
 	// Dump kernel command line arguments to a file in buildDir.
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, "kernel-cmdline-args")
-	err = os.WriteFile(cmdlineFilePath, []byte(cmdlineArgs), 0o644)
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgs+".json")
+	err = writeKernelCmdlineArgsFile(cmdlineFilePath, kernelToArgs)
 	if err != nil {
-		return fmt.Errorf("failed to write kernel command line arguments to (%s):\n%w", cmdlineFilePath, err)
+		return fmt.Errorf("failed to write kernel cmdline args JSON to (%s):\n%w", cmdlineFilePath, err)
 	}
 
 	return nil
@@ -167,10 +170,10 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 	return nil
 }
 
-func getKernelToInitramfsMap(bootPartitionTmpDir string, ukiKernels imagecustomizerapi.UkiKernels) (map[string]string, error) {
+func getKernelToInitramfsMap(bootDir string, ukiKernels imagecustomizerapi.UkiKernels) (map[string]string, error) {
 	if ukiKernels.Auto {
 		// Auto mode: Find all kernels and their initramfs.
-		kernelToInitramfs, err := findKernelsAndInitramfs(bootPartitionTmpDir)
+		kernelToInitramfs, err := findKernelsAndInitramfs(bootDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find kernels and initramfs in auto mode:\n%w", err)
 		}
@@ -178,7 +181,7 @@ func getKernelToInitramfsMap(bootPartitionTmpDir string, ukiKernels imagecustomi
 	}
 
 	// User-specified mode: Match kernels and initramfs with the specified versions.
-	kernelToInitramfs, err := findSpecificKernelsAndInitramfs(bootPartitionTmpDir, ukiKernels.Kernels)
+	kernelToInitramfs, err := findSpecificKernelsAndInitramfs(bootDir, ukiKernels.Kernels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find specific kernels and initramfs:\n%w", err)
 	}
@@ -197,7 +200,10 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 	for _, entry := range dirEntries {
 		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "vmlinuz-") {
 			kernelName := entry.Name()
-			kernelVersion := strings.TrimPrefix(kernelName, "vmlinuz-")
+			kernelVersion, err := getKernelVersion(kernelName)
+			if err != nil {
+				return nil, err
+			}
 			initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
 			initramfsPath := filepath.Join(bootDir, initramfsName)
 
@@ -295,7 +301,7 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
 	stubPath := filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub")
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, "kernel-cmdline-args")
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgs+".json")
 
 	// Get mapped kernels and initramfs.
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootPartitionTmpDir, uki.Kernels)
@@ -340,36 +346,91 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	return nil
 }
 
-func extractKernelCmdlineFromGrub(grubCfgPath string) (string, error) {
+// Note: This function will be optimized by leveraging the internal functions
+// under grubcfgutils.go when implementing bootloader customization.
+func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) {
 	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
-	// Define a regex to match lines starting with 'linux' and containing '/vmlinuz-*'.
-	linuxLineRegex := regexp.MustCompile(`^linux\s+/vmlinuz-[^\s]+`)
+	linuxLineRegex := regexp.MustCompile(`^linux\s+(/vmlinuz-[^\s]+)\s+(.*)`)
 
-	// Split the file content into lines.
 	lines := strings.Split(string(grubCfgContent), "\n")
+	kernelToArgs := make(map[string]string)
+
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
-		if linuxLineRegex.MatchString(trimmedLine) {
-			// Remove the 'linux /vmlinuz-*' portion.
-			cmdlineArgs := linuxLineRegex.ReplaceAllString(trimmedLine, "")
-
-			return strings.TrimSpace(cmdlineArgs), nil
+		matches := linuxLineRegex.FindStringSubmatch(trimmedLine)
+		if len(matches) == 3 {
+			kernel := strings.TrimPrefix(matches[1], "/")
+			args := matches[2]
+			kernelToArgs[kernel] = strings.TrimSpace(args)
 		}
 	}
 
-	return "", fmt.Errorf("failed to find a valid 'linux /vmlinuz-*' line in grub.cfg file at (%s)", grubCfgPath)
+	if len(kernelToArgs) == 0 {
+		return nil, fmt.Errorf("failed to find any valid 'linux /vmlinuz-*' lines in grub.cfg file at (%s)", grubCfgPath)
+	}
+
+	return kernelToArgs, nil
+}
+
+func extractKernelToArgsFromGrub2(grubCfgPath string) (map[string]string, error) {
+	// Read the grub.cfg content.
+	grubCfgContent, err := file.Read(grubCfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+	}
+
+	// Use findLinuxOrInitrdLineAll to locate all linux lines.
+	lines, err := findLinuxOrInitrdLineAll(string(grubCfgContent), linuxCommand, true /*allowMultiple*/)
+	if err != nil {
+		return nil, fmt.Errorf("failed to locate 'linux' lines in grub.cfg:\n%w", err)
+	}
+
+	kernelToArgs := make(map[string]string)
+	for _, line := range lines {
+		if len(line.Tokens) < 2 {
+			return nil, fmt.Errorf("malformed 'linux' line in grub.cfg")
+		}
+
+		// The second token is the kernel path.
+		kernel := strings.TrimPrefix(line.Tokens[1], "/")
+
+		// Remaining tokens are the command-line arguments.
+		argTokens := line.Tokens[2:]
+		args := strings.Join(argTokens, " ")
+
+		kernelToArgs[kernel] = strings.TrimSpace(args)
+	}
+
+	if len(kernelToArgs) == 0 {
+		return nil, fmt.Errorf("no valid 'linux' lines found in grub.cfg")
+	}
+
+	return kernelToArgs, nil
 }
 
 func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubreleaseFullPath string,
 	stubPath string, buildDir string, systemBootPartitionTmpDir string,
 ) error {
-	kernelVersion := strings.TrimPrefix(kernel, "vmlinuz-")
-
+	kernelVersion, err := getKernelVersion(kernel)
+	if err != nil {
+		return err
+	}
 	configFilePath := filepath.Join(buildDir, UkiBuildDir, fmt.Sprintf("ukify_%s.conf", kernelVersion))
+
+	kernelToArgs, err := readKernelCmdlineArgsFile(cmdlineFilePath)
+	if err != nil {
+		return err
+	}
+
+	// Get the arguments for the current kernel.
+	kernelArgs, ok := kernelToArgs[kernel]
+	if !ok {
+		return fmt.Errorf("no kernel cmdline arguments found for kernel (%s)", kernel)
+	}
 
 	// Create the INI file.
 	cfg := ini.Empty()
@@ -389,7 +450,7 @@ func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubrele
 		return fmt.Errorf("failed to add 'Initrd' key to INI file:\n%w", err)
 	}
 
-	_, err = section.NewKey("Cmdline", fmt.Sprintf("@%s", cmdlineFilePath))
+	_, err = section.NewKey("Cmdline", kernelArgs)
 	if err != nil {
 		return fmt.Errorf("failed to add 'Cmdline' key to INI file:\n%w", err)
 	}
@@ -455,21 +516,61 @@ func cleanupBootPartition(bootPartitionTmpDir string) error {
 }
 
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, "kernel-cmdline-args")
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgs+".json")
 
-	existingArgs, err := file.Read(cmdlineFilePath)
+	kernelToArgs, err := readKernelCmdlineArgsFile(cmdlineFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to read kernel cmdline args file at (%s):\n%w", cmdlineFilePath, err)
+		return err
 	}
 
-	existingArgsSlice := strings.Fields(string(existingArgs))
+	// Append newArgs.
+	newArgsStr := strings.Join(newArgs, " ")
+	for kernel, args := range kernelToArgs {
+		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(args), strings.TrimSpace(newArgsStr))
+		kernelToArgs[kernel] = updatedArgs
+	}
 
-	updatedArgsSlice := append(existingArgsSlice, newArgs...)
-
-	updatedArgs := strings.Join(updatedArgsSlice, " ")
-	err = os.WriteFile(cmdlineFilePath, []byte(updatedArgs), 0o644)
+	err = writeKernelCmdlineArgsFile(cmdlineFilePath, kernelToArgs)
 	if err != nil {
-		return fmt.Errorf("failed to write updated kernel cmdline args to (%s):\n%w", cmdlineFilePath, err)
+		return err
+	}
+
+	return nil
+}
+
+func getKernelVersion(kernelName string) (string, error) {
+	if !strings.HasPrefix(kernelName, KernelPrefix) {
+		return "", fmt.Errorf("invalid kernel name: (%s), expected to start with prefix: (%s)", kernelName, KernelPrefix)
+	}
+
+	kernelVersion := strings.TrimPrefix(kernelName, "vmlinuz-")
+	return kernelVersion, nil
+}
+
+func readKernelCmdlineArgsFile(filePath string) (map[string]string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read kernel cmdline args file at (%s):\n%w", filePath, err)
+	}
+
+	var kernelToArgs map[string]string
+	err = json.Unmarshal(content, &kernelToArgs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kernel cmdline args file at (%s):\n%w", filePath, err)
+	}
+
+	return kernelToArgs, nil
+}
+
+func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string) error {
+	content, err := json.MarshalIndent(kernelToArgs, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize kernel cmdline args to JSON:\n%w", err)
+	}
+
+	err = os.WriteFile(filePath, content, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to write kernel cmdline args file at (%s):\n%w", filePath, err)
 	}
 
 	return nil
