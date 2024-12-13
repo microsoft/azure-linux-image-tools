@@ -78,8 +78,10 @@ func (s *OS) IsValid() error {
 		return err
 	}
 
-	if err := s.Verity.IsValid(); err != nil {
-		return err
+	if s.Verity != nil {
+		if err := s.Verity.IsValid(); err != nil {
+			return err
+		}
 	}
 
 	return nil
