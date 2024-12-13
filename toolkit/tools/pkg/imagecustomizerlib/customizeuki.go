@@ -78,9 +78,8 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 		return fmt.Errorf("failed to install systemd-boot:\n%w", err)
 	}
 
-	// Start mapping kernels and initramfs.
+	// Map kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
-
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir, uki.Kernels)
 	if err != nil {
 		return err
@@ -94,7 +93,7 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 
 	// Extract kernel command line arguments from grub.cfg.
 	grubCfgPath := filepath.Join(bootDir, GrubCfgDir)
-	kernelToArgs, err := extractKernelToArgsFromGrub2(grubCfgPath)
+	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err)
 	}
@@ -233,7 +232,6 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 		kernelName := fmt.Sprintf("vmlinuz-%s", version)
 		initramfsName := fmt.Sprintf("initramfs-%s.img", version)
 
-		// Check if both files exist in the boot directory.
 		kernelPath := filepath.Join(bootDir, kernelName)
 		initramfsPath := filepath.Join(bootDir, initramfsName)
 
@@ -253,7 +251,6 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 			return nil, fmt.Errorf("missing initramfs for kernel: (%s), expected (%s)", kernelName, initramfsName)
 		}
 
-		// Add to the map if both exist.
 		kernelToInitramfs[kernelName] = initramfsName
 	}
 
@@ -371,42 +368,6 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 
 	if len(kernelToArgs) == 0 {
 		return nil, fmt.Errorf("failed to find any valid 'linux /vmlinuz-*' lines in grub.cfg file at (%s)", grubCfgPath)
-	}
-
-	return kernelToArgs, nil
-}
-
-func extractKernelToArgsFromGrub2(grubCfgPath string) (map[string]string, error) {
-	// Read the grub.cfg content.
-	grubCfgContent, err := file.Read(grubCfgPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
-	}
-
-	// Use findLinuxOrInitrdLineAll to locate all linux lines.
-	lines, err := findLinuxOrInitrdLineAll(string(grubCfgContent), linuxCommand, true /*allowMultiple*/)
-	if err != nil {
-		return nil, fmt.Errorf("failed to locate 'linux' lines in grub.cfg:\n%w", err)
-	}
-
-	kernelToArgs := make(map[string]string)
-	for _, line := range lines {
-		if len(line.Tokens) < 2 {
-			return nil, fmt.Errorf("malformed 'linux' line in grub.cfg")
-		}
-
-		// The second token is the kernel path.
-		kernel := strings.TrimPrefix(line.Tokens[1], "/")
-
-		// Remaining tokens are the command-line arguments.
-		argTokens := line.Tokens[2:]
-		args := strings.Join(argTokens, " ")
-
-		kernelToArgs[kernel] = strings.TrimSpace(args)
-	}
-
-	if len(kernelToArgs) == 0 {
-		return nil, fmt.Errorf("no valid 'linux' lines found in grub.cfg")
 	}
 
 	return kernelToArgs, nil
