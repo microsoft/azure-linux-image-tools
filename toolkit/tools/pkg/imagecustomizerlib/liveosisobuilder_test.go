@@ -172,7 +172,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 		pxeArtifactsPathIsoToIso)
 }
 
-func VerifyPXEArtifacts(t *testing.T, packageInfo *DracutPackageInformation, isoMountDir string, pxeKernelIpArg string,
+func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, isoMountDir string, pxeKernelIpArg string,
 	pxeKernelRootArgV2 string, pxeArtifactsPathIsoToIso string) {
 
 	// Check if PXE support is present in the Dracut package version in use.

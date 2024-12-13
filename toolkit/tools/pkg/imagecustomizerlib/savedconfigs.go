@@ -61,7 +61,9 @@ func (p *PxeSavedConfigs) IsValid() error {
 }
 
 type OSSavedConfigs struct {
-	DracutPackageInfo *DracutPackageInformation `yaml:"dracutPackage"`
+	DracutPackageInfo        *PackageVersionInformation     `yaml:"dracutPackage"`
+	RequestedSELinuxMode     imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
+	SELinuxPolicyPackageInfo *PackageVersionInformation     `yaml:"selinuxPolicyPackage"`
 }
 
 func (i *OSSavedConfigs) IsValid() error {

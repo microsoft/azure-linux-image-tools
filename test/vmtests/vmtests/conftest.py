@@ -7,11 +7,14 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
-from typing import Generator
+from typing import Generator, List, Tuple
 
 import docker
+import libvirt  # type: ignore
 import pytest
 from docker import DockerClient
+
+from .utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
 TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomizerlib/testdata")
@@ -21,6 +24,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
     parser.addoption("--core-efi-azl2", action="store", help="Path to Azure Linux 2.0 core-efi qcow2 image")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
+    parser.addoption(
+        "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -91,3 +97,50 @@ def docker_client() -> Generator[DockerClient, None, None]:
     yield client
 
     client.close()  # type: ignore
+
+
+@pytest.fixture(scope="session")
+def ssh_key(request: pytest.FixtureRequest) -> Generator[Tuple[str, Path], None, None]:
+    ssh_private_key_path_str = request.config.getoption("--ssh-private-key")
+    if not ssh_private_key_path_str:
+        raise Exception("--ssh-private-key is required for test")
+
+    ssh_private_key_path = Path(ssh_private_key_path_str)
+
+    ssh_public_key_path = ssh_private_key_path.with_name(ssh_private_key_path.name + ".pub")
+    ssh_public_key = ssh_public_key_path.read_text()
+    ssh_public_key = ssh_public_key.strip()
+
+    yield (ssh_public_key, ssh_private_key_path)
+
+
+@pytest.fixture(scope="session")
+def libvirt_conn() -> Generator[libvirt.virConnect, None, None]:
+    # Connect to libvirt.
+    libvirt_conn_str = f"qemu:///system"
+    libvirt_conn = libvirt.open(libvirt_conn_str)
+
+    yield libvirt_conn
+
+    libvirt_conn.close()
+
+
+# Fixture that will close resources after a test has run, so long as the '--keep-environment' flag is not specified.
+@pytest.fixture(scope="function")
+def close_list(keep_environment: bool) -> Generator[List[Closeable], None, None]:
+    vm_delete_list: List[Closeable] = []
+
+    yield vm_delete_list
+
+    if keep_environment:
+        return
+
+    exceptions = []
+    for vm in reversed(vm_delete_list):
+        try:
+            vm.close()
+        except Exception as ex:
+            exceptions.append(ex)
+
+    if len(exceptions) > 0:
+        raise ExceptionGroup("failed to close resources", exceptions)

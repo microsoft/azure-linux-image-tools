@@ -1,13 +1,16 @@
 # VM Tests
 
-A test suite that runs the containerized version of the image customizer tool.
+A test suite that runs the containerized version of the image customizer tool and then
+boots the customized images.
 
 ## How to run
 
 Requirements:
 
 - Python3
-- Docker
+- QEMU/KVM
+- libvirt
+- A generated SSH private/public key pair.
 
 Steps:
 

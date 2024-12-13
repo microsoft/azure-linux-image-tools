@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -25,13 +24,6 @@ const (
 var (
 	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
 )
-
-type packageInformation struct {
-	packageVersion string
-	packageRelease uint32
-	distroName     string
-	distroVersion  uint32
-}
 
 func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
@@ -240,79 +232,6 @@ func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool
 		return false
 	}
 	return true
-}
-
-func parseReleaseString(releaseInfo string) (packageRelease uint32, distroName string, distroVersion uint32, err error) {
-	pattern := `([0-9]+)\.([a-zA-Z]+)([0-9]+)`
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(releaseInfo)
-
-	if matches == nil {
-		return 0, "", 0, fmt.Errorf("failed to parse package release information (%s)\n%w", releaseInfo, err)
-	}
-
-	// package release
-	packageReleaseString := matches[1]
-	packageReleaseUint64, err := strconv.ParseUint(packageReleaseString, 10 /*base*/, 32 /*size*/)
-	if err != nil {
-		return 0, "", 0, fmt.Errorf("failed to parse package release version (%s) into an unsigned integer:\n%w", packageReleaseString, err)
-	}
-	packageRelease = uint32(packageReleaseUint64)
-
-	// distro name
-	distroName = matches[2]
-
-	// distro version
-	distroVersionString := matches[3]
-	distroVersionUint64, err := strconv.ParseUint(distroVersionString, 10 /*base*/, 32 /*size*/)
-	if err != nil {
-		return 0, "", 0, fmt.Errorf("failed to parse distro version (%s) into an unsigned integer:\n%w", distroVersionString, err)
-	}
-	distroVersion = uint32(distroVersionUint64)
-
-	return packageRelease, distroName, distroVersion, nil
-}
-
-func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (info packageInformation, err error) {
-	var packageInfo string
-	err = imageChroot.UnsafeRun(func() error {
-		packageInfo, _, err = shell.Execute("tdnf", "info", packageName, "--repo", "@system")
-		return err
-	})
-	if err != nil {
-		return info, fmt.Errorf("failed to query (%s) package information:\n%w", packageName, err)
-	}
-
-	// Regular expressions to match Version and Release
-	versionRegex := regexp.MustCompile(`(?m)^Version\s+:\s+(\S+)`)
-	versionMatch := versionRegex.FindStringSubmatch(packageInfo)
-	var packageVersion string
-	if len(versionMatch) != 2 {
-		return info, fmt.Errorf("failed to extract version information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
-	}
-	packageVersion = versionMatch[1]
-
-	// Extract Release
-	releaseRegex := regexp.MustCompile(`(?m)^Release\s+:\s+(\S+)`)
-	releaseMatch := releaseRegex.FindStringSubmatch(packageInfo)
-	var releaseInfo string
-	if len(releaseMatch) != 2 {
-		return info, fmt.Errorf("failed to extract release information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
-	}
-	releaseInfo = releaseMatch[1]
-
-	packageRelease, distroName, distroVersion, err := parseReleaseString(releaseInfo)
-	if err != nil {
-		return info, fmt.Errorf("failed to parse release information for package (%s)\n%w", packageName, err)
-	}
-
-	// Set return values
-	info.packageVersion = packageVersion
-	info.packageRelease = packageRelease
-	info.distroName = distroName
-	info.distroVersion = distroVersion
-
-	return info, nil
 }
 
 func cleanTdnfCache(imageChroot *safechroot.Chroot) error {
