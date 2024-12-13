@@ -136,6 +136,21 @@ func (b *BootCustomizer) UpdateSELinuxCommandLine(selinuxMode imagecustomizerapi
 	return nil
 }
 
+// Update the image's SELinux kernel command-line args for OSModifier.
+func (b *BootCustomizer) UpdateSELinuxCommandLineForEMU(selinuxMode imagecustomizerapi.SELinuxMode) error {
+	newSELinuxArgs, err := selinuxModeToArgsWithPermissiveFlag(selinuxMode)
+	if err != nil {
+		return err
+	}
+
+	err = b.UpdateKernelCommandLineArgs(defaultGrubFileVarNameCmdlineForSELinux, selinuxArgNames, newSELinuxArgs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defaultGrubFileVarName,
 	argsToRemove []string, newArgs []string,
 ) error {
