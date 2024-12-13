@@ -383,20 +383,15 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		}
 	}
 
-	ukiEnabled := false
-	if ic.config.OS.Uki != nil {
-		ukiEnabled = true
-	}
-
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid, ukiEnabled)
+		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
 		if err != nil {
 			return err
 		}
 	}
 
-	if ukiEnabled {
+	if ic.config.OS.Uki != nil {
 		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
@@ -768,7 +763,7 @@ func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.
 }
 
 func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	buildImageFile string, partIdToPartUuid map[string]string, ukiEnabled bool,
+	buildImageFile string, partIdToPartUuid map[string]string,
 ) error {
 	var err error
 
@@ -839,21 +834,16 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, "grub2/grub.cfg")
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, GrubCfgDir)
 	if err != nil {
 		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	if ukiEnabled {
+	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions)
+		err = updateKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir)
 		if err != nil {
-			return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
-		}
-
-		err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
-		if err != nil {
-			return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
