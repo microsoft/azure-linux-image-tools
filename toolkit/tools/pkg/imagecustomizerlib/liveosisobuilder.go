@@ -80,7 +80,7 @@ const (
 	savedConfigsFileName     = "saved-configs.yaml"
 	savedConfigsFileNamePath = "/" + savedConfigsDir + "/" + savedConfigsFileName
 
-	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet "
+	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
 add_drivers+=" overlay "
 hostonly="no"
 `
@@ -105,17 +105,18 @@ type IsoWorkingDirs struct {
 // `IsoArtifacts` holds the extracted/generated artifacts necessary to build
 // a LiveOS ISO image.
 type IsoArtifacts struct {
-	kernelVersion        string
-	dracutPackageInfo    *DracutPackageInformation
-	bootx64EfiPath       string
-	grubx64EfiPath       string
-	isoGrubCfgPath       string
-	pxeGrubCfgPath       string
-	savedConfigsFilePath string
-	vmlinuzPath          string
-	initrdImagePath      string
-	squashfsImagePath    string
-	additionalFiles      map[string]string // local-build-path -> iso-media-path
+	kernelVersion            string
+	dracutPackageInfo        *PackageVersionInformation
+	selinuxPolicyPackageInfo *PackageVersionInformation
+	bootx64EfiPath           string
+	grubx64EfiPath           string
+	isoGrubCfgPath           string
+	pxeGrubCfgPath           string
+	savedConfigsFilePath     string
+	vmlinuzPath              string
+	initrdImagePath          string
+	squashfsImagePath        string
+	additionalFiles          map[string]string // local-build-path -> iso-media-path
 }
 
 type LiveOSIsoBuilder struct {
@@ -310,18 +311,26 @@ func (b *LiveOSIsoBuilder) prepareRootfsForDracut(writeableRootfsDir string) err
 //     kernel argument specified by the user in this run.
 //   - newPxeIsoImageUrl:
 //     PXE ISO image URL specified by the user in this run.
-//   - newOSDracutVersion:
-//     Dracut package version of the rootfs provided by the user.
+//   - newDracutPackageInfo:
+//     Dracut package version in the rootfs provided by the user.
+//   - requestedSelinuxMode:
+//     selinux mode as specified by the user.
+//   - newSELinuxPackageInfo:
+//     selinux-policy package version in the rootfs provided by the user.
 //
 // outputs:
 // - returns a SavedConfigs objects with the new merged values.
 func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
-	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *DracutPackageInformation) (updatedSavedConfigs *SavedConfigs, err error) {
+	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
+	requestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
+) (updatedSavedConfigs *SavedConfigs, err error) {
 	updatedSavedConfigs = &SavedConfigs{}
 	updatedSavedConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
 	updatedSavedConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
 	updatedSavedConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
 	updatedSavedConfigs.OS.DracutPackageInfo = newDracutPackageInfo
+	updatedSavedConfigs.OS.RequestedSELinuxMode = requestedSelinuxMode
+	updatedSavedConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
 
 	savedConfigs, err := loadSavedConfigs(savedConfigsFilePath)
 	if err != nil {
@@ -369,6 +378,12 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 		if newDracutPackageInfo == nil {
 			updatedSavedConfigs.OS.DracutPackageInfo = savedConfigs.OS.DracutPackageInfo
 		}
+		if requestedSelinuxMode != imagecustomizerapi.SELinuxModeDefault {
+			updatedSavedConfigs.OS.RequestedSELinuxMode = savedConfigs.OS.RequestedSELinuxMode
+		}
+		if newSELinuxPackageInfo == nil {
+			updatedSavedConfigs.OS.SELinuxPolicyPackageInfo = savedConfigs.OS.SELinuxPolicyPackageInfo
+		}
 	}
 
 	err = updatedSavedConfigs.persistSavedConfigs(savedConfigsFilePath)
@@ -380,7 +395,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 }
 
 func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
-	savedConfigs *SavedConfigs, outputImageBase string) error {
+	disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
 
 	inputContentString, err := file.Read(isoGrubCfgFileName)
 	if err != nil {
@@ -434,10 +449,12 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 	}
 
-	inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
-		true /*allowMultiple*/, false /*requireKernelOpts*/)
-	if err != nil {
-		return fmt.Errorf("failed to set SELinux mode:\n%w", err)
+	if disableSELinux {
+		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
+			true /*allowMultiple*/, false /*requireKernelOpts*/)
+		if err != nil {
+			return fmt.Errorf("failed to set SELinux mode:\n%w", err)
+		}
 	}
 
 	liveosKernelArgs := fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
@@ -762,6 +779,20 @@ func (b *LiveOSIsoBuilder) findKernelVersion(writeableRootfsDir string) error {
 	return nil
 }
 
+func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
+	bootCustomizer, err := NewBootCustomizer(imageChroot)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, err
+	}
+
+	imageSELinuxMode, err := bootCustomizer.GetSELinuxMode(imageChroot)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to get current SELinux mode:\n%w", err)
+	}
+
+	return imageSELinuxMode, nil
+}
+
 // prepareLiveOSDir
 //
 //	given a rootfs, this function:
@@ -781,6 +812,8 @@ func (b *LiveOSIsoBuilder) findKernelVersion(writeableRootfsDir string) error {
 //     The folder where the artifacts needed by isoMaker will be staged before
 //     'dracut' is run. 'dracut' will include this folder as-is and place it in
 //     the initrd image.
+//   - 'requestedSelinuxMode'
+//     requested selinux mode by the user (from os.selinux.mode).
 //   - 'extraCommandLine':
 //     extra kernel command line arguments to add to grub.
 //   - 'pxeIsoImageBaseUrl':
@@ -796,8 +829,8 @@ func (b *LiveOSIsoBuilder) findKernelVersion(writeableRootfsDir string) error {
 //   - customized writeableRootfsDir (new files, deleted files, etc)
 //   - extracted artifacts
 func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, writeableRootfsDir string,
-	isoMakerArtifactsStagingDir string, extraCommandLine []string, pxeIsoImageBaseUrl string,
-	pxeIsoImageFileUrl string, outputImageBase string) error {
+	isoMakerArtifactsStagingDir string, requestedSelinuxMode imagecustomizerapi.SELinuxMode, extraCommandLine []string,
+	pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
 
 	logger.Log.Debugf("Creating LiveOS squashfs image")
 
@@ -806,9 +839,35 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 		return err
 	}
 
-	b.artifacts.dracutPackageInfo, err = getDracutVersion(writeableRootfsDir)
+	chroot := safechroot.NewChroot(writeableRootfsDir, true /*isExistingDir*/)
+	if chroot == nil {
+		return fmt.Errorf("failed to create a new chroot object for %s.", writeableRootfsDir)
+	}
+	defer chroot.Close(true /*leaveOnDisk*/)
+
+	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
+	if err != nil {
+		return fmt.Errorf("failed to initialize chroot object for %s:\n%w", writeableRootfsDir, err)
+	}
+
+	imageSELinuxMode, err := getSELinuxMode(chroot)
 	if err != nil {
 		return err
+	}
+
+	b.artifacts.dracutPackageInfo, err = getPackageInformation(chroot, "dracut")
+	if err != nil {
+		return err
+	}
+
+	// Note the MIC allows the user to install other selinux policy packages.
+	// So, the absence of selinux-policy does not mean that there are no selinux
+	// policy packages.
+	if isPackageInstalled(chroot, "selinux-policy") {
+		b.artifacts.selinuxPolicyPackageInfo, err = getPackageInformation(chroot, "selinux-policy")
+		if err != nil {
+			return err
+		}
 	}
 
 	err = b.extractBootDirFiles(writeableRootfsDir)
@@ -827,13 +886,37 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 		}
 	}
 
+	// Combine the current state
 	updatedSavedConfigs, err := updateSavedConfigs(b.artifacts.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo)
+		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo, requestedSelinuxMode, b.artifacts.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
 
-	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, updatedSavedConfigs, outputImageBase)
+	// Figure out the selinux situation
+	// Note that by now, the user selinux config has been applied to the image,
+	// so checking only 'imageSELinuxMode' is sufficient to determine whether
+	// selinux is enabled or not for this image (regardless of the source of
+	// that configuration).
+	disableSELinux := false
+	if imageSELinuxMode != imagecustomizerapi.SELinuxModeDisabled {
+		// SELinux is enabled (either in the base image, or requested by the user)
+		err = verifyNoLiveOsSelinuxBlockers(updatedSavedConfigs.OS.DracutPackageInfo, updatedSavedConfigs.OS.SELinuxPolicyPackageInfo)
+		if err != nil {
+			// We need to determine whether the source of enablment is user
+			// explicit configuration or the base image.
+			if updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDisabled &&
+				updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDefault {
+				return fmt.Errorf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%w", err)
+			} else {
+				logger.Log.Warnf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%s", err)
+			}
+
+			disableSELinux = true
+		}
+	}
+
+	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, outputImageBase)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -876,7 +959,8 @@ func (b *LiveOSIsoBuilder) createSquashfsImage(writeableRootfsDir string) error 
 		}
 	}
 
-	mksquashfsParams := []string{writeableRootfsDir, squashfsImagePath}
+	// '-xattrs' allows SELinux labeling to be retained within the squashfs.
+	mksquashfsParams := []string{writeableRootfsDir, squashfsImagePath, "-xattrs"}
 	err = shell.ExecuteLive(false, "mksquashfs", mksquashfsParams...)
 	if err != nil {
 		return fmt.Errorf("failed to create squashfs:\n%w", err)
@@ -963,6 +1047,8 @@ func (b *LiveOSIsoBuilder) generateInitrdImage(rootfsSourceDir, artifactsSourceD
 //   - 'rawImageFile':
 //     path to an existing raw full disk image (i.e. image with boot
 //     partition and a rootfs partition).
+//   - 'requestedSelinuxMode'
+//     requested selinux mode by the user (from os.selinux.mode).
 //   - 'extraCommandLine':
 //     extra kernel command line arguments to add to grub.
 //   - 'pxeIsoImageBaseUrl':
@@ -979,9 +1065,8 @@ func (b *LiveOSIsoBuilder) generateInitrdImage(rootfsSourceDir, artifactsSourceD
 //     `LiveOSIsoBuilder.workingDirs.isoArtifactsDir` folder.
 //   - the paths to individual artifaces are found in the
 //     `LiveOSIsoBuilder.artifacts` data structure.
-func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePath string, rawImageFile string, extraCommandLine []string,
-	pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
-
+func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePath string, rawImageFile string, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+	extraCommandLine []string, pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
 	logger.Log.Infof("Preparing iso artifacts")
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
@@ -999,7 +1084,7 @@ func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePa
 
 	isoMakerArtifactsStagingDir := "/boot-staging"
 	err = b.prepareLiveOSDir(inputSavedConfigsFilePath, writeableRootfsDir, isoMakerArtifactsStagingDir,
-		extraCommandLine, pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
+		requestedSelinuxMode, extraCommandLine, pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
 	if err != nil {
 		return fmt.Errorf("failed to convert rootfs folder to a LiveOS folder:\n%w", err)
 	}
@@ -1217,8 +1302,9 @@ func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomi
 // outputs:
 //
 //	creates a LiveOS ISO image.
-func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *LiveOSIsoBuilder, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImageDir, outputImageBase string, outputPXEArtifactsDir string) (err error) {
+func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *LiveOSIsoBuilder, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImageDir, outputImageBase string,
+	outputPXEArtifactsDir string) (err error) {
 
 	additionalIsoFiles, extraCommandLine, err := micIsoConfigToIsoMakerConfig(baseConfigPath, isoConfig)
 	if err != nil {
@@ -1275,7 +1361,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 		inputSavedConfigsFilePath = inputIsoArtifacts.artifacts.savedConfigsFilePath
 	}
 
-	err = isoBuilder.prepareArtifactsFromFullImage(inputSavedConfigsFilePath, rawImageFile, extraCommandLine, pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
+	err = isoBuilder.prepareArtifactsFromFullImage(inputSavedConfigsFilePath, rawImageFile, requestedSelinuxMode, extraCommandLine,
+		pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
 	if err != nil {
 		return err
 	}
@@ -1557,8 +1644,13 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 		pxeIsoImageFileUrl = pxeConfig.IsoImageFileUrl
 	}
 
+	// Note that in this ISO build flow, there is no os configuration, and hence
+	// no selinux configuration. So, we will set it to default (i.e. unspecified)
+	// and let any saved data override if present.
+	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
+
 	updatedSavedConfigs, err := updateSavedConfigs(b.artifacts.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, b.artifacts.dracutPackageInfo)
+		pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -1567,8 +1659,16 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	b.artifacts.dracutPackageInfo = updatedSavedConfigs.OS.DracutPackageInfo
+	b.artifacts.selinuxPolicyPackageInfo = updatedSavedConfigs.OS.SELinuxPolicyPackageInfo
 
-	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, updatedSavedConfigs, outputImageBase)
+	// SELinux cannot be enabled/disabled in this flow since, by definition,
+	// the config os.selinux is not present. As a result, we will just keep
+	// SELinux configuration unchanged.
+	// Setting disableSELinux to false tells updateGrubCfg to, well, not disable
+	// selinux and not enable it either.
+	disableSELinux := false
+
+	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, outputImageBase)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
