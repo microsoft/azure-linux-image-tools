@@ -83,7 +83,8 @@ all: toolchain go-tools chroot-tools
 # its help will be displayed at the top of the help output.
 include $(SCRIPTS_DIR)/help.mk
 
-# Set the variables for build number
+# Set the variables for build number, distro tag, etc
+include $(SCRIPTS_DIR)/build_tag.mk
 include $(SCRIPTS_DIR)/build_tag_imagecustomizer.mk
 
 # go utilities with:
@@ -122,6 +123,11 @@ help:
 	@grep -h "^##help:var:" $(MAKEFILE_LIST) | sed -e "s/^##help:var:\([^:]\+\):\([^=]*\)=\(.*\)/\1|\2|\3/" | sort | awk -F'|' '{ printf("  \033[92;3m%s\033[0m=%s\n      %s\n\n", $$1, $$2, $$3) }'
 	@sed -ne '/@sed/!s/##help:example-heading://p' $(MAKEFILE_LIST)
 	@grep -h "^##help:example:" $(MAKEFILE_LIST) | sed -e "s/^##help:example:\(.*\)/  \1/"
+
+# Some common version information that is useful to gather. Generally should be run with the Make flag --quiet
+get-version: printvar-RELEASE_VERSION
+get-dist-tag: printvar-DIST_TAG
+get-release-major: printvar-RELEASE_MAJOR_ID
 
 # Make an easy way to print out the build variables. These must be the last entries in the makefile so that all other
 # files have their variables inluded
