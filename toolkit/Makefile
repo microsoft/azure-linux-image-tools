@@ -90,7 +90,6 @@ RESOURCES_DIR    ?= $(toolkit_root)/resources
 PROJECT_ROOT     ?= $(realpath $(toolkit_root)/..)
 BUILD_DIR        ?= $(PROJECT_ROOT)/build
 OUT_DIR          ?= $(PROJECT_ROOT)/out
-SPECS_DIR        ?= $(PROJECT_ROOT)/SPECS
 CCACHE_DIR       ?= $(PROJECT_ROOT)/ccache
 CCACHE_CONFIG    ?= $(RESOURCES_DIR)/manifests/package/ccache-configuration.json
 
@@ -188,12 +187,6 @@ all: toolchain go-tools chroot-tools
 # General help information used by 'help' target; this should be included first so
 # its help will be displayed at the top of the help output.
 include $(SCRIPTS_DIR)/help.mk
-
-# Set up for the timestamp feature
-include $(SCRIPTS_DIR)/timestamp.mk
-
-# Profiling & Tracing feature
-include $(SCRIPTS_DIR)/profile.mk
 
 # Set the variables for build number, distro tag, etc
 include $(SCRIPTS_DIR)/build_tag.mk
