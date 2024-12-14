@@ -15,7 +15,7 @@ step-by-step guide on how to run this container:
 Ensure that your configuration file (config.yaml) is ready and accessible. This
 file should define the customization parameters for the MIC tool. Details please
 see
-[configuration.md](https://github.com/microsoft/azurelinux/blob/3.0-dev/toolkit/tools/imagecustomizer/docs/configuration.md).
+[configuration.md](https://github.com/microsoft/azure-linux-image-tools/docs/configuration.md).
 
 ### Run the Container
 
