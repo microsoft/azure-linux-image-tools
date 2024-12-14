@@ -49,9 +49,6 @@ CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
 IMAGEGEN_DIR       ?= $(BUILD_DIR)/imagegen
 PROFILE_DIR        ?= $(BUILD_DIR)/profile
 
-META_USER_DATA_DIR ?= $(RESOURCES_DIR)/assets/meta-user-data
-SSH_KEY_FILE       ?=
-
 IMAGES_DIR      ?= $(OUT_DIR)/images
 
 ######## COMMON MAKEFILE UTILITIES ########
@@ -90,12 +87,6 @@ include $(SCRIPTS_DIR)/build_tag_imagecustomizer.mk
 # go utilities with:
 #   go-tools, clean-go-tools, go-tidy-all (tidy go utilities before committing) go-test-coverage
 include $(SCRIPTS_DIR)/tools.mk
-
-# chroot worker with:
-#   chroot-tools clean-chroot-tools
-# macro definitions with:
-#   macro-tools clean-macro-tools
-include $(SCRIPTS_DIR)/chroot.mk
 
 # Create images with:
 #   image, iso, clean-imagegen
