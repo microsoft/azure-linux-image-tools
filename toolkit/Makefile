@@ -11,39 +11,11 @@
 toolkit_root := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS_DIR  ?= $(toolkit_root)/scripts
 
-# Build targets
-##help:var:CONFIG_FILE:<config_path>=Path to image configuration file to use. Will add package dependencies and define final image generated.
-CONFIG_FILE             ?=
-CONFIG_BASE_DIR         ?= $(dir $(CONFIG_FILE))
-PACKAGE_BUILD_LIST      ?=
-##help:var:PACKAGE_REBUILD_LIST:<spec_list>=List of space-separated spec folders to force rebuild. Must not overlap with "PACKAGE_IGNORE_LIST". Example: PACKAGE_REBUILD_LIST="kernel go which".
-PACKAGE_REBUILD_LIST    ?=
-##help:var:PACKAGE_IGNORE_LIST:<spec_list>=List of space-separated spec folders to ignore during the build. Must not overlap with "PACKAGE_REBUILD_LIST", may overlap with "PACKAGE_BUILD_LIST". Example: PACKAGE_IGNORE_LIST="zlib".
-PACKAGE_IGNORE_LIST     ?=
-##help:var:SRPM_PACK_LIST:<spec_list>=List of space-separated spec folders inside "SPECS_DIR" to analyze for the build. If empty, all items inside the "SPECS_DIR" will be analyzed. Example: SRPM_PACK_LIST="kernel go which".
-SRPM_PACK_LIST          ?=
-##help:var:TEST_RUN_LIST:<spec_list>=List of space-separated spec folders to consider for package tests. Specs from the listed folders MUST contain the "%check" section. If empty, all testable items from "SRPM_PACK_LIST" will be considered. Will not re-test previously built packages. Example: TEST_RUN_LIST="libguestfs zlib".
-TEST_RUN_LIST           ?=
-##help:var:TEST_RERUN_LIST:<spec_list>=List of space-separated spec folders to force running a package test for. Specs from the listed folders MUST contain the "%check" section. Must not overlap with "TEST_IGNORE_LIST". Example: TEST_RERUN_LIST="libguestfs zlib".
-TEST_RERUN_LIST         ?=
-##help:var:TEST_IGNORE_LIST:<spec_list>=List of space-separated spec folders to ignore for package tests. Must not overlap with "TEST_RERUN_LIST", may overlap with "TEST_RUN_LIST". Example: TEST_IGNORE_LIST="acl".
-TEST_IGNORE_LIST        ?=
-
 ######## SET REMAINING FLAGS ########
 
-UPDATE_TOOLCHAIN_LIST                ?= n
-REBUILD_PACKAGES                     ?= y
-DOWNLOAD_SRPMS                       ?= n
-ALLOW_SRPM_DOWNLOAD_FAIL             ?= n
 RUN_CHECK                            ?= n
-USE_PREVIEW_REPO                     ?= n
-DISABLE_UPSTREAM_REPOS               ?= n
-DISABLE_DEFAULT_REPOS                ?= n
+
 ##help:var:REPO_SNAPSHOT_TIME:<posix_time>=Posix time to be used as a snapshot for remote repositories when fetching packages. Example: REPO_SNAPSHOT_TIME="1724119509".
-REPO_SNAPSHOT_TIME                   ?=
-TOOLCHAIN_CONTAINER_ARCHIVE          ?=
-TOOLCHAIN_ARCHIVE                    ?=
-TOOLCHAIN_SOURCES_ARCHIVE            ?=
 CACHE_DIR                            ?=
 PACKAGE_CACHE_SUMMARY                ?=
 IMAGE_CACHE_SUMMARY                  ?=
@@ -53,34 +25,10 @@ PACKAGE_BUILD_RETRIES                ?= 0
 CHECK_BUILD_RETRIES                  ?= 0
 EXTRA_BUILD_LAYERS                   ?= 0
 REFRESH_WORKER_CHROOT                ?= y
-# Set to 0 to use the number of logical CPUs.
-CONCURRENT_PACKAGE_BUILDS            ?= 0
-# Set to 0 to print all available results.
-NUM_OF_ANALYTICS_RESULTS             ?= 10
-CLEANUP_PACKAGE_BUILDS               ?= y
-USE_PACKAGE_BUILD_CACHE              ?= y
-REBUILD_DEP_CHAINS                   ?= y
-HYDRATED_BUILD                       ?= n
 TARGET_ARCH                          ?=
 ALLOW_TOOLCHAIN_REBUILDS             ?= n
-RESOLVE_CYCLES_FROM_UPSTREAM         ?= n
-IGNORE_VERSION_TO_RESOLVE_SELFDEP    ?= n
 CACHED_PACKAGES_ARCHIVE              ?=
 USE_CCACHE                           ?= n
-BUILD_TOOLS_NONPROD                  ?= n
-
-# Tracing & Profiling support: https://go.dev/doc/diagnostics
-ENABLE_CPU_PROFILE              ?= n
-ENABLE_MEM_PROFILE              ?= n
-ENABLE_TRACE                    ?= n
-
-# License checking tool
-##help:var:LICENSE_CHECK_DIRS:"<rpm_dir_1> <rpm_dir_2>"=Space separated list of directories to recursively validate with the manual 'license-check' target.
-LICENSE_CHECK_DIRS ?=
-LICENSE_CHECK_EXCEPTION_FILE ?= $(MANIFESTS_DIR)/package/license_file_exceptions.json
-LICENSE_CHECK_NAME_FILE      ?= $(MANIFESTS_DIR)/package/license_file_names.json
-##help:var:LICENSE_CHECK_MODE:{none,warn,fatal,pedantic}=Set the license check mode during package and image builds. 'none' will disable the license check, 'warn' will print warnings, 'fatal' will stop the build on errors, 'pedantic' will stop the build on warnings and errors.
-LICENSE_CHECK_MODE ?= none
 
 # Folder defines
 TOOLS_DIR        ?= $(toolkit_root)/tools
@@ -95,62 +43,16 @@ CCACHE_CONFIG    ?= $(RESOURCES_DIR)/manifests/package/ccache-configuration.json
 
 # Sub-folder defines
 LOGS_DIR           ?= $(BUILD_DIR)/logs
-PKGBUILD_DIR       ?= $(BUILD_DIR)/pkg_artifacts
 CACHED_RPMS_DIR    ?= $(BUILD_DIR)/rpm_cache
-REPO_QUERY_DIR     ?= $(BUILD_DIR)/repo_query
-BUILD_SRPMS_DIR    ?= $(BUILD_DIR)/INTERMEDIATE_SRPMS
-MACRO_DIR          ?= $(BUILD_DIR)/macros
-BUILD_SPECS_DIR    ?= $(BUILD_DIR)/INTERMEDIATE_SPECS
 STATUS_FLAGS_DIR   ?= $(BUILD_DIR)/make_status
 CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
 IMAGEGEN_DIR       ?= $(BUILD_DIR)/imagegen
-TOOLCHAIN_RPMS_DIR ?= $(BUILD_DIR)/toolchain_rpms
-TIMESTAMP_DIR      ?= $(BUILD_DIR)/timestamp
 PROFILE_DIR        ?= $(BUILD_DIR)/profile
 
-RPMRC_DIR        ?= $(MACRO_DIR)/usr/lib/rpm
-
-PKGGEN_DIR       ?= $(TOOLS_DIR)/pkggen
-TOOLKIT_BINS_DIR ?= $(TOOLS_DIR)/toolkit_bins
-
-MANIFESTS_DIR      ?= $(RESOURCES_DIR)/manifests
 META_USER_DATA_DIR ?= $(RESOURCES_DIR)/assets/meta-user-data
 SSH_KEY_FILE       ?=
 
-TOOLCHAIN_MANIFESTS_DIR      ?= $(MANIFESTS_DIR)/package
-
-RPMS_DIR        ?= $(OUT_DIR)/RPMS
-SRPMS_DIR       ?= $(OUT_DIR)/SRPMS
 IMAGES_DIR      ?= $(OUT_DIR)/images
-
-PRECACHER_SNAPSHOT   ?= $(rpms_snapshot)
-
-# External source server
-SOURCE_URL         ?= https://azurelinuxsrcstorage.blob.core.windows.net/sources/core
-
-# Note on order of precedence: When a variable is passed from the commandline (i.e., make PACKAGE_URL_LIST="my list"), append
-# assignments do not take affect without using 'override'. This means that all of the following PACKAGE_URL_LIST values will
-# be ignored if the user sets any value.
-##help:var:PACKAGE_URL_LIST:<urls_list>=Space-separated list of URLs to download toolchain RPM packages from, used to populate the toolchain packages if `REBUILD_TOOLCHAIN=n'. The URLs will replace the default set of URLs. Print default list with 'make -s printvar-PACKAGE_URL_LIST'.
-PACKAGE_URL_LIST   ?= https://packages.microsoft.com/azurelinux/$(RELEASE_MAJOR_ID)/prod/base/$(build_arch)
-PACKAGE_URL_LIST   += https://packages.microsoft.com/azurelinux/$(RELEASE_MAJOR_ID)/prod/base/debuginfo/$(build_arch)
-PACKAGE_URL_LIST   += https://packages.microsoft.com/azurelinux/$(RELEASE_MAJOR_ID)/prod/ms-oss/$(build_arch)
-REPO_LIST          ?=
-SRPM_URL_LIST      ?= https://packages.microsoft.com/azurelinux/$(RELEASE_MAJOR_ID)/prod/base/srpms
-
-##help:var:VALIDATE_TOOLCHAIN_GPG={y,n}=Enable or disable GPG validation of the toolchain RPMs. If enabled toolchain RPMs will be validated against the GPG keys in the TOOLCHAIN_GPG_VALIDATION_KEYS variable. On by default when using upstream toolchain RPMs.
-# Based on REBUILD_TOOLCHAIN and DAILY_BUILD_ID. If REBUILD_TOOLCHAIN is set to 'y' or DAILY_BUILD_ID is set to any non-empty value, then GPG validation is disabled by default.
-ifeq ($(REBUILD_TOOLCHAIN),y)
-VALIDATE_TOOLCHAIN_GPG ?= n
-else
-ifneq ($(DAILY_BUILD_ID),)
-VALIDATE_TOOLCHAIN_GPG ?= n
-else
-VALIDATE_TOOLCHAIN_GPG ?= y
-endif
-endif
-
-TOOLCHAIN_GPG_VALIDATION_KEYS ?= $(wildcard $(PROJECT_ROOT)/SPECS/azurelinux-repos/MICROSOFT-*-GPG-KEY) $(wildcard $(toolkit_root)/repos/MICROSOFT-*-GPG-KEY)
 
 ######## COMMON MAKEFILE UTILITIES ########
 
@@ -159,13 +61,6 @@ TOOLCHAIN_GPG_VALIDATION_KEYS ?= $(wildcard $(PROJECT_ROOT)/SPECS/azurelinux-rep
 include $(SCRIPTS_DIR)/utils.mk
 
 ######## REMAINING BUILD FLAGS ########
-
-# Daily build ID and repo configuration
-include $(SCRIPTS_DIR)/daily_build.mk
-
-CA_CERT     ?=
-TLS_CERT    ?=
-TLS_KEY     ?=
 
 ##help:var:LOG_LEVEL:{panic,fatal,error,warn,info,debug,trace}=Set logging level for toolkit.
 # panic,fatal,error,warn,info,debug,trace
@@ -188,16 +83,12 @@ all: toolchain go-tools chroot-tools
 # its help will be displayed at the top of the help output.
 include $(SCRIPTS_DIR)/help.mk
 
-# Set the variables for build number, distro tag, etc
-include $(SCRIPTS_DIR)/build_tag.mk
+# Set the variables for build number
 include $(SCRIPTS_DIR)/build_tag_imagecustomizer.mk
 
 # go utilities with:
 #   go-tools, clean-go-tools, go-tidy-all (tidy go utilities before committing) go-test-coverage
 include $(SCRIPTS_DIR)/tools.mk
-
-# Based on daily build configuration, configure testing repos
-include $(SCRIPTS_DIR)/preview.mk
 
 # chroot worker with:
 #   chroot-tools clean-chroot-tools
@@ -231,11 +122,6 @@ help:
 	@grep -h "^##help:var:" $(MAKEFILE_LIST) | sed -e "s/^##help:var:\([^:]\+\):\([^=]*\)=\(.*\)/\1|\2|\3/" | sort | awk -F'|' '{ printf("  \033[92;3m%s\033[0m=%s\n      %s\n\n", $$1, $$2, $$3) }'
 	@sed -ne '/@sed/!s/##help:example-heading://p' $(MAKEFILE_LIST)
 	@grep -h "^##help:example:" $(MAKEFILE_LIST) | sed -e "s/^##help:example:\(.*\)/  \1/"
-
-# Some common version information that is useful to gather. Generally should be run with the Make flag --quiet
-get-version: printvar-RELEASE_VERSION
-get-dist-tag: printvar-DIST_TAG
-get-release-major: printvar-RELEASE_MAJOR_ID
 
 # Make an easy way to print out the build variables. These must be the last entries in the makefile so that all other
 # files have their variables inluded
