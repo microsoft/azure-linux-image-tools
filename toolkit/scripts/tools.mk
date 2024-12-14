@@ -34,10 +34,6 @@ go_tool_list = \
 	containercheck \
 	depsearch \
 	downloader \
-	grapher \
-	graphpkgfetcher \
-	graphanalytics \
-	graphPreprocessor \
 	imageconfigvalidator \
 	imagecustomizer \
 	imagepkgfetcher \
@@ -50,11 +46,7 @@ go_tool_list = \
 	precacher \
 	repoquerywrapper \
 	roast \
-	rpmssnapshot \
 	scheduler \
-	specarchchecker \
-	specreader \
-	srpmpacker \
 	validatechroot \
 
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"

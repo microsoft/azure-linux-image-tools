@@ -29,12 +29,6 @@ TEST_RERUN_LIST         ?=
 ##help:var:TEST_IGNORE_LIST:<spec_list>=List of space-separated spec folders to ignore for package tests. Must not overlap with "TEST_RERUN_LIST", may overlap with "TEST_RUN_LIST". Example: TEST_IGNORE_LIST="acl".
 TEST_IGNORE_LIST        ?=
 
-######## SET INCREMENTAL BUILD FLAGS ########
-
-# Logic to auto configure build options for optimized builds
-# These will set the default values for: REBUILD_TOOLS, MAX_CPU, REBUILD_TOOLCHAIN, DELTA_BUILD, INCREMENTAL_TOOLCHAIN, ALLOW_TOOLCHAIN_DOWNLOAD_FAIL, and CLEAN_TOOLCHAIN_CONTAINERS
-include $(SCRIPTS_DIR)/incremental_building.mk
-
 ######## SET REMAINING FLAGS ########
 
 UPDATE_TOOLCHAIN_LIST                ?= n
@@ -213,29 +207,17 @@ include $(SCRIPTS_DIR)/tools.mk
 include $(SCRIPTS_DIR)/preview.mk
 
 # Dynamically update toolchain and chroot manifests for some flows with:
-include $(SCRIPTS_DIR)/manifests.mk
+# include $(SCRIPTS_DIR)/manifests.mk
 
 # Bootstrap the toolchain's compilers and other tools with:
 #   toolchain, raw-toolchain, clean-toolchain, check-manifests, check-x86_64-manifests, check-aarch64-manifests
-include $(SCRIPTS_DIR)/toolchain.mk
+# include $(SCRIPTS_DIR)/toolchain.mk
 
 # chroot worker with:
 #   chroot-tools clean-chroot-tools
 # macro definitions with:
 #   macro-tools clean-macro-tools
 include $(SCRIPTS_DIR)/chroot.mk
-
-# Create SRPMS from local SPECS with:
-#   input-srpms, clean-input-srpms
-include $(SCRIPTS_DIR)/srpm_pack.mk
-
-# Create local build env for building RPMs with:
-#   containerized-rpmbuild containerized-rpmbuild-help
-include $(SCRIPTS_DIR)/containerized-build.mk
-
-# Expand local SRPMS into sources and SPECS with:
-#   expand-specs clean-expand-specs
-include $(SCRIPTS_DIR)/srpm_expand.mk
 
 # Create self contained toolkit archive contianing all the required tools with:
 #   package-toolkit, clean-package-toolkit
@@ -260,14 +242,6 @@ include $(SCRIPTS_DIR)/pkggen.mk
 # Create images with:
 #   image, iso, clean-imagegen
 include $(SCRIPTS_DIR)/imggen.mk
-
-# Add make targets for sodiff to determine if additional packages are required to be recompiled:
-#  sodiff-check, sodiff-setup
-# Get build info with:
-#  build-summary, build-package-summary, fake-built-packages-list
-# Validate rpm licenses with:
-#  license-check, license-check-img, clean-license-check
-include $(SCRIPTS_DIR)/analysis.mk
 
 ##help:target:clean=Clean all built files.
 # Each component provides specific clean implementations which clean depends on.
