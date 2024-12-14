@@ -206,22 +206,11 @@ include $(SCRIPTS_DIR)/tools.mk
 # Based on daily build configuration, configure testing repos
 include $(SCRIPTS_DIR)/preview.mk
 
-# Dynamically update toolchain and chroot manifests for some flows with:
-# include $(SCRIPTS_DIR)/manifests.mk
-
-# Bootstrap the toolchain's compilers and other tools with:
-#   toolchain, raw-toolchain, clean-toolchain, check-manifests, check-x86_64-manifests, check-aarch64-manifests
-# include $(SCRIPTS_DIR)/toolchain.mk
-
 # chroot worker with:
 #   chroot-tools clean-chroot-tools
 # macro definitions with:
 #   macro-tools clean-macro-tools
 include $(SCRIPTS_DIR)/chroot.mk
-
-# Create self contained toolkit archive contianing all the required tools with:
-#   package-toolkit, clean-package-toolkit
-include $(SCRIPTS_DIR)/toolkit.mk
 
 # Fill the cache with rpms from the package server without using package manager or chroot with:
 #   pre-cache
