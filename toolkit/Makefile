@@ -212,22 +212,6 @@ include $(SCRIPTS_DIR)/preview.mk
 #   macro-tools clean-macro-tools
 include $(SCRIPTS_DIR)/chroot.mk
 
-# Fill the cache with rpms from the package server without using package manager or chroot with:
-#   pre-cache
-include $(SCRIPTS_DIR)/precache.mk
-
-# Run repo query under chroot with:
-# repo-query
-include $(SCRIPTS_DIR)/repoquerywrapper.mk
-
-# Create a package build workplan with:
-#   workplan, clean-workplan clean-cache
-# Build a package with:
-#   build-packages clean-build-packages
-# Either create or consume compressed folders of rpms with:
-#   hydrate-rpms, compress-rpms, clean-compress-rpms, compress-srpms, clean-compress-srpms
-include $(SCRIPTS_DIR)/pkggen.mk
-
 # Create images with:
 #   image, iso, clean-imagegen
 include $(SCRIPTS_DIR)/imggen.mk
