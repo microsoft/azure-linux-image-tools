@@ -280,25 +280,10 @@ func TestOSInvalidUkiInvalidKernels(t *testing.T) {
 	}
 
 	err := os.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid uki")
 	assert.ErrorContains(t, err, "invalid uki kernels")
-	assert.ErrorContains(t, err, "invalid kernel version at index 0")
-}
-
-func TestOSInvalidUkiMissingResetType(t *testing.T) {
-	os := OS{
-		BootLoader: BootLoader{
-			ResetType: ResetBootLoaderTypeDefault,
-		},
-		Uki: &Uki{
-			Kernels: UkiKernels{
-				Auto:    false,
-				Kernels: []string{"6.6.51.1-5.azl3"},
-			},
-		},
-	}
-
-	err := os.IsValid()
-	assert.ErrorContains(t, err, "'os.bootloader.reset' must be 'hard-reset' when 'os.uki' is enabled")
+	assert.ErrorContains(t, err, "kernel version at index 0 - invalid-kernel-version - does not match the expected format")
 }
 
 func TestOSInvalidUkiEmptyKernels(t *testing.T) {

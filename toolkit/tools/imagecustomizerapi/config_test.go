@@ -147,9 +147,6 @@ func TestConfigIsValidMissingBootLoaderReset(t *testing.T) {
 
 func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
 	config := &Config{
-		Storage: Storage{
-			BootType: "efi",
-		},
 		OS: &OS{
 			BootLoader: BootLoader{
 				ResetType: "hard-reset",
@@ -170,9 +167,6 @@ func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
 
 func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 	config := &Config{
-		Storage: Storage{
-			BootType: "efi",
-		},
 		OS: &OS{
 			BootLoader: BootLoader{
 				ResetType: "hard-reset",
@@ -194,9 +188,6 @@ func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 
 func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
 	config := &Config{
-		Storage: Storage{
-			BootType: "efi",
-		},
 		OS: &OS{
 			Uki: &Uki{
 				Kernels: UkiKernels{
@@ -227,7 +218,7 @@ func TestConfigIsValidWithInvalidBootType(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid 'bootType'")
+	assert.ErrorContains(t, err, "invalid bootType value (invalid-boot-type)")
 }
 
 func TestConfigIsValidResetUuidsMissingBootLoaderReset(t *testing.T) {

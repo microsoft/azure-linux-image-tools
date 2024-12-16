@@ -11,7 +11,7 @@ import (
 )
 
 func TestUkiKernelsUnmarshalYAML_Auto(t *testing.T) {
-	yamlContent := `kernels: auto`
+	yamlContent := `kernels: "auto"`
 
 	var kernels UkiKernels
 	err := yaml.Unmarshal([]byte(yamlContent), &kernels)
@@ -23,8 +23,8 @@ func TestUkiKernelsUnmarshalYAML_Auto(t *testing.T) {
 func TestUkiKernelsUnmarshalYAML_List(t *testing.T) {
 	yamlContent := `
 kernels:
-  - 6.6.51.1-5.azl3
-  - 5.10.120-4.custom
+  - "6.6.51.1-5.azl3"
+  - "5.10.120-4.custom"
 `
 
 	var kernels UkiKernels
@@ -40,7 +40,7 @@ func TestUkiKernelsUnmarshalYAML_Invalid(t *testing.T) {
 	var kernels UkiKernels
 	err := yaml.Unmarshal([]byte(yamlContent), &kernels)
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid value for 'kernels': expected 'auto' or a list of kernel names")
+	assert.ErrorContains(t, err, "invalid YAML structure for 'kernels': must be either 'auto' or a list of kernel names")
 }
 
 func TestUkiKernelsIsValid_EmptyList(t *testing.T) {
