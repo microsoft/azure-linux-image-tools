@@ -271,7 +271,7 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 	return nil
 }
 
-func updateKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string,
+func updateUkiKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string,
 	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
 	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions)

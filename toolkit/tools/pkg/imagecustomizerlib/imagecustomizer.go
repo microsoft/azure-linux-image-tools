@@ -841,7 +841,7 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir)
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}

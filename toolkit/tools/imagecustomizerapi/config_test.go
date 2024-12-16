@@ -136,7 +136,95 @@ func TestConfigIsValidMissingBootLoaderReset(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.resetBootLoaderType' must be specified if 'storage.disks' is specified")
+	assert.ErrorContains(t, err, "'os.bootloader.reset' must be specified if 'storage.disks' is specified")
+}
+
+func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			BootType: "efi",
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+			Uki: &Uki{
+				Kernels: UkiKernels{
+					Auto:    false,
+					Kernels: []string{"6.6.51.1-5.azl3"},
+				},
+			},
+		},
+		PreviewFeatures: []string{"uki"},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			BootType: "efi",
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+			Uki: &Uki{
+				Kernels: UkiKernels{
+					Auto:    false,
+					Kernels: []string{"6.6.51.1-5.azl3"},
+				},
+			},
+		},
+		PreviewFeatures: []string{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'uki' preview feature must be enabled to use 'os.uki'")
+}
+
+func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			BootType: "efi",
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeDefault, // Not hard-reset
+			},
+			Uki: &Uki{
+				Kernels: UkiKernels{
+					Auto:    true,
+					Kernels: nil,
+				},
+			},
+		},
+		PreviewFeatures: []string{"uki"},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "'os.bootloader.reset' must be 'hard-reset' when 'os.uki' is enabled")
+}
+
+func TestConfigIsValidWithInvalidBootType(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			BootType: "invalid-boot-type",
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'bootType'")
 }
 
 func TestConfigIsValidResetUuidsMissingBootLoaderReset(t *testing.T) {
@@ -151,7 +239,7 @@ func TestConfigIsValidResetUuidsMissingBootLoaderReset(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.resetBootLoaderType' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+	assert.ErrorContains(t, err, "'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
 }
 
 func TestConfigIsValidMultipleDisks(t *testing.T) {
