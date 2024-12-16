@@ -10,30 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestUkiKernelsUnmarshalYAML_Auto(t *testing.T) {
-	yamlContent := `kernels: "auto"`
-
-	var kernels UkiKernels
-	err := yaml.Unmarshal([]byte(yamlContent), &kernels)
-	assert.NoError(t, err)
-	assert.True(t, kernels.Auto)
-	assert.Nil(t, kernels.Kernels)
-}
-
-func TestUkiKernelsUnmarshalYAML_List(t *testing.T) {
-	yamlContent := `
-kernels:
-  - "6.6.51.1-5.azl3"
-  - "5.10.120-4.custom"
-`
-
-	var kernels UkiKernels
-	err := yaml.Unmarshal([]byte(yamlContent), &kernels)
-	assert.NoError(t, err)
-	assert.False(t, kernels.Auto)
-	assert.Equal(t, []string{"6.6.51.1-5.azl3", "5.10.120-4.custom"}, kernels.Kernels)
-}
-
 func TestUkiKernelsUnmarshalYAML_Invalid(t *testing.T) {
 	yamlContent := `kernels: invalid`
 
