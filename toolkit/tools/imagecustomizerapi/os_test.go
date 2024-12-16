@@ -55,7 +55,9 @@ func TestOSIsValidInvalidAdditionalFilesContent(t *testing.T) {
 
 func TestOSIsValidInvalidResetBootLoaderType(t *testing.T) {
 	os := OS{
-		ResetBootLoaderType: "bad",
+		BootLoader: BootLoader{
+			ResetType: "bad",
+		},
 	}
 
 	err := os.IsValid()
