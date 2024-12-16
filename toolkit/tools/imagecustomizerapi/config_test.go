@@ -37,8 +37,10 @@ func TestConfigIsValid(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 		Scripts: Scripts{},
 		Iso:     &Iso{},
@@ -70,8 +72,10 @@ func TestConfigIsValidLegacy(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -94,8 +98,10 @@ func TestConfigIsValidNoBootType(t *testing.T) {
 			}},
 		},
 		OS: &OS{
-			Hostname:            "test",
-			ResetBootLoaderType: "hard-reset",
+			Hostname: "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
 		},
 	}
 
@@ -146,7 +152,7 @@ func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
 		},
 		OS: &OS{
 			BootLoader: BootLoader{
-				ResetType: ResetBootLoaderTypeHard,
+				ResetType: "hard-reset",
 			},
 			Uki: &Uki{
 				Kernels: UkiKernels{
@@ -169,7 +175,7 @@ func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 		},
 		OS: &OS{
 			BootLoader: BootLoader{
-				ResetType: ResetBootLoaderTypeHard,
+				ResetType: "hard-reset",
 			},
 			Uki: &Uki{
 				Kernels: UkiKernels{
@@ -192,9 +198,6 @@ func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
 			BootType: "efi",
 		},
 		OS: &OS{
-			BootLoader: BootLoader{
-				ResetType: ResetBootLoaderTypeDefault, // Not hard-reset
-			},
 			Uki: &Uki{
 				Kernels: UkiKernels{
 					Auto:    true,
@@ -217,7 +220,7 @@ func TestConfigIsValidWithInvalidBootType(t *testing.T) {
 		},
 		OS: &OS{
 			BootLoader: BootLoader{
-				ResetType: ResetBootLoaderTypeHard,
+				ResetType: "hard-reset",
 			},
 		},
 	}
@@ -258,8 +261,10 @@ func TestConfigIsValidMultipleDisks(t *testing.T) {
 			BootType: "legacy",
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -327,8 +332,10 @@ func TestConfigIsValidMissingEsp(t *testing.T) {
 			BootType: "efi",
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -348,8 +355,10 @@ func TestConfigIsValidMissingBiosBoot(t *testing.T) {
 			BootType: "legacy",
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -384,8 +393,10 @@ func TestConfigIsValidInvalidMountPoint(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -422,8 +433,10 @@ func TestConfigIsValidKernelCLI(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 
 			KernelCommandLine: KernelCommandLine{
 				ExtraCommandLine: []string{
@@ -522,7 +535,9 @@ func TestConfigIsValidVerityValid(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
 		},
 	}
 	err := config.IsValid()
@@ -586,7 +601,9 @@ func TestConfigIsValidVerityPartitionNotFound(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
 		},
 	}
 	err := config.IsValid()
