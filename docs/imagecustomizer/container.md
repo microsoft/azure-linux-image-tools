@@ -15,7 +15,7 @@ step-by-step guide on how to run this container:
 Ensure that your configuration file (config.yaml) is ready and accessible. This
 file should define the customization parameters for the MIC tool. Details please
 see
-[configuration.md](https://github.com/microsoft/azure-linux-image-tools/docs/configuration.md).
+[configuration.md](./configuration.md).
 
 ### Run the Container
 
@@ -38,12 +38,12 @@ docker run --rm --privileged=true \
    --output-image-file /image/customized.raw
 ```
 
-Alternatively, you can use the [run.sh](https://github.com/microsoft/azurelinux/blob/3.0-dev/toolkit/tools/imagecustomizer/container/test-mic-container.sh)
+Alternatively, you can use the [run.sh](../../toolkit/tools/imagecustomizer/container/test-mic-container.sh)
 script on the container which runs `imagecustomizer` with a base image downloaded from MCR.
 
 Usage: ``` run.sh $version_tag ```
 
-For a complete usage example, refer to [test-mic-container.sh](https://github.com/microsoft/azurelinux/blob/3.0-dev/toolkit/tools/imagecustomizer/container/test-mic-container.sh).
+For a complete usage example, refer to [test-mic-container.sh](../../toolkit/tools/imagecustomizer/container/test-mic-container.sh).
 
 ### Check the Output
 
