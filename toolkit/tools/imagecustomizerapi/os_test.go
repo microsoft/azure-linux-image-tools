@@ -55,7 +55,9 @@ func TestOSIsValidInvalidAdditionalFilesContent(t *testing.T) {
 
 func TestOSIsValidInvalidResetBootLoaderType(t *testing.T) {
 	os := OS{
-		ResetBootLoaderType: "bad",
+		BootLoader: BootLoader{
+			ResetType: "bad",
+		},
 	}
 
 	err := os.IsValid()
@@ -225,4 +227,74 @@ func TestOSIsValidInvalidKernelCommandLine(t *testing.T) {
 
 	err := os.IsValid()
 	assert.ErrorContains(t, err, "invalid kernelCommandLine")
+}
+
+func TestOSValidWithUki(t *testing.T) {
+	os := OS{
+		BootLoader: BootLoader{
+			ResetType: ResetBootLoaderTypeHard,
+		},
+		Uki: &Uki{
+			Kernels: UkiKernels{
+				Auto:    false,
+				Kernels: []string{"6.6.51.1-5.azl3"},
+			},
+		},
+	}
+
+	err := os.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestOSValidUkiAutoMode(t *testing.T) {
+	os := OS{
+		BootLoader: BootLoader{
+			ResetType: ResetBootLoaderTypeHard,
+		},
+		Uki: &Uki{
+			Kernels: UkiKernels{
+				Auto: true,
+			},
+		},
+	}
+
+	err := os.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestOSInvalidUkiInvalidKernels(t *testing.T) {
+	os := OS{
+		BootLoader: BootLoader{
+			ResetType: ResetBootLoaderTypeHard,
+		},
+		Uki: &Uki{
+			Kernels: UkiKernels{
+				Auto:    false,
+				Kernels: []string{"invalid-kernel-version"},
+			},
+		},
+	}
+
+	err := os.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid uki")
+	assert.ErrorContains(t, err, "invalid uki kernels")
+	assert.ErrorContains(t, err, "kernel version at index 0 - invalid-kernel-version - does not match the expected format")
+}
+
+func TestOSInvalidUkiEmptyKernels(t *testing.T) {
+	os := OS{
+		BootLoader: BootLoader{
+			ResetType: ResetBootLoaderTypeHard,
+		},
+		Uki: &Uki{
+			Kernels: UkiKernels{
+				Auto:    false,
+				Kernels: []string{},
+			},
+		},
+	}
+
+	err := os.IsValid()
+	assert.ErrorContains(t, err, "must specify either 'auto' or a non-empty list of kernel names")
 }
