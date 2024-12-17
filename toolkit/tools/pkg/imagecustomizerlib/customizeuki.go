@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	BootDir            = "boot"
-	DefaultGrubCfgPath = "grub2/grub.cfg"
-	KernelCmdlineArgs  = "kernel-cmdline-args"
-	KernelPrefix       = "vmlinuz-"
-	UkiBuildDir        = "UkiBuildDir"
-	UkiOutputDir       = "EFI/Linux"
+	BootDir               = "boot"
+	DefaultGrubCfgPath    = "grub2/grub.cfg"
+	KernelCmdlineArgsJson = "kernel-cmdline-args.json"
+	KernelPrefix          = "vmlinuz-"
+	UkiBuildDir           = "UkiBuildDir"
+	UkiOutputDir          = "EFI/Linux"
 )
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
@@ -107,7 +107,7 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	}
 
 	// Dump kernel command line arguments to a file in buildDir.
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgs+".json")
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 	err = writeKernelCmdlineArgsFile(cmdlineFilePath, kernelToArgs)
 	if err != nil {
 		return fmt.Errorf("failed to write kernel cmdline args JSON to (%s):\n%w", cmdlineFilePath, err)
@@ -306,7 +306,7 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
 	stubPath := filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub")
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgs+".json")
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
 	// Get mapped kernels and initramfs.
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootPartitionTmpDir, uki.Kernels)
@@ -485,7 +485,7 @@ func cleanupBootPartition(bootPartitionTmpDir string) error {
 }
 
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgs+".json")
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
 	kernelToArgs, err := readKernelCmdlineArgsFile(cmdlineFilePath)
 	if err != nil {

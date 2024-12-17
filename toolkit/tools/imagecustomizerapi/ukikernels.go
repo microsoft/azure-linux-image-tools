@@ -52,22 +52,22 @@ func (u *UkiKernels) IsValid() error {
 	}
 
 	for i, kernel := range u.Kernels {
-		if err := ukiKernelVersionIsValid(kernel, i); err != nil {
-			return err
+		if err := ukiKernelVersionIsValid(kernel); err != nil {
+			return fmt.Errorf("invalid kernel version at index %d:\n%s", i, err.Error())
 		}
 	}
 
 	return nil
 }
 
-func ukiKernelVersionIsValid(kernel string, index int) error {
+func ukiKernelVersionIsValid(kernel string) error {
 	if kernel == "" {
-		return fmt.Errorf("invalid kernel version at index %d:\nempty kernel name", index)
+		return fmt.Errorf("empty kernel name")
 	}
 
 	versionRegex := regexp.MustCompile(`^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`)
 	if !versionRegex.MatchString(kernel) {
-		return fmt.Errorf("invalid kernel version at index %d:\ninvalid kernel version format (%s)", index, kernel)
+		return fmt.Errorf("invalid kernel version format (%s)", kernel)
 	}
 
 	return nil
