@@ -834,7 +834,7 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, GrubCfgDir)
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}

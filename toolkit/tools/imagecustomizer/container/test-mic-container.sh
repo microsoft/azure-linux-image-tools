@@ -30,7 +30,7 @@ docker run --rm \
     -v /dev:/dev \
     "$containerTag" \
     /usr/local/bin/run.sh \
-        "3.0.latest" \
+        "2.0.latest" \
         --config-file "$containerInputConfig" \
         --build-dir "$containerBuildDir" \
         --output-image-format "vhdx" \

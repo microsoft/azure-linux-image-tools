@@ -278,8 +278,8 @@ func TestOSInvalidUkiInvalidKernels(t *testing.T) {
 	err := os.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid uki")
-	assert.ErrorContains(t, err, "invalid uki kernels")
-	assert.ErrorContains(t, err, "kernel version at index 0 - invalid-kernel-version - does not match the expected format")
+	assert.ErrorContains(t, err, "invalid kernel version at index 0:")
+	assert.ErrorContains(t, err, "invalid kernel version format (invalid-kernel-version)")
 }
 
 func TestOSInvalidUkiEmptyKernels(t *testing.T) {

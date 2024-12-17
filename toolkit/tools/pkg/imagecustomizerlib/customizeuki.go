@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	BootDir           = "boot"
-	GrubCfgDir        = "grub2/grub.cfg"
-	KernelCmdlineArgs = "kernel-cmdline-args"
-	KernelPrefix      = "vmlinuz-"
-	UkiBuildDir       = "UkiBuildDir"
-	UkiOutputDir      = "EFI/Linux"
+	BootDir            = "boot"
+	DefaultGrubCfgPath = "grub2/grub.cfg"
+	KernelCmdlineArgs  = "kernel-cmdline-args"
+	KernelPrefix       = "vmlinuz-"
+	UkiBuildDir        = "UkiBuildDir"
+	UkiOutputDir       = "EFI/Linux"
 )
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
@@ -68,6 +68,7 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	//        - Copies /usr/lib/systemd/boot/efi/systemd-bootx64.efi to /boot/efi/EFI/BOOT/BOOTX64.EFI
 	//          (This second location serves as the fallback bootloader entry, adhering to UEFI conventions.)
 	//   3. Writes a random seed to /boot/efi/loader/random-seed. This is used by the bootloader to initialize randomness.
+	//      This file is removed below to avoid initializing the same seed in all instances.
 	//
 	// The "--no-variables" flag ensures that the command does not modify UEFI NVRAM boot variables. Instead, it relies
 	// on the bootloader binaries being present in the ESP for booting.
@@ -78,11 +79,18 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 		return fmt.Errorf("failed to install systemd-boot:\n%w", err)
 	}
 
+	// The "--random-seed=no" flag is preferred to disable this behavior, but it requires systemd version 257 or later.
+	// Since AZL 3.0 uses version 255, we manually remove the random-seed file here for now.
+	randomSeedPath := filepath.Join(imageChroot.RootDir(), "/boot/efi/loader/random-seed")
+	if err := file.RemoveFileIfExists(randomSeedPath); err != nil {
+		return fmt.Errorf("failed to remove random-seed file (%s):\n%w", randomSeedPath, err)
+	}
+
 	// Map kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir, uki.Kernels)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get kernel to initramfs map:\n%w", err)
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
@@ -92,7 +100,7 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	}
 
 	// Extract kernel command line arguments from grub.cfg.
-	grubCfgPath := filepath.Join(bootDir, GrubCfgDir)
+	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err)

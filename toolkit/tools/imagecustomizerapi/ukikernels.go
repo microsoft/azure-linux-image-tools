@@ -44,23 +44,30 @@ func (u *UkiKernels) UnmarshalYAML(value *yaml.Node) error {
 
 func (u *UkiKernels) IsValid() error {
 	if u.Auto && len(u.Kernels) > 0 {
-		return fmt.Errorf("invalid uki kernels: 'auto' cannot coexist with a list of kernel names")
+		return fmt.Errorf("'auto' cannot coexist with a list of kernel names")
 	}
 
 	if !u.Auto && len(u.Kernels) == 0 {
-		return fmt.Errorf("invalid uki kernels: must specify either 'auto' or a non-empty list of kernel names")
+		return fmt.Errorf("must specify either 'auto' or a non-empty list of kernel names")
 	}
 
-	// Define a regex to validate kernel version strings. (e.g. 6.6.51.1-5)
-	versionRegex := regexp.MustCompile(`^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`)
-
 	for i, kernel := range u.Kernels {
-		if kernel == "" {
-			return fmt.Errorf("invalid uki kernels: kernel name at index %d is empty", i)
+		if err := ukiKernelVersionIsValid(kernel, i); err != nil {
+			return err
 		}
-		if !versionRegex.MatchString(kernel) {
-			return fmt.Errorf("invalid uki kernels: kernel version at index %d - %s - does not match the expected format", i, kernel)
-		}
+	}
+
+	return nil
+}
+
+func ukiKernelVersionIsValid(kernel string, index int) error {
+	if kernel == "" {
+		return fmt.Errorf("invalid kernel version at index %d:\nempty kernel name", index)
+	}
+
+	versionRegex := regexp.MustCompile(`^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`)
+	if !versionRegex.MatchString(kernel) {
+		return fmt.Errorf("invalid kernel version at index %d:\ninvalid kernel version format (%s)", index, kernel)
 	}
 
 	return nil

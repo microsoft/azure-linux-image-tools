@@ -49,5 +49,6 @@ func TestUkiKernelsIsValidInvalidKernelList(t *testing.T) {
 
 	err := invalidUki.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid uki kernels: kernel version at index 1 - invalid-kernel-version")
+	assert.ErrorContains(t, err, "invalid kernel version at index 1:")
+	assert.ErrorContains(t, err, "invalid kernel version format (invalid-kernel-version)")
 }
