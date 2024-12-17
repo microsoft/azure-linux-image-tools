@@ -4,6 +4,7 @@
 package imagecustomizerapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -27,6 +28,28 @@ func (s *DiskSize) UnmarshalYAML(value *yaml.Node) error {
 
 	var stringValue string
 	err = value.Decode(&stringValue)
+	if err != nil {
+		return fmt.Errorf("failed to parse disk size:\n%w", err)
+	}
+
+	diskSize, err := parseDiskSize(stringValue)
+	if err != nil {
+		return fmt.Errorf("%w:\nexpected format: <NUM>(K|M|G|T) (e.g. 100M, 1G)", err)
+	}
+
+	*s = diskSize
+	return nil
+}
+
+func (s DiskSize) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+func (s *DiskSize) UnmarshalJSON(data []byte) error {
+	var err error
+
+	var stringValue string
+	err = json.Unmarshal(data, &stringValue)
 	if err != nil {
 		return fmt.Errorf("failed to parse disk size:\n%w", err)
 	}
