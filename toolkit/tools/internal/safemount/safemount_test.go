@@ -66,7 +66,7 @@ func TestResourceBusy(t *testing.T) {
 	defer loopback.Close()
 
 	// Set up partitions.
-	_, _, _, err = diskutils.CreatePartitions(loopback.DevicePath(), diskConfig,
+	_, _, _, err = diskutils.CreatePartitions(diskutils.TargetOsAzureLinux2, loopback.DevicePath(), diskConfig,
 		configuration.RootEncryption{}, true /*diskKnownToBeEmpty*/)
 	if !assert.NoError(t, err, "failed to create partitions on disk", loopback.DevicePath()) {
 		return

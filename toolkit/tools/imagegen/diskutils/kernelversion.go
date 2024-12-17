@@ -46,13 +46,9 @@ func parseKernelVersion(versionString string) (Version, error) {
 		return nil, fmt.Errorf("failed to parse kernel version (%s)", versionString)
 	}
 
-	majorStr := match[1]
-	minorStr := match[2]
-	patchStr := match[3]
-
-	major, _ := strconv.Atoi(majorStr)
-	minor, _ := strconv.Atoi(minorStr)
-	patch, _ := strconv.Atoi(patchStr)
+	major, _ := strconv.Atoi(match[1])
+	minor, _ := strconv.Atoi(match[2])
+	patch, _ := strconv.Atoi(match[3])
 
 	version := Version{major, minor, patch}
 	return version, nil

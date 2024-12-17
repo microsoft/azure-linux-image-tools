@@ -57,15 +57,15 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	return nil
 }
 
-func createNewImage(filename string, diskConfig imagecustomizerapi.Disk,
+func createNewImage(targetOs diskutils.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
 ) (map[string]string, error) {
 	imageConnection := NewImageConnection()
 	defer imageConnection.Close()
 
-	partIdToPartUuid, err := createNewImageHelper(imageConnection, filename, diskConfig, fileSystems, buildDir, chrootDirName,
-		installOS)
+	partIdToPartUuid, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
+		buildDir, chrootDirName, installOS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new image:\n%w", err)
 	}
@@ -79,9 +79,9 @@ func createNewImage(filename string, diskConfig imagecustomizerapi.Disk,
 	return partIdToPartUuid, nil
 }
 
-func createNewImageHelper(imageConnection *ImageConnection, filename string, diskConfig imagecustomizerapi.Disk,
-	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
-	installOS installOSFunc,
+func createNewImageHelper(targetOs diskutils.TargetOs, imageConnection *ImageConnection, filename string,
+	diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
+	chrootDirName string, installOS installOSFunc,
 ) (map[string]string, error) {
 
 	// Convert config to image config types, so that the imager's utils can be used.
@@ -96,8 +96,8 @@ func createNewImageHelper(imageConnection *ImageConnection, filename string, dis
 	}
 
 	// Create imager boilerplate.
-	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(imageConnection, filename, buildDir, chrootDirName,
-		imagerDiskConfig, imagerPartitionSettings)
+	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(targetOs, imageConnection, filename, buildDir,
+		chrootDirName, imagerDiskConfig, imagerPartitionSettings)
 	if err != nil {
 		return nil, err
 	}
@@ -160,8 +160,9 @@ func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType i
 	return nil
 }
 
-func createImageBoilerplate(imageConnection *ImageConnection, filename string, buildDir string, chrootDirName string,
-	imagerDiskConfig configuration.Disk, imagerPartitionSettings []configuration.PartitionSetting,
+func createImageBoilerplate(targetOs diskutils.TargetOs, imageConnection *ImageConnection, filename string,
+	buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
+	imagerPartitionSettings []configuration.PartitionSetting,
 ) (map[string]string, string, error) {
 	// Create raw disk image file.
 	err := diskutils.CreateSparseDisk(filename, imagerDiskConfig.MaxSize, 0o644)
@@ -177,7 +178,7 @@ func createImageBoilerplate(imageConnection *ImageConnection, filename string, b
 
 	// Set up partitions.
 	partIDToDevPathMap, partIDToFsTypeMap, _, err := diskutils.CreatePartitions(
-		imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{},
+		targetOs, imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{},
 		true /*diskKnownToBeEmpty*/)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)

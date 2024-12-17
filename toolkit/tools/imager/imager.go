@@ -422,8 +422,8 @@ func setupLoopDeviceDisk(outputDir, diskName string, diskConfig configuration.Di
 func setupRealDisk(diskDevPath string, diskConfig configuration.Disk, rootEncryption configuration.RootEncryption, diskKnownToBeEmpty bool,
 ) (partIDToDevPathMap, partIDToFsTypeMap map[string]string, encryptedRoot diskutils.EncryptedRootDevice, err error) {
 	// Set up partitions
-	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = diskutils.CreatePartitions(diskDevPath, diskConfig,
-		rootEncryption, diskKnownToBeEmpty)
+	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = diskutils.CreatePartitions(
+		diskutils.TargetOsAzureLinux3, diskDevPath, diskConfig, rootEncryption, diskKnownToBeEmpty)
 	if err != nil {
 		err = fmt.Errorf("failed to create partitions on disk (%s):\n%w", diskDevPath, err)
 		return
