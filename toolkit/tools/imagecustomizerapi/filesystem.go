@@ -4,6 +4,7 @@
 package imagecustomizerapi
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -20,6 +21,23 @@ type FileSystem struct {
 	// Otherwise, it is the same as 'DeviceId'.
 	// Value is filled in by Storage.IsValid().
 	PartitionId string
+}
+
+// MarshalJSON without the PartitionId
+func (f FileSystem) MarshalJSON() ([]byte, error) {
+	type FileSystemNoPartitionId struct {
+		DeviceId   string         `json:"deviceId,omitempty"`
+		Type       FileSystemType `json:"type,omitempty"`
+		MountPoint *MountPoint    `json:"mountPoint,omitempty"`
+	}
+
+	fsNoPartition := FileSystemNoPartitionId{
+		DeviceId:   f.DeviceId,
+		Type:       f.Type,
+		MountPoint: f.MountPoint,
+	}
+
+	return json.Marshal(fsNoPartition)
 }
 
 // IsValid returns an error if the MountPoint is not valid
