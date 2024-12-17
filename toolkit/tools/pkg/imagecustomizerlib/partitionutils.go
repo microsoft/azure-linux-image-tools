@@ -149,7 +149,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		}
 
 		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, 0,
+		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
 			"", true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
@@ -192,7 +192,7 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 	tmpDir := filepath.Join(buildDir, tmpParitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "",
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
 		true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
@@ -238,11 +238,15 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
-	var foundRoot bool
 	for _, fstabEntry := range filteredFstabEntries {
 		source, err := findSourcePartition(fstabEntry.Source, diskPartitions)
 		if err != nil {
 			return nil, err
+		}
+
+		// ToDo: device mapper returns an empty string
+		if source == "" {
+			continue
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
@@ -253,8 +257,6 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
 				source, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
-
-			foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
 				source, fstabEntry.Target, fstabEntry.FsType,
@@ -262,10 +264,6 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
-	}
-
-	if !foundRoot {
-		return nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
 	return mountPoints, nil
@@ -310,9 +308,14 @@ func findSourcePartitionHelper(source string,
 		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
-	partition, partitionIndex, err := findPartition(mountIdType, mountId, partitions)
-	if err != nil {
-		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+	var partition diskutils.PartitionInfo
+	var partitionIndex int
+
+	if mountIdType != imagecustomizerapi.MountIdentifierTypeDeviceMapper {
+		partition, partitionIndex, err = findPartition(mountIdType, mountId, partitions)
+		if err != nil {
+			return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		}
 	}
 
 	return mountIdType, partition, partitionIndex, nil
@@ -366,6 +369,11 @@ func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType
 	partLabel, isPartLabel := strings.CutPrefix(source, "PARTLABEL=")
 	if isPartLabel {
 		return imagecustomizerapi.MountIdentifierTypePartLabel, partLabel, nil
+	}
+
+	deviceMapperValue, isDeviceMapper := strings.CutPrefix(source, "/dev/mapper")
+	if isDeviceMapper {
+		return imagecustomizerapi.MountIdentifierTypeDeviceMapper, deviceMapperValue, nil
 	}
 
 	err := fmt.Errorf("unknown fstab source type (%s)", source)

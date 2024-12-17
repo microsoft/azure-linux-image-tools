@@ -27,7 +27,12 @@ var (
 	rpmSources                  = app.Flag("rpm-source", "Path to a RPM repo config file or a directory containing RPMs.").Strings()
 	disableBaseImageRpmRepos    = app.Flag("disable-base-image-rpm-repos", "Disable the base image's RPM repos as an RPM source").Bool()
 	enableShrinkFilesystems     = app.Flag("shrink-filesystems", "Enable shrinking of filesystems to minimum size. Supports ext2, ext3, ext4 filesystem types.").Bool()
+	requireSignedRootfsRootHash = app.Flag("require-signed-rootfs-root-hash", "Requires that the verity root hash of the rootfs is signed.").Bool()
+	requireSignedRootHashes     = app.Flag("require-signed-root-hashes", "Requires that all root hashes are signed.").Bool()
 	outputPXEArtifactsDir       = app.Flag("output-pxe-artifacts-dir", "Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'.").String()
+	outputVerityHashes          = app.Flag("output-verity-hashes", "Save the root hash value of each verity target device in a text file.").Bool()
+	outputVerityHashesDir       = app.Flag("output-verity-hashes-dir", "The directory where the verity root hash files will be saved to.").String()
+	inputSignedVerityHashes     = app.Flag("input-signed-verity-hashes-files", "A list of one or more signed verity root hash files.").Strings()
 	logFlags                    = exe.SetupLogFlags(app)
 	profFlags                   = exe.SetupProfileFlags(app)
 	timestampFile               = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
@@ -72,7 +77,8 @@ func customizeImage() error {
 
 	err = imagecustomizerlib.CustomizeImageWithConfigFile(*buildDir, *configFile, *imageFile,
 		*rpmSources, *outputImageFile, *outputImageFormat, *outputSplitPartitionsFormat, *outputPXEArtifactsDir,
-		!*disableBaseImageRpmRepos, *enableShrinkFilesystems)
+		!*disableBaseImageRpmRepos, *requireSignedRootfsRootHash, *requireSignedRootHashes, *outputVerityHashes,
+		*outputVerityHashesDir, *inputSignedVerityHashes, *enableShrinkFilesystems)
 	if err != nil {
 		return err
 	}

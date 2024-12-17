@@ -224,3 +224,58 @@ os:
     disable:
     - systemd-growfs-root
 ```
+
+### Signing Verity Hashes
+
+```bash
+imageCustomizerPath="./imagecustomizer"
+inputConfigFile="./verity-test.yaml"
+inputImage="./core-3.0.20241216.vhdx"
+buildDir="./build"
+
+outputFormat="qcow2"
+outputBaseName="verity-$(date +'%Y%m%d-%H%M').$outputFormat"
+outputDir="./output"
+verityImage="$outputDir/$outputBaseName"
+
+hashFilesDir="./temp/root-hashes"
+hashFile="$hashFilesDir/root.hash"
+
+rm -rf $hashFilesDir
+sudo $imageCustomizerPath \
+  --config-file "$inputConfigFile" \
+  --image-file "$inputImage" \
+  --build-dir "$buildDir" \
+  --output-image-format "$outputFormat" \
+  --output-image-file "$verityImage" \
+  --output-verity-hashes \
+  --output-verity-hashes-dir "$hashFilesDir" \
+  --log-level "$logLevel"
+  
+  # --require-signed-rootfs-root-hash \
+  # --require-signed-root-hashes \
+
+signedHashFilesDir="./temp/signed-root-hashes"
+signedHashFile="$signedHashFilesDir/$(basename $hashFile).sig"
+
+sudo chown $USER:$USER $hashFilesDir
+sudo chown $USER:$USER $hashFile
+
+# sign the hash files
+cp "$hashFile" "$signedHashFile"
+echo "...signed..." > "$signedHashFile"
+
+# inject the file back
+signedVerityImage=$outputDir/signed-$outputBaseName
+emptyConfig=/home/george/temp/empty-config.yaml
+echo "iso:" > $emptyConfig
+
+sudo $imageCustomizerPath \
+      --config-file "$emptyConfig" \
+      --image-file "$verityImage" \
+      --build-dir "$buildDir" \
+      --output-image-format "$outputFormat" \
+      --output-image-file "$signedVerityImage" \
+      --input-signed-verity-hashes-files "$signedHashFile" \
+      --log-level "$logLevel"
+```
