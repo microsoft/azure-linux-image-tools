@@ -53,7 +53,7 @@ func (u *UkiKernels) IsValid() error {
 
 	for i, kernel := range u.Kernels {
 		if err := ukiKernelVersionIsValid(kernel); err != nil {
-			return fmt.Errorf("invalid kernel version at index %d:\n%s", i, err.Error())
+			return fmt.Errorf("invalid kernel version at index %d:\n%w", i, err)
 		}
 	}
 

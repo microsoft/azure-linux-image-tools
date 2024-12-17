@@ -486,6 +486,89 @@ os:
       workDir: /overlays/media/work
 ```
 
+## bootLoader type
+
+Defines the configuration for the boot-loader.
+
+### resetType [string]
+
+Specifies that the boot-loader configuration should be reset and how it should be reset.
+
+Supported options:
+
+- `hard-reset`: Fully reset the boot-loader and its configuration.
+  This includes removing any customized kernel command-line arguments that were added to
+  base image.
+
+Example:
+
+```yaml
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
+## uki type
+
+Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot
+to add UKIs as boot entries. UKI combines the Linux kernel, initramfs, kernel
+command-line arguments, etc. into a single EFI executable, simplifying system
+boot processes and improving security.
+
+If this type is specified, then [os.bootloader.resetType](#resettype-string)
+must also be specified.
+
+If this value is specified, then a "uki" entry must be added to
+[previewFeatures](#previewfeatures-type)
+
+Example:
+
+```yaml
+os:
+  bootLoader:
+    resetType: hard-reset
+  uki:
+    kernels: auto
+previewFeatures:
+- uki
+```
+
+### kernels
+
+Specifies which kernels to produce UKIs for.
+
+The value can either contain:
+
+- The string `"auto"`
+- A list of kernel version strings.
+
+When `"auto"` is specified, the tool automatically searches for all the
+installed kernels and produces UKIs for all the found kernels.
+
+If a list of kernel versions is provided, then the tool will only produce UKIs
+for the kernels specified.
+
+The kernel versions must match the regex: `^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`.
+Examples of valid kernel formats: `6.6.51.1-5.azl3`, `5.10.120-4.custom`, `4.18.0-80.el8`.
+
+Example:
+
+```yaml
+os:
+  uki:
+    kernels: auto
+```
+
+Example:
+
+```yaml
+os:
+  uki:
+    kernels:
+      - 6.6.51.1-5.azl3
+      - 5.10.120-4.custom
+```
+
 ### `mountPoint` [string]
 
 The directory where the combined view of the `upperDir` and `lowerDir` will be
@@ -1381,28 +1464,6 @@ os:
 
 Contains the configuration options for the OS.
 
-## bootLoader type
-
-Defines the configuration for the boot-loader.
-
-#### resetType [string]
-
-Specifies that the boot-loader configuration should be reset and how it should be reset.
-
-Supported options:
-
-- `hard-reset`: Fully reset the boot-loader and its configuration.
-  This includes removing any customized kernel command-line arguments that were added to
-  base image.
-
-Example:
-
-```yaml
-os:
-  bootloader:
-    resetType: hard-reset
-```
-
 ### hostname [string]
 
 Specifies the hostname for the OS.
@@ -1493,6 +1554,14 @@ os:
 ### overlays [[overlay](#overlay-type)[]]
 
 Used to add filesystem overlays.
+
+### bootloader [[bootloader](#bootloader-type)]
+
+Defines the configuration for the boot-loader.
+
+### uki [[uki](#uki-type)]
+
+Used to create UKI PE images and enable UKI as boot entries.
 
 ### selinux [[selinux](#selinux-type)]
 
@@ -1768,75 +1837,6 @@ storage:
 os:
   bootloader:
     resetType: hard-reset
-```
-
-### bootloader [[bootloader](#bootloader-type)]
-
-Defines the configuration for the boot-loader.
-
-### uki [[uki](#uki-type)]
-
-Used to create UKI PE images and enable UKI as boot entries.
-
-## uki type
-
-Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot
-to add UKIs as boot entries. UKI combines the Linux kernel, initramfs, kernel
-command-line arguments, etc. into a single EFI executable, simplifying system
-boot processes and improving security.
-
-If this type is specified, then [os.bootloader.resetType](#resettype-string)
-must also be specified.
-
-If this value is specified, then a "uki" entry must be added to
-[previewFeatures](#previewfeatures-type)
-
-Example:
-
-```yaml
-os:
-  bootLoader:
-    resetType: hard-reset
-  uki:
-    kernels: auto
-previewFeatures:
-- uki
-```
-
-### kernels
-
-Specifies which kernels to produce UKIs for.
-
-The value can either contain:
-
-- The string `"auto"`
-- A list of kernel version strings.
-
-When `"auto"` is specified, the tool automatically searches for all the
-installed kernels and produces UKIs for all the found kernels.
-
-If a list of kernel versions is provided, then the tool will only produce UKIs
-for the kernels specified.
-
-The kernel versions must match the regex: `^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`.
-Examples of valid kernel formats: `6.6.51.1-5.azl3`, `5.10.120-4.custom`, `4.18.0-80.el8`.
-
-Example:
-
-```yaml
-os:
-  uki:
-    kernels: auto
-```
-
-Example:
-
-```yaml
-os:
-  uki:
-    kernels:
-      - 6.6.51.1-5.azl3
-      - 5.10.120-4.custom
 ```
 
 ## previewFeatures type
