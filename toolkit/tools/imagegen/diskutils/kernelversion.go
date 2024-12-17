@@ -1,0 +1,59 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+package diskutils
+
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+)
+
+var (
+	// Parses the kernel version from "uname -r" or subdirectories of /lib/modules.
+	//
+	// Examples:
+	//   OS               Version
+	//   Fedora 40        6.11.6-200.fc40.x86_64
+	//   Ubuntu 22.04     6.8.0-48-generic
+	//   Azure Linux 2.0  5.15.153.1-2.cm2
+	//   Azure Linux 3.0  6.6.47.1-1.azl3
+	kernelVersionRegex = regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)([.\-][a-zA-Z0-9_.\-]*)?$`)
+)
+
+func GetBuildHostKernelVersion() (Version, error) {
+	stdout, _, err := shell.Execute("uname", "-r")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kernel version using uname:\n%w", err)
+	}
+
+	stdout = strings.TrimSpace(stdout)
+
+	version, err := parseKernelVersion(stdout)
+	if err != nil {
+		return nil, err
+	}
+
+	return version, nil
+}
+
+func parseKernelVersion(versionString string) (Version, error) {
+	match := kernelVersionRegex.FindStringSubmatch(versionString)
+	if match == nil {
+		return nil, fmt.Errorf("failed to parse kernel version (%s)", versionString)
+	}
+
+	majorStr := match[1]
+	minorStr := match[2]
+	patchStr := match[3]
+
+	major, _ := strconv.Atoi(majorStr)
+	minor, _ := strconv.Atoi(minorStr)
+	patch, _ := strconv.Atoi(patchStr)
+
+	version := Version{major, minor, patch}
+	return version, nil
+}
