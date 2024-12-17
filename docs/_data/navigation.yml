@@ -6,17 +6,19 @@
   link: "/azure-linux-image-tools/imagecustomizer/api/configuration"
   subnav:
   - name: iso
-    link: "/azure-linux-image-tools/imagecustomizer/iso"
+    link: "/azure-linux-image-tools/imagecustomizer/api/iso"
   - name: os
-    link: "/azure-linux-image-tools/imagecustomizer/os"
+    link: "/azure-linux-image-tools/imagecustomizer/api/os"
   - name: pxe
-    link: "/azure-linux-image-tools/imagecustomizer/pxe"
+    link: "/azure-linux-image-tools/imagecustomizer/api/pxe"
   - name: scripts
-    link: "/azure-linux-image-tools/imagecustomizer/scripts"
+    link: "/azure-linux-image-tools/imagecustomizer/api/scripts"
   - name: storage
-    link: "/azure-linux-image-tools/imagecustomizer/storage"
+    link: "/azure-linux-image-tools/imagecustomizer/api/storage"
+  - name: previewFeatures
+    link: "/azure-linux-image-tools/imagecustomizer/api/previewFeatures"
 - name: Concepts
-  link: "/azure-linux-image-tools/imagecustomizer/concepts/concepts"
+  link: "/azure-linux-image-tools/imagecustomizer/concepts/"
   subnav:
     - name: ISO
       link: "/azure-linux-image-tools/imagecustomizer/concepts/iso"
@@ -31,6 +33,6 @@
     - name: Building custom package for Azure Linux
       link: "/azure-linux-image-tools/imagecustomizer/how-to/building-packages"
     - name: Reproducable builds
-      link: "/azure-linux-image-tools/imagecustomizer/concepts/clone-rpm-repo"
+      link: "/azure-linux-image-tools/imagecustomizer/how-to/clone-rpm-repo"
 - name: Contributing
   link: "/azure-linux-image-tools/imagecustomizer/contributing"
