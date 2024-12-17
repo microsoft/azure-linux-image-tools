@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -27,11 +26,11 @@ func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfi
 	var err error
 	configCopy, err := deepCopyConfig(config)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to deep copy config while writing image history: %w", err)
 	}
 	err = modifyConfig(configCopy, baseConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to modify config while writing image history: %w", err)
 	}
 
 	logger.Log.Infof("Creating image customizer history file")
@@ -40,18 +39,21 @@ func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfi
 	fmt.Println(imageChroot.RootDir())
 	customizerLoggingDirPath := filepath.Join(".")
 	// customizerLoggingDirPath := filepath.Join(imageChroot.RootDir(), "/usr/share/image-customizer")
-	os.MkdirAll(customizerLoggingDirPath, 0755)
+	err = os.MkdirAll(customizerLoggingDirPath, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create customizer logging directory: %w", err)
+	}
 
 	imageHistoryFilePath := filepath.Join(customizerLoggingDirPath, "history.json")
 
 	err = readImageHistory(imageHistoryFilePath, &allImageHistory)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read image history: %w", err)
 	}
 
 	err = writeImageHistory(imageHistoryFilePath, allImageHistory, imageUuid, buildTime, toolVersion, configCopy)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write image history: %w", err)
 	}
 
 	return nil
@@ -60,19 +62,18 @@ func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfi
 func readImageHistory(imageHistoryFilePath string, allImageHistory *[]ImageHistory) error {
 	exists, err := file.PathExists(imageHistoryFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if file exists: %w", err)
 	}
 
 	if exists {
 		file, err := os.ReadFile(imageHistoryFilePath)
 		if err != nil {
-			log.Fatalf("Error reading file: %v", err)
+			return fmt.Errorf("error reading image history file: %w", err)
 		}
 
-		// Unmarshal the file content into the data slice
 		err = json.Unmarshal(file, &allImageHistory)
 		if err != nil {
-			log.Fatalf("Error unmarshalling JSON: %v", err)
+			return fmt.Errorf("error unmarshalling image history file: %w", err)
 		}
 	}
 	return nil
@@ -91,9 +92,14 @@ func writeImageHistory(imageHistoryFilePath string, allImageHistory []ImageHisto
 
 	jsonBytes, err := json.MarshalIndent(allImageHistory, "", " ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal image history: %w", err)
 	}
-	file.Write(string(jsonBytes), imageHistoryFilePath)
+
+	err = file.Write(string(jsonBytes), imageHistoryFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to write image history to file: %w", err)
+	}
+
 	return nil
 }
 
@@ -101,12 +107,12 @@ func deepCopyConfig(config *imagecustomizerapi.Config) (*imagecustomizerapi.Conf
 	configCopy := &imagecustomizerapi.Config{}
 	data, err := json.Marshal(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
 
 	err = json.Unmarshal(data, configCopy)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
 	return configCopy, nil
@@ -114,24 +120,26 @@ func deepCopyConfig(config *imagecustomizerapi.Config) (*imagecustomizerapi.Conf
 
 func modifyConfig(configCopy *imagecustomizerapi.Config, baseConfigPath string) error {
 	var err error
+	redactedString := "[redacted]"
+
 	err = populateScriptsList(configCopy.Scripts, baseConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to populate scripts list: %w", err)
 	}
 
 	err = populateAdditionalFiles(configCopy.OS.AdditionalFiles, baseConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to populate additional files: %w", err)
 	}
 
 	err = populateAdditionalDirs(configCopy.OS.AdditionalDirs, baseConfigPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to populate additional dirs: %w", err)
 	}
 
-	err = redactSshPublicKeys(configCopy.OS.Users)
+	err = redactSshPublicKeys(configCopy.OS.Users, redactedString)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to redact ssh public keys: %w", err)
 	}
 	return nil
 }
@@ -201,8 +209,7 @@ func populateAdditionalFiles(configAdditionalFiles imagecustomizerapi.Additional
 	return nil
 }
 
-func redactSshPublicKeys(configUsers []imagecustomizerapi.User) error {
-	redactedString := "[redacted]"
+func redactSshPublicKeys(configUsers []imagecustomizerapi.User, redactedString string) error {
 	for i := range configUsers {
 		user := configUsers[i]
 		for j := range user.SSHPublicKeys {
@@ -218,7 +225,6 @@ func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath stri
 	for i := range scripts.PostCustomization {
 		path := scripts.PostCustomization[i].Path
 		if path == "" {
-			// ignore entry if content is provided instead of path
 			continue
 		}
 		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
@@ -228,10 +234,10 @@ func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath stri
 		}
 		scripts.PostCustomization[i].SHA256Hash = hash
 	}
+
 	for i := range scripts.FinalizeCustomization {
 		path := scripts.FinalizeCustomization[i].Path
 		if path == "" {
-			// ignore entry if content is provided instead of path
 			continue
 		}
 		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
@@ -244,5 +250,4 @@ func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath stri
 	}
 
 	return nil
-
 }
