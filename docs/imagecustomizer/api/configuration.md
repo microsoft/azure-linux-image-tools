@@ -83,7 +83,10 @@ Specifies custom scripts to run during the customization process.
 
     If the bootloader [resetType](#resettype-string) is not set, then append the
     [extraCommandLine](#extracommandline-string) value to the existing
+<<<<<<< HEAD:docs/imagecustomizer/configuration.md
     `grub.cfg` file.
+=======
+>>>>>>> 8274a87b4 (folders):docs/imagecustomizer/api/configuration.md
 
 12. Update the SELinux mode. [mode](#mode-string)
 

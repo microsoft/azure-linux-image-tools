@@ -4,8 +4,10 @@ Contains the configuration options for the OS.
 
 
 - [os](#os)
-  - [resetBootLoaderType \[string\]](#resetbootloadertype-string)
   - [hostname \[string\]](#hostname-string)
+  - [bootloader \[bootloader\]](#bootloader-bootloader)
+    - [bootLoader type](#bootloader-type)
+      - [resetType \[string\]](#resettype-string)
   - [kernelCommandLine \[kernelCommandLine\]](#kernelcommandline-kernelcommandline)
     - [kernelCommandLine type](#kernelcommandline-type)
       - [extraCommandLine \[string\[\]\]](#extracommandline-string)
@@ -55,27 +57,21 @@ Contains the configuration options for the OS.
       - [loadMode \[string\]](#loadmode-string)
       - [options \[map\<string, string\>\]](#options-mapstring-string)
   - [packageList type](#packagelist-type)
-      - [installLists \[string\[\]\]](#installlists-string)
+    - [installLists \[string\[\]\]](#installlists-string)
+    - [removeLists \[string\[\]\]](#removelists-string)
+    - [updateLists \[string\[\]\]](#updatelists-string)
   - [packages packages](#packages-packages)
     - [packages \[string\[\]\]](#packages-string)
       - [updateExistingPackages \[bool\]](#updateexistingpackages-bool)
       - [install \[string\[\]\]](#install-string)
       - [remove \[string\[\]\]](#remove-string)
-      - [updateLists \[string\[\]\]](#updatelists-string)
-    - [update \[string\[\]\]](#update-string)
+      - [update \[string\[\]\]](#update-string)
   - [password type](#password-type)
     - [type \[string\]](#type-string)
     - [value \[string\]](#value-string)
-
-## resetBootLoaderType [string]
-
-Specifies that the boot-loader configuration should be reset and how it should be reset.
-
-Supported options:
-
-- `hard-reset`: Fully reset the boot-loader and its configuration.
-  This includes removing any customized kernel command-line arguments that were added to
-  base image.
+    - [uki \[uki\]](#uki-uki)
+  - [uki type](#uki-type)
+    - [kernels](#kernels)
 
 ## hostname [string]
 
@@ -89,6 +85,33 @@ Example:
 os:
   hostname: example-image
 ```
+
+## bootloader [[bootloader](#bootloader-type)]
+
+Defines the configuration for the boot-loader.
+
+### bootLoader type
+
+Defines the configuration for the boot-loader.
+
+#### resetType [string]
+
+Specifies that the boot-loader configuration should be reset and how it should be reset.
+
+Supported options:
+
+- `hard-reset`: Fully reset the boot-loader and its configuration.
+  This includes removing any customized kernel command-line arguments that were added to
+  base image.
+
+Example:
+
+```yaml
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
 
 <div id="os-kernelcommandline"></div>
 
@@ -104,10 +127,10 @@ Options for configuring the kernel.
 
 Additional Linux kernel command line options to add to the image.
 
-If [resetBootLoaderType](#resetbootloadertype-string) is set to `"hard-reset"`, then the
+If bootloader [resetType](#resettype-string) is set to `"hard-reset"`, then the
 `extraCommandLine` value will be appended to the new `grub.cfg` file.
 
-If [resetBootLoaderType](#resetbootloadertype-string) is not set, then the
+If bootloader [resetType](#resettype-string) is not set, then the
 `extraCommandLine` value will be appended to the existing `grub.cfg` file.
 
 ## overlays [[overlay](#overlay-type)[]]
@@ -781,7 +804,7 @@ This type is used by:
 - [removeLists](#removelists-string)
 - [updateLists](#updatelists-string)
 
-#### installLists [string[]]
+### installLists [string[]]
 
 Same as [install](#install-string) but the packages are specified in a
 separate YAML (or JSON) file.
@@ -796,6 +819,39 @@ os:
     installLists:
     - lists/ssh.yaml
 ```
+
+### removeLists [string[]]
+
+Same as [remove](#remove-string) but the packages are specified in a
+separate YAML (or JSON) file.
+
+The other YAML file schema is specified by [packageList](#packagelist-type).
+
+Example:
+
+```yaml
+os:
+  packages:
+    removeLists:
+    - lists/ssh.yaml
+```
+
+### updateLists [string[]]
+
+Same as [update](#update-string) but the packages are specified in a
+separate YAML (or JSON) file.
+
+The other YAML file schema is specified by [packageList](#packagelist-type).
+
+Example:
+
+```yaml
+os:
+  packages:
+    updateLists:
+    - lists/ssh.yaml
+```
+
 
 ## packages [packages](#packages-type)
 
@@ -858,23 +914,7 @@ os:
     - openssh-server
 ```
 
-#### updateLists [string[]]
-
-Same as [update](#update-string) but the packages are specified in a
-separate YAML (or JSON) file.
-
-The other YAML file schema is specified by [packageList](#packagelist-type).
-
-Example:
-
-```yaml
-os:
-  packages:
-    updateLists:
-    - lists/ssh.yaml
-```
-
-### update [string[]]
+#### update [string[]]
 
 Updates packages on the system.
 
@@ -939,3 +979,68 @@ Options for debugging purposes only (disabled by default):
 
 The password's value.
 The meaning of this value depends on the type property.
+
+### uki [[uki](#uki-type)]
+
+Used to create UKI PE images and enable UKI as boot entries.
+
+## uki type
+
+Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot
+to add UKIs as boot entries. UKI combines the Linux kernel, initramfs, kernel
+command-line arguments, etc. into a single EFI executable, simplifying system
+boot processes and improving security.
+
+If this type is specified, then [os.bootloader.resetType](#resettype-string)
+must also be specified.
+
+If this value is specified, then a "uki" entry must be added to
+[previewFeatures](#previewfeatures-type)
+
+Example:
+
+```yaml
+os:
+  bootLoader:
+    resetType: hard-reset
+  uki:
+    kernels: auto
+previewFeatures:
+- uki
+```
+
+### kernels
+
+Specifies which kernels to produce UKIs for.
+
+The value can either contain:
+
+- The string `"auto"`
+- A list of kernel version strings.
+
+When `"auto"` is specified, the tool automatically searches for all the
+installed kernels and produces UKIs for all the found kernels.
+
+If a list of kernel versions is provided, then the tool will only produce UKIs
+for the kernels specified.
+
+The kernel versions must match the regex: `^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`.
+Examples of valid kernel formats: `6.6.51.1-5.azl3`, `5.10.120-4.custom`, `4.18.0-80.el8`.
+
+Example:
+
+```yaml
+os:
+  uki:
+    kernels: auto
+```
+
+Example:
+
+```yaml
+os:
+  uki:
+    kernels:
+      - 6.6.51.1-5.azl3
+      - 5.10.120-4.custom
+```

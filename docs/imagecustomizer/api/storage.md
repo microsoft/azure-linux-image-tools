@@ -35,7 +35,8 @@ storage:
       path: /
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
 ```
 
 - [storage \[storage\]](#storage-storage)
@@ -106,7 +107,8 @@ storage:
   resetPartitionsUuidsType: reset-all
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
 ```
 
 ## disks [[disk](#disk-type)[]]

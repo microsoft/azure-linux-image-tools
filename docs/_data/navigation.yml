@@ -1,9 +1,9 @@
-- name: Image Customizer
+- name: Getting Started
   link: "/azure-linux-image-tools/imagecustomizer/"
 - name: CLI
-  link: "/azure-linux-image-tools/imagecustomizer/cli"
+  link: "/azure-linux-image-tools/imagecustomizer/api/cli"
 - name: Configuration
-  link: "/azure-linux-image-tools/imagecustomizer/configuration"
+  link: "/azure-linux-image-tools/imagecustomizer/api/configuration"
   subnav:
   - name: iso
     link: "/azure-linux-image-tools/imagecustomizer/iso"
@@ -15,12 +15,22 @@
     link: "/azure-linux-image-tools/imagecustomizer/scripts"
   - name: storage
     link: "/azure-linux-image-tools/imagecustomizer/storage"
-- name: E2E Scenarios
-  link: "/azure-linux-image-tools/imagecustomizer/e2e-scenarios"
+- name: Concepts
+  link: "/azure-linux-image-tools/imagecustomizer/concepts/concepts"
   subnav:
+    - name: ISO
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/iso"
     - name: PXE
-      link: "/azure-linux-image-tools/imagecustomizer/pxe-detailed"
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/pxe"
     - name: Verity
-      link: "/azure-linux-image-tools/imagecustomizer/verity-detailed"
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/verity"
+- name: How-To
+  subnav:
+    - name: Running in a container
+      link: "/azure-linux-image-tools/imagecustomizer/how-to/container"
+    - name: Building custom package for Azure Linux
+      link: "/azure-linux-image-tools/imagecustomizer/how-to/building-packages"
+    - name: Reproducable builds
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/clone-rpm-repo"
 - name: Contributing
-  link: "/azure-linux-image-tools/imagecustomizer/dev"
+  link: "/azure-linux-image-tools/imagecustomizer/contributing"
