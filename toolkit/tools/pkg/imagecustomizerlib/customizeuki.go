@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	BootDir           = "boot"
-	DefaultGrubCfgPath        = "grub2/grub.cfg"
-	KernelCmdlineArgs = "kernel-cmdline-args"
-	KernelPrefix      = "vmlinuz-"
-	UkiBuildDir       = "UkiBuildDir"
-	UkiOutputDir      = "EFI/Linux"
+	BootDir            = "boot"
+	DefaultGrubCfgPath = "grub2/grub.cfg"
+	KernelCmdlineArgs  = "kernel-cmdline-args"
+	KernelPrefix       = "vmlinuz-"
+	UkiBuildDir        = "UkiBuildDir"
+	UkiOutputDir       = "EFI/Linux"
 )
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
