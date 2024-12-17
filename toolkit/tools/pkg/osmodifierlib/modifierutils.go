@@ -124,7 +124,7 @@ func handleSELinux(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *i
 
 	logger.Log.Infof("Configuring SELinux mode")
 
-	err = bootCustomizer.UpdateSELinuxCommandLine(selinuxMode)
+	err = bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode)
 	if err != nil {
 		return err
 	}

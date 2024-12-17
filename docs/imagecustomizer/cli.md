@@ -33,20 +33,20 @@ The image format of the the final customized image.
 
 Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and cosi.
 
-At least one of `--output-image-format` and `--output-split-partitions-format` is 
+At least one of `--output-image-format` and `--output-split-partitions-format` is
 required.
 
 The vhd-fixed option outputs a fixed size VHD image. This is the required format for
 VMs in Azure.
 
 When the output image format is set to iso, the generated image is a LiveOS
-iso image. For more details on this format, see: 
+iso image. For more details on this format, see:
 [Azure Linux Image Customizer ISO Support](./iso.md).
 
 ## --output-split-partitions-format=FORMAT
 
 Format of partition files. If specified, disk partitions will be extracted as separate
-files and a json file with partition metadata will be produced. For more details on 
+files and a json file with partition metadata will be produced. For more details on
 the json file format, see: [Partition Metadata JSON Format](./partitionmetadatajson.md).
 
 Options: raw, raw-zst.
@@ -57,7 +57,7 @@ Enable shrinking of partition filesystems to their minimum size.
 
 Currently only supports ext2/ext3/ext4 filesystems.
 
-Can only be specified if `--output-split-partitions-format` is, and 
+Can only be specified if `--output-split-partitions-format` is, and
 cannot be specified with `--output-image-format`.
 
 ## --config-file=FILE-PATH
@@ -68,7 +68,7 @@ The file path of the YAML (or JSON) configuration file that specifies how to cus
 the image.
 
 For documentation on the supported configuration options, see:
-[Azure Linux Image Customizer configuration](./docs/configuration.md)
+[Azure Linux Image Customizer configuration](./configuration.md)
 
 ## --rpm-source=PATH
 
@@ -110,7 +110,7 @@ installation.
 
 Create a folder containing the artifacts to be used for PXE booting.
 
-For an overview of Azure Linux Image Customizer support for PXE, see the 
+For an overview of Azure Linux Image Customizer support for PXE, see the
 [PXE support page](./pxe.md).
 
 ## --log-level=LEVEL

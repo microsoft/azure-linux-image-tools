@@ -75,15 +75,6 @@ clean-imagegen:
 	$(SCRIPTS_DIR)/safeunmount.sh "$(IMAGEGEN_DIR)" && \
 	rm -rf $(IMAGEGEN_DIR)
 
-# We need to clear the rpm package cache if we have a snapshot time. The filenames will all be
-# the same, but the actual .rpm files may be fundamentally different.
-$(STATUS_FLAGS_DIR)/imagegen_cleanup.flag: $(depend_REPO_SNAPSHOT_TIME)
-	@echo "REPO_SNAPSHOT_TIME has changed, sanitizing rpm cache"
-	@if [ -d "$(local_and_external_rpm_cache)" ]; then \
-		find "$(local_and_external_rpm_cache)" -type f -name '*.rpm' -delete; \
-	fi
-	@touch $@
-
 ##help:target:fetch-image-packages=Locate and download all packages required for an image build.
 fetch-image-packages: $(image_package_cache_summary)
 

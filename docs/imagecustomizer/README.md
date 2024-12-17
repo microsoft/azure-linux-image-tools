@@ -41,7 +41,7 @@ Disadvantages:
     ```
 
    For documentation on the supported configuration options, see:
-   [Azure Linux Image Customizer configuration](./docs/configuration.md)
+   [Azure Linux Image Customizer configuration](./configuration.md)
 
 3. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
@@ -84,7 +84,7 @@ Disadvantages:
    - `<config-file.yaml>`: The configuration file created in Step 2.
 
    For a description of all the command line options, see:
-   [Azure Linux Image Customizer command line](./docs/cli.md)
+   [Azure Linux Image Customizer command line](./cli.md)
 
 5. Use the customized image.
 
