@@ -1,4 +1,4 @@
-# pxe configuration
+# PXE Support
 
 Specifies the PXE-specific configuration for the generated OS artifacts.
 

@@ -1,4 +1,4 @@
-# Azure Linux Image Customizer ISO Support
+# ISO Support
 
 ## Overview
 
@@ -78,7 +78,7 @@ scripts:
   - content: |
       set -e
       mkdir -p /var/lib/cloud/seed/
-      ln -s -T /run/initramfs/live/cloud-init-data /var/lib/cloud/seed/nocloud 
+      ln -s -T /run/initramfs/live/cloud-init-data /var/lib/cloud/seed/nocloud
 
 iso:
   additionalFiles:

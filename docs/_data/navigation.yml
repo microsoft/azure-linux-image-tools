@@ -15,8 +15,8 @@
     link: "/azure-linux-image-tools/imagecustomizer/scripts"
   - name: storage
     link: "/azure-linux-image-tools/imagecustomizer/storage"
-- name: Scenario-focused
-  link: "/azure-linux-image-tools/imagecustomizer/configuration"
+- name: E2E Scenarios
+  link: "/azure-linux-image-tools/imagecustomizer/e2e-scenarios"
   subnav:
     - name: PXE
       link: "/azure-linux-image-tools/imagecustomizer/pxe-detailed"
