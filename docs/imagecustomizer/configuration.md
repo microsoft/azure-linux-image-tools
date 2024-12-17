@@ -1,8 +1,48 @@
-# Azure Linux Image Customizer configuration
+# Configuration
 
-The Azure Linux Image Customizer is configured using a YAML (or JSON) file.
+Image customizations can be configured using a YAML (or JSON) file.
 
-### Operation ordering
+## Schema Overview
+
+- [Configuration](#configuration)
+  - [Schema Overview](#schema-overview)
+    - [iso \[iso\]](#iso-iso)
+    - [os \[os\]](#os-os)
+    - [pxe \[pxe\]](#pxe-pxe)
+    - [scripts \[scripts\]](#scripts-scripts)
+    - [storage \[storage\]](#storage-storage)
+  - [Operation ordering](#operation-ordering)
+  - [/etc/resolv.conf](#etcresolvconf)
+  - [Replacing packages](#replacing-packages)
+
+### iso [[iso](./iso.md)]
+
+Optionally specifies the configuration for the generated ISO media.
+
+### os [[os](./os.md)]
+
+Contains the configuration options for the OS.
+
+Example:
+
+```yaml
+os:
+  hostname: example-image
+```
+
+
+### pxe [[pxe](./pxe.md)]
+
+Optionally specifies the PXE-specific configuration for the generated OS
+artifacts.
+
+### scripts [[scripts](./scripts.md)]
+
+Specifies custom scripts to run during the customization process.
+
+### storage [[storage](./storage.md)]
+
+## Operation ordering
 
 1. If partitions were specified in the config, customize the disk partitions.
 
@@ -27,7 +67,7 @@ The Azure Linux Image Customizer is configured using a YAML (or JSON) file.
 4. Update hostname. ([hostname](#hostname-string))
 
 5. Copy additional files. ([additionalFiles](#os-additionalfiles))
-  
+
 6. Copy additional directories. ([additionalDirs](#additionaldirs-dirconfig))
 
 7. Add/update users. ([users](#users-user))
@@ -75,7 +115,7 @@ The Azure Linux Image Customizer is configured using a YAML (or JSON) file.
 23. If [--output-pxe-artifacts-dir](./cli.md#output-pxe-artifacts-dir) is specified,
     then export the ISO image contents to the specified folder.
 
-### /etc/resolv.conf
+## /etc/resolv.conf
 
 The `/etc/resolv.conf` file is overridden during customization so that the package
 installation and customization scripts can have access to the network.
@@ -93,7 +133,7 @@ If you want to explicitly set the `/etc/resolv.conf` file contents, you can do s
 a [finalizeCustomization](#finalizecustomization-script) script, since those scripts run
 after the `/etc/resolv.conf` is deleted.
 
-### Replacing packages
+## Replacing packages
 
 If you wish to replace a package with conflicting package, then you can remove the
 existing package using [remove](#remove-string) and then install the
@@ -110,6 +150,7 @@ os:
     install:
     - kernel-uvm
 ```
+<<<<<<< HEAD
 
 ## Schema Overview
 
@@ -1864,3 +1905,5 @@ os:
 previewFeatures:
 - uki
 ```
+=======
+>>>>>>> 753132891 (split main sections)

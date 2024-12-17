@@ -1,13 +1,26 @@
 - name: Image Customizer
   link: "/azure-linux-image-tools/imagecustomizer/"
 - name: CLI
-  link: "/azure-linux-image-tools/imagecustomizer/docs/cli"
+  link: "/azure-linux-image-tools/imagecustomizer/cli"
 - name: Configuration
-  link: "/azure-linux-image-tools/imagecustomizer/docs/configuration"
+  link: "/azure-linux-image-tools/imagecustomizer/configuration"
+  subnav:
+  - name: iso
+    link: "/azure-linux-image-tools/imagecustomizer/iso"
+  - name: os
+    link: "/azure-linux-image-tools/imagecustomizer/os"
+  - name: pxe
+    link: "/azure-linux-image-tools/imagecustomizer/pxe"
+  - name: scripts
+    link: "/azure-linux-image-tools/imagecustomizer/scripts"
+  - name: storage
+    link: "/azure-linux-image-tools/imagecustomizer/storage"
+- name: Scenario-focused
+  link: "/azure-linux-image-tools/imagecustomizer/configuration"
   subnav:
     - name: PXE
-      link: "/azure-linux-image-tools/imagecustomizer/docs/pxe"
+      link: "/azure-linux-image-tools/imagecustomizer/pxe-detailed"
     - name: Verity
-      link: "/azure-linux-image-tools/imagecustomizer/docs/verity"
+      link: "/azure-linux-image-tools/imagecustomizer/verity-detailed"
 - name: Contributing
-  link: "/azure-linux-image-tools/imagecustomizer/DEV"
+  link: "/azure-linux-image-tools/imagecustomizer/dev"
