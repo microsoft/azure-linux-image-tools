@@ -38,11 +38,11 @@ The Azure Linux Image Customizer is configured using a YAML (or JSON) file.
 
 10. Write the `/etc/image-customizer-release` file.
 
-11. If [resetBootLoaderType](#resetbootloadertype-string) is set to `hard-reset`, then
+11. If the bootloader [resetType](#resettype-string) is set to `hard-reset`, then
     reset the boot-loader.
 
-    If [resetBootLoaderType](#resetbootloadertype-string) is not set, then
-    append the [extraCommandLine](#extracommandline-string) value to the existing
+    If the bootloader [resetType](#resettype-string) is not set, then append the
+    [extraCommandLine](#extracommandline-string) value to the existing
     `grub.cfg` file.
 
 12. Update the SELinux mode. [mode](#mode-string)
@@ -158,7 +158,9 @@ os:
     - [isoImageBaseUrl](#isoimagebaseurl-string)
     - [isoImageFileUrl](#isoimagefileurl-string)
   - [os type](#os-type)
-    - [resetBootLoaderType](#resetbootloadertype-string)
+    - [bootloader](#bootloader-bootloader)
+      - [bootloader type](#bootloader-type)
+        - [resetType](#resettype-string)
     - [hostname](#hostname-string)
     - [kernelCommandLine](#os-kernelcommandline)
       - [extraCommandLine](#extracommandline-string)
@@ -213,6 +215,9 @@ os:
         - [options](#options-mapstring-string)
     - [overlays](#overlays-overlay)
       - [overlay type](#overlay-type)
+    - [uki](#uki-uki)
+      - [uki type](#uki-type)
+        - [kernels](#kernels)
   - [scripts type](#scripts-type)
     - [postCustomization](#postcustomization-script)
       - [script type](#script-type)
@@ -230,6 +235,7 @@ os:
         - [arguments](#arguments-string)
         - [environmentVariables](#environmentvariables-mapstring-string)
         - [name](#script-name)
+  - [previewFeatures type](#previewfeatures-type)
 
 ## Top-level
 
@@ -275,7 +281,8 @@ storage:
       path: /
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
 ```
 
 ### iso [[iso](#iso-type)]
@@ -460,7 +467,8 @@ storage:
       options: defaults,x-initrd.mount
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
   overlays:
     - mountPoint: /etc
       lowerDirs:
@@ -476,6 +484,89 @@ os:
       - /home
       upperDir: /overlays/media/upper
       workDir: /overlays/media/work
+```
+
+## bootLoader type
+
+Defines the configuration for the boot-loader.
+
+### resetType [string]
+
+Specifies that the boot-loader configuration should be reset and how it should be reset.
+
+Supported options:
+
+- `hard-reset`: Fully reset the boot-loader and its configuration.
+  This includes removing any customized kernel command-line arguments that were added to
+  base image.
+
+Example:
+
+```yaml
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
+## uki type
+
+Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot
+to add UKIs as boot entries. UKI combines the Linux kernel, initramfs, kernel
+command-line arguments, etc. into a single EFI executable, simplifying system
+boot processes and improving security.
+
+If this type is specified, then [os.bootloader.resetType](#resettype-string)
+must also be specified.
+
+If this value is specified, then a "uki" entry must be added to
+[previewFeatures](#previewfeatures-type)
+
+Example:
+
+```yaml
+os:
+  bootLoader:
+    resetType: hard-reset
+  uki:
+    kernels: auto
+previewFeatures:
+- uki
+```
+
+### kernels
+
+Specifies which kernels to produce UKIs for.
+
+The value can either contain:
+
+- The string `"auto"`
+- A list of kernel version strings.
+
+When `"auto"` is specified, the tool automatically searches for all the
+installed kernels and produces UKIs for all the found kernels.
+
+If a list of kernel versions is provided, then the tool will only produce UKIs
+for the kernels specified.
+
+The kernel versions must match the regex: `^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`.
+Examples of valid kernel formats: `6.6.51.1-5.azl3`, `5.10.120-4.custom`, `4.18.0-80.el8`.
+
+Example:
+
+```yaml
+os:
+  uki:
+    kernels: auto
+```
+
+Example:
+
+```yaml
+os:
+  uki:
+    kernels:
+      - 6.6.51.1-5.azl3
+      - 5.10.120-4.custom
 ```
 
 ### `mountPoint` [string]
@@ -784,10 +875,10 @@ Options for configuring the kernel.
 
 Additional Linux kernel command line options to add to the image.
 
-If [resetBootLoaderType](#resetbootloadertype-string) is set to `"hard-reset"`, then the
+If bootloader [resetType](#resettype-string) is set to `"hard-reset"`, then the
 `extraCommandLine` value will be appended to the new `grub.cfg` file.
 
-If [resetBootLoaderType](#resetbootloadertype-string) is not set, then the
+If bootloader [resetType](#resettype-string) is not set, then the
 `extraCommandLine` value will be appended to the existing `grub.cfg` file.
 
 ## module type
@@ -1373,16 +1464,6 @@ os:
 
 Contains the configuration options for the OS.
 
-### resetBootLoaderType [string]
-
-Specifies that the boot-loader configuration should be reset and how it should be reset.
-
-Supported options:
-
-- `hard-reset`: Fully reset the boot-loader and its configuration.
-  This includes removing any customized kernel command-line arguments that were added to
-  base image.
-
 ### hostname [string]
 
 Specifies the hostname for the OS.
@@ -1473,6 +1554,14 @@ os:
 ### overlays [[overlay](#overlay-type)[]]
 
 Used to add filesystem overlays.
+
+### bootloader [[bootloader](#bootloader-type)]
+
+Defines the configuration for the boot-loader.
+
+### uki [[uki](#uki-type)]
+
+Used to create UKI PE images and enable UKI as boot entries.
 
 ### selinux [[selinux](#selinux-type)]
 
@@ -1732,7 +1821,7 @@ Value is optional.
 This value cannot be specified if [storage](#storage-storage) is specified (since
 customizing the partition layout resets all the UUIDs anyway).
 
-If this value is specified, then [os.resetBootLoaderType](#resetbootloadertype-string)
+If this value is specified, then [os.bootloader.resetType](#resettype-string)
 must also be specified.
 
 Supported options:
@@ -1746,5 +1835,32 @@ storage:
   resetPartitionsUuidsType: reset-all
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
+```
+
+## previewFeatures type
+
+Enables experimental and preview features that are not yet generally available.
+Features listed under previewFeatures must be explicitly included in the Image
+Customizer configuration to enable their usage.
+
+Supported options:
+
+- `uki`: Enables the Unified Kernel Image (UKI) feature.
+
+  When this option is specified, The `os.uki` configuration becomes available. A
+  valid `os.bootloader.reset` value of `hard-reset` is required when `os.uki` is
+  configured.
+
+Example:
+
+```yaml
+os:
+  bootloader:
+    resetType: hard-reset
+  uki:
+    kernels: auto
+previewFeatures:
+- uki
 ```

@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	tmpParitionDirName = "tmppartition"
+	tmpParitionDirName    = "tmp-partition"
+	tmpEspParitionDirName = "tmp-esp-partition"
 
 	// supported input formats
 	ImageFormatVhd      = "vhd"
@@ -385,6 +386,13 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ic.config.OS.Uki != nil {
+		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
 		}
@@ -826,14 +834,23 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, "grub2/grub.cfg")
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions)
-	if err != nil {
-		return err
+	if config.OS.Uki != nil {
+		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
+		err = updateUkiKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir)
+		if err != nil {
+			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
+		}
+	} else {
+		// UKI is not enabled, update grub.cfg as usual.
+		err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions)
+		if err != nil {
+			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
+		}
 	}
 
 	err = bootPartitionMount.CleanClose()

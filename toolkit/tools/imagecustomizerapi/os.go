@@ -12,22 +12,23 @@ import (
 
 // OS defines how each system present on the image is supposed to be configured.
 type OS struct {
-	ResetBootLoaderType ResetBootLoaderType `yaml:"resetBootLoaderType"`
-	Hostname            string              `yaml:"hostname"`
-	Packages            Packages            `yaml:"packages"`
-	SELinux             SELinux             `yaml:"selinux"`
-	KernelCommandLine   KernelCommandLine   `yaml:"kernelCommandLine"`
-	AdditionalFiles     AdditionalFileList  `yaml:"additionalFiles"`
-	AdditionalDirs      DirConfigList       `yaml:"additionalDirs"`
-	Users               []User              `yaml:"users"`
-	Services            Services            `yaml:"services"`
-	Modules             ModuleList          `yaml:"modules"`
-	Overlays            *[]Overlay          `yaml:"overlays"`
+	Hostname          string             `yaml:"hostname"`
+	Packages          Packages           `yaml:"packages"`
+	SELinux           SELinux            `yaml:"selinux"`
+	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine"`
+	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles"`
+	AdditionalDirs    DirConfigList      `yaml:"additionalDirs"`
+	Users             []User             `yaml:"users"`
+	Services          Services           `yaml:"services"`
+	Modules           ModuleList         `yaml:"modules"`
+	Overlays          *[]Overlay         `yaml:"overlays"`
+	BootLoader        BootLoader         `yaml:"bootloader"`
+	Uki               *Uki               `yaml:"uki"`
 }
 
 func (s *OS) IsValid() error {
 	var err error
-	err = s.ResetBootLoaderType.IsValid()
+	err = s.BootLoader.IsValid()
 	if err != nil {
 		return err
 	}
@@ -102,6 +103,13 @@ func (s *OS) IsValid() error {
 				return fmt.Errorf("duplicate workDir (%s) found in overlay at index %d", overlay.WorkDir, i)
 			}
 			workDirs[overlay.WorkDir] = true
+		}
+	}
+
+	if s.Uki != nil {
+		err = s.Uki.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid uki:\n%w", err)
 		}
 	}
 

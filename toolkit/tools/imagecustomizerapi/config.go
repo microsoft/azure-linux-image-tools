@@ -3,14 +3,19 @@
 
 package imagecustomizerapi
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+)
 
 type Config struct {
-	Storage Storage `yaml:"storage"`
-	Iso     *Iso    `yaml:"iso"`
-	Pxe     *Pxe    `yaml:"pxe"`
-	OS      *OS     `yaml:"os"`
-	Scripts Scripts `yaml:"scripts"`
+	Storage         Storage  `yaml:"storage"`
+	Iso             *Iso     `yaml:"iso"`
+	Pxe             *Pxe     `yaml:"pxe"`
+	OS              *OS      `yaml:"os"`
+	Scripts         Scripts  `yaml:"scripts"`
+	PreviewFeatures []string `yaml:"previewFeatures"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -41,7 +46,22 @@ func (c *Config) IsValid() (err error) {
 		if err != nil {
 			return fmt.Errorf("invalid 'os' field:\n%w", err)
 		}
-		hasResetBootLoader = c.OS.ResetBootLoaderType != ResetBootLoaderTypeDefault
+		hasResetBootLoader = c.OS.BootLoader.ResetType != ResetBootLoaderTypeDefault
+
+		if c.OS.Uki != nil {
+			// Ensure "uki" is included in PreviewFeatures at this time.
+			if !sliceutils.ContainsValue(c.PreviewFeatures, "uki") {
+				return fmt.Errorf("the 'uki' preview feature must be enabled to use 'os.uki'")
+			}
+
+			// Temporary limitation: We currently require 'os.bootloader.reset' to be 'hard-reset' when 'os.uki' is enabled.
+			// In the future, as we design and develop the bootloader further, this hard-reset limitation may be lifted.
+			if c.OS.BootLoader.ResetType != ResetBootLoaderTypeHard {
+				return fmt.Errorf(
+					"'os.bootloader.reset' must be '%s' when 'os.uki' is enabled", ResetBootLoaderTypeHard,
+				)
+			}
+		}
 	}
 
 	err = c.Scripts.IsValid()
@@ -50,11 +70,11 @@ func (c *Config) IsValid() (err error) {
 	}
 
 	if c.CustomizePartitions() && !hasResetBootLoader {
-		return fmt.Errorf("'os.resetBootLoaderType' must be specified if 'storage.disks' is specified")
+		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.disks' is specified")
 	}
 
 	if hasResetPartitionsUuids && !hasResetBootLoader {
-		return fmt.Errorf("'os.resetBootLoaderType' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
 	}
 
 	return nil
