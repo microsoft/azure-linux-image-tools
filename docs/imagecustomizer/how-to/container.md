@@ -14,15 +14,14 @@ step-by-step guide on how to run this container:
 
 Ensure that your configuration file (config.yaml) is ready and accessible. This
 file should define the customization parameters for the MIC tool. Details please
-see
-[configuration.md](./configuration.md).
+see [configuration](../api/configuration.md).
 
 ### Run the Container
 
 Pull the image:
 
 ```
-docker pull mcr.microsoft.com/azurelinux/imagecustomizer:0.3.0
+docker pull mcr.microsoft.com/azurelinux/imagecustomizer:0.7.0
 ```
 
 You can use your own base image, for example:
