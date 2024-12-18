@@ -24,6 +24,7 @@ type ImageHistory struct {
 
 func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
 	var err error
+	logger.Log.Infof("Creating image customizer history file")
 	configCopy, err := deepCopyConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to deep copy config while writing image history: %w", err)
@@ -33,10 +34,8 @@ func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfi
 		return fmt.Errorf("failed to modify config while writing image history: %w", err)
 	}
 
-	logger.Log.Infof("Creating image customizer history file")
 	var allImageHistory []ImageHistory
 
-	fmt.Println(imageChroot.RootDir())
 	customizerLoggingDirPath := filepath.Join(".")
 	// customizerLoggingDirPath := filepath.Join(imageChroot.RootDir(), "/usr/share/image-customizer")
 	err = os.MkdirAll(customizerLoggingDirPath, 0755)
@@ -80,8 +79,6 @@ func readImageHistory(imageHistoryFilePath string, allImageHistory *[]ImageHisto
 }
 
 func writeImageHistory(imageHistoryFilePath string, allImageHistory []ImageHistory, imageUuid string, buildTime string, toolVersion string, configCopy *imagecustomizerapi.Config) error {
-
-	// Add the current image history to the list
 	currentImageHistory := ImageHistory{
 		BuildTime:   buildTime,
 		ToolVersion: toolVersion,
@@ -145,48 +142,37 @@ func modifyConfig(configCopy *imagecustomizerapi.Config, baseConfigPath string) 
 }
 
 func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigList, baseConfigPath string) error {
-
 	for i := range configAdditionalDirs {
 		hashes := make(map[string]string)
 		sourcePath := configAdditionalDirs[i].Source
-		logger.Log.Infof("sourcePath: %s", sourcePath)
 		dirPath := file.GetAbsPathWithBase(baseConfigPath, sourcePath)
-		logger.Log.Infof("dirPath: %s", dirPath)
 
-		destPath := configAdditionalDirs[i].Destination
-		logger.Log.Infof("destPath: %s", destPath)
-		// Walk the directory
-		err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		addFileHashToMap := func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 
-			// Skip directories
-			if info.IsDir() {
+			if d.IsDir() {
 				return nil
 			}
 
-			// Compute the relative path with respect to dirPath
 			relPath, err := filepath.Rel(dirPath, path)
 			if err != nil {
 				return fmt.Errorf("error computing relative path for %s: %w", path, err)
 			}
-			logger.Log.Infof("relPath: %s", relPath)
 
-			// Normalize the relative path to ensure consistency
-			relPath = filepath.Clean(relPath)
-			logger.Log.Infof("relPath after clean: %s", relPath)
-
-			hash, err := file.GenerateSHA256(path)
+			hash, err := generateSHA256(path)
 			if err != nil {
-				return fmt.Errorf("failed to generate SHA256 for file %s: %w", path, err)
+				return err
 			}
 
 			hashes[relPath] = hash
 			return nil
-		})
+		}
+
+		err := filepath.WalkDir(dirPath, addFileHashToMap)
 		if err != nil {
-			return err
+			return fmt.Errorf("error walking directory %s: %w", dirPath, err)
 		}
 		configAdditionalDirs[i].SHA256HashMap = hashes
 	}
@@ -194,13 +180,12 @@ func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigLis
 }
 
 func populateAdditionalFiles(configAdditionalFiles imagecustomizerapi.AdditionalFileList, baseConfigPath string) error {
-
 	for i := range configAdditionalFiles {
 		if configAdditionalFiles[i].Source == "" {
 			continue
 		}
 		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, configAdditionalFiles[i].Source)
-		hash, err := file.GenerateSHA256(absSourceFile)
+		hash, err := generateSHA256(absSourceFile)
 		if err != nil {
 			return err
 		}
@@ -221,14 +206,13 @@ func redactSshPublicKeys(configUsers []imagecustomizerapi.User, redactedString s
 }
 
 func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath string) error {
-
 	for i := range scripts.PostCustomization {
 		path := scripts.PostCustomization[i].Path
 		if path == "" {
 			continue
 		}
 		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
-		hash, err := file.GenerateSHA256(absSourceFile)
+		hash, err := generateSHA256(absSourceFile)
 		if err != nil {
 			return err
 		}
@@ -241,7 +225,7 @@ func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath stri
 			continue
 		}
 		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
-		hash, err := file.GenerateSHA256(absSourceFile)
+		hash, err := generateSHA256(absSourceFile)
 		if err != nil {
 			return err
 		}
@@ -250,4 +234,12 @@ func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath stri
 	}
 
 	return nil
+}
+
+func generateSHA256(path string) (hash string, err error) {
+	hash, err = file.GenerateSHA256(path)
+	if err != nil {
+		return "", fmt.Errorf("error generating SHA256 for %s: %w", path, err)
+	}
+	return hash, nil
 }
