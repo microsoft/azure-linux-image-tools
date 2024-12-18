@@ -84,11 +84,11 @@ Azure Linux Image Customizer offers the following configurations:
 - In the input configuration, there is a `pxe` node under which the user can
   configure PXE related properties - like the URL of the LiveOS ISO image to
   download (note that this image is the same image being built).
-  See the [Azure Linux Image Customizer configuration](./configuration.md#pxe-type)
+  See the [Azure Linux Image Customizer configuration](../api/pxe.md#pxe-type)
   page for more information.
 - When invoking the Azure Linux Image Customizer, the user can also elect to
   export the artifacts to a local folder.
-  See the [Azure Linux Image Customizer command line](./cli.md#output-pxe-artifacts-dir)
+  See the [Azure Linux Image Customizer command line](../api/cli.md#output-pxe-artifacts-dir)
   page for more information.
 
 Below is a list of required artifacts and where on the PXE server they should
