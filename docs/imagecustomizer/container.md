@@ -15,7 +15,7 @@ step-by-step guide on how to run this container:
 Ensure that your configuration file (config.yaml) is ready and accessible. This
 file should define the customization parameters for the MIC tool. Details please
 see
-[configuration.md](./configuration.md).
+[configuration.md](./api/configuration.md).
 
 ### Run the Container
 

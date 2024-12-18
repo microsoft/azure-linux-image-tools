@@ -53,7 +53,7 @@ The current implementation for the LiveOS iso does not support the following:
 - The user can add kernel parameters.
 
 For a full list of capabilities, see Azure Linux Image Customizer's iso
-configuration section: [Config.ISO](./configuration.md#iso-type).
+configuration section: [Config.ISO](./api/configuration/config.md#iso-iso).
 
 ## cloud-init Support
 
