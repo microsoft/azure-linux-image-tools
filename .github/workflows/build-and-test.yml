@@ -19,7 +19,7 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v4
-    
+
     - name: setup go 1.x
       uses: actions/setup-go@v5
       with:
@@ -40,7 +40,7 @@ jobs:
           echo "UPDATE ./github/workflows/go-test-coverage.yml AND prerequisite documentation if minimum go version changed"
           exit 1
         fi
-                
+
     - name: Check for bad go formatting
       run: |
         pushd toolkit
@@ -51,7 +51,7 @@ jobs:
           git diff *.go
           exit 1
         fi
-        
+
     - name: check for out of date go modules
       run: |
         pushd toolkit
@@ -69,3 +69,13 @@ jobs:
       run: |
         pushd toolkit
         sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
+
+  build-docs:
+    - name: setup pages
+      uses: actions/configure-pages@v5
+
+    - name: build with Jekyll
+      uses: actions/jekyll-build-pages@v1
+      with:
+        source: ./docs
+        destination: ./_site
