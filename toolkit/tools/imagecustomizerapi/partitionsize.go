@@ -73,6 +73,7 @@ func (s PartitionSize) MarshalJSON() ([]byte, error) {
 
 func (s *PartitionSize) UnmarshalJSON(data []byte) error {
 	var err error
+
 	var stringValue string
 	err = json.Unmarshal(data, &stringValue)
 	if err != nil {
