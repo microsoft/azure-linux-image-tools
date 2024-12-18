@@ -1,4 +1,4 @@
-# PXE Support
+# pxe type
 
 Specifies the PXE-specific configuration for the generated OS artifacts.
 
@@ -8,7 +8,7 @@ Specifies the base URL for the ISO image to download at boot time. The Azure
 Linux Image Customizer will append the output image name to the specified base
 URL to form the full URL for downloading the image. The output image name is
 specified on the command-line using the `--output-image file` argument (see the
-  [command-line interface](./cli.md) document for more details).
+  [command-line interface](../cli.md) document for more details).
 
 This can be useful if the ISO image name changes with each build and the
 script deploying the artifacts to the PXE server does not update grub.cfg with
@@ -44,8 +44,8 @@ For example,
 
 This field is mutually exclusive with `isoImageFileUrl`.
 
-For an overview of Azure Linux Image Customizer support for PXE, see the
-[PXE support page](../concepts/pxe.md).
+For an overview of Azure Linux Image Customizer support for PXE, see the 
+[PXE support page](../../pxe.md).
 
 ## isoImageFileUrl [string]
 
@@ -65,5 +65,5 @@ The supported download protocols are: nfs, http, https, ftp, torent, tftp.
 
 This field is mutually exclusive with `isoImageBaseUrl`.
 
-For an overview of Azure Linux Image Customizer support for PXE, see the
-[PXE support page](../concepts/pxe.md).
+For an overview of Azure Linux Image Customizer support for PXE, see the 
+[PXE support page](../../pxe.md).

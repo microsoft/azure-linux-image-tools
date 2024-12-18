@@ -41,13 +41,13 @@ VMs in Azure.
 
 When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
-[ISO Support](../concepts/iso.md).
+[Azure Linux Image Customizer ISO Support](./iso.md).
 
 ## --output-split-partitions-format=FORMAT
 
 Format of partition files. If specified, disk partitions will be extracted as separate
 files and a json file with partition metadata will be produced. For more details on
-the json file format, see: [Partition Metadata JSON Format](../partitionmetadatajson.md).
+the json file format, see: [Partition Metadata JSON Format](./partitionmetadatajson.md).
 
 Options: raw, raw-zst.
 
@@ -94,10 +94,10 @@ RPM sources are specified in the order or priority from lowest to highest.
 If `--disable-base-image-rpm-repos` is not specified, then the in-built RPM repos are
 given the lowest priority.
 
-See, [Building custom packages](../how-to/building-packages.md) for a guide on how to build your
+See, [Building custom packages](building-packages.md) for a guide on how to build your
 own packages for Azure Linux.
 
-See, [Cloning an RPM repo](../how-to/clone-rpm-repo.md) for how to clone or download RPMs from a
+See, [Cloning an RPM repo](clone-rpm-repo.md) for how to clone or download RPMs from a
 existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
@@ -111,7 +111,7 @@ installation.
 Create a folder containing the artifacts to be used for PXE booting.
 
 For an overview of Azure Linux Image Customizer support for PXE, see the
-[PXE support page](../concepts/pxe.md).
+[PXE support page](./pxe.md).
 
 ## --log-level=LEVEL
 
