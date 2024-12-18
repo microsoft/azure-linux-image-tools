@@ -1,5 +1,5 @@
 
-# storage [[storage](#storage-type)]
+# storage
 
 Contains the options for provisioning disks, partitions, and file systems.
 
@@ -39,7 +39,7 @@ os:
     resetType: hard-reset
 ```
 
-- [storage \[storage\]](#storage-storage)
+- [storage](#storage)
   - [bootType \[string\]](#boottype-string)
   - [resetPartitionsUuidsType \[string\]](#resetpartitionsuuidstype-string)
   - [disks \[disk\[\]\]](#disks-disk)
@@ -90,10 +90,10 @@ Specifies that the partition UUIDs and filesystem UUIDs should be reset.
 
 Value is optional.
 
-This value cannot be specified if [storage](#storage-storage) is specified (since
+This value cannot be specified if [storage](#storage) is specified (since
 customizing the partition layout resets all the UUIDs anyway).
 
-If this value is specified, then [os.resetBootLoaderType](#resetbootloadertype-string)
+If this value is specified, then [os.bootLoader.resetType](./os.md#resettype-string)
 must also be specified.
 
 Supported options:
@@ -319,7 +319,7 @@ Note: The [filesystem](#filesystem-type) item pointing to this verity device, mu
 include the `ro` option in the [mountPoint.options](#options-string).
 
 There are multiple ways to configure a verity enabled image. For
-recommendations, see [Verity Image Recommendations](./verity.md).
+recommendations, see [Verity Image Recommendations](../concepts/verity.md).
 
 <div id="verity-id"></div>
 

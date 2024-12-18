@@ -29,77 +29,84 @@ Example:
 os:
   hostname: example-image
 ```
+
 ### pxe [[pxe](./pxe.md)]
+
 Optionally specifies the PXE-specific configuration for the generated OS
 artifacts.
+
 ### scripts [[scripts](./scripts.md)]
+
 Specifies custom scripts to run during the customization process.
+
 ### storage [[storage](./storage.md)]
+
 ## Operation ordering
+
 1. If partitions were specified in the config, customize the disk partitions.
-   Otherwise, if the [resetpartitionsuuidstype](#resetpartitionsuuidstype-string) value
+   Otherwise, if the [resetpartitionsuuidstype](./storage.md#resetpartitionsuuidstype-string) value
    is specified, then the partitions' UUIDs are changed.
 2. Override the `/etc/resolv.conf` file with the version from the host OS.
 
 3. Update packages:
 
-   1. Remove packages ([removeLists](#removelists-string),
-   [remove](#remove-string))
+   1. Remove packages ([removeLists](./os.md#removelists-string),
+   [remove](./os.md#remove-string))
 
-   2. Update base image packages ([updateExistingPackages](#updateexistingpackages-bool)).
+   2. Update base image packages ([updateExistingPackages](./os.md#updateexistingpackages-bool)).
 
-   3. Install packages ([installLists](#installlists-string),
-   [install](#install-string))
+   3. Install packages ([installLists](./os.md#installlists-string),
+   [install](./os.md#install-string))
 
-   4. Update packages ([updateLists](#removelists-string),
-   [update](#update-string))
+   4. Update packages ([updateLists](./os.md#removelists-string),
+   [update](./os.md#update-string))
 
-4. Update hostname. ([hostname](#hostname-string))
+4. Update hostname. ([hostname](./os.md#hostname-string))
 
-5. Copy additional files. ([additionalFiles](#os-additionalfiles))
+5. Copy additional files. ([additionalFiles](./os.md#os-additionalfiles))
 
-6. Copy additional directories. ([additionalDirs](#additionaldirs-dirconfig))
+6. Copy additional directories. ([additionalDirs](./os.md#additionaldirs-dirconfig))
 
-7. Add/update users. ([users](#users-user))
+7. Add/update users. ([users](./os.md#users-user))
 
-8. Enable/disable services. ([services](#services-type))
+8. Enable/disable services. ([services](./os.md#services-type))
 
-9. Configure kernel modules. ([modules](#modules-module))
+9. Configure kernel modules. ([modules](./os.md#modules-module))
 
 10. Write the `/etc/image-customizer-release` file.
 
-11. If the bootloader [resetType](#resettype-string) is set to `hard-reset`, then
+11. If the bootloader [resetType](./os.md#resettype-string) is set to `hard-reset`, then
     reset the boot-loader.
 
-    If the bootloader [resetType](#resettype-string) is not set, then append the
-    [extraCommandLine](#extracommandline-string) value to the existing
+    If the bootloader [resetType](./os.md#resettype-string) is not set, then append the
+    [extraCommandLine](./os.md#extracommandline-string) value to the existing
 
-12. Update the SELinux mode. [mode](#mode-string)
+12. Update the SELinux mode. [mode](./os.md#mode-string)
 
-13. If ([overlays](#overlay-type)) are specified, then add the overlay driver
+13. If ([overlays](./os.md#overlay-type)) are specified, then add the overlay driver
     and update the fstab file with the overlay mount information.
 
-14. If a ([verity](#verity-type)) device is specified, then add the dm-verity dracut
+14. If a ([verity](./os.md#verity-type)) device is specified, then add the dm-verity dracut
     driver and update the grub config.
 
 15. Regenerate the initramfs file (if needed).
 
-16. Run ([postCustomization](#postcustomization-script)) scripts.
+16. Run ([postCustomization](./scripts.md#postcustomization-script)) scripts.
 
 17. Restore the `/etc/resolv.conf` file.
 
 18. If SELinux is enabled, call `setfiles`.
 
-19. Run finalize image scripts. ([finalizeCustomization](#finalizecustomization-script))
+19. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
 
 20. If [--shrink-filesystems](./cli.md#shrink-filesystems) is specified, then shrink
     the file systems.
 
-21. If a ([verity](#verity-type)) device is specified, then create the hash tree and
+21. If a ([verity](./os.md#verity-type)) device is specified, then create the hash tree and
     update the grub config.
 
 22. If the output format is set to `iso`, copy additional iso media files.
-    ([iso](#iso-type))
+    ([iso](./iso.md#iso-type))
 
 23. If [--output-pxe-artifacts-dir](./cli.md#output-pxe-artifacts-dir) is specified,
     then export the ISO image contents to the specified folder.
@@ -119,14 +126,14 @@ first-boot. But doing this during customization is useful for verity enabled ima
 where the filesystem is readonly.)
 
 If you want to explicitly set the `/etc/resolv.conf` file contents, you can do so within
-a [finalizeCustomization](#finalizecustomization-script) script, since those scripts run
+a [finalizeCustomization](./scripts.md#finalizecustomization-script) script, since those scripts run
 after the `/etc/resolv.conf` is deleted.
 
 ## Replacing packages
 
 If you wish to replace a package with conflicting package, then you can remove the
-existing package using [remove](#remove-string) and then install the
-new package with [install](#install-string).
+existing package using [remove](./os.md#remove-string) and then install the
+new package with [install](./os.md#install-string).
 
 Example:
 

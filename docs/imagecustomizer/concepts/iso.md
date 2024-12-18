@@ -53,7 +53,7 @@ The current implementation for the LiveOS iso does not support the following:
 - The user can add kernel parameters.
 
 For a full list of capabilities, see Azure Linux Image Customizer's iso
-configuration section: [Config.ISO](./configuration.md#iso-type).
+configuration section: [Config.ISO](../api/iso.md#iso-type).
 
 ## cloud-init Support
 
@@ -68,7 +68,9 @@ Placing those files directly on the iso file system will allow a more efficient
 replacement flow in the future (i.e. when it is desired to only replace the
 cloud-init data files).
 
-#### Example 1
+## Examples
+
+### Example 1
 
 If cloud-init data is to be placed directly within the iso file system:
 
@@ -97,7 +99,7 @@ instead of using a symbolic link.
 But cloud-init ignores the `network-config` file when you use `seedfrom`.
 See, cloud-init issue [#3307](https://github.com/canonical/cloud-init/issues/3307).
 
-#### Example 2
+### Example 2
 
 If cloud-init data is to be placed within the LiveOS root file system:
 
@@ -119,6 +121,7 @@ os:
 
 The input full disk image must satisfy the following requirements in order for
 the Azure Linux Image Cuztomizer to be able to generate an iso image out of it:
+
 - File layout (after all partitions have been mounted):
   - `/boot/grub2/grub.cfg` must exist and is the 'main' grub configuration (not
     a redirection grub configuration file for example).

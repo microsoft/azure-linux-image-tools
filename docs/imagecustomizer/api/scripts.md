@@ -162,10 +162,10 @@ In particular, these scripts run after:
 2. The temporary `/etc/resolv.conf` file has been deleted,
 
 but before the conversion to the requested output type.
-(See, [Operation ordering](#operation-ordering) for details.)
+(See, [Operation ordering](./configuration.md#operation-ordering) for details.)
 
-Most scripts should be added to [postCustomization](#postcustomization-script).
-Only add scripts to [finalizeCustomization](#finalizecustomization-script) if you want
+Most scripts should be added to [postCustomization](./scripts.md#postcustomization-script).
+Only add scripts to [finalizeCustomization](./scripts.md#finalizecustomization-script) if you want
 to customize the `/etc/resolv.conf` file or you want manually set SELinux file labels.
 
 These scripts are run under a chroot of the customized OS.

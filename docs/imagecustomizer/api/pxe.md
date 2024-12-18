@@ -45,7 +45,7 @@ For example,
 This field is mutually exclusive with `isoImageFileUrl`.
 
 For an overview of Azure Linux Image Customizer support for PXE, see the
-[PXE support page](./pxe-detailed.md).
+[PXE support page](../concepts/pxe.md).
 
 ## isoImageFileUrl [string]
 
@@ -66,4 +66,4 @@ The supported download protocols are: nfs, http, https, ftp, torent, tftp.
 This field is mutually exclusive with `isoImageBaseUrl`.
 
 For an overview of Azure Linux Image Customizer support for PXE, see the
-[PXE support page](./pxe-detailed.md).
+[PXE support page](../concepts/pxe.md).

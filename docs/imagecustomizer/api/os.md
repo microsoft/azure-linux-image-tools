@@ -2,7 +2,6 @@
 
 Contains the configuration options for the OS.
 
-
 - [os](#os)
   - [hostname \[string\]](#hostname-string)
   - [bootloader \[bootloader\]](#bootloader-bootloader)
@@ -112,7 +111,6 @@ os:
     resetType: hard-reset
 ```
 
-
 <div id="os-kernelcommandline"></div>
 
 ## kernelCommandLine [[kernelCommandLine](#kernelcommandline-type)]
@@ -136,7 +134,6 @@ If bootloader [resetType](#resettype-string) is not set, then the
 ## overlays [[overlay](#overlay-type)[]]
 
 Used to add filesystem overlays.
-
 
 ### overlay type
 
@@ -535,7 +532,7 @@ the image.
 
 Note: If you wish to apply additional SELinux policies on top of the base SELinux
 policy, then it is recommended to apply these new policies using a
-([postCustomization](#postcustomization-script)) script.
+([postCustomization](./scripts.md#postcustomization-script)) script.
 After applying the policies, you do not need to call `setfiles` manually since it will
 called automatically after the `postCustomization` scripts are run.
 
@@ -556,6 +553,7 @@ os:
     - setools-console
     - policycoreutils-python-utils
 ```
+
 ## additionalFiles [[additionalFile](#additionalfile-type)[]>]
 
 Copy files into the OS image.
@@ -777,7 +775,6 @@ Supported loadmodes:
 
 -  empty string or not set, it will default to `inherit`.
 
-
 #### options [map\<string, string>]
 
 Kernel options for modules can specify how these modules interact with the system,
@@ -851,7 +848,6 @@ os:
     updateLists:
     - lists/ssh.yaml
 ```
-
 
 ## packages [packages](#packages-type)
 
@@ -995,7 +991,7 @@ If this type is specified, then [os.bootloader.resetType](#resettype-string)
 must also be specified.
 
 If this value is specified, then a "uki" entry must be added to
-[previewFeatures](#previewfeatures-type)
+[previewFeatures](./previewFeatures.md#previewfeatures-type)
 
 Example:
 
