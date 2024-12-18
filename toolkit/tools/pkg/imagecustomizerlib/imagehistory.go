@@ -25,25 +25,26 @@ type ImageHistory struct {
 func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
 	var err error
 	logger.Log.Infof("Creating image customizer history file")
+
+	// Deep copy the config to avoid modifying the original config
 	configCopy, err := deepCopyConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to deep copy config while writing image history: %w", err)
 	}
+
 	err = modifyConfig(configCopy, baseConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to modify config while writing image history: %w", err)
 	}
-
-	var allImageHistory []ImageHistory
 
 	customizerLoggingDirPath := filepath.Join(imageChroot.RootDir(), "/usr/share/image-customizer")
 	err = os.MkdirAll(customizerLoggingDirPath, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create customizer logging directory: %w", err)
 	}
-
 	imageHistoryFilePath := filepath.Join(customizerLoggingDirPath, "history.json")
 
+	var allImageHistory []ImageHistory
 	err = readImageHistory(imageHistoryFilePath, &allImageHistory)
 	if err != nil {
 		return fmt.Errorf("failed to read image history: %w", err)

@@ -122,7 +122,7 @@ func parseDiskSize(diskSizeString string) (DiskSize, error) {
 	return DiskSize(num), nil
 }
 
-// String returns the string representation of the DiskSize in the most appropriate unit
+// String returns the string representation of DiskSize in the most appropriate unit
 // such that it matches the input format.
 func (s DiskSize) String() string {
 	switch {
