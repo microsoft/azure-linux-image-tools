@@ -74,6 +74,9 @@ jobs:
     name: jekyll github pages build
     runs-on: ubuntu-latest
     steps:
+    - name: checkout
+      uses: actions/checkout@v4
+
     - name: setup pages
       uses: actions/configure-pages@v5
 
