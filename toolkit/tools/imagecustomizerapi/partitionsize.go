@@ -77,7 +77,7 @@ func (s *PartitionSize) UnmarshalJSON(data []byte) error {
 	var stringValue string
 	err = json.Unmarshal(data, &stringValue)
 	if err != nil {
-		return fmt.Errorf("invalid partition size format: %w", err)
+		return fmt.Errorf("failed to parse partition size:\n%w", err)
 	}
 
 	switch stringValue {
