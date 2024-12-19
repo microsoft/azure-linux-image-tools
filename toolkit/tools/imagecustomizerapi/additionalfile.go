@@ -24,7 +24,7 @@ type AdditionalFile struct {
 	// The file permissions to set on the file.
 	Permissions *FilePermissions `yaml:"permissions" json:"permissions,omitempty"`
 
-	SHA256Hash string `yaml:"sha256hash" json:"sha256hash,omitempty"`
+	SHA256Hash string `json:"sha256hash,omitempty"`
 }
 
 func (l AdditionalFileList) IsValid() (err error) {

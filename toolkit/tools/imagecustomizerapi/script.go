@@ -25,7 +25,7 @@ type Script struct {
 	// Name is an optional value used to reference the script in the logs.
 	Name string `yaml:"name" json:"name,omitempty"`
 
-	SHA256Hash string `yaml:"sha256hash" json:"sha256hash,omitempty"`
+	SHA256Hash string `json:"sha256hash,omitempty"`
 }
 
 func (s *Script) IsValid() error {
