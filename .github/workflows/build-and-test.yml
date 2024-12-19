@@ -71,6 +71,9 @@ jobs:
         sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
 
   build-docs:
+    name: jekyll github pages build
+    runs-on: ubuntu-latest
+    steps:
     - name: setup pages
       uses: actions/configure-pages@v5
 
