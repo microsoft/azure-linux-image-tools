@@ -10,12 +10,12 @@ import (
 )
 
 type Config struct {
-	Storage         Storage  `yaml:"storage"`
-	Iso             *Iso     `yaml:"iso"`
-	Pxe             *Pxe     `yaml:"pxe"`
-	OS              *OS      `yaml:"os"`
-	Scripts         Scripts  `yaml:"scripts"`
-	PreviewFeatures []string `yaml:"previewFeatures"`
+	Storage         Storage  `yaml:"storage" json:"storage,omitempty"`
+	Iso             *Iso     `yaml:"iso" json:"iso,omitempty"`
+	Pxe             *Pxe     `yaml:"pxe" json:"pxe,omitempty"`
+	OS              *OS      `yaml:"os" json:"os,omitempty"`
+	Scripts         Scripts  `yaml:"scripts" json:"scripts,omitempty"`
+	PreviewFeatures []string `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {

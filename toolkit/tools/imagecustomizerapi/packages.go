@@ -4,11 +4,11 @@
 package imagecustomizerapi
 
 type Packages struct {
-	UpdateExistingPackages bool     `yaml:"updateExistingPackages"`
-	InstallLists           []string `yaml:"installLists"`
-	Install                []string `yaml:"install"`
-	RemoveLists            []string `yaml:"removeLists"`
-	Remove                 []string `yaml:"remove"`
-	UpdateLists            []string `yaml:"updateLists"`
-	Update                 []string `yaml:"update"`
+	UpdateExistingPackages bool     `yaml:"updateExistingPackages" json:"updateExistingPackages,omitempty"`
+	InstallLists           []string `yaml:"installLists" json:"-"`
+	Install                []string `yaml:"install" json:"install,omitempty"`
+	RemoveLists            []string `yaml:"removeLists" json:"-"`
+	Remove                 []string `yaml:"remove" json:"remove,omitempty"`
+	UpdateLists            []string `yaml:"updateLists" json:"-"`
+	Update                 []string `yaml:"update" json:"update,omitempty"`
 }

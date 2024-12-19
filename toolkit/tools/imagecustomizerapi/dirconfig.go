@@ -13,22 +13,24 @@ type DirConfigList []DirConfig
 
 type DirConfig struct {
 	// The path to the source directory that will be copied (can be relative or absolute path).
-	Source string `yaml:"source"`
+	Source string `yaml:"source" json:"source,omitempty"`
 
 	// The absolute path in the target OS that the directory will be copied to.
-	Destination string `yaml:"destination"`
+	Destination string `yaml:"destination" json:"destination,omitempty"`
 
 	// The permissions to set on all of the new directories being created on the target OS (including the top-level directory).
 	// Note: If this value is not specified in the config, the permissions for these directories will be set to 0755.
-	NewDirPermissions *FilePermissions `yaml:"newDirPermissions"`
+	NewDirPermissions *FilePermissions `yaml:"newDirPermissions" json:"newDirPermissions,omitempty"`
 
 	// The permissions to set on the directories being copied that already do exist on the target OS (including the top-level directory).
 	// Note: If this value is not specified in the config, the permissions for this field will be the same as that of the pre-existing directory.
-	MergedDirPermissions *FilePermissions `yaml:"mergedDirPermissions"`
+	MergedDirPermissions *FilePermissions `yaml:"mergedDirPermissions" json:"mergedDirPermissions,omitempty"`
 
 	// The permissions to set on the children file of the directory.
 	// Note: If this value is not specified in the config, the permissions for these directories will be set to 0755.
-	ChildFilePermissions *FilePermissions `yaml:"childFilePermissions"`
+	ChildFilePermissions *FilePermissions `yaml:"childFilePermissions" json:"childFilePermissions,omitempty"`
+
+	SHA256HashMap map[string]string `json:"sha256hashmap,omitempty"`
 }
 
 func (l *DirConfigList) IsValid() (err error) {

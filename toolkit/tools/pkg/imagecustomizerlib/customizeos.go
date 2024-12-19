@@ -64,6 +64,13 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
+	if config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
+		err = addImageHistory(imageChroot, imageUuid, baseConfigPath, ToolVersion, buildTime, config)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = handleBootLoader(baseConfigPath, config, imageConnection)
 	if err != nil {
 		return err

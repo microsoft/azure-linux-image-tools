@@ -8,7 +8,7 @@ import (
 )
 
 type BootLoader struct {
-	ResetType ResetBootLoaderType `yaml:"resetType"`
+	ResetType ResetBootLoaderType `yaml:"resetType" json:"resetType,omitempty"`
 }
 
 func (b *BootLoader) IsValid() error {
