@@ -14,7 +14,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
-func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
+func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, isVerityEnabled bool,
 ) (bool, error) {
 	var err error
 
@@ -29,12 +29,14 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 		return false, fmt.Errorf("failed to validate package dependencies for verity:\n%w", err)
 	}
 
-	// Integrate systemd veritysetup dracut module into initramfs img.
-	systemdVerityDracutModule := "systemd-veritysetup"
-	dmVerityDracutDriver := "dm-verity"
-	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
-	if err != nil {
-		return false, fmt.Errorf("failed to add dracut modules for verity:\n%w", err)
+	if !isVerityEnabled {
+		// Integrate systemd veritysetup dracut module into initramfs img.
+		systemdVerityDracutModule := "systemd-veritysetup"
+		dmVerityDracutDriver := "dm-verity"
+		err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
+		if err != nil {
+			return false, fmt.Errorf("failed to add dracut modules for verity:\n%w", err)
+		}
 	}
 
 	err = updateFstabForVerity(verity, imageChroot)
@@ -222,7 +224,7 @@ func systemdFormatPartitionId(configDeviceId string, mountIdType imagecustomizer
 ) (string, error) {
 	partUuid := partIdToPartUuid[configDeviceId]
 
-	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions)
+	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions, "")
 	if err != nil {
 		return "", err
 	}

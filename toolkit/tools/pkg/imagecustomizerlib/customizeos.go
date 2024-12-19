@@ -11,7 +11,7 @@ import (
 
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string) error {
+	imageUuid string, isVerityEnabled bool) error {
 	var err error
 
 	imageChroot := imageConnection.Chroot()
@@ -80,7 +80,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	verityUpdated, err := enableVerityPartition(config.Storage.Verity, imageChroot)
+	verityUpdated, err := enableVerityPartition(config.Storage.Verity, imageChroot, isVerityEnabled)
 	if err != nil {
 		return err
 	}
