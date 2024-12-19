@@ -386,7 +386,7 @@ func TestStorageIsValidUniqueLabel(t *testing.T) {
 				Type:     FileSystemTypeFat32,
 				MountPoint: &MountPoint{
 					IdType: MountIdentifierTypePartLabel,
-					Path:   "/",
+					Path:   "/boot/efi",
 				},
 			},
 			{
@@ -1316,4 +1316,48 @@ func TestStorageIsValidVerityMissingReadonly(t *testing.T) {
 
 	err := value.IsValid()
 	assert.ErrorContains(t, err, "verity device's (rootverity) filesystem must include the 'ro' mount option")
+}
+
+func TestStorageIsValidExpectedMountPath(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(4 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "rootfs",
+					Type:  PartitionTypeVar,
+					Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootfs",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+	}
+
+	// TODO: Check logs?
+
+	err := value.IsValid()
+	assert.NoError(t, err)
 }

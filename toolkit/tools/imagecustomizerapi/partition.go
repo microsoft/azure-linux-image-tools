@@ -20,7 +20,7 @@ type Partition struct {
 	End *DiskSize `yaml:"end"`
 	// Size is the size of the partition.
 	Size PartitionSize `yaml:"size"`
-	// Type specifies the type of partition the partition is.
+	// Type specifies the type of the partition.
 	Type PartitionType `yaml:"type"`
 }
 
