@@ -24,7 +24,7 @@ type OS struct {
 	Overlays          *[]Overlay         `yaml:"overlays" json:"overlays,omitempty"`
 	BootLoader        BootLoader         `yaml:"bootloader" json:"bootloader,omitempty"`
 	Uki               *Uki               `yaml:"uki" json:"uki,omitempty"`
-	ImageHistory      string             `yaml:"imageHistory" json:"imageHistory,omitempty"`
+	ImageHistory      ImageHistory       `yaml:"imageHistory" json:"imageHistory,omitempty"`
 }
 
 func (s *OS) IsValid() error {
@@ -40,10 +40,9 @@ func (s *OS) IsValid() error {
 		}
 	}
 
-	if s.ImageHistory != "" {
-		if s.ImageHistory != "none" {
-			return fmt.Errorf("invalid imageHistory (%s)", s.ImageHistory)
-		}
+	err = s.ImageHistory.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid imageHistory:\n%w", err)
 	}
 
 	err = s.SELinux.IsValid()
