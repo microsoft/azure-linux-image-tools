@@ -349,7 +349,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	// The presence of this type indicates that dm-verity has been enabled on the base image. If dm-verity is not enabled,
 	// the verity hash device should not be assigned this type. We do not support customization on verity enabled base
 	// images at this time because such modifications would compromise the integrity and security mechanisms enforced by dm-verity.
-	err := checkDmVerityEnabled(ic.rawImageFile)
+
+	isVerityEnabled, err := checkDmVerityEnabled(ic.rawImageFile)
 	if err != nil {
 		return err
 	}
@@ -370,7 +371,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Customize the raw image file.
 	err = customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
-		ic.useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+		ic.useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, isVerityEnabled)
 	if err != nil {
 		return err
 	}
@@ -681,7 +682,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string,
+	imageUuidStr string, isVerityEnabled bool,
 ) error {
 	logger.Log.Debugf("Customizing OS")
 
@@ -700,7 +701,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, isVerityEnabled)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -866,34 +867,34 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 	return nil
 }
 
-func checkDmVerityEnabled(rawImageFile string) error {
+func checkDmVerityEnabled(rawImageFile string) (bool, error) {
 	logger.Log.Debugf("Check if dm-verity is enabled in base image")
 
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to check if dm-verity is enabled in base image:\n%w", err)
+		return false, fmt.Errorf("failed to check if dm-verity is enabled in base image:\n%w", err)
 	}
 	defer loopback.Close()
 
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	for i := range diskPartitions {
 		diskPartition := diskPartitions[i]
 
 		if diskPartition.FileSystemType == "DM_verity_hash" {
-			return fmt.Errorf("cannot customize base image that has dm-verity enabled")
+			return true, nil // dm-verity is enabled
 		}
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return fmt.Errorf("failed to check if dm-verity is enabled in base image:\n%w", err)
+		return false, fmt.Errorf("failed to check if dm-verity is enabled in base image:\n%w", err)
 	}
 
-	return nil
+	return false, nil // dm-verity is not enabled
 }
 
 func warnOnLowFreeSpace(buildDir string, imageConnection *ImageConnection) {
