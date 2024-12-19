@@ -10,42 +10,53 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 )
 
 type ImageBuildData struct {
 	Source    string
-	KnownInfo ExpectedImage
+	KnownInfo outputPartitionMetadata
 	Metadata  *Image
 }
 
-type ExpectedImage struct {
-	Name                string
-	PartType            PartitionType
-	MountPoint          string
-	FsType              string
-	FsUuid              string
-	OsReleasePath       *string
-	GrubCfgPath         *string
-	ContainsRpmDatabase bool
+func convertToCosi(ic *ImageCustomizerParameters, imageUuid [UuidSize]byte, imageUuidStr string) error {
+	logger.Log.Infof("Extracting partition files")
+	outputDir := filepath.Join(ic.buildDir, "cosiimages")
+	err := os.MkdirAll(outputDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
+	}
+
+	imageLoopback, err := safeloopback.NewLoopback(ic.rawImageFile)
+	if err != nil {
+		return err
+	}
+	defer imageLoopback.Close()
+
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase, "raw-zst", imageUuid)
+	if err != nil {
+		return err
+	}
+
+	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, imageUuidStr)
+	if err != nil {
+		return fmt.Errorf("failed to build COSI: %w", err)
+	}
+
+	logger.Log.Infof("Successfully converted to COSI: %s", ic.outputImageFile)
+	return nil
+
 }
 
-func (ex ExpectedImage) ShouldMount() bool {
-	return ex.OsReleasePath != nil || ex.GrubCfgPath != nil || ex.ContainsRpmDatabase
-}
-
-type ExtractedImageData struct {
-	OsRelease string
-	GrubCfg   string
-}
-
-func buildCosiFile(sourceDir string, outputFile string, expectedImages []ExpectedImage) error {
+func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputPartitionMetadata, imageUuidStr string) error {
 	metadata := MetadataJson{
 		Version: "1.0",
-		OsArch:  "x86_64",
-		Id:      uuid.New().String(),
+		OsArch:  runtime.GOARCH,
+		Id:      imageUuidStr,
 		Images:  make([]Image, len(expectedImages)),
 	}
 
@@ -58,29 +69,28 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []Expecte
 	for i, image := range expectedImages {
 		metadata := &metadata.Images[i]
 		imageData[i] = ImageBuildData{
-			Source:    path.Join(sourceDir, image.Name),
+			Source:    path.Join(sourceDir, image.PartitionFilename),
 			Metadata:  metadata,
 			KnownInfo: image,
 		}
 
-		metadata.Image.Path = path.Join("images", image.Name)
-		metadata.PartType = image.PartType
-		metadata.MountPoint = image.MountPoint
-		metadata.FsType = image.FsType
-		metadata.FsUuid = image.FsUuid
+		metadata.Image.Path = path.Join("images", image.PartitionFilename)
+		metadata.PartType = image.PartitionTypeUuid
+		metadata.MountPoint = image.Mountpoint
+		metadata.FsType = image.FileSystemType
+		metadata.FsUuid = image.Uuid
+		metadata.UncompressedSize = image.UncompressedSize
 	}
 
 	// Populate metadata for each image
 	for _, data := range imageData {
-		log.WithField("image", data.Source).Info("Processing image...")
-		extracted, err := data.populateMetadata()
+		logger.Log.Infof("Processing image %s", data.Source)
+		err := populateMetadata(data)
 		if err != nil {
 			return fmt.Errorf("failed to populate metadata for %s: %w", data.Source, err)
 		}
 
-		log.WithField("image", data.Source).Info("Populated metadata for image.")
-
-		metadata.OsRelease = extracted.OsRelease
+		logger.Log.Infof("Populated metadata for image %s", data.Source)
 	}
 
 	// Marshal metadata.json
@@ -109,16 +119,16 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []Expecte
 	tw.Write(metadataJson)
 
 	for _, data := range imageData {
-		if err := data.addToCosi(tw); err != nil {
+		if err := addToCosi(data, tw); err != nil {
 			return fmt.Errorf("failed to add %s to COSI: %w", data.Source, err)
 		}
 	}
 
-	log.Infof("Finished building COSI: %s", outputFile)
+	logger.Log.Infof("Finished building COSI: %s", outputFile)
 	return nil
 }
 
-func (data *ImageBuildData) addToCosi(tw *tar.Writer) error {
+func addToCosi(data ImageBuildData, tw *tar.Writer) error {
 	imageFile, err := os.Open(data.Source)
 	if err != nil {
 		return fmt.Errorf("failed to open image file: %w", err)
@@ -158,42 +168,21 @@ func sha384sum(path string) (string, error) {
 	return fmt.Sprintf("%x", sha384.Sum(nil)), nil
 }
 
-func (data *ImageBuildData) populateMetadata() (*ExtractedImageData, error) {
+func populateMetadata(data ImageBuildData) error {
 	stat, err := os.Stat(data.Source)
 	if err != nil {
-		return nil, fmt.Errorf("filed to stat %s: %w", data.Source, err)
+		return fmt.Errorf("filed to stat %s: %w", data.Source, err)
 	}
 	if stat.IsDir() {
-		return nil, fmt.Errorf("%s is a directory", data.Source)
+		return fmt.Errorf("%s is a directory", data.Source)
 	}
 	data.Metadata.Image.CompressedSize = uint64(stat.Size())
 
 	// Calculate the sha384 of the image
 	sha384, err := sha384sum(data.Source)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate sha384 of %s: %w", data.Source, err)
+		return fmt.Errorf("failed to calculate sha384 of %s: %w", data.Source, err)
 	}
 	data.Metadata.Image.Sha384 = sha384
-
-	tmpFile, err := os.Open(data.Source)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open uncompressed file %s: %w", data.Source, err)
-	}
-
-	defer tmpFile.Close()
-
-	stat, err = tmpFile.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat decompressed image: %w", err)
-	}
-
-	data.Metadata.Image.UncompressedSize = uint64(stat.Size())
-	var extractedData ExtractedImageData
-
-	// If this image doesn't need to be mounted, we're done
-	if !data.KnownInfo.ShouldMount() {
-		return &extractedData, nil
-	}
-
-	return &extractedData, nil
+	return nil
 }
