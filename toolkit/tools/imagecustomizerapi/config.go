@@ -15,7 +15,7 @@ type Config struct {
 	Pxe             *Pxe     `yaml:"pxe" json:"pxe,omitempty"`
 	OS              *OS      `yaml:"os" json:"os,omitempty"`
 	Scripts         Scripts  `yaml:"scripts" json:"scripts,omitempty"`
-	PreviewFeatures []string `yaml:"previewFeatures json:"previewFeatures,omitempty"`
+	PreviewFeatures []string `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
