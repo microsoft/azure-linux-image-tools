@@ -2,7 +2,7 @@ name: update GitHub pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["stable"]
   workflow_dispatch:
 
 permissions:
