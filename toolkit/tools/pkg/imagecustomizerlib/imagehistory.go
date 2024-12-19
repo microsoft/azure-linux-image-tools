@@ -211,10 +211,10 @@ func redactSshPublicKeys(configUsers []imagecustomizerapi.User, redactedString s
 
 func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath string) error {
 	if err := processScripts(scripts.PostCustomization, baseConfigPath); err != nil {
-		return fmt.Errorf("error processing PostCustomization scripts: %w", err)
+		return fmt.Errorf("error processing PostCustomization scripts:\n%w", err)
 	}
 	if err := processScripts(scripts.FinalizeCustomization, baseConfigPath); err != nil {
-		return fmt.Errorf("error processing FinalizeCustomization scripts: %w", err)
+		return fmt.Errorf("error processing FinalizeCustomization scripts:\n%w", err)
 	}
 	return nil
 }
