@@ -1,6 +1,6 @@
 - name: Getting Started
   link: "/azure-linux-image-tools/imagecustomizer/"
-name: API
+- name: API
   subnav:
   - name: CLI
     link: "/azure-linux-image-tools/imagecustomizer/api/cli"
