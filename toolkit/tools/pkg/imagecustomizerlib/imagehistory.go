@@ -186,15 +186,14 @@ func populateAdditionalDirs(configAdditionalDirs imagecustomizerapi.DirConfigLis
 
 func populateAdditionalFiles(configAdditionalFiles imagecustomizerapi.AdditionalFileList, baseConfigPath string) error {
 	for i := range configAdditionalFiles {
-		if configAdditionalFiles[i].Source == "" {
-			continue
+		if configAdditionalFiles[i].Source != "" {
+			absSourceFile := file.GetAbsPathWithBase(baseConfigPath, configAdditionalFiles[i].Source)
+			hash, err := generateSHA256(absSourceFile)
+			if err != nil {
+				return err
+			}
+			configAdditionalFiles[i].SHA256Hash = hash
 		}
-		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, configAdditionalFiles[i].Source)
-		hash, err := generateSHA256(absSourceFile)
-		if err != nil {
-			return err
-		}
-		configAdditionalFiles[i].SHA256Hash = hash
 	}
 	return nil
 }
@@ -213,29 +212,26 @@ func redactSshPublicKeys(configUsers []imagecustomizerapi.User, redactedString s
 func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath string) error {
 	for i := range scripts.PostCustomization {
 		path := scripts.PostCustomization[i].Path
-		if path == "" {
-			continue
+		if path != "" {
+			absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
+			hash, err := generateSHA256(absSourceFile)
+			if err != nil {
+				return err
+			}
+			scripts.PostCustomization[i].SHA256Hash = hash
 		}
-		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
-		hash, err := generateSHA256(absSourceFile)
-		if err != nil {
-			return err
-		}
-		scripts.PostCustomization[i].SHA256Hash = hash
 	}
 
 	for i := range scripts.FinalizeCustomization {
 		path := scripts.FinalizeCustomization[i].Path
-		if path == "" {
-			continue
+		if path != "" {
+			absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
+			hash, err := generateSHA256(absSourceFile)
+			if err != nil {
+				return err
+			}
+			scripts.FinalizeCustomization[i].SHA256Hash = hash
 		}
-		absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
-		hash, err := generateSHA256(absSourceFile)
-		if err != nil {
-			return err
-		}
-		scripts.FinalizeCustomization[i].SHA256Hash = hash
-
 	}
 
 	return nil
