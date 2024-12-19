@@ -112,7 +112,8 @@ func prepareGrubConfigForVerity(imageChroot *safechroot.Chroot) error {
 }
 
 func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string, grubCfgFullPath string,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, signedRootHashCmdline string,
+	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo,
+	provideRootHashSignatureArgument string, requireRootHashSignatureArgument string,
 ) error {
 	var err error
 
@@ -139,7 +140,8 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 		fmt.Sprintf("systemd.verity_root_data=%s", formattedDataPartition),
 		fmt.Sprintf("systemd.verity_root_hash=%s", formattedHashPartition),
 		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
-		fmt.Sprintf("%s", signedRootHashCmdline),
+		fmt.Sprintf("%s", provideRootHashSignatureArgument),
+		fmt.Sprintf("%s", requireRootHashSignatureArgument),
 	}
 
 	grub2Config, err := file.Read(grubCfgFullPath)
@@ -268,10 +270,10 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 
 func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, outputVerityHashes bool, outputVerityHashesDir string,
 	requireSignedRootfsRootHash bool, requireSignedRootHashes bool,
-) (signedRootHashCmdline string, err error) {
+) (provideRootHashSignatureArgument string, requireRootHashSignatureArgument string, err error) {
 
 	if !outputVerityHashes {
-		return "", nil
+		return "", "", nil
 	}
 
 	rootHashFile := deviceId + ".hash"
@@ -280,25 +282,25 @@ func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, out
 
 	err = os.MkdirAll(outputVerityHashesDir, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("failed to create root hashes directory (%s):\n%w", outputVerityHashesDir, err)
+		return "", "", fmt.Errorf("failed to create root hashes directory (%s):\n%w", outputVerityHashesDir, err)
 	}
 	err = file.Write(deviceRootHash, rootHashFileLocalPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to write root hash to %s:\n%w", rootHashFileLocalPath, err)
+		return "", "", fmt.Errorf("failed to write root hash to %s:\n%w", rootHashFileLocalPath, err)
 	}
 
-	signedRootHashCmdline = ""
 	if requireSignedRootfsRootHash {
-		signedRootHashCmdline = "systemd.verity_root_options=root_hash_signature=" + rootHashSignedFileImagePath
+		provideRootHashSignatureArgument = "systemd.verity_root_options=root_hash_signature=" + rootHashSignedFileImagePath
 		if requireSignedRootHashes {
-			signedRootHashCmdline += " dm_verity.require_signatures=1"
+			requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
 		}
 	}
 
 	logger.Log.Debugf("---- debug ---- rootHashSignedFileImagePath=(%s)", rootHashSignedFileImagePath)
-	logger.Log.Debugf("---- debug ---- signedRootHashCmdline      =(%s)", signedRootHashCmdline)
+	logger.Log.Debugf("---- debug ---- provideRootHashSignatureArgument      =(%s)", provideRootHashSignatureArgument)
+	logger.Log.Debugf("---- debug ---- requireRootHashSignatureArgument      =(%s)", requireRootHashSignatureArgument)
 
-	return signedRootHashCmdline, err
+	return provideRootHashSignatureArgument, requireRootHashSignatureArgument, err
 }
 
 func generateSignedRootHashConfiguration(signedRootHashFiles []string) (imagecustomizerapi.AdditionalFileList, error) {

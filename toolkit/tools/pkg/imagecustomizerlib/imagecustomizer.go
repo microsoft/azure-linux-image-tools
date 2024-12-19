@@ -865,13 +865,14 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	signedRootHashCmdline, err := generateSignedRootHashArtifacts(rootfsVerity.DataDeviceId, rootHash, outputVerityHashes,
+	provideRootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts(rootfsVerity.DataDeviceId, rootHash, outputVerityHashes,
 		outputVerityHashesDir, requireSignedRootfsRootHash, requireSignedRootHashes)
 	if err != nil {
 		return err
 	}
 
-	err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions, signedRootHashCmdline)
+	err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions,
+		provideRootHashSignatureArgument, requireRootHashSignatureArgument)
 	if err != nil {
 		return err
 	}
