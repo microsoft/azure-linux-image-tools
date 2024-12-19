@@ -43,7 +43,7 @@ func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfi
 	}
 
 	customizerLoggingDirPath := filepath.Join(imageChroot.RootDir(), customizerLoggingDir)
-	err = os.MkdirAll(customizerLoggingDirPath, 0755)
+	err = os.MkdirAll(customizerLoggingDirPath, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create customizer logging directory: %w", err)
 	}
