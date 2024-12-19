@@ -210,30 +210,27 @@ func redactSshPublicKeys(configUsers []imagecustomizerapi.User, redactedString s
 }
 
 func populateScriptsList(scripts imagecustomizerapi.Scripts, baseConfigPath string) error {
-	for i := range scripts.PostCustomization {
-		path := scripts.PostCustomization[i].Path
+	if err := processScripts(scripts.PostCustomization, baseConfigPath); err != nil {
+		return fmt.Errorf("error processing PostCustomization scripts: %w", err)
+	}
+	if err := processScripts(scripts.FinalizeCustomization, baseConfigPath); err != nil {
+		return fmt.Errorf("error processing FinalizeCustomization scripts: %w", err)
+	}
+	return nil
+}
+
+func processScripts(scripts []imagecustomizerapi.Script, baseConfigPath string) error {
+	for i := range scripts {
+		path := scripts[i].Path
 		if path != "" {
 			absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
 			hash, err := generateSHA256(absSourceFile)
 			if err != nil {
 				return err
 			}
-			scripts.PostCustomization[i].SHA256Hash = hash
+			scripts[i].SHA256Hash = hash
 		}
 	}
-
-	for i := range scripts.FinalizeCustomization {
-		path := scripts.FinalizeCustomization[i].Path
-		if path != "" {
-			absSourceFile := file.GetAbsPathWithBase(baseConfigPath, path)
-			hash, err := generateSHA256(absSourceFile)
-			if err != nil {
-				return err
-			}
-			scripts.FinalizeCustomization[i].SHA256Hash = hash
-		}
-	}
-
 	return nil
 }
 

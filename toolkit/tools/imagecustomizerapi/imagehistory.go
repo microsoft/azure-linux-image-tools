@@ -21,6 +21,6 @@ func (t ImageHistory) IsValid() error {
 		return nil
 
 	default:
-		return fmt.Errorf("invalid imageHistory value (%v)", t)
+		return fmt.Errorf("invalid imageHistory value (%s)", t)
 	}
 }
