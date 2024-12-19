@@ -32,13 +32,7 @@ func (s *DiskSize) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("failed to parse disk size:\n%w", err)
 	}
 
-	diskSize, err := parseDiskSize(stringValue)
-	if err != nil {
-		return fmt.Errorf("%w:\nexpected format: <NUM>(K|M|G|T) (e.g. 100M, 1G)", err)
-	}
-
-	*s = diskSize
-	return nil
+	return parseAndSetDiskSize(stringValue, s)
 }
 
 func (s DiskSize) MarshalJSON() ([]byte, error) {
@@ -54,6 +48,10 @@ func (s *DiskSize) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to parse disk size:\n%w", err)
 	}
 
+	return parseAndSetDiskSize(stringValue, s)
+}
+
+func parseAndSetDiskSize(stringValue string, s *DiskSize) error {
 	diskSize, err := parseDiskSize(stringValue)
 	if err != nil {
 		return fmt.Errorf("%w:\nexpected format: <NUM>(K|M|G|T) (e.g. 100M, 1G)", err)

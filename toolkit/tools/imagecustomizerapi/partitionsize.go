@@ -40,24 +40,7 @@ func (s *PartitionSize) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("failed to parse partition size:\n%w", err)
 	}
 
-	switch stringValue {
-	case PartitionSizeGrow:
-		*s = PartitionSize{
-			Type: PartitionSizeTypeGrow,
-		}
-		return nil
-	}
-
-	diskSize, err := parseDiskSize(stringValue)
-	if err != nil {
-		return fmt.Errorf("%w:\nexpected format: grow | <NUM>(K|M|G|T) (e.g. grow, 100M, 1G)", err)
-	}
-
-	*s = PartitionSize{
-		Type: PartitionSizeTypeExplicit,
-		Size: diskSize,
-	}
-	return nil
+	return parseAndSetPartitionSize(stringValue, s)
 }
 
 func (s PartitionSize) MarshalJSON() ([]byte, error) {
@@ -80,6 +63,10 @@ func (s *PartitionSize) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to parse partition size:\n%w", err)
 	}
 
+	return parseAndSetPartitionSize(stringValue, s)
+}
+
+func parseAndSetPartitionSize(stringValue string, s *PartitionSize) error {
 	switch stringValue {
 	case PartitionSizeGrow:
 		*s = PartitionSize{
