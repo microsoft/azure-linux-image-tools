@@ -15,14 +15,15 @@ import (
 )
 
 type outputPartitionMetadata struct {
-	PartitionNum      int    `json:"partitionnum"` // Example: 1
-	PartitionFilename string `json:"filename"`     // Example: image_1.raw.zst
-	PartLabel         string `json:"partlabel"`    // Example: boot
-	FileSystemType    string `json:"fstype"`       // Example: vfat
-	PartitionTypeUuid string `json:"parttype"`     // Example: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
-	Uuid              string `json:"uuid"`         // Example: 4BD9-3A78
-	PartUuid          string `json:"partuuid"`     // Example: 7b1367a6-5845-43f2-99b1-a742d873f590
-	Mountpoint        string `json:"mountpoint"`   // Example: /mnt/os/boot
+	PartitionNum      int    `json:"partitionnum"`     // Example: 1
+	PartitionFilename string `json:"filename"`         // Example: image_1.raw.zst
+	PartLabel         string `json:"partlabel"`        // Example: boot
+	FileSystemType    string `json:"fstype"`           // Example: vfat
+	PartitionTypeUuid string `json:"parttype"`         // Example: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+	Uuid              string `json:"uuid"`             // Example: 4BD9-3A78
+	PartUuid          string `json:"partuuid"`         // Example: 7b1367a6-5845-43f2-99b1-a742d873f590
+	Mountpoint        string `json:"mountpoint"`       // Example: /mnt/os/boot
+	UncompressedSize  uint64 `json:"uncompressedsize"` // Example: 104857600
 }
 
 const (
@@ -32,12 +33,12 @@ const (
 )
 
 // Extract all partitions of connected image into separate files with specified format.
-func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [UuidSize]byte) error {
+func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [UuidSize]byte) ([]outputPartitionMetadata, error) {
 
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Stores the output partition metadata that will be written to JSON file
@@ -51,7 +52,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionNum, err := getPartitionNum(partition.Path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		partitionFilename := basename + "_" + strconv.Itoa(partitionNum)
@@ -59,19 +60,27 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionFilepath, err := copyBlockDeviceToFile(outDir, partition.Path, rawFilename)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		partitionFullFilePath, err := filepath.Abs(partitionFilepath)
 		if err != nil {
-			return fmt.Errorf("failed to get absolute path (%s):\n%w", partitionFilepath, err)
+			return nil, fmt.Errorf("failed to get absolute path (%s):\n%w", partitionFilepath, err)
 		}
 
 		// Sanity check the partition file.
 		err = checkFileSystemFile(partition.FileSystemType, partitionFullFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to check file system integrity (%s):\n%w", partitionFilepath, err)
+			return nil, fmt.Errorf("failed to check file system integrity (%s):\n%w", partitionFilepath, err)
 		}
+
+		// Get uncompressed size for raw files
+		var uncompressedPartitionFileSize uint64
+		stat, err := os.Stat(partitionFullFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat raw file %s: %w", partitionFilepath, err)
+		}
+		uncompressedPartitionFileSize = uint64(stat.Size())
 
 		switch partitionFormat {
 		case "raw":
@@ -79,27 +88,22 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 		case "raw-zst":
 			partitionFilepath, err = extractRawZstPartition(partitionFilepath, imageUuid, partitionFilename, outDir)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		default:
-			return fmt.Errorf("unsupported partition format (supported: raw, raw-zst): %s", partitionFormat)
+			return nil, fmt.Errorf("unsupported partition format (supported: raw, raw-zst): %s", partitionFormat)
 		}
 
 		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath)
 		if err != nil {
-			return fmt.Errorf("failed to construct partition metadata:\n%w", err)
+			return nil, fmt.Errorf("failed to construct partition metadata:\n%w", err)
 		}
+		partitionMetadata.UncompressedSize = uncompressedPartitionFileSize
 		partitionMetadataOutput = append(partitionMetadataOutput, partitionMetadata)
 		logger.Log.Infof("Partition file created: %s", partitionFilepath)
 	}
 
-	// Write partition metadata JSON to a file
-	jsonFilename := basename + "_partition_metadata.json"
-	err = writePartitionMetadataJson(outDir, jsonFilename, &partitionMetadataOutput)
-	if err != nil {
-		return fmt.Errorf("failed to write partition metadata json:\n%w", err)
-	}
-	return nil
+	return partitionMetadataOutput, nil
 }
 
 // Extract raw-zst partition.
