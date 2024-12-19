@@ -30,7 +30,7 @@ type DirConfig struct {
 	// Note: If this value is not specified in the config, the permissions for these directories will be set to 0755.
 	ChildFilePermissions *FilePermissions `yaml:"childFilePermissions" json:"childFilePermissions,omitempty"`
 
-	SHA256HashMap map[string]string `yaml:"sha256hashmap" json:"sha256hashmap,omitempty"`
+	SHA256HashMap map[string]string `json:"sha256hashmap,omitempty"`
 }
 
 func (l *DirConfigList) IsValid() (err error) {
