@@ -9,7 +9,7 @@ import (
 
 type KernelCommandLine struct {
 	// Extra kernel command line args.
-	ExtraCommandLine []string `yaml:"extraCommandLine"`
+	ExtraCommandLine []string `yaml:"extraCommandLine" json:"extraCommandLine,omitempty"`
 }
 
 func (k *KernelCommandLine) IsValid() error {

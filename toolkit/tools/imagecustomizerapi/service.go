@@ -16,8 +16,8 @@ func serviceNameIsValid(name string) error {
 }
 
 type Services struct {
-	Enable  []string `yaml:"enable"`
-	Disable []string `yaml:"disable"`
+	Enable  []string `yaml:"enable" json:"enable,omitempty"`
+	Disable []string `yaml:"disable" json:"disable,omitempty"`
 }
 
 func (s *Services) IsValid() error {

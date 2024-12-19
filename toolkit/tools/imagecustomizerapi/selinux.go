@@ -9,7 +9,7 @@ import (
 
 type SELinux struct {
 	// SELinux specifies whether or not to enable SELinux on the image (and what mode SELinux should be in).
-	Mode SELinuxMode `yaml:"mode"`
+	Mode SELinuxMode `yaml:"mode" json:"mode,omitempty"`
 }
 
 func (s *SELinux) IsValid() error {

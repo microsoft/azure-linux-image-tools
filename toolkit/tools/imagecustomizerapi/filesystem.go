@@ -10,16 +10,16 @@ import (
 // FileSystem holds the file system information for a partition.
 type FileSystem struct {
 	// DeviceId is the ID of the source partition.
-	DeviceId string `yaml:"deviceId"`
+	DeviceId string `yaml:"deviceId" json:"deviceId,omitempty"`
 	// FileSystemType is the type of file system to use on the partition.
-	Type FileSystemType `yaml:"type"`
+	Type FileSystemType `yaml:"type" json:"type,omitempty"`
 	// MountPoint contains the mount settings.
-	MountPoint *MountPoint `yaml:"mountPoint"`
+	MountPoint *MountPoint `yaml:"mountPoint" json:"mountPoint,omitempty"`
 
 	// If 'DeviceId' points at a verity device, this value is the 'Id' of the data partition.
 	// Otherwise, it is the same as 'DeviceId'.
 	// Value is filled in by Storage.IsValid().
-	PartitionId string
+	PartitionId string `json:"-"`
 }
 
 // IsValid returns an error if the MountPoint is not valid

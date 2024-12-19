@@ -9,9 +9,9 @@ import (
 )
 
 type Module struct {
-	Name     string            `yaml:"name"`
-	LoadMode ModuleLoadMode    `yaml:"loadMode"`
-	Options  map[string]string `yaml:"options"`
+	Name     string            `yaml:"name" json:"name,omitempty"`
+	LoadMode ModuleLoadMode    `yaml:"loadMode" json:"loadMode,omitempty"`
+	Options  map[string]string `yaml:"options" json:"options,omitempty"`
 }
 
 type ModuleList []Module

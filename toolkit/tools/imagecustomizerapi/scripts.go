@@ -8,8 +8,8 @@ import (
 )
 
 type Scripts struct {
-	PostCustomization     []Script `yaml:"postCustomization"`
-	FinalizeCustomization []Script `yaml:"finalizeCustomization"`
+	PostCustomization     []Script `yaml:"postCustomization" json:"postCustomization,omitempty"`
+	FinalizeCustomization []Script `yaml:"finalizeCustomization" json:"finalizeCustomization,omitempty"`
 }
 
 func (s *Scripts) IsValid() error {

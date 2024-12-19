@@ -9,8 +9,8 @@ import (
 
 // Iso defines how the generated iso media should be configured.
 type Iso struct {
-	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine"`
-	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles"`
+	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
 }
 
 func (i *Iso) IsValid() error {
