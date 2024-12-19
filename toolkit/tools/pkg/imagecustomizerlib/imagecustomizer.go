@@ -32,6 +32,7 @@ const (
 	ImageFormatQCow2    = "qcow2"
 	ImageFormatIso      = "iso"
 	ImageFormatRaw      = "raw"
+	ImageFormatCosi     = "cosi"
 
 	// qemu-specific formats
 	QemuFormatVpc = "vpc"
@@ -274,12 +275,12 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		}
 	}()
 
-	err = customizeOSContents(imageCustomizerParameters)
+	imageUuid, imageUuidStr, err := customizeOSContents(imageCustomizerParameters)
 	if err != nil {
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
 	}
 
-	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts)
+	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts, imageUuid, imageUuidStr)
 	if err != nil {
 		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
 	}
@@ -321,7 +322,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	}
 }
 
-func customizeOSContents(ic *ImageCustomizerParameters) error {
+func customizeOSContents(ic *ImageCustomizerParameters) ([UuidSize]byte, string, error) {
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -331,7 +332,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	// We explicitly inform the user of the lack of support earlier during
 	// mic parameter validation (see createImageCustomizerParameters()).
 	if !ic.customizeOSPartitions && ic.inputIsIso {
-		return nil
+		return [UuidSize]byte{}, "", nil
 	}
 
 	// The code beyond this point assumes the OS object is always present. To
@@ -351,35 +352,35 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	// images at this time because such modifications would compromise the integrity and security mechanisms enforced by dm-verity.
 	err := checkDmVerityEnabled(ic.rawImageFile)
 	if err != nil {
-		return err
+		return [UuidSize]byte{}, "", err
 	}
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
 	if err != nil {
-		return err
+		return [UuidSize]byte{}, "", err
 	}
 	ic.rawImageFile = newRawImageFile
 
 	// Create a uuid for the image
 	imageUuid, imageUuidStr, err := createUuid()
 	if err != nil {
-		return err
+		return [UuidSize]byte{}, "", err
 	}
 
 	// Customize the raw image file.
 	err = customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
 		ic.useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
 	if err != nil {
-		return err
+		return [UuidSize]byte{}, "", err
 	}
 
 	// Shrink the filesystems.
 	if ic.enableShrinkFilesystems {
 		err = shrinkFilesystemsHelper(ic.rawImageFile, ic.config.Storage.Verity, partIdToPartUuid)
 		if err != nil {
-			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
+			return [UuidSize]byte{}, "", fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
 	}
 
@@ -387,21 +388,21 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
 		if err != nil {
-			return err
+			return [UuidSize]byte{}, "", err
 		}
 	}
 
 	if ic.config.OS.Uki != nil {
 		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
-			return err
+			return [UuidSize]byte{}, "", err
 		}
 	}
 
 	// Check file systems for corruption.
 	err = checkFileSystems(ic.rawImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to check filesystems:\n%w", err)
+		return [UuidSize]byte{}, "", fmt.Errorf("failed to check filesystems:\n%w", err)
 	}
 
 	// If outputSplitPartitionsFormat is specified, extract the partition files.
@@ -409,14 +410,14 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		logger.Log.Infof("Extracting partition files")
 		err = extractPartitionsHelper(ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputSplitPartitionsFormat, imageUuid)
 		if err != nil {
-			return err
+			return [UuidSize]byte{}, "", err
 		}
 	}
 
-	return nil
+	return imageUuid, imageUuidStr, nil
 }
 
-func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *LiveOSIsoBuilder) error {
+func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *LiveOSIsoBuilder, imageUuid [UuidSize]byte, imageUuidStr string) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
 
 	// Create final output image file if requested.
@@ -425,6 +426,12 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 		logger.Log.Infof("Writing: %s", ic.outputImageFile)
 
 		err := convertImageFile(ic.rawImageFile, ic.outputImageFile, ic.outputImageFormat)
+		if err != nil {
+			return err
+		}
+
+	case ImageFormatCosi:
+		err := convertToCosi(ic, imageUuid, imageUuidStr)
 		if err != nil {
 			return err
 		}
@@ -471,11 +478,11 @@ func convertImageFile(inputPath string, outputPath string, format string) error 
 
 func validateImageFormat(imageFormat string) error {
 	switch imageFormat {
-	case ImageFormatVhd, ImageFormatVhdFixed, ImageFormatVhdx, ImageFormatRaw, ImageFormatQCow2:
+	case ImageFormatVhd, ImageFormatVhdFixed, ImageFormatVhdx, ImageFormatRaw, ImageFormatQCow2, ImageFormatCosi:
 		return nil
 
 	default:
-		return fmt.Errorf("unsupported image format (supported: vhd, vhd-fixed, vhdx, raw, qcow2): %s", imageFormat)
+		return fmt.Errorf("unsupported image format (supported: vhd, vhd-fixed, vhdx, raw, qcow2, cosi): %s", imageFormat)
 	}
 }
 
@@ -726,9 +733,16 @@ func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasena
 	defer imageLoopback.Close()
 
 	// Extract the partitions as files.
-	err = extractPartitions(imageLoopback.DevicePath(), outputDir, outputBasename, outputSplitPartitionsFormat, imageUuid)
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputBasename, outputSplitPartitionsFormat, imageUuid)
 	if err != nil {
 		return err
+	}
+
+	// Write partition metadata JSON to a file
+	jsonFilename := outputBasename + "_partition_metadata.json"
+	err = writePartitionMetadataJson(outputDir, jsonFilename, &partitionMetadataOutput)
+	if err != nil {
+		return fmt.Errorf("failed to write partition metadata json:\n%w", err)
 	}
 
 	err = imageLoopback.CleanClose()
