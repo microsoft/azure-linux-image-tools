@@ -75,7 +75,7 @@ os:
     resetType: hard-reset
   
   kernelCommandLine:
-    extraCommandLine: ["console=tty0 console=ttyS0"]
+    extraCommandLine: ["console=tty0", "console=ttyS0"]
 
   additionalDirs:
   - source: dirs/a
