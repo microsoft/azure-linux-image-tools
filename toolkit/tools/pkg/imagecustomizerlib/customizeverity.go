@@ -113,7 +113,7 @@ func prepareGrubConfigForVerity(imageChroot *safechroot.Chroot) error {
 
 func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string, grubCfgFullPath string,
 	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo,
-	provideRootHashSignatureArgument string, requireRootHashSignatureArgument string,
+	provideRootHashSignatureArgument string, requireRootHashSignatureArgument string, bootPartitionUuid string,
 ) error {
 	var err error
 
@@ -134,6 +134,11 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 		return err
 	}
 
+	bootPartitionUuidArgument := ""
+	// if provideRootHashSignatureArgument != "" || requireRootHashSignatureArgument != "" {
+	bootPartitionUuidArgument = "pre.verity.mount=" + bootPartitionUuid
+	// }
+
 	newArgs := []string{
 		"rd.systemd.verity=1",
 		fmt.Sprintf("roothash=%s", rootHash),
@@ -142,6 +147,7 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
 		fmt.Sprintf("%s", provideRootHashSignatureArgument),
 		fmt.Sprintf("%s", requireRootHashSignatureArgument),
+		fmt.Sprintf("%s", bootPartitionUuidArgument),
 	}
 
 	grub2Config, err := file.Read(grubCfgFullPath)
