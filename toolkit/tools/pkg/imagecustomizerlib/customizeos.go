@@ -59,7 +59,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = addCustomizerRelease(imageChroot, ToolVersion, buildTime, imageUuid)
+	err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid)
 	if err != nil {
 		return err
 	}

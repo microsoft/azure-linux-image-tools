@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,12 +20,8 @@ func TestAddCustomizerRelease(t *testing.T) {
 	}
 
 	proposedDir := filepath.Join(tmpDir, "TestAddCustomizerRelease")
-	chroot := safechroot.NewChroot(proposedDir, false)
-	err := chroot.Initialize("", []string{}, []*safechroot.MountPoint{}, false)
-	assert.NoError(t, err)
-	defer chroot.Close(false)
 
-	err = os.MkdirAll(filepath.Join(chroot.RootDir(), "etc"), os.ModePerm)
+	err := os.MkdirAll(filepath.Join(proposedDir, "etc"), os.ModePerm)
 	assert.NoError(t, err)
 
 	expectedVersion := "0.1.0"
@@ -34,10 +29,10 @@ func TestAddCustomizerRelease(t *testing.T) {
 	_, expectedUuid, err := createUuid()
 	assert.NoError(t, err)
 
-	err = addCustomizerRelease(chroot, expectedVersion, expectedDate, expectedUuid)
+	err = addCustomizerRelease(proposedDir, expectedVersion, expectedDate, expectedUuid)
 	assert.NoError(t, err)
 
-	releaseFilePath := filepath.Join(chroot.RootDir(), "etc/image-customizer-release")
+	releaseFilePath := filepath.Join(proposedDir, "etc/image-customizer-release")
 
 	file, err := os.Open(releaseFilePath)
 	if err != nil {
