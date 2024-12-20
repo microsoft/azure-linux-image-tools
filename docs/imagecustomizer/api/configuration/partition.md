@@ -90,8 +90,12 @@ Supported options:
 
 - `usr-verity`: The verity hash partition for `/usr`.
 
+  Note: Image Customizer does not yet support `/usr` verity partitions.
+
 - `var`: The `/var` partition.
 
 - `xbootldr`: The `/boot` partition.
 
-In addition, a UUID string may be specified.
+- A UUID string.
+
+  For example: `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`

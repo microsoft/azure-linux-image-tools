@@ -38,6 +38,9 @@ const (
 )
 
 var (
+	// UUUIs come from:
+	// - https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
+	// - https://uapi-group.org/specifications/specs/discoverable_partitions_specification/
 	partitionTypeToUuidArchIndependent = map[PartitionType]string{
 		PartitionTypeESP:      "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
 		PartitionTypeBiosGrub: "21686148-6449-6E6F-744E-656564454649",
