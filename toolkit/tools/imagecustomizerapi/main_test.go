@@ -12,12 +12,17 @@ import (
 
 var (
 	workingDir string
+
+	logMessagesHook *logger.MemoryLogHook
 )
 
 func TestMain(m *testing.M) {
 	var err error
 
 	logger.InitStderrLog()
+
+	logMessagesHook = logger.NewMemoryLogHook()
+	logger.Log.Hooks.Add(logMessagesHook)
 
 	workingDir, err = os.Getwd()
 	if err != nil {

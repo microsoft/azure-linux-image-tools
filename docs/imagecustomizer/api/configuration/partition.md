@@ -69,3 +69,29 @@ Supported options:
   This flag is only supported on GPT formatted disks.
 
   For further details, see: https://en.wikipedia.org/wiki/BIOS_boot_partition
+
+- `home`: A `/home` partition.
+
+- `linux-generic`: A generic Linux partition.
+
+  This is the default value.
+
+- `root`: The `/` partition.
+
+- `root-verity`: The verity hash partition for `/`.
+
+- `srv`: The `/srv` partition.
+
+- `swap`: A swap partition.
+
+- `tmp`: The `/var/tmp` partition.
+
+- `usr`: The `/usr` partition.
+
+- `usr-verity`: The verity hash partition for `/usr`.
+
+- `var`: The `/var` partition.
+
+- `xbootldr`: The `/boot` partition.
+
+In addition, a UUID string may be specified.
