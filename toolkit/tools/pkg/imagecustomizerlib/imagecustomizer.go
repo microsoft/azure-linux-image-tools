@@ -174,6 +174,23 @@ func createImageCustomizerParameters(buildDir string,
 	return ic, nil
 }
 
+func ValidateConfigFile(configFile string) error {
+	config := &imagecustomizerapi.Config{}
+	err := imagecustomizerapi.UnmarshalYamlFile(configFile, config)
+	if err != nil {
+		return err
+	}
+
+	baseConfigPath, _ := filepath.Split(configFile)
+
+	err = validateConfig(baseConfigPath, config, []string(nil), true)
+	if err != nil {
+		return fmt.Errorf("invalid image config:\n%w", err)
+	}
+
+	return nil
+}
+
 func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputSplitPartitionsFormat string, outputPXEArtifactsDir string,
