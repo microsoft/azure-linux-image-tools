@@ -15,41 +15,20 @@ SCRIPTS_DIR  ?= $(toolkit_root)/scripts
 
 RUN_CHECK                            ?= n
 
-##help:var:REPO_SNAPSHOT_TIME:<posix_time>=Posix time to be used as a snapshot for remote repositories when fetching packages. Example: REPO_SNAPSHOT_TIME="1724119509".
-CACHE_DIR                            ?=
-PACKAGE_CACHE_SUMMARY                ?=
-IMAGE_CACHE_SUMMARY                  ?=
-INITRD_CACHE_SUMMARY                 ?=
-PACKAGE_ARCHIVE                      ?=
-PACKAGE_BUILD_RETRIES                ?= 0
-CHECK_BUILD_RETRIES                  ?= 0
-EXTRA_BUILD_LAYERS                   ?= 0
-REFRESH_WORKER_CHROOT                ?= y
-TARGET_ARCH                          ?=
-ALLOW_TOOLCHAIN_REBUILDS             ?= n
-CACHED_PACKAGES_ARCHIVE              ?=
-USE_CCACHE                           ?= n
-
 # Folder defines
 TOOLS_DIR        ?= $(toolkit_root)/tools
 TOOL_BINS_DIR    ?= $(toolkit_root)/out/tools
-RESOURCES_DIR    ?= $(toolkit_root)/resources
 
 PROJECT_ROOT     ?= $(realpath $(toolkit_root)/..)
 BUILD_DIR        ?= $(PROJECT_ROOT)/build
 OUT_DIR          ?= $(PROJECT_ROOT)/out
-CCACHE_DIR       ?= $(PROJECT_ROOT)/ccache
-CCACHE_CONFIG    ?= $(RESOURCES_DIR)/manifests/package/ccache-configuration.json
 
 # Sub-folder defines
-LOGS_DIR           ?= $(BUILD_DIR)/logs
-CACHED_RPMS_DIR    ?= $(BUILD_DIR)/rpm_cache
-STATUS_FLAGS_DIR   ?= $(BUILD_DIR)/make_status
-CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
-IMAGEGEN_DIR       ?= $(BUILD_DIR)/imagegen
-PROFILE_DIR        ?= $(BUILD_DIR)/profile
-
-IMAGES_DIR      ?= $(OUT_DIR)/images
+# LOGS_DIR           ?= $(BUILD_DIR)/logs
+# CACHED_RPMS_DIR    ?= $(BUILD_DIR)/rpm_cache
+# STATUS_FLAGS_DIR   ?= $(BUILD_DIR)/make_status
+# CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
+# PROFILE_DIR        ?= $(BUILD_DIR)/profile
 
 ######## COMMON MAKEFILE UTILITIES ########
 
@@ -87,10 +66,6 @@ include $(SCRIPTS_DIR)/build_tag_imagecustomizer.mk
 # go utilities with:
 #   go-tools, clean-go-tools, go-tidy-all (tidy go utilities before committing) go-test-coverage
 include $(SCRIPTS_DIR)/tools.mk
-
-# Create images with:
-#   image, iso, clean-imagegen
-include $(SCRIPTS_DIR)/imggen.mk
 
 ##help:target:clean=Clean all built files.
 # Each component provides specific clean implementations which clean depends on.
