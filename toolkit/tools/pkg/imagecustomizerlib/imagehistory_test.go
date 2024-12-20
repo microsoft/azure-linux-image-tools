@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func createTestConfig(configFilePath string, t *testing.T) imagecustomizerapi.Config {
@@ -32,6 +33,10 @@ func TestAddImageHistory(t *testing.T) {
 	historyDir := filepath.Join(tempDir, customizerLoggingDir)
 	historyFilePath := filepath.Join(historyDir, historyFileName)
 	config := createTestConfig("imagehistory-config.yaml", t)
+	// Serialize the config before calling addImageHistory
+	originalConfigBytes, err := yaml.Marshal(config)
+	assert.NoError(t, err, "failed to serialize original config")
+
 	expectedVersion := "0.1.0"
 	expectedDate := time.Now().Format("2006-01-02T15:04:05Z")
 	_, expectedUuid, err := createUuid()
@@ -42,6 +47,11 @@ func TestAddImageHistory(t *testing.T) {
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
+
+	// Verify the config is unchanged
+	currentConfigBytes, err := yaml.Marshal(config)
+	assert.NoError(t, err, "failed to serialize current config")
+	assert.Equal(t, originalConfigBytes, currentConfigBytes, "config should remain unchanged after adding image history")
 
 	// Test adding another entry with a different uuid
 	_, expectedUuid, err = createUuid()
@@ -77,72 +87,15 @@ func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, e
 	if expectedEntries == 2 {
 		assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")
 	}
-}
 
-func TestDeepCopyConfig(t *testing.T) {
-	config := createTestConfig("imagehistory-config.yaml", t)
+	isNotEmptyAdditionalFilesHashes(entry.Config.OS.AdditionalFiles, t)
 
-	copiedConfig, err := deepCopyConfig(&config)
+	isNotEmptyAdditionalDirsHashes(entry.Config.OS.AdditionalDirs, t)
 
-	assert.NoError(t, err, "deepCopyConfig should not return an error")
-	assert.NotSame(t, config, copiedConfig, "deepCopyConfig should create a new instance")
-}
+	isNotEmptyScriptsHashes(entry.Config.Scripts.PostCustomization, t)
+	isNotEmptyScriptsHashes(entry.Config.Scripts.FinalizeCustomization, t)
 
-func TestModifyConfig(t *testing.T) {
-	config := createTestConfig("imagehistory-config.yaml", t)
-
-	err := modifyConfig(&config, testDir)
-	assert.NoError(t, err, "modifyConfig should not return an error")
-
-	isNotEmptyAdditionalFilesHashes(config.OS.AdditionalFiles, t)
-
-	isNotEmptyAdditionalDirsHashes(config.OS.AdditionalDirs, t)
-
-	isNotEmptyScriptsHashes(config.Scripts.PostCustomization, t)
-	isNotEmptyScriptsHashes(config.Scripts.FinalizeCustomization, t)
-
-	verifySshPublicKeysRedacted(config.OS.Users, t)
-}
-
-func TestRedactSshPublicKeys(t *testing.T) {
-	mockUsers := []imagecustomizerapi.User{
-		{
-			SSHPublicKeys: []string{"key1", "key2"},
-		},
-	}
-
-	err := redactSshPublicKeys(mockUsers)
-	assert.NoError(t, err, "redactSshPublicKeys should not return an error")
-
-	verifySshPublicKeysRedacted(mockUsers, t)
-}
-
-func TestPopulateAdditionalDirs(t *testing.T) {
-	dirs := createTestConfig("adddirs-config.yaml", t).OS.AdditionalDirs
-
-	err := populateAdditionalDirs(dirs, testDir)
-	assert.NoError(t, err, "populateAdditionalDirs should not return an error")
-
-	isNotEmptyAdditionalDirsHashes(dirs, t)
-}
-
-func TestPopulateAdditionalFiles(t *testing.T) {
-	files := createTestConfig("addfiles-config.yaml", t).OS.AdditionalFiles
-
-	err := populateAdditionalFiles(files, testDir)
-	assert.NoError(t, err, "populateAdditionalFiles should not return an error")
-
-	isNotEmptyAdditionalFilesHashes(files, t)
-}
-
-func TestPopulateScriptsList(t *testing.T) {
-	scripts := createTestConfig("runscripts-config.yaml", t).Scripts
-
-	err := populateScriptsList(scripts, testDir)
-	assert.NoError(t, err, "populateScriptsList should not return an error")
-
-	isNotEmptyScriptsHashes(scripts.PostCustomization, t)
-	isNotEmptyScriptsHashes(scripts.FinalizeCustomization, t)
+	verifySshPublicKeysRedacted(entry.Config.OS.Users, t)
 }
 
 func verifySshPublicKeysRedacted(users []imagecustomizerapi.User, t *testing.T) {
