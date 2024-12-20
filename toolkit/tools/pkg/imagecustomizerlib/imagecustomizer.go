@@ -79,6 +79,9 @@ type ImageCustomizerParameters struct {
 	outputImageDir        string
 	outputImageBase       string
 	outputPXEArtifactsDir string
+
+	imageUuid    [UuidSize]byte
+	imageUuidStr string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -103,6 +106,14 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputImageFile = inputImageFile
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
+
+	// Create a uuid for the image
+	imageUuid, imageUuidStr, err := createUuid()
+	if err != nil {
+		return nil, err
+	}
+	ic.imageUuid = imageUuid
+	ic.imageUuidStr = imageUuidStr
 
 	// configuration
 	ic.configPath = configPath
@@ -275,12 +286,12 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		}
 	}()
 
-	imageUuid, imageUuidStr, err := customizeOSContents(imageCustomizerParameters)
+	err = customizeOSContents(imageCustomizerParameters)
 	if err != nil {
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
 	}
 
-	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts, imageUuid, imageUuidStr)
+	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts)
 	if err != nil {
 		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
 	}
@@ -322,7 +333,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	}
 }
 
-func customizeOSContents(ic *ImageCustomizerParameters) ([UuidSize]byte, string, error) {
+func customizeOSContents(ic *ImageCustomizerParameters) error {
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -332,7 +343,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) ([UuidSize]byte, string,
 	// We explicitly inform the user of the lack of support earlier during
 	// mic parameter validation (see createImageCustomizerParameters()).
 	if !ic.customizeOSPartitions && ic.inputIsIso {
-		return [UuidSize]byte{}, "", nil
+		return nil
 	}
 
 	// The code beyond this point assumes the OS object is always present. To
@@ -352,35 +363,29 @@ func customizeOSContents(ic *ImageCustomizerParameters) ([UuidSize]byte, string,
 	// images at this time because such modifications would compromise the integrity and security mechanisms enforced by dm-verity.
 	err := checkDmVerityEnabled(ic.rawImageFile)
 	if err != nil {
-		return [UuidSize]byte{}, "", err
+		return err
 	}
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
 	if err != nil {
-		return [UuidSize]byte{}, "", err
+		return err
 	}
 	ic.rawImageFile = newRawImageFile
 
-	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := createUuid()
-	if err != nil {
-		return [UuidSize]byte{}, "", err
-	}
-
 	// Customize the raw image file.
 	err = customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
-		ic.useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
 	if err != nil {
-		return [UuidSize]byte{}, "", err
+		return err
 	}
 
 	// Shrink the filesystems.
 	if ic.enableShrinkFilesystems {
 		err = shrinkFilesystemsHelper(ic.rawImageFile, ic.config.Storage.Verity, partIdToPartUuid)
 		if err != nil {
-			return [UuidSize]byte{}, "", fmt.Errorf("failed to shrink filesystems:\n%w", err)
+			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
 	}
 
@@ -388,36 +393,36 @@ func customizeOSContents(ic *ImageCustomizerParameters) ([UuidSize]byte, string,
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
 		if err != nil {
-			return [UuidSize]byte{}, "", err
+			return err
 		}
 	}
 
 	if ic.config.OS.Uki != nil {
 		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
-			return [UuidSize]byte{}, "", err
+			return err
 		}
 	}
 
 	// Check file systems for corruption.
 	err = checkFileSystems(ic.rawImageFile)
 	if err != nil {
-		return [UuidSize]byte{}, "", fmt.Errorf("failed to check filesystems:\n%w", err)
+		return fmt.Errorf("failed to check filesystems:\n%w", err)
 	}
 
 	// If outputSplitPartitionsFormat is specified, extract the partition files.
 	if ic.outputSplitPartitionsFormat != "" {
 		logger.Log.Infof("Extracting partition files")
-		err = extractPartitionsHelper(ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputSplitPartitionsFormat, imageUuid)
+		err = extractPartitionsHelper(ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputSplitPartitionsFormat, ic.imageUuid)
 		if err != nil {
-			return [UuidSize]byte{}, "", err
+			return err
 		}
 	}
 
-	return imageUuid, imageUuidStr, nil
+	return nil
 }
 
-func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *LiveOSIsoBuilder, imageUuid [UuidSize]byte, imageUuidStr string) error {
+func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *LiveOSIsoBuilder) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
 
 	// Create final output image file if requested.
@@ -431,7 +436,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 		}
 
 	case ImageFormatCosi:
-		err := convertToCosi(ic, imageUuid, imageUuidStr)
+		err := convertToCosi(ic)
 		if err != nil {
 			return err
 		}

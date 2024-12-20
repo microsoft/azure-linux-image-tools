@@ -5,7 +5,6 @@ import (
 	"crypto/sha512"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,7 +22,7 @@ type ImageBuildData struct {
 	Metadata  *Image
 }
 
-func convertToCosi(ic *ImageCustomizerParameters, imageUuid [UuidSize]byte, imageUuidStr string) error {
+func convertToCosi(ic *ImageCustomizerParameters) error {
 	logger.Log.Infof("Extracting partition files")
 	outputDir := filepath.Join(ic.buildDir, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
@@ -37,19 +36,24 @@ func convertToCosi(ic *ImageCustomizerParameters, imageUuid [UuidSize]byte, imag
 	}
 	defer imageLoopback.Close()
 
-	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase, "raw-zst", imageUuid)
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase, "raw-zst", ic.imageUuid)
 	if err != nil {
 		return err
 	}
 
-	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, imageUuidStr)
+	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.imageUuidStr)
 	if err != nil {
-		return fmt.Errorf("failed to build COSI: %w", err)
+		return fmt.Errorf("failed to build COSI:\n%w", err)
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", ic.outputImageFile)
-	return nil
 
+	err = imageLoopback.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputPartitionMetadata, imageUuidStr string) error {
@@ -61,7 +65,7 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputP
 	}
 
 	if len(expectedImages) == 0 {
-		return errors.New("no images to build")
+		return fmt.Errorf("no images to build")
 	}
 
 	// Create an interim metadata struct to combine the known data with the metadata
@@ -87,7 +91,7 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputP
 		logger.Log.Infof("Processing image %s", data.Source)
 		err := populateMetadata(data)
 		if err != nil {
-			return fmt.Errorf("failed to populate metadata for %s: %w", data.Source, err)
+			return fmt.Errorf("failed to populate metadata for %s:\n%w", data.Source, err)
 		}
 
 		logger.Log.Infof("Populated metadata for image %s", data.Source)
@@ -96,13 +100,13 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputP
 	// Marshal metadata.json
 	metadataJson, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
+		return fmt.Errorf("failed to marshal metadata:\n%w", err)
 	}
 
 	// Create COSI file
 	cosiFile, err := os.Create(outputFile)
 	if err != nil {
-		return fmt.Errorf("failed to create COSI file: %w", err)
+		return fmt.Errorf("failed to create COSI file:\n%w", err)
 	}
 	defer cosiFile.Close()
 
@@ -120,7 +124,7 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputP
 
 	for _, data := range imageData {
 		if err := addToCosi(data, tw); err != nil {
-			return fmt.Errorf("failed to add %s to COSI: %w", data.Source, err)
+			return fmt.Errorf("failed to add %s to COSI:\n%w", data.Source, err)
 		}
 	}
 
@@ -131,7 +135,7 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputP
 func addToCosi(data ImageBuildData, tw *tar.Writer) error {
 	imageFile, err := os.Open(data.Source)
 	if err != nil {
-		return fmt.Errorf("failed to open image file: %w", err)
+		return fmt.Errorf("failed to open image file:\n%w", err)
 	}
 	defer imageFile.Close()
 
@@ -143,12 +147,12 @@ func addToCosi(data ImageBuildData, tw *tar.Writer) error {
 		Format:   tar.FormatPAX,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to write tar header: %w", err)
+		return fmt.Errorf("failed to write tar header:\n%w", err)
 	}
 
 	_, err = io.Copy(tw, imageFile)
 	if err != nil {
-		return fmt.Errorf("failed to write image to COSI: %w", err)
+		return fmt.Errorf("failed to write image to COSI:\n%w", err)
 	}
 
 	return nil
@@ -171,7 +175,7 @@ func sha384sum(path string) (string, error) {
 func populateMetadata(data ImageBuildData) error {
 	stat, err := os.Stat(data.Source)
 	if err != nil {
-		return fmt.Errorf("filed to stat %s: %w", data.Source, err)
+		return fmt.Errorf("filed to stat %s:\n%w", data.Source, err)
 	}
 	if stat.IsDir() {
 		return fmt.Errorf("%s is a directory", data.Source)
@@ -181,7 +185,7 @@ func populateMetadata(data ImageBuildData) error {
 	// Calculate the sha384 of the image
 	sha384, err := sha384sum(data.Source)
 	if err != nil {
-		return fmt.Errorf("failed to calculate sha384 of %s: %w", data.Source, err)
+		return fmt.Errorf("failed to calculate sha384 of %s:\n%w", data.Source, err)
 	}
 	data.Metadata.Image.Sha384 = sha384
 	return nil
