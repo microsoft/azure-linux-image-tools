@@ -25,6 +25,7 @@ type ImageHistory struct {
 const (
 	customizerLoggingDir = "/usr/share/image-customizer"
 	historyFileName      = "history.json"
+	redactedString       = "[redacted]"
 )
 
 func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
@@ -122,7 +123,6 @@ func deepCopyConfig(config *imagecustomizerapi.Config) (*imagecustomizerapi.Conf
 
 func modifyConfig(configCopy *imagecustomizerapi.Config, baseConfigPath string) error {
 	var err error
-	redactedString := "[redacted]"
 
 	err = populateScriptsList(configCopy.Scripts, baseConfigPath)
 	if err != nil {
@@ -139,7 +139,7 @@ func modifyConfig(configCopy *imagecustomizerapi.Config, baseConfigPath string) 
 		return fmt.Errorf("failed to populate additional dirs:\n%w", err)
 	}
 
-	err = redactSshPublicKeys(configCopy.OS.Users, redactedString)
+	err = redactSshPublicKeys(configCopy.OS.Users)
 	if err != nil {
 		return fmt.Errorf("failed to redact ssh public keys:\n%w", err)
 	}
@@ -198,7 +198,7 @@ func populateAdditionalFiles(configAdditionalFiles imagecustomizerapi.Additional
 	return nil
 }
 
-func redactSshPublicKeys(configUsers []imagecustomizerapi.User, redactedString string) error {
+func redactSshPublicKeys(configUsers []imagecustomizerapi.User) error {
 	for i := range configUsers {
 		user := configUsers[i]
 		for j := range user.SSHPublicKeys {
