@@ -43,7 +43,9 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 
 10. Write the `/etc/image-customizer-release` file.
 
-11. If the bootloader [resetType](./configuration/bootloader.md#resettype-string) is set
+11. Write the image history file.
+
+12. If the bootloader [resetType](./configuration/bootloader.md#resettype-string) is set
     to `hard-reset`, then reset the boot-loader.
 
     If the bootloader [resetType](./configuration/bootloader.md#resettype-string) is not
@@ -51,34 +53,34 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
     [extraCommandLine](./configuration/kernelcommandline.md#extracommandline-string)
     value to the existing `grub.cfg` file.
 
-12. Update the SELinux mode. [mode](./configuration/selinux.md#mode-string)
+13. Update the SELinux mode. [mode](./configuration/selinux.md#mode-string)
 
-13. If ([overlays](./configuration/os.md#overlays-overlay)) are specified, then add the
+14. If ([overlays](./configuration/os.md#overlays-overlay)) are specified, then add the
     overlay driver and update the fstab file with the overlay mount information.
 
-14. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
+15. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
     add the dm-verity dracut driver and update the grub config.
 
-15. Regenerate the initramfs file (if needed).
+16. Regenerate the initramfs file (if needed).
 
-16. Run ([postCustomization](./configuration/scripts.md#postcustomization-script)) scripts.
+17. Run ([postCustomization](./configuration/scripts.md#postcustomization-script)) scripts.
 
-17. Restore the `/etc/resolv.conf` file.
+18. Restore the `/etc/resolv.conf` file.
 
-18. If SELinux is enabled, call `setfiles`.
+19. If SELinux is enabled, call `setfiles`.
 
-19. Run finalize image scripts. ([finalizeCustomization](./configuration/scripts.md#finalizecustomization-script))
+20. Run finalize image scripts. ([finalizeCustomization](./configuration/scripts.md#finalizecustomization-script))
 
-20. If [--shrink-filesystems](./cli.md#shrink-filesystems) is specified, then shrink
+21. If [--shrink-filesystems](./cli.md#shrink-filesystems) is specified, then shrink
     the file systems.
 
-21. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
+22. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
 
-22. If the output format is set to `iso`, copy additional iso media files.
+23. If the output format is set to `iso`, copy additional iso media files.
     ([iso](./configuration/iso.md))
 
-23. If [--output-pxe-artifacts-dir](./cli.md#output-pxe-artifacts-dir) is specified,
+24. If [--output-pxe-artifacts-dir](./cli.md#output-pxe-artifacts-dir) is specified,
     then export the ISO image contents to the specified folder.
 
 ## /etc/resolv.conf
@@ -206,6 +208,7 @@ os:
     - [overlays](./configuration/os.md#overlays-overlay) ([overlay type](./configuration/overlay.md))
     - [uki](./configuration/os.md#uki-uki) ([uki type](./configuration/uki.md))
       - [kernels](./configuration/uki.md#kernels)
+    - [imageHistory](./configuration/imagehistory.md)
   - [scripts](./configuration/config.md#scripts-scripts) ([scripts type](./configuration/scripts.md))
     - [postCustomization](./configuration/scripts.md#postcustomization-script) ([script type](./configuration/script.md))
       - [path](./configuration/script.md#script-path)

@@ -11,11 +11,11 @@ import (
 )
 
 type Storage struct {
-	ResetPartitionsUuidsType ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType"`
-	BootType                 BootType                 `yaml:"bootType"`
-	Disks                    []Disk                   `yaml:"disks"`
-	FileSystems              []FileSystem             `yaml:"filesystems"`
-	Verity                   []Verity                 `yaml:"verity"`
+	ResetPartitionsUuidsType ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType" json:"resetPartitionsUuidsType,omitempty"`
+	BootType                 BootType                 `yaml:"bootType" json:"bootType,omitempty"`
+	Disks                    []Disk                   `yaml:"disks" json:"disks,omitempty"`
+	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
+	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
 }
 
 func (s *Storage) IsValid() error {

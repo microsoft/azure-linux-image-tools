@@ -10,11 +10,11 @@ import (
 // MountPoint holds the mounting information for each partition.
 type MountPoint struct {
 	// The ID type to use for the source in the /etc/fstab file.
-	IdType MountIdentifierType `yaml:"idType"`
+	IdType MountIdentifierType `yaml:"idType" json:"idType,omitempty"`
 	// The additional options for the mount.
-	Options string `yaml:"options"`
+	Options string `yaml:"options" json:"options,omitempty"`
 	// The target directory path of the mount.
-	Path string `yaml:"path"`
+	Path string `yaml:"path" json:"path,omitempty"`
 }
 
 // UnmarshalYAML enables MountPoint to handle both a shorthand path and a structured object.
