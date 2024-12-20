@@ -4,7 +4,7 @@
 package imagecustomizerapi
 
 var (
-	// UUUIs come from:
+	// UUIDs come from:
 	// - https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
 	// - https://uapi-group.org/specifications/specs/discoverable_partitions_specification/
 	partitionTypeToUuidArchDependent = map[PartitionType]string{
