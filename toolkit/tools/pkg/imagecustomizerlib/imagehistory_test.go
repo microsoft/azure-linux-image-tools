@@ -58,7 +58,6 @@ func TestAddImageHistory(t *testing.T) {
 
 	// Verify the imageUuid is unique for each entry
 	assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")
-
 }
 
 func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, expectedVersion string, expectedDate string, config imagecustomizerapi.Config, historyFilePath string) (allHistory []ImageHistory) {
@@ -81,16 +80,16 @@ func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, e
 	// Since the config is modified its entirety won't be an exact match; picking one consistent field to verify
 	assert.Equal(t, config.OS.BootLoader.ResetType, entry.Config.OS.BootLoader.ResetType, "config bootloader reset type should match")
 
-	verifyAdditionalFilesHashes(entry.Config.OS.AdditionalFiles, t)
-	verifyAdditionalDirsHashes(entry.Config.OS.AdditionalDirs, t)
-	verifyScriptsHashes(entry.Config.Scripts.PostCustomization, t)
-	verifyScriptsHashes(entry.Config.Scripts.FinalizeCustomization, t)
-	verifySshPublicKeysRedacted(entry.Config.OS.Users, t)
+	verifyAdditionalFilesHashes(t, entry.Config.OS.AdditionalFiles)
+	verifyAdditionalDirsHashes(t, entry.Config.OS.AdditionalDirs)
+	verifyScriptsHashes(t, entry.Config.Scripts.PostCustomization)
+	verifyScriptsHashes(t, entry.Config.Scripts.FinalizeCustomization)
+	verifySshPublicKeysRedacted(t, entry.Config.OS.Users)
 
 	return
 }
 
-func verifySshPublicKeysRedacted(users []imagecustomizerapi.User, t *testing.T) {
+func verifySshPublicKeysRedacted(t *testing.T, users []imagecustomizerapi.User) {
 	for _, user := range users {
 		for _, key := range user.SSHPublicKeys {
 			assert.Equal(t, redactedString, key, "SSH public keys should be redacted")
@@ -98,7 +97,7 @@ func verifySshPublicKeysRedacted(users []imagecustomizerapi.User, t *testing.T) 
 	}
 }
 
-func verifyScriptsHashes(scripts []imagecustomizerapi.Script, t *testing.T) {
+func verifyScriptsHashes(t *testing.T, scripts []imagecustomizerapi.Script) {
 	for _, script := range scripts {
 		if script.Path != "" {
 			verifyFileHash(t, script.Path, script.SHA256Hash)
@@ -107,7 +106,7 @@ func verifyScriptsHashes(scripts []imagecustomizerapi.Script, t *testing.T) {
 		}
 	}
 }
-func verifyAdditionalFilesHashes(files imagecustomizerapi.AdditionalFileList, t *testing.T) {
+func verifyAdditionalFilesHashes(t *testing.T, files imagecustomizerapi.AdditionalFileList) {
 	for _, f := range files {
 		if f.Source != "" {
 			verifyFileHash(t, f.Source, f.SHA256Hash)
@@ -117,7 +116,7 @@ func verifyAdditionalFilesHashes(files imagecustomizerapi.AdditionalFileList, t 
 	}
 }
 
-func verifyAdditionalDirsHashes(dirs imagecustomizerapi.DirConfigList, t *testing.T) {
+func verifyAdditionalDirsHashes(t *testing.T, dirs imagecustomizerapi.DirConfigList) {
 	for _, dir := range dirs {
 		assert.NotEmpty(t, dir.SHA256HashMap, "SHA256HashMap for additional directories should not be empty")
 		for relPath, hash := range dir.SHA256HashMap {
