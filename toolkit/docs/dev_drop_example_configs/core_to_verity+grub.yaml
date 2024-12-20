@@ -1,0 +1,74 @@
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    maxSize: 6144M
+    partitions:
+    - id: esp
+      type: esp
+      start: 1M
+      end: 1025M
+
+    - id: boot
+      start: 1025M
+      end: 2048M
+
+    - id: root
+      start: 2048M
+      end: 4096M
+
+    - id: roothash
+      start: 4096M
+      end: 4224M
+
+    - id: var
+      start: 4224M
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+os:
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine: 
+    - "rd.debug" 
+    - "console=tty0" 
+    - "console=ttyS0"
+
+  packages:
+    install:
+    - vim
+    - lvm2
+    - veritysetup
+
+  bootloader:
+    resetType: hard-reset
