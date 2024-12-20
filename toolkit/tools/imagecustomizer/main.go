@@ -11,7 +11,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/profile"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -29,7 +28,6 @@ var (
 	enableShrinkFilesystems     = app.Flag("shrink-filesystems", "Enable shrinking of filesystems to minimum size. Supports ext2, ext3, ext4 filesystem types.").Bool()
 	outputPXEArtifactsDir       = app.Flag("output-pxe-artifacts-dir", "Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'.").String()
 	logFlags                    = exe.SetupLogFlags(app)
-	profFlags                   = exe.SetupProfileFlags(app)
 	timestampFile               = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
 )
 
@@ -52,14 +50,10 @@ func main() {
 		logger.Log.Fatalf("--output-image-format cannot be used with --shrink-filesystems enabled.")
 	}
 
-	prof, err := profile.StartProfiling(profFlags)
-	if err != nil {
-		logger.Log.Warnf("Could not start profiling: %s", err)
+	if *timestampFile != "" {
+		timestamp.BeginTiming("imagecustomizer", *timestampFile)
+		defer timestamp.CompleteTiming()
 	}
-	defer prof.StopProfiler()
-
-	timestamp.BeginTiming("imagecustomizer", *timestampFile)
-	defer timestamp.CompleteTiming()
 
 	err = customizeImage()
 	if err != nil {
