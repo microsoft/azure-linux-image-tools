@@ -106,7 +106,7 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
 
 	var config imagecustomizerapi.Config
-	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
+	err := imagecustomizerapi.UnmarshalAndValidateYamlFile(configFile, &config)
 	if !assert.NoError(t, err) {
 		return
 	}

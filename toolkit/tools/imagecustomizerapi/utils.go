@@ -15,6 +15,22 @@ type HasIsValid interface {
 	IsValid() error
 }
 
+func UnmarshalAndValidateYamlFile[ValueType HasIsValid](yamlFilePath string, value ValueType) error {
+	var err error
+
+	yamlFile, err := os.ReadFile(yamlFilePath)
+	if err != nil {
+		return err
+	}
+
+	err = UnmarshalAndValidateYaml(yamlFile, value)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func UnmarshalYamlFile[ValueType HasIsValid](yamlFilePath string, value ValueType) error {
 	var err error
 
@@ -24,6 +40,22 @@ func UnmarshalYamlFile[ValueType HasIsValid](yamlFilePath string, value ValueTyp
 	}
 
 	err = UnmarshalYaml(yamlFile, value)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UnmarshalAndValidateYaml[ValueType HasIsValid](yamlData []byte, value ValueType) error {
+	var err error
+
+	err = UnmarshalYaml(yamlData, value)
+	if err != nil {
+		return err
+	}
+
+	err = value.IsValid()
 	if err != nil {
 		return err
 	}

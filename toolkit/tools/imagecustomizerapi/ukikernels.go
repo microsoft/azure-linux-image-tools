@@ -5,8 +5,9 @@ package imagecustomizerapi
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"regexp"
+
+	"gopkg.in/yaml.v3"
 )
 
 type UkiKernels struct {

@@ -193,8 +193,6 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile 
 ) error {
 	var err error
 
-	logVersionsOfToolDeps()
-
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
@@ -257,6 +255,8 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	if err != nil {
 		return err
 	}
+
+	logVersionsOfToolDeps()
 
 	// ensure build and output folders are created up front
 	err = os.MkdirAll(imageCustomizerParameters.buildDirAbs, os.ModePerm)
@@ -522,8 +522,6 @@ func validateSplitPartitionsFormat(partitionFormat string) error {
 func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
 	useBaseImageRpmRepos bool,
 ) error {
-	// Note: This IsValid() check does duplicate the one in UnmarshalYamlFile().
-	// But it is useful for functions that call CustomizeImage() directly. For example, test code.
 	err := config.IsValid()
 	if err != nil {
 		return err
