@@ -12,7 +12,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
 type ImageHistory struct {
@@ -28,7 +27,7 @@ const (
 	redactedString       = "[redacted]"
 )
 
-func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
+func addImageHistory(rootDir string, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
 	var err error
 	logger.Log.Infof("Creating image customizer history file")
 
@@ -43,7 +42,7 @@ func addImageHistory(imageChroot *safechroot.Chroot, imageUuid string, baseConfi
 		return fmt.Errorf("failed to modify config while writing image history:\n%w", err)
 	}
 
-	customizerLoggingDirPath := filepath.Join(imageChroot.RootDir(), customizerLoggingDir)
+	customizerLoggingDirPath := filepath.Join(rootDir, customizerLoggingDir)
 	err = os.MkdirAll(customizerLoggingDirPath, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create customizer logging directory:\n%w", err)

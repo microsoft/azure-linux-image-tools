@@ -9,7 +9,6 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -25,10 +24,6 @@ func createTestConfig(configFilePath string, t *testing.T) imagecustomizerapi.Co
 
 func TestAddImageHistory(t *testing.T) {
 	tempDir := filepath.Join(tmpDir, "TestAddImageHistory")
-	chroot := safechroot.NewChroot(tempDir, false)
-	err := chroot.Initialize("", []string{}, []*safechroot.MountPoint{}, false)
-	assert.NoError(t, err)
-	defer chroot.Close(false)
 
 	historyDir := filepath.Join(tempDir, customizerLoggingDir)
 	historyFilePath := filepath.Join(historyDir, historyFileName)
@@ -43,7 +38,7 @@ func TestAddImageHistory(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test adding the first entry
-	err = addImageHistory(chroot, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistory(tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
@@ -56,7 +51,7 @@ func TestAddImageHistory(t *testing.T) {
 	// Test adding another entry with a different uuid
 	_, expectedUuid, err = createUuid()
 	assert.NoError(t, err)
-	err = addImageHistory(chroot, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistory(tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
