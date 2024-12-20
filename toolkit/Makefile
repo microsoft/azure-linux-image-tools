@@ -1,34 +1,15 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Contains:
-#   - Definitions
-#   - High Level Targets
-#   - Submake Includes
-
-######## DEFINITIONS ########
-
 toolkit_root := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS_DIR  ?= $(toolkit_root)/scripts
 
-######## SET REMAINING FLAGS ########
-
-RUN_CHECK                            ?= n
-
-# Folder defines
 TOOLS_DIR        ?= $(toolkit_root)/tools
 TOOL_BINS_DIR    ?= $(toolkit_root)/out/tools
 
 PROJECT_ROOT     ?= $(realpath $(toolkit_root)/..)
 BUILD_DIR        ?= $(PROJECT_ROOT)/build
 OUT_DIR          ?= $(PROJECT_ROOT)/out
-
-# Sub-folder defines
-# LOGS_DIR           ?= $(BUILD_DIR)/logs
-# CACHED_RPMS_DIR    ?= $(BUILD_DIR)/rpm_cache
-# STATUS_FLAGS_DIR   ?= $(BUILD_DIR)/make_status
-# CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
-# PROFILE_DIR        ?= $(BUILD_DIR)/profile
 
 ######## COMMON MAKEFILE UTILITIES ########
 
@@ -45,13 +26,11 @@ LOG_LEVEL          ?= info
 # always,auto,never
 LOG_COLOR          ?= auto
 STOP_ON_WARNING    ?= n
-STOP_ON_PKG_FAIL   ?= n
-STOP_ON_FETCH_FAIL ?= n
 
 ######## HIGH LEVEL TARGETS ########
 
 .PHONY: all clean
-all: toolchain go-tools chroot-tools
+all: go-tools
 
 ######## SUBMAKE INCLUDES ########
 
