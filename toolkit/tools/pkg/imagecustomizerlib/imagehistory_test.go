@@ -88,13 +88,10 @@ func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, e
 		assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")
 	}
 
-	isNotEmptyAdditionalFilesHashes(entry.Config.OS.AdditionalFiles, t)
-
-	isNotEmptyAdditionalDirsHashes(entry.Config.OS.AdditionalDirs, t)
-
-	isNotEmptyScriptsHashes(entry.Config.Scripts.PostCustomization, t)
-	isNotEmptyScriptsHashes(entry.Config.Scripts.FinalizeCustomization, t)
-
+	verifyAdditionalFilesHashes(entry.Config.OS.AdditionalFiles, t)
+	verifyAdditionalDirsHashes(entry.Config.OS.AdditionalDirs, t)
+	verifyScriptsHashes(entry.Config.Scripts.PostCustomization, t)
+	verifyScriptsHashes(entry.Config.Scripts.FinalizeCustomization, t)
 	verifySshPublicKeysRedacted(entry.Config.OS.Users, t)
 }
 
@@ -106,27 +103,38 @@ func verifySshPublicKeysRedacted(users []imagecustomizerapi.User, t *testing.T) 
 	}
 }
 
-func isNotEmptyScriptsHashes(scripts []imagecustomizerapi.Script, t *testing.T) {
+func verifyScriptsHashes(scripts []imagecustomizerapi.Script, t *testing.T) {
 	for _, script := range scripts {
 		if script.Path != "" {
-			assert.NotEmpty(t, script.SHA256Hash, "script hash should not be empty")
+			verifyFileHash(t, script.Path, script.SHA256Hash)
 		} else {
 			assert.Empty(t, script.SHA256Hash, "script hash should be empty")
 		}
 	}
 }
-func isNotEmptyAdditionalFilesHashes(files imagecustomizerapi.AdditionalFileList, t *testing.T) {
-	for _, file := range files {
-		if file.Source != "" {
-			assert.NotEmpty(t, file.SHA256Hash, "SHA256Hash for additional files should not be empty")
+func verifyAdditionalFilesHashes(files imagecustomizerapi.AdditionalFileList, t *testing.T) {
+	for _, f := range files {
+		if f.Source != "" {
+			verifyFileHash(t, f.Source, f.SHA256Hash)
 		} else {
-			assert.Empty(t, file.SHA256Hash, "SHA256Hash for additional files should be empty")
+			assert.Empty(t, f.SHA256Hash, "SHA256Hash for additional files should be empty")
 		}
 	}
 }
 
-func isNotEmptyAdditionalDirsHashes(dirs imagecustomizerapi.DirConfigList, t *testing.T) {
+func verifyAdditionalDirsHashes(dirs imagecustomizerapi.DirConfigList, t *testing.T) {
 	for _, dir := range dirs {
 		assert.NotEmpty(t, dir.SHA256HashMap, "SHA256HashMap for additional directories should not be empty")
+		for relPath, hash := range dir.SHA256HashMap {
+			verifyFileHash(t, filepath.Join(dir.Source, relPath), hash)
+		}
 	}
+}
+
+func verifyFileHash(t *testing.T, path string, foundHash string) {
+	assert.NotEmpty(t, foundHash, "SHA256Hash for file %s should not be empty", path)
+	fullPath := filepath.Join(testDir, path)
+	expectedHash, err := file.GenerateSHA256(fullPath)
+	assert.NoError(t, err, "error generating SHA256 hash for file %s", path)
+	assert.Equal(t, foundHash, expectedHash, "SHA256 hash for file %s should match", path)
 }
