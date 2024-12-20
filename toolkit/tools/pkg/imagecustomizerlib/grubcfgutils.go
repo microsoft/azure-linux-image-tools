@@ -817,16 +817,17 @@ func regenerateInitrd(imageChroot *safechroot.Chroot) error {
 
 	err := imageChroot.UnsafeRun(func() error {
 		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.
-		mkinitrdExists, err := file.CommandExists("mkinitrd")
-		if err != nil {
-			return fmt.Errorf("failed to search for mkinitrd command:\n%w", err)
-		}
+		// mkinitrdExists, err := file.CommandExists("mkinitrd")
+		// if err != nil {
+		// 	return fmt.Errorf("failed to search for mkinitrd command:\n%w", err)
+		// }
 
-		if mkinitrdExists {
-			return shell.ExecuteLiveWithErr(1, "mkinitrd")
-		} else {
-			return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
-		}
+		// if mkinitrdExists {
+		// 	return shell.ExecuteLiveWithErr(1, "mkinitrd")
+		// } else {
+		return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all",
+			"--include", "/usr/lib/locale", "/usr/lib/locale")
+		// }
 	})
 	if err != nil {
 		return fmt.Errorf("failed to rebuild initramfs file:\n%w", err)
