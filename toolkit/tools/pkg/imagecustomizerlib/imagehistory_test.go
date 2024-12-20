@@ -59,10 +59,14 @@ func TestAddImageHistory(t *testing.T) {
 	err = addImageHistory(chroot, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
-	verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
+	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
+
+	// Verify the imageUuid is unique for each entry
+	assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")
+
 }
 
-func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, expectedVersion string, expectedDate string, config imagecustomizerapi.Config, historyFilePath string) {
+func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, expectedVersion string, expectedDate string, config imagecustomizerapi.Config, historyFilePath string) (allHistory []ImageHistory) {
 	exists, err := file.PathExists(historyFilePath)
 	assert.NoError(t, err, "error checking history file existence")
 	assert.True(t, exists, "history file should exist")
@@ -70,7 +74,6 @@ func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, e
 	historyContent, err := os.ReadFile(historyFilePath)
 	assert.NoError(t, err, "error reading history file")
 
-	var allHistory []ImageHistory
 	err = json.Unmarshal(historyContent, &allHistory)
 	assert.NoError(t, err, "error unmarshalling history content")
 	assert.Len(t, allHistory, expectedEntries, "history file should contain the expected number of entries")
@@ -83,16 +86,13 @@ func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, e
 	// Since the config is modified its entirety won't be an exact match; picking one consistent field to verify
 	assert.Equal(t, config.OS.BootLoader.ResetType, entry.Config.OS.BootLoader.ResetType, "config bootloader reset type should match")
 
-	// Verify the imageUuid is unique for each entry
-	if expectedEntries == 2 {
-		assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")
-	}
-
 	verifyAdditionalFilesHashes(entry.Config.OS.AdditionalFiles, t)
 	verifyAdditionalDirsHashes(entry.Config.OS.AdditionalDirs, t)
 	verifyScriptsHashes(entry.Config.Scripts.PostCustomization, t)
 	verifyScriptsHashes(entry.Config.Scripts.FinalizeCustomization, t)
 	verifySshPublicKeysRedacted(entry.Config.OS.Users, t)
+
+	return
 }
 
 func verifySshPublicKeysRedacted(users []imagecustomizerapi.User, t *testing.T) {
