@@ -7,6 +7,8 @@ structured JSON format. It enables users to:
 - Verify input integrity using SHA256 hashes.
 - Debug and identify issues in customization workflows.
 
+Image history tracking can be disabled by explicitly configuring the option in
+the [OS configuration settings](../api/configuration/os.md)
 
 ## History Storage
 
