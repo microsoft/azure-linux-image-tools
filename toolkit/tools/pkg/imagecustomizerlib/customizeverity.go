@@ -134,11 +134,6 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 		return err
 	}
 
-	bootPartitionUuidArgument := ""
-	// if provideRootHashSignatureArgument != "" || requireRootHashSignatureArgument != "" {
-	bootPartitionUuidArgument = "pre.verity.mount=" + bootPartitionUuid
-	// }
-
 	newArgs := []string{
 		"rd.systemd.verity=1",
 		fmt.Sprintf("roothash=%s", rootHash),
@@ -147,7 +142,7 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
 		fmt.Sprintf("%s", provideRootHashSignatureArgument),
 		fmt.Sprintf("%s", requireRootHashSignatureArgument),
-		fmt.Sprintf("%s", bootPartitionUuidArgument),
+		fmt.Sprintf("pre.verity.mount=%s", bootPartitionUuid),
 	}
 
 	grub2Config, err := file.Read(grubCfgFullPath)
@@ -295,11 +290,12 @@ func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, out
 		return "", "", fmt.Errorf("failed to write root hash to %s:\n%w", rootHashFileLocalPath, err)
 	}
 
+	// ToDo: how do we handle multiple verity device?
 	if requireSignedRootfsRootHash {
 		provideRootHashSignatureArgument = "systemd.verity_root_options=root-hash-signature=" + rootHashSignedFileImagePath
-		if requireSignedRootHashes {
-			requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
-		}
+	}
+	if requireSignedRootHashes {
+		requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
 	}
 
 	logger.Log.Debugf("---- debug ---- rootHashSignedFileImagePath=(%s)", rootHashSignedFileImagePath)
