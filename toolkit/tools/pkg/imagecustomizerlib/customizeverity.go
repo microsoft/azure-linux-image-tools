@@ -296,7 +296,7 @@ func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, out
 	}
 
 	if requireSignedRootfsRootHash {
-		provideRootHashSignatureArgument = "systemd.verity_root_options=root_hash_signature=" + rootHashSignedFileImagePath
+		provideRootHashSignatureArgument = "systemd.verity_root_options=root-hash-signature=" + rootHashSignedFileImagePath
 		if requireSignedRootHashes {
 			requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
 		}
