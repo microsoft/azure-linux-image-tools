@@ -1,55 +1,15 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Contains:
-#   - Definitions
-#   - High Level Targets
-#   - Submake Includes
-
-######## DEFINITIONS ########
-
 toolkit_root := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS_DIR  ?= $(toolkit_root)/scripts
 
-######## SET REMAINING FLAGS ########
-
-RUN_CHECK                            ?= n
-
-##help:var:REPO_SNAPSHOT_TIME:<posix_time>=Posix time to be used as a snapshot for remote repositories when fetching packages. Example: REPO_SNAPSHOT_TIME="1724119509".
-CACHE_DIR                            ?=
-PACKAGE_CACHE_SUMMARY                ?=
-IMAGE_CACHE_SUMMARY                  ?=
-INITRD_CACHE_SUMMARY                 ?=
-PACKAGE_ARCHIVE                      ?=
-PACKAGE_BUILD_RETRIES                ?= 0
-CHECK_BUILD_RETRIES                  ?= 0
-EXTRA_BUILD_LAYERS                   ?= 0
-REFRESH_WORKER_CHROOT                ?= y
-TARGET_ARCH                          ?=
-ALLOW_TOOLCHAIN_REBUILDS             ?= n
-CACHED_PACKAGES_ARCHIVE              ?=
-USE_CCACHE                           ?= n
-
-# Folder defines
 TOOLS_DIR        ?= $(toolkit_root)/tools
 TOOL_BINS_DIR    ?= $(toolkit_root)/out/tools
-RESOURCES_DIR    ?= $(toolkit_root)/resources
 
 PROJECT_ROOT     ?= $(realpath $(toolkit_root)/..)
 BUILD_DIR        ?= $(PROJECT_ROOT)/build
 OUT_DIR          ?= $(PROJECT_ROOT)/out
-CCACHE_DIR       ?= $(PROJECT_ROOT)/ccache
-CCACHE_CONFIG    ?= $(RESOURCES_DIR)/manifests/package/ccache-configuration.json
-
-# Sub-folder defines
-LOGS_DIR           ?= $(BUILD_DIR)/logs
-CACHED_RPMS_DIR    ?= $(BUILD_DIR)/rpm_cache
-STATUS_FLAGS_DIR   ?= $(BUILD_DIR)/make_status
-CHROOT_DIR         ?= $(BUILD_DIR)/worker/chroot
-IMAGEGEN_DIR       ?= $(BUILD_DIR)/imagegen
-PROFILE_DIR        ?= $(BUILD_DIR)/profile
-
-IMAGES_DIR      ?= $(OUT_DIR)/images
 
 ######## COMMON MAKEFILE UTILITIES ########
 
@@ -59,20 +19,12 @@ include $(SCRIPTS_DIR)/utils.mk
 
 ######## REMAINING BUILD FLAGS ########
 
-##help:var:LOG_LEVEL:{panic,fatal,error,warn,info,debug,trace}=Set logging level for toolkit.
-# panic,fatal,error,warn,info,debug,trace
-LOG_LEVEL          ?= info
-##help:var:LOG_COLOR:{always,auto,never}=Set logging color for toolkit terminal output.
-# always,auto,never
-LOG_COLOR          ?= auto
 STOP_ON_WARNING    ?= n
-STOP_ON_PKG_FAIL   ?= n
-STOP_ON_FETCH_FAIL ?= n
 
 ######## HIGH LEVEL TARGETS ########
 
 .PHONY: all clean
-all: toolchain go-tools chroot-tools
+all: go-tools
 
 ######## SUBMAKE INCLUDES ########
 
@@ -87,10 +39,6 @@ include $(SCRIPTS_DIR)/build_tag_imagecustomizer.mk
 # go utilities with:
 #   go-tools, clean-go-tools, go-tidy-all (tidy go utilities before committing) go-test-coverage
 include $(SCRIPTS_DIR)/tools.mk
-
-# Create images with:
-#   image, iso, clean-imagegen
-include $(SCRIPTS_DIR)/imggen.mk
 
 ##help:target:clean=Clean all built files.
 # Each component provides specific clean implementations which clean depends on.
