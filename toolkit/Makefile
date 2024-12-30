@@ -19,12 +19,6 @@ include $(SCRIPTS_DIR)/utils.mk
 
 ######## REMAINING BUILD FLAGS ########
 
-##help:var:LOG_LEVEL:{panic,fatal,error,warn,info,debug,trace}=Set logging level for toolkit.
-# panic,fatal,error,warn,info,debug,trace
-LOG_LEVEL          ?= info
-##help:var:LOG_COLOR:{always,auto,never}=Set logging color for toolkit terminal output.
-# always,auto,never
-LOG_COLOR          ?= auto
 STOP_ON_WARNING    ?= n
 
 ######## HIGH LEVEL TARGETS ########
