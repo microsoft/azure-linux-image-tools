@@ -1,7 +1,8 @@
 # Testing github pages locally
 
-This includes documentation required to test local changes related to github
-pages. Current repo github pages leverages  `jekyll-theme-minimal` theme.
+This includes steps to test local changes related to github pages.
+
+Note: Current repo github pages leverages  `jekyll-theme-minimal` theme.
 
 * Install dependencies
 
@@ -42,5 +43,5 @@ bundle install
 bundle exec jekyll serve
 ```
 
-You can adjust the `--host` and `--port` parameters as needed. By default, the
-site will be available at `http://localhost:4000`
+Adjust the `--host` and `--port` parameters as needed. By default, the site will
+be available at `http://localhost:4000`
