@@ -13,7 +13,6 @@ sudo apt install ruby-full build-essential zlib1g-dev
 * Create Gemfile under `docs` directory
 
 ```bash
-# Create the Gemfile
 cat <<EOF > Gemfile
 source "https://rubygems.org"
 
@@ -23,7 +22,7 @@ gem "jekyll-theme-minimal"
 EOF
 ```
 
-* Install Bundle & dependencies
+* Install bundle & dependencies
 
 ```bash
 sudo gem install jekyll bundler
@@ -43,5 +42,5 @@ bundle install
 bundle exec jekyll serve
 ```
 
-You can adjust the --host and --port parameters as needed. By default, the site
-will be available at http://localhost:4000
+You can adjust the `--host` and `--port` parameters as needed. By default, the
+site will be available at `http://localhost:4000`
