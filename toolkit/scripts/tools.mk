@@ -29,24 +29,17 @@ endif
 
 # List of go utilities in tools/ directory
 go_tool_list = \
-	bldtracker \
-	boilerplate \
-	containercheck \
-	depsearch \
-	downloader \
+    downloader \
 	imageconfigvalidator \
 	imagecustomizer \
 	imagepkgfetcher \
 	imager \
 	isomaker \
-	licensecheck \
 	liveinstaller \
 	osmodifier \
-	pkgworker \
 	precacher \
 	repoquerywrapper \
 	roast \
-	scheduler \
 	validatechroot \
 
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"
@@ -54,7 +47,6 @@ go_tool_targets = $(foreach target,$(go_tool_list),$(TOOL_BINS_DIR)/$(target))
 # Common files to monitor for all go targets
 go_module_files = $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 go_internal_files = $(shell find $(TOOLS_DIR)/internal/ -type f -name '*.go')
-go_grapher_files = $(shell find $(TOOLS_DIR)/grapher/ -type f -name '*.go')
 go_pkg_files = $(shell find $(TOOLS_DIR)/pkg/ -type f -name '*.go')
 go_imagegen_files = $(shell find $(TOOLS_DIR)/imagegen/ -type f -name '*.go')
 go_scheduler_files = $(shell find $(TOOLS_DIR)/scheduler -type f -name '*.go')
