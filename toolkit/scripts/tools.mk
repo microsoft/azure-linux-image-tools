@@ -37,7 +37,6 @@ go_tool_list = \
 	isomaker \
 	liveinstaller \
 	osmodifier \
-	precacher \
 	repoquerywrapper \
 	roast \
 	validatechroot \
