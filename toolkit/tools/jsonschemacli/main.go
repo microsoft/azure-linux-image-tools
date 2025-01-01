@@ -11,6 +11,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/stoewer/go-strcase"
 )
 
 func main() {
@@ -20,6 +21,9 @@ func main() {
 	}
 
 	reflector := jsonschema.Reflector{}
+	// reflector.ExpandedStruct = true
+	reflector.KeyNamer = strcase.LowerCamelCase
+	reflector.RequiredFromJSONSchemaTags = true
 
 	schema := reflector.Reflect(&imagecustomizerapi.Config{})
 
