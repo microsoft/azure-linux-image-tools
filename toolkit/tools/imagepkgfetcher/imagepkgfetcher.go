@@ -14,8 +14,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repocloner"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repocloner/rpmrepocloner"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repoutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/pkggraph"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/pkgjson"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/profile"
 
@@ -145,10 +143,8 @@ func cloneSystemConfigs(cloner repocloner.RepoCloner, configFile, baseDirPath st
 	packageVersionsInConfig = append(packageVersionsInConfig, installutils.KernelPackages(cfg)...)
 
 	if externalOnly {
-		packageVersionsInConfig, err = filterExternalPackagesOnly(packageVersionsInConfig, inputGraph)
-		if err != nil {
-			return
-		}
+		logger.Log.Infof("Not supported")
+		return
 	}
 
 	// Add any packages required by the install tools
@@ -167,28 +163,5 @@ func cloneSystemConfigs(cloner repocloner.RepoCloner, configFile, baseDirPath st
 			logger.Log.Errorf("\tCheck log file '%s' for more details from package manager.", *logFlags.LogFile)
 		}
 	}
-	return
-}
-
-// filterExternalPackagesOnly returns the subset of packageVersionsInConfig that only contains external packages.
-func filterExternalPackagesOnly(packageVersionsInConfig []*pkgjson.PackageVer, inputGraph string) (filteredPackages []*pkgjson.PackageVer, err error) {
-	dependencyGraph, err := pkggraph.ReadDOTGraphFile(inputGraph)
-	if err != nil {
-		return
-	}
-
-	for _, pkgVer := range packageVersionsInConfig {
-		pkgNode, _ := dependencyGraph.FindBestPkgNode(pkgVer)
-
-		// There are two ways an external package will be represented by pkgNode.
-		// 1) pkgNode may be nil. This is possible if the package is never consumed during the build phase,
-		//    which means it will not be in the graph.
-		// 2) pkgNode will be of 'StateUnresolved'. This will be the case if a local package has it listed as
-		//    a Requires or BuildRequires.
-		if pkgNode == nil || (pkgNode.RunNode != nil && pkgNode.RunNode.State == pkggraph.StateUnresolved) {
-			filteredPackages = append(filteredPackages, pkgVer)
-		}
-	}
-
 	return
 }
