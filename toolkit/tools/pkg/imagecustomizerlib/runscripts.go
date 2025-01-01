@@ -36,6 +36,9 @@ var (
 		unix.CAP_SETFCAP,
 		// Admin capability (workaround to allow scripts to run as root).
 		unix.CAP_SYS_ADMIN,
+		unix.CAP_SYS_MODULE,
+		unix.CAP_AUDIT_CONTROL,
+		unix.CAP_NET_ADMIN,
 	}
 )
 
