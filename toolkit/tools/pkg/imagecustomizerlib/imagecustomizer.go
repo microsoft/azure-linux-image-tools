@@ -190,6 +190,18 @@ func createImageCustomizerParameters(buildDir string,
 func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputSplitPartitionsFormat string, outputPXEArtifactsDir string,
+	useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+) error {
+	return CustomizeImageWithConfigFileExtended(buildDir, configFile, imageFile,
+		rpmsSources, outputImageFile, outputImageFormat,
+		outputSplitPartitionsFormat, outputPXEArtifactsDir,
+		useBaseImageRpmRepos, false, false, false,
+		"", nil, enableShrinkFilesystems)
+}
+
+func CustomizeImageWithConfigFileExtended(buildDir string, configFile string, imageFile string,
+	rpmsSources []string, outputImageFile string, outputImageFormat string,
+	outputSplitPartitionsFormat string, outputPXEArtifactsDir string,
 	useBaseImageRpmRepos bool, requireSignedRootfsRootHash bool, requireSignedRootHashes bool, outputVerityHashes bool,
 	outputVerityHashesDir string, inputSignedVerityHashes []string, enableShrinkFilesystems bool,
 ) error {
@@ -210,7 +222,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = CustomizeImage(buildDir, absBaseConfigPath, &config, imageFile, rpmsSources, outputImageFile, outputImageFormat,
+	err = CustomizeImageExtended(buildDir, absBaseConfigPath, &config, imageFile, rpmsSources, outputImageFile, outputImageFormat,
 		outputSplitPartitionsFormat, outputPXEArtifactsDir, useBaseImageRpmRepos, requireSignedRootfsRootHash,
 		requireSignedRootHashes, outputVerityHashes, outputVerityHashesDir, inputSignedVerityHashes, enableShrinkFilesystems)
 	if err != nil {
@@ -230,6 +242,15 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 }
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageFile string,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, outputSplitPartitionsFormat string,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+) error {
+	return CustomizeImageExtended(buildDir, baseConfigPath, config, imageFile, rpmsSources, outputImageFile,
+		outputImageFormat, outputSplitPartitionsFormat, outputPXEArtifactsDir, useBaseImageRpmRepos,
+		false, false, false, "", nil, enableShrinkFilesystems)
+}
+
+func CustomizeImageExtended(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, outputSplitPartitionsFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, requireSignedRootfsRootHash bool, requireSignedRootHashes bool,
 	outputVerityHashes bool, outputVerityHashesDir string, inputSignedVerityHashes []string, enableShrinkFilesystems bool,
