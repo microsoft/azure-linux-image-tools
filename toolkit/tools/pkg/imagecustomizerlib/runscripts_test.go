@@ -67,7 +67,7 @@ resolv.conf exists
 	verifyFileContentsSame(t, aOrigFilePath, aNewFilePath)
 }
 
-// // Disabled due to regression in functionality - Tracked by a bug
+// Disabled due to regression in functionality - Tracked by a bug
 // func TestCustomizeImageRunScriptsIptables(t *testing.T) {
 // 	var err error
 
