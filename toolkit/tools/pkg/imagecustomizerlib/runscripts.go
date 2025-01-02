@@ -123,7 +123,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 	err = shell.NewExecBuilder(process, args...).
 		Chroot(imageChroot.RootDir()).
 		EnvironmentVariables(envVars).
-		Capabilities(scriptsCapabilities).
+		// Capabilities(scriptsCapabilities). Disabled due to regression
 		WorkingDirectory("/").
 		ErrorStderrLines(1).
 		Execute()
