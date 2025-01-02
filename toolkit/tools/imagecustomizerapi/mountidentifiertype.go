@@ -18,6 +18,8 @@ const (
 	// MountIdentifierTypePartLabel mounts this partition via the GPT PARTLABEL
 	MountIdentifierTypePartLabel MountIdentifierType = "part-label"
 
+	MountIdentifierTypeDeviceMapper MountIdentifierType = "device-mapper"
+
 	// MountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	MountIdentifierTypeDefault MountIdentifierType = ""
 )

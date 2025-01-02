@@ -5,13 +5,19 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+)
+
+const (
+	veritySignedRootHashFilesDir = "/boot"
 )
 
 func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
@@ -107,10 +113,12 @@ func prepareGrubConfigForVerity(imageChroot *safechroot.Chroot) error {
 
 func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string, grubCfgFullPath string,
 	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo,
+	provideRootHashSignatureArgument string, requireRootHashSignatureArgument string, bootPartitionUuid string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions)
+	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions,
+		provideRootHashSignatureArgument, requireRootHashSignatureArgument, bootPartitionUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -155,7 +163,8 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 }
 
 func constructVerityKernelCmdlineArgs(rootfsVerity imagecustomizerapi.Verity, rootHash string,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo) ([]string, error) {
+	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo,
+	provideRootHashSignatureArgument string, requireRootHashSignatureArgument string, bootPartitionUuid string) ([]string, error) {
 	// Format the dataPartitionId and hashPartitionId using the helper function.
 	formattedDataPartition, err := systemdFormatPartitionId(rootfsVerity.DataDeviceId,
 		rootfsVerity.DataDeviceMountIdType, partIdToPartUuid, partitions)
@@ -181,6 +190,9 @@ func constructVerityKernelCmdlineArgs(rootfsVerity imagecustomizerapi.Verity, ro
 		fmt.Sprintf("systemd.verity_root_data=%s", formattedDataPartition),
 		fmt.Sprintf("systemd.verity_root_hash=%s", formattedHashPartition),
 		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
+		fmt.Sprintf("%s", provideRootHashSignatureArgument),
+		fmt.Sprintf("%s", requireRootHashSignatureArgument),
+		fmt.Sprintf("pre.verity.mount=%s", bootPartitionUuid),
 	}
 
 	return newArgs, nil
@@ -274,7 +286,8 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 func updateUkiKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string,
 	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions)
+	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions,
+		"" /*provideRootHashSignatureArgument*/, "" /*requireRootHashSignatureArgument*/, "" /*bootPartitionUuid*/)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -286,4 +299,60 @@ func updateUkiKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHa
 	}
 
 	return nil
+}
+
+func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, outputVerityHashes bool, outputVerityHashesDir string,
+	requireSignedRootfsRootHash bool, requireSignedRootHashes bool,
+) (provideRootHashSignatureArgument string, requireRootHashSignatureArgument string, err error) {
+
+	if !outputVerityHashes {
+		return "", "", nil
+	}
+
+	rootHashFile := deviceId + ".hash"
+	rootHashFileLocalPath := filepath.Join(outputVerityHashesDir, rootHashFile)
+	rootHashSignedFileImagePath := filepath.Join("/boot", rootHashFile+".sig")
+
+	err = os.MkdirAll(outputVerityHashesDir, os.ModePerm)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create root hashes directory (%s):\n%w", outputVerityHashesDir, err)
+	}
+	err = file.Write(deviceRootHash, rootHashFileLocalPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to write root hash to %s:\n%w", rootHashFileLocalPath, err)
+	}
+
+	// ToDo: how do we handle multiple verity device?
+	if requireSignedRootfsRootHash {
+		provideRootHashSignatureArgument = "systemd.verity_root_options=root-hash-signature=" + rootHashSignedFileImagePath
+	}
+	if requireSignedRootHashes {
+		requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
+	}
+
+	logger.Log.Debugf("---- debug ---- rootHashSignedFileImagePath=(%s)", rootHashSignedFileImagePath)
+	logger.Log.Debugf("---- debug ---- provideRootHashSignatureArgument      =(%s)", provideRootHashSignatureArgument)
+	logger.Log.Debugf("---- debug ---- requireRootHashSignatureArgument      =(%s)", requireRootHashSignatureArgument)
+
+	return provideRootHashSignatureArgument, requireRootHashSignatureArgument, err
+}
+
+func generateSignedRootHashConfiguration(signedRootHashFiles []string) (imagecustomizerapi.AdditionalFileList, error) {
+	additionalFiles := imagecustomizerapi.AdditionalFileList{}
+	for _, localFile := range signedRootHashFiles {
+
+		imageFile := filepath.Join(veritySignedRootHashFilesDir, filepath.Base(localFile))
+
+		logger.Log.Debugf("---- debug ---- - src = %s", localFile)
+		logger.Log.Debugf("---- debug ----   dst = %s", imageFile)
+
+		additionalFile := imagecustomizerapi.AdditionalFile{
+			Destination: imageFile,
+			Source:      localFile,
+			// ToDo: what permissions should we use?
+			Permissions: ptrutils.PtrTo(imagecustomizerapi.FilePermissions(0o755)),
+		}
+		additionalFiles = append(additionalFiles, additionalFile)
+	}
+	return additionalFiles, nil
 }
