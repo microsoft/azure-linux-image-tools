@@ -1,0 +1,573 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi/config",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "AdditionalFile": {
+      "properties": {
+        "destination": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "permissions": {
+          "type": "integer"
+        },
+        "sha256hash": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "AdditionalFileList": {
+      "items": {
+        "$ref": "#/$defs/AdditionalFile"
+      },
+      "type": "array"
+    },
+    "BootLoader": {
+      "properties": {
+        "resetType": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Config": {
+      "properties": {
+        "storage": {
+          "$ref": "#/$defs/Storage"
+        },
+        "iso": {
+          "$ref": "#/$defs/Iso"
+        },
+        "pxe": {
+          "$ref": "#/$defs/Pxe"
+        },
+        "os": {
+          "$ref": "#/$defs/OS"
+        },
+        "scripts": {
+          "$ref": "#/$defs/Scripts"
+        },
+        "previewFeatures": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DirConfig": {
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "destination": {
+          "type": "string"
+        },
+        "newDirPermissions": {
+          "type": "integer"
+        },
+        "mergedDirPermissions": {
+          "type": "integer"
+        },
+        "childFilePermissions": {
+          "type": "integer"
+        },
+        "sha256hashmap": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DirConfigList": {
+      "items": {
+        "$ref": "#/$defs/DirConfig"
+      },
+      "type": "array"
+    },
+    "Disk": {
+      "properties": {
+        "partitionTableType": {
+          "type": "string"
+        },
+        "maxSize": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "partitions": {
+          "items": {
+            "$ref": "#/$defs/Partition"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "DiskSize": {
+      "type": "string",
+      "pattern": "^\\d+[KMGT]?$"
+    },
+    "FileSystem": {
+      "properties": {
+        "deviceId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "mountPoint": {
+          "$ref": "#/$defs/MountPoint"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Iso": {
+      "properties": {
+        "kernelCommandLine": {
+          "$ref": "#/$defs/KernelCommandLine"
+        },
+        "additionalFiles": {
+          "$ref": "#/$defs/AdditionalFileList"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "KernelCommandLine": {
+      "properties": {
+        "extraCommandLine": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Module": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "loadMode": {
+          "type": "string"
+        },
+        "options": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ModuleList": {
+      "items": {
+        "$ref": "#/$defs/Module"
+      },
+      "type": "array"
+    },
+    "MountPoint": {
+      "properties": {
+        "idType": {
+          "type": "string"
+        },
+        "options": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OS": {
+      "properties": {
+        "hostname": {
+          "type": "string"
+        },
+        "packages": {
+          "$ref": "#/$defs/Packages"
+        },
+        "selinux": {
+          "$ref": "#/$defs/SELinux"
+        },
+        "kernelCommandLine": {
+          "$ref": "#/$defs/KernelCommandLine"
+        },
+        "additionalFiles": {
+          "$ref": "#/$defs/AdditionalFileList"
+        },
+        "additionalDirs": {
+          "$ref": "#/$defs/DirConfigList"
+        },
+        "users": {
+          "items": {
+            "$ref": "#/$defs/User"
+          },
+          "type": "array"
+        },
+        "services": {
+          "$ref": "#/$defs/Services"
+        },
+        "modules": {
+          "$ref": "#/$defs/ModuleList"
+        },
+        "overlays": {
+          "items": {
+            "$ref": "#/$defs/Overlay"
+          },
+          "type": "array"
+        },
+        "bootloader": {
+          "$ref": "#/$defs/BootLoader"
+        },
+        "uki": {
+          "$ref": "#/$defs/Uki"
+        },
+        "imageHistory": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Overlay": {
+      "properties": {
+        "lowerDirs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "upperDir": {
+          "type": "string"
+        },
+        "workDir": {
+          "type": "string"
+        },
+        "mountPoint": {
+          "type": "string"
+        },
+        "isInitrdOverlay": {
+          "type": "boolean"
+        },
+        "mountDependencies": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mountOptions": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Packages": {
+      "properties": {
+        "updateExistingPackages": {
+          "type": "boolean"
+        },
+        "install": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "remove": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "update": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Partition": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "end": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "size": {
+          "$ref": "#/$defs/PartitionSize"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PartitionSize": {
+      "type": "string",
+      "pattern": "^\\d+[KMGT]?$|^grow"
+    },
+    "Password": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Pxe": {
+      "properties": {
+        "isoImageBaseUrl": {
+          "type": "string"
+        },
+        "isoImageFileUrl": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "SELinux": {
+      "properties": {
+        "mode": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Script": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "interpreter": {
+          "type": "string"
+        },
+        "arguments": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "environmentVariables": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sha256hash": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Scripts": {
+      "properties": {
+        "postCustomization": {
+          "items": {
+            "$ref": "#/$defs/Script"
+          },
+          "type": "array"
+        },
+        "finalizeCustomization": {
+          "items": {
+            "$ref": "#/$defs/Script"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Services": {
+      "properties": {
+        "enable": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "disable": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Storage": {
+      "properties": {
+        "resetPartitionsUuidsType": {
+          "type": "string"
+        },
+        "bootType": {
+          "type": "string"
+        },
+        "disks": {
+          "items": {
+            "$ref": "#/$defs/Disk"
+          },
+          "type": "array"
+        },
+        "filesystems": {
+          "items": {
+            "$ref": "#/$defs/FileSystem"
+          },
+          "type": "array"
+        },
+        "verity": {
+          "items": {
+            "$ref": "#/$defs/Verity"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Uki": {
+      "properties": {
+        "Kernels": {
+          "$ref": "#/$defs/UkiKernels"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "UkiKernels": {
+      "properties": {
+        "Auto": {
+          "type": "boolean"
+        },
+        "Kernels": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "User": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "integer"
+        },
+        "password": {
+          "$ref": "#/$defs/Password"
+        },
+        "passwordExpiresDays": {
+          "type": "integer"
+        },
+        "sshPublicKeyPaths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sshPublicKeys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "primaryGroup": {
+          "type": "string"
+        },
+        "secondaryGroups": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "startupCommand": {
+          "type": "string"
+        },
+        "homeDirectory": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Verity": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "dataDeviceId": {
+          "type": "string"
+        },
+        "dataDeviceMountIdType": {
+          "type": "string"
+        },
+        "hashDeviceId": {
+          "type": "string"
+        },
+        "hashDeviceMountIdType": {
+          "type": "string"
+        },
+        "corruptionOption": {
+          "type": "string"
+        },
+        "FileSystem": {
+          "$ref": "#/$defs/FileSystem"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  }
+}
