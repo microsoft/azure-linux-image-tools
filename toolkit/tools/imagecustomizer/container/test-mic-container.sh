@@ -34,4 +34,5 @@ docker run --rm \
         --config-file "$containerInputConfig" \
         --build-dir "$containerBuildDir" \
         --output-image-format "vhdx" \
-        --output-image-file "$containerOutputImage"
+        --output-image-file "$containerOutputImage" \
+        --log-level debug

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 # The first argument is expected to be a version tag like '2.0.20240615',
 # '2.0.latest', '3.0.20240615-rc', etc.
