@@ -68,7 +68,7 @@ Supported options:
 
   This flag is only supported on GPT formatted disks.
 
-  For further details, see: https://en.wikipedia.org/wiki/BIOS_boot_partition
+  For further details, see: [Wikipedia's BIOS boot partition article](https://en.wikipedia.org/wiki/BIOS_boot_partition)
 
 - `home`: A `/home` partition.
 
@@ -96,6 +96,11 @@ Supported options:
 
 - `xbootldr`: The `/boot` partition.
 
-- A UUID string.
+- A partition type UUID string.
+
+  A list of well-known UUID values can be found in:
+  
+  - [Wikipedia's GUID Partition Table article](https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs)
+  - [The Discoverable Partitions Specification (DPS)](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/#defined-partition-type-uuids)
 
   For example: `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`
