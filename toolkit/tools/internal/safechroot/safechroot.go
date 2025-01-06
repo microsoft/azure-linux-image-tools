@@ -740,6 +740,11 @@ func (c *Chroot) createMountPoints() (err error) {
 		}
 
 		logger.Log.Debugf("---- debug ---- createMountPoints - 1")
+		logger.Log.Debugf("---- debug ---- createMountPoints - mountPoint.source=(%s)", mountPoint.source)
+		logger.Log.Debugf("---- debug ---- createMountPoints - fullPath=(%s)", fullPath)
+		logger.Log.Debugf("---- debug ---- createMountPoints - mountPoint.fstype=(%s)", mountPoint.fstype)
+		logger.Log.Debugf("---- debug ---- createMountPoints - mountPoint.flags=(%d)", mountPoint.flags)
+		logger.Log.Debugf("---- debug ---- createMountPoints - mountPoint.data=(%s)", mountPoint.data)
 
 		err = unix.Mount(mountPoint.source, fullPath, mountPoint.fstype, mountPoint.flags, mountPoint.data)
 		if err != nil {
