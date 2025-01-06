@@ -928,7 +928,7 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	provideRootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts(rootfsVerity.DataDeviceId, rootHash, outputVerityHashes,
+	rootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts(rootfsVerity.DataDeviceId, rootHash, outputVerityHashes,
 		outputVerityHashesDir, requireSignedRootfsRootHash, requireSignedRootHashes)
 	if err != nil {
 		return err
@@ -936,14 +936,15 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir,
+			rootHashSignatureArgument, requireRootHashSignatureArgument, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
 		err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions,
-			provideRootHashSignatureArgument, requireRootHashSignatureArgument, bootPartition.Uuid)
+			rootHashSignatureArgument, requireRootHashSignatureArgument, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}
