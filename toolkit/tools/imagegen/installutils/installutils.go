@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -851,6 +852,8 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	targetRootPath := "/run/_bindmountroot"
 	targetRootFullPath := filepath.Join(installChroot.RootDir(), targetRootPath)
 
+	selinuxEnabledOnHost, _ := getSELinuxEnabled()
+
 	for _, mountToLabel := range listOfMountsToLabel {
 		logger.Log.Debugf("Running setfiles to apply SELinux labels on mount points: %v", mountToLabel)
 
@@ -870,24 +873,10 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 		}
 		defer bindMount.Close()
 
-		// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
-		files := 0
-		onStdout := func(line string) {
-			files++
-			if (files % 1000) == 0 {
-				logger.Log.Debugf("SELinux: labelled %d files", files)
-			}
-		}
-		err = shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
-			StdoutCallback(onStdout).
-			LogLevel(logrus.TraceLevel, logrus.WarnLevel).
-			ErrorStderrLines(1).
-			Chroot(installChroot.ChrootDir()).
-			Execute()
+		err = callSetFiles(targetRootPath, fileContextPath, targetPath, installChroot.ChrootDir(), selinuxEnabledOnHost)
 		if err != nil {
-			return fmt.Errorf("setfiles failed:\n%w", err)
+			return err
 		}
-		logger.Log.Debugf("SELinux: labelled %d files", files)
 
 		err = bindMount.CleanClose()
 		if err != nil {
@@ -904,6 +893,42 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	}
 
 	return
+}
+
+func callSetFiles(targetRootPath string, fileContextPath string, targetPath string, chrootDir string,
+	selinuxEnabledOnHost bool,
+) error {
+	// Hack for calling `setfiles` on Fedora.
+	if selinuxEnabledOnHost {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		err := setSELinuxExecContext(FedoraSetFilesContext)
+		if err == nil {
+			// If setSELinuxExecContext() fails, then assume it was because we are running on a non-Fedora machine.
+			defer resetSELinuxExecContext()
+		}
+	}
+
+	// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
+	files := 0
+	onStdout := func(line string) {
+		files++
+		if (files % 1000) == 0 {
+			logger.Log.Debugf("SELinux: labelled %d files", files)
+		}
+	}
+	err := shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
+		StdoutCallback(onStdout).
+		LogLevel(logrus.TraceLevel, logrus.WarnLevel).
+		ErrorStderrLines(1).
+		Chroot(chrootDir).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("setfiles failed:\n%w", err)
+	}
+
+	logger.Log.Debugf("SELinux: labelled %d files", files)
+	return nil
 }
 
 func sed(find, replace, delimiter, file string) (err error) {
