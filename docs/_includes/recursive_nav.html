@@ -1,0 +1,11 @@
+<!-- _includes/recursive_nav.html -->
+{% for item in include.items %}
+  <li>
+    <a href="{{ item.link }}">{{ item.name }}</a>
+    {% if item.subnav and item.subnav.size > 0 %}
+      <ul class="subnav">
+        {% include recursive_nav.html items=item.subnav %}
+      </ul>
+    {% endif %}
+  </li>
+{% endfor %}

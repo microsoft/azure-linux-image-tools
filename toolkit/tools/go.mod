@@ -13,8 +13,6 @@ require (
 	github.com/fatih/color v1.16.0
 	github.com/gdamore/tcell v1.4.0
 	github.com/google/uuid v1.6.0
-	github.com/jinzhu/copier v0.3.2
-	github.com/juliangruber/go-intersect v1.1.0
 	github.com/klauspost/pgzip v1.2.5
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/muesli/crunchy v0.4.0
