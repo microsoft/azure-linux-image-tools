@@ -43,7 +43,7 @@ func NewMount(source, target, fstype string, flags uintptr, data string, makeAnd
 func (m *Mount) newMountHelper(source, target, fstype string, flags uintptr, data string, makeAndDeleteDir bool) error {
 	var err error
 
-	logger.Log.Debugf("Mounting: source: (%s), target: (%s), fstype: (%s), flags: (%#x), data: (%s)",
+	logger.Log.Debugf("Mounting: source 1: (%s), target: (%s), fstype: (%s), flags: (%#x), data: (%s)",
 		source, target, fstype, flags, data)
 
 	if makeAndDeleteDir {
@@ -56,11 +56,15 @@ func (m *Mount) newMountHelper(source, target, fstype string, flags uintptr, dat
 		m.dirCreated = true
 	}
 
+	logger.Log.Debugf("---- debug ---- newMountHelper - 1")
+
 	// Create the mount.
 	err = unix.Mount(source, target, fstype, flags, data)
 	if err != nil {
 		return fmt.Errorf("failed to mount (%s) to (%s):\n%w", source, target, err)
 	}
+
+	logger.Log.Debugf("---- debug ---- newMountHelper - 2")
 
 	m.isMounted = true
 	return nil
