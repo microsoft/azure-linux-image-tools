@@ -35,12 +35,12 @@ storage:
       path: /boot
 
   - deviceId: rootfs
-    type: xfs
+    type: ext4
     mountPoint:
       path: /
 
   - deviceId: var
-    type: xfs
+    type: ext4
     mountPoint:
       path: /var
 
