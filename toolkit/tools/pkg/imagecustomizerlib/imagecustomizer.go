@@ -125,6 +125,11 @@ func createImageCustomizerParameters(buildDir string,
 	ic.useBaseImageRpmRepos = useBaseImageRpmRepos
 	ic.rpmsSources = rpmsSources
 
+	err = validateRpmSources(rpmsSources)
+	if err != nil {
+		return nil, err
+	}
+
 	ic.enableShrinkFilesystems = enableShrinkFilesystems
 	ic.outputSplitPartitionsFormat = outputSplitPartitionsFormat
 
