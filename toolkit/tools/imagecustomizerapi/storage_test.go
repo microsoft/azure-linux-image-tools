@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -240,12 +242,6 @@ func TestStorageIsValidBadBiosBootStart(t *testing.T) {
 			},
 		}},
 		BootType: BootTypeLegacy,
-		FileSystems: []FileSystem{
-			{
-				DeviceId: "bios",
-				Type:     "fat32",
-			},
-		},
 	}
 
 	err := storage.IsValid()
@@ -386,7 +382,7 @@ func TestStorageIsValidUniqueLabel(t *testing.T) {
 				Type:     FileSystemTypeFat32,
 				MountPoint: &MountPoint{
 					IdType: MountIdentifierTypePartLabel,
-					Path:   "/",
+					Path:   "/boot/efi",
 				},
 			},
 			{
@@ -1316,4 +1312,97 @@ func TestStorageIsValidVerityMissingReadonly(t *testing.T) {
 
 	err := value.IsValid()
 	assert.ErrorContains(t, err, "verity device's (rootverity) filesystem must include the 'ro' mount option")
+}
+
+func TestStorageIsValidExpectedMountPath(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(4 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "rootfs",
+					Type:  PartitionTypeVar,
+					Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootfs",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+	}
+
+	logMessagesHook := logMessagesHook.AddSubHook()
+	defer logMessagesHook.Close()
+
+	err := value.IsValid()
+
+	logMessages := logMessagesHook.ConsumeMessages()
+
+	assert.NoError(t, err)
+	assert.Contains(t, logMessages, logger.MemoryLogMessage{
+		Message: "Unexpected mount path (/) for partition (rootfs) with type (var). Expected paths: [/var]",
+		Level:   logrus.InfoLevel,
+	})
+}
+
+func TestStorageIsValidBadEspPath(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(4 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "rootfs",
+					Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efj",
+				},
+			},
+			{
+				DeviceId: "rootfs",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "ESP partition (esp) must be mounted at /boot/efi")
 }

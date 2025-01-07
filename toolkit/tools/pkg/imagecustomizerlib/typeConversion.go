@@ -95,35 +95,40 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		return configuration.Partition{}, fmt.Errorf("partition end (%d) must be a multiple of 1 MiB", end)
 	}
 
-	imagerFlags, err := toImagerPartitionFlags(partition.Type)
+	imagerFlags, typeUuid, err := toImagerPartitionFlags(partition.Type)
 	if err != nil {
 		return configuration.Partition{}, err
 	}
 
 	imagerPartition := configuration.Partition{
-		ID:     partition.Id,
-		FsType: string(fileSystem.Type),
-		Name:   partition.Label,
-		Start:  uint64(imagerStart),
-		End:    uint64(imagerEnd),
-		Flags:  imagerFlags,
+		ID:       partition.Id,
+		FsType:   string(fileSystem.Type),
+		Name:     partition.Label,
+		Start:    uint64(imagerStart),
+		End:      uint64(imagerEnd),
+		Flags:    imagerFlags,
+		TypeUUID: typeUuid,
 	}
 	return imagerPartition, nil
 }
 
-func toImagerPartitionFlags(partitionType imagecustomizerapi.PartitionType) ([]configuration.PartitionFlag, error) {
+func toImagerPartitionFlags(partitionType imagecustomizerapi.PartitionType,
+) ([]configuration.PartitionFlag, string, error) {
 	switch partitionType {
 	case imagecustomizerapi.PartitionTypeESP:
-		return []configuration.PartitionFlag{configuration.PartitionFlagESP, configuration.PartitionFlagBoot}, nil
+		return []configuration.PartitionFlag{configuration.PartitionFlagESP, configuration.PartitionFlagBoot}, "", nil
 
 	case imagecustomizerapi.PartitionTypeBiosGrub:
-		return []configuration.PartitionFlag{configuration.PartitionFlagBiosGrub}, nil
-
-	case imagecustomizerapi.PartitionTypeDefault:
-		return nil, nil
+		return []configuration.PartitionFlag{configuration.PartitionFlagBiosGrub}, "", nil
 
 	default:
-		return nil, fmt.Errorf("unknown partition type (%s)", partitionType)
+		typeUuid, foundTypeUuid := imagecustomizerapi.PartitionTypeToUuid[partitionType]
+		if !foundTypeUuid {
+			// If an entry is not found in PartitionTypeToUuid, then the partitionType must be a UUID string.
+			typeUuid = string(partitionType)
+		}
+
+		return nil, typeUuid, nil
 	}
 }
 
