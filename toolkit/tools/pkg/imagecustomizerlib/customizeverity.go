@@ -331,10 +331,6 @@ func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, out
 		requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
 	}
 
-	logger.Log.Debugf("---- debug ---- rootHashSignedFileImagePath=(%s)", rootHashSignedFileImagePath)
-	logger.Log.Debugf("---- debug ---- rootHashSignatureArgument      =(%s)", rootHashSignatureArgument)
-	logger.Log.Debugf("---- debug ---- requireRootHashSignatureArgument      =(%s)", requireRootHashSignatureArgument)
-
 	return rootHashSignatureArgument, requireRootHashSignatureArgument, err
 }
 
@@ -343,9 +339,6 @@ func generateSignedRootHashConfiguration(signedRootHashFiles []string) (imagecus
 	for _, localFile := range signedRootHashFiles {
 
 		imageFile := filepath.Join(veritySignedRootHashFilesDir, filepath.Base(localFile))
-
-		logger.Log.Debugf("---- debug ---- - src = %s", localFile)
-		logger.Log.Debugf("---- debug ----   dst = %s", imageFile)
 
 		additionalFile := imagecustomizerapi.AdditionalFile{
 			Destination: imageFile,

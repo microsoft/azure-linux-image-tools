@@ -900,16 +900,6 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 		return err
 	}
 
-	logger.Log.Debugf("---- debug --- boot partition - Name              = (%s)", bootPartition.Name)
-	logger.Log.Debugf("---- debug --- boot partition - Path              = (%s)", bootPartition.Path)
-	logger.Log.Debugf("---- debug --- boot partition - PartitionTypeUuid = (%s)", bootPartition.PartitionTypeUuid)
-	logger.Log.Debugf("---- debug --- boot partition - FileSystemType    = (%s)", bootPartition.FileSystemType)
-	logger.Log.Debugf("---- debug --- boot partition - Uuid              = (%s)", bootPartition.Uuid)
-	logger.Log.Debugf("---- debug --- boot partition - PartUuid          = (%s)", bootPartition.PartUuid)
-	logger.Log.Debugf("---- debug --- boot partition - Mountpoint        = (%s)", bootPartition.Mountpoint)
-	logger.Log.Debugf("---- debug --- boot partition - PartLabel         = (%s)", bootPartition.PartLabel)
-	logger.Log.Debugf("---- debug --- boot partition - Type              = (%s)", bootPartition.Type)
-
 	// mount -U 9bb90123-2744-49e4-a49c-090bcba96ae8  /run/my-boot/
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpParitionDirName)
