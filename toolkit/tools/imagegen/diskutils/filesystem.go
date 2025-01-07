@@ -38,6 +38,8 @@ type fileSystemsOptions struct {
 }
 
 var (
+	// The default ext4 options used by an Azure Linux 2.0 image.
+	// See, the /etc/mke2fs.conf file in an Azure Linux 2.0 image.
 	azl2Ext4Options = ext4Options{
 		BlockSize: 4096,
 		Features: []string{"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
@@ -45,6 +47,8 @@ var (
 		},
 	}
 
+	// The default ext4 options used by an Azure Linux 3.0 image.
+	// See, the /etc/mke2fs.conf file in an Azure Linux 3.0 image.
 	azl3Ext4Options = ext4Options{
 		BlockSize: 4096,
 		Features: []string{"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
@@ -53,10 +57,14 @@ var (
 		},
 	}
 
+	// The default xfs options used by an Azure Linux 2.0 image (kernel v5.15).
+	// See, the /usr/share/xfsprogs/mkfs/lts_5.15.conf file.
 	azl2XfsOptions = xfsOptions{
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
+	// The default xfs options used by an Azure Linux 3.0 image (kernel v6.6)
+	// See, the /usr/share/xfsprogs/mkfs/lts_6.6.conf file.
 	azl3XfsOptions = xfsOptions{
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
 	}
