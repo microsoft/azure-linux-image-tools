@@ -39,7 +39,7 @@ func generateJSONSchema(outputFile string) error {
 	}
 
 	// Write schema to file
-	if err := os.WriteFile(outputFile, schemaJSON, 0644); err != nil {
+	if err := os.WriteFile(outputFile, schemaJSON, 0o644); err != nil {
 		return fmt.Errorf("failed to write schema to file: %w", err)
 	}
 

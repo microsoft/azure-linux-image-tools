@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 BINARY_NAME := bin/imagecustomizerschemacli
-GO_FILES := $(wildcard *.go)
 SCHEMA_FILE := schema.json
 
 .PHONY: all
