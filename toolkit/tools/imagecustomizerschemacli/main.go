@@ -9,9 +9,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/invopop/jsonschema"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
