@@ -5,17 +5,10 @@ BINARY_NAME := bin/imagecustomizerschemacli
 GO_FILES := $(wildcard *.go)
 SCHEMA_FILE := schema.json
 
-all: build run
+.PHONY: all
+all: run
 
-build: $(GO_FILES)
-	mkdir -p bin
-	go build -o $(BINARY_NAME) .
-
-run: build
-	@echo "Running $(BINARY_NAME) with $(SCHEMA_FILE)"
-	./$(BINARY_NAME) $(SCHEMA_FILE)
-
-clean:
-	rm -rf bin
-
-.PHONY: all build run clean
+.PHONY: run
+run:
+	@echo "Generating $(SCHEMA_FILE)"
+	go run . -o $(SCHEMA_FILE)

@@ -9,30 +9,39 @@ import (
 	"log"
 	"os"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/invopop/jsonschema"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 )
 
 func main() {
-	if len(os.Args) < 1 {
-		fmt.Println("Usage: jsonschemacli <output_file>")
-		os.Exit(1)
+	app := kingpin.New("jsonschemacli", "A CLI tool to generate JSON schema for the image customizer API.")
+	outputFile := app.Flag("output", "Path to the output JSON schema file").Short('o').Required().String()
+
+	kingpin.MustParse(app.Parse(os.Args[1:]))
+
+	if err := generateJSONSchema(*outputFile); err != nil {
+		log.Fatalf("Error: %v", err)
 	}
 
-	reflector := jsonschema.Reflector{}
-	reflector.RequiredFromJSONSchemaTags = true
-	schema := reflector.Reflect(&imagecustomizerapi.Config{})
+	fmt.Printf("JSON schema has been written to %s\n", *outputFile)
+}
 
+func generateJSONSchema(outputFile string) error {
+	reflector := jsonschema.Reflector{
+		RequiredFromJSONSchemaTags: true,
+	}
+
+	schema := reflector.Reflect(&imagecustomizerapi.Config{})
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
-		log.Fatalf("Failed to marshal schema: %v", err)
+		return fmt.Errorf("failed to marshal schema: %w", err)
 	}
 
-	outputFile := os.Args[1]
-	err = os.WriteFile(outputFile, schemaJSON, 0644)
-	if err != nil {
-		log.Fatalf("Failed to write schema to file: %v", err)
+	// Write schema to file
+	if err := os.WriteFile(outputFile, schemaJSON, 0644); err != nil {
+		return fmt.Errorf("failed to write schema to file: %w", err)
 	}
 
-	fmt.Printf("JSON schema has been written to %s\n", outputFile)
+	return nil
 }

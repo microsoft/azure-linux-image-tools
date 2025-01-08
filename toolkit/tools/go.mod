@@ -28,6 +28,7 @@ require (
 )
 
 require (
+	github.com/alecthomas/kingpin v2.2.6+incompatible // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
