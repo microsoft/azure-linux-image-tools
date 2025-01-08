@@ -115,6 +115,8 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo,
 	rootHashSignatureArgument string, requireRootHashSignatureArgument string, bootPartitionUuid string,
 ) error {
+	logger.Log.Debugf("---- debug ---- updateGrubConfigForVerity()")
+
 	var err error
 
 	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions,
@@ -122,6 +124,8 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
+
+	logger.Log.Debugf("---- debug ---- updateGrubConfigForVerity() - newArgs=(%s)", newArgs)
 
 	grub2Config, err := file.Read(grubCfgFullPath)
 	if err != nil {
@@ -287,11 +291,15 @@ func updateUkiKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHa
 	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
 	rootHashSignatureArgument string, requireRootHashSignatureArgument string, bootPartitionUuid string,
 ) error {
+	logger.Log.Debugf("---- debug ---- updateUkiKernelArgsForVerity()")
+
 	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions,
 		rootHashSignatureArgument, requireRootHashSignatureArgument, bootPartitionUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
+
+	logger.Log.Debugf("---- debug ---- updateUkiKernelArgsForVerity() - newArgs=(%s)", newArgs)
 
 	// UKI is enabled, update ukify kernel cmdline args file instead of grub.cfg.
 	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
@@ -306,6 +314,7 @@ func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, out
 	requireSignedRootfsRootHash bool, requireSignedRootHashes bool,
 ) (rootHashSignatureArgument string, requireRootHashSignatureArgument string, err error) {
 
+	logger.Log.Debugf("---- debug ---- generateSignedRootHashArtifacts()")
 	if !outputVerityHashes {
 		return "", "", nil
 	}
@@ -325,9 +334,11 @@ func generateSignedRootHashArtifacts(deviceId string, deviceRootHash string, out
 
 	// ToDo: how do we handle multiple verity device?
 	if requireSignedRootfsRootHash {
+		logger.Log.Debugf("---- debug ---- generateSignedRootHashArtifacts() - adding systemd.verity_root_options=root-hash-signature")
 		rootHashSignatureArgument = "systemd.verity_root_options=root-hash-signature=" + rootHashSignedFileImagePath
 	}
 	if requireSignedRootHashes {
+		logger.Log.Debugf("---- debug ---- generateSignedRootHashArtifacts() - adding dm_verity.require_signatures=1")
 		requireRootHashSignatureArgument = "dm_verity.require_signatures=1"
 	}
 

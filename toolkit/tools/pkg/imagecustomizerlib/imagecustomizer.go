@@ -924,6 +924,9 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 		return err
 	}
 
+	logger.Log.Debugf("---- debug ---- rootHashSignatureArgument=(%s)", rootHashSignatureArgument)
+	logger.Log.Debugf("---- debug ---- requireRootHashSignatureArgument=(%s)", requireRootHashSignatureArgument)
+
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
 		err = updateUkiKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir,
