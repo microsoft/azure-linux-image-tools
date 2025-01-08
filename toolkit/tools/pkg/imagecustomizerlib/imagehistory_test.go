@@ -17,7 +17,7 @@ func createTestConfig(configFilePath string, t *testing.T) imagecustomizerapi.Co
 	configFile := filepath.Join(testDir, configFilePath)
 
 	var config imagecustomizerapi.Config
-	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
+	err := imagecustomizerapi.UnmarshalAndValidateYamlFile(configFile, &config)
 	assert.NoError(t, err)
 	return config
 }
