@@ -20,6 +20,8 @@ const (
 
 	MountIdentifierTypeDeviceMapper MountIdentifierType = "device-mapper"
 
+	MountIdentifierTypeOverlay MountIdentifierType = "overlay"
+
 	// MountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	MountIdentifierTypeDefault MountIdentifierType = ""
 )

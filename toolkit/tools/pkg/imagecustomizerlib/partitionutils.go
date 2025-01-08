@@ -245,7 +245,7 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			return nil, err
 		}
 
-		// ToDo: device mapper returns an empty string
+		// ToDo: device mapper and overlay return an empty string
 		if source == "" {
 			continue
 		}
@@ -312,7 +312,8 @@ func findSourcePartitionHelper(source string,
 	var partition diskutils.PartitionInfo
 	var partitionIndex int
 
-	if mountIdType != imagecustomizerapi.MountIdentifierTypeDeviceMapper {
+	if mountIdType != imagecustomizerapi.MountIdentifierTypeDeviceMapper &&
+		mountIdType != imagecustomizerapi.MountIdentifierTypeOverlay {
 		partition, partitionIndex, err = findPartition(mountIdType, mountId, partitions)
 		if err != nil {
 			return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
@@ -375,6 +376,10 @@ func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType
 	deviceMapperValue, isDeviceMapper := strings.CutPrefix(source, "/dev/mapper")
 	if isDeviceMapper {
 		return imagecustomizerapi.MountIdentifierTypeDeviceMapper, deviceMapperValue, nil
+	}
+
+	if source == "overlay" {
+		return imagecustomizerapi.MountIdentifierTypeOverlay, "", nil
 	}
 
 	err := fmt.Errorf("unknown fstab source type (%s)", source)
