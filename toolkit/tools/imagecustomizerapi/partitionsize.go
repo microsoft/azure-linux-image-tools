@@ -70,7 +70,7 @@ func (s *PartitionSize) UnmarshalJSON(data []byte) error {
 func (PartitionSize) JSONSchema() *jsonschema.Schema {
 	return &jsonschema.Schema{
 		Type:    "string",
-		Pattern: `^\d+[KMGT]?$|^grow`,
+		Pattern: `^(\d+[KMGT]$|grow)$`,
 	}
 }
 

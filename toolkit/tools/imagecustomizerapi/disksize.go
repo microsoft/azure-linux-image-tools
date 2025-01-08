@@ -55,7 +55,7 @@ func (s *DiskSize) UnmarshalJSON(data []byte) error {
 func (DiskSize) JSONSchema() *jsonschema.Schema {
 	return &jsonschema.Schema{
 		Type:    "string",
-		Pattern: `^\d+[KMGT]?$`,
+		Pattern: `^\d+[KMGT]$`,
 	}
 }
 
