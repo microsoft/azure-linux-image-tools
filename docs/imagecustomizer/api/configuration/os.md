@@ -78,14 +78,6 @@ os:
 
 Used to configure kernel modules.
 
-Example:
-
-```yaml
-os:
-  modules:
-    - name: vfio
-```
-
 ## overlays [[overlay](./overlay.md)[]]
 
 Used to add filesystem overlays.
