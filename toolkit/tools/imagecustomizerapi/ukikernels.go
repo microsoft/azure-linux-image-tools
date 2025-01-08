@@ -5,8 +5,10 @@ package imagecustomizerapi
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"regexp"
+
+	"github.com/invopop/jsonschema"
+	"gopkg.in/yaml.v3"
 )
 
 type UkiKernels struct {
@@ -39,6 +41,23 @@ func (u *UkiKernels) UnmarshalYAML(value *yaml.Node) error {
 	default:
 		// Invalid YAML structure.
 		return fmt.Errorf("invalid YAML structure for 'kernels': must be either 'auto' or a list of kernel names")
+	}
+}
+
+func (UkiKernels) JSONSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		OneOf: []*jsonschema.Schema{
+			{
+				Type: "string",
+				Enum: []interface{}{"auto"},
+			},
+			{
+				Type: "array",
+				Items: &jsonschema.Schema{
+					Type: "string",
+				},
+			},
+		},
 	}
 }
 

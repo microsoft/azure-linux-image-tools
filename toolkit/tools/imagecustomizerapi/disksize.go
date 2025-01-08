@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/invopop/jsonschema"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"gopkg.in/yaml.v3"
 )
@@ -49,6 +50,13 @@ func (s *DiskSize) UnmarshalJSON(data []byte) error {
 	}
 
 	return parseAndSetDiskSize(stringValue, s)
+}
+
+func (DiskSize) JSONSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type:    "string",
+		Pattern: `^\d+[KMGT]$`,
+	}
 }
 
 func parseAndSetDiskSize(stringValue string, s *DiskSize) error {

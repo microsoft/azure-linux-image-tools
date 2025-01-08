@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/invopop/jsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -64,6 +65,13 @@ func (s *PartitionSize) UnmarshalJSON(data []byte) error {
 	}
 
 	return parseAndSetPartitionSize(stringValue, s)
+}
+
+func (PartitionSize) JSONSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type:    "string",
+		Pattern: `^(\d+[KMGT]$|grow)$`,
+	}
 }
 
 func parseAndSetPartitionSize(stringValue string, s *PartitionSize) error {
