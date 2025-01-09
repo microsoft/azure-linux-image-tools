@@ -12,6 +12,9 @@ Run:
 sudo make -C ./toolkit go-imagecustomizer
 ```
 
+If you're updating the image customizer api as part of your change, do update
+the api schema using `make -C toolkit/tools/imagecustomizerschemacli/` before sending a PR.
+
 ## Run toolkit tests
 
 Run:
@@ -24,10 +27,14 @@ sudo go test -C ./toolkit/tools ./...
 
 1. Build (or download) the vhdx/vhd image files for:
 
-   - [Azure Linux 2.0 core-efi](https://github.com/microsoft/CBL-Mariner/blob/2.0/toolkit/imageconfigs/core-efi.json)
-   - [Azure Linux 3.0 core-efi](https://github.com/microsoft/CBL-Mariner/blob/3.0/toolkit/imageconfigs/core-efi.json)
-   - [Azure Linux 2.0 core-legacy](https://github.com/microsoft/CBL-Mariner/blob/2.0/toolkit/imageconfigs/core-legacy.json)
-   - [Azure Linux 3.0 core-legacy](https://github.com/microsoft/CBL-Mariner/blob/3.0/toolkit/imageconfigs/core-legacy.json)
+   - [Azure Linux 2.0
+     core-efi](https://github.com/microsoft/CBL-Mariner/blob/2.0/toolkit/imageconfigs/core-efi.json)
+   - [Azure Linux 3.0
+     core-efi](https://github.com/microsoft/CBL-Mariner/blob/3.0/toolkit/imageconfigs/core-efi.json)
+   - [Azure Linux 2.0
+     core-legacy](https://github.com/microsoft/CBL-Mariner/blob/2.0/toolkit/imageconfigs/core-legacy.json)
+   - [Azure Linux 3.0
+     core-legacy](https://github.com/microsoft/CBL-Mariner/blob/3.0/toolkit/imageconfigs/core-legacy.json)
 
 2. Download the test RPM files:
 
