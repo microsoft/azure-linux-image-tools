@@ -1,0 +1,112 @@
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      size: 100M
+
+    - id: root
+      size: 3G
+
+    - id: roothash
+      size: 100M
+
+    - id: var
+      size: 1G
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    kernels: auto
+
+  selinux:
+    mode: enforcing
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+
+  packages:
+    remove:
+    - grub2-efi-binary
+
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+    - selinux-policy
+    - selinux-policy-modules
+    - setools-console
+    - policycoreutils-python-utils
+    - systemd-ukify
+    - systemd-boot
+    - efibootmgr
+
+  additionalFiles:
+    # Change the directory that the sshd-keygen service writes the SSH host keys to.
+  - source: files/sshd-keygen.service
+    destination: /usr/lib/systemd/system/sshd-keygen.service
+
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+
+  - content: |
+      test ALL=(ALL) NOPASSWD:ALL
+    destination: /etc/sudoers.d/test
+
+  services:
+    enable:
+    - sshd
+    
+  users:
+  - name: test
+    sshPublicKeys:
+      # Your SSH public key here.
+    secondaryGroups:
+    - sudo
+
+scripts:
+  postCustomization:
+    # Move the SSH host keys off of the read-only /etc directory, so that sshd can run.
+  - path: scripts/ssh-move-host-keys.sh
