@@ -6,9 +6,8 @@ package targetos
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/envfile"
 )
 
 type TargetOs string
@@ -19,26 +18,9 @@ const (
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
-	osReleaseLines, err := file.ReadLines(filepath.Join(rootfs, "etc/os-release"))
+	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
 	if err != nil {
 		return "", fmt.Errorf("failed to read /etc/os-release file:\n%w", err)
-	}
-
-	fields := make(map[string]string)
-
-	for _, line := range osReleaseLines {
-
-		split := strings.SplitN(line, "=", 2)
-		if len(split) < 2 {
-			continue
-		}
-		name := split[0]
-		value := split[1]
-
-		value = strings.TrimPrefix(value, "\"")
-		value = strings.TrimSuffix(value, "\"")
-
-		fields[name] = value
 	}
 
 	distroId := fields["ID"]

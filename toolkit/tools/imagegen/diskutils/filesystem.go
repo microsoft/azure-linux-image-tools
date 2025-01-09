@@ -192,8 +192,9 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 		return nil, err
 	}
 
-	// Omit features not supported by the build host kernel.
-	features := []string(nil)
+	// "none" requests no default options.
+	features := []string{"none"}
+
 	for _, feature := range options.Ext4.Features {
 		requiredKernelVersion, hasRequiredKernelVersion := ext4FeaturesKernelSupport[feature]
 		if hasRequiredKernelVersion && requiredKernelVersion.Gt(hostKernelVersion) {
@@ -212,8 +213,7 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 		features = append(features, feature)
 	}
 
-	// "none" requests no default options.
-	featuresArg := "none," + strings.Join(features, ",")
+	featuresArg := strings.Join(features, ",")
 
 	args := []string{"-b", strconv.Itoa(options.Ext4.BlockSize), "-O", featuresArg}
 	return args, nil

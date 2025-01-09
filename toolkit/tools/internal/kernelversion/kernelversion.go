@@ -4,13 +4,13 @@
 package kernelversion
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/version"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -26,14 +26,17 @@ var (
 )
 
 func GetBuildHostKernelVersion() (version.Version, error) {
-	stdout, _, err := shell.Execute("uname", "-r")
+	utsName := unix.Utsname{}
+	err := unix.Uname(&utsName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kernel version using uname:\n%w", err)
+		return nil, fmt.Errorf("failed to query uname:\n%w", err)
 	}
 
-	stdout = strings.TrimSpace(stdout)
+	versionBuf := utsName.Release[:]
+	versionStringLen := bytes.IndexByte(versionBuf, 0)
+	versionString := string(versionBuf[:versionStringLen])
 
-	version, err := parseKernelVersion(stdout)
+	version, err := parseKernelVersion(versionString)
 	if err != nil {
 		return nil, err
 	}
