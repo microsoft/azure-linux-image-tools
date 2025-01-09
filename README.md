@@ -18,7 +18,7 @@ are updated each release.
 ### Build
 
 Follow the [Developer-Guide](docs/imagecustomizer/developer-guide.md) for
-detailed instructions on getting started and building Prism.
+detailed instructions on getting started and building.
 
 ## Getting Help
 
