@@ -52,7 +52,7 @@ jobs:
           exit 1
         fi
 
-    - name: check for out of date go modules
+    - name: check for out-of-date go modules
       run: |
         pushd toolkit
         sudo env "PATH=$PATH" make go-mod-tidy
@@ -70,7 +70,7 @@ jobs:
         pushd toolkit
         sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
 
-    - name: generate json schema
+    - name: check schema.json is up-to-date
       run: |
         make -C toolkit/tools/imagecustomizerschemacli/
 
