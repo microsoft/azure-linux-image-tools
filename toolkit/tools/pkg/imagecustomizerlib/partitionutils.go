@@ -129,9 +129,22 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 	tmpDir := filepath.Join(buildDir, tmpParitionDirName)
 
+	logger.Log.Debugf("---- debug ---- findRootfsPartition()")
+
 	var rootfsPartitions []*diskutils.PartitionInfo
 	for i := range diskPartitions {
 		diskPartition := diskPartitions[i]
+
+		logger.Log.Debugf("---- debug ---- - start ---------------------------------------------------------")
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Name          =(%s)", diskPartition.Name)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Type          =(%s)", diskPartition.Type)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.FileSystemType=(%s)", diskPartition.FileSystemType)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Path          =(%s)", diskPartition.Path)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Mountpoint    =(%s)", diskPartition.Mountpoint)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Uuid    =(%s)", diskPartition.Uuid)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.PartUuid    =(%s)", diskPartition.PartUuid)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.PartLabel    =(%s)", diskPartition.PartLabel)
+		logger.Log.Debugf("---- debug ---- - end ----------------------------------------------------------")
 
 		// Skip over disk entries.
 		if diskPartition.Type != "part" {
@@ -148,6 +161,8 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 			continue
 		}
 
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - 1")
+
 		// Temporarily mount the partition.
 		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
 			"", true)
@@ -163,6 +178,8 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 			return nil, fmt.Errorf("failed to check if /etc/fstab file exists (%s):\n%w", diskPartition.Path, err)
 		}
 
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - 2")
+
 		if exists {
 			rootfsPartitions = append(rootfsPartitions, &diskPartition)
 		}
@@ -172,6 +189,8 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		if err != nil {
 			return nil, fmt.Errorf("failed to close partition mount (%s):\n%w", diskPartition.Path, err)
 		}
+
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - 3")
 	}
 
 	if len(rootfsPartitions) > 1 {
@@ -245,8 +264,11 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			return nil, err
 		}
 
+		logger.Log.Debugf("---- debug ---- source=(%s)", source)
+
 		// ToDo: device mapper and overlay return an empty string
 		if source == "" {
+			logger.Log.Debugf("---- debug ---- skipping")
 			continue
 		}
 
