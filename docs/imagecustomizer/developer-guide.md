@@ -1,5 +1,9 @@
 # Developers guide
 
+## Prerequisites
+
+See [Getting started guide](README.md/#getting-started]
+
 ## Build Image Customizer binary
 
 Run:
