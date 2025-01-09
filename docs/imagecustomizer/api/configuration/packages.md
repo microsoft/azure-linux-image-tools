@@ -1,5 +1,18 @@
 # packages type
 
+Specifies packages to remove, install, or update.
+
+Package names can be specified in the following formats:
+
+- `<package-name>`
+- `<package-name>.<arch>`
+- `<package-name>-<version>`
+- `<package-name>-<version>-<release>.<distro>`
+- `<package-name>-<version>-<release>.<distro>.<arch>`
+
+Note: Package names like to `parted-3.4-2` will not work. You must include the distro
+tag. For example, `parted-3.4-2.cm2` will work. (`cm2` means CBL-Mariner 2.0.)
+
 ## updateExistingPackages [bool]
 
 Updates the packages that exist in the base image.
