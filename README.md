@@ -6,7 +6,7 @@ currently hosts **Prism** (also known as ImageCustomizer), a robust image
 customization tool.
 
 Prism supports multiple formats and customizations features. Full list can be
-found in [Supported features](docs/imagecustomizer/README.md)
+found in [supported operations](docs/imagecustomizer/api/configuration.md)
 
 ## Getting Started
 
