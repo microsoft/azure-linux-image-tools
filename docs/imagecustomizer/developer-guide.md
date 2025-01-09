@@ -12,8 +12,12 @@ Run:
 sudo make -C ./toolkit go-imagecustomizer
 ```
 
-If you're updating the image customizer api as part of your change, do update
-the api schema using `make -C toolkit/tools/imagecustomizerschemacli/` before sending a PR.
+If you're updating the image customizer API as part of your change, you need to
+update the API schema.json before sending a PR. To do so, run:
+
+```bash
+make -C toolkit/tools/imagecustomizerschemacli/
+```
 
 ## Run toolkit tests
 

@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 BINARY_NAME := bin/imagecustomizerschemacli
-SCHEMA_FILE := schema.json
+SCHEMA_FILE :="../imagecustomizerapi/schema.json"
 
 .PHONY: all
 all: run

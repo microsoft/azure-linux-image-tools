@@ -75,12 +75,12 @@ jobs:
         make -C toolkit/tools/imagecustomizerschemacli/
 
         # Use git diff to check if the schema has changed
-        schema_changes=$(git diff toolkit/tools/imagecustomizerschemacli/schema.json)
+        schema_changes=$(git diff toolkit/tools/imagecustomizerapi/schema.json)
         if [ -n "$schema_changes" ]; then
           echo "Schema has changed. Please update the schema using `make -C toolkit/tools/imagecustomizerschemacli/` before committing."
           exit 1
         else
-          echo "Schema is up to date!"
+          echo "Schema is up-to-date!"
         fi
 
   build-docs:
