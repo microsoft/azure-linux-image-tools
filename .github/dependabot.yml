@@ -7,3 +7,4 @@ updates:
     directory: "/toolkit/tools"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 10
