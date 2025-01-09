@@ -22,6 +22,8 @@ const (
 
 	MountIdentifierTypeOverlay MountIdentifierType = "overlay"
 
+	MountIdentifierTypeCustom MountIdentifierType = "custom"
+
 	// MountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	MountIdentifierTypeDefault MountIdentifierType = ""
 )

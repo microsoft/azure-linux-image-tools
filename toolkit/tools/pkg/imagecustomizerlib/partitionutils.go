@@ -313,7 +313,8 @@ func findSourcePartitionHelper(source string,
 	var partitionIndex int
 
 	if mountIdType != imagecustomizerapi.MountIdentifierTypeDeviceMapper &&
-		mountIdType != imagecustomizerapi.MountIdentifierTypeOverlay {
+		mountIdType != imagecustomizerapi.MountIdentifierTypeOverlay &&
+		mountIdType != imagecustomizerapi.MountIdentifierTypeCustom {
 		partition, partitionIndex, err = findPartition(mountIdType, mountId, partitions)
 		if err != nil {
 			return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
@@ -376,6 +377,11 @@ func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType
 	deviceMapperValue, isDeviceMapper := strings.CutPrefix(source, "/dev/mapper")
 	if isDeviceMapper {
 		return imagecustomizerapi.MountIdentifierTypeDeviceMapper, deviceMapperValue, nil
+	}
+
+	_, isDeviceCustom := strings.CutPrefix(source, "/dev/disk")
+	if isDeviceCustom {
+		return imagecustomizerapi.MountIdentifierTypeCustom, "", nil
 	}
 
 	if source == "overlay" {
