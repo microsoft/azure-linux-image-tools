@@ -2,7 +2,7 @@
 
 Azure Linux Image Tools is a collection of utilities designed to simplify and
 enhance the customization and management of Azure Linux images. The repository
-currently hosts **Prism** (also known as ImageCustomizer), a robust image
+currently hosts **Prism** (also known as `Image Customizer`), a robust image
 customization tool.
 
 Prism supports multiple formats and customizations features. Full list can be
