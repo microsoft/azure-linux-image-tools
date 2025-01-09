@@ -763,23 +763,27 @@ func isDigit(c byte) bool {
 }
 
 func setGptPartitionType(partition configuration.Partition, timeoutInSeconds, diskDevPath, partitionNumberStr string) (err error) {
-	if supports, _ := PartedSupportsTypeCommand(); !supports {
-		logger.Log.Warn("parted version <3.6 does not support the 'type' session command - skipping this operation")
-		return
-	}
-
 	if partition.TypeUUID != "" || partition.Type != "" {
+		supports, err := PartedSupportsTypeCommand()
+		if err != nil {
+			return fmt.Errorf("failed to check if parted supportes 'type' command:\n%w", err)
+		}
+
+		if !supports {
+			logger.Log.Warn("parted version <3.6 does not support the 'type' session command - skipping this operation")
+			return nil
+		}
+
 		var typeUUID string
 		if partition.TypeUUID != "" {
 			typeUUID = partition.TypeUUID
 		} else {
 			typeUUID = configuration.PartitionTypeNameToUUID[partition.Type]
 		}
-		_, stderr, err := shell.Execute("flock", "--timeout", timeoutInSeconds, diskDevPath, "parted", diskDevPath, "--script", "type", partitionNumberStr, typeUUID)
+		err = shell.ExecuteLiveWithErr(1, "flock", "--timeout", timeoutInSeconds, diskDevPath, "parted", diskDevPath,
+			"--script", "type", partitionNumberStr, typeUUID)
 		if err != nil {
-			logger.Log.Warnf("failed to set partition type using parted: %v", stderr)
-			err = nil
-			// Not-fatal
+			return fmt.Errorf("failed to set partition type using parted:\n%w", err)
 		}
 	}
 	return
