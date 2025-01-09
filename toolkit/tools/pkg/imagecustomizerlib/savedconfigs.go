@@ -120,7 +120,7 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	}
 
 	savedConfigs = &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalYamlFile(savedConfigsFilePath, savedConfigs)
+	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load saved configs file (%s):\n%w", savedConfigsFilePath, err)
 	}
