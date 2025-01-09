@@ -1,11 +1,3 @@
 ccache/
 build/
 out/
-
-*.tmp
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
