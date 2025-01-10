@@ -23,6 +23,9 @@ version of Prism you are using.
 Add the following to your `settings.json` file after updating `<RELEASE>` and
 `<SPECIFIC-FOLDER>`:
 
+- `<SPECIFIC-FOLDER>` is the directory containing your image configs.
+- `<RELEASE>` is the version of Image Customizer that you are using (ie: v0.8).
+
 ```json
 "yaml.schemas": {
     "https://raw.githubusercontent.com/microsoft/azure-linux-image-tools/release/<RELEASE>/toolkit/tools/imagecustomizerapi/schema.json": [
