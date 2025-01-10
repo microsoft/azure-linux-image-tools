@@ -20,21 +20,11 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/retry"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	// When calling mkfs, the default options change depending on the host OS you are running on and typically match
-	// what the distro has decided is best for their OS. For example, for ext2/3/4, the defaults are stored in
-	// /etc/mke2fs.conf.
-	// However, when building Azure Linux images, the defaults should be as consistent as possible and should only contain
-	// features that are supported on Azure Linux.
-	DefaultMkfsOptions = map[string][]string{
-		"ext2": {"-b", "4096", "-O", "none,sparse_super,large_file,filetype,resize_inode,dir_index,ext_attr"},
-		"ext3": {"-b", "4096", "-O", "none,sparse_super,large_file,filetype,resize_inode,dir_index,ext_attr,has_journal"},
-		"ext4": {"-b", "4096", "-O", "none,sparse_super,large_file,filetype,resize_inode,dir_index,ext_attr,has_journal,extent,huge_file,flex_bg,metadata_csum,64bit,dir_nlink,extra_isize"},
-	}
-
 	partedVersionRegex = regexp.MustCompile(`^parted \(GNU parted\) (\d+)\.(\d+)`)
 
 	// The default partition name used when the version of `parted` is too old (<3.5).
@@ -433,7 +423,7 @@ func WaitForDevicesToSettle() error {
 }
 
 // CreatePartitions creates partitions on the specified disk according to the disk config
-func CreatePartitions(diskDevPath string, disk configuration.Disk, rootEncryption configuration.RootEncryption,
+func CreatePartitions(targetOs targetos.TargetOs, diskDevPath string, disk configuration.Disk, rootEncryption configuration.RootEncryption,
 	diskKnownToBeEmpty bool,
 ) (partDevPathMap map[string]string, partIDToFsTypeMap map[string]string, encryptedRoot EncryptedRootDevice, err error) {
 	const timeoutInSeconds = "5"
@@ -492,7 +482,7 @@ func CreatePartitions(diskDevPath string, disk configuration.Disk, rootEncryptio
 			return partDevPathMap, partIDToFsTypeMap, encryptedRoot, err
 		}
 
-		partFsType, err := FormatSinglePartition(partDevPath, partition)
+		partFsType, err := formatSinglePartition(targetOs, partDevPath, partition)
 		if err != nil {
 			err = fmt.Errorf("failed to format partition:\n%w", err)
 			return partDevPathMap, partIDToFsTypeMap, encryptedRoot, err
@@ -789,8 +779,8 @@ func setGptPartitionType(partition configuration.Partition, timeoutInSeconds, di
 	return
 }
 
-// FormatSinglePartition formats the given partition to the type specified in the partition configuration
-func FormatSinglePartition(partDevPath string, partition configuration.Partition,
+// formatSinglePartition formats the given partition to the type specified in the partition configuration
+func formatSinglePartition(targetOs targetos.TargetOs, partDevPath string, partition configuration.Partition,
 ) (fsType string, err error) {
 	const (
 		totalAttempts = 5
@@ -804,10 +794,15 @@ func FormatSinglePartition(partDevPath string, partition configuration.Partition
 	// To handle such cases, we can retry the command.
 	switch fsType {
 	case "fat32", "fat16", "vfat", "ext2", "ext3", "ext4", "xfs":
-		mkfsOptions := DefaultMkfsOptions[fsType]
-
 		if fsType == "fat32" || fsType == "fat16" {
 			fsType = "vfat"
+		}
+
+		mkfsOptions, err := getFileSystemOptions(targetOs, fsType)
+		if err != nil {
+			err = fmt.Errorf("failed to get mkfs args for filesystem type (%s) and target os (%s):\n%w", fsType,
+				targetOs, err)
+			return fsType, err
 		}
 
 		mkfsArgs := []string{"-t", fsType}
@@ -825,6 +820,7 @@ func FormatSinglePartition(partDevPath string, partition configuration.Partition
 		}, totalAttempts, retryDuration)
 		if err != nil {
 			err = fmt.Errorf("could not format partition with type %v after %v retries", fsType, totalAttempts)
+			return "", err
 		}
 	case "linux-swap":
 		err = retry.Run(func() error {
@@ -837,6 +833,7 @@ func FormatSinglePartition(partDevPath string, partition configuration.Partition
 		}, totalAttempts, retryDuration)
 		if err != nil {
 			err = fmt.Errorf("could not format partition with type %v after %v retries", fsType, totalAttempts)
+			return "", err
 		}
 
 		_, stderr, err := shell.Execute("swapon", partDevPath)
