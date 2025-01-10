@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # mountPoint type
 
 You can configure `mountPoint` in one of two ways:

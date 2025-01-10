@@ -1,6 +1,11 @@
-# Azure Linux Image Customizer
+---
+title: Image Customizer
+nav_order: 2
+---
 
-The Azure Linux Image Customizer is a tool that can take an existing generic Azure Linux
+# Image Customizer
+
+The Image Customizer is a tool that can take an existing generic Azure Linux
 image and modify it to be suited for particular scenario.
 
 The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) (and loopback
@@ -65,7 +70,7 @@ Disadvantages:
         xfsprogs zstd veritysetup grub2 grub2-pc
      ```
 
-4. Run the Azure Linux Image Customizer tool.
+4. Run the Image Customizer tool.
 
    For example:
 
@@ -84,7 +89,7 @@ Disadvantages:
    - `<config-file.yaml>`: The configuration file created in Step 2.
 
    For a description of all the command line options, see:
-   [Azure Linux Image Customizer command line](./api/cli.md)
+   [Image Customizer command line](./api/cli.md)
 
 5. Use the customized image.
 

@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # bootLoader type
 
 Defines the configuration for the boot-loader.

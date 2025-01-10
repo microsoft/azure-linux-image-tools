@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # user type
 
 Options for configuring a user account.

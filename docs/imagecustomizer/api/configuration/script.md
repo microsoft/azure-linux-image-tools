@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # script type
 
 Points to a script file (typically a Bash script) to be run during customization.

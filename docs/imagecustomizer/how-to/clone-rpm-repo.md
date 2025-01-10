@@ -1,3 +1,7 @@
+---
+parent: How To
+---
+
 # Cloning an RPM repo
 
 By default, the image customizer tool uses the base image's inbuilt repo files for where

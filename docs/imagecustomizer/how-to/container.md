@@ -1,7 +1,12 @@
-# Using the Azure Linux Image Customizer Container
+---
+title: Use Container
+parent: How To
+---
+
+# Using the Image Customizer Container
 
 The Image Customizer container is designed to simplify the process of
-customizing and configuring system images using the Azure Linux Image Customizer
+customizing and configuring system images using the Image Customizer
 (MIC) tool.
 
 ## Running the Container

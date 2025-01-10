@@ -1,4 +1,10 @@
-# Azure Linux Image Customizer command line
+---
+title: Command line
+parent: API
+nav_order: 1
+---
+
+# Image Customizer command line
 
 ## --help
 
@@ -41,7 +47,7 @@ VMs in Azure.
 
 When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
-[Azure Linux Image Customizer ISO Support](./iso.md).
+[Image Customizer ISO Support](./iso.md).
 
 ## --output-split-partitions-format=FORMAT
 
@@ -68,7 +74,7 @@ The file path of the YAML (or JSON) configuration file that specifies how to cus
 the image.
 
 For documentation on the supported configuration options, see:
-[Azure Linux Image Customizer configuration](./configuration.md)
+[Image Customizer configuration](./configuration.md)
 
 ## --rpm-source=PATH
 
@@ -110,7 +116,7 @@ installation.
 
 Create a folder containing the artifacts to be used for PXE booting.
 
-For an overview of Azure Linux Image Customizer support for PXE, see the
+For an overview of Image Customizer support for PXE, see the
 [PXE support page](./pxe.md).
 
 ## --log-level=LEVEL

@@ -1,3 +1,7 @@
+---
+parent: How To
+---
+
 # Building custom packages
 
 This is a guide on how to build custom packages for Azure Linux.

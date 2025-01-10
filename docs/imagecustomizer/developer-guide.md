@@ -1,3 +1,8 @@
+---
+parent: Image Customizer
+nav_order: 4
+---
+
 # Developers guide
 
 ## Prerequisites

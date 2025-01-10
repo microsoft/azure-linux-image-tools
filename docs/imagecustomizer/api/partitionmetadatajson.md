@@ -1,3 +1,8 @@
+---
+parent: API
+nav_order: 3
+---
+
 # Partition Metadata JSON Format
 
 The partition metadata JSON file contains metadata describing the extracted partitions 

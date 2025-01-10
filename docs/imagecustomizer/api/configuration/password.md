@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # password type
 
 Specifies a password for a user.

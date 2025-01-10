@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # overlay type
 
 Specifies the configuration for overlay filesystem.

@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # filesystem type
 
 Specifies the mount options for a partition.

@@ -1,6 +1,11 @@
-# Azure Linux Image Customizer PXE Support
+---
+parent: Concepts
+title: PXE Support
+---
 
-## PXE Overview
+# Image Customizer PXE Support
+
+## Overview
 
 Booting a host with an OS served over the network is one of the most popular
 methods for booting baremetal hosts. It requires no physical access to individual
@@ -47,7 +52,7 @@ rootfs at boot time.
 Dracut provides the `dmsquash-live` module which managed this transition from
 the initrd image over to the rootfs image.
 
-The **Azure Linux Image Customizer** produces such LiveOS ISO images. A typical
+The **Image Customizer** produces such LiveOS ISO images. A typical
 image holds the following artifacts:
 
 - the boot loader (the shim and something like grub).
@@ -67,28 +72,28 @@ it inspects the `root=live:liveos-iso-url` kernel parameter from the boot loader
 config file, and if it recognizes the `liveos-iso-url` protocol, it downloads
 the ISO, and then proceeds to pivot to the embedded rootfs image.
 
-The user can customize the rootfs using the Azure Linux Image Customizer as
+The user can customize the rootfs using the Image Customizer as
 usual. In case of additional artifacts that need downloading, the user can
 install a daemon on the rootfs which will run when control is transferred to
 the rootfs image and download any additional items.
 
 ## Creating and Deploying PXE Boot Artifacts
 
-The Azure Linux Image Customizer produces LiveOS ISO images that are also PXE
+The Image Customizer produces LiveOS ISO images that are also PXE
 bootable. So, the user can simply create an ISO image as usual, and the output
 can be taken and deployed to a PXE server.
 
 To make the deployment of the generated artifacts easier for the user, the
-Azure Linux Image Customizer offers the following configurations:
+Image Customizer offers the following configurations:
 
 - In the input configuration, there is a `pxe` node under which the user can
   configure PXE related properties - like the URL of the LiveOS ISO image to
   download (note that this image is the same image being built).
-  See the [Azure Linux Image Customizer configuration](../api/pxe.md#pxe-type)
+  See the [Image Customizer configuration](../api/pxe.md#pxe-type)
   page for more information.
-- When invoking the Azure Linux Image Customizer, the user can also elect to
+- When invoking the Image Customizer, the user can also elect to
   export the artifacts to a local folder.
-  See the [Azure Linux Image Customizer command line](../api/cli.md#output-pxe-artifacts-dir)
+  See the [Image Customizer command line](../api/cli.md#output-pxe-artifacts-dir)
   page for more information.
 
 Below is a list of required artifacts and where on the PXE server they should

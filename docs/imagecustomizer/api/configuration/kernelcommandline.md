@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # kernelCommandLine type
 
 Options for configuring the kernel.

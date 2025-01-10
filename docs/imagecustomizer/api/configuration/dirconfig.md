@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # dirConfig type
 
 Specifies options for placing a directory in the OS.

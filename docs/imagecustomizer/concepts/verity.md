@@ -1,3 +1,7 @@
+---
+parent: Concepts
+---
+
 # Verity Image Recommendations
 
 The Verity-enabled root filesystem is always mounted as read-only. Its root hash

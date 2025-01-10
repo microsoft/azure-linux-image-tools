@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # disk type
 
 Specifies the properties of a disk, including its partitions.
