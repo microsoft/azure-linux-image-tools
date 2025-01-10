@@ -11,6 +11,8 @@ PROJECT_ROOT     ?= $(realpath $(toolkit_root)/..)
 BUILD_DIR        ?= $(PROJECT_ROOT)/build
 OUT_DIR          ?= $(PROJECT_ROOT)/out
 
+STATUS_FLAGS_DIR ?= $(BUILD_DIR)/make_status
+
 ######## COMMON MAKEFILE UTILITIES ########
 
 # Misc function defines
