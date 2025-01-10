@@ -23,7 +23,7 @@ jobs:
     - name: setup go 1.x
       uses: actions/setup-go@v5
       with:
-        go-version: '${{ env.EXPECTED_GO_VERSION }}'
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
       id: go
 
     - name: check active go version
@@ -52,7 +52,7 @@ jobs:
           exit 1
         fi
 
-    - name: check for out of date go modules
+    - name: check for out-of-date go modules
       run: |
         pushd toolkit
         sudo env "PATH=$PATH" make go-mod-tidy
@@ -69,6 +69,19 @@ jobs:
       run: |
         pushd toolkit
         sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
+
+    - name: check schema.json is up-to-date
+      run: |
+        make -C toolkit/tools/imagecustomizerschemacli/
+
+        # Use git diff to check if the schema has changed
+        schema_changes=$(git diff toolkit/tools/imagecustomizerapi/schema.json)
+        if [ -n "$schema_changes" ]; then
+          echo "Schema has changed. Please update the schema using `make -C toolkit/tools/imagecustomizerschemacli/` before committing."
+          exit 1
+        else
+          echo "Schema is up-to-date!"
+        fi
 
   build-docs:
     name: jekyll github pages build
