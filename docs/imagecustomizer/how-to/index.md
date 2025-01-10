@@ -1,6 +1,6 @@
 ---
-parent: Image Customizer
 title: How To
+parent: Image Customizer
 nav_order: 1
 ---
 

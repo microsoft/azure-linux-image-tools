@@ -1,5 +1,6 @@
 ---
 parent: How To
+nav_order: 2
 ---
 
 # Cloning an RPM repo
