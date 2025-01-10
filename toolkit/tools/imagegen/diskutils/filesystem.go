@@ -133,7 +133,7 @@ var (
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
 	maxMkfsXfsVersion = version.Version{6, 9}
 
-	// The minmum supported kernel version. This helps avoid versions complexity for features that are old and therefore
+	// The minimum supported kernel version. This helps avoid versions complexity for features that are old and therefore
 	// basically universal.
 	//
 	// Relevant kernel versions:

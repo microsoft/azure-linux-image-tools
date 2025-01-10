@@ -800,7 +800,8 @@ func formatSinglePartition(targetOs targetos.TargetOs, partDevPath string, parti
 
 		mkfsOptions, err := getFileSystemOptions(targetOs, fsType)
 		if err != nil {
-			err = fmt.Errorf("failed to get mkfs args for filesystem type (%s):\n%w", fsType, err)
+			err = fmt.Errorf("failed to get mkfs args for filesystem type (%s) and target os (%s):\n%w", fsType,
+				targetOs, err)
 			return fsType, err
 		}
 
