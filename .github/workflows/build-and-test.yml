@@ -3,6 +3,9 @@
 
 name: build & test
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, release/*]
