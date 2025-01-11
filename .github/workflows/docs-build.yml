@@ -29,3 +29,9 @@ jobs:
     - name: Build with Jekyll
       run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
       working-directory: ./docs
+
+    - name: Archive code coverage results
+      uses: actions/upload-artifact@v4
+      with:
+        name: docs
+        path: ./docs/_site
