@@ -30,8 +30,8 @@ jobs:
       run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
       working-directory: ./docs
 
-    - name: Archive code coverage results
-      uses: actions/upload-artifact@v4
+    - name: Upload site assets as artifact
+      id: deployment
+      uses: actions/upload-pages-artifact@v3
       with:
-        name: docs
         path: ./docs/_site
