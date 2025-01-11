@@ -1,5 +1,8 @@
 name: Build docs
 
+on:
+  workflow_call: {}
+
 jobs:
   build-docs:
     name: jekyll github pages build
