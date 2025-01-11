@@ -241,7 +241,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 	}
 
 	// Read back the fstab file.
-	mountPoints, err := findMountsFromFstabFile(tmpFstabFile, diskPartitions)
+	mountPoints, err := findMountsFromFstabFile(tmpFstabFile, diskPartitions, buildDir)
 	if err != nil {
 		return nil, "", err
 	}
