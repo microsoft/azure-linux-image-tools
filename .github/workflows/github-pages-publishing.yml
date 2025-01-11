@@ -18,24 +18,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-        with:
-          ref: stable
-
-      - name: setup pages
-        uses: actions/configure-pages@v5
-
-      - name: build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
-
-      - name: upload artifact
-        uses: actions/upload-pages-artifact@v3
+    uses: ./.github/workflows/docs-build.yml
 
   deploy:
     environment:

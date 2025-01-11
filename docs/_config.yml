@@ -1,7 +1,6 @@
 title: Azure Linux Image Tools
 description: Documentation for Image customizer & other image tools
 theme: just-the-docs
-baseurl: "/azure-linux-image-tools"
 exclude:
 - Makefile
 - Gemfile
