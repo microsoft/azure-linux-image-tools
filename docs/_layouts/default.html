@@ -50,9 +50,7 @@
                         <a href="{{ item.link }}">{{ item.name }}</a>
                         {% if item.subnav %}
                         <ul class="subnav">
-                            {% for subitem in item.subnav %}
-                            <li><a href="{{ subitem.link }}">{{ subitem.name }}</a></li>
-                            {% endfor %}
+                            {% include recursive_nav.html items=item.subnav %}
                         </ul>
                         {% endif %}
                     </li>
@@ -77,4 +75,3 @@
 </body>
 
 </html>
-

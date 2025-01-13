@@ -4,10 +4,12 @@
 package imagecustomizerapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 
+	"github.com/invopop/jsonschema"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"gopkg.in/yaml.v3"
 )
@@ -31,6 +33,33 @@ func (s *DiskSize) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("failed to parse disk size:\n%w", err)
 	}
 
+	return parseAndSetDiskSize(stringValue, s)
+}
+
+func (s DiskSize) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+func (s *DiskSize) UnmarshalJSON(data []byte) error {
+	var err error
+
+	var stringValue string
+	err = json.Unmarshal(data, &stringValue)
+	if err != nil {
+		return fmt.Errorf("failed to parse disk size:\n%w", err)
+	}
+
+	return parseAndSetDiskSize(stringValue, s)
+}
+
+func (DiskSize) JSONSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type:    "string",
+		Pattern: `^\d+[KMGT]$`,
+	}
+}
+
+func parseAndSetDiskSize(stringValue string, s *DiskSize) error {
 	diskSize, err := parseDiskSize(stringValue)
 	if err != nil {
 		return fmt.Errorf("%w:\nexpected format: <NUM>(K|M|G|T) (e.g. 100M, 1G)", err)
@@ -97,4 +126,21 @@ func parseDiskSize(diskSizeString string) (DiskSize, error) {
 	}
 
 	return DiskSize(num), nil
+}
+
+// String returns the string representation of DiskSize in the most appropriate unit
+// such that it matches the input format.
+func (s DiskSize) String() string {
+	switch {
+	case s%diskutils.TiB == 0:
+		return fmt.Sprintf("%dT", s/diskutils.TiB)
+	case s%diskutils.GiB == 0:
+		return fmt.Sprintf("%dG", s/diskutils.GiB)
+	case s%diskutils.MiB == 0:
+		return fmt.Sprintf("%dM", s/diskutils.MiB)
+	case s%diskutils.KiB == 0:
+		return fmt.Sprintf("%dK", s/diskutils.KiB)
+	default:
+		return fmt.Sprintf("%d", s)
+	}
 }

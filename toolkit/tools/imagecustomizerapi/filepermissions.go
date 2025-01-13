@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/invopop/jsonschema"
 	"gopkg.in/yaml.v3"
 )
 
@@ -45,4 +46,11 @@ func (p *FilePermissions) UnmarshalYAML(value *yaml.Node) error {
 
 	*p = (FilePermissions)(fileModeUint)
 	return nil
+}
+
+func (FilePermissions) JSONSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type:    "string",
+		Pattern: "^[0-7]{3,4}$",
+	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/tdnf"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/profile"
@@ -422,8 +423,8 @@ func setupLoopDeviceDisk(outputDir, diskName string, diskConfig configuration.Di
 func setupRealDisk(diskDevPath string, diskConfig configuration.Disk, rootEncryption configuration.RootEncryption, diskKnownToBeEmpty bool,
 ) (partIDToDevPathMap, partIDToFsTypeMap map[string]string, encryptedRoot diskutils.EncryptedRootDevice, err error) {
 	// Set up partitions
-	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = diskutils.CreatePartitions(diskDevPath, diskConfig,
-		rootEncryption, diskKnownToBeEmpty)
+	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = diskutils.CreatePartitions(
+		targetos.TargetOsAzureLinux3, diskDevPath, diskConfig, rootEncryption, diskKnownToBeEmpty)
 	if err != nil {
 		err = fmt.Errorf("failed to create partitions on disk (%s):\n%w", diskDevPath, err)
 		return

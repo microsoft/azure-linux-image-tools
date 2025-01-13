@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/moby/sys/mountinfo"
 	"github.com/stretchr/testify/assert"
 )
@@ -66,7 +67,7 @@ func TestResourceBusy(t *testing.T) {
 	defer loopback.Close()
 
 	// Set up partitions.
-	_, _, _, err = diskutils.CreatePartitions(loopback.DevicePath(), diskConfig,
+	_, _, _, err = diskutils.CreatePartitions(targetos.TargetOsAzureLinux3, loopback.DevicePath(), diskConfig,
 		configuration.RootEncryption{}, true /*diskKnownToBeEmpty*/)
 	if !assert.NoError(t, err, "failed to create partitions on disk", loopback.DevicePath()) {
 		return

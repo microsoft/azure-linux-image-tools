@@ -9,15 +9,14 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
-func addCustomizerRelease(imageChroot *safechroot.Chroot, toolVersion string, buildTime string, imageUuid string) error {
+func addCustomizerRelease(rootDir string, toolVersion string, buildTime string, imageUuid string) error {
 	var err error
 
 	logger.Log.Infof("Creating image customizer release file")
 
-	customizerReleaseFilePath := filepath.Join(imageChroot.RootDir(), "/etc/image-customizer-release")
+	customizerReleaseFilePath := filepath.Join(rootDir, "/etc/image-customizer-release")
 	lines := []string{
 		fmt.Sprintf("%s=\"%s\"", "TOOL_VERSION", toolVersion),
 		fmt.Sprintf("%s=\"%s\"", "BUILD_DATE", buildTime),

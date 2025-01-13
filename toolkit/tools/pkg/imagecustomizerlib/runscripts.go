@@ -20,23 +20,6 @@ const (
 	configDirMountPathInChroot = "/_imageconfigs"
 )
 
-var (
-	// The set of Linux capabilities given to custom scripts.
-	// For the most part, the capabilities given are those related to configuring filesystems and files.
-	scriptsCapabilities = []uintptr{
-		// Change file ownership,
-		unix.CAP_CHOWN,
-		// Ignore file permissions.
-		unix.CAP_DAC_OVERRIDE,
-		// Ignore read-only file permissions.
-		unix.CAP_DAC_READ_SEARCH,
-		// Set file permissions and extended attributes.
-		unix.CAP_FOWNER,
-		// Set capabilities on files.
-		unix.CAP_SETFCAP,
-	}
-)
-
 func runUserScripts(baseConfigPath string, scripts []imagecustomizerapi.Script, listName string,
 	imageChroot *safechroot.Chroot,
 ) error {
@@ -123,7 +106,6 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 	err = shell.NewExecBuilder(process, args...).
 		Chroot(imageChroot.RootDir()).
 		EnvironmentVariables(envVars).
-		Capabilities(scriptsCapabilities).
 		WorkingDirectory("/").
 		ErrorStderrLines(1).
 		Execute()

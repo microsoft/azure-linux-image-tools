@@ -1,0 +1,10 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/toolkit/tools"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10

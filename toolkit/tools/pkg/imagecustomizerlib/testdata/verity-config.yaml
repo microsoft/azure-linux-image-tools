@@ -55,7 +55,9 @@ storage:
       path: /var
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
+
   selinux:
     mode: disabled
 

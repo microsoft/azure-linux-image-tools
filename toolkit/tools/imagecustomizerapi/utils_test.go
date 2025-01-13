@@ -11,23 +11,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnmarshalYamlFile(t *testing.T) {
+func TestUnmarshalAndValidateYamlFile(t *testing.T) {
 	var config Config
-	err := UnmarshalYamlFile(filepath.Join(workingDir, "../pkg/imagecustomizerlib/testdata/nochange-config.yaml"),
+	err := UnmarshalAndValidateYamlFile(filepath.Join(workingDir, "../pkg/imagecustomizerlib/testdata/nochange-config.yaml"),
 		&config)
 	assert.NoError(t, err)
 }
 
-func TestUnmarshalYamlFileDoesNotExist(t *testing.T) {
+func TestUnmarshalAndValidateYamlFileDoesNotExist(t *testing.T) {
 	var config Config
-	err := UnmarshalYamlFile(filepath.Join(workingDir, "../pkg/imagecustomizerlib/testdata/no-such-file.yaml"),
+	err := UnmarshalAndValidateYamlFile(filepath.Join(workingDir, "../pkg/imagecustomizerlib/testdata/no-such-file.yaml"),
 		&config)
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
-func TestUnmarshalYamlInvalidFile(t *testing.T) {
+func TestUnmarshalAndValidateYamlInvalidFile(t *testing.T) {
 	var config Config
-	err := UnmarshalYamlFile(filepath.Join(workingDir, "../pkg/imagecustomizerlib/testdata/lists/dracut-fips.yaml"),
+	err := UnmarshalAndValidateYamlFile(filepath.Join(workingDir, "../pkg/imagecustomizerlib/testdata/lists/dracut-fips.yaml"),
 		&config)
 	assert.ErrorContains(t, err, "yaml: unmarshal errors")
 }
@@ -35,14 +35,14 @@ func TestUnmarshalYamlInvalidFile(t *testing.T) {
 func testValidYamlValue[DataType HasIsValid](t *testing.T, yamlString string, expectedValue DataType) {
 	value := makeValue[DataType]()
 
-	err := UnmarshalYaml([]byte(yamlString), value)
+	err := UnmarshalAndValidateYaml([]byte(yamlString), value)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedValue, value)
 }
 
 func testInvalidYamlValue[DataType HasIsValid](t *testing.T, yamlString string) {
 	value := makeValue[DataType]()
-	err := UnmarshalYaml([]byte(yamlString), value)
+	err := UnmarshalAndValidateYaml([]byte(yamlString), value)
 	assert.Errorf(t, err, "value: %v", value)
 }
 

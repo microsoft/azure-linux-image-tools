@@ -37,8 +37,10 @@ func TestConfigIsValid(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 		Scripts: Scripts{},
 		Iso:     &Iso{},
@@ -70,8 +72,10 @@ func TestConfigIsValidLegacy(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -94,8 +98,10 @@ func TestConfigIsValidNoBootType(t *testing.T) {
 			}},
 		},
 		OS: &OS{
-			Hostname:            "test",
-			ResetBootLoaderType: "hard-reset",
+			Hostname: "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
 		},
 	}
 
@@ -136,7 +142,83 @@ func TestConfigIsValidMissingBootLoaderReset(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.resetBootLoaderType' must be specified if 'storage.disks' is specified")
+	assert.ErrorContains(t, err, "'os.bootloader.reset' must be specified if 'storage.disks' is specified")
+}
+
+func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Uki: &Uki{
+				Kernels: UkiKernels{
+					Auto:    false,
+					Kernels: []string{"6.6.51.1-5.azl3"},
+				},
+			},
+		},
+		PreviewFeatures: []string{"uki"},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Uki: &Uki{
+				Kernels: UkiKernels{
+					Auto:    false,
+					Kernels: []string{"6.6.51.1-5.azl3"},
+				},
+			},
+		},
+		PreviewFeatures: []string{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'uki' preview feature must be enabled to use 'os.uki'")
+}
+
+func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
+	config := &Config{
+		OS: &OS{
+			Uki: &Uki{
+				Kernels: UkiKernels{
+					Auto:    true,
+					Kernels: nil,
+				},
+			},
+		},
+		PreviewFeatures: []string{"uki"},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "'os.bootloader.reset' must be 'hard-reset' when 'os.uki' is enabled")
+}
+
+func TestConfigIsValidWithInvalidBootType(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			BootType: "invalid-boot-type",
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+		},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid bootType value (invalid-boot-type)")
 }
 
 func TestConfigIsValidResetUuidsMissingBootLoaderReset(t *testing.T) {
@@ -151,7 +233,7 @@ func TestConfigIsValidResetUuidsMissingBootLoaderReset(t *testing.T) {
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.resetBootLoaderType' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+	assert.ErrorContains(t, err, "'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
 }
 
 func TestConfigIsValidMultipleDisks(t *testing.T) {
@@ -170,8 +252,10 @@ func TestConfigIsValidMultipleDisks(t *testing.T) {
 			BootType: "legacy",
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -239,8 +323,10 @@ func TestConfigIsValidMissingEsp(t *testing.T) {
 			BootType: "efi",
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -260,8 +346,10 @@ func TestConfigIsValidMissingBiosBoot(t *testing.T) {
 			BootType: "legacy",
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -296,8 +384,10 @@ func TestConfigIsValidInvalidMountPoint(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 		},
 	}
 
@@ -334,8 +424,10 @@ func TestConfigIsValidKernelCLI(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
-			Hostname:            "test",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
+			Hostname: "test",
 
 			KernelCommandLine: KernelCommandLine{
 				ExtraCommandLine: []string{
@@ -434,7 +526,9 @@ func TestConfigIsValidVerityValid(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
 		},
 	}
 	err := config.IsValid()
@@ -498,7 +592,9 @@ func TestConfigIsValidVerityPartitionNotFound(t *testing.T) {
 			},
 		},
 		OS: &OS{
-			ResetBootLoaderType: "hard-reset",
+			BootLoader: BootLoader{
+				ResetType: "hard-reset",
+			},
 		},
 	}
 	err := config.IsValid()

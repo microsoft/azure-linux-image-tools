@@ -26,14 +26,14 @@ const (
 
 type Disk struct {
 	// The type of partition table to use (e.g. mbr, gpt)
-	PartitionTableType PartitionTableType `yaml:"partitionTableType"`
+	PartitionTableType PartitionTableType `yaml:"partitionTableType" json:"partitionTableType,omitempty"`
 
 	// The virtual size of the disk.
 	// Note: This value is filled in by IsValid().
-	MaxSize *DiskSize `yaml:"maxSize"`
+	MaxSize *DiskSize `yaml:"maxSize" json:"maxSize,omitempty"`
 
 	// The partitions to allocate on the disk.
-	Partitions []Partition `yaml:"partitions"`
+	Partitions []Partition `yaml:"partitions" json:"partitions,omitempty"`
 }
 
 func (d *Disk) IsValid() error {

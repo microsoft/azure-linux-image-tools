@@ -59,9 +59,16 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = addCustomizerRelease(imageChroot, ToolVersion, buildTime, imageUuid)
+	err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid)
 	if err != nil {
 		return err
+	}
+
+	if config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
+		err = addImageHistory(imageChroot.RootDir(), imageUuid, baseConfigPath, ToolVersion, buildTime, config)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = handleBootLoader(baseConfigPath, config, imageConnection)
@@ -69,7 +76,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(config.OS.SELinux.Mode, config.OS.ResetBootLoaderType,
+	selinuxMode, err := handleSELinux(config.OS.SELinux.Mode, config.OS.BootLoader.ResetType,
 		imageChroot)
 	if err != nil {
 		return err
@@ -93,6 +100,11 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 	}
 
 	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	if err != nil {
+		return err
+	}
+
+	err = prepareUki(buildDir, config.OS.Uki, imageChroot)
 	if err != nil {
 		return err
 	}

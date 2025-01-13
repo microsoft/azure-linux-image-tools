@@ -9,6 +9,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,13 +22,18 @@ func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, co
 	}
 	defer existingImageConnection.Close()
 
+	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine target OS of base image:\n%w", err)
+	}
+
 	diskConfig := config.Storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := createNewImage(newBuildImageFile, diskConfig, config.Storage.FileSystems,
+	partIdToPartUuid, err := createNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
 		return nil, err

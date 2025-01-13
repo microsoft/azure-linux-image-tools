@@ -15,6 +15,22 @@ type HasIsValid interface {
 	IsValid() error
 }
 
+func UnmarshalAndValidateYamlFile[ValueType HasIsValid](yamlFilePath string, value ValueType) error {
+	var err error
+
+	yamlFile, err := os.ReadFile(yamlFilePath)
+	if err != nil {
+		return err
+	}
+
+	err = UnmarshalAndValidateYaml(yamlFile, value)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func UnmarshalYamlFile[ValueType HasIsValid](yamlFilePath string, value ValueType) error {
 	var err error
 
@@ -31,7 +47,23 @@ func UnmarshalYamlFile[ValueType HasIsValid](yamlFilePath string, value ValueTyp
 	return nil
 }
 
-func UnmarshalYaml[ValueType HasIsValid](yamlData []byte, value ValueType) error {
+func UnmarshalAndValidateYaml[ValueType HasIsValid](yamlData []byte, value ValueType) error {
+	var err error
+
+	err = UnmarshalYaml(yamlData, value)
+	if err != nil {
+		return err
+	}
+
+	err = value.IsValid()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func UnmarshalYaml[ValueType any](yamlData []byte, value ValueType) error {
 	var err error
 
 	reader := bytes.NewReader(yamlData)
@@ -45,15 +77,10 @@ func UnmarshalYaml[ValueType HasIsValid](yamlData []byte, value ValueType) error
 		return err
 	}
 
-	err = value.IsValid()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func MarshalYamlFile[ValueType HasIsValid](yamlfilePath string, value ValueType) (err error) {
+func MarshalYamlFile[ValueType any](yamlfilePath string, value ValueType) (err error) {
 	yamlString, err := MarshalYaml(value)
 	if err != nil {
 		return err
@@ -82,7 +109,7 @@ func MarshalYamlFile[ValueType HasIsValid](yamlfilePath string, value ValueType)
 	return nil
 }
 
-func MarshalYaml[ValueType HasIsValid](value ValueType) (string, error) {
+func MarshalYaml[ValueType any](value ValueType) (string, error) {
 	yamlData, err := yaml.Marshal(value)
 	if err != nil {
 		return "", err

@@ -165,5 +165,29 @@ func TestPartitionIsValidBadType(t *testing.T) {
 
 	err := partition.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "unknown partition type")
+	assert.ErrorContains(t, err, "partition type is unknown and is not a UUID (a)")
+}
+
+func TestPartitionIsValidTypeUuid(t *testing.T) {
+	partition := Partition{
+		Id:    "a",
+		Start: ptrutils.PtrTo(DiskSize(0)),
+		End:   nil,
+		Type:  "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
+	}
+
+	err := partition.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestPartitionIsValidTypeUuidInvalid(t *testing.T) {
+	partition := Partition{
+		Id:    "a",
+		Start: ptrutils.PtrTo(DiskSize(0)),
+		End:   nil,
+		Type:  "c12a7328-f81f-11d2-ba4b-00a0c93ec93",
+	}
+
+	err := partition.IsValid()
+	assert.ErrorContains(t, err, "partition type is unknown and is not a UUID (c12a7328-f81f-11d2-ba4b-00a0c93ec93)")
 }

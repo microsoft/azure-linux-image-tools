@@ -2,7 +2,7 @@ name: update GitHub pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["stable"]
   workflow_dispatch:
 
 permissions:
@@ -22,21 +22,18 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-        
+        with:
+          ref: stable
+
       - name: setup pages
         uses: actions/configure-pages@v5
-        
-      - name: copy files from toolkit to docs
-        run: |
-          mkdir -p docs/imagecustomizer
-          cp -r toolkit/tools/imagecustomizer/* docs/imagecustomizer/
-          
+
       - name: build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
-          
+
       - name: upload artifact
         uses: actions/upload-pages-artifact@v3
 

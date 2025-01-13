@@ -45,7 +45,8 @@ storage:
       options: defaults,x-initrd.mount
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset
 
   packages:
     install:

@@ -110,6 +110,14 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		partitions[mountPoints[1].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
 		imageVersion)
+
+	// Check the partition types.
+	if typeSupported, _ := diskutils.PartedSupportsTypeCommand(); typeSupported {
+		assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartitionTypeUuid) // esp
+		assert.Equal(t, "bc13c2ff-59e6-4262-a352-b275fd6f7172", partitions[2].PartitionTypeUuid) // xbootldr
+		assert.Equal(t, "4f68bce3-e8cd-4db1-96e7-fbcaf984b709", partitions[3].PartitionTypeUuid) // root (x64)
+		assert.Equal(t, "4d21b016-b534-45c2-a9fb-5c16e091fd2d", partitions[4].PartitionTypeUuid) // var
+	}
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
@@ -170,6 +178,13 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 		partitions[mountPoints[0].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
 		baseImageVersionDefault)
+
+	// Check the partition types.
+	if typeSupported, _ := diskutils.PartedSupportsTypeCommand(); typeSupported {
+		assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartitionTypeUuid) // esp
+		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
+		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[3].PartitionTypeUuid) // linux generic
+	}
 }
 
 func TestCustomizeImagePartitionsEfiToLegacy(t *testing.T) {
@@ -226,6 +241,12 @@ func testCustomizeImagePartitionsToLegacy(t *testing.T, testName string, imageTy
 		partitions[coreLegacyMountPoints[0].PartitionNum],
 		partitions[coreLegacyMountPoints[0].PartitionNum],
 		imageVersion)
+
+	// Check the partition types.
+	if typeSupported, _ := diskutils.PartedSupportsTypeCommand(); typeSupported {
+		assert.Equal(t, "21686148-6449-6e6f-744e-656564454649", partitions[1].PartitionTypeUuid) // BIOS boot
+		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
+	}
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {

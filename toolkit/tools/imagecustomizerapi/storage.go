@@ -7,15 +7,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 type Storage struct {
-	ResetPartitionsUuidsType ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType"`
-	BootType                 BootType                 `yaml:"bootType"`
-	Disks                    []Disk                   `yaml:"disks"`
-	FileSystems              []FileSystem             `yaml:"filesystems"`
-	Verity                   []Verity                 `yaml:"verity"`
+	ResetPartitionsUuidsType ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType" json:"resetPartitionsUuidsType,omitempty"`
+	BootType                 BootType                 `yaml:"bootType" json:"bootType,omitempty"`
+	Disks                    []Disk                   `yaml:"disks" json:"disks,omitempty"`
+	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
+	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
 }
 
 func (s *Storage) IsValid() error {
@@ -112,6 +113,10 @@ func (s *Storage) IsValid() error {
 					return fmt.Errorf("ESP partition (%s) must have 'fat32' or 'vfat' filesystem type", partition.Id)
 				}
 
+				if fileSystem.MountPoint == nil || fileSystem.MountPoint.Path != "/boot/efi" {
+					return fmt.Errorf("ESP partition (%s) must be mounted at /boot/efi", partition.Id)
+				}
+
 			case PartitionTypeBiosGrub:
 				biosBootPartitionExists = true
 
@@ -123,6 +128,19 @@ func (s *Storage) IsValid() error {
 
 					if fileSystem.MountPoint != nil {
 						return fmt.Errorf("BIOS boot partition (%s) must not have a 'mountPoint'", partition.Id)
+					}
+				}
+
+			default:
+				if hasFileSystem && fileSystem.MountPoint != nil {
+					expectedMountPaths, hasExpectedMountPaths := PartitionTypeSupportedMountPaths[partition.Type]
+					if hasExpectedMountPaths {
+						supportedPath := sliceutils.ContainsValue(expectedMountPaths, fileSystem.MountPoint.Path)
+						if !supportedPath {
+							logger.Log.Infof(
+								"Unexpected mount path (%s) for partition (%s) with type (%s). Expected paths: %v",
+								fileSystem.MountPoint.Path, partition.Id, partition.Type, expectedMountPaths)
+						}
 					}
 				}
 			}

@@ -1,17 +1,31 @@
 # Azure Linux Image Tools
 
-Image Tools include set of tools for Azure Linux. The repo currently hosts
-Microsoft Image Customizer (MIC) & the Azure Linux toolkit.
+Azure Linux Image Tools is a collection of utilities designed to simplify and
+enhance the customization and management of Azure Linux images. The repository
+currently hosts **Prism** (also known as `Image Customizer`), a robust image
+customization tool.
+
+Prism supports multiple formats and customizations features. Full list can be
+found in [supported operations](docs/imagecustomizer/api/configuration.md)
 
 ## Getting Started
 
+### Documentation
+
+[Official Documentation](https://microsoft.github.io/azure-linux-image-tools/)
+are updated each release.
+
 ### Build
 
-Instructions for building may be found here: [Toolkit
-Documentation](./toolkit/README.md).
+Follow the [Developer-Guide](docs/imagecustomizer/developer-guide.md) for
+detailed instructions on getting started and building.
 
 ## Getting Help
-- Bugs, feature requests and questions can be filed as GitHub issues.
+
+Have questions, found a bug, or need a new feature? Open an issue in our [GitHub
+repository](https://github.com/microsoft/azure-linux-image-tools/issues/new?template=Blank+issue).
+
+---
 
 ## Trademarks
 

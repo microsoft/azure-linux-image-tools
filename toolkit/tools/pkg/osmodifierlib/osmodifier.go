@@ -15,7 +15,7 @@ func ModifyOSWithConfigFile(configFile string) error {
 	var err error
 
 	var osConfig osmodifierapi.OS
-	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &osConfig)
+	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(configFile, &osConfig)
 	if err != nil {
 		return err
 	}

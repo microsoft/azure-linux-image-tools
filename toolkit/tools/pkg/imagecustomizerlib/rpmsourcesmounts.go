@@ -110,9 +110,6 @@ func (m *rpmSourcesMounts) mountRpmSourcesHelper(buildDir string, imageChroot *s
 
 		case "repo":
 			err = m.createRepoFromRepoConfig(rpmSource, true, allReposConfig, imageChroot)
-
-		default:
-			return fmt.Errorf("unknown RPM source type (%s):\nmust be a .repo file or a directory", rpmSource)
 		}
 		if err != nil {
 			return err
@@ -274,6 +271,17 @@ func (m *rpmSourcesMounts) close() error {
 	return nil
 }
 
+func validateRpmSources(rpmsSources []string) error {
+	for _, rpmSource := range rpmsSources {
+		_, err := getRpmSourceFileType(rpmSource)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 	// First, check if path points to a directory.
 	isDir, err := file.IsDir(rpmSourcePath)
@@ -297,7 +305,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 		return "repo", nil
 
 	default:
-		return "", nil
+		return "", fmt.Errorf("unknown RPM source type (%s):\nmust be a .repo file or a directory", rpmSourcePath)
 	}
 }
 

@@ -79,7 +79,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	// Check the saved-configs.yaml file.
 	savedConfigsFilePath := filepath.Join(isoMountDir, savedConfigsDir, savedConfigsFileName)
 	savedConfigs := &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalYamlFile(savedConfigsFilePath, savedConfigs)
+	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	expectedKernelArgs := []string{"rd.info"}
 	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
@@ -164,7 +164,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 
 	// Check the iso-kernel-args.txt file.
 	savedConfigs = &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalYamlFile(savedConfigsFilePath, savedConfigs)
+	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 

@@ -2,4 +2,5 @@ storage:
   resetPartitionsUuidsType: reset-all
 
 os:
-  resetBootLoaderType: hard-reset
+  bootloader:
+    resetType: hard-reset

@@ -119,7 +119,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		packageListFilePath := file.GetAbsPathWithBase(baseConfigPath, packageListRelativePath)
 
 		var packageList imagecustomizerapi.PackageList
-		err = imagecustomizerapi.UnmarshalYamlFile(packageListFilePath, &packageList)
+		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err)
 		}

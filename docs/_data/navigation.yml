@@ -1,13 +1,78 @@
-- name: Image Customizer
+- name: Getting Started
   link: "/azure-linux-image-tools/imagecustomizer/"
-- name: CLI
-  link: "/azure-linux-image-tools/imagecustomizer/docs/cli"
-- name: Configuration
-  link: "/azure-linux-image-tools/imagecustomizer/docs/configuration"
+- name: API
   subnav:
+  - name: CLI
+    link: "/azure-linux-image-tools/imagecustomizer/api/cli"
+  - name: Configuration
+    link: "/azure-linux-image-tools/imagecustomizer/api/configuration"
+    subnav:
+    - name: additionalfile
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/additionalfile"
+    - name: bootloader
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/bootloader"
+    - name: config
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/config"
+    - name: dirconfig
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/dirconfig"
+    - name: disk
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/disk"
+    - name: filesystem
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/filesystem"
+    - name: iso
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/iso"
+    - name: kernelcommandline
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/kernelcommandline"
+    - name: module
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/module"
+    - name: mountpoint
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/mountpoint"
+    - name: os
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/os"
+    - name: overlay
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/overlay"
+    - name: packagelist
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/packagelist"
+    - name: packages
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/packages"
+    - name: partition
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/partition"
+    - name: password
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/password"
+    - name: pxe
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/pxe"
+    - name: script
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/script"
+    - name: scripts
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/scripts"
+    - name: selinux
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/selinux"
+    - name: services
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/services"
+    - name: storage
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/storage"
+    - name: uki
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/uki"
+    - name: user
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/user"
+    - name: verity
+      link: "/azure-linux-image-tools/imagecustomizer/api/configuration/verity"
+- name: Concepts
+  link: "/azure-linux-image-tools/imagecustomizer/concepts/"
+  subnav:
+    - name: ISO
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/iso"
     - name: PXE
-      link: "/azure-linux-image-tools/imagecustomizer/docs/pxe"
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/pxe"
     - name: Verity
-      link: "/azure-linux-image-tools/imagecustomizer/docs/verity"
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/verity"
+- name: How-To
+  subnav:
+    - name: Running in a container
+      link: "/azure-linux-image-tools/imagecustomizer/how-to/container"
+    - name: Building custom package for Azure Linux
+      link: "/azure-linux-image-tools/imagecustomizer/how-to/building-packages"
+    - name: Reproducable builds
+      link: "/azure-linux-image-tools/imagecustomizer/how-to/clone-rpm-repo"
 - name: Contributing
-  link: "/azure-linux-image-tools/imagecustomizer/DEV"
+  link: "/azure-linux-image-tools/imagecustomizer/developer-guide"

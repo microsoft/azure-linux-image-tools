@@ -1,0 +1,124 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    maxSize: 4G
+    partitions:
+    - id: esp
+      type: esp
+      start: 1M
+      end: 9M
+
+    - id: boot
+      start: 9M
+      end: 108M
+
+    - id: rootfs
+      label: rootfs
+      size: 1G
+
+    - id: var
+      start: 2G
+      size: grow
+      
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: xfs
+    mountPoint:
+      path: /
+
+  - deviceId: var
+    type: xfs
+    mountPoint:
+      path: /var
+
+os:
+  packages:
+      remove:
+      - which
+
+      install:
+      - jq
+
+      installLists:
+      - lists/golang.yaml
+
+      update:
+      - jq
+  users:
+    - name: mariner_user
+      sshPublicKeys:
+        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDQ
+        - /home/test/.ssh/authorized_keys
+        - "test"
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAnotvalidAAIFyWtgGE06d/uBFQm70fRDoh06bWQQwC6Qkm test@test-machine
+      secondaryGroups:
+      - sudo
+
+    - name: test
+      secondaryGroups:
+      - sudo
+  
+  bootloader:
+    resetType: hard-reset
+  
+  kernelCommandLine:
+    extraCommandLine: ["console=tty0", "console=ttyS0"]
+
+  additionalDirs:
+  - source: dirs/a
+    destination: /
+  - source: dirs/b
+    destination: /
+
+  
+  additionalFiles:
+  - source: files/a.txt
+    destination: /a.txt
+
+  - source: files/helloworld.sh
+    destination: /usr/local/bin/helloworld.sh
+    permissions: 755
+
+  - content: |
+      cat
+      dog
+    destination: /animals.txt
+
+  - content: |-
+      abcdefghijklmnopqrstuvwxyz
+    destination: /alphabet.txt
+    permissions: 644
+
+  - content: ""
+    destination: /empty.txt
+
+scripts:
+  postCustomization:
+  - path: scripts/postcustomizationscript.sh
+  - content: |
+      echo "This is an postCustomization inline script"
+      echo "$1 $2"
+      echo "$fruit and $vegetable"
+      echo "Working dir: $(pwd)"
+    arguments:
+    - hello
+    - world
+    environmentVariables:
+      fruit: bananas
+      vegetable: carrots
+
+  finalizeCustomization:
+  - path: scripts/finalizecustomizationscript.sh
