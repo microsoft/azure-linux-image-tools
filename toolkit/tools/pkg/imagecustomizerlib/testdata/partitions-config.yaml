@@ -9,17 +9,20 @@ storage:
       end: 9M
 
     - id: boot
+      type: xbootldr
       start: 9M
       end: 108M
 
     - id: rootfs
+      type: root
       label: rootfs
       start: 108M
       end: 2G
 
     - id: var
+      type: 4d21b016-b534-45c2-a9fb-5c16e091fd2d
       start: 2G
-      
+
   bootType: efi
 
   filesystems:

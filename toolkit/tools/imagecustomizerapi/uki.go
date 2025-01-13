@@ -8,7 +8,7 @@ import (
 )
 
 type Uki struct {
-	Kernels UkiKernels `yaml:"kernels"`
+	Kernels UkiKernels `yaml:"kernels" json:"kernels"`
 }
 
 func (u *Uki) IsValid() error {

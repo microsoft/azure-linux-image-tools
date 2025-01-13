@@ -22,6 +22,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/isomakerlib"
 	"golang.org/x/sys/unix"
 )
@@ -1969,6 +1970,11 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromSquashfs(buildDir, rawImageFi
 		},
 	}
 
+	targetOs, err := targetos.GetInstalledTargetOs(squashMountDir)
+	if err != nil {
+		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
+	}
+
 	// populate the newly created disk image with content from the squash fs
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		// At the point when this copy will be executed, both the boot and the
@@ -1984,7 +1990,8 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromSquashfs(buildDir, rawImageFi
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
-	_, err = createNewImage(rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir, installOSFunc)
+	_, err = createNewImage(targetOs, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
+		installOSFunc)
 	if err != nil {
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
 	}
