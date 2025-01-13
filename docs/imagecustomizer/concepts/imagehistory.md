@@ -51,61 +51,86 @@ with `[redacted]` to maintain security.
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ImageHistory",
-  "type": "object",
-  "properties": {
-    "timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "The timestamp for when the image was built."
+  "title": "ImageHistoryList",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "description": "The timestamp for when the image was built."
+      },
+      "toolVersion": {
+        "type": "string",
+        "description": "The version of the tool used for the customization."
+      },
+      "imageUuid": {
+        "type": "string",
+        "description": "A unique identifier for the customized image."
+      },
+      "config": {
+        "type": "object",
+        "description": "Configuration data with added/redacted fields."
+      }
     },
-    "toolVersion": {
-      "type": "string",
-      "description": "The version of the tool used for the customization."
-    },
-    "imageUuid": {
-      "type": "string",
-      "description": "A unique identifier for the customized image."
-    },
-    "config": {
-      "type": "object",
-      "description": "Configuration data with added/redacted fields."
-    }
-  },
-  "required": ["timestamp", "toolVersion", "imageUuid", "config"]
+    "required": ["timestamp", "toolVersion", "imageUuid", "config"]
+  }
 }
 ```
 
-## Example JSON Entry
+## Example JSON Array
 
 ```json
-{
-  "timestamp": "2024-12-09T17:20:54Z",
-  "toolVersion": "0.1.0",
-  "imageUuid": "4a0cb56c-efa8-6636-528f-033477a7bb27",
-  "config": {
-    "additionalFiles": [
-      {
-        "destination": "/a.txt",
-        "source": "files/a.txt",
-        "sha256hash": "06577bd4a35a3fb866f891567b5a9ff67223c2f4422fb7629836d0cadb603ed3"
-      }
-    ],
-    "additionalDirs": [
-      {
-        "source": "dirs/a",
-        "destination": "/",
-        "sha256hashmap": {
-          "usr/local/bin/animals.sh": "13115588883d6f8960cf2e5f03ffcd73babcbb8da69789683715911487c8b1b6"
+[
+  {
+    "timestamp": "2024-12-09T17:20:54Z",
+    "toolVersion": "0.1.0",
+    "imageUuid": "4a0cb56c-efa8-6636-528f-033477a7bb27",
+    "config": {
+      "additionalFiles": [
+        {
+          "destination": "/a.txt",
+          "source": "files/a.txt",
+          "sha256hash": "06577bd4a35a3fb866f891567b5a9ff67223c2f4422fb7629836d0cadb603ed3"
         }
-      }
-    ],
-    "users": [
-      {
-        "name": "test",
-        "sshPublicKeys": "[redacted]"
-      }
-    ]
+      ],
+      "additionalDirs": [
+        {
+          "source": "dirs/a",
+          "destination": "/",
+          "sha256hashmap": {
+            "usr/local/bin/animals.sh": "13115588883d6f8960cf2e5f03ffcd73babcbb8da69789683715911487c8b1b6"
+          }
+        }
+      ],
+      "users": [
+        {
+          "name": "test",
+          "sshPublicKeys": "[redacted]"
+        }
+      ]
+    }
+  },
+  {
+    "timestamp": "2024-12-10T12:34:56Z",
+    "toolVersion": "0.2.0",
+    "imageUuid": "5b6c7d8e-9f10-1234-5678-abcdefabcdef",
+    "config": {
+      "additionalFiles": [
+        {
+          "destination": "/b.txt",
+          "source": "files/b.txt",
+          "sha256hash": "13579bd4a35a3fb866f891567b5a9ff67223c2f4422fb7629836d0cadb603ee4"
+        }
+      ],
+      "users": [
+        {
+          "name": "admin",
+          "sshPublicKeys": "[redacted]"
+        }
+      ]
+    }
   }
-}
+]
 ```
