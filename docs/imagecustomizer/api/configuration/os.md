@@ -119,6 +119,8 @@ Options for configuring image history.
 
 Set value to `none` to disable.
 
+To learn more about image history, refer to the [Image History Concept](../../concepts/imagehistory.md) documentation.
+
 ```yaml
 os:
   imageHistory: none

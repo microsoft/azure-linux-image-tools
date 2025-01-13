@@ -66,6 +66,8 @@
       link: "/azure-linux-image-tools/imagecustomizer/concepts/pxe"
     - name: Verity
       link: "/azure-linux-image-tools/imagecustomizer/concepts/verity"
+    - name: Image History 
+      link: "/azure-linux-image-tools/imagecustomizer/concepts/imagehistory"
 - name: How-To
   subnav:
     - name: Running in a container
