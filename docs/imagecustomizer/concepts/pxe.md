@@ -1,6 +1,7 @@
 ---
 parent: Concepts
 title: PXE Support
+nav_order: 3
 ---
 
 # Image Customizer PXE Support
