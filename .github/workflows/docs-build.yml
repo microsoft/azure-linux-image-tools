@@ -31,7 +31,11 @@ jobs:
       working-directory: ./docs
 
     - name: Check links
-      run: bundle exec htmlproofer --assume_extension '.html' ./_site
+      run: |
+        bundle exec htmlproofer \
+          --assume_extension '.html' \
+          --url-swap '^/${{ steps.pages.outputs.base_path }}/:/' \
+          ./_site
       working-directory: ./docs
 
     - name: Upload site assets as artifact
