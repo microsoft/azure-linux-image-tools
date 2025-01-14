@@ -34,7 +34,7 @@ jobs:
       run: |
         bundle exec htmlproofer \
           --assume_extension '.html' \
-          --url-swap '^/${{ steps.pages.outputs.base_path }}/:/' \
+          --swap-urls '^/${{ steps.pages.outputs.base_path }}/:/' \
           ./_site
       working-directory: ./docs
 
