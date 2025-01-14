@@ -34,7 +34,7 @@ nav_order: 4
         xfsprogs zstd cryptsetup-bin grub2-common
      ```
 
-   - For Mariner 2.0, run:
+   - For Azure Linux 2.0 and 3.0, run:
 
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
