@@ -18,7 +18,7 @@ nav_order: 4
     ```
 
    For documentation on the supported configuration options, see:
-   [Supported configuration](./api/configuration.md)
+   [Supported configuration](../api/configuration.md)
 
 3. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
@@ -61,7 +61,7 @@ nav_order: 4
    - `<config-file.yaml>`: The configuration file created in Step 2.
 
    For a description of all the command line options, see:
-   [Image Customizer command line](./api/cli.md)
+   [Image Customizer command line](../api/cli.md)
 
 5. Use the customized image.
 

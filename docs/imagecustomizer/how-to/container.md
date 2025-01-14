@@ -26,13 +26,13 @@ see [configuration](../api/configuration.md).
 
 Pull the image:
 
-```
+```bash
 docker pull mcr.microsoft.com/azurelinux/imagecustomizer:0.7.0
 ```
 
 You can use your own base image, for example:
 
-```
+```bash
 docker run --rm --privileged=true \
    -v ~/image:/image:z \
    -v /dev:/dev \
@@ -43,12 +43,15 @@ docker run --rm --privileged=true \
    --output-image-file /image/customized.raw
 ```
 
-Alternatively, you can use the [run.sh](../../toolkit/tools/imagecustomizer/container/test-mic-container.sh)
-script on the container which runs `imagecustomizer` with a base image downloaded from MCR.
+Alternatively, you can use the
+[run.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/run.sh)
+script on the container which runs `imagecustomizer` with a base image downloaded from
+MCR.
 
-Usage: ``` run.sh $version_tag ```
+Usage: `run.sh $version_tag`
 
-For a complete usage example, refer to [test-mic-container.sh](../../toolkit/tools/imagecustomizer/container/test-mic-container.sh).
+For a complete usage example, refer to
+[test-mic-container.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/test-mic-container.sh).
 
 ### Check the Output
 

@@ -30,6 +30,10 @@ jobs:
       run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
       working-directory: ./docs
 
+    - name: Check links
+      run: bundle exec htmlproofer --assume_extension '.html' ./_site
+      working-directory: ./docs
+
     - name: Upload site assets as artifact
       id: deployment
       uses: actions/upload-pages-artifact@v3

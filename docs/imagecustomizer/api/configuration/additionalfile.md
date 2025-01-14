@@ -6,7 +6,7 @@ parent: Configuration
 
 Specifies options for placing a file in the OS.
 
-Type is used by: [additionalFiles](./config.md#additionalfiles-additionalfile)
+Type is used by: [additionalFiles](./os.md#additionalfiles-additionalfile)
 
 ## source [string]
 
