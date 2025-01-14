@@ -1,7 +1,7 @@
 ---
 title: API Schema for VSCode
 parent: How To
-nav_order: 4
+nav_order: 6
 ---
 
 # Enabling VS Code Configuration Validation for Prism (Image Customizer)

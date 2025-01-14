@@ -5,6 +5,8 @@ nav_order: 2
 
 # Image Customizer
 
+## Overview
+
 The Image Customizer is a tool that can take an existing generic Azure Linux
 image and modify it to be suited for particular scenario.
 
@@ -31,99 +33,10 @@ Disadvantages:
   So, some customizations aren't possible using the Image Customizer.
   (For example, initializing a Kubernetes cluster node.)
 
-## Getting started
+## Helpful Links
 
-1. Download an Azure Linux core image.
-
-2. Create a customization config file.
-
-   For example:
-
-    ```yaml
-    os:
-      packagesInstall:
-      - dnf
-    ```
-
-   For documentation on the supported configuration options, see:
-   [Supported configuration](./api/configuration.md)
-
-3. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
-   `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
-   `genisoimage`, `parted`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
-   `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
-   `veritysetup`, `grub2-install` (or `grub-install`).
-
-   - For Ubuntu 22.04 images, run:
-
-     ```bash
-     sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-        sed createrepo-c squashfs-tools genisoimage parted e2fsprogs dosfstools \
-        xfsprogs zstd cryptsetup-bin grub2-common
-     ```
-
-   - For Mariner 2.0, run:
-
-     ```bash
-     sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 grub2-pc
-     ```
-
-4. Run the Image Customizer tool.
-
-   For example:
-
-    ```bash
-    sudo ./imagecustomizer \
-      --build-dir ./build \
-      --image-file <base-image.vhdx> \
-      --output-image-file ./out/image.vhdx \
-      --output-image-format vhdx \
-      --config-file <config-file.yaml>
-    ```
-
-   Where:
-
-   - `<base-image.vhdx>`: The image file downloaded in Step 1.
-   - `<config-file.yaml>`: The configuration file created in Step 2.
-
-   For a description of all the command line options, see:
-   [Image Customizer command line](./api/cli.md)
-
-5. Use the customized image.
-
-   The customized image is placed in the file that you specified with the
-   `--output-image-file` parameter. You can now use this image as you see fit.
-   (For example, boot it in a Hyper-V VM.)
-
-## Things to avoid
-
-The Image Customizer tool provides the option to run custom scripts as part of the
-customization process.
-These can be used to handle scenarios not covered by the Image Customizer tool.
-However, these scripts are only run within a chroot environment, which while it is kind
-of similar to containers, is very explicitly not a sandbox environment.
-So, such scripts have the ability to modify the host build system.
-
-In particular, you should be very wary of commands that have the ability to change the
-runtime kernel settings.
-And even commands that only read runtime kernel settings are probably doing the wrong
-thing, since the host build system's kernel is likely entirely unrelated to the
-customized OS's kernel.
-
-Examples of commands to avoid:
-
-- `ip`
-- `iptables`
-- `iptables-save`
-- `ip6tables-save`
-- `modprobe`
-- `sysctl`
-
-Instead, you should you make use of config files that set the runtime kernel settings
-during OS boot.
-
-Example config directories to use instead:
-
-- `/etc/sysctl.d` (`systemd-sysctl.service`)
+- [Quick Start](./how-to/quick-start.md)
+- [Things to Avoid](./concepts/things-to-avoid.md)
+- API:
+  - [CLI](./api/cli.md)
+  - [Configuration](./api/configuration.md)
