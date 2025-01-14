@@ -30,8 +30,9 @@ Advantages:
 Disadvantages:
 
 - Not all Linux tools play nicely when run under chroot.
-  So, some customizations aren't possible using the Image Customizer.
-  (For example, initializing a Kubernetes cluster node.)
+  For example, while it is possible to install Kubernetes using Image Customizer,
+  initialization of a Kubernetes cluster node must be done while the OS is running
+  (e.g. using cloud-init).
 
 ## Helpful Links
 
