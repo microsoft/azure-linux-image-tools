@@ -1,3 +1,8 @@
+---
+parent: Concepts
+nav_order: 1
+---
+
 # Image History
 
 The Image History feature records the customization history of images in a

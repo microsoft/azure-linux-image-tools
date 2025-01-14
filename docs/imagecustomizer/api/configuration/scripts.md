@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # scripts type
 
 Specifies custom scripts to run during the customization process.

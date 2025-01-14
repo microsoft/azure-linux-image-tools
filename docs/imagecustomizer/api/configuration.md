@@ -1,6 +1,12 @@
-# Azure Linux Image Customizer configuration
+---
+title: Configuration
+parent: API
+nav_order: 2
+---
 
-The Azure Linux Image Customizer is configured using a YAML (or JSON) file.
+# Image Customizer configuration
+
+The Image Customizer is configured using a YAML (or JSON) file.
 
 ## Top-level
 

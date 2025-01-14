@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # services type
 
 Options for configuring systemd services.

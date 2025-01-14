@@ -3,11 +3,15 @@
 
 name: build & test
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, release/*]
   pull_request:
     branches: [main, release/*]
+  workflow_dispatch: {}
 
 env:
   EXPECTED_GO_VERSION: "1.21"
@@ -84,17 +88,4 @@ jobs:
         fi
 
   build-docs:
-    name: jekyll github pages build
-    runs-on: ubuntu-latest
-    steps:
-    - name: checkout
-      uses: actions/checkout@v4
-
-    - name: setup pages
-      uses: actions/configure-pages@v5
-
-    - name: build with Jekyll
-      uses: actions/jekyll-build-pages@v1
-      with:
-        source: ./docs
-        destination: ./_site
+    uses: ./.github/workflows/docs-build.yml

@@ -1,8 +1,14 @@
-# ISO Support
+---
+parent: Concepts
+title: ISO Support
+nav_order: 2
+---
+
+# Image Customizer ISO Support
 
 ## Overview
 
-The Azure Linux Image Customizer can customize an input image and package the
+The Image Customizer can customize an input image and package the
 output as a LiveOS iso image. The input image can be a full disk image
 (vhd/vhdx/qcow2/raw) or another LiveOS iso image. The LiveOS iso output format
 is specified by setting the `--output-image-format` command line parameter to
@@ -52,7 +58,7 @@ The current implementation for the LiveOS iso does not support the following:
 - The user can specify one or more files to be copied to the iso media.
 - The user can add kernel parameters.
 
-For a full list of capabilities, see Azure Linux Image Customizer's iso
+For a full list of capabilities, see Image Customizer's iso
 configuration section: [Config.ISO](../api/iso.md#iso-type).
 
 ## cloud-init Support

@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # config type
 
 The top-level type of the configuration.

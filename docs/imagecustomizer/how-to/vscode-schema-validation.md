@@ -1,3 +1,9 @@
+---
+title: API Schema for VSCode
+parent: How To
+nav_order: 4
+---
+
 # Enabling VS Code Configuration Validation for Prism (Image Customizer)
 
 This guide explains how to set up YAML validation in Visual Studio Code (VS

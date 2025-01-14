@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # uki type
 
 Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot

@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # packages type
 
 Specifies packages to remove, install, or update.

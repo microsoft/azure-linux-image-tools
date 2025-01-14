@@ -1,8 +1,13 @@
+---
+parent: Image Customizer
+nav_order: 4
+---
+
 # Developers guide
 
 ## Prerequisites
 
-See [Getting started guide](README.md/#getting-started]
+See [Getting started guide](README.md#getting-started)
 
 ## Build Image Customizer binary
 

@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # partition type
 
 ## id [string]

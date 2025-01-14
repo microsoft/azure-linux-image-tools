@@ -1,3 +1,6 @@
+---
+parent: Configuration
+---
 
 # os type
 

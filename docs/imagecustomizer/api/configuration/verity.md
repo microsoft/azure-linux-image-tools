@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # verity type
 
 Specifies the configuration for dm-verity integrity verification.

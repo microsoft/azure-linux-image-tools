@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # module type
 
 Options for configuring a kernel module.

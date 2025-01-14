@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # iso type
 
 Specifies the configuration for the generated ISO media.
@@ -6,6 +10,6 @@ Specifies the configuration for the generated ISO media.
 
 Specifies extra kernel command line options.
 
-## additionalFiles [[additionalFile](./additionalfile.md)[]>]
+## additionalFiles [[additionalFile](./additionalfile.md)[]]
 
 Adds files to the ISO.

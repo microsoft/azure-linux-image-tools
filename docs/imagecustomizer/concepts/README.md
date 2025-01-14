@@ -1,4 +1,10 @@
-# Concepts
+---
+parent: Image Customizer
+title: Concepts
+nav_order: 2
+---
+
+# Image Customizer Concepts
 
 The tool supports customizing images for different scenarios. While the API
 covers the basics, more comprehensive documentation are provided on the

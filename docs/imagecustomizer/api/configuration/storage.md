@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # storage type
 
 ## bootType [string]

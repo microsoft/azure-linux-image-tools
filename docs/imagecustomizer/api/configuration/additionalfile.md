@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # additionalFile type
 
 Specifies options for placing a file in the OS.

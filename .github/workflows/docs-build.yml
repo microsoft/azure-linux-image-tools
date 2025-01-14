@@ -1,0 +1,37 @@
+name: Build docs
+
+permissions:
+  contents: read
+
+on:
+  workflow_call: {}
+
+jobs:
+  build-docs:
+    name: jekyll github pages build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup ruby
+      uses: ruby/setup-ruby@4a9ddd6f338a97768b8006bf671dfbad383215f4 # v1.207.0
+      with:
+        ruby-version: '3.3'
+        bundler-cache: true # runs 'bundle install' and caches installed gems automatically
+        cache-version: 0 # Increment this number if you need to re-download cached gems
+        working-directory: ./docs
+
+    - name: Setup pages
+      id: pages
+      uses: actions/configure-pages@v5
+
+    - name: Build with Jekyll
+      run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+      working-directory: ./docs
+
+    - name: Upload site assets as artifact
+      id: deployment
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./docs/_site

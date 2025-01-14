@@ -1,3 +1,7 @@
+---
+parent: Configuration
+---
+
 # packageList type
 
 Used to split off lists of packages into a separate file.

@@ -1,3 +1,8 @@
+---
+parent: How To
+nav_order: 2
+---
+
 # Cloning an RPM repo
 
 By default, the image customizer tool uses the base image's inbuilt repo files for where
