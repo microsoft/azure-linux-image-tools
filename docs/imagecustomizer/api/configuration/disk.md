@@ -23,6 +23,23 @@ Supported format: `<NUM>(K|M|G|T)`: A size in KiB (`K`), MiB (`M`), GiB (`G`), o
 
 Must be a multiple of 1 MiB.
 
+This value is optional if the last partition on the disk has an explicit size.
+
+```yaml
+disks:
+- partitionTableType: gpt
+  maxSize: 4G
+  partitions:
+  - id: esp
+    type: esp
+    size: 8M
+
+  - id: rootfs
+    size: grow
+```
+
 ## partitions [[partition](./partition.md)[]]
 
 The partitions to provision on the disk.
+
+Partitions must be specified in order, from the start of the disk to the end.
