@@ -4,6 +4,41 @@ parent: Configuration
 
 # storage type
 
+Contains the options for provisioning disks, partitions, and file systems.
+
+Example:
+
+```yaml
+storage:
+  bootType: efi
+
+  disks:
+  - partitionTableType: gpt
+    maxSize: 4G
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      size: grow
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
 ## bootType [string]
 
 Specifies the boot system that the image supports.
@@ -20,9 +55,38 @@ Supported options:
   When this option is specified, the partition layout must contain a partition with the
   `esp` flag.
 
+Example:
+
+```yaml
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: boot
+      type: bios-grub
+      size: 8M
+
+    - id: rootfs
+      size: 4G
+
+  bootType: legacy
+
+  filesystems:
+  - deviceId: rootfs
+    type: ext4
+    mountPoint: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
 ## disks [[disk](./disk.md)[]]
 
 Contains the options for provisioning disks and their partitions.
+
+Note: While Disks is a list, only 1 disk is supported at the moment.
+Support for multiple disks may (or may not) be added in the future.
 
 ## verity [[verity](./verity.md)[]]
 

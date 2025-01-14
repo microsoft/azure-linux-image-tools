@@ -6,7 +6,8 @@ parent: Configuration
 
 You can configure `mountPoint` in one of two ways:
 
-1. **Structured Format**: Use `idType`, `options`, and `path` fields for a more detailed configuration.
+1. **Structured Format**: Use `idType`, `options`, and `path` fields for a more detailed
+   configuration.
 
    ```yaml
    mountPoint:
@@ -15,13 +16,15 @@ You can configure `mountPoint` in one of two ways:
      idType: part-uuid
    ```
 
-2. **Shorthand Path Format**: Provide the mount path directly as a string when only `path` is required.
+2. **Shorthand Path Format**: Provide the mount path directly as a string when only
+   `path` is required.
 
    ```yaml
    mountPoint: /boot/efi
    ```
 
-   In this shorthand format, only the `path` is specified, and default values will be applied to any optional fields.
+   In this shorthand format, only the `path` is specified, and default values will be
+   applied to any optional fields.
 
 ## idType [string]
 
@@ -37,14 +40,59 @@ Supported options:
 
 - `part-label`: The partition label specified in the partition table.
 
+Example:
+
+```yaml
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      size: 2G
+      label: root
+
+    - id: var
+      size: 2G
+      label: var
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+      idType: part-label
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+      idType: part-label
+
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
 ## options [string]
 
 The additional options used when mounting the file system.
 
 These options are in the same format as
 [mount](https://man7.org/linux/man-pages/man8/mount.8.html)'s
-`-o` option (or the `fs_mntops` field of the
-[fstab](https://man7.org/linux/man-pages/man5/fstab.5.html) file).
+`-o` option or the `fs_mntops` field of the
+[fstab](https://man7.org/linux/man-pages/man5/fstab.5.html) file.
 
 ## path [string]
 

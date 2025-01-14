@@ -18,9 +18,14 @@ The label to assign to the partition.
 
 ## start [uint64]
 
-Required.
-
 The start location (inclusive) of the partition.
+
+If this value is not specified, then a partition starts at the end of the previous
+partition.
+The first partition will by default start at 1 MiB to leave space for the partition
+table.
+
+Partitions must be specified in order, from the start of the disk to the end.
 
 Supported format: `<NUM>(K|M|G|T)`: A size in KiB (`K`), MiB (`M`), GiB (`G`), or TiB
 (`T`).
@@ -44,6 +49,22 @@ Supported format: `<NUM>(K|M|G|T)`: A size in KiB (`K`), MiB (`M`), GiB (`G`), o
 
 Must be a multiple of 1 MiB.
 
+Example:
+
+```yaml
+disks:
+- partitionTableType: gpt
+  partitions:
+  - id: esp
+    type: esp
+    start: 1M
+    end: 8M
+
+  - id: rootfs
+    start: 8M
+    end: 4096M
+```
+
 ## size [uint64]
 
 The size of the partition.
@@ -56,9 +77,26 @@ Supported formats:
 
 Must be a multiple of 1 MiB.
 
+Example:
+
+```yaml
+disks:
+- partitionTableType: gpt
+  partitions:
+  - id: esp
+    type: esp
+    size: 8M
+
+  - id: rootfs
+    size: 4G
+```
+
 ## type [string]
 
-Specifies options for the partition.
+Specifies the type of partition.
+
+This field must be specified for a UEFI System Partition (`esp`) or a BIOS boot
+partition (`bios-grub`) but is otherwise optional.
 
 Supported options:
 
@@ -108,3 +146,18 @@ Supported options:
   - [The Discoverable Partitions Specification (DPS)](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/#defined-partition-type-uuids)
 
   For example: `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`
+
+Example:
+
+```yaml
+disks:
+- partitionTableType: gpt
+  partitions:
+  - id: esp
+    type: esp
+    size: 8M
+
+  - id: rootfs
+    type: root
+    size: 4G
+```

@@ -10,42 +10,6 @@ The top-level type of the configuration.
 
 Contains the options for provisioning disks, partitions, and file systems.
 
-While Disks is a list, only 1 disk is supported at the moment.
-Support for multiple disks may (or may not) be added in the future.
-
-```yaml
-storage:
-  bootType: efi
-
-  disks:
-  - partitionTableType: gpt
-    maxSize: 4096M
-    partitions:
-    - id: esp
-      type: esp
-      start: 1M
-      end: 9M
-
-    - id: rootfs
-      start: 9M
-
-  filesystems:
-  - deviceId: esp
-    type: fat32
-    mountPoint:
-      path: /boot/efi
-      options: umask=0077
-
-  - deviceId: rootfs
-    type: ext4
-    mountPoint:
-      path: /
-
-os:
-  bootloader:
-    resetType: hard-reset
-```
-
 ## iso [[iso](./iso.md)]
 
 Optionally specifies the configuration for the generated ISO media.
