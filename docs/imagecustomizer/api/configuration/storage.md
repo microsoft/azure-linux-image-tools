@@ -85,7 +85,7 @@ os:
 
 Contains the options for provisioning disks and their partitions.
 
-Note: While Disks is a list, only 1 disk is supported at the moment.
+Note: While disks is a list, only 1 disk is supported at the moment.
 Support for multiple disks may (or may not) be added in the future.
 
 ## verity [[verity](./verity.md)[]]
