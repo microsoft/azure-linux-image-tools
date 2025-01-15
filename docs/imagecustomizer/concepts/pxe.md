@@ -90,7 +90,7 @@ Image Customizer offers the following configurations:
 - In the input configuration, there is a `pxe` node under which the user can
   configure PXE related properties - like the URL of the LiveOS ISO image to
   download (note that this image is the same image being built).
-  See the [Image Customizer configuration](../api/pxe.md#pxe-type)
+  See the [Image Customizer configuration](../api/configuration/pxe.md)
   page for more information.
 - When invoking the Image Customizer, the user can also elect to
   export the artifacts to a local folder.

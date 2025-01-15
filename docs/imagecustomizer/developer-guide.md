@@ -7,7 +7,7 @@ nav_order: 4
 
 ## Prerequisites
 
-See [Getting started guide](README.md#getting-started)
+See [Getting started guide](./how-to/quick-start.md)
 
 ## Build Image Customizer binary
 

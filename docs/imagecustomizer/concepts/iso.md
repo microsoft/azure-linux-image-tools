@@ -59,7 +59,7 @@ The current implementation for the LiveOS iso does not support the following:
 - The user can add kernel parameters.
 
 For a full list of capabilities, see Image Customizer's iso
-configuration section: [Config.ISO](../api/iso.md#iso-type).
+configuration section: [Config.ISO](../api/configuration/iso.md).
 
 ## cloud-init Support
 

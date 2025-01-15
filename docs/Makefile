@@ -13,3 +13,4 @@ serve:
 .PHONY: build
 build:
 	bundle exec jekyll build
+	bundle exec htmlproofer --assume_extension '.html' ./_site
