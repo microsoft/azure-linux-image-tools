@@ -19,11 +19,13 @@ import (
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
-func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
+func connectToExistingImageExtended(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
+	mountRootfsRO bool,
 ) (*ImageConnection, error) {
 	imageConnection := NewImageConnection()
 
-	err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
+	err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts,
+		mountRootfsRO)
 	if err != nil {
 		imageConnection.Close()
 		return nil, err
@@ -31,8 +33,13 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 	return imageConnection, nil
 }
 
+func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
+) (*ImageConnection, error) {
+	return connectToExistingImageExtended(imageFilePath, buildDir, chrootDirName, includeDefaultMounts, false /*mountRootfsRO*/)
+}
+
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
-	buildDir string, chrootDirName string, includeDefaultMounts bool,
+	buildDir string, chrootDirName string, includeDefaultMounts bool, mountRootfsRO bool,
 ) error {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -41,7 +48,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	}
 
 	// Look for all the partitions on the image.
-	mountPoints, err := findPartitions(buildDir, imageConnection.Loopback().DevicePath())
+	mountPoints, err := findPartitions(buildDir, imageConnection.Loopback().DevicePath(), mountRootfsRO)
 	if err != nil {
 		return fmt.Errorf("failed to find disk partitions:\n%w", err)
 	}

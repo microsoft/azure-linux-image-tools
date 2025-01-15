@@ -30,7 +30,7 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
-func findPartitions(buildDir string, diskDevice string) ([]*safechroot.MountPoint, error) {
+func findPartitions(buildDir string, diskDevice string, mountRootfsRO bool) ([]*safechroot.MountPoint, error) {
 	var err error
 
 	diskPartitions, err := diskutils.GetDiskPartitions(diskDevice)
@@ -43,7 +43,7 @@ func findPartitions(buildDir string, diskDevice string) ([]*safechroot.MountPoin
 		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
-	mountPoints, err := findMountsFromRootfs(rootfsPartition, diskPartitions, buildDir)
+	mountPoints, err := findMountsFromRootfs(rootfsPartition, diskPartitions, buildDir, mountRootfsRO)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
@@ -141,9 +141,9 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.FileSystemType=(%s)", diskPartition.FileSystemType)
 		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Path          =(%s)", diskPartition.Path)
 		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Mountpoint    =(%s)", diskPartition.Mountpoint)
-		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Uuid    =(%s)", diskPartition.Uuid)
-		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.PartUuid    =(%s)", diskPartition.PartUuid)
-		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.PartLabel    =(%s)", diskPartition.PartLabel)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.Uuid          =(%s)", diskPartition.Uuid)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.PartUuid      =(%s)", diskPartition.PartUuid)
+		logger.Log.Debugf("---- debug ---- findRootfsPartition() - diskPartition.PartLabel     =(%s)", diskPartition.PartLabel)
 		logger.Log.Debugf("---- debug ---- - end ----------------------------------------------------------")
 
 		// Skip over disk entries.
@@ -204,7 +204,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 }
 
 func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+	buildDir string, mountRootfsRO bool,
 ) ([]*safechroot.MountPoint, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
@@ -221,7 +221,7 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 	// Read the fstab file.
 	fstabPath := filepath.Join(tmpDir, "/etc/fstab")
 
-	mountPoints, err := findMountsFromFstabFile(fstabPath, diskPartitions)
+	mountPoints, err := findMountsFromFstabFileExtended(fstabPath, diskPartitions, rootfsPartition, mountRootfsRO)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,8 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 	return mountPoints, nil
 }
 
-func findMountsFromFstabFile(fstabPath string, diskPartitions []diskutils.PartitionInfo,
+func findMountsFromFstabFileExtended(fstabPath string, diskPartitions []diskutils.PartitionInfo, rootfsPartition *diskutils.PartitionInfo,
+	mountRootfsRO bool,
 ) ([]*safechroot.MountPoint, error) {
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
@@ -243,7 +244,7 @@ func findMountsFromFstabFile(fstabPath string, diskPartitions []diskutils.Partit
 		return nil, err
 	}
 
-	mountPoints, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions)
+	mountPoints, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, rootfsPartition, mountRootfsRO)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
@@ -251,7 +252,13 @@ func findMountsFromFstabFile(fstabPath string, diskPartitions []diskutils.Partit
 	return mountPoints, nil
 }
 
+func findMountsFromFstabFile(fstabPath string, diskPartitions []diskutils.PartitionInfo,
+) ([]*safechroot.MountPoint, error) {
+	return findMountsFromFstabFileExtended(fstabPath, diskPartitions, nil, false)
+}
+
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+	rootfsPartition *diskutils.PartitionInfo, mountRootfsRO bool,
 ) ([]*safechroot.MountPoint, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -259,30 +266,38 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	var mountPoints []*safechroot.MountPoint
 
 	for _, fstabEntry := range filteredFstabEntries {
-		source, err := findSourcePartition(fstabEntry.Source, diskPartitions)
+		sourcePath, err := findSourcePartition(fstabEntry.Source, diskPartitions)
 		if err != nil {
 			return nil, err
 		}
 
-		logger.Log.Debugf("---- debug ---- source=(%s)", source)
+		logger.Log.Debugf("---- debug ---- sourcePath=(%s)", sourcePath)
 
 		// ToDo: device mapper and overlay return an empty string
-		if source == "" {
+		if sourcePath == "" {
 			logger.Log.Debugf("---- debug ---- skipping")
 			continue
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
-		vfsOptions := fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY)
+		// ? mountRootfsRO
+		var vfsOptions diskutils.MountFlags
+		if mountRootfsRO && rootfsPartition.Path == sourcePath {
+			logger.Log.Debugf("---- debug ---- -- adding ro to")
+			vfsOptions = fstabEntry.VfsOptions | diskutils.MountFlags(unix.MS_RDONLY)
+		} else {
+			logger.Log.Debugf("---- debug ---- -- removing ro tag")
+			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY)
+		}
 
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
-				source, fstabEntry.Target, fstabEntry.FsType,
+				sourcePath, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 		} else {
 			mountPoint = safechroot.NewMountPoint(
-				source, fstabEntry.Target, fstabEntry.FsType,
+				sourcePath, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 		}
 

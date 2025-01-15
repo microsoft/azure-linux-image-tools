@@ -751,7 +751,8 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 ) error {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, err := connectToExistingImageExtended(rawImageFile, buildDir, "imageroot", true /*includeDefaultMounts*/,
+		onlyAddFiles /*ro rootfs*/)
 	if err != nil {
 		return err
 	}
