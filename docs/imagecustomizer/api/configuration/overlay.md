@@ -6,67 +6,17 @@ parent: Configuration
 
 Specifies the configuration for overlay filesystem.
 
-Overlays Configuration Example:
+Example:
 
 ```yaml
-storage:
-  disks:
-  bootType: efi
-  - partitionTableType: gpt
-    maxSize: 4G
-    partitions:
-    - id: esp
-      type: esp
-      start: 1M
-      end: 9M
-    - id: boot
-      start: 9M
-      end: 108M
-    - id: rootfs
-      label: rootfs
-      start: 108M
-      end: 2G
-    - id: var
-      start: 2G
-
-  filesystems:
-  - deviceId: esp
-    type: fat32
-    mountPoint:
-      path: /boot/efi
-      options: umask=0077
-  - deviceId: boot
-    type: ext4
-    mountPoint:
-      path: /boot
-  - deviceId: rootfs
-    type: ext4
-    mountPoint:
-      path: /
-  - deviceId: var
-    type: ext4
-    mountPoint:
-      path: /var
-      options: defaults,x-initrd.mount
-
 os:
-  bootloader:
-    resetType: hard-reset
   overlays:
-    - mountPoint: /etc
-      lowerDirs:
-      - /etc
-      upperDir: /var/overlays/etc/upper
-      workDir: /var/overlays/etc/work
-      isInitrdOverlay: true
-      mountDependencies:
-      - /var
-    - mountPoint: /media
-      lowerDirs:
-      - /media
-      - /home
-      upperDir: /overlays/media/upper
-      workDir: /overlays/media/work
+  - mountPoint: /media
+    lowerDirs:
+    - /media
+    - /home
+    upperDir: /overlays/media/upper
+    workDir: /overlays/media/work
 ```
 
 ## `mountPoint` [string]
@@ -80,10 +30,8 @@ Example: `/etc`
 
 ## `lowerDirs` [string[]]
 
-These directories act as the read-only layers in the overlay filesystem. They
+A list of directories that act as the read-only layers in the overlay filesystem. They
 contain the base files and directories which will be overlaid by the `upperDir`.
-Multiple lower directories can be specified by providing a list of paths, which
-will be joined using a colon (`:`) as a separator.
 
 Example:
 
@@ -94,32 +42,93 @@ lowerDirs:
 
 ## `upperDir` [string]
 
+Required.
+
 This directory is the writable layer of the overlay filesystem. Any
 modifications, such as file additions, deletions, or changes, are made in the
-upperDir. These changes are what make the overlay filesystem appear different
+`upperDir`. These changes are what make the overlay filesystem appear different
 from the lowerDir alone.
-  
+
 Example: `/var/overlays/etc/upper`
 
 ## `workDir` [string]
 
-This is a required directory used for preparing files before they are merged
-into the upperDir. It needs to be on the same filesystem as the upperDir and
+Required.
+
+This directory is used for preparing files before they are merged
+into the `upperDir`. It needs to be on the same filesystem as the `upperDir` and
 is used for temporary storage by the overlay filesystem to ensure atomic
-operations. The workDir is not directly accessible to users. 
-  
+operations. The `workDir` should not be directly accessed by users.
+
 Example: `/var/overlays/etc/work`
 
 ## `isInitrdOverlay` [bool]
 
-A boolean flag indicating whether this overlay is part of the root filesystem.
-If set to `true`, specific adjustments will be made, such as prefixing certain
-paths with `/sysroot`, and the overlay will be added to the fstab file with the
-`x-initrd.mount` option to ensure it is available during the initrd phase.
+A boolean flag indicating that this overlay should be provisioned by the initramfs
+before the pivot to the root filesystem.
+This should be set to `true` for overlays targeting fundamental system directories such
+as `/etc`.
 
-This is an optional argument.
+Setting this value to `true` will result to the following changes to the overlay:
 
-Example: `False`
+- The lower, upper, and work directories' paths will have the `/sysroot` prefix added to
+  them, since that is the path of the root filesystem before the pivot.
+
+- The mount options `x-initrd.mount,x-systemd.wanted-by=initrd-fs.target` will be added
+  to the overlay.
+
+Default value: `false`.
+
+Example:
+
+```yaml
+storage:
+  disks:
+  bootType: efi
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      label: rootfs
+      size: 2G
+
+    - id: var
+      size: 2G
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint: /
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+      options: defaults,x-initrd.mount
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  overlays:
+  - mountPoint: /etc
+    lowerDirs:
+    - /etc
+    upperDir: /var/overlays/etc/upper
+    workDir: /var/overlays/etc/work
+    isInitrdOverlay: true
+    mountDependencies:
+    - /var
+```
 
 ## `mountDependencies` [string[]]
 
@@ -139,15 +148,16 @@ mountDependencies:
 **Important**: If any directory specified in `mountDependencies` needs to be
 available during the initrd phase, you must ensure that this directory's mount
 configuration in the `filesystems` section includes the `x-initrd.mount` option.
+
 For example:
 
 ```yaml
 filesystems:
-  - deviceId: var
-    type: ext4
-    mountPoint:
-      path: /var
-      options: defaults,x-initrd.mount
+- deviceId: var
+  type: ext4
+  mountPoint:
+    path: /var
+    options: defaults,x-initrd.mount
 ```
 
 ## `mountOptions` [string]

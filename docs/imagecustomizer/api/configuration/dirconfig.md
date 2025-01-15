@@ -8,23 +8,22 @@ Specifies options for placing a directory in the OS.
 
 Type is used by: [additionalDirs](./os.md#additionaldirs-dirconfig)
 
-## source [string]
-
-The absolute path to the source directory that will be copied.
-
-
-## destination [string]
-
-The absolute path in the target OS that the source directory will be copied to.
-
 Example:
 
 ```yaml
 os:
   additionalDirs:
-    - source: "home/files/targetDir"
-      destination: "usr/project/targetDir"
+  - source: "home/files/targetDir"
+    destination: "usr/project/targetDir"
 ```
+
+## source [string]
+
+The absolute path to the source directory that will be copied.
+
+## destination [string]
+
+The absolute path in the target OS that the source directory will be copied to.
 
 ## newDirPermissions [string]
 
@@ -51,9 +50,9 @@ Example:
 ```yaml
 os:
   additionalDirs:
-    - source: "home/files/targetDir"
-      destination: "usr/project/targetDir"
-      newDirPermissions: "644"
-      mergedDirPermissions: "777"
-      childFilePermissions: "644"
+  - source: "home/files/targetDir"
+    destination: "usr/project/targetDir"
+    newDirPermissions: "644"
+    mergedDirPermissions: "777"
+    childFilePermissions: "644"
 ```
