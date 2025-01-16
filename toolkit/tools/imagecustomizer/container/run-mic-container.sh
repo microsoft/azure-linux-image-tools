@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 function showUsage() {
     echo
@@ -12,17 +13,21 @@ function showUsage() {
     echo "    -c <input-config-path> \\"
     echo "    -f <output-format> \\"
     echo "    -o <output-image-path> \\"
+    echo "   [ -g <generated-hash-files-path> ] \\"
+    echo "   [ -s <signed-hash-file-path>] \\"
     echo "   [-l <log-level>"]
     echo
 }
 
-while getopts ":r:n:t:i:c:f:o:l:" OPTIONS; do
+while getopts ":r:n:t:i:c:f:o:l:g:s:" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     i ) inputImage=$OPTARG ;;
     c ) inputConfig=$OPTARG ;;
     f ) outputFormat=$OPTARG ;;
     o ) outputImage=$OPTARG ;;
+    g ) generatedHashFilesPath=$OPTARG ;;
+    s ) signedHashFilePath=$OPTARG ;;
     l ) logLevel=$OPTARG ;;
   esac
 done
@@ -84,12 +89,40 @@ containerBuildDir=/mic/build
 containerOutputDir=/mic/output
 containerOutputImage=$containerOutputDir/$(basename $outputImage)
 
+dockerVeritySignatureParameters=()
+veritySignatureParameters=()
+
+if [[ -n "$generatedHashFilesPath" ]]; then
+
+    mkdir -p $generatedHashFilesPath
+    containerGeneratedHashFilesPath=/mic/exported-hashes
+
+    dockerVeritySignatureParameters+=("-v" "$generatedHashFilesPath:$containerGeneratedHashFilesPath:z")
+
+    veritySignatureParameters+=("--output-verity-hashes")
+    veritySignatureParameters+=("--output-verity-hashes-dir" "$containerGeneratedHashFilesPath")
+    veritySignatureParameters+=("--require-signed-root-hashes")
+    veritySignatureParameters+=("--require-signed-rootfs-root-hash")
+fi
+
+if [[ -n "$signedHashFilePath" ]]; then
+    signedHashFileDirPath=$(dirname $signedHashFilePath)
+    signedHashFile=$(basename $signedHashFilePath)
+    containerSignedHashFileDirPath=/mic/signed-hashes
+    containerSignedHashFilePath=$containerSignedHashFileDirPath/$signedHashFile
+
+    dockerVeritySignatureParameters+=("-v" "$signedHashFileDirPath:$containerSignedHashFileDirPath:z")
+
+    veritySignatureParameters+=("--input-signed-verity-hashes-files" "$containerSignedHashFilePath")
+fi
+
 # invoke
 docker run --rm \
   --privileged=true \
    -v $inputImageDir:$containerInputImageDir:z \
    -v $inputConfigDir:$containerInputConfigDir:z \
    -v $outputImageDir:$containerOutputDir:z \
+   "${dockerVeritySignatureParameters[@]}" \
    -v /dev:/dev \
    "$containerTag" \
    imagecustomizer \
@@ -98,4 +131,5 @@ docker run --rm \
       --build-dir $containerBuildDir \
       --output-image-format $outputFormat \
       --output-image-file $containerOutputImage \
+      "${veritySignatureParameters[@]}" \
       --log-level $logLevel
