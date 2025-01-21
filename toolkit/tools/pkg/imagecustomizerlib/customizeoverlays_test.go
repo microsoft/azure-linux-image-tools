@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -59,13 +60,8 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	verifyOverlays(t, imageConnection.chroot.RootDir())
-	verifyOverlaysEquivalencyRules(t, imageConnection.chroot.RootDir())
-}
-
-func verifyOverlays(t *testing.T, rootPath string) {
-	// Verify fstab for Overlays.
-	fstabPath := filepath.Join(rootPath, "etc/fstab")
+	// Read fstab file.
+	fstabPath := filepath.Join(imageConnection.chroot.RootDir(), "etc/fstab")
 	fstabContents, err := file.Read(fstabPath)
 	if !assert.NoError(t, err) {
 		return
@@ -82,29 +78,56 @@ func verifyOverlays(t *testing.T, rootPath string) {
 			"upperdir=/overlays/media/upper,workdir=/overlays/media/work 0 0")
 }
 
-func verifyOverlaysEquivalencyRules(t *testing.T, rootPath string) {
-	mntPoints := map[string]string{
-		"/etc":   "/var/overlays/etc/upper",
-		"/media": "/overlays/media/upper",
+func TestCustomizeImageOverlaysSELinux(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageOverlaysSELinux")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "overlays-selinux.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
 	}
 
-	for mntPoint, upperDir := range mntPoints {
-		mntPointFullPath := filepath.Join(rootPath, mntPoint)
-		upperDirFullPath := filepath.Join(rootPath, upperDir)
-
-		mntPointLabel, _, err := shell.Execute("ls", "-Zd", mntPointFullPath)
-		if !assert.NoError(t, err, "Failed to get SELinux label for %s", mntPointFullPath) {
-			return
-		}
-		upperDirLabel, _, err := shell.Execute("ls", "-Zd", upperDirFullPath)
-		if !assert.NoError(t, err, "Failed to get SELinux label for %s", upperDirFullPath) {
-			return
-		}
-
-		// Modify the labels to remove the first section (before the first colon) and path.
-		mntPointLabel = strings.Fields(mntPointLabel[strings.Index(mntPointLabel, ":")+1:])[0]
-		upperDirLabel = strings.Fields(upperDirLabel[strings.Index(upperDirLabel, ":")+1:])[0]
-		assert.Equal(t, mntPointLabel, upperDirLabel,
-			"SELinux label mismatch between %s and %s", mntPointFullPath, upperDirFullPath)
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
 	}
+	defer imageConnection.Close()
+
+	// Read fstab file.
+	fstabPath := filepath.Join(imageConnection.chroot.RootDir(), "etc/fstab")
+	fstabContents, err := file.Read(fstabPath)
+	assert.NoError(t, err)
+
+	// Check for specific overlay configurations in fstab
+	assert.Contains(t, fstabContents,
+		"overlay /var overlay lowerdir=/var,upperdir=/mnt/overlays/var/upper,workdir=/mnt/overlays/var/work 0 0")
+
+	upperLabel, err := getSELinuxLabel(filepath.Join(imageConnection.chroot.RootDir(), "/mnt/overlays/var/upper"))
+	assert.NoError(t, err)
+
+	workLabel, err := getSELinuxLabel(filepath.Join(imageConnection.chroot.RootDir(), "/mnt/overlays/var/work"))
+	assert.NoError(t, err)
+
+	assert.Contains(t, upperLabel, ":object_r:var_t:s0")
+	assert.Contains(t, workLabel, ":object_r:no_access_t:s0")
+}
+
+func getSELinuxLabel(path string) (string, error) {
+	stdout, _, err := shell.Execute("ls", "-Zd", path)
+	if err != nil {
+		return "", fmt.Errorf("failed to get SELinux label (%s):\n%w", path, err)
+	}
+
+	// Example stdout:
+	//   system_u:object_r:root_t:s0 /
+	fields := strings.Fields(stdout)
+	seLinuxLabel := fields[0]
+
+	return seLinuxLabel, nil
 }
