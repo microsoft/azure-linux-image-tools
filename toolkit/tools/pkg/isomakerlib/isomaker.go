@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/cavaliercoder/go-cpio"
+	"github.com/cavaliergopher/cpio"
 	"github.com/klauspost/pgzip"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"

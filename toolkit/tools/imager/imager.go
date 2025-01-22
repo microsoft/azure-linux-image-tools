@@ -24,7 +24,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/profile"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/alecthomas/kingpin/v2"
 )
 
 var (

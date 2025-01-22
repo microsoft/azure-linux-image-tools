@@ -10,7 +10,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/isomakerlib"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/alecthomas/kingpin/v2"
 )
 
 var (

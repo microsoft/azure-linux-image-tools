@@ -7,9 +7,10 @@ toolchain go1.21.6
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.6.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.1.0
+	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/bendahl/uinput v1.4.0
-	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
+	github.com/cavaliergopher/cpio v1.0.1
 	github.com/fatih/color v1.16.0
 	github.com/gdamore/tcell v1.4.0
 	github.com/google/uuid v1.6.0
@@ -49,6 +50,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.1.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20170218160415-a3153f7040e9 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect

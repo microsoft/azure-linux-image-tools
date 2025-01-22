@@ -22,8 +22,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
 
+	"github.com/alecthomas/kingpin/v2"
 	"golang.org/x/sys/unix"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

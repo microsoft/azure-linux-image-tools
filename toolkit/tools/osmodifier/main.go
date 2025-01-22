@@ -7,12 +7,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/exe"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/osmodifierlib"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/profile"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

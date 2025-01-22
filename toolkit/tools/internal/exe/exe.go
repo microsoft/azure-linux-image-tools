@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 // ToolkitVersion specifies the version of the toolkit and the reported version of all tools in it.
