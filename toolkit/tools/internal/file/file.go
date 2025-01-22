@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -234,21 +233,6 @@ func Append(data string, dst string) (err error) {
 
 	_, err = dstFile.WriteString(data)
 	return
-}
-
-// AppendLines appends multiple lines to the end of a file.
-func AppendLines(lines []string, dst string) error {
-	for _, line := range lines {
-		// Check if the line already ends with a newline character.
-		if !strings.HasSuffix(line, "\n") {
-			// Add newline if missing.
-			line += "\n"
-		}
-		if err := Append(line, dst); err != nil {
-			return fmt.Errorf("failed to append line to file (%s):\n%w", dst, err)
-		}
-	}
-	return nil
 }
 
 // RemoveFileIfExists will delete a file if it exists on disk.

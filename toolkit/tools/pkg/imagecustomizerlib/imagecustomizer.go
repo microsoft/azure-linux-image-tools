@@ -23,7 +23,7 @@ import (
 
 const (
 	tmpParitionDirName      = "tmp-partition"
-	tmpEspParitionDirName   = "tmp-esp-partition"
+	tmpEspPartitionDirName  = "tmp-esp-partition"
 	tmpBootPartitionDirName = "tmp-boot-partition"
 
 	// supported input formats

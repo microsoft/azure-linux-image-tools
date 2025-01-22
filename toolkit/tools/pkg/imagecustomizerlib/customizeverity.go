@@ -222,7 +222,7 @@ func systemdFormatPartitionId(configDeviceId string, mountIdType imagecustomizer
 ) (string, error) {
 	partUuid := partIdToPartUuid[configDeviceId]
 
-	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions)
+	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions, "")
 	if err != nil {
 		return "", err
 	}

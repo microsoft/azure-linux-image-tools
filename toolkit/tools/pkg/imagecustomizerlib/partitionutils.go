@@ -69,7 +69,7 @@ func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskuti
 }
 
 func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
-	tmpDir := filepath.Join(buildDir, tmpEspParitionDirName)
+	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
 	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, 0, "", true)
@@ -290,9 +290,10 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 	}
 }
 
-func findSourcePartition(source string, partitions []diskutils.PartitionInfo, buildDir string,
+func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
+	buildDir string,
 ) (string, error) {
-	_, partition, _, err := findExtendedSourcePartitionHelper(source, partitions, buildDir)
+	_, partition, _, err := findSourcePartitionHelper(source, partitions, buildDir)
 	if err != nil {
 		return "", err
 	}
@@ -300,86 +301,90 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo, bu
 	return partition.Path, nil
 }
 
-func findSourcePartitionHelper(source string,
-	partitions []diskutils.PartitionInfo,
+func findSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
+	buildDir string,
 ) (imagecustomizerapi.MountIdentifierType, diskutils.PartitionInfo, int, error) {
-	mountIdType, mountId, err := parseSourcePartition(source)
+	mountIdTypeExt, partition, partitionIndex, err := findExtendedSourcePartitionHelper(source, partitions, buildDir)
 	if err != nil {
 		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
-	partition, partitionIndex, err := findPartition(mountIdType, mountId, partitions)
-	if err != nil {
-		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+	// Convert ExtendedMountIdentifierType to MountIdentifierType
+	var mountIdType imagecustomizerapi.MountIdentifierType
+	switch mountIdTypeExt {
+	case ExtendedMountIdentifierTypeUuid:
+		mountIdType = imagecustomizerapi.MountIdentifierTypeUuid
+	case ExtendedMountIdentifierTypePartUuid:
+		mountIdType = imagecustomizerapi.MountIdentifierTypePartUuid
+	case ExtendedMountIdentifierTypePartLabel:
+		mountIdType = imagecustomizerapi.MountIdentifierTypePartLabel
+	case ExtendedMountIdentifierTypeDev:
+		// Dev type is not supported in MountIdentifierType.
+		// Return the partition, but set MountIdentifierTypeDefault as a placeholder.
+		return imagecustomizerapi.MountIdentifierTypeDefault, partition, partitionIndex, nil
+	default:
+		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, fmt.Errorf("unsupported identifier type: %v", mountIdTypeExt)
 	}
 
 	return mountIdType, partition, partitionIndex, nil
 }
 
+// findExtendedSourcePartitionHelper extends the public func findSourcePartitionHelper to handle additional identifier types.
 func findExtendedSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
 	buildDir string,
-) (imagecustomizerapi.ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
+) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
 	if err != nil {
-		return imagecustomizerapi.ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
 	partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
 	if err != nil {
-		return imagecustomizerapi.ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
 	return mountIdType, partition, partitionIndex, nil
 }
 
 func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
-	partitions []diskutils.PartitionInfo,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) (diskutils.PartitionInfo, int, error) {
-	matchedPartitionIndexes := []int(nil)
-	for i, partition := range partitions {
-		matches := false
-		switch mountIdType {
-		case imagecustomizerapi.MountIdentifierTypeUuid:
-			matches = partition.Uuid == mountId
-		case imagecustomizerapi.MountIdentifierTypePartUuid:
-			matches = partition.PartUuid == mountId
-		case imagecustomizerapi.MountIdentifierTypePartLabel:
-			matches = partition.PartLabel == mountId
-		}
-		if matches {
-			matchedPartitionIndexes = append(matchedPartitionIndexes, i)
-		}
+	// Map MountIdentifierType to ExtendedMountIdentifierType
+	var extendedType ExtendedMountIdentifierType
+	switch mountIdType {
+	case imagecustomizerapi.MountIdentifierTypeUuid:
+		extendedType = ExtendedMountIdentifierTypeUuid
+	case imagecustomizerapi.MountIdentifierTypePartUuid:
+		extendedType = ExtendedMountIdentifierTypePartUuid
+	case imagecustomizerapi.MountIdentifierTypePartLabel:
+		extendedType = ExtendedMountIdentifierTypePartLabel
+	default:
+		return diskutils.PartitionInfo{}, 0, fmt.Errorf("unsupported identifier type: %v", mountIdType)
 	}
 
-	if len(matchedPartitionIndexes) < 1 {
-		err := fmt.Errorf("partition not found (%s=%s)", mountIdType, mountId)
+	partition, partitionIndex, err := findExtendedPartition(extendedType, mountId, partitions, buildDir)
+	if err != nil {
 		return diskutils.PartitionInfo{}, 0, err
 	}
-	if len(matchedPartitionIndexes) > 1 {
-		err := fmt.Errorf("too many matches for partition found (%s=%s)", mountIdType, mountId)
-		return diskutils.PartitionInfo{}, 0, err
-	}
-
-	partitionIndex := matchedPartitionIndexes[0]
-	partition := partitions[partitionIndex]
 
 	return partition, partitionIndex, nil
 }
 
-func findExtendedPartition(mountIdType imagecustomizerapi.ExtendedMountIdentifierType, mountId string,
+// findExtendedPartition extends the public func findPartition to handle additional identifier types.
+func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) (diskutils.PartitionInfo, int, error) {
 	matchedPartitionIndexes := []int(nil)
 	for i, partition := range partitions {
 		matches := false
 		switch mountIdType {
-		case imagecustomizerapi.ExtendedMountIdentifierTypeUuid:
+		case ExtendedMountIdentifierTypeUuid:
 			matches = partition.Uuid == mountId
-		case imagecustomizerapi.ExtendedMountIdentifierTypePartUuid:
+		case ExtendedMountIdentifierTypePartUuid:
 			matches = partition.PartUuid == mountId
-		case imagecustomizerapi.ExtendedMountIdentifierTypePartLabel:
+		case ExtendedMountIdentifierTypePartLabel:
 			matches = partition.PartLabel == mountId
-		case imagecustomizerapi.ExtendedMountIdentifierTypeDev:
+		case ExtendedMountIdentifierTypeDev:
 			matches, err := findExtendedDevPartition(partition, partitions, buildDir)
 			if err != nil {
 				return diskutils.PartitionInfo{}, 0, err
@@ -430,7 +435,7 @@ func findExtendedDevPartition(partition diskutils.PartitionInfo, partitions []di
 	defer bootPartitionMount.Close()
 
 	// Mount ESP partition to check for UKI.
-	tmpDirEsp := filepath.Join(buildDir, tmpEspParitionDirName)
+	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
 	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return false, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
@@ -497,47 +502,49 @@ func checkVerityRootPartUUID(partition diskutils.PartitionInfo, args string) (bo
 }
 
 func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType, string, error) {
-	uuid, isUuid := strings.CutPrefix(source, "UUID=")
-	if isUuid {
-		return imagecustomizerapi.MountIdentifierTypeUuid, uuid, nil
+	extendedType, id, err := parseExtendedSourcePartition(source)
+	if err != nil {
+		return imagecustomizerapi.MountIdentifierTypeDefault, "", err
 	}
 
-	partUuid, isPartUuid := strings.CutPrefix(source, "PARTUUID=")
-	if isPartUuid {
-		return imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, nil
+	// Map ExtendedMountIdentifierType to MountIdentifierType.
+	var mountIdType imagecustomizerapi.MountIdentifierType
+	switch extendedType {
+	case ExtendedMountIdentifierTypeUuid:
+		mountIdType = imagecustomizerapi.MountIdentifierTypeUuid
+	case ExtendedMountIdentifierTypePartUuid:
+		mountIdType = imagecustomizerapi.MountIdentifierTypePartUuid
+	case ExtendedMountIdentifierTypePartLabel:
+		mountIdType = imagecustomizerapi.MountIdentifierTypePartLabel
+	default:
+		return imagecustomizerapi.MountIdentifierTypeDefault, "", fmt.Errorf("unsupported identifier type: %v", extendedType)
 	}
 
-	partLabel, isPartLabel := strings.CutPrefix(source, "PARTLABEL=")
-	if isPartLabel {
-		return imagecustomizerapi.MountIdentifierTypePartLabel, partLabel, nil
-	}
-
-	err := fmt.Errorf("unknown fstab source type (%s)", source)
-	return imagecustomizerapi.MountIdentifierTypeDefault, "", err
+	return mountIdType, id, nil
 }
 
-func parseExtendedSourcePartition(source string) (imagecustomizerapi.ExtendedMountIdentifierType, string, error) {
+func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, string, error) {
 	uuid, isUuid := strings.CutPrefix(source, "UUID=")
 	if isUuid {
-		return imagecustomizerapi.ExtendedMountIdentifierTypeUuid, uuid, nil
+		return ExtendedMountIdentifierTypeUuid, uuid, nil
 	}
 
 	partUuid, isPartUuid := strings.CutPrefix(source, "PARTUUID=")
 	if isPartUuid {
-		return imagecustomizerapi.ExtendedMountIdentifierTypePartUuid, partUuid, nil
+		return ExtendedMountIdentifierTypePartUuid, partUuid, nil
 	}
 
 	partLabel, isPartLabel := strings.CutPrefix(source, "PARTLABEL=")
 	if isPartLabel {
-		return imagecustomizerapi.ExtendedMountIdentifierTypePartLabel, partLabel, nil
+		return ExtendedMountIdentifierTypePartLabel, partLabel, nil
 	}
 
 	if strings.HasPrefix(source, "/dev") {
-		return imagecustomizerapi.ExtendedMountIdentifierTypeDev, source, nil
+		return ExtendedMountIdentifierTypeDev, source, nil
 	}
 
 	err := fmt.Errorf("unknown fstab source type (%s)", source)
-	return imagecustomizerapi.ExtendedMountIdentifierTypeDefault, "", err
+	return ExtendedMountIdentifierTypeDefault, "", err
 }
 
 func findRootMountIdTypeFromFstabFile(imageConnection *ImageConnection,
