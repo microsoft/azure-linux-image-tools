@@ -1,11 +1,15 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-package imagecustomizerapi
+package imagecustomizerlib
 
 import "fmt"
 
 // ExtendedMountIdentifierType indicates how a partition should be identified in the fstab file.
+// This type was introduced to extend the functionality of MountIdentifierType while preserving
+// the original public API structure. MountIdentifierType is part of a public API and cannot be
+// modified to include new identifiers without breaking backward compatibility.
+// ExtendedMountIdentifierType provides additional flexibility for internal use without affecting the public API.
 type ExtendedMountIdentifierType string
 
 const (

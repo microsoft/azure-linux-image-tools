@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
@@ -45,7 +46,8 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 
 		// Append only non-duplicate lines.
 		if len(linesToAppend) > 0 {
-			err = file.AppendLines(linesToAppend, dracutConfigFile)
+			content := strings.Join(linesToAppend, "\n") + "\n"
+			err = file.Append(content, dracutConfigFile)
 			if err != nil {
 				return fmt.Errorf("failed to append to dracut config file (%s):\n%w", dracutConfigFile, err)
 			}
