@@ -52,8 +52,27 @@ customized using Image Customizer.
    ```bash
    DISK_NAME="<disk-name>"
    DISK_RG="<disk-rg>"
+   DISK_LOC="<azure-location>"
 
+   az group create --location "$DISK_LOC" --name "$DISK_RG"
    az disk create -g "$DISK_RG" -n "$DISK_NAME" --image-reference "$IMAGE_URN"
    ```
 
-7. 
+7. Generate SAS URL:
+
+   ```bash
+   SAS_JSON="$(az disk grant-access --duration-in-seconds 86400 --access-level Read --name "$DISK_NAME" --resource-group "$DISK_RG")"
+   SAS_URL="$(jq -r '.accessSas' <<< "$SAS_JSON")"
+   ```
+
+8. Download VHD:
+
+   ```bash
+   az storage blob download -f ./image.vhd --blob-url "$SAS_URL"
+   ```
+
+9. Delete temporary resources:
+
+   ```bash
+   az group delete --name "$DISK_RG" --no-wait
+   ```
