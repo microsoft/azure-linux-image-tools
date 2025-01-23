@@ -3,7 +3,6 @@ package imagecustomizerlib
 import (
 	"archive/tar"
 	"crypto/sha512"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,9 +16,10 @@ import (
 )
 
 type ImageBuildData struct {
-	Source    string
-	KnownInfo outputPartitionMetadata
-	Metadata  *Image
+	Source       string
+	KnownInfo    outputPartitionMetadata
+	Metadata     *Image
+	VeritySource string
 }
 
 func convertToCosi(ic *ImageCustomizerParameters) error {
@@ -41,9 +41,9 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		return err
 	}
 
-	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.imageUuidStr)
+	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata, ic.imageUuidStr)
 	if err != nil {
-		return fmt.Errorf("failed to build COSI:\n%w", err)
+		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", ic.outputImageFile)
@@ -56,45 +56,90 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputPartitionMetadata, imageUuidStr string) error {
+func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata, verityMetadata []verityDeviceMetadata, imageUuidStr string) error {
+
+	// Pre-compute a map for quick lookup of partition metadata by UUID
+	partUuidToMetadata := make(map[string]outputPartitionMetadata)
+	for _, partition := range partitions {
+		partUuidToMetadata[partition.PartUuid] = partition
+	}
+
+	// Pre-compute a set of verity hash UUIDs for quick lookup
+	verityHashUuids := make(map[string]struct{})
+	for _, verity := range verityMetadata {
+		verityHashUuids[verity.hashPartUuid] = struct{}{}
+	}
+
+	imageData := []ImageBuildData{}
+
+	for _, partition := range partitions {
+		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
+		if _, isVerityHash := verityHashUuids[partition.PartUuid]; isVerityHash {
+			continue
+		}
+
+		metadataImage := Image{
+			Image: ImageFile{
+				Path:             path.Join("images", partition.PartitionFilename),
+				UncompressedSize: partition.UncompressedSize,
+			},
+			PartType:   partition.PartitionTypeUuid,
+			MountPoint: partition.Mountpoint,
+			FsType:     partition.FileSystemType,
+			FsUuid:     partition.Uuid,
+		}
+
+		imageDataEntry := ImageBuildData{
+			Source:    path.Join(sourceDir, partition.PartitionFilename),
+			Metadata:  &metadataImage,
+			KnownInfo: partition,
+		}
+
+		// Add Verity metadata if the partition has a matching entry in verityMetadata
+		for _, verity := range verityMetadata {
+			if partition.PartUuid == verity.dataPartUuid {
+				hashPartition, exists := partUuidToMetadata[verity.hashPartUuid]
+				if !exists {
+					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
+				}
+
+				metadataImage.Verity = &Verity{
+					Hash: verity.hash,
+					Image: ImageFile{
+						Path:             path.Join("images", hashPartition.PartitionFilename),
+						UncompressedSize: hashPartition.UncompressedSize,
+					},
+				}
+
+				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)
+				imageDataEntry.VeritySource = veritySourcePath
+				break
+			}
+		}
+
+		imageData = append(imageData, imageDataEntry)
+	}
+
+	// Populate metadata for each image
+	for i := range imageData {
+		err := populateMetadata(&imageData[i])
+		if err != nil {
+			return fmt.Errorf("failed to populate metadata for %s:\n%w", imageData[i].Source, err)
+		}
+
+		logger.Log.Infof("Populated metadata for image %s", imageData[i].Source)
+	}
+
 	metadata := MetadataJson{
 		Version: "1.0",
 		OsArch:  runtime.GOARCH,
 		Id:      imageUuidStr,
-		Images:  make([]Image, len(expectedImages)),
+		Images:  make([]Image, len(imageData)),
 	}
 
-	if len(expectedImages) == 0 {
-		return fmt.Errorf("no images to build")
-	}
-
-	// Create an interim metadata struct to combine the known data with the metadata
-	imageData := make([]ImageBuildData, len(expectedImages))
-	for i, image := range expectedImages {
-		metadata := &metadata.Images[i]
-		imageData[i] = ImageBuildData{
-			Source:    path.Join(sourceDir, image.PartitionFilename),
-			Metadata:  metadata,
-			KnownInfo: image,
-		}
-
-		metadata.Image.Path = path.Join("images", image.PartitionFilename)
-		metadata.PartType = image.PartitionTypeUuid
-		metadata.MountPoint = image.Mountpoint
-		metadata.FsType = image.FileSystemType
-		metadata.FsUuid = image.Uuid
-		metadata.UncompressedSize = image.UncompressedSize
-	}
-
-	// Populate metadata for each image
-	for _, data := range imageData {
-		logger.Log.Infof("Processing image %s", data.Source)
-		err := populateMetadata(data)
-		if err != nil {
-			return fmt.Errorf("failed to populate metadata for %s:\n%w", data.Source, err)
-		}
-
-		logger.Log.Infof("Populated metadata for image %s", data.Source)
+	// Copy updated metadata
+	for i, data := range imageData {
+		metadata.Images[i] = *data.Metadata
 	}
 
 	// Marshal metadata.json
@@ -133,26 +178,43 @@ func buildCosiFile(sourceDir string, outputFile string, expectedImages []outputP
 }
 
 func addToCosi(data ImageBuildData, tw *tar.Writer) error {
-	imageFile, err := os.Open(data.Source)
+	err := addFileToCosi(tw, data.Source, data.Metadata.Image)
 	if err != nil {
-		return fmt.Errorf("failed to open image file:\n%w", err)
+		return fmt.Errorf("failed to add image file to COSI:\n%w", err)
 	}
-	defer imageFile.Close()
+
+	if data.VeritySource != "" && data.Metadata.Verity != nil {
+		err := addFileToCosi(tw, data.VeritySource, data.Metadata.Verity.Image)
+		if err != nil {
+			return fmt.Errorf("failed to add verity file to COSI:\n%w", err)
+		}
+	}
+
+	return nil
+}
+
+func addFileToCosi(tw *tar.Writer, source string, image ImageFile) error {
+	file, err := os.Open(source)
+	if err != nil {
+		return fmt.Errorf("failed to open file :\n%w", err)
+	}
+	defer file.Close()
 
 	err = tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeReg,
-		Name:     data.Metadata.Image.Path,
-		Size:     int64(data.Metadata.Image.CompressedSize),
+		Name:     image.Path,
+		Size:     int64(image.CompressedSize),
 		Mode:     0o400,
 		Format:   tar.FormatPAX,
 	})
+
 	if err != nil {
-		return fmt.Errorf("failed to write tar header:\n%w", err)
+		return fmt.Errorf("failed to write tar header for file '%s':\n%w", image.Path, err)
 	}
 
-	_, err = io.Copy(tw, imageFile)
+	_, err = io.Copy(tw, file)
 	if err != nil {
-		return fmt.Errorf("failed to write image to COSI:\n%w", err)
+		return fmt.Errorf("failed to write image '%s' to COSI:\n%w", image.Path, err)
 	}
 
 	return nil
@@ -172,21 +234,50 @@ func sha384sum(path string) (string, error) {
 	return fmt.Sprintf("%x", sha384.Sum(nil)), nil
 }
 
-func populateMetadata(data ImageBuildData) error {
-	stat, err := os.Stat(data.Source)
+func populateImageFile(source string, imageFile *ImageFile) error {
+	stat, err := os.Stat(source)
 	if err != nil {
-		return fmt.Errorf("filed to stat %s:\n%w", data.Source, err)
+		return fmt.Errorf("failed to stat %s:\n%w", source, err)
 	}
 	if stat.IsDir() {
-		return fmt.Errorf("%s is a directory", data.Source)
+		return fmt.Errorf("%s is a directory", source)
 	}
-	data.Metadata.Image.CompressedSize = uint64(stat.Size())
+	imageFile.CompressedSize = uint64(stat.Size())
 
-	// Calculate the sha384 of the image
-	sha384, err := sha384sum(data.Source)
+	sha384, err := sha384sum(source)
 	if err != nil {
-		return fmt.Errorf("failed to calculate sha384 of %s:\n%w", data.Source, err)
+		return fmt.Errorf("failed to calculate sha384 of %s:\n%w", source, err)
 	}
-	data.Metadata.Image.Sha384 = sha384
+	imageFile.Sha384 = sha384
+
+	return nil
+}
+
+// Enriches the image metadata with size and checksum
+func populateMetadata(data *ImageBuildData) error {
+	if err := populateImageFile(data.Source, &data.Metadata.Image); err != nil {
+		return fmt.Errorf("failed to populate metadata:\n%w", err)
+	}
+
+	if err := populateVerityMetadata(data.VeritySource, data.Metadata.Verity); err != nil {
+		return fmt.Errorf("failed to populate verity metadata:\n%w", err)
+	}
+
+	return nil
+}
+
+func populateVerityMetadata(source string, verity *Verity) error {
+	if source == "" && verity == nil {
+		return nil
+	}
+
+	if source == "" || verity == nil {
+		return fmt.Errorf("verity source and verity metadata must be both defined or both undefined")
+	}
+
+	if err := populateImageFile(source, &verity.Image); err != nil {
+		return fmt.Errorf("failed to populate verity image metadata:\n%w", err)
+	}
+
 	return nil
 }

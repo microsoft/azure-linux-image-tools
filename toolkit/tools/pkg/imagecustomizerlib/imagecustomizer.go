@@ -82,6 +82,14 @@ type ImageCustomizerParameters struct {
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
+
+	verityMetadata []verityDeviceMetadata
+}
+
+type verityDeviceMetadata struct {
+	hash         string
+	dataPartUuid string
+	hashPartUuid string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -396,10 +404,18 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		err = customizeVerityImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, partIdToPartUuid)
+		rootHash, dataPartUuid, roothashPartUuid, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid)
 		if err != nil {
 			return err
 		}
+
+		verityMetadata := verityDeviceMetadata{
+			hash:         rootHash,
+			dataPartUuid: dataPartUuid,
+			hashPartUuid: roothashPartUuid,
+		}
+
+		ic.verityMetadata = append(ic.verityMetadata, verityMetadata)
 	}
 
 	if ic.config.OS.Uki != nil {
@@ -784,20 +800,20 @@ func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.
 	return nil
 }
 
-func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Config,
 	buildImageFile string, partIdToPartUuid map[string]string,
-) error {
+) (string, string, string, error) {
 	var err error
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to connect to image file to provision verity:\n%w", err)
+		return "", "", "", fmt.Errorf("failed to connect to image file to provision verity:\n%w", err)
 	}
 	defer loopback.Close()
 
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 
 	// Verity support is limited to only rootfs at the moment, which is verified in the API validity checks.
@@ -807,85 +823,96 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 	// Extract the partition block device path.
 	dataPartition, err := idToPartitionBlockDevicePath(rootfsVerity.DataDeviceId, diskPartitions, partIdToPartUuid)
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 	hashPartition, err := idToPartitionBlockDevicePath(rootfsVerity.HashDeviceId, diskPartitions, partIdToPartUuid)
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 
 	// Extract root hash using regular expressions.
 	verityOutput, _, err := shell.Execute("veritysetup", "format", dataPartition, hashPartition)
 	if err != nil {
-		return fmt.Errorf("failed to calculate root hash:\n%w", err)
+		return "", "", "", fmt.Errorf("failed to calculate root hash:\n%w", err)
 	}
 
 	var rootHash string
 	rootHashRegex, err := regexp.Compile(`Root hash:\s+([0-9a-fA-F]+)`)
 	if err != nil {
-		// handle the error appropriately, for example:
-		return fmt.Errorf("failed to compile root hash regex: %w", err)
+		return "", "", "", fmt.Errorf("failed to compile root hash regex: %w", err)
 	}
 
 	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
 	if len(rootHashMatches) <= 1 {
-		return fmt.Errorf("failed to parse root hash from veritysetup output")
+		return "", "", "", fmt.Errorf("failed to parse root hash from veritysetup output")
 	}
 	rootHash = rootHashMatches[1]
 
 	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
 	diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		return err
+		return "", "", "", err
+	}
+
+	// Identify the data partition UUID
+	dataPartUuid, ok := partIdToPartUuid[rootfsVerity.DataDeviceId]
+	if !ok {
+		return "", "", "", fmt.Errorf("failed to determine root partition UUID for DataDeviceId: %s", rootfsVerity.DataDeviceId)
+	}
+
+	// Identify the hash partition UUID
+	hashPartUuid, ok := partIdToPartUuid[rootfsVerity.HashDeviceId]
+	if !ok {
+		return "", "", "", fmt.Errorf("failed to find hash partition UUID for HashDeviceId: %s", rootfsVerity.HashDeviceId)
 	}
 
 	systemBootPartition, err := findSystemBootPartition(diskPartitions)
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpParitionDirName)
 	// Temporarily mount the partition.
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
+		return "", "", "", fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
 	if err != nil {
-		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
+		return "", "", "", fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
 		err = updateUkiKernelArgsForVerity(rootfsVerity, rootHash, partIdToPartUuid, diskPartitions, buildDir)
 		if err != nil {
-			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
+			return "", "", "", fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
 		err = updateGrubConfigForVerity(rootfsVerity, rootHash, grubCfgFullPath, partIdToPartUuid, diskPartitions)
 		if err != nil {
-			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
+			return "", "", "", fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}
 	}
 
 	err = bootPartitionMount.CleanClose()
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return err
+		return "", "", "", err
 	}
 
-	return nil
+	return rootHash, dataPartUuid, hashPartUuid, nil
 }
 
 func checkDmVerityEnabled(rawImageFile string) error {

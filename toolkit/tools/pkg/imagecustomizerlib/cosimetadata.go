@@ -9,18 +9,17 @@ type MetadataJson struct {
 }
 
 type Image struct {
-	Image            ImageFile `json:"image"`
-	MountPoint       string    `json:"mountPoint"`
-	FsType           string    `json:"fsType"`
-	FsUuid           string    `json:"fsUuid"`
-	PartType         string    `json:"partType"`
-	Verity           *Verity   `json:"verity"`
-	UncompressedSize uint64    `json:"uncompressedSize"`
+	Image      ImageFile `json:"image"`
+	MountPoint string    `json:"mountPoint"`
+	FsType     string    `json:"fsType"`
+	FsUuid     string    `json:"fsUuid"`
+	PartType   string    `json:"partType"`
+	Verity     *Verity   `json:"verity"`
 }
 
 type Verity struct {
-	Image    ImageFile `json:"image"`
-	Roothash string    `json:"roothash"`
+	Image ImageFile `json:"image"`
+	Hash  string    `json:"hash"`
 }
 
 type ImageFile struct {
