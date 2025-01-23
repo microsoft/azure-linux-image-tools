@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
@@ -167,7 +166,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		}
 
 		// Find the partition.
-		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entires will still
+		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
 		mountIdType, _, partitionIndex, err := findSourcePartitionHelper(fstabEntry.Source, partitions, buildDir)
 		if err != nil {
@@ -177,10 +176,10 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Create a new value for the source.
 		newSource := fstabEntry.Source
 		switch mountIdType {
-		case imagecustomizerapi.MountIdentifierTypeUuid:
+		case ExtendedMountIdentifierTypeUuid:
 			newSource = fmt.Sprintf("UUID=%s", newUuids[partitionIndex])
 
-		case imagecustomizerapi.MountIdentifierTypePartUuid:
+		case ExtendedMountIdentifierTypePartUuid:
 			newSource = fmt.Sprintf("PARTUUID=%s", newPartUuids[partitionIndex])
 		}
 

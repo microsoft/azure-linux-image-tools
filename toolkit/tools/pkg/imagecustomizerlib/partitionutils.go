@@ -303,27 +303,10 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 
 func findSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
 	buildDir string,
-) (imagecustomizerapi.MountIdentifierType, diskutils.PartitionInfo, int, error) {
-	mountIdTypeExt, partition, partitionIndex, err := findExtendedSourcePartitionHelper(source, partitions, buildDir)
+) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
+	mountIdType, partition, partitionIndex, err := findExtendedSourcePartitionHelper(source, partitions, buildDir)
 	if err != nil {
-		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
-	}
-
-	// Convert ExtendedMountIdentifierType to MountIdentifierType
-	var mountIdType imagecustomizerapi.MountIdentifierType
-	switch mountIdTypeExt {
-	case ExtendedMountIdentifierTypeUuid:
-		mountIdType = imagecustomizerapi.MountIdentifierTypeUuid
-	case ExtendedMountIdentifierTypePartUuid:
-		mountIdType = imagecustomizerapi.MountIdentifierTypePartUuid
-	case ExtendedMountIdentifierTypePartLabel:
-		mountIdType = imagecustomizerapi.MountIdentifierTypePartLabel
-	case ExtendedMountIdentifierTypeDev:
-		// Dev type is not supported in MountIdentifierType.
-		// Return the partition, but set MountIdentifierTypeDefault as a placeholder.
-		return imagecustomizerapi.MountIdentifierTypeDefault, partition, partitionIndex, nil
-	default:
-		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, fmt.Errorf("unsupported identifier type: %v", mountIdTypeExt)
+		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
 	return mountIdType, partition, partitionIndex, nil
@@ -374,6 +357,18 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) (diskutils.PartitionInfo, int, error) {
+	var devUuid string
+	if mountIdType == ExtendedMountIdentifierTypeDev {
+		var err error
+		devUuid, err = convertDevToUuid(partitions, buildDir)
+		if err != nil {
+			return diskutils.PartitionInfo{}, 0, err
+		}
+		// Replace the original mountId with the UUID type.
+		mountId = devUuid
+		mountIdType = ExtendedMountIdentifierTypeUuid
+	}
+
 	matchedPartitionIndexes := []int(nil)
 	for i, partition := range partitions {
 		matches := false
@@ -384,14 +379,6 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 			matches = partition.PartUuid == mountId
 		case ExtendedMountIdentifierTypePartLabel:
 			matches = partition.PartLabel == mountId
-		case ExtendedMountIdentifierTypeDev:
-			matches, err := findExtendedDevPartition(partition, partitions, buildDir)
-			if err != nil {
-				return diskutils.PartitionInfo{}, 0, err
-			}
-			if matches {
-				matchedPartitionIndexes = append(matchedPartitionIndexes, i)
-			}
 		}
 		if matches {
 			matchedPartitionIndexes = append(matchedPartitionIndexes, i)
@@ -413,7 +400,25 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 	return partition, partitionIndex, nil
 }
 
-func findExtendedDevPartition(partition diskutils.PartitionInfo, partitions []diskutils.PartitionInfo,
+func convertDevToUuid(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
+	for _, partition := range partitions {
+		matches, err := checkExtendedDevPartition(partition, partitions, buildDir)
+		if err != nil {
+			return "", err
+		}
+		if matches {
+			return partition.Uuid, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find UUID for /dev path")
+}
+
+// checkExtendedDevPartition checks whether a given partition is associated with a verity-enabled root partition.
+// This function is specific to the case where the partition type is "dev" (device path, e.g., /dev/mapper/root).
+// It is an extension of the findExtendedPartition logic and specializes in handling verity partitions,
+// supporting both UKI and non-UKI configurations by validating against the kernel cmdline arguments or grub configuration.
+// Returns true if the partition matches the expected verity configuration, otherwise false.
+func checkExtendedDevPartition(partition diskutils.PartitionInfo, partitions []diskutils.PartitionInfo,
 	buildDir string,
 ) (bool, error) {
 	espPartition, err := findSystemBootPartition(partitions)
@@ -426,17 +431,9 @@ func findExtendedDevPartition(partition diskutils.PartitionInfo, partitions []di
 		return false, err
 	}
 
-	// Temporarily mount the boot partition so that the grub config file can be read.
-	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, 0, "", true)
-	if err != nil {
-		return false, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
-	}
-	defer bootPartitionMount.Close()
-
-	// Mount ESP partition to check for UKI.
+	// Temporarily mount ESP partition to check for UKIs.
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
-	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
+	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return false, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}
@@ -464,6 +461,14 @@ func findExtendedDevPartition(partition diskutils.PartitionInfo, partitions []di
 
 		return checkVerityRootPartUUID(partition, string(cmdlineContent))
 	} else {
+		// Temporarily mount the boot partition so that the grub config file can be read.
+		tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
+		bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
+		if err != nil {
+			return false, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
+		}
+		defer bootPartitionMount.Close()
+
 		grubCfgPath := filepath.Join(tmpDirBoot, "/grub2/grub.cfg")
 		kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
 		if err != nil {
@@ -475,14 +480,14 @@ func findExtendedDevPartition(partition diskutils.PartitionInfo, partitions []di
 				return matches, err
 			}
 		}
+
+		err = bootPartitionMount.CleanClose()
+		if err != nil {
+			return false, fmt.Errorf("failed to close bootPartitionMount: %w", err)
+		}
 	}
 
 	err = espPartitionMount.CleanClose()
-	if err != nil {
-		return false, fmt.Errorf("failed to close bootPartitionMount: %w", err)
-	}
-
-	err = bootPartitionMount.CleanClose()
 	if err != nil {
 		return false, fmt.Errorf("failed to close bootPartitionMount: %w", err)
 	}
