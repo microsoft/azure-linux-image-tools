@@ -169,7 +169,7 @@ func constructVerityKernelCmdlineArgs(rootfsVerity imagecustomizerapi.Verity, ro
 		return nil, err
 	}
 
-	formattedCorruptionOption, err := systemdFormatCorruptionOption(rootfsVerity.CorruptionOption)
+	formattedCorruptionOption, err := SystemdFormatCorruptionOption(rootfsVerity.CorruptionOption)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func systemdFormatPartitionId(configDeviceId string, mountIdType imagecustomizer
 	}
 }
 
-func systemdFormatCorruptionOption(corruptionOption imagecustomizerapi.CorruptionOption) (string, error) {
+func SystemdFormatCorruptionOption(corruptionOption imagecustomizerapi.CorruptionOption) (string, error) {
 	switch corruptionOption {
 	case imagecustomizerapi.CorruptionOptionDefault, imagecustomizerapi.CorruptionOptionIoError:
 		return "", nil
