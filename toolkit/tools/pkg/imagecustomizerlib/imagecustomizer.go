@@ -892,16 +892,20 @@ func customizeVerityImageHelper(buildDir string, baseConfigPath string, config *
 }
 
 func isDmVerityEnabled(rawImageFile string) (bool, error) {
-	logger.Log.Debugf("Check if dm-verity is enabled in base image")
-
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
-		return false, fmt.Errorf("failed to check if dm-verity is enabled in base image:\n%w", err)
+		return false, fmt.Errorf("failed to create a loopback device for checking if dm-verity is enabled on the base image:\n%w", err)
 	}
 	defer loopback.Close()
 
+	var verityEnabled bool
+
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
+		err = loopback.CleanClose()
+		if err != nil {
+			return false, fmt.Errorf("failed to cleanly close loopback device:\n%w", err)
+		}
 		return false, err
 	}
 
@@ -909,7 +913,8 @@ func isDmVerityEnabled(rawImageFile string) (bool, error) {
 		diskPartition := diskPartitions[i]
 
 		if diskPartition.FileSystemType == "DM_verity_hash" {
-			return true, nil
+			verityEnabled = true
+			break
 		}
 	}
 
@@ -918,7 +923,7 @@ func isDmVerityEnabled(rawImageFile string) (bool, error) {
 		return false, fmt.Errorf("failed to cleanly close loopback device:\n%w", err)
 	}
 
-	return false, nil
+	return verityEnabled, nil
 }
 
 func warnOnLowFreeSpace(buildDir string, imageConnection *ImageConnection) {
