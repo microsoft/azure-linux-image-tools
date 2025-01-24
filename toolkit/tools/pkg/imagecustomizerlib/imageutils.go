@@ -21,30 +21,41 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (*ImageConnection, error) {
+) (*ImageConnection, map[string]string, error) {
 	imageConnection := NewImageConnection()
 
-	err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
+	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
 	if err != nil {
 		imageConnection.Close()
-		return nil, err
+		return nil, nil, err
 	}
-	return imageConnection, nil
+	return imageConnection, partUuidToMountPath, nil
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool,
-) error {
+) (map[string]string, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Look for all the partitions on the image.
-	mountPoints, err := findPartitions(buildDir, imageConnection.Loopback().DevicePath())
+	mountPoints, parititons, err := findPartitions(buildDir, imageConnection.Loopback().DevicePath())
 	if err != nil {
-		return fmt.Errorf("failed to find disk partitions:\n%w", err)
+		return nil, fmt.Errorf("failed to find disk partitions:\n%w", err)
+	}
+
+	// Create mapping from partition UUID to mount path
+	partUuidToMountPath := make(map[string]string)
+	for _, mountPoint := range mountPoints {
+		for _, partition := range parititons {
+			if partition.Path == mountPoint.GetSource() {
+				partUuidToMountPath[partition.PartUuid] = mountPoint.GetTarget()
+				break
+			}
+		}
 	}
 
 	// Create chroot environment.
@@ -52,61 +63,61 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 
 	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return partUuidToMountPath, nil
 }
 
 func createNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
-) (map[string]string, error) {
+) (map[string]string, map[string]string, error) {
 	imageConnection := NewImageConnection()
 	defer imageConnection.Close()
 
-	partIdToPartUuid, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
+	partIdToPartUuid, partUuidToMountPath, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
 		buildDir, chrootDirName, installOS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new image:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to create new image:\n%w", err)
 	}
 
 	// Close image.
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return partIdToPartUuid, nil
+	return partIdToPartUuid, partUuidToMountPath, nil
 }
 
 func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConnection, filename string,
 	diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
 	chrootDirName string, installOS installOSFunc,
-) (map[string]string, error) {
+) (map[string]string, map[string]string, error) {
 
 	// Convert config to image config types, so that the imager's utils can be used.
 	imagerDiskConfig, err := diskConfigToImager(diskConfig, fileSystems)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	imagerPartitionSettings, err := partitionSettingsToImager(fileSystems)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Create imager boilerplate.
-	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(targetOs, imageConnection, filename, buildDir,
+	partIdToPartUuid, tmpFstabFile, partUuidToMountPath, err := createImageBoilerplate(targetOs, imageConnection, filename, buildDir,
 		chrootDirName, imagerDiskConfig, imagerPartitionSettings)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Install the OS.
 	err = installOS(imageConnection.Chroot())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Move the fstab file into the image.
@@ -114,10 +125,10 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConn
 
 	err = file.Move(tmpFstabFile, imageFstabFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to move fstab into new image:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to move fstab into new image:\n%w", err)
 	}
 
-	return partIdToPartUuid, nil
+	return partIdToPartUuid, partUuidToMountPath, nil
 }
 
 func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
@@ -164,17 +175,17 @@ func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType i
 func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageConnection, filename string,
 	buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
 	imagerPartitionSettings []configuration.PartitionSetting,
-) (map[string]string, string, error) {
+) (map[string]string, string, map[string]string, error) {
 	// Create raw disk image file.
 	err := diskutils.CreateSparseDisk(filename, imagerDiskConfig.MaxSize, 0o644)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create empty disk file (%s):\n%w", filename, err)
+		return nil, "", nil, fmt.Errorf("failed to create empty disk file (%s):\n%w", filename, err)
 	}
 
 	// Connect raw disk image file.
 	err = imageConnection.ConnectLoopback(filename)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	// Set up partitions.
@@ -182,25 +193,25 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		targetOs, imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{},
 		true /*diskKnownToBeEmpty*/)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
+		return nil, "", nil, fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
 	}
 
 	// Refresh partition entries under /dev.
 	err = refreshPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	// Read the disk partitions.
 	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	// Create mapping from partition ID to partition UUID.
 	partIdToPartUuid, err := createPartIdToPartUuidMap(partIDToDevPathMap, diskPartitions)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	// Create the fstab file.
@@ -210,7 +221,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 	tmpFstabFile := filepath.Join(buildDir, chrootDirName+"_fstab")
 	err = file.RemoveFileIfExists(tmpFstabFile)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
 	mountPointMap, mountPointToFsTypeMap, mountPointToMountArgsMap, _ := installutils.CreateMountPointPartitionMap(
@@ -229,13 +240,24 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		false, /*hidepidEnabled*/
 	)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to write temp fstab file:\n%w", err)
+		return nil, "", nil, fmt.Errorf("failed to write temp fstab file:\n%w", err)
 	}
 
 	// Read back the fstab file.
 	mountPoints, err := findMountsFromFstabFile(tmpFstabFile, diskPartitions)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
+	}
+
+	// Create a mapping from partition UUID to mount path
+	partUuidToMountPath := make(map[string]string)
+	for _, mountPoint := range mountPoints {
+		for _, partition := range diskPartitions {
+			if partition.Path == mountPoint.GetSource() {
+				partUuidToMountPath[partition.PartUuid] = mountPoint.GetTarget()
+				break
+			}
+		}
 	}
 
 	// Create chroot environment.
@@ -243,10 +265,10 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 
 	err = imageConnection.ConnectChroot(imageChrootDir, false, nil, mountPoints, false)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
-	return partIdToPartUuid, tmpFstabFile, nil
+	return partIdToPartUuid, tmpFstabFile, partUuidToMountPath, nil
 }
 
 func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartitions []diskutils.PartitionInfo,

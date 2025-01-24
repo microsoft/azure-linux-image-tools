@@ -30,25 +30,25 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
-func findPartitions(buildDir string, diskDevice string) ([]*safechroot.MountPoint, error) {
+func findPartitions(buildDir string, diskDevice string) ([]*safechroot.MountPoint, []diskutils.PartitionInfo, error) {
 	var err error
 
 	diskPartitions, err := diskutils.GetDiskPartitions(diskDevice)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	rootfsPartition, err := findRootfsPartition(diskPartitions, buildDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
 	mountPoints, err := findMountsFromRootfs(rootfsPartition, diskPartitions, buildDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	return mountPoints, nil
+	return mountPoints, diskPartitions, nil
 }
 
 func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {

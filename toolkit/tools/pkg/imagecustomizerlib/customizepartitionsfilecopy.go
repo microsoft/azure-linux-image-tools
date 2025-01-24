@@ -15,16 +15,16 @@ import (
 
 func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string, newBuildImageFile string,
-) (map[string]string, error) {
-	existingImageConnection, err := connectToExistingImage(buildImageFile, buildDir, "imageroot", false)
+) (map[string]string, map[string]string, error) {
+	existingImageConnection, _, err := connectToExistingImage(buildImageFile, buildDir, "imageroot", false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer existingImageConnection.Close()
 
 	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine target OS of base image:\n%w", err)
+		return nil, nil, fmt.Errorf("failed to determine target OS of base image:\n%w", err)
 	}
 
 	diskConfig := config.Storage.Disks[0]
@@ -33,18 +33,18 @@ func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, co
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := createNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
+	partIdToPartUuid, partUuidToMountPath, err := createNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = existingImageConnection.CleanClose()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return partIdToPartUuid, nil
+	return partIdToPartUuid, partUuidToMountPath, nil
 }
 
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {

@@ -84,6 +84,8 @@ type ImageCustomizerParameters struct {
 	imageUuidStr string
 
 	verityMetadata []verityDeviceMetadata
+
+	partUuidToMountPath map[string]string
 }
 
 type verityDeviceMetadata struct {
@@ -380,19 +382,22 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ic.buildDirAbs,
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, partUuidToMountPath, err := customizePartitions(ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
 	if err != nil {
 		return err
 	}
 	ic.rawImageFile = newRawImageFile
+	ic.partUuidToMountPath = partUuidToMountPath
 
 	// Customize the raw image file.
-	err = customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
+	partUuidToMountPath, err = customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
 		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
 	if err != nil {
 		return err
 	}
+
+	ic.partUuidToMountPath = partUuidToMountPath
 
 	// Shrink the filesystems.
 	if ic.enableShrinkFilesystems {
@@ -713,12 +718,12 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string,
-) error {
+) (map[string]string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToMountPath, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer imageConnection.Close()
 
@@ -738,15 +743,15 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	warnOnLowFreeSpace(buildDir, imageConnection)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return partUuidToMountPath, nil
 }
 
 func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasename string, outputSplitPartitionsFormat string, imageUuid [UuidSize]byte) error {
