@@ -304,18 +304,6 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 func findSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
 	buildDir string,
 ) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
-	mountIdType, partition, partitionIndex, err := findExtendedSourcePartitionHelper(source, partitions, buildDir)
-	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
-	}
-
-	return mountIdType, partition, partitionIndex, nil
-}
-
-// findExtendedSourcePartitionHelper extends the public func findSourcePartitionHelper to handle additional identifier types.
-func findExtendedSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
-	buildDir string,
-) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
 	if err != nil {
 		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
@@ -364,9 +352,8 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 		if err != nil {
 			return diskutils.PartitionInfo{}, 0, err
 		}
-		// Replace the original mountId with the UUID type.
 		mountId = devUuid
-		mountIdType = ExtendedMountIdentifierTypeUuid
+		mountIdType = ExtendedMountIdentifierTypePartUuid
 	}
 
 	matchedPartitionIndexes := []int(nil)
@@ -407,103 +394,111 @@ func convertDevToUuid(partitions []diskutils.PartitionInfo, buildDir string) (st
 			return "", err
 		}
 		if matches {
-			return partition.Uuid, nil
+			return partition.PartUuid, nil
 		}
 	}
-	return "", fmt.Errorf("unable to find UUID for /dev path")
+	return "", fmt.Errorf("unable to find PARTUUID for /dev path")
 }
 
-// checkExtendedDevPartition checks whether a given partition is associated with a verity-enabled root partition.
-// This function is specific to the case where the partition type is "dev" (device path, e.g., /dev/mapper/root).
-// It is an extension of the findExtendedPartition logic and specializes in handling verity partitions,
-// supporting both UKI and non-UKI configurations by validating against the kernel cmdline arguments or grub configuration.
-// Returns true if the partition matches the expected verity configuration, otherwise false.
 func checkExtendedDevPartition(partition diskutils.PartitionInfo, partitions []diskutils.PartitionInfo,
 	buildDir string,
 ) (bool, error) {
-	espPartition, err := findSystemBootPartition(partitions)
+	cmdline, err := extractKernelCmdline(partitions, buildDir)
 	if err != nil {
 		return false, err
+	}
+
+	verityPartUUID, err := extractVerityRootPartUUID(cmdline)
+	if err != nil {
+		return false, err
+	}
+
+	return partition.PartUuid == verityPartUUID, nil
+}
+
+func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
+	espPartition, err := findSystemBootPartition(partitions)
+	if err != nil {
+		return "", fmt.Errorf("failed to find ESP partition: %w", err)
 	}
 
 	bootPartition, err := findBootPartitionFromEsp(espPartition, partitions, buildDir)
 	if err != nil {
-		return false, err
+		return "", fmt.Errorf("failed to find boot partition: %w", err)
 	}
 
-	// Temporarily mount ESP partition to check for UKIs.
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
 	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return false, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
+		return "", fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}
 	defer espPartitionMount.Close()
 
-	// Check if there is any UKI images.
 	espLinuxPath := filepath.Join(tmpDirEsp, UkiOutputDir)
 	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
 	if err != nil {
-		return false, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+		return "", fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
 	}
 
 	if len(ukiFiles) > 0 {
-		// Dump kernel cmdline args from an UKI.
 		cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
 		_, _, err := shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFiles[0])
 		if err != nil {
-			return false, fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
+			return "", fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
 		}
 
 		cmdlineContent, err := os.ReadFile(cmdlinePath)
 		if err != nil {
-			return false, fmt.Errorf("failed to read kernel cmdline args from dumped file: %w", err)
+			return "", fmt.Errorf("failed to read kernel cmdline args from dumped file:\n%w", err)
 		}
 
-		return checkVerityRootPartUUID(partition, string(cmdlineContent))
-	} else {
-		// Temporarily mount the boot partition so that the grub config file can be read.
-		tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
-		bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
+		err = espPartitionMount.CleanClose()
 		if err != nil {
-			return false, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
-		}
-		defer bootPartitionMount.Close()
-
-		grubCfgPath := filepath.Join(tmpDirBoot, "/grub2/grub.cfg")
-		kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
-		if err != nil {
-			return false, fmt.Errorf("failed to extract kernel arguments from grub.cfg: %w", err)
+			return "", fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 		}
 
-		for _, args := range kernelToArgs {
-			if matches, err := checkVerityRootPartUUID(partition, args); matches || err != nil {
-				return matches, err
-			}
-		}
+		return string(cmdlineContent), nil
+	}
 
-		err = bootPartitionMount.CleanClose()
-		if err != nil {
-			return false, fmt.Errorf("failed to close bootPartitionMount: %w", err)
-		}
+	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
+	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	if err != nil {
+		return "", fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
+	}
+	defer bootPartitionMount.Close()
+
+	grubCfgPath := filepath.Join(tmpDirBoot, "/grub2/grub.cfg")
+	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+	}
+
+	var combinedArgs []string
+	for _, args := range kernelToArgs {
+		combinedArgs = append(combinedArgs, args)
+	}
+
+	err = bootPartitionMount.CleanClose()
+	if err != nil {
+		return "", fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
 	err = espPartitionMount.CleanClose()
 	if err != nil {
-		return false, fmt.Errorf("failed to close bootPartitionMount: %w", err)
+		return "", fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
-	return false, nil
+	return strings.Join(combinedArgs, " "), nil
 }
 
-func checkVerityRootPartUUID(partition diskutils.PartitionInfo, args string) (bool, error) {
-	argsParts := strings.Split(args, " ")
+func extractVerityRootPartUUID(cmdline string) (string, error) {
+	argsParts := strings.Split(cmdline, " ")
 	for _, part := range argsParts {
 		if strings.HasPrefix(part, "systemd.verity_root_data=PARTUUID=") {
-			extractedMountId := strings.TrimPrefix(part, "systemd.verity_root_data=PARTUUID=")
-			return partition.PartUuid == extractedMountId, nil
+			return strings.TrimPrefix(part, "systemd.verity_root_data=PARTUUID="), nil
 		}
 	}
-	return false, nil
+	return "", fmt.Errorf("no verity root PARTUUID found in kernel command-line")
 }
 
 func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType, string, error) {
