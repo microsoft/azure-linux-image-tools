@@ -73,7 +73,7 @@ func (b FileCopyBuilder) Run() (err error) {
 		}
 	}
 
-	err = createDestinationDir(b.Dst, b.DirFileMode)
+	err = CreateDestinationDir(b.Dst, b.DirFileMode)
 	if err != nil {
 		return fmt.Errorf("failed to create destination directory (%s):\n%w", b.Dst, err)
 	}

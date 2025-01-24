@@ -1,3 +1,8 @@
+---
+title: Download Marketplace Image
+parent: How To
+---
+
 # Download Azure Linux Marketplace Image
 
 This is a guide on how to download a marketplace image from Azure so that it can be
