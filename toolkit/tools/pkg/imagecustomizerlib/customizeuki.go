@@ -290,7 +290,7 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		return err
 	}
 
-	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspParitionDirName)
+	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount esp partition (%s):\n%w", bootPartition.Path, err)
