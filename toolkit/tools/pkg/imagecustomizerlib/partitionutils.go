@@ -30,13 +30,8 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
-func findPartitions(buildDir string, diskDevice string) ([]*safechroot.MountPoint, error) {
+func findPartitions(buildDir string, diskPartitions []diskutils.PartitionInfo) ([]*safechroot.MountPoint, error) {
 	var err error
-
-	diskPartitions, err := diskutils.GetDiskPartitions(diskDevice)
-	if err != nil {
-		return nil, err
-	}
 
 	rootfsPartition, err := findRootfsPartition(diskPartitions, buildDir)
 	if err != nil {
