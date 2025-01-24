@@ -21,41 +21,49 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (*ImageConnection, error) {
+) (*ImageConnection, map[string]string, error) {
 	imageConnection := NewImageConnection()
 
-	err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
+	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
 	if err != nil {
 		imageConnection.Close()
-		return nil, err
+		return nil, nil, err
 	}
-	return imageConnection, nil
+	return imageConnection, partUuidToMountPath, nil
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool,
-) error {
+) (map[string]string, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	if err != nil {
+		return nil, err
 	}
 
 	// Look for all the partitions on the image.
-	mountPoints, err := findPartitions(buildDir, imageConnection.Loopback().DevicePath())
+	mountPoints, err := findPartitions(buildDir, partitions)
 	if err != nil {
-		return fmt.Errorf("failed to find disk partitions:\n%w", err)
+		return nil, fmt.Errorf("failed to find disk partitions:\n%w", err)
 	}
+
+	// Create mapping from partition UUID to mount path
+	partUuidToMountPath := createPartUuidToMountPathMap(partitions, mountPoints)
 
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
 
 	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return partUuidToMountPath, nil
 }
 
 func createNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
@@ -264,4 +272,18 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 	}
 
 	return partIdToPartUuid, nil
+}
+
+func createPartUuidToMountPathMap(partitions []diskutils.PartitionInfo, mountPoints []*safechroot.MountPoint,
+) map[string]string {
+	partUuidToMountPath := make(map[string]string)
+	for _, mountPoint := range mountPoints {
+		for _, partition := range partitions {
+			if partition.Path == mountPoint.GetSource() {
+				partUuidToMountPath[partition.PartUuid] = mountPoint.GetTarget()
+				break
+			}
+		}
+	}
+	return partUuidToMountPath
 }

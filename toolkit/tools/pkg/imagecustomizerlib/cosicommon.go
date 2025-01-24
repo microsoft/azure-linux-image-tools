@@ -36,12 +36,14 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	}
 	defer imageLoopback.Close()
 
-	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase, "raw-zst", ic.imageUuid)
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase,
+		"raw-zst", ic.imageUuid)
 	if err != nil {
 		return err
 	}
 
-	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata, ic.imageUuidStr)
+	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata, ic.partUuidToMountPath,
+		ic.imageUuidStr)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
@@ -56,8 +58,9 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata, verityMetadata []verityDeviceMetadata, imageUuidStr string) error {
-
+func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
+	verityMetadata []verityDeviceMetadata, partUuidToMountPath map[string]string, imageUuidStr string,
+) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
 	for _, partition := range partitions {
@@ -84,7 +87,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 				UncompressedSize: partition.UncompressedSize,
 			},
 			PartType:   partition.PartitionTypeUuid,
-			MountPoint: partition.Mountpoint,
+			MountPoint: partUuidToMountPath[partition.PartUuid],
 			FsType:     partition.FileSystemType,
 			FsUuid:     partition.Uuid,
 		}

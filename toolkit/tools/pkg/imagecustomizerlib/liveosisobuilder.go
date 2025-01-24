@@ -1071,7 +1071,7 @@ func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePa
 	logger.Log.Infof("Preparing iso artifacts")
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
-	rawImageConnection, err := connectToExistingImage(rawImageFile, b.workingDirs.isoBuildDir, "readonly-rootfs-mount", false /*includeDefaultMounts*/)
+	rawImageConnection, _, err := connectToExistingImage(rawImageFile, b.workingDirs.isoBuildDir, "readonly-rootfs-mount", false /*includeDefaultMounts*/)
 	if err != nil {
 		return err
 	}
