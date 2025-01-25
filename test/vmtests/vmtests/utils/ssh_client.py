@@ -4,6 +4,7 @@
 import logging
 import shlex
 import time
+from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from threading import Thread
@@ -11,7 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from paramiko import AutoAddPolicy, SSHClient
 from paramiko.channel import ChannelFile, ChannelStderrFile
-
+from paramiko.ssh_exception import NoValidConnectionsError, SSHException
 
 # The result of a SSH process execution.
 class SshExecutableResult:
@@ -164,6 +165,7 @@ class SshClient:
         key_path: Optional[Path] = None,
         gateway: "Optional[SshClient]" = None,
         known_hosts_path: Optional[Path] = None,
+        time_out_in_seconds: int = 60,
     ) -> None:
         self.ssh_client: SSHClient
 
@@ -187,7 +189,19 @@ class SshClient:
         key_filename = None if key_path is None else str(key_path.absolute())
 
         # Open SSH connection.
-        self.ssh_client.connect(hostname=hostname, port=port, username=username, key_filename=key_filename, sock=sock)
+        start_time = datetime.now()
+        while True:
+            try:
+                self.ssh_client.connect(hostname=hostname, port=port, username=username, key_filename=key_filename, sock=sock)
+                break
+            except (NoValidConnectionsError, SSHException) as e:
+                delta_time = datetime.now() - start_time
+                if delta_time.total_seconds() > time_out_in_seconds:
+                    raise Exception(f"Error connecting to {hostname}: {e}")
+            except Exception as e:
+                raise Exception(f"Error connecting to {hostname}: {e}")
+            time.sleep(10)
+
 
     def close(self) -> None:
         self.ssh_client.close()
