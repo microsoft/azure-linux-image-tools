@@ -16,7 +16,7 @@ TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
 
-IMAGE_CUSTOMIZER_CONTAINER_TAG=imagecustomizer:dev
+IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
 SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
 
@@ -62,11 +62,25 @@ ${IMAGE_CUSTOMIZER_BIN}:
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-mic-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
 
+.PHONY: test
+test:
+	${PYTEST} \
+		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+		--input-image="${INPUT_IMAGE}" \
+		--output-format="${OUTPUT_FORMAT}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		./vmtests
+
 .PHONY: run
 run: image-customizer-container
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--core-efi-azl2="${CORE_EFI_AZL2}" \
+		--input-image="${INPUT_IMAGE}" \
+		--output-format="${OUTPUT_FORMAT}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \

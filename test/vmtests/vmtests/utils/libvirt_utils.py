@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import xml.etree.ElementTree as ET  # noqa: N817
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -15,7 +16,7 @@ class VmSpec:
 
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
+def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> str:
     domain = ET.Element("domain")
     domain.attrib["type"] = "kvm"
 
@@ -30,14 +31,25 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    os_tag.attrib["firmware"] = "efi"
+    if boot_type == "efi" and host_os == "Ubuntu":
+        os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    firmware = ET.SubElement(domain, "firmware")
-    firmware.attrib["secure-boot"] = "yes"
-    firmware.attrib["enrolled-keys"] = "yes"
+    if boot_type == "efi" and host_os == "Ubuntu":
+        firmware = ET.SubElement(domain, "firmware")
+        firmware.attrib["secure-boot"] = "yes"
+        firmware.attrib["enrolled-keys"] = "yes"
+
+    nvram = ET.SubElement(os_tag, "nvram")
+
+    if boot_type == "efi":
+        loader = ET.SubElement(os_tag, "loader")
+        loader.attrib["readonly"] = "yes"
+        loader.attrib["secure"] = "no"
+        loader.attrib["type"] = "pflash"
+        loader.text = "/usr/share/OVMF/OVMF_CODE.fd"
 
     features = ET.SubElement(domain, "features")
 
@@ -82,10 +94,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     video = ET.SubElement(devices, "video")
 
     video_model = ET.SubElement(video, "model")
-    video_model.attrib["type"] = "qxl"
-
-    graphics = ET.SubElement(devices, "graphics")
-    graphics.attrib["type"] = "spice"
+    video_model.attrib["type"] = "vga"
 
     network_interface = ET.SubElement(devices, "interface")
     network_interface.attrib["type"] = "network"
@@ -97,14 +106,24 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     network_interface_model.attrib["type"] = "virtio"
 
     next_disk_indexes: Dict[str, int] = {}
-    _add_disk_xml(
-        devices,
-        str(vm_spec.os_disk_path),
-        "disk",
-        "qcow2",
-        "virtio",
-        next_disk_indexes,
-    )
+
+    _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
+    if os_disk_ext.lower() != ".iso":
+        _add_disk_xml(
+            devices,
+            str(vm_spec.os_disk_path),
+            "disk",
+            "qcow2",
+            "virtio",
+            next_disk_indexes,
+        )
+    else:
+        _add_iso_xml(
+            devices,
+            str(vm_spec.os_disk_path),
+            "ide",
+            next_disk_indexes,
+        )
 
     xml = ET.tostring(domain, "unicode")
     return xml
@@ -136,21 +155,57 @@ def _add_disk_xml(
     disk_source = ET.SubElement(disk, "source")
     disk_source.attrib["file"] = file_path
 
+# Adds a disk to a libvirt domain XML document.
+def _add_iso_xml(
+    devices: ET.Element,
+    file_path: str,
+    bus_type: str,
+    next_disk_indexes: Dict[str, int],
+) -> None:
+    device_name = "hda"
+
+    disk = ET.SubElement(devices, "disk")
+    disk.attrib["type"] = "file"
+    disk.attrib["device"] = "cdrom"
+
+    disk_driver = ET.SubElement(disk, "driver")
+    disk_driver.attrib["name"] = "qemu"
+    disk_driver.attrib["type"] = "raw"
+
+    disk_target = ET.SubElement(disk, "target")
+    disk_target.attrib["dev"] = device_name
+    disk_target.attrib["bus"] = bus_type
+
+    disk_source = ET.SubElement(disk, "source")
+    disk_source.attrib["file"] = file_path
+    disk_source.attrib["index"] = "1"
+
+    disk_readonly = ET.SubElement(disk, "readonly")
+
+    disk_alias = ET.SubElement(disk, "alias")
+    disk_alias.attrib["name"] = "ide0-0-0"
+
+    disk_address = ET.SubElement(disk, "address")
+    disk_address.attrib["type"] = "drive"
+    disk_address.attrib["controller"] = "0"
+    disk_address.attrib["bus"] = "0"
+    disk_address.attrib["target"] = "0"
+    disk_address.attrib["unit"] = "0"
 
 def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str:
     disk_index = next_disk_indexes.get(prefix, 0)
     next_disk_indexes[prefix] = disk_index + 1
 
-    match prefix:
-        case "vd" | "sd":
-            # The disk device name is required to follow the standard Linux device naming
-            # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
-            # unlikely that someone will ever need more than 26 disks. So, keep it simple
-            # for now.
-            if disk_index < 0 or disk_index > 25:
-                raise Exception(f"Unsupported disk index: {disk_index}.")
-            suffix = chr(ord("a") + disk_index)
-            return f"{prefix}{suffix}"
-
-        case _:
-            return f"{prefix}{disk_index}"
+    # cannot use python's 'match' because Azure Linux 2.0 has an older version
+    # of python that does not support it.
+    if prefix in ("vd", "sd"):
+        # The disk device name is required to follow the standard Linux device naming
+        # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
+        # unlikely that someone will ever need more than 26 disks. So, keep it simple
+        # for now.
+        if disk_index < 0 or disk_index > 25:
+            raise Exception(f"Unsupported disk index: {disk_index}.")
+        suffix = chr(ord("a") + disk_index)
+        return f"{prefix}{suffix}"
+    else:
+        return f"{prefix}{disk_index}"
