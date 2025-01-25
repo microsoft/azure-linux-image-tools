@@ -259,7 +259,7 @@ func TestCustomizeImageLiveCd2(t *testing.T) {
 
 	// Check that a.txt is in the squashfs file.
 	aOrigPath := filepath.Join(testDir, "files/a.txt")
-	aIsoPath := filepath.Join(squashfsMountDir, "a.txt")
+	aIsoPath := filepath.Join(squashfsMountDir, "/mnt/a/a.txt")
 	verifyFileContentsSame(t, aOrigPath, aIsoPath)
 }
 
