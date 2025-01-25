@@ -73,3 +73,15 @@ run: image-customizer-container
 		--show-capture=all \
 		--tb=short \
 		./vmtests
+
+.PHONY: run3
+run3: image-customizer-container
+	${PYTEST} \
+		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+		--core-efi-azl3="${CORE_EFI_AZL3}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		./vmtests

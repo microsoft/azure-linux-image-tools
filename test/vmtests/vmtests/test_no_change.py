@@ -22,6 +22,7 @@ def test_no_change(
     docker_client: DockerClient,
     image_customizer_container_url: str,
     core_efi_azl2: Path,
+    core_efi_azl3: Path,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -34,12 +35,21 @@ def test_no_change(
     output_image_path = test_temp_dir.joinpath("image.qcow2")
     diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
 
+    print(f"---- debug ---- core_efi_azl2:({core_efi_azl2.absolute()})")
+    print(f"---- debug ---- core_efi_azl2:({core_efi_azl2.name})")
+    print(f"---- debug ---- core_efi_azl3:({core_efi_azl3.absolute()})")
+    print(f"---- debug ---- core_efi_azl3:({core_efi_azl3.name})")
+    core_efi_azlx = core_efi_azl2
+    if core_efi_azl2.name == "":
+        core_efi_azlx = core_efi_azl3
+    print(f"---- debug ---- core_efi_azlx:({core_efi_azlx.absolute()})")
+
     username = getuser()
 
     run_image_customizer(
         docker_client,
         image_customizer_container_url,
-        core_efi_azl2,
+        core_efi_azlx,
         config_path,
         username,
         ssh_public_key,
@@ -54,6 +64,8 @@ def test_no_change(
         ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
     ).check_exit_code()
 
+    print("---- debug ---- [1] creating the VM")
+
     # Ensure VM can write to the disk file.
     os.chmod(diff_image_path, 0o666)
 
@@ -61,20 +73,31 @@ def test_no_change(
     vm_name = test_instance_name
     domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, diff_image_path))
 
+    print("---- debug ---- [2]")
+
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
+
+    print("---- debug ---- [3] starting the VM")
 
     # Start VM.
     vm.start()
 
+    print("---- debug ---- [4] getting its ip address")
+
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    vm_ip_address = vm.get_vm_ip_address(timeout=30)
+    vm_ip_address = vm.get_vm_ip_address(timeout=60)
+
+    print("---- debug ---- [5] got the ip address - now connecting using ssh")
 
     # Connect to VM using SSH.
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
     open(ssh_known_hosts_path, "w").close()
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+
+        print("---- debug ---- [6] connected using ssh - running commands")
+
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
         os_release_path = test_temp_dir.joinpath("os-release")
@@ -83,5 +106,7 @@ def test_no_change(
         with open(os_release_path, "r") as os_release_fd:
             os_release_text = os_release_fd.read()
 
-            assert "ID=mariner" in os_release_text
-            assert 'VERSION_ID="2.0"' in os_release_text
+            assert "ID=azurelinux" in os_release_text
+            assert 'VERSION_ID="3.0"' in os_release_text
+
+    print("---- debug ---- [7] test completed")

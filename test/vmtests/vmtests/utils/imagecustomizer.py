@@ -42,6 +42,11 @@ def run_image_customizer(
     modified_config_path = add_ssh_to_config(config_path, ssh_username, ssh_public_key, close_list)
 
     container_base_image_path = container_base_image_dir.joinpath(base_image_path.name)
+
+    print("---- debug ---- base_image_path.         :", base_image_path)
+    print("---- debug ---- base_image_path.name     :", base_image_path.name)
+    print("---- debug ---- container_base_image_path:", container_base_image_path)
+
     container_config_path = container_config_dir.joinpath(modified_config_path.name)
     container_output_image_path = container_output_image_dir.joinpath(output_image_path.name)
 
