@@ -56,7 +56,7 @@ customized using Image Customizer.
 
    ```bash
    DISK_NAME="<disk-name>"
-   DISK_RG="<disk-rg>"
+   DISK_RG="<disk-resource-group-name>"
    DISK_LOC="<azure-location>"
 
    az group create --location "$DISK_LOC" --name "$DISK_RG"
@@ -81,3 +81,7 @@ customized using Image Customizer.
    ```bash
    az group delete --name "$DISK_RG" --no-wait
    ```
+
+## Helpful links
+
+- [Download a Linux VHD from Azure](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/download-vhd?tabs=azure-cli)

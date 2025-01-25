@@ -8,6 +8,22 @@ parent: How To
 This guide shows you how to customize a marketplace Azure Linux image to include a
 simple HTTP application written in Python and then deploy it to Azure as a VM.
 
+## Words of caution
+
+This is intended as an example only.
+
+In general, for web applications, it is better to use a dedicated hosting service like
+[Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/overview),
+[Azure Container Apps](https://learn.microsoft.com/en-us/azure/container-apps/), or
+[Azure Kubernetes Service](https://learn.microsoft.com/en-us/azure/aks/what-is-aks)
+than managing the VMs directly.
+
+In addition, it is a good idea to stick both a load balancer (e.g.
+[Azure Application Gateway](https://learn.microsoft.com/en-us/azure/application-gateway/overview))
+and a CDN (Content Delivery Network) (e.g.
+[Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview))
+in front of any HTTP endpoints.
+
 ## Steps
 
 1. Create a directory to stage all the build artifacts:
@@ -111,7 +127,7 @@ simple HTTP application written in Python and then deploy it to Azure as a VM.
 5. Run Image Customizer to create the new image:
 
    ```bash
-   IMG_CUSTOMIZER_TAG="mcr.microsoft.com/azurelinux/imagecustomizer:0.9.0"
+   IMG_CUSTOMIZER_TAG="mcr.microsoft.com/azurelinux/imagecustomizer:0.10.0"
    docker run \
      --rm \
      --privileged=true \
@@ -126,3 +142,26 @@ simple HTTP application written in Python and then deploy it to Azure as a VM.
        --output-image-file "/mnt/staging/out/image.vhd" \
        --log-level debug
    ```
+
+6. Create disk in Azure.
+
+   ```bash
+   LOCAL_DISK_PATH="$STAGE_DIR/out/image.vhd"
+   DISK_SIZE="$(stat -c "$LOCAL_DISK_PATH")"
+
+   DISK_NAME="<disk-name>"
+   DISK_RG="<disk-resource-group-name>"
+   DISK_LOC="<azure-location>"
+
+   az group create --location "$DISK_LOC" --name "$DISK_RG"
+   az disk create -n "$DISK_NAME" -g "$DISK_RG" --sku standard_lrs --os-type Linux \
+     --hyper-v-generation 2 --for-upload --upload-size-bytes "$DISK_SIZE"
+   ```
+
+7. Upload new VHD to Azure.
+
+
+
+## Helpful links
+
+- [Upload a VHD to Azure - Azure CLI](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/disks-upload-vhd-to-managed-disk-cli)
