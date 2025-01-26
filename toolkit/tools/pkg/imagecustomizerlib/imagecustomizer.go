@@ -928,14 +928,10 @@ func isDmVerityEnabled(rawImageFile string) (bool, error) {
 	}
 	defer loopback.Close()
 
-	var verityEnabled bool
+	verityEnabled := False
 
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		err = loopback.CleanClose()
-		if err != nil {
-			return false, fmt.Errorf("failed to cleanly close loopback device:\n%w", err)
-		}
 		return false, err
 	}
 

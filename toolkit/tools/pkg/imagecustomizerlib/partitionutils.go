@@ -345,14 +345,14 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) (diskutils.PartitionInfo, int, error) {
-	var devUuid string
+	var devPartUuid string
 	if mountIdType == ExtendedMountIdentifierTypeDev {
 		var err error
-		devUuid, err = convertDevToUuid(partitions, buildDir)
+		devPartUuid, err = convertDevToPartUuid(partitions, buildDir)
 		if err != nil {
 			return diskutils.PartitionInfo{}, 0, err
 		}
-		mountId = devUuid
+		mountId = devPartUuid
 		mountIdType = ExtendedMountIdentifierTypePartUuid
 	}
 
@@ -387,7 +387,7 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 	return partition, partitionIndex, nil
 }
 
-func convertDevToUuid(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
+func convertDevToPartUuid(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
 	for _, partition := range partitions {
 		matches, err := checkExtendedDevPartition(partition, partitions, buildDir)
 		if err != nil {
@@ -408,12 +408,21 @@ func checkExtendedDevPartition(partition diskutils.PartitionInfo, partitions []d
 		return false, err
 	}
 
-	verityPartUUID, err := extractVerityRootPartUUID(cmdline)
+	mountIdType, verityPartitionId, err := extractVerityRootPartitionId(cmdline)
 	if err != nil {
 		return false, err
 	}
 
-	return partition.PartUuid == verityPartUUID, nil
+	switch mountIdType {
+	case ExtendedMountIdentifierTypePartUuid:
+		return partition.PartUuid == verityPartitionId, nil
+	case ExtendedMountIdentifierTypePartLabel:
+		return partition.PartLabel == verityPartitionId, nil
+	case ExtendedMountIdentifierTypeUuid:
+		return partition.Uuid == verityPartitionId, nil
+	default:
+		return false, fmt.Errorf("unsupported mount identifier type: (%s)", mountIdType)
+	}
 }
 
 func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
@@ -454,7 +463,7 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 
 		err = espPartitionMount.CleanClose()
 		if err != nil {
-			return "", fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
+			return "", fmt.Errorf("failed to close espPartitionMount:\n%w", err)
 		}
 
 		return string(cmdlineContent), nil
@@ -485,20 +494,36 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 
 	err = espPartitionMount.CleanClose()
 	if err != nil {
-		return "", fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
+		return "", fmt.Errorf("failed to close espPartitionMount:\n%w", err)
 	}
 
 	return strings.Join(combinedArgs, " "), nil
 }
 
-func extractVerityRootPartUUID(cmdline string) (string, error) {
+func extractVerityRootPartitionId(cmdline string) (ExtendedMountIdentifierType, string, error) {
 	argsParts := strings.Split(cmdline, " ")
 	for _, part := range argsParts {
-		if strings.HasPrefix(part, "systemd.verity_root_data=PARTUUID=") {
-			return strings.TrimPrefix(part, "systemd.verity_root_data=PARTUUID="), nil
+		if strings.HasPrefix(part, "systemd.verity_root_data=") {
+			identifier := strings.TrimPrefix(part, "systemd.verity_root_data=")
+
+			key, value, found := strings.Cut(identifier, "=")
+			if !found {
+				return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("invalid identifier format in kernel cmdline: %s", identifier)
+			}
+
+			switch key {
+			case "PARTUUID":
+				return ExtendedMountIdentifierTypePartUuid, value, nil
+			case "PARTLABEL":
+				return ExtendedMountIdentifierTypePartLabel, value, nil
+			case "UUID":
+				return ExtendedMountIdentifierTypeUuid, value, nil
+			default:
+				return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("unsupported identifier type in kernel cmdline: %s", identifier)
+			}
 		}
 	}
-	return "", fmt.Errorf("no verity root PARTUUID found in kernel command-line")
+	return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity root identifier found in kernel command-line")
 }
 
 func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType, string, error) {
