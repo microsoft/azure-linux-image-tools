@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -437,36 +438,17 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 	}
 
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
-	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return "", fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}
 	defer espPartitionMount.Close()
 
-	espLinuxPath := filepath.Join(tmpDirEsp, UkiOutputDir)
-	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
-	if err != nil {
-		return "", fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
-	}
-
-	if len(ukiFiles) > 0 {
-		cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
-		_, _, err := shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFiles[0])
-		if err != nil {
-			return "", fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
-		}
-
-		cmdlineContent, err := os.ReadFile(cmdlinePath)
-		if err != nil {
-			return "", fmt.Errorf("failed to read kernel cmdline args from dumped file:\n%w", err)
-		}
-
-		err = espPartitionMount.CleanClose()
-		if err != nil {
-			return "", fmt.Errorf("failed to close espPartitionMount:\n%w", err)
-		}
-
-		return string(cmdlineContent), nil
+	cmdline, err := extractKernelCmdlineFromUki(tmpDirEsp, buildDir)
+	if err == nil {
+		return cmdline, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
 	}
 
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
@@ -476,15 +458,9 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgPath := filepath.Join(tmpDirBoot, "/grub2/grub.cfg")
-	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
+	cmdline, err = extractKernelCmdlineFromGrub(tmpDirBoot)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
-	}
-
-	var combinedArgs []string
-	for _, args := range kernelToArgs {
-		combinedArgs = append(combinedArgs, args)
 	}
 
 	err = bootPartitionMount.CleanClose()
@@ -497,7 +473,46 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 		return "", fmt.Errorf("failed to close espPartitionMount:\n%w", err)
 	}
 
-	return strings.Join(combinedArgs, " "), nil
+	return cmdline, nil
+}
+
+func extractKernelCmdlineFromUki(tmpDirEsp, buildDir string) (string, error) {
+	espLinuxPath := filepath.Join(tmpDirEsp, UkiOutputDir)
+	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
+	if err != nil {
+		return "", fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+	}
+
+	if len(ukiFiles) == 0 {
+		return "", os.ErrNotExist
+	}
+
+	cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
+	_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFiles[0])
+	if err != nil {
+		return "", fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
+	}
+
+	cmdlineContent, err := os.ReadFile(cmdlinePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file:\n%w", err)
+	}
+
+	return string(cmdlineContent), nil
+}
+
+func extractKernelCmdlineFromGrub(tmpDirBoot string) (string, error) {
+	grubCfgPath := filepath.Join(tmpDirBoot, "/grub2/grub.cfg")
+	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
+	if err != nil {
+		return "", err
+	}
+
+	for _, args := range kernelToArgs {
+		return args, nil
+	}
+
+	return "", fmt.Errorf("no kernel arguments found in grub.cfg")
 }
 
 func extractVerityRootPartitionId(cmdline string) (ExtendedMountIdentifierType, string, error) {

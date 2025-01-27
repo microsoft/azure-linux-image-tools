@@ -378,7 +378,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if err != nil {
 		return err
 	}
-	if verityEnabled && len(ic.config.Storage.Verity) == 0 {
+	if verityEnabled && !ic.customizeOSPartitions {
 		return fmt.Errorf("dm-verity is enabled on the base image. To customize a verity-enabled base image, the verity section must be reconfigured.")
 	}
 
@@ -928,7 +928,7 @@ func isDmVerityEnabled(rawImageFile string) (bool, error) {
 	}
 	defer loopback.Close()
 
-	verityEnabled := False
+	verityEnabled := false
 
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
