@@ -3,8 +3,6 @@
 
 package imagecustomizerlib
 
-import "fmt"
-
 // ExtendedMountIdentifierType indicates how a partition should be identified in the fstab file.
 // This type was introduced to extend the functionality of MountIdentifierType while preserving
 // the original public API structure. MountIdentifierType is part of a public API and cannot be

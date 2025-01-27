@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/grub"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
@@ -426,21 +427,21 @@ func checkExtendedDevPartition(partition diskutils.PartitionInfo, partitions []d
 	}
 }
 
-func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
+func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) ([]grubConfigLinuxArg, error) {
 	espPartition, err := findSystemBootPartition(partitions)
 	if err != nil {
-		return "", fmt.Errorf("failed to find ESP partition: %w", err)
+		return nil, fmt.Errorf("failed to find ESP partition: %w", err)
 	}
 
 	bootPartition, err := findBootPartitionFromEsp(espPartition, partitions, buildDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to find boot partition: %w", err)
+		return nil, fmt.Errorf("failed to find boot partition: %w", err)
 	}
 
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
 	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return "", fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
+		return nil, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}
 	defer espPartitionMount.Close()
 
@@ -448,88 +449,101 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 	if err == nil {
 		return cmdline, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", err
+		return nil, err
 	}
 
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return "", fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
+		return nil, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	cmdline, err = extractKernelCmdlineFromGrub(tmpDirBoot)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
 	if err != nil {
-		return "", fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
+		return nil, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
 	err = espPartitionMount.CleanClose()
 	if err != nil {
-		return "", fmt.Errorf("failed to close espPartitionMount:\n%w", err)
+		return nil, fmt.Errorf("failed to close espPartitionMount:\n%w", err)
 	}
 
 	return cmdline, nil
 }
 
-func extractKernelCmdlineFromUki(tmpDirEsp, buildDir string) (string, error) {
+func extractKernelCmdlineFromUki(tmpDirEsp, buildDir string) ([]grubConfigLinuxArg, error) {
 	espLinuxPath := filepath.Join(tmpDirEsp, UkiOutputDir)
 	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
 	if err != nil {
-		return "", fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
 	}
 
 	if len(ukiFiles) == 0 {
-		return "", os.ErrNotExist
+		return nil, os.ErrNotExist
 	}
 
 	cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
 	_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFiles[0])
 	if err != nil {
-		return "", fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
+		return nil, fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
 	}
 
 	cmdlineContent, err := os.ReadFile(cmdlinePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file:\n%w", err)
+		return nil, fmt.Errorf("failed to read kernel cmdline args from dumped file:\n%w", err)
 	}
 
-	return string(cmdlineContent), nil
-}
-
-func extractKernelCmdlineFromGrub(tmpDirBoot string) (string, error) {
-	grubCfgPath := filepath.Join(tmpDirBoot, "/grub2/grub.cfg")
-	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
+	tokens, err := grub.TokenizeConfig(string(cmdlineContent))
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI: %w", err)
 	}
 
-	for _, args := range kernelToArgs {
-		return args, nil
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kernel command-line from UKI: %w", err)
 	}
 
-	return "", fmt.Errorf("no kernel arguments found in grub.cfg")
+	return args, nil
 }
 
-func extractVerityRootPartitionId(cmdline string) (ExtendedMountIdentifierType, string, error) {
-	argsParts := strings.Split(cmdline, " ")
-	for _, part := range argsParts {
-		if strings.HasPrefix(part, "systemd.verity_root_data=") {
-			identifier := strings.TrimPrefix(part, "systemd.verity_root_data=")
-
-			idType, value, err := parseExtendedSourcePartition(identifier)
-			if err != nil {
-				return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s): %w", identifier, err)
-			}
-
-			return idType, value, nil
-		}
+func extractKernelCmdlineFromGrub(tmpDirBoot string) ([]grubConfigLinuxArg, error) {
+	grubCfgPath := filepath.Join(tmpDirBoot, DefaultGrubCfgPath)
+	grubCfgContent, err := os.ReadFile(grubCfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
-	return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity root identifier found in kernel command-line")
+
+	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent), true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract kernel command-line arguments: %w", err)
+	}
+
+	return args, nil
+}
+
+func extractVerityRootPartitionId(cmdline []grubConfigLinuxArg) (ExtendedMountIdentifierType, string, error) {
+	identifier, err := findKernelCommandLineArgValue(cmdline, "systemd.verity_root_data")
+	if err != nil {
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to find or parse systemd.verity_root_data argument: %w", err)
+	}
+
+	if identifier == "" {
+		fmt.Println("No identifier found.")
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity root identifier found in kernel command-line")
+	}
+
+	idType, value, err := parseExtendedSourcePartition(identifier)
+	if err != nil {
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s): %w", identifier, err)
+	}
+
+	return idType, value, nil
 }
 
 func parseSourcePartition(source string) (imagecustomizerapi.MountIdentifierType, string, error) {
