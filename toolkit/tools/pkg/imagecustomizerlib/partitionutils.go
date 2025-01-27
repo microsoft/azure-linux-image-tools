@@ -521,21 +521,12 @@ func extractVerityRootPartitionId(cmdline string) (ExtendedMountIdentifierType, 
 		if strings.HasPrefix(part, "systemd.verity_root_data=") {
 			identifier := strings.TrimPrefix(part, "systemd.verity_root_data=")
 
-			key, value, found := strings.Cut(identifier, "=")
-			if !found {
-				return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("invalid identifier format in kernel cmdline: %s", identifier)
+			idType, value, err := parseExtendedSourcePartition(identifier)
+			if err != nil {
+				return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s): %w", identifier, err)
 			}
 
-			switch key {
-			case "PARTUUID":
-				return ExtendedMountIdentifierTypePartUuid, value, nil
-			case "PARTLABEL":
-				return ExtendedMountIdentifierTypePartLabel, value, nil
-			case "UUID":
-				return ExtendedMountIdentifierTypeUuid, value, nil
-			default:
-				return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("unsupported identifier type in kernel cmdline: %s", identifier)
-			}
+			return idType, value, nil
 		}
 	}
 	return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity root identifier found in kernel command-line")

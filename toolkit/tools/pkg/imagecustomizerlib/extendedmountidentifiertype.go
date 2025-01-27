@@ -28,14 +28,3 @@ const (
 	// ExtendedMountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	ExtendedMountIdentifierTypeDefault ExtendedMountIdentifierType = ""
 )
-
-func (e ExtendedMountIdentifierType) IsValid() error {
-	switch e {
-	case ExtendedMountIdentifierTypeUuid, ExtendedMountIdentifierTypePartUuid, ExtendedMountIdentifierTypePartLabel, ExtendedMountIdentifierTypeDev, ExtendedMountIdentifierTypeDefault:
-		// All good.
-		return nil
-
-	default:
-		return fmt.Errorf("invalid value (%v)", e)
-	}
-}
