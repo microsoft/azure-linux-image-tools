@@ -1,7 +1,7 @@
 os:
   additionalFiles:
   - source: files/a.txt
-    destination: /a.txt
+    destination: /mnt/a/a.txt
 
   - source: files/helloworld.sh
     destination: /usr/local/bin/helloworld.sh
@@ -10,12 +10,12 @@ os:
   - content: |
       cat
       dog
-    destination: /animals.txt
+    destination: /mnt/b/animals.txt
 
   - content: |-
       abcdefghijklmnopqrstuvwxyz
-    destination: /alphabet.txt
+    destination: /mnt/c/alphabet.txt
     permissions: 644
 
   - content: ""
-    destination: /empty.txt
+    destination: /mnt/d/empty.txt

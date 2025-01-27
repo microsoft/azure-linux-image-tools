@@ -379,7 +379,13 @@ func copyFile(destDir string, f FileToCopy) error {
 
 func writeFile(destDir string, f FileToCopy) error {
 	dest := filepath.Join(destDir, f.Dest)
-	err := file.Write(*f.Content, dest)
+
+	err := file.CreateDestinationDir(dest, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create destination directory (%s):\n%w", dest, err)
+	}
+
+	err = file.Write(*f.Content, dest)
 	if err != nil {
 		return fmt.Errorf("failed to write file (%s):\n%w", f.Dest, err)
 	}

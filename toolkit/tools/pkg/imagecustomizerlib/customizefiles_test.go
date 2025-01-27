@@ -97,14 +97,14 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 
 	// Verify the files were copied correctly.
 	a_path := filepath.Join(testDir, "files/a.txt")
-	a_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/a.txt")
+	a_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/a/a.txt")
 
 	helloworld_path := filepath.Join(testDir, "files/helloworld.sh")
 	helloworld_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/usr/local/bin/helloworld.sh")
 
-	animals_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/animals.txt")
-	alphabet_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/alphabet.txt")
-	empty_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/empty.txt")
+	animals_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/b/animals.txt")
+	alphabet_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/c/alphabet.txt")
+	empty_copy_path := filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/d/empty.txt")
 
 	verifyFileContentsSame(t, a_path, a_copy_path)
 	verifyFileContentsSame(t, helloworld_path, helloworld_copy_path)

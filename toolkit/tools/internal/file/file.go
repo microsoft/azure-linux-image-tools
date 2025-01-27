@@ -357,7 +357,7 @@ func IsDirEmpty(path string) (bool, error) {
 	return false, nil
 }
 
-func createDestinationDir(dst string, dirmode os.FileMode) (err error) {
+func CreateDestinationDir(dst string, dirmode os.FileMode) (err error) {
 	isDstExist, err := PathExists(dst)
 	if err != nil {
 		return err
@@ -389,7 +389,7 @@ func createDestinationDir(dst string, dirmode os.FileMode) (err error) {
 func CopyResourceFile(srcFS fs.FS, srcFile, dst string, dirmode os.FileMode, filemode os.FileMode) error {
 	logger.Log.Debugf("Copying resource (%s) -> (%s)", srcFile, dst)
 
-	err := createDestinationDir(dst, dirmode)
+	err := CreateDestinationDir(dst, dirmode)
 	if err != nil {
 		return err
 	}
