@@ -347,15 +347,16 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) (diskutils.PartitionInfo, int, error) {
-	var devPartUuid string
 	if mountIdType == ExtendedMountIdentifierTypeDev {
-		var err error
-		devPartUuid, err = convertDevToPartUuid(partitions, buildDir)
+		cmdline, err := extractKernelCmdline(partitions, buildDir)
 		if err != nil {
 			return diskutils.PartitionInfo{}, 0, err
 		}
-		mountId = devPartUuid
-		mountIdType = ExtendedMountIdentifierTypePartUuid
+
+		mountIdType, mountId, err = extractVerityRootPartitionId(cmdline)
+		if err != nil {
+			return diskutils.PartitionInfo{}, 0, err
+		}
 	}
 
 	matchedPartitionIndexes := []int(nil)
@@ -389,44 +390,6 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 	return partition, partitionIndex, nil
 }
 
-func convertDevToPartUuid(partitions []diskutils.PartitionInfo, buildDir string) (string, error) {
-	for _, partition := range partitions {
-		matches, err := checkExtendedDevPartition(partition, partitions, buildDir)
-		if err != nil {
-			return "", err
-		}
-		if matches {
-			return partition.PartUuid, nil
-		}
-	}
-	return "", fmt.Errorf("unable to find PARTUUID for /dev path")
-}
-
-func checkExtendedDevPartition(partition diskutils.PartitionInfo, partitions []diskutils.PartitionInfo,
-	buildDir string,
-) (bool, error) {
-	cmdline, err := extractKernelCmdline(partitions, buildDir)
-	if err != nil {
-		return false, err
-	}
-
-	mountIdType, verityPartitionId, err := extractVerityRootPartitionId(cmdline)
-	if err != nil {
-		return false, err
-	}
-
-	switch mountIdType {
-	case ExtendedMountIdentifierTypePartUuid:
-		return partition.PartUuid == verityPartitionId, nil
-	case ExtendedMountIdentifierTypePartLabel:
-		return partition.PartLabel == verityPartitionId, nil
-	case ExtendedMountIdentifierTypeUuid:
-		return partition.Uuid == verityPartitionId, nil
-	default:
-		return false, fmt.Errorf("unsupported mount identifier type: (%s)", mountIdType)
-	}
-}
-
 func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) ([]grubConfigLinuxArg, error) {
 	espPartition, err := findSystemBootPartition(partitions)
 	if err != nil {
@@ -438,6 +401,24 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 		return nil, fmt.Errorf("failed to find boot partition: %w", err)
 	}
 
+	cmdline, err := extractKernelCmdlineFromUki(espPartition, buildDir)
+	if err == nil {
+		return cmdline, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+
+	cmdline, err = extractKernelCmdlineFromGrub(bootPartition, buildDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+	}
+
+	return cmdline, nil
+}
+
+func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
+	buildDir string,
+) ([]grubConfigLinuxArg, error) {
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
 	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
 	if err != nil {
@@ -445,39 +426,6 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 	}
 	defer espPartitionMount.Close()
 
-	cmdline, err := extractKernelCmdlineFromUki(tmpDirEsp, buildDir)
-	if err == nil {
-		return cmdline, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-
-	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
-	}
-	defer bootPartitionMount.Close()
-
-	cmdline, err = extractKernelCmdlineFromGrub(tmpDirBoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
-	}
-
-	err = bootPartitionMount.CleanClose()
-	if err != nil {
-		return nil, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
-	}
-
-	err = espPartitionMount.CleanClose()
-	if err != nil {
-		return nil, fmt.Errorf("failed to close espPartitionMount:\n%w", err)
-	}
-
-	return cmdline, nil
-}
-
-func extractKernelCmdlineFromUki(tmpDirEsp, buildDir string) ([]grubConfigLinuxArg, error) {
 	espLinuxPath := filepath.Join(tmpDirEsp, UkiOutputDir)
 	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
 	if err != nil {
@@ -509,10 +457,24 @@ func extractKernelCmdlineFromUki(tmpDirEsp, buildDir string) ([]grubConfigLinuxA
 		return nil, fmt.Errorf("failed to parse kernel command-line from UKI: %w", err)
 	}
 
+	err = espPartitionMount.CleanClose()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close espPartitionMount:\n%w", err)
+	}
+
 	return args, nil
 }
 
-func extractKernelCmdlineFromGrub(tmpDirBoot string) ([]grubConfigLinuxArg, error) {
+func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
+	buildDir string,
+) ([]grubConfigLinuxArg, error) {
+	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
+	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
+	}
+	defer bootPartitionMount.Close()
+
 	grubCfgPath := filepath.Join(tmpDirBoot, DefaultGrubCfgPath)
 	grubCfgContent, err := os.ReadFile(grubCfgPath)
 	if err != nil {
@@ -522,6 +484,11 @@ func extractKernelCmdlineFromGrub(tmpDirBoot string) ([]grubConfigLinuxArg, erro
 	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent), true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel command-line arguments: %w", err)
+	}
+
+	err = bootPartitionMount.CleanClose()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
 	return args, nil

@@ -379,7 +379,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		return err
 	}
 	if verityEnabled && !ic.customizeOSPartitions {
-		return fmt.Errorf("dm-verity is enabled on the base image. To customize a verity-enabled base image, the verity section must be reconfigured.")
+		return fmt.Errorf("dm-verity is enabled on the base image so partitions must be specified.")
 	}
 
 	// Customize the partitions.
