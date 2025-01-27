@@ -97,13 +97,20 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     network_interface_model.attrib["type"] = "virtio"
 
     next_disk_indexes: Dict[str, int] = {}
-    _add_disk_xml(
+    # _add_disk_xml(
+    #     devices,
+    #     str(vm_spec.os_disk_path),
+    #     "disk",
+    #     "qcow2",
+    #     "virtio",
+    #     next_disk_indexes,
+    # )
+
+    _add_iso_xml(
         devices,
         str(vm_spec.os_disk_path),
-        "disk",
-        "qcow2",
-        "virtio",
-        next_disk_indexes,
+        "ide",
+        next_disk_indexes,        
     )
 
     xml = ET.tostring(domain, "unicode")
@@ -123,19 +130,55 @@ def _add_disk_xml(
 
     disk = ET.SubElement(devices, "disk")
     disk.attrib["type"] = "file"
-    disk.attrib["device"] = device_type
+    disk.attrib["device"] = device_type # disk
 
     disk_driver = ET.SubElement(disk, "driver")
     disk_driver.attrib["name"] = "qemu"
-    disk_driver.attrib["type"] = image_type
+    disk_driver.attrib["type"] = image_type # qcow2
 
     disk_target = ET.SubElement(disk, "target")
     disk_target.attrib["dev"] = device_name
-    disk_target.attrib["bus"] = bus_type
+    disk_target.attrib["bus"] = bus_type # virtio
 
     disk_source = ET.SubElement(disk, "source")
     disk_source.attrib["file"] = file_path
 
+# Adds a disk to a libvirt domain XML document.
+def _add_iso_xml(
+    devices: ET.Element,
+    file_path: str,
+    bus_type: str,
+    next_disk_indexes: Dict[str, int],
+) -> None:
+    device_name = "hda" # _gen_disk_device_name("hd", next_disk_indexes)
+
+    disk = ET.SubElement(devices, "disk")
+    disk.attrib["type"] = "file"
+    disk.attrib["device"] = "cdrom" # disk
+
+    disk_driver = ET.SubElement(disk, "driver")
+    disk_driver.attrib["name"] = "qemu"
+    disk_driver.attrib["type"] = "raw" # qcow2
+
+    disk_target = ET.SubElement(disk, "target")
+    disk_target.attrib["dev"] = device_name
+    disk_target.attrib["bus"] = bus_type # virtio
+
+    disk_source = ET.SubElement(disk, "source")
+    disk_source.attrib["file"] = file_path
+    disk_source.attrib["index"] = "1"
+
+    disk_readonly = ET.SubElement(disk, "readonly")
+
+    disk_alias = ET.SubElement(disk, "alias")
+    disk_alias.attrib["name"] = "ide0-0-0"
+
+    disk_address = ET.SubElement(disk, "address")
+    disk_address.attrib["type"] = "drive"
+    disk_address.attrib["controller"] = "0"
+    disk_address.attrib["bus"] = "0"
+    disk_address.attrib["target"] = "0"
+    disk_address.attrib["unit"] = "0"
 
 def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str:
     disk_index = next_disk_indexes.get(prefix, 0)

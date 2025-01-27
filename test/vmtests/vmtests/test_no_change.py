@@ -3,7 +3,9 @@
 
 import os
 from getpass import getuser
+import logging
 from pathlib import Path
+import time
 from typing import List, Tuple
 
 import libvirt  # type: ignore
@@ -32,7 +34,9 @@ def test_no_change(
     (ssh_public_key, ssh_private_key_path) = ssh_key
 
     config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
-    output_image_path = test_temp_dir.joinpath("image.qcow2")
+    # output_image_format="qcow2"
+    output_image_format="iso"
+    output_image_path = test_temp_dir.joinpath("image."+ output_image_format)
     diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
 
     print(f"---- debug ---- core_efi_azl2:({core_efi_azl2.absolute()})")
@@ -53,42 +57,51 @@ def test_no_change(
         config_path,
         username,
         ssh_public_key,
-        "qcow2",
+        "iso",
         output_image_path,
         close_list,
     )
 
-    # Create a differencing disk for the VM.
-    # This will make it easier to manually debug what is in the image itself and what was set during first boot.
-    local_client.run(
-        ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
-    ).check_exit_code()
+    vm_image = output_image_path
 
-    print("---- debug ---- [1] creating the VM")
+    if output_image_format == "qcow2":
+        # Create a differencing disk for the VM.
+        # This will make it easier to manually debug what is in the image itself and what was set during first boot.
+        local_client.run(
+            ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
+        ).check_exit_code()
 
-    # Ensure VM can write to the disk file.
-    os.chmod(diff_image_path, 0o666)
+        # Ensure VM can write to the disk file.
+        os.chmod(diff_image_path, 0o666)
+
+        vm_image = diff_image_path
+
+    logging.debug("---- debug ---- [1] creating the VM")
 
     # Create VM.
     vm_name = test_instance_name
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, diff_image_path))
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image))
 
-    print("---- debug ---- [2]")
+    logging.debug(f"---- debug ---- [2] {domain_xml}")
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
-    print("---- debug ---- [3] starting the VM")
+    logging.debug("---- debug ---- [3] starting the VM")
 
     # Start VM.
     vm.start()
 
-    print("---- debug ---- [4] getting its ip address")
+    logging.debug("---- debug ---- [4] getting its ip address")
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    vm_ip_address = vm.get_vm_ip_address(timeout=60)
+    vm_ip_address = vm.get_vm_ip_address(timeout=90)
 
-    print("---- debug ---- [5] got the ip address - now connecting using ssh")
+    logging.debug(f"---- debug ---- [5] got the ip address {vm_ip_address} - now pausing for 30 seconds")
+
+    time.sleep(30)
+
+    logging.debug(f"---- debug ---- [5] got the ip address {vm_ip_address} - now connecting using ssh")
 
     # Connect to VM using SSH.
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
@@ -96,7 +109,7 @@ def test_no_change(
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
 
-        print("---- debug ---- [6] connected using ssh - running commands")
+        logging.debug("---- debug ---- [6] connected using ssh - running commands")
 
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
@@ -109,4 +122,4 @@ def test_no_change(
             assert "ID=azurelinux" in os_release_text
             assert 'VERSION_ID="3.0"' in os_release_text
 
-    print("---- debug ---- [7] test completed")
+    logging.debug("---- debug ---- [7] test completed")
