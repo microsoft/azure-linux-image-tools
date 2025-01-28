@@ -22,8 +22,8 @@ TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomi
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
-    parser.addoption("--core-efi-azl2", action="store", help="Path to Azure Linux 2.0 core-efi qcow2 image")
-    parser.addoption("--core-efi-azl3", action="store", help="Path to Azure Linux 3.0 core-efi qcow2 image")
+    parser.addoption("--core-efi-azl", action="store", help="Path to Azure Linux 2.0 core-efi qcow2 image")
+    parser.addoption("--output-format", action="store", help="Image Customizer supported format")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
@@ -77,18 +77,18 @@ def test_temp_dir(
 
 
 @pytest.fixture(scope="session")
-def core_efi_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    image = request.config.getoption("--core-efi-azl2")
+def core_efi_azl(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-efi-azl")
     if not image:
-        image = ""
+        raise Exception("--core-efi-azl is required for test")
     yield Path(image)
 
 @pytest.fixture(scope="session")
-def core_efi_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    image = request.config.getoption("--core-efi-azl3")
-    if not image:
-        image = ""
-    yield Path(image)
+def output_format(request: pytest.FixtureRequest) -> Generator[str, None, None]:
+    output_format = request.config.getoption("--output-format")
+    if not output_format:
+        raise Exception("--output-format")
+    yield output_format
 
 @pytest.fixture(scope="session")
 def image_customizer_container_url(request: pytest.FixtureRequest) -> Generator[str, None, None]:

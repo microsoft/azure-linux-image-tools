@@ -23,8 +23,8 @@ from .utils.ssh_client import SshClient
 def test_no_change(
     docker_client: DockerClient,
     image_customizer_container_url: str,
-    core_efi_azl2: Path,
-    core_efi_azl3: Path,
+    core_efi_azl: Path,
+    output_format: str,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -33,27 +33,22 @@ def test_no_change(
 ) -> None:
     (ssh_public_key, ssh_private_key_path) = ssh_key
 
-    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
-    # output_image_format="qcow2"
-    output_image_format="iso"
-    output_image_path = test_temp_dir.joinpath("image."+ output_image_format)
-    diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
+    if output_format != "iso":
+        config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("nochange-iso-config.yaml")
 
-    print(f"---- debug ---- core_efi_azl2:({core_efi_azl2.absolute()})")
-    print(f"---- debug ---- core_efi_azl2:({core_efi_azl2.name})")
-    print(f"---- debug ---- core_efi_azl3:({core_efi_azl3.absolute()})")
-    print(f"---- debug ---- core_efi_azl3:({core_efi_azl3.name})")
-    core_efi_azlx = core_efi_azl2
-    if core_efi_azl2.name == "":
-        core_efi_azlx = core_efi_azl3
-    print(f"---- debug ---- core_efi_azlx:({core_efi_azlx.absolute()})")
+    output_image_path = test_temp_dir.joinpath("image."+ output_format)
+
+    print(f"---- debug ---- core_efi_azl.absolute:({core_efi_azl.absolute()})")
+    print(f"---- debug ---- core_efi_azl.name    :({core_efi_azl.name})")
 
     username = getuser()
 
     run_image_customizer(
         docker_client,
         image_customizer_container_url,
-        core_efi_azlx,
+        core_efi_azl,
         config_path,
         username,
         ssh_public_key,
@@ -64,7 +59,9 @@ def test_no_change(
 
     vm_image = output_image_path
 
-    if output_image_format == "qcow2":
+    if output_format != "iso":
+        diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
+
         # Create a differencing disk for the VM.
         # This will make it easier to manually debug what is in the image itself and what was set during first boot.
         local_client.run(
