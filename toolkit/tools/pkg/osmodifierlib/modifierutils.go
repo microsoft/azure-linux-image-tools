@@ -37,43 +37,80 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		return err
 	}
 
-	if osConfig.Overlays != nil {
-		bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot)
-		if err != nil {
-			return err
-		}
+	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot)
+	if err != nil {
+		return err
+	}
 
+	err = bootCustomizer.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine)
+	if err != nil {
+		return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
+	}
+
+	updateGrubRequired := false
+
+	if osConfig.Overlays != nil {
 		err = updateGrubConfigForOverlay(*osConfig.Overlays, bootCustomizer)
 		if err != nil {
 			return err
 		}
-
-		err = bootCustomizer.WriteToFile(dummyChroot)
-		if err != nil {
-			return err
-		}
+		updateGrubRequired = true
 	}
 
 	if osConfig.SELinux.Mode != "" {
-		bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot)
-		if err != nil {
-			return err
-		}
-
 		err = handleSELinux(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
 		if err != nil {
 			return err
 		}
+		updateGrubRequired = true
+	}
 
+	if osConfig.Verity != nil {
+		err = updateDefaultGrubForVerity(osConfig.Verity, bootCustomizer)
+		if err != nil {
+			return err
+		}
+		updateGrubRequired = true
+	}
+
+	if osConfig.RootDevice != "" {
+		err = bootCustomizer.SetRootDevice(osConfig.RootDevice)
+		if err != nil {
+			return err
+		}
+		updateGrubRequired = true
+	}
+
+	// Write changes to file only if GRUB needs updating
+	if updateGrubRequired {
 		err = bootCustomizer.WriteToFile(dummyChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = imagecustomizerlib.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine, dummyChroot)
+	return nil
+}
+
+func updateDefaultGrubForVerity(verity *osmodifierapi.Verity, bootCustomizer *imagecustomizerlib.BootCustomizer) error {
+	var err error
+
+	formattedCorruptionOption, err := imagecustomizerlib.SystemdFormatCorruptionOption(verity.CorruptionOption)
 	if err != nil {
-		return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
+		return err
+	}
+
+	newArgs := []string{
+		"rd.systemd.verity=1",
+		fmt.Sprintf("systemd.verity_root_data=%s", verity.DataDevice),
+		fmt.Sprintf("systemd.verity_root_hash=%s", verity.HashDevice),
+		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
+	}
+
+	err = bootCustomizer.UpdateKernelCommandLineArgs("GRUB_CMDLINE_LINUX", []string{"rd.systemd.verity",
+		"systemd.verity_root_data", "systemd.verity_root_hash", "systemd.verity_root_options"}, newArgs)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -125,11 +162,6 @@ func handleSELinux(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *i
 	logger.Log.Infof("Configuring SELinux mode")
 
 	err = bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode)
-	if err != nil {
-		return err
-	}
-
-	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,8 @@ type OS struct {
 	KernelCommandLine imagecustomizerapi.KernelCommandLine `yaml:"kernelCommandLine"`
 	Services          imagecustomizerapi.Services          `yaml:"services"`
 	Modules           imagecustomizerapi.ModuleList        `yaml:"modules"`
+	Verity            *Verity                              `yaml:"verity"`
+	RootDevice        string                               `yaml:"rootDevice"`
 }
 
 func (s *OS) IsValid() error {
@@ -74,6 +76,12 @@ func (s *OS) IsValid() error {
 
 	if err := s.Modules.IsValid(); err != nil {
 		return err
+	}
+
+	if s.Verity != nil {
+		if err := s.Verity.IsValid(); err != nil {
+			return err
+		}
 	}
 
 	return nil
