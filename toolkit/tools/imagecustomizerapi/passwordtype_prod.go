@@ -16,7 +16,7 @@ func (t PasswordType) IsValid() error {
 		return nil
 
 	case PasswordTypePlainText, PasswordTypeHashed, PasswordTypePlainTextFile, PasswordTypeHashedFile:
-		return nil
+		return fmt.Errorf("password type (%s) only supported in dev builds", t)
 
 	default:
 		return fmt.Errorf("invalid password type (%s)", t)

@@ -77,29 +77,18 @@ def test_no_change(
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
-    logging.debug("---- debug ---- [3] starting the VM")
-
     # Start VM.
     vm.start()
 
-    logging.debug("---- debug ---- [4] getting its ip address")
-
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=90)
-
-    logging.debug(f"---- debug ---- [5] got the ip address {vm_ip_address} - now pausing for 30 seconds")
-
     time.sleep(30)
-
-    logging.debug(f"---- debug ---- [5] got the ip address {vm_ip_address} - now connecting using ssh")
 
     # Connect to VM using SSH.
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
     open(ssh_known_hosts_path, "w").close()
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-
-        logging.debug("---- debug ---- [6] connected using ssh - running commands")
 
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
@@ -111,5 +100,3 @@ def test_no_change(
 
             assert "ID=azurelinux" in os_release_text
             assert 'VERSION_ID="3.0"' in os_release_text
-
-    logging.debug("---- debug ---- [7] test completed")
