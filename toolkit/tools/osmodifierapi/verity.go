@@ -20,10 +20,10 @@ type Verity struct {
 	// The name of the mapper block device.
 	// Must be 'root' for the rootfs (/) filesystem.
 	Name string `yaml:"name"`
-	// The ID of the 'Partition' to use as the data partition.
-	DataDeviceId string `yaml:"dataDeviceId"`
-	// The ID of the 'Partition' to use as the hash partition.
-	HashDeviceId string `yaml:"hashDeviceId"`
+	// The 'Partition' to use as the data partition.
+	DataDevice string `yaml:"dataDevice"`
+	// The 'Partition' to use as the hash partition.
+	HashDevice string `yaml:"hashDevice"`
 	// How to handle corruption.
 	CorruptionOption imagecustomizerapi.CorruptionOption `yaml:"corruptionOption"`
 }
@@ -37,11 +37,11 @@ func (v *Verity) IsValid() error {
 		return fmt.Errorf("invalid 'name' value (%s)", v.Name)
 	}
 
-	if v.DataDeviceId == "" {
+	if v.DataDevice == "" {
 		return fmt.Errorf("'dataDeviceId' may not be empty")
 	}
 
-	if v.HashDeviceId == "" {
+	if v.HashDevice == "" {
 		return fmt.Errorf("'hashDeviceId' may not be empty")
 	}
 
