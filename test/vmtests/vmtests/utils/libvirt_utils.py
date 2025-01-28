@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import xml.etree.ElementTree as ET  # noqa: N817
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -97,21 +98,25 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     network_interface_model.attrib["type"] = "virtio"
 
     next_disk_indexes: Dict[str, int] = {}
-    # _add_disk_xml(
-    #     devices,
-    #     str(vm_spec.os_disk_path),
-    #     "disk",
-    #     "qcow2",
-    #     "virtio",
-    #     next_disk_indexes,
-    # )
 
-    _add_iso_xml(
-        devices,
-        str(vm_spec.os_disk_path),
-        "ide",
-        next_disk_indexes,        
-    )
+    _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
+
+    if os_disk_ext.lower() != "iso":
+        _add_disk_xml(
+            devices,
+            str(vm_spec.os_disk_path),
+            "disk",
+            "qcow2",
+            "virtio",
+            next_disk_indexes,
+        )
+    else:
+        _add_iso_xml(
+            devices,
+            str(vm_spec.os_disk_path),
+            "ide",
+            next_disk_indexes,
+        )
 
     xml = ET.tostring(domain, "unicode")
     return xml

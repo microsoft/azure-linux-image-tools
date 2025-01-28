@@ -40,9 +40,6 @@ def test_no_change(
 
     output_image_path = test_temp_dir.joinpath("image."+ output_format)
 
-    print(f"---- debug ---- core_efi_azl.absolute:({core_efi_azl.absolute()})")
-    print(f"---- debug ---- core_efi_azl.name    :({core_efi_azl.name})")
-
     username = getuser()
 
     run_image_customizer(
@@ -52,7 +49,7 @@ def test_no_change(
         config_path,
         username,
         ssh_public_key,
-        "iso",
+        output_format,
         output_image_path,
         close_list,
     )
@@ -73,13 +70,9 @@ def test_no_change(
 
         vm_image = diff_image_path
 
-    logging.debug("---- debug ---- [1] creating the VM")
-
     # Create VM.
     vm_name = test_instance_name
     domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image))
-
-    logging.debug(f"---- debug ---- [2] {domain_xml}")
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
