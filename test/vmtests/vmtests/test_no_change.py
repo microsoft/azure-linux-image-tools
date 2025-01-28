@@ -38,7 +38,7 @@ def test_no_change(
     else:
         config_path = TEST_CONFIGS_DIR.joinpath("nochange-iso-config.yaml")
 
-    output_image_path = test_temp_dir.joinpath("image."+ output_format)
+    output_image_path = test_temp_dir.joinpath("image." + output_format)
 
     username = getuser()
 
@@ -81,7 +81,8 @@ def test_no_change(
     vm.start()
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    vm_ip_address = vm.get_vm_ip_address(timeout=90)
+    vm_ip_address = vm.get_vm_ip_address(timeout=30)
+    # iso booting takes longer due to the copying of artifacts to memory
     time.sleep(30)
 
     # Connect to VM using SSH.
@@ -89,7 +90,6 @@ def test_no_change(
     open(ssh_known_hosts_path, "w").close()
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
         os_release_path = test_temp_dir.joinpath("os-release")
