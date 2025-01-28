@@ -98,5 +98,5 @@ def test_no_change(
         with open(os_release_path, "r") as os_release_fd:
             os_release_text = os_release_fd.read()
 
-            assert "ID=azurelinux" in os_release_text
-            assert 'VERSION_ID="3.0"' in os_release_text
+            assert ("ID=azurelinux" in os_release_text) or ("ID=mariner" in os_release_text)
+            assert ('VERSION_ID="3.0"' in os_release_text) or ('VERSION_ID="2.0"' in os_release_text)

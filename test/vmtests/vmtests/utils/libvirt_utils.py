@@ -101,7 +101,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
 
     _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
 
-    if os_disk_ext.lower() != "iso":
+    if os_disk_ext.lower() != ".iso":
         _add_disk_xml(
             devices,
             str(vm_spec.os_disk_path),
