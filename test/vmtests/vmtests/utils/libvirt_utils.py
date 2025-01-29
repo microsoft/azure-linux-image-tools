@@ -189,16 +189,14 @@ def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str
     disk_index = next_disk_indexes.get(prefix, 0)
     next_disk_indexes[prefix] = disk_index + 1
 
-    match prefix:
-        case "vd" | "sd":
-            # The disk device name is required to follow the standard Linux device naming
-            # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
-            # unlikely that someone will ever need more than 26 disks. So, keep it simple
-            # for now.
-            if disk_index < 0 or disk_index > 25:
-                raise Exception(f"Unsupported disk index: {disk_index}.")
-            suffix = chr(ord("a") + disk_index)
-            return f"{prefix}{suffix}"
-
-        case _:
-            return f"{prefix}{disk_index}"
+    if prefix in ("vd", "sd"):
+        # The disk device name is required to follow the standard Linux device naming
+        # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
+        # unlikely that someone will ever need more than 26 disks. So, keep it simple
+        # for now.
+        if disk_index < 0 or disk_index > 25:
+            raise Exception(f"Unsupported disk index: {disk_index}.")
+        suffix = chr(ord("a") + disk_index)
+        return f"{prefix}{suffix}"
+    else:
+        return f"{prefix}{disk_index}"
