@@ -15,14 +15,24 @@ function showUsage() {
     echo
     echo "build-mic-container.sh \\"
     echo "    -t <container-tag>"
+    echo "    -a <architecture> (default: amd64)"
     echo
 }
 
-while getopts ":r:n:t:" OPTIONS; do
+while getopts ":r:n:t:a:" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
+    a ) ARCH=$OPTARG ;;
+    \? ) echo "Invalid option: $OPTARG" 1>&2; showUsage; exit 1 ;;
   esac
 done
+
+# only supported values for architecture are amd64 and arm64
+if [[ $ARCH != "amd64" && $ARCH != "arm64" ]]; then
+    echo "Unsupported architecture: $ARCH"
+    showUsage
+    exit 1
+fi
 
 if [[ -z $containerTag ]]; then
     echo "missing required argument '-t containerTag'"
@@ -66,6 +76,12 @@ if [ ! -d "$orasUnzipDir" ]; then
   mkdir "$orasUnzipDir"
   tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
   cp "$orasUnzipDir/oras" "${stagingBinDir}"
+fi
+
+# azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
+if [ "$ARCH" == "arm64" ]; then
+    echo "Removing grub2-pc from Dockerfile for arm64"
+    sed -i 's/\<grub2-pc\>//g' Dockerfile.mic-container
 fi
 
 # build the container
