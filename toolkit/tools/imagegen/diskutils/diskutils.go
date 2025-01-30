@@ -6,6 +6,7 @@
 package diskutils
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -460,7 +461,7 @@ func waitForDiskToPopulate(diskDevPath string) error {
 		return nil
 	}
 
-	err = retry.Run(func() error {
+	_, err = retry.RunWithExpBackoff(context.Background(), func() error {
 		kernelPartitions, err := GetDiskPartitions(diskDevPath)
 		if err != nil {
 			return err
@@ -501,7 +502,7 @@ func waitForDiskToPopulate(diskDevPath string) error {
 		}
 
 		return nil
-	}, 10, time.Second)
+	}, 10, 120*time.Millisecond, 2.0)
 	if err != nil {
 		return fmt.Errorf("timed out waiting for disk (%s) info to be populated:\n%w", diskDevPath, err)
 	}
