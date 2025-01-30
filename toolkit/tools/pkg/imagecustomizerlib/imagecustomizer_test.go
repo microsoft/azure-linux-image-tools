@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/stretchr/testify/assert"
@@ -63,6 +64,68 @@ func TestCustomizeImageEmptyConfig(t *testing.T) {
 
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "vhd")
+}
+
+func TestCustomizeImageVhd(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageVhd")
+	buildDir := filepath.Join(testTmpDir, "build")
+	partitionsConfigFile := filepath.Join(testDir, "partitions-config.yaml")
+	noChangeConfigFile := filepath.Join(testDir, "partitions-config.yaml")
+	vhdImageFilePath := filepath.Join(testTmpDir, "image1.vhd")
+	vhdFixedImageFilePath := filepath.Join(testTmpDir, "image2.vhd")
+	vhdxImageFilePath := filepath.Join(testTmpDir, "image3.vhdx")
+
+	// Customize image to vhd.
+	err := CustomizeImageWithConfigFile(buildDir, partitionsConfigFile, baseImage, nil, vhdImageFilePath,
+		"vhd", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	fileType, err := getImageFileType(vhdImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "vhd", fileType)
+
+	imageInfo, err := getImageFileInfo(vhdImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "vpc", imageInfo.Format)
+	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
+
+	// Customize image to vhd-fixed.
+	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdImageFilePath, nil, vhdFixedImageFilePath,
+		"vhd-fixed", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	fileType, err = getImageFileType(vhdFixedImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "vhd-fixed", fileType)
+
+	// qemu-img info detects fixed-length VHDs as raw images.
+	// So, subtract VHD footer from disk size.
+	imageInfo, err = getImageFileInfo(vhdFixedImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "raw", imageInfo.Format)
+	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize-512)
+
+	// Customize image to vhdx.
+	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdFixedImageFilePath, nil, vhdxImageFilePath,
+		"vhdx", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	fileType, err = getImageFileType(vhdxImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "vhdx", fileType)
+
+	imageInfo, err = getImageFileInfo(vhdxImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "vhdx", imageInfo.Format)
+	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
 }
 
 func connectToCoreEfiImage(buildDir string, imageFilePath string) (*ImageConnection, error) {
@@ -243,28 +306,46 @@ func getImageFileType(filePath string) (string, error) {
 	}
 	defer file.Close()
 
+	stat, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+
 	firstBytes := make([]byte, 512)
-	readByteCount, err := file.Read(firstBytes)
+	firstBytesCount, err := file.Read(firstBytes)
+	if err != nil {
+		return "", err
+	}
+
+	lastBytes := make([]byte, 512)
+	lastBytesCount, err := file.ReadAt(lastBytes, max(0, stat.Size()-512))
 	if err != nil {
 		return "", err
 	}
 
 	switch {
-	case readByteCount >= 8 && bytes.Equal(firstBytes[:8], []byte("conectix")):
+	case firstBytesCount >= 8 && bytes.Equal(firstBytes[:8], []byte("conectix")):
 		return "vhd", nil
 
-	case readByteCount >= 8 && bytes.Equal(firstBytes[:8], []byte("vhdxfile")):
+	case firstBytesCount >= 8 && bytes.Equal(firstBytes[:8], []byte("vhdxfile")):
 		return "vhdx", nil
 
 	case isZstFile(firstBytes):
 		return "zst", nil
 
 	// Check for the MBR signature (which exists even on GPT formatted drives).
-	case readByteCount >= 512 && bytes.Equal(firstBytes[510:512], []byte{0x55, 0xAA}):
-		return "raw", nil
-	}
+	case firstBytesCount >= 512 && bytes.Equal(firstBytes[510:512], []byte{0x55, 0xAA}):
+		switch {
+		case lastBytesCount >= 512 && bytes.Equal(lastBytes[:8], []byte("conectix")):
+			return "vhd-fixed", nil
 
-	return "", fmt.Errorf("unknown file type: %s", filePath)
+		default:
+			return "raw", nil
+		}
+
+	default:
+		return "", fmt.Errorf("unknown file type: %s", filePath)
+	}
 }
 
 func isZstFile(firstBytes []byte) bool {

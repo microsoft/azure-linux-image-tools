@@ -340,13 +340,56 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 		return inputIsoArtifacts, nil
 	} else {
 		logger.Log.Infof("Creating raw base image: %s", ic.rawImageFile)
-		err := shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", ic.inputImageFile, ic.rawImageFile)
+
+		err := convertImageToRaw(ic)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert image file to raw format:\n%w", err)
+			return nil, err
 		}
 
 		return nil, nil
 	}
+}
+
+func convertImageToRaw(ic *ImageCustomizerParameters) error {
+	imageInfo, err := getImageFileInfo(ic.inputImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to detect input image (%s) format:\n%w", ic.inputImageFile, err)
+	}
+
+	detectedImageFormat := imageInfo.Format
+	sourceArg := fmt.Sprintf("file.filename=%s", qemuImgEscapeOptionValue(ic.inputImageFile))
+
+	// The fixed-size VHD format is just a raw disk file with small metadata footer appended to the end. Unfortunatley,
+	// that footer doesn't contain a file signature (i.e. "magic number"). So, qemu-img can't correctly detect this
+	// format and instead reports fixed-size VHDs as raw images. So, use the filename extension as a hint.
+	if ic.inputImageFormat == "vhd" && detectedImageFormat == "raw" {
+		// Force qemu-img to treat the file as a VHD.
+		detectedImageFormat = "vpc"
+	}
+
+	if detectedImageFormat == "vpc" {
+		// There are actually two different ways of calculating the disk size of a VHD file. The old method, which is
+		// used by Microsoft Virtual PC, uses the VHD's footer's "Disk Geometry" (cylinder, heads, and sectors per
+		// track/cylinder) fields. Whereas, the new method, which is used by Hyper-V, simply uses the VHD's footer's
+		// "Current Size" field. The qemu-img tool does try to correctly detect which one is being used by looking at
+		// the footer's "Creator Application" field. But if the tool that created the VHD uses a name that qemu-img
+		// doesn't recognize, then the heuristic can pick the wrong one. This seems to be the case for VHDs downloaded
+		// from Azure. For the Image Customizer tool, it is pretty safe to assume all VHDs use the Hyper-V format.
+		// So, force qemu-img to use that format.
+		sourceArg += ",driver=vpc,force_size_calc=current_size"
+	}
+
+	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, ic.rawImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to convert image file to raw format:\n%w", err)
+	}
+
+	return nil
+}
+
+func qemuImgEscapeOptionValue(value string) string {
+	// Commas are escaped by doubling them up.
+	return strings.ReplaceAll(value, ",", ",,")
 }
 
 func customizeOSContents(ic *ImageCustomizerParameters) error {
@@ -521,10 +564,12 @@ func validateImageFormat(imageFormat string) error {
 func toQemuImageFormat(imageFormat string) (string, string) {
 	switch imageFormat {
 	case ImageFormatVhd:
-		return QemuFormatVpc, ""
+		// Use "force_size=on" to ensure the Hyper-V's VHD format is used instead of the old Microsoft Virtual PC's VHD
+		// format.
+		return QemuFormatVpc, "subformat=dynamic,force_size=on"
 
 	case ImageFormatVhdFixed:
-		return QemuFormatVpc, "subformat=fixed,force_size"
+		return QemuFormatVpc, "subformat=fixed,force_size=on"
 
 	case ImageFormatVhdx:
 		// For VHDX, qemu-img dynamically picks the block-size based on the size of the disk.
