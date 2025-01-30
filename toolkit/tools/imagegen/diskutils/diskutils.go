@@ -472,7 +472,7 @@ func waitForDiskToPopulate(diskDevPath string) error {
 				return info.Path == partition.Node
 			})
 			if !found {
-				err := fmt.Errorf("failed to find partition device (%s)", partition.Node)
+				err := fmt.Errorf("failed to find partition device node (%s)", partition.Node)
 				errs = append(errs, err)
 				continue
 			}
@@ -503,7 +503,7 @@ func waitForDiskToPopulate(diskDevPath string) error {
 		return nil
 	}, 10, 500*time.Millisecond)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for disk (%s) to populate:\n%w", diskDevPath, err)
+		return fmt.Errorf("timed out waiting for disk (%s) info to be populated:\n%w", diskDevPath, err)
 	}
 
 	return nil
@@ -589,7 +589,7 @@ func CreatePartitions(targetOs targetos.TargetOs, diskDevPath string, disk confi
 
 	// Refresh partition entries under /dev.
 	// This ensures the new filesystems are found by udev.
-	err = refreshPartitions(diskDevPath)
+	err = RefreshPartitions(diskDevPath)
 	if err != nil {
 		return
 	}
@@ -1096,8 +1096,8 @@ func obtainPartitionDetail(partitionIndex int, hasExtendedPartition bool) (partT
 	return
 }
 
-func refreshPartitions(diskDevPath string) error {
-	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "flock", "--timeout", "5", diskDevPath,
+func RefreshPartitions(diskDevPath string) error {
+	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "flock", "--shared", "--timeout", "5", diskDevPath,
 		"blockdev", "--rereadpt", diskDevPath)
 	if err != nil {
 		return fmt.Errorf("blockdev --rereadpt failed:\n%w", err)
