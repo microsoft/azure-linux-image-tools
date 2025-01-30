@@ -90,7 +90,7 @@ type ImageCustomizerParameters struct {
 }
 
 type verityDeviceMetadata struct {
-	hash         string
+	rootHash     string
 	dataPartUuid string
 	hashPartUuid string
 }
@@ -459,7 +459,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		}
 
 		verityMetadata := verityDeviceMetadata{
-			hash:         rootHash,
+			rootHash:     rootHash,
 			dataPartUuid: dataPartUuid,
 			hashPartUuid: roothashPartUuid,
 		}

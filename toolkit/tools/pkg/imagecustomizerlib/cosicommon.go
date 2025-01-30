@@ -107,7 +107,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 				}
 
 				metadataImage.Verity = &Verity{
-					Hash: verity.hash,
+					Roothash: verity.rootHash,
 					Image: ImageFile{
 						Path:             path.Join("images", hashPartition.PartitionFilename),
 						UncompressedSize: hashPartition.UncompressedSize,
