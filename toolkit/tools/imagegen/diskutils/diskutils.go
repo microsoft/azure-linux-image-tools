@@ -474,6 +474,7 @@ func waitForDiskToPopulate(diskDevPath string) error {
 			if !found {
 				err := fmt.Errorf("failed to find partition device (%s)", partition.Node)
 				errs = append(errs, err)
+				continue
 			}
 
 			if !strings.EqualFold(partition.TypeUuid, info.PartitionTypeUuid) {
