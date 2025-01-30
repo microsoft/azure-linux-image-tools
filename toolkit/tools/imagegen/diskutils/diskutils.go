@@ -501,7 +501,7 @@ func waitForDiskToPopulate(diskDevPath string) error {
 		}
 
 		return nil
-	}, 10, 500*time.Millisecond)
+	}, 10, time.Second)
 	if err != nil {
 		return fmt.Errorf("timed out waiting for disk (%s) info to be populated:\n%w", diskDevPath, err)
 	}
