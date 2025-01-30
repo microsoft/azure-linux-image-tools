@@ -1097,8 +1097,7 @@ func obtainPartitionDetail(partitionIndex int, hasExtendedPartition bool) (partT
 }
 
 func RefreshPartitions(diskDevPath string) error {
-	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "flock", "--shared", "--timeout", "5", diskDevPath,
-		"blockdev", "--rereadpt", diskDevPath)
+	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "blockdev", "--rereadpt", diskDevPath)
 	if err != nil {
 		return fmt.Errorf("blockdev --rereadpt failed:\n%w", err)
 	}
