@@ -7,6 +7,7 @@ package diskutils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -465,34 +466,43 @@ func waitForDiskToPopulate(diskDevPath string) error {
 			return err
 		}
 
+		errs := []error(nil)
 		for _, partition := range partitionTable.Partitions {
 			info, found := sliceutils.FindValueFunc(kernelPartitions, func(info PartitionInfo) bool {
 				return info.Path == partition.Node
 			})
 			if !found {
-				return fmt.Errorf("failed to find partition device (%s)", partition.Node)
+				err := fmt.Errorf("failed to find partition device (%s)", partition.Node)
+				errs = append(errs, err)
 			}
 
 			if !strings.EqualFold(partition.TypeUuid, info.PartitionTypeUuid) {
-				return fmt.Errorf("partition's type UUID (%s) is wrong (%s)",
-					info.PartitionTypeUuid, partition.TypeUuid)
+				err := fmt.Errorf("partition's (%s) type UUID is wrong: expected (%s), actual (%s)",
+					partition.Node, partition.TypeUuid, info.PartitionTypeUuid)
+				errs = append(errs, err)
 			}
 
 			if !strings.EqualFold(partition.Uuid, info.PartUuid) {
-				return fmt.Errorf("partition's UUID (%s) is wrong (%s)",
-					info.PartUuid, partition.Uuid)
+				err := fmt.Errorf("partition's (%s) UUID is wrong: expected (%s), actual (%s)",
+					partition.Node, partition.Uuid, info.PartUuid)
+				errs = append(errs, err)
 			}
 
 			if partition.Label != info.PartLabel {
-				return fmt.Errorf("partition's label (%s) is wrong (%s)",
-					info.PartUuid, partition.Uuid)
+				err := fmt.Errorf("partition's (%s) label is wrong: expected (%s), actual (%s)",
+					partition.Node, partition.Label, info.PartLabel)
+				errs = append(errs, err)
 			}
+		}
+
+		if len(errs) > 0 {
+			return errors.Join(errs...)
 		}
 
 		return nil
 	}, 10, 500*time.Millisecond)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for disk to populate:\n%w", err)
+		return fmt.Errorf("timed out waiting for disk (%s) to populate:\n%w", diskDevPath, err)
 	}
 
 	return nil

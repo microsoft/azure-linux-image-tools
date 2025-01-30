@@ -95,7 +95,7 @@ func shrinkFilesystems(imageLoopDevice string, verity []imagecustomizerapi.Verit
 		// recreated. So, wait for that to finish.
 		err = diskutils.WaitForDiskDevice(imageLoopDevice)
 		if err != nil {
-			return fmt.Errorf("failed to list disk (%s) partitions:\n%w", partitionLoopDevice, err)
+			return fmt.Errorf("failed to wait for disk (%s) partitions update:\n%w", imageLoopDevice, err)
 		}
 	}
 	return nil
