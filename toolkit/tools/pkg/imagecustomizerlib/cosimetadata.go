@@ -18,8 +18,8 @@ type Image struct {
 }
 
 type Verity struct {
-	Image ImageFile `json:"image"`
-	Hash  string    `json:"hash"`
+	Image    ImageFile `json:"image"`
+	Roothash string    `json:"roothash"`
 }
 
 type ImageFile struct {

@@ -38,11 +38,11 @@ func (v *Verity) IsValid() error {
 	}
 
 	if v.DataDevice == "" {
-		return fmt.Errorf("'dataDeviceId' may not be empty")
+		return fmt.Errorf("'dataDevice' may not be empty")
 	}
 
 	if v.HashDevice == "" {
-		return fmt.Errorf("'hashDeviceId' may not be empty")
+		return fmt.Errorf("'hashDevice' may not be empty")
 	}
 
 	if err := v.CorruptionOption.IsValid(); err != nil {
