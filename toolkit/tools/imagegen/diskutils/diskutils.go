@@ -25,6 +25,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 type blockDevicesOutput struct {
@@ -1098,10 +1099,9 @@ func obtainPartitionDetail(partitionIndex int, hasExtendedPartition bool) (partT
 }
 
 func RefreshPartitions(diskDevPath string) error {
-	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "flock", "--timeout", "5", diskDevPath,
-		"blockdev", "--rereadpt", diskDevPath)
+	err := rereadPartitionTable(diskDevPath)
 	if err != nil {
-		return fmt.Errorf("blockdev --rereadpt failed:\n%w", err)
+		return fmt.Errorf("failed to request partition table reread (%s):\n%w", diskDevPath, err)
 	}
 
 	err = WaitForDiskDevice(diskDevPath)
@@ -1110,4 +1110,32 @@ func RefreshPartitions(diskDevPath string) error {
 	}
 
 	return nil
+}
+
+func rereadPartitionTable(diskDevPath string) error {
+	diskFile, err := os.OpenFile(diskDevPath, os.O_RDONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer diskFile.Close()
+
+	waitTime := 125 * time.Millisecond
+	retries := 10
+	for i := 0; ; i += 1 {
+		_, _, errno := unix.Syscall(unix.SYS_IOCTL, diskFile.Fd(), unix.BLKRRPART, 0)
+		switch {
+		case errno == unix.EBUSY && i < retries:
+			// Something else is using the disk at the moment.
+			// So, retry in a little bit.
+			time.Sleep(waitTime)
+			waitTime *= 2
+			continue
+
+		case errno != 0:
+			return errno
+
+		default:
+			return nil
+		}
+	}
 }
