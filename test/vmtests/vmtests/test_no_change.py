@@ -76,7 +76,7 @@ def test_no_change(
 
     # Create VM.
     vm_name = test_instance_name
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image, True))
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), True)
 
     logging.debug(f"---- debug ---- [3] = domain_xml={domain_xml}")
 

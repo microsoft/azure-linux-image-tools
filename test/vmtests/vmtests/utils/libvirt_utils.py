@@ -31,13 +31,13 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, azl: bool) -> str:
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    if !azl:
+    if not azl:
         os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    if !azl:
+    if not azl:
         firmware = ET.SubElement(domain, "firmware")
         firmware.attrib["secure-boot"] = "yes"
         firmware.attrib["enrolled-keys"] = "yes"
@@ -98,7 +98,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, azl: bool) -> str:
     video = ET.SubElement(devices, "video")
 
     video_model = ET.SubElement(video, "model")
-    if !azl:
+    if not azl:
         video_model.attrib["type"] = "qxl"
 
         graphics = ET.SubElement(devices, "graphics")
