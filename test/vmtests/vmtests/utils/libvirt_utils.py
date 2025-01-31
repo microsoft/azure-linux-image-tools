@@ -16,7 +16,7 @@ class VmSpec:
 
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
+def create_libvirt_domain_xml(vm_spec: VmSpec, azl: bool) -> str:
     domain = ET.Element("domain")
     domain.attrib["type"] = "kvm"
 
@@ -31,14 +31,29 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    os_tag.attrib["firmware"] = "efi"
+    if !azl:
+        os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    firmware = ET.SubElement(domain, "firmware")
-    firmware.attrib["secure-boot"] = "yes"
-    firmware.attrib["enrolled-keys"] = "yes"
+    if !azl:
+        firmware = ET.SubElement(domain, "firmware")
+        firmware.attrib["secure-boot"] = "yes"
+        firmware.attrib["enrolled-keys"] = "yes"
+
+    # nvram = ET.SubElement(os_tag, "nvram")
+
+    # <os>
+    #   <loader readonly='yes' type='pflash'>/usr/share/edk2/ovmf/OVMF_CODE.fd</loader>
+    #   <nvram>/var/lib/libvirt/qemu/nvram/<vm-name>_VARS.fd</nvram>
+    # </os>
+    if azl:
+        loader = ET.SubElement(os_tag, "loader")
+        loader.attrib["readonly"] = "yes"
+        loader.attrib["secure"] = "no"
+        loader.attrib["type"] = "pflash"
+        loader.text = "/usr/share/OVMF/OVMF_CODE.fd"
 
     features = ET.SubElement(domain, "features")
 
@@ -83,10 +98,13 @@ def create_libvirt_domain_xml(vm_spec: VmSpec) -> str:
     video = ET.SubElement(devices, "video")
 
     video_model = ET.SubElement(video, "model")
-    video_model.attrib["type"] = "qxl"
+    if !azl:
+        video_model.attrib["type"] = "qxl"
 
-    graphics = ET.SubElement(devices, "graphics")
-    graphics.attrib["type"] = "spice"
+        graphics = ET.SubElement(devices, "graphics")
+        graphics.attrib["type"] = "spice"
+    else:
+        video_model.attrib["type"] = "vga"
 
     network_interface = ET.SubElement(devices, "interface")
     network_interface.attrib["type"] = "network"

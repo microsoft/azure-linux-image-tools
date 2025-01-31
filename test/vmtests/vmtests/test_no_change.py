@@ -56,29 +56,39 @@ def test_no_change(
 
     vm_image = output_image_path
 
-    if output_format != "iso":
-        diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
+    logging.debug("---- debug ---- [1]")
 
-        # Create a differencing disk for the VM.
-        # This will make it easier to manually debug what is in the image itself and what was set during first boot.
-        local_client.run(
-            ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
-        ).check_exit_code()
+    # if output_format != "iso":
+    #     diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
 
-        # Ensure VM can write to the disk file.
-        os.chmod(diff_image_path, 0o666)
+    #     # Create a differencing disk for the VM.
+    #     # This will make it easier to manually debug what is in the image itself and what was set during first boot.
+    #     local_client.run(
+    #         ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
+    #     ).check_exit_code()
 
-        vm_image = diff_image_path
+    #     # Ensure VM can write to the disk file.
+    #     os.chmod(diff_image_path, 0o666)
+
+    #     vm_image = diff_image_path
+
+    logging.debug(f"---- debug ---- [2] - vm_image={vm_image}")
 
     # Create VM.
     vm_name = test_instance_name
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image))
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image, True))
+
+    logging.debug(f"---- debug ---- [3] = domain_xml={domain_xml}")
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
+    logging.debug("---- debug ---- [4]")
+
     # Start VM.
     vm.start()
+
+    logging.debug("---- debug ---- [5]")
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
