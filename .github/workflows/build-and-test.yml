@@ -28,7 +28,6 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: "${{ env.EXPECTED_GO_VERSION }}"
-        cache: false
       id: go
 
     - name: check active go version
