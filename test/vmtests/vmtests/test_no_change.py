@@ -72,34 +72,37 @@ def test_no_change(
 
     #     vm_image = diff_image_path
 
-    logging.debug(f"---- debug ---- [2] - vm_image={vm_image}")
+    logging.debug(f"---- debug ---- [2] - creating domain xml - vm_image={vm_image}")
 
     # Create VM.
     vm_name = test_instance_name
     domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), True)
 
-    logging.debug(f"---- debug ---- [3] = domain_xml={domain_xml}")
+    logging.debug(f"---- debug ---- [3] - creating domain - domain_xml={domain_xml}")
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
-    logging.debug("---- debug ---- [4]")
+    logging.debug("---- debug ---- [4] -- starting vm")
 
     # Start VM.
     vm.start()
 
-    logging.debug("---- debug ---- [5]")
+    logging.debug("---- debug ---- [5] -- getting ip address...")
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
+    logging.debug("---- debug ---- [6] -- waiting for the vm to be ready to connect to...")
     # iso booting takes longer due to the copying of artifacts to memory
     time.sleep(30)
 
+    logging.debug("---- debug ---- [7] -- connecting to vm...")
     # Connect to VM using SSH.
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
     open(ssh_known_hosts_path, "w").close()
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+        logging.debug("---- debug ---- [8] -- running tests...")
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
         os_release_path = test_temp_dir.joinpath("os-release")
@@ -110,3 +113,5 @@ def test_no_change(
 
             assert ("ID=azurelinux" in os_release_text) or ("ID=mariner" in os_release_text)
             assert ('VERSION_ID="3.0"' in os_release_text) or ('VERSION_ID="2.0"' in os_release_text)
+
+        logging.debug("---- debug ---- [9] -- done running tests.")
