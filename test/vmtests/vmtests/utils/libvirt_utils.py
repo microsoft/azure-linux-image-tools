@@ -42,7 +42,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, azl: bool) -> str:
         firmware.attrib["secure-boot"] = "yes"
         firmware.attrib["enrolled-keys"] = "yes"
 
-    # nvram = ET.SubElement(os_tag, "nvram")
+    nvram = ET.SubElement(os_tag, "nvram")
 
     # <os>
     #   <loader readonly='yes' type='pflash'>/usr/share/edk2/ovmf/OVMF_CODE.fd</loader>
