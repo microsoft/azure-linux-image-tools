@@ -6,7 +6,9 @@
 package diskutils
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +22,10 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/retry"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 type blockDevicesOutput struct {
@@ -66,6 +70,30 @@ type loopbackListOutput struct {
 type loopbackDevice struct {
 	Name        string `json:"name"`
 	BackingFile string `json:"back-file"`
+}
+
+type PartitionTablePartition struct {
+	Node     string `json:"node"`  // Example: /dev/loop1p1
+	Start    int64  `json:"start"` // Example: 2048
+	Size     int64  `json:"size"`  // Example: 16384
+	TypeUuid string `json:"type"`  // Example: C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+	Uuid     string `json:"uuid"`  // Example: 2789D1BC-3909-4B06-AD2D-DA531DABF7C8
+	Label    string `json:"name"`  // Example: rootfs
+}
+
+type PartitionTable struct {
+	Label      string                    `json:"label"`      // Example: gpt
+	Id         string                    `json:"id"`         // Example: 1DFD88CF-6214-4574-97A2-C605D411CFBE
+	Device     string                    `json:"device"`     // Example: /dev/loop1
+	Sectors    string                    `json:"unit"`       // Example: sectors
+	FirstLba   int64                     `json:"firstlba"`   // Example: 2048
+	LastLba    int64                     `json:"lastlba"`    // Example: 8388574
+	SectorSize int                       `json:"sectorsize"` // Example: 512
+	Partitions []PartitionTablePartition `json:"partitions"`
+}
+
+type partitionTableOutput struct {
+	PartitionTable *PartitionTable `json:"partitiontable"`
 }
 
 const (
@@ -405,6 +433,89 @@ func WaitForLoopbackToDetach(devicePath string, diskPath string) error {
 	return fmt.Errorf("timed out waiting for loopback device (%s) for disk (%s) to close", devicePath, diskPath)
 }
 
+func WaitForDiskDevice(diskDevPath string) error {
+	// Wait for udev to finish processing the disk.
+	// Ideally, we would use 'udevadm wait' instead of 'udevadm settle'. But it is too new and so isn't universally
+	// available yet.
+	err := WaitForDevicesToSettle()
+	if err != nil {
+		return err
+	}
+
+	// 'udevadm settle' is sometimes not enough.
+	// So, double check that the partitions have been populated.
+	// This also has the added benefit of preventing silent problems later on in the code.
+	err = waitForDiskToPopulate(diskDevPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func waitForDiskToPopulate(diskDevPath string) error {
+	// Read the partition table directly from the disk.
+	partitionTable, err := ReadDiskPartitionTable(diskDevPath)
+	if err != nil {
+		return err
+	}
+
+	if partitionTable == nil {
+		// Disk is empty.
+		return nil
+	}
+
+	_, err = retry.RunWithExpBackoff(context.Background(), func() error {
+		// Read the kernel's view of the partitions.
+		kernelPartitions, err := GetDiskPartitions(diskDevPath)
+		if err != nil {
+			return err
+		}
+
+		// Check if the kernel's view matches the actual disk partitions yet.
+		errs := []error(nil)
+		for _, partition := range partitionTable.Partitions {
+			info, found := sliceutils.FindValueFunc(kernelPartitions, func(info PartitionInfo) bool {
+				return info.Path == partition.Node
+			})
+			if !found {
+				err := fmt.Errorf("failed to find partition device node (%s)", partition.Node)
+				errs = append(errs, err)
+				continue
+			}
+
+			if !strings.EqualFold(partition.TypeUuid, info.PartitionTypeUuid) {
+				err := fmt.Errorf("partition's (%s) type UUID is wrong: expected (%s), actual (%s)",
+					partition.Node, partition.TypeUuid, info.PartitionTypeUuid)
+				errs = append(errs, err)
+			}
+
+			if !strings.EqualFold(partition.Uuid, info.PartUuid) {
+				err := fmt.Errorf("partition's (%s) UUID is wrong: expected (%s), actual (%s)",
+					partition.Node, partition.Uuid, info.PartUuid)
+				errs = append(errs, err)
+			}
+
+			if partition.Label != info.PartLabel {
+				err := fmt.Errorf("partition's (%s) label is wrong: expected (%s), actual (%s)",
+					partition.Node, partition.Label, info.PartLabel)
+				errs = append(errs, err)
+			}
+		}
+
+		if len(errs) > 0 {
+			return errors.Join(errs...)
+		}
+
+		return nil
+	}, 10, 120*time.Millisecond, 2.0)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for disk (%s) info to be populated:\n%w", diskDevPath, err)
+	}
+
+	return nil
+}
+
 // WaitForDevicesToSettle waits for all udev events to be processed on the system.
 // This can be used to wait for partitions to be discovered after mounting a disk.
 func WaitForDevicesToSettle() error {
@@ -485,7 +596,7 @@ func CreatePartitions(targetOs targetos.TargetOs, diskDevPath string, disk confi
 
 	// Refresh partition entries under /dev.
 	// This ensures the new filesystems are found by udev.
-	err = refreshPartitions(diskDevPath)
+	err = RefreshPartitions(diskDevPath)
 	if err != nil {
 		return
 	}
@@ -821,6 +932,7 @@ func SystemBlockDevices() (systemDevices []SystemBlockDevice, err error) {
 	return
 }
 
+// GetDiskPartitions gets the kernel's view of a disk's partitions.
 func GetDiskPartitions(diskDevPath string) ([]PartitionInfo, error) {
 	// Read the disk's partitions.
 	jsonString, _, err := shell.Execute("lsblk", diskDevPath, "--output",
@@ -838,6 +950,29 @@ func GetDiskPartitions(diskDevPath string) ([]PartitionInfo, error) {
 	}
 
 	return output.Devices, err
+}
+
+// ReadPartitionTable directly reads the partition table from the disk.
+func ReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
+	stdout, stderr, err := shell.Execute("sfdisk", "--dump", "--json", diskDevPath)
+	if err != nil {
+		if strings.Contains(stderr, "does not contain a recognized partition table") {
+			// Empty partition table.
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("failed to read partition table (%s):\n%s\n%w", diskDevPath, stderr, err)
+	}
+
+	var output partitionTableOutput
+	if stdout != "" {
+		err = json.Unmarshal([]byte(stdout), &output)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse disk (%s) partition table JSON:\n%w", diskDevPath, err)
+		}
+	}
+
+	return output.PartitionTable, nil
 }
 
 func createExtendedPartition(diskDevPath string, partitionTableType configuration.PartitionTableType,
@@ -968,17 +1103,47 @@ func obtainPartitionDetail(partitionIndex int, hasExtendedPartition bool) (partT
 	return
 }
 
-func refreshPartitions(diskDevPath string) error {
-	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "flock", "--timeout", "5", diskDevPath,
-		"blockdev", "--rereadpt", diskDevPath)
+func RefreshPartitions(diskDevPath string) error {
+	err := rereadPartitionTable(diskDevPath)
 	if err != nil {
-		return fmt.Errorf("blockdev --rereadpt failed:\n%w", err)
+		return fmt.Errorf("failed to request partition table reread (%s):\n%w", diskDevPath, err)
 	}
 
-	err = WaitForDevicesToSettle()
+	err = WaitForDiskDevice(diskDevPath)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func rereadPartitionTable(diskDevPath string) error {
+	diskFile, err := os.OpenFile(diskDevPath, os.O_RDONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer diskFile.Close()
+
+	waitTime := 125 * time.Millisecond
+	retries := 10
+	for i := 0; ; i += 1 {
+		// Request the kernel to re-read the partition table.
+		// Note: It is intentional that the disk's file (advisory) lock is not held here, since holding that lock will
+		// block udev from processing the partition updates.
+		_, _, errno := unix.Syscall(unix.SYS_IOCTL, diskFile.Fd(), unix.BLKRRPART, 0)
+		switch {
+		case errno == unix.EBUSY && i < retries:
+			// Something else is using the disk at the moment.
+			// So, retry in a little bit.
+			time.Sleep(waitTime)
+			waitTime *= 2
+			continue
+
+		case errno != 0:
+			return errno
+
+		default:
+			return nil
+		}
+	}
 }
