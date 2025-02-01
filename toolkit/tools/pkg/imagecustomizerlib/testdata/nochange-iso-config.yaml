@@ -1,4 +1,9 @@
 os:
+  selinux:
+    mode: disabled
+  kernelCommandLine:
+    extraCommandLine:
+    - "selinux=0"
   packages:
     install:
     # iso required packages
