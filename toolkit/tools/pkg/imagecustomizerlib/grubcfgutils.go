@@ -240,8 +240,9 @@ func setInitrdPath(inputGrubCfgContent string, initrdPath string) (outputGrubCfg
 // If $kernelopts is present, extraCommandLine is inserted before $kernelopts.
 // If $kernelopts is not present, extraCommandLine is appended at the end.
 func appendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
-	allowMultiple bool, requireKernelOpts bool) (outputGrubCfgContent string, err error) {
-	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, allowMultiple)
+	requireKernelOpts bool,
+) (outputGrubCfgContent string, err error) {
+	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, true /*allowMultiple*/)
 	if err != nil {
 		return "", err
 	}
@@ -271,11 +272,6 @@ func appendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine
 	}
 
 	return outputGrubCfgContent, nil
-}
-
-// Appends kernel command-line args to the linux command within a grub config file.
-func appendKernelCommandLineArgs(inputGrubCfgContent string, extraCommandLine string) (outputGrubCfgContent string, err error) {
-	return appendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, false /*allow multiple*/, true /*requireKernelOpts*/)
 }
 
 type grubConfigLinuxArg struct {
@@ -444,12 +440,12 @@ func findKernelCommandLineArgValue(args []grubConfigLinuxArg, name string) (stri
 	return lastArg.Value, nil
 }
 
-func replaceKernelCommandLineArgValueAll(inputGrubCfgContent string, name string, value string, allowMultiple bool,
+func replaceKernelCommandLineArgValueAll(inputGrubCfgContent string, name string, value string,
 ) (outputGrubCfgContent string, oldValues []string, err error) {
 	newArg := fmt.Sprintf("%s=%s", name, value)
 	quotedNewArg := grub.QuoteString(newArg)
 
-	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, allowMultiple)
+	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, true /*allowMultiple*/)
 	if err != nil {
 		return "", nil, err
 	}
@@ -489,8 +485,9 @@ func replaceKernelCommandLineArgValueAll(inputGrubCfgContent string, name string
 }
 
 func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, newArgs []string,
-	allowMultiple bool, requireKernelOpts bool) (string, error) {
-	lines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, allowMultiple /*allowMultiple*/)
+	requireKernelOpts bool,
+) (string, error) {
+	lines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, true /*allowMultiple*/)
 	if err != nil {
 		return "", err
 	}
@@ -532,7 +529,7 @@ func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, n
 // Output:
 // - grub2Config: The new string contents of the grub.cfg file.
 func updateKernelCommandLineArgs(grub2Config string, argsToRemove []string, newArgs []string) (string, error) {
-	return updateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, false /*allowMultiple*/, true /*requireKernelOpts*/)
+	return updateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, true /*requireKernelOpts*/)
 }
 
 func updateKernelCommandLineArgsHelper(value string, args []grubConfigLinuxArg, insertAt int,
@@ -625,13 +622,15 @@ func selinuxModeToArgsWithPermissiveFlag(selinuxMode imagecustomizerapi.SELinuxM
 }
 
 // Update the SELinux kernel command-line args.
-func updateSELinuxCommandLineHelperAll(grub2Config string, selinuxMode imagecustomizerapi.SELinuxMode, allowMultiple bool, requireKernelOpts bool) (string, error) {
+func updateSELinuxCommandLineHelperAll(grub2Config string, selinuxMode imagecustomizerapi.SELinuxMode,
+	requireKernelOpts bool,
+) (string, error) {
 	newSELinuxArgs, err := selinuxModeToArgs(selinuxMode)
 	if err != nil {
 		return "", err
 	}
 
-	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, selinuxArgNames, newSELinuxArgs, allowMultiple, requireKernelOpts)
+	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, selinuxArgNames, newSELinuxArgs, requireKernelOpts)
 	if err != nil {
 		return "", err
 	}

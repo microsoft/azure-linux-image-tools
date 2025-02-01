@@ -445,14 +445,14 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 	}
 
 	rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isomakerlib.DefaultVolumeId)
-	inputContentString, _, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue, true /*allowMultiple*/)
+	inputContentString, _, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 	if err != nil {
 		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 	}
 
 	if disableSELinux {
-		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
-			true /*allowMultiple*/, false /*requireKernelOpts*/)
+		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString,
+			imagecustomizerapi.SELinuxModeDisabled, false /*requireKernelOpts*/)
 		if err != nil {
 			return fmt.Errorf("failed to set SELinux mode:\n%w", err)
 		}
@@ -463,7 +463,7 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
 	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline,
-		true /*allowMultiple*/, false /*requireKernelOpts*/)
+		false /*requireKernelOpts*/)
 	if err != nil {
 		return fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the iso grub.cfg:\n%w", err)
 	}
@@ -546,13 +546,13 @@ func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, px
 		}
 	}
 	rootValue := fmt.Sprintf(rootValuePxeTemplate, pxeIsoImageFileUrl)
-	inputContentString, _, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue, true /*allowMultiple*/)
+	inputContentString, _, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 	if err != nil {
 		return fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
 	}
 
 	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs,
-		true /*allowMultiple*/, false /*requireKernelOpts*/)
+		false /*requireKernelOpts*/)
 	if err != nil {
 		return fmt.Errorf("failed to append the kernel arguments (%s) in the PXE grub.cfg:\n%w", pxeKernelsArgs, err)
 	}
