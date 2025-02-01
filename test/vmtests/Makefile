@@ -65,8 +65,24 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 .PHONY: run
 run: image-customizer-container
 	${PYTEST} \
+		--host-os="${HOST_OS}" \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--core-efi-azl2="${CORE_EFI_AZL2}" \
+		--core-efi-azl="${CORE_EFI_AZL}" \
+		--output-format="qcow2" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		./vmtests
+
+.PHONY: runiso
+runiso: image-customizer-container
+	${PYTEST} \
+		--host-os="${HOST_OS}" \
+		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+		--core-efi-azl="${CORE_EFI_AZL}" \
+		--output-format="iso" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
