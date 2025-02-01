@@ -72,13 +72,13 @@ def test_no_change(
 
     #     vm_image = diff_image_path
 
-    logging.debug(f"---- debug ---- [2] - creating domain xml - vm_image={vm_image}")
+    logging.debug(f"---- debug ---- [2] -- creating domain xml - vm_image={vm_image}")
 
     # Create VM.
     vm_name = test_instance_name
     domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), True)
 
-    logging.debug(f"---- debug ---- [3] - creating domain - domain_xml={domain_xml}")
+    logging.debug(f"---- debug ---- [3] -- creating domain - domain_xml={domain_xml}")
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
