@@ -16,7 +16,7 @@ class VmSpec:
 
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(vm_spec: VmSpec, azl: bool) -> str:
+def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str) -> str:
     domain = ET.Element("domain")
     domain.attrib["type"] = "kvm"
 
@@ -31,13 +31,13 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, azl: bool) -> str:
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    if not azl:
+    if host_os != "azurelinux":
         os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    if not azl:
+    if host_os != "azurelinux":
         firmware = ET.SubElement(domain, "firmware")
         firmware.attrib["secure-boot"] = "yes"
         firmware.attrib["enrolled-keys"] = "yes"

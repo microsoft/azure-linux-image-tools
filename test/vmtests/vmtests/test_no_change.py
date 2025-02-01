@@ -21,6 +21,7 @@ from .utils.ssh_client import SshClient
 
 
 def test_no_change(
+    host_os: str,
     docker_client: DockerClient,
     image_customizer_container_url: str,
     core_efi_azl: Path,
@@ -76,7 +77,7 @@ def test_no_change(
 
     # Create VM.
     vm_name = test_instance_name
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), True)
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), host_os)
 
     logging.debug(f"---- debug ---- [3] -- creating domain - domain_xml={domain_xml}")
 
