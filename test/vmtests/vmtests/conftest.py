@@ -23,7 +23,6 @@ TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomi
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
     parser.addoption("--core-efi-azl", action="store", help="Path to Azure Linux 2.0 core-efi qcow2 image")
-    parser.addoption("--host-os", action="store", help="Host OS - can be 'ubuntu' or 'azurelinux'")
     parser.addoption("--output-format", action="store", help="Image Customizer supported format")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
@@ -76,13 +75,6 @@ def test_temp_dir(
     if not keep_environment:
         shutil.rmtree(temp_path)
 
-
-@pytest.fixture(scope="session")
-def host_os(request: pytest.FixtureRequest) -> Generator[str, None, None]:
-    host_os = request.config.getoption("--host-os")
-    if not host_os:
-        raise Exception("--host-os is required for test")
-    yield host_os
 
 @pytest.fixture(scope="session")
 def core_efi_azl(request: pytest.FixtureRequest) -> Generator[Path, None, None]:

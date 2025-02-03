@@ -65,7 +65,6 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 .PHONY: run
 run: image-customizer-container
 	${PYTEST} \
-		--host-os="${HOST_OS}" \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--core-efi-azl="${CORE_EFI_AZL}" \
 		--output-format="qcow2" \
@@ -79,7 +78,6 @@ run: image-customizer-container
 .PHONY: runiso
 runiso: image-customizer-container
 	${PYTEST} \
-		--host-os="${HOST_OS}" \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--core-efi-azl="${CORE_EFI_AZL}" \
 		--output-format="iso" \

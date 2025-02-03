@@ -5,6 +5,7 @@ import os
 from getpass import getuser
 import logging
 from pathlib import Path
+import shlex
 import time
 from typing import List, Tuple
 
@@ -21,7 +22,6 @@ from .utils.ssh_client import SshClient
 
 
 def test_no_change(
-    host_os: str,
     docker_client: DockerClient,
     image_customizer_container_url: str,
     core_efi_azl: Path,
@@ -42,7 +42,7 @@ def test_no_change(
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
     boot_type = "efi"
-    if Path(core_efi_azl).suffix.lower() == ".vhd":
+    if Path(core_efi_azl).suffix.lower() == ".vhd" and output_format != "iso":
         boot_type = "legacy"
 
     username = getuser()
@@ -61,7 +61,8 @@ def test_no_change(
 
     vm_image = output_image_path
 
-    logging.debug("---- debug ---- [1]")
+    host_os = get_host_os()
+    logging.debug(f"---- debug ---- [1] -- host_os={host_os}")
 
     # if output_format != "iso":
     #     diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
@@ -121,3 +122,14 @@ def test_no_change(
             assert ('VERSION_ID="3.0"' in os_release_text) or ('VERSION_ID="2.0"' in os_release_text)
 
         logging.debug("---- debug ---- [9] -- done running tests.")
+
+def get_host_os () -> str:
+    with open("/etc/os-release", "r") as f:
+        for line in f:
+            key, _, value = line.partition("=")
+            if key == "NAME":
+                os_name = shlex.split(value)[0]  # Safely handle quoted values
+                print(f"OS Name: {os_name}")
+                break
+
+    return os_name

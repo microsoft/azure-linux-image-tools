@@ -32,14 +32,14 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> 
 
     os_tag = ET.SubElement(domain, "os")
     if boot_type == "efi":
-        if host_os != "azurelinux":
+        if host_os == "Ubuntu":
             os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
     if boot_type == "efi":
-        if host_os != "azurelinux":
+        if host_os == "Ubuntu":
             firmware = ET.SubElement(domain, "firmware")
             firmware.attrib["secure-boot"] = "yes"
             firmware.attrib["enrolled-keys"] = "yes"
