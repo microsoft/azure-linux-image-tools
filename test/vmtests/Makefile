@@ -67,20 +67,7 @@ run: image-customizer-container
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--input-image="${INPUT_IMAGE}" \
-		--output-format="qcow2" \
-		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
-		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
-		--show-capture=all \
-		--tb=short \
-		./vmtests
-
-.PHONY: runiso
-runiso: image-customizer-container
-	${PYTEST} \
-		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--input-image="${INPUT_IMAGE}" \
-		--output-format="iso" \
+		--output-format="${OUTPUT_FORMAT}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \

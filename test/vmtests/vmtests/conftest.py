@@ -87,7 +87,7 @@ def input_image(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
 def output_format(request: pytest.FixtureRequest) -> Generator[str, None, None]:
     output_format = request.config.getoption("--output-format")
     if not output_format:
-        raise Exception("--output-format")
+        raise Exception("--output-format is required for test")
     yield output_format
 
 @pytest.fixture(scope="session")
