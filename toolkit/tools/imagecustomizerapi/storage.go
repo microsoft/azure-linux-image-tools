@@ -169,15 +169,13 @@ func (s *Storage) IsValid() error {
 			verity.FileSystem = filesystem
 		}
 
-		if !hasFileSystem || filesystem.MountPoint == nil || filesystem.MountPoint.Path != "/" {
-			return fmt.Errorf("defining non-root verity devices is not currently supported:\n"+
-				"filesystems[].mountPoint.path' of verity device (%s) must be set to '/'",
-				verity.Id)
+		if !hasFileSystem || filesystem.MountPoint == nil || filesystem.MountPoint.Path != "/" && filesystem.MountPoint.Path != "/usr" {
+			return fmt.Errorf("filesystems[].mountPoint.path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
 		}
 
-		if verity.Name != VerityRootDeviceName {
-			return fmt.Errorf("verity 'name' (%s) must be \"%s\" for filesystem (%s) partition (%s)", verity.Name,
-				VerityRootDeviceName, filesystem.MountPoint.Path, verity.DataDeviceId)
+		if verity.Name != VerityRootDeviceName && verity.Name != VerityUsrDeviceName {
+			return fmt.Errorf("verity 'name' (%s) must be \"%s\" or \"%s\"",
+				verity.Name, VerityRootDeviceName, VerityUsrDeviceName)
 		}
 
 		mountOptions := strings.Split(filesystem.MountPoint.Options, ",")

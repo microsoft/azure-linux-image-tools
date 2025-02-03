@@ -12,6 +12,7 @@ const (
 	DeviceMapperPath = "/dev/mapper"
 
 	VerityRootDeviceName = "root"
+	VerityUsrDeviceName  = "usr"
 )
 
 var (
