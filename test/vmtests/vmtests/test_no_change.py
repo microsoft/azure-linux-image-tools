@@ -41,6 +41,10 @@ def test_no_change(
 
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
+    boot_type = "efi"
+    if Path(core_efi_azl).suffix.lower() == ".vhd":
+        boot_type = "legacy"
+
     username = getuser()
 
     run_image_customizer(
@@ -77,7 +81,8 @@ def test_no_change(
 
     # Create VM.
     vm_name = test_instance_name
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), host_os)
+
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), host_os, boot_type)
 
     logging.debug(f"---- debug ---- [3] -- creating domain - domain_xml={domain_xml}")
 

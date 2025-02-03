@@ -16,7 +16,7 @@ class VmSpec:
 
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str) -> str:
+def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> str:
     domain = ET.Element("domain")
     domain.attrib["type"] = "kvm"
 
@@ -31,29 +31,27 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str) -> str:
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    if host_os != "azurelinux":
-        os_tag.attrib["firmware"] = "efi"
+    if boot_type == "efi":
+        if host_os != "azurelinux":
+            os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    if host_os != "azurelinux":
-        firmware = ET.SubElement(domain, "firmware")
-        firmware.attrib["secure-boot"] = "yes"
-        firmware.attrib["enrolled-keys"] = "yes"
+    if boot_type == "efi":
+        if host_os != "azurelinux":
+            firmware = ET.SubElement(domain, "firmware")
+            firmware.attrib["secure-boot"] = "yes"
+            firmware.attrib["enrolled-keys"] = "yes"
 
     nvram = ET.SubElement(os_tag, "nvram")
 
-    # <os>
-    #   <loader readonly='yes' type='pflash'>/usr/share/edk2/ovmf/OVMF_CODE.fd</loader>
-    #   <nvram>/var/lib/libvirt/qemu/nvram/<vm-name>_VARS.fd</nvram>
-    # </os>
-    # if azl:
-    loader = ET.SubElement(os_tag, "loader")
-    loader.attrib["readonly"] = "yes"
-    loader.attrib["secure"] = "no"
-    loader.attrib["type"] = "pflash"
-    loader.text = "/usr/share/OVMF/OVMF_CODE.fd"
+    if boot_type == "efi":
+        loader = ET.SubElement(os_tag, "loader")
+        loader.attrib["readonly"] = "yes"
+        loader.attrib["secure"] = "no"
+        loader.attrib["type"] = "pflash"
+        loader.text = "/usr/share/OVMF/OVMF_CODE.fd"
 
     features = ET.SubElement(domain, "features")
 
