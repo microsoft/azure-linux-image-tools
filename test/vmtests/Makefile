@@ -66,7 +66,7 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 run: image-customizer-container
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--core-efi-azl="${CORE_EFI_AZL}" \
+		--input-image="${INPUT_IMAGE}" \
 		--output-format="qcow2" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
@@ -79,7 +79,7 @@ run: image-customizer-container
 runiso: image-customizer-container
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--core-efi-azl="${CORE_EFI_AZL}" \
+		--input-image="${INPUT_IMAGE}" \
 		--output-format="iso" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \

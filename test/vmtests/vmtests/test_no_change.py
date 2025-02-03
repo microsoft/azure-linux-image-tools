@@ -24,7 +24,7 @@ from .utils.ssh_client import SshClient
 def test_no_change(
     docker_client: DockerClient,
     image_customizer_container_url: str,
-    core_efi_azl: Path,
+    input_image: Path,
     output_format: str,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
@@ -42,7 +42,7 @@ def test_no_change(
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
     boot_type = "efi"
-    if Path(core_efi_azl).suffix.lower() == ".vhd" and output_format != "iso":
+    if Path(input_image).suffix.lower() == ".vhd" and output_format != "iso":
         boot_type = "legacy"
 
     username = getuser()
@@ -50,7 +50,7 @@ def test_no_change(
     run_image_customizer(
         docker_client,
         image_customizer_container_url,
-        core_efi_azl,
+        input_image,
         config_path,
         username,
         ssh_public_key,
@@ -59,31 +59,29 @@ def test_no_change(
         close_list,
     )
 
+    logging.debug(f"---- debug ---- [1] -- output_image_path={output_image_path}")
+
     vm_image = output_image_path
+    if output_format != "iso":
+        diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
 
-    host_os = get_host_os()
-    logging.debug(f"---- debug ---- [1] -- host_os={host_os}")
+        # Create a differencing disk for the VM.
+        # This will make it easier to manually debug what is in the image itself and what was set during first boot.
+        local_client.run(
+            ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
+        ).check_exit_code()
 
-    # if output_format != "iso":
-    #     diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
+        # Ensure VM can write to the disk file.
+        os.chmod(diff_image_path, 0o666)
 
-    #     # Create a differencing disk for the VM.
-    #     # This will make it easier to manually debug what is in the image itself and what was set during first boot.
-    #     local_client.run(
-    #         ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
-    #     ).check_exit_code()
-
-    #     # Ensure VM can write to the disk file.
-    #     os.chmod(diff_image_path, 0o666)
-
-    #     vm_image = diff_image_path
+        vm_image = diff_image_path
 
     logging.debug(f"---- debug ---- [2] -- creating domain xml - vm_image={vm_image}")
 
     # Create VM.
     vm_name = test_instance_name
 
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), host_os, boot_type)
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), get_host_os(), boot_type)
 
     logging.debug(f"---- debug ---- [3] -- creating domain - domain_xml={domain_xml}")
 
