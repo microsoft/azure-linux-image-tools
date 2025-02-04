@@ -6,8 +6,7 @@ parent: Configuration
 
 Specifies the configuration for dm-verity integrity verification.
 
-Note: Currently only root partition (`/`) is supported. Support for other partitions
-(e.g. `/usr`) may be added in the future.
+Note: Currently root partition (`/`) and usr partition are supported.
 
 Note: The [filesystem](./filesystem.md) item pointing to this verity device, must
 include the `ro` option in the [mountPoint.options](./mountpoint.md#options-string).
@@ -39,11 +38,23 @@ storage:
     - id: var
       size: 2G
 
+    - id: usr
+      size: 1G
+
+    - id: usrhash
+      size: 100M
+
   verity:
   - id: verityroot
     name: root
     dataDeviceId: root
     hashDeviceId: roothash
+    corruptionOption: panic
+
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usrhash
     corruptionOption: panic
 
   filesystems:
@@ -61,6 +72,12 @@ storage:
     type: ext4
     mountPoint:
       path: /
+      options: ro
+
+  - deviceId: verityusr
+    type: ext4
+    mountPoint:
+      path: /usr
       options: ro
 
   - deviceId: var
