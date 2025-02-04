@@ -31,18 +31,16 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> 
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    if boot_type == "efi":
-        if host_os == "Ubuntu":
-            os_tag.attrib["firmware"] = "efi"
+    if boot_type == "efi" and host_os == "Ubuntu":
+        os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    if boot_type == "efi":
-        if host_os == "Ubuntu":
-            firmware = ET.SubElement(domain, "firmware")
-            firmware.attrib["secure-boot"] = "yes"
-            firmware.attrib["enrolled-keys"] = "yes"
+    if boot_type == "efi" and host_os == "Ubuntu":
+        firmware = ET.SubElement(domain, "firmware")
+        firmware.attrib["secure-boot"] = "yes"
+        firmware.attrib["enrolled-keys"] = "yes"
 
     nvram = ET.SubElement(os_tag, "nvram")
 
@@ -96,12 +94,6 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> 
     video = ET.SubElement(devices, "video")
 
     video_model = ET.SubElement(video, "model")
-    # if not azl:
-    #     video_model.attrib["type"] = "qxl"
-
-    #     graphics = ET.SubElement(devices, "graphics")
-    #     graphics.attrib["type"] = "spice"
-    # else:
     video_model.attrib["type"] = "vga"
 
     network_interface = ET.SubElement(devices, "interface")
@@ -116,7 +108,6 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> 
     next_disk_indexes: Dict[str, int] = {}
 
     _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
-
     if os_disk_ext.lower() != ".iso":
         _add_disk_xml(
             devices,
@@ -151,15 +142,15 @@ def _add_disk_xml(
 
     disk = ET.SubElement(devices, "disk")
     disk.attrib["type"] = "file"
-    disk.attrib["device"] = device_type # disk
+    disk.attrib["device"] = device_type
 
     disk_driver = ET.SubElement(disk, "driver")
     disk_driver.attrib["name"] = "qemu"
-    disk_driver.attrib["type"] = image_type # qcow2
+    disk_driver.attrib["type"] = image_type
 
     disk_target = ET.SubElement(disk, "target")
     disk_target.attrib["dev"] = device_name
-    disk_target.attrib["bus"] = bus_type # virtio
+    disk_target.attrib["bus"] = bus_type
 
     disk_source = ET.SubElement(disk, "source")
     disk_source.attrib["file"] = file_path
@@ -171,19 +162,19 @@ def _add_iso_xml(
     bus_type: str,
     next_disk_indexes: Dict[str, int],
 ) -> None:
-    device_name = "hda" # _gen_disk_device_name("hd", next_disk_indexes)
+    device_name = "hda"
 
     disk = ET.SubElement(devices, "disk")
     disk.attrib["type"] = "file"
-    disk.attrib["device"] = "cdrom" # disk
+    disk.attrib["device"] = "cdrom"
 
     disk_driver = ET.SubElement(disk, "driver")
     disk_driver.attrib["name"] = "qemu"
-    disk_driver.attrib["type"] = "raw" # qcow2
+    disk_driver.attrib["type"] = "raw"
 
     disk_target = ET.SubElement(disk, "target")
     disk_target.attrib["dev"] = device_name
-    disk_target.attrib["bus"] = bus_type # virtio
+    disk_target.attrib["bus"] = bus_type
 
     disk_source = ET.SubElement(disk, "source")
     disk_source.attrib["file"] = file_path
@@ -205,6 +196,8 @@ def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str
     disk_index = next_disk_indexes.get(prefix, 0)
     next_disk_indexes[prefix] = disk_index + 1
 
+    # cannot use python's 'match' because Azure Linux 2.0 has an older version
+    # of python that does not support it.
     if prefix in ("vd", "sd"):
         # The disk device name is required to follow the standard Linux device naming
         # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
