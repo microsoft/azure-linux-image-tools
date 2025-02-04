@@ -3,7 +3,10 @@
 
 import os
 from getpass import getuser
+import logging
 from pathlib import Path
+import shlex
+import time
 from typing import List, Tuple
 
 import libvirt  # type: ignore
@@ -21,7 +24,8 @@ from .utils.ssh_client import SshClient
 def test_no_change(
     docker_client: DockerClient,
     image_customizer_container_url: str,
-    core_efi_azl2: Path,
+    input_image: Path,
+    output_format: str,
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -30,36 +34,50 @@ def test_no_change(
 ) -> None:
     (ssh_public_key, ssh_private_key_path) = ssh_key
 
-    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
-    output_image_path = test_temp_dir.joinpath("image.qcow2")
-    diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
+    if output_format != "iso":
+        config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("nochange-iso-config.yaml")
+
+    output_image_path = test_temp_dir.joinpath("image." + output_format)
+
+    boot_type = "efi"
+    if Path(input_image).suffix.lower() == ".vhd" and output_format != "iso":
+        boot_type = "legacy"
 
     username = getuser()
 
     run_image_customizer(
         docker_client,
         image_customizer_container_url,
-        core_efi_azl2,
+        input_image,
         config_path,
         username,
         ssh_public_key,
-        "qcow2",
+        output_format,
         output_image_path,
         close_list,
     )
 
-    # Create a differencing disk for the VM.
-    # This will make it easier to manually debug what is in the image itself and what was set during first boot.
-    local_client.run(
-        ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
-    ).check_exit_code()
+    vm_image = output_image_path
+    if output_format != "iso":
+        diff_image_path = test_temp_dir.joinpath("image-diff.qcow2")
 
-    # Ensure VM can write to the disk file.
-    os.chmod(diff_image_path, 0o666)
+        # Create a differencing disk for the VM.
+        # This will make it easier to manually debug what is in the image itself and what was set during first boot.
+        local_client.run(
+            ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
+        ).check_exit_code()
+
+        # Ensure VM can write to the disk file.
+        os.chmod(diff_image_path, 0o666)
+
+        vm_image = diff_image_path
 
     # Create VM.
     vm_name = test_instance_name
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, diff_image_path))
+
+    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), get_host_os(), boot_type)
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
@@ -69,6 +87,8 @@ def test_no_change(
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
+    # iso booting takes longer due to the copying of artifacts to memory
+    time.sleep(30)
 
     # Connect to VM using SSH.
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
@@ -83,5 +103,17 @@ def test_no_change(
         with open(os_release_path, "r") as os_release_fd:
             os_release_text = os_release_fd.read()
 
-            assert "ID=mariner" in os_release_text
-            assert 'VERSION_ID="2.0"' in os_release_text
+            assert ("ID=azurelinux" in os_release_text) or ("ID=mariner" in os_release_text)
+            assert ('VERSION_ID="3.0"' in os_release_text) or ('VERSION_ID="2.0"' in os_release_text)
+
+
+def get_host_os () -> str:
+    with open("/etc/os-release", "r") as f:
+        for line in f:
+            key, _, value = line.partition("=")
+            if key == "NAME":
+                os_name = shlex.split(value)[0]  # Safely handle quoted values
+                print(f"OS Name: {os_name}")
+                break
+
+    return os_name
