@@ -1180,8 +1180,7 @@ func TestStorageIsValidVerityFileSystemMissing(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "defining non-root verity devices is not currently supported:\n"+
-		"filesystems[].mountPoint.path' of verity device (rootverity) must be set to '/'")
+	assert.ErrorContains(t, err, "filesystems[].mountPoint.path of verity device (rootverity) must be set to '/' or '/usr'")
 }
 
 func TestStorageIsValidVerityTwoVerity(t *testing.T) {
