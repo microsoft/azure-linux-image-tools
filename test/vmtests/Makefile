@@ -63,7 +63,7 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-mic-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
 
 .PHONY: run
-run: image-customizer-container
+run:
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--core-efi-azl2="${CORE_EFI_AZL2}" \
