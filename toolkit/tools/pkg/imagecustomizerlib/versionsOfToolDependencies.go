@@ -14,7 +14,7 @@ func logVersionsOfToolDeps() {
 	versionFlags := map[string][]string{
 		"--version": {
 			"qemu-img", "rpm", "dd", "lsblk", "losetup", "sfdisk", "udevadm",
-			"flock", "blkid", "sed", "createrepo", "genisoimage", "parted", "mkfs",
+			"flock", "blkid", "sed", "createrepo", "genisoimage", "mkfs",
 			"fsck", "fatlabel", "zstd", "veritysetup", "grub-install",
 		},
 		"-version": {
