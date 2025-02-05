@@ -4,7 +4,6 @@
 set -e
 
 scriptDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
 ORAS_VERSION="1.1.0"
@@ -23,6 +22,7 @@ while getopts ":r:n:t:a:" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     a ) ARCH=$OPTARG ;;
+    b ) IMAGE_CUSTOMIZER_BIN=$OPTARG ;;
     \? ) echo "Invalid option: $OPTARG" 1>&2; showUsage; exit 1 ;;
   esac
 done
@@ -52,7 +52,6 @@ function cleanUp() {
 }
 trap 'cleanUp' ERR
 
-micLocalFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 
 dockerFile="$scriptDir/Dockerfile.mic-container"
@@ -60,7 +59,7 @@ runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
-cp "$micLocalFile" "${stagingBinDir}"
+cp "$IMAGE_CUSTOMIZER_BIN" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
