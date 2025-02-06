@@ -176,8 +176,8 @@ func (s *Storage) IsValid() error {
 		expectedVerityName, validMount := verityMountMap[filesystem.MountPoint.Path]
 		if !validMount || verity.Name != expectedVerityName {
 			return fmt.Errorf(
-				"filesystems[].mountPoint.path of verity device (%s) ('%s') must match verity name: '%s' for '%s'",
-				verity.Id, filesystem.MountPoint.Path, expectedVerityName, filesystem.MountPoint.Path,
+				"filesystems[].mountPoint.path of verity device (%s) must match verity name: '%s' for '%s'",
+				verity.Id, expectedVerityName, filesystem.MountPoint.Path,
 			)
 		}
 
