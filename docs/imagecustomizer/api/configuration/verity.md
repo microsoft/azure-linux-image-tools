@@ -6,7 +6,7 @@ parent: Configuration
 
 Specifies the configuration for dm-verity integrity verification.
 
-Note: Currently root partition (`/`) and usr partition are supported.
+Note: Currently root partition (`/`) and usr partition (`/usr`) are supported.
 
 Note: The [filesystem](./filesystem.md) item pointing to this verity device, must
 include the `ro` option in the [mountPoint.options](./mountpoint.md#options-string).
@@ -14,7 +14,7 @@ include the `ro` option in the [mountPoint.options](./mountpoint.md#options-stri
 There are multiple ways to configure a verity enabled image. For
 recommendations, see [Verity Image Recommendations](../../concepts/verity.md).
 
-Example:
+Example of enabling root Verity:
 
 ```yaml
 storage:
@@ -38,23 +38,11 @@ storage:
     - id: var
       size: 2G
 
-    - id: usr
-      size: 1G
-
-    - id: usrhash
-      size: 100M
-
   verity:
   - id: verityroot
     name: root
     dataDeviceId: root
     hashDeviceId: roothash
-    corruptionOption: panic
-
-  - id: verityusr
-    name: usr
-    dataDeviceId: usr
-    hashDeviceId: usrhash
     corruptionOption: panic
 
   filesystems:
@@ -74,15 +62,66 @@ storage:
       path: /
       options: ro
 
+  - deviceId: var
+    type: ext4
+    mountPoint: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+```
+
+Example of enabling usr Verity:
+
+```yaml
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: boot
+      size: 1G
+
+    - id: root
+      size: 2G
+
+    - id: usr
+      size: 2G
+
+    - id: usrhash
+      size: 100M
+
+  verity:
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usrhash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
+  - deviceId: root
+    type: ext4
+    mountPoint: /
+
   - deviceId: verityusr
     type: ext4
     mountPoint:
       path: /usr
       options: ro
-
-  - deviceId: var
-    type: ext4
-    mountPoint: /var
 
 os:
   bootloader:

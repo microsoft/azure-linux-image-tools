@@ -998,7 +998,7 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "verity 'name' (user) must be \"root\" or \"usr\"")
+	assert.ErrorContains(t, err, "filesystems[].mountPoint.path of verity device (rootverity) ('/') must match verity name: 'root' for '/', 'usr' for '/usr'")
 }
 
 func TestStorageIsValidVerityHashFileSystem(t *testing.T) {

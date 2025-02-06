@@ -206,6 +206,22 @@ func (b *BootCustomizer) PrepareForVerity() error {
 	return nil
 }
 
+func (b *BootCustomizer) PrepareForUsrVerity() error {
+	if b.isGrubMkconfig {
+		// Disable recovery menu entry, to avoid having more than 1 linux command in the grub.cfg file.
+		// This will make it easier to modify the grub.cfg file to add the verity args.
+		defaultGrubFileContent, err := UpdateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DISABLE_RECOVERY",
+			"true")
+		if err != nil {
+			return err
+		}
+
+		b.defaultGrubFileContent = defaultGrubFileContent
+	}
+
+	return nil
+}
+
 func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) error {
 	if b.isGrubMkconfig {
 		// Update /etc/defaukt/grub file.

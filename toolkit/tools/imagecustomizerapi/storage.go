@@ -173,9 +173,11 @@ func (s *Storage) IsValid() error {
 			return fmt.Errorf("filesystems[].mountPoint.path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
 		}
 
-		if verity.Name != VerityRootDeviceName && verity.Name != VerityUsrDeviceName {
-			return fmt.Errorf("verity 'name' (%s) must be \"%s\" or \"%s\"",
-				verity.Name, VerityRootDeviceName, VerityUsrDeviceName)
+		if filesystem.MountPoint.Path == "/" && verity.Name != VerityRootDeviceName ||
+			filesystem.MountPoint.Path == "/usr" && verity.Name != VerityUsrDeviceName {
+			return fmt.Errorf("filesystems[].mountPoint.path of verity device (%s) ('%s') must match verity name: '%s' for '/', '%s' for '/usr'",
+				verity.Id, filesystem.MountPoint.Path, VerityRootDeviceName, VerityUsrDeviceName,
+			)
 		}
 
 		mountOptions := strings.Split(filesystem.MountPoint.Options, ",")

@@ -453,18 +453,13 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityInfo, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid)
+		verityMetadata, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid)
 		if err != nil {
 			return err
 		}
 
-		for _, info := range verityInfo {
-			verityMetadata := verityDeviceMetadata{
-				rootHash:     info["rootHash"],
-				dataPartUuid: info["dataPartUuid"],
-				hashPartUuid: info["hashPartUuid"],
-			}
-			ic.verityMetadata = append(ic.verityMetadata, verityMetadata)
+		for _, metadata := range verityMetadata {
+			ic.verityMetadata = append(ic.verityMetadata, metadata)
 		}
 	}
 
@@ -854,9 +849,8 @@ func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.
 
 func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Config,
 	buildImageFile string, partIdToPartUuid map[string]string,
-) (map[string]map[string]string, error) {
-	var err error
-	verityInfo := make(map[string]map[string]string)
+) (map[string]verityDeviceMetadata, error) {
+	verityMetadata := make(map[string]verityDeviceMetadata)
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
@@ -870,15 +864,6 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 	}
 
 	for _, verityConfig := range config.Storage.Verity {
-		var verityType string
-		if verityConfig.FileSystem.MountPoint.Path == "/" {
-			verityType = imagecustomizerapi.VerityRootDeviceName
-		} else if verityConfig.FileSystem.MountPoint.Path == "/usr" {
-			verityType = imagecustomizerapi.VerityUsrDeviceName
-		} else {
-			return nil, fmt.Errorf("unsupported verity mount point: (%s)", verityConfig.FileSystem.MountPoint.Path)
-		}
-
 		// Extract the partition block device path.
 		dataPartition, err := idToPartitionBlockDevicePath(verityConfig.DataDeviceId, diskPartitions, partIdToPartUuid)
 		if err != nil {
@@ -923,11 +908,10 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			return nil, fmt.Errorf("failed to find hash partition UUID for HashDeviceId: %s", verityConfig.HashDeviceId)
 		}
 
-		verityInfo[verityType] = map[string]string{
-			"rootHash":     rootHashMatches[1],
-			"dataPartUuid": dataPartUuid,
-			"hashPartUuid": hashPartUuid,
-			"hashDeviceId": verityConfig.HashDeviceId,
+		verityMetadata[verityConfig.FileSystem.MountPoint.Path] = verityDeviceMetadata{
+			rootHash:     rootHashMatches[1],
+			dataPartUuid: dataPartUuid,
+			hashPartUuid: hashPartUuid,
 		}
 	}
 
@@ -955,13 +939,13 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityInfo, partIdToPartUuid, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, partIdToPartUuid, diskPartitions, buildDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityInfo, grubCfgFullPath, partIdToPartUuid, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partIdToPartUuid, diskPartitions, buildDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}
@@ -977,7 +961,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, err
 	}
 
-	return verityInfo, nil
+	return verityMetadata, nil
 }
 
 func isDmVerityEnabled(rawImageFile string) (bool, error) {

@@ -532,7 +532,7 @@ func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, n
 // Output:
 // - grub2Config: The new string contents of the grub.cfg file.
 func updateKernelCommandLineArgs(grub2Config string, argsToRemove []string, newArgs []string) (string, error) {
-	return updateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, true /*allowMultiple*/, false /*requireKernelOpts*/)
+	return updateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, false /*allowMultiple*/, true /*requireKernelOpts*/)
 }
 
 func updateKernelCommandLineArgsHelper(value string, args []grubConfigLinuxArg, insertAt int,
