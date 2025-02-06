@@ -35,9 +35,9 @@ def test_no_change(
     (ssh_public_key, ssh_private_key_path) = ssh_key
 
     if output_format != "iso":
-        config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
     else:
-        config_path = TEST_CONFIGS_DIR.joinpath("nochange-iso-config.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
 
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 

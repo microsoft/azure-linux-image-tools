@@ -115,13 +115,15 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> 
             "disk",
             "qcow2",
             "virtio",
+            "vd",
             next_disk_indexes,
         )
     else:
         _add_iso_xml(
             devices,
             str(vm_spec.os_disk_path),
-            "ide",
+            "sata",
+            "sd",
             next_disk_indexes,
         )
 
@@ -136,9 +138,10 @@ def _add_disk_xml(
     device_type: str,
     image_type: str,
     bus_type: str,
+    device_prefix: str,
     next_disk_indexes: Dict[str, int],
 ) -> None:
-    device_name = _gen_disk_device_name("vd", next_disk_indexes)
+    device_name = _gen_disk_device_name(device_prefix, next_disk_indexes)
 
     disk = ET.SubElement(devices, "disk")
     disk.attrib["type"] = "file"
@@ -160,9 +163,10 @@ def _add_iso_xml(
     devices: ET.Element,
     file_path: str,
     bus_type: str,
+    device_prefix: str,
     next_disk_indexes: Dict[str, int],
 ) -> None:
-    device_name = "hda"
+    device_name = _gen_disk_device_name(device_prefix, next_disk_indexes)
 
     disk = ET.SubElement(devices, "disk")
     disk.attrib["type"] = "file"
@@ -178,19 +182,9 @@ def _add_iso_xml(
 
     disk_source = ET.SubElement(disk, "source")
     disk_source.attrib["file"] = file_path
-    disk_source.attrib["index"] = "1"
 
     disk_readonly = ET.SubElement(disk, "readonly")
 
-    disk_alias = ET.SubElement(disk, "alias")
-    disk_alias.attrib["name"] = "ide0-0-0"
-
-    disk_address = ET.SubElement(disk, "address")
-    disk_address.attrib["type"] = "drive"
-    disk_address.attrib["controller"] = "0"
-    disk_address.attrib["bus"] = "0"
-    disk_address.attrib["target"] = "0"
-    disk_address.attrib["unit"] = "0"
 
 def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str:
     disk_index = next_disk_indexes.get(prefix, 0)
