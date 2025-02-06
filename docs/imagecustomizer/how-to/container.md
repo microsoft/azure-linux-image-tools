@@ -1,14 +1,13 @@
 ---
 title: Use Container
 parent: How To
-nav_order: 4
+nav_order: 5
 ---
 
 # Using the Image Customizer Container
 
 The Image Customizer container is designed to simplify the process of
-customizing and configuring system images using the Image Customizer
-(MIC) tool.
+customizing and configuring system images using the Image Customizer tool.
 
 ## Running the Container
 
