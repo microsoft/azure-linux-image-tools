@@ -90,9 +90,11 @@ type ImageCustomizerParameters struct {
 }
 
 type verityDeviceMetadata struct {
-	rootHash     string
-	dataPartUuid string
-	hashPartUuid string
+	rootHash              string
+	dataPartUuid          string
+	hashPartUuid          string
+	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
+	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -909,9 +911,11 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 
 		verityMetadata[verityConfig.FileSystem.MountPoint.Path] = verityDeviceMetadata{
-			rootHash:     rootHashMatches[1],
-			dataPartUuid: dataPartUuid,
-			hashPartUuid: hashPartUuid,
+			rootHash:              rootHashMatches[1],
+			dataPartUuid:          dataPartUuid,
+			hashPartUuid:          hashPartUuid,
+			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
+			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
 		}
 	}
 
@@ -939,13 +943,13 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityMetadata, partIdToPartUuid, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partIdToPartUuid, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}

@@ -80,13 +80,13 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 }
 
 func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
+	bootCustomizer, err := NewBootCustomizer(imageChroot)
+	if err != nil {
+		return err
+	}
+
 	for _, verity := range verityList {
 		mountPath := verity.FileSystem.MountPoint.Path
-
-		bootCustomizer, err := NewBootCustomizer(imageChroot)
-		if err != nil {
-			return err
-		}
 
 		if mountPath == "/" {
 			if err := bootCustomizer.PrepareForVerity(); err != nil {
@@ -97,34 +97,21 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 				return err
 			}
 		}
-
-		if err := bootCustomizer.WriteToFile(imageChroot); err != nil {
-			return err
-		}
 	}
-	return nil
-}
 
-func processVerityMountPoints(verityList []imagecustomizerapi.Verity, processFunc func(mountPath string, verity imagecustomizerapi.Verity) error) error {
-	for _, verity := range verityList {
-		if verity.FileSystem == nil || verity.FileSystem.MountPoint == nil {
-			// No mount point assigned to verity device.
-			continue
-		}
-
-		if err := processFunc(verity.FileSystem.MountPoint.Path, verity); err != nil {
-			return err
-		}
+	if err := bootCustomizer.WriteToFile(imageChroot); err != nil {
+		return err
 	}
+
 	return nil
 }
 
 func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, grubCfgFullPath string,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partIdToPartUuid, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -175,7 +162,7 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 }
 
 func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMetadata,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
 
@@ -200,13 +187,13 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 		}
 
 		formattedDataPartition, err := systemdFormatPartitionUuid(metadata.dataPartUuid,
-			imagecustomizerapi.MountIdentifierTypePartUuid, partitions, buildDir)
+			metadata.dataDeviceMountIdType, partitions, buildDir)
 		if err != nil {
 			return nil, err
 		}
 
 		formattedHashPartition, err := systemdFormatPartitionUuid(metadata.hashPartUuid,
-			imagecustomizerapi.MountIdentifierTypePartUuid, partitions, buildDir)
+			metadata.hashDeviceMountIdType, partitions, buildDir)
 		if err != nil {
 			return nil, err
 		}
@@ -311,9 +298,9 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partIdToPartUuid, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
