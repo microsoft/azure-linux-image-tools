@@ -1,7 +1,7 @@
 ---
 title: Install/Update Packages from External Repos
 parent: How To
-nav_order: 6
+nav_order: 7
 ---
 
 # Install/Update Packages from External Repos
