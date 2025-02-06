@@ -58,7 +58,7 @@ const (
 	ColorFlagHelp = "Color setting for log terminal output."
 
 	defaultLogFileLevel   = logrus.DebugLevel
-	defaultStderrLogLevel = logrus.InfoLevel
+	defaultStderrLogLevel = logrus.DebugLevel
 	parentCallerLevel     = 1
 	colorModeAuto         = "auto"
 	colorModeAlways       = "always"
