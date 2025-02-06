@@ -34,6 +34,7 @@ using Image Customizer. The example below demonstrates installing Kubernetes
    enabled=1
    gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
    sslverify=1
+   ```
 
 3. Update the Customization Configuration:
 
