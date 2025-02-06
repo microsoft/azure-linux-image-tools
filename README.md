@@ -12,10 +12,13 @@ customization tool.
 
 ## Prism
 
-![Prism](./docs/assets/images/logo.png)
+Prism is an image customization tool that supports multiple formats and
+customizations features. Full list can be found in [supported
+operations](docs/imagecustomizer/api/configuration.md)
 
-Prism supports multiple formats and customizations features. Full list can be
-found in [supported operations](docs/imagecustomizer/api/configuration.md)
+<p align="center">
+  <img src="./docs/assets/images/logo-wide.png" alt="Prism Logo" width="550">
+</p>
 
 ## Getting Started
 
