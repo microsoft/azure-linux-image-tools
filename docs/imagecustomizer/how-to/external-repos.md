@@ -45,9 +45,9 @@ using Image Customizer. The example below demonstrates installing Kubernetes
    os:
      packages:
         install:
-         - kubeadm
-         - kubectl
-         - kubelet
+        - kubeadm
+        - kubectl
+        - kubelet
    ```
 
 4. Persist the Repository for Runtime Updates
@@ -71,10 +71,10 @@ using Image Customizer. The example below demonstrates installing Kubernetes
 
    ```bash
    sudo ./imagecustomizer \
-   --build-dir ./build \
-   --image-file <base-image-file> \
-   --output-image-file ./out/image.vhdx \
-   --output-image-format vhdx \
-   --config-file <config-file> \
-   --rpm-source repos/cloud-native-prod.repo
+         --build-dir ./build \
+         --image-file <base-image-file> \
+         --output-image-file ./out/image.vhdx \
+         --output-image-format vhdx \
+         --config-file <config-file> \
+         --rpm-source repos/cloud-native-prod.repo
    ```
