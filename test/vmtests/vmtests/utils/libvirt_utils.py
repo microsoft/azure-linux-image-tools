@@ -2,14 +2,12 @@
 # Licensed under the MIT License.
 
 import fnmatch
-import logging
 import json
 import xml.etree.ElementTree as ET  # noqa: N817
-import libvirt  # type: ignore
-from . import local_client
+import libvirt
 import os
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 
 class VmSpec:
