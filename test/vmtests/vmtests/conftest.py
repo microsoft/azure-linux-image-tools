@@ -22,8 +22,10 @@ TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomi
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
-    parser.addoption("--input-image", action="store", help="Path to input image")
-    parser.addoption("--output-format", action="store", help="Image Customizer supported format")
+    parser.addoption("--core-efi-azl2", action="store", help="Path to input image")
+    parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
+    parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
+    parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
@@ -77,18 +79,36 @@ def test_temp_dir(
 
 
 @pytest.fixture(scope="session")
-def input_image(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    input_image = request.config.getoption("--input-image")
-    if not input_image:
-        raise Exception("--input-image is required for test")
-    yield Path(input_image)
+def core_efi_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-efi-azl2")
+    if not image:
+        raise Exception("--core-efi-azl2 is required for test")
+    yield Path(image)
+
 
 @pytest.fixture(scope="session")
-def output_format(request: pytest.FixtureRequest) -> Generator[str, None, None]:
-    output_format = request.config.getoption("--output-format")
-    if not output_format:
-        raise Exception("--output-format is required for test")
-    yield output_format
+def core_efi_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-efi-azl3")
+    if not image:
+        raise Exception("--core-efi-azl3 is required for test")
+    yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def core_legacy_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-legacy-azl2")
+    if not image:
+        raise Exception("--core-legacy-azl2 is required for test")
+    yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-legacy-azl3")
+    if not image:
+        raise Exception("--core-legacy-azl3 is required for test")
+    yield Path(image)
+
 
 @pytest.fixture(scope="session")
 def image_customizer_container_url(request: pytest.FixtureRequest) -> Generator[str, None, None]:

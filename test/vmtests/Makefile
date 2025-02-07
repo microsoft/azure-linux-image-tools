@@ -66,8 +66,10 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 test:
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--input-image="${INPUT_IMAGE}" \
-		--output-format="${OUTPUT_FORMAT}" \
+		--core-efi-azl2="${CORE_EFI_AZL2}" \
+		--core-efi-azl3="${CORE_EFI_AZL3}" \
+		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \
+		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
@@ -79,8 +81,10 @@ test:
 run: image-customizer-container
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--input-image="${INPUT_IMAGE}" \
-		--output-format="${OUTPUT_FORMAT}" \
+		--core-efi-azl2="${CORE_EFI_AZL2}" \
+		--core-efi-azl3="${CORE_EFI_AZL3}" \
+		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \
+		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
