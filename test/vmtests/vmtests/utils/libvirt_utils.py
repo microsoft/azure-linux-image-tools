@@ -19,29 +19,16 @@ class VmSpec:
         self.core_count: int = core_count
         self.os_disk_path: Path = os_disk_path
 
-# Read a bunch of JSON files that have been concatenated together.
-def _read_concat_json_str(json_str: str) -> List[Dict[str, Any]]:
-    objs = []
 
-    # From: https://stackoverflow.com/a/42985887
-    decoder = json.JSONDecoder()
-    text = json_str.lstrip()  # decode hates leading whitespace
-    while text:
-        obj, index = decoder.raw_decode(text)
-        text = text[index:].lstrip()
-
-        objs.append(obj)
-
-    return objs
-    
-def get_machine_type(
+def get_libvirt_machine_type(
     libvirt_conn: libvirt.virConnect,
 ) -> str:
     domain_capabilities_str = libvirt_conn.getDomainCapabilities(None, None, None, None, 0)
     domain_capabilities = ET.fromstring(domain_capabilities_str)
     return domain_capabilities.find("./machine").text
 
-def get_firmware_config(
+
+def get_libvirt_firmware_config(
         libvirt_conn: libvirt.virConnect,
         machine_type: str,
         enable_secure_boot: bool,
@@ -55,20 +42,21 @@ def get_firmware_config(
         full_machine_type = domain_caps.findall("./machine")[0].text
         arch = domain_caps.findall("./arch")[0].text
 
-        # Read the QEMU firmware config files.
+        # Read the QEMU firmware config files, and build a list of json objects
         # Note: "/usr/share/qemu/firmware" is a well known location for these files.
         # Loop through all .json files in the folder
-        firmware_configs_str=""
-        firmware_definitions_path = Path("/usr/share/qemu/firmware")  # Change to your folder path
-        for firmware_definition_file in firmware_definitions_path.glob("*.json"):
+        decoder = json.JSONDecoder()
+        firmware_configs = []
+        for firmware_definition_file in Path("/usr/share/qemu/firmware").glob("*.json"):
             try:
                 with firmware_definition_file.open("r", encoding="utf-8") as f:
-                    data = f.read()
-                    firmware_configs_str += data
+                    data = f.read().lstrip()  # decode hates leading whitespace
+                    while data:
+                        obj, index = decoder.raw_decode(data)
+                        firmware_configs.append(obj)
+                        data = data[index:].lstrip()
             except json.JSONDecodeError as e:
-                print(f"Error reading {firmware_definition_file.name}: {e}")
-
-        firmware_configs = _read_concat_json_str(firmware_configs_str)
+                raise Exception(f"Error reading {firmware_definition_file.name}: {e}")
 
         # Filter on architecture.
         filtered_firmware_configs = list(
