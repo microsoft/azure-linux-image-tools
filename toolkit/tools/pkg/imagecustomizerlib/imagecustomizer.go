@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	tmpParitionDirName      = "tmp-partition"
+	tmpPartitionDirName     = "tmp-partition"
 	tmpEspPartitionDirName  = "tmp-esp-partition"
 	tmpBootPartitionDirName = "tmp-boot-partition"
 
@@ -928,7 +928,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, err
 	}
 
-	bootPartitionTmpDir := filepath.Join(buildDir, tmpParitionDirName)
+	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	// Temporarily mount the partition.
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
