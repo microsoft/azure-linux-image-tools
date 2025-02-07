@@ -111,8 +111,6 @@ def run_min_change_test(
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
-    # iso booting takes longer due to the copying of artifacts to memory
-    time.sleep(30)
 
     # Connect to VM using SSH.
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
