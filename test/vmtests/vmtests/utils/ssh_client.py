@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from paramiko import AutoAddPolicy, SSHClient
 from paramiko.channel import ChannelFile, ChannelStderrFile
-
+from paramiko.ssh_exception import NoValidConnectionsError, SSHException
 
 # The result of a SSH process execution.
 class SshExecutableResult:
@@ -194,10 +194,12 @@ class SshClient:
             try:
                 self.ssh_client.connect(hostname=hostname, port=port, username=username, key_filename=key_filename, sock=sock)
                 break
-            except Exception as e:
+            except (NoValidConnectionsError, SSHException) as e:
                 delta_time = datetime.now() - start_time
                 if delta_time.total_seconds() > 60:
                     raise Exception(f"Error connecting to {hostname}: {e}")
+            except Exception as e:
+                raise Exception(f"Error connecting to {hostname}: {e}")
             time.sleep(10)
 
 
