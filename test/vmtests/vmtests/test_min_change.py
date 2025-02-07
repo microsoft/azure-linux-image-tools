@@ -42,9 +42,9 @@ def run_min_change_test(
     test_secure_boot = False
     # todo: dynamicall decide this?
     # virsh domcapabilities --virttype kvm -> machine
-    vm_machine_type = "pc-i440fx-6.2"
-    if host_os == "Ubuntu":
-        vm_machine_type = "pc-i440fx-jammy"
+    # vm_machine_type = "pc-i440fx-6.2"
+    # if host_os == "Ubuntu":
+    vm_machine_type = "pc-i440fx-jammy"
 
     test_firmware_config  = get_firmware_config(libvirt_conn, vm_machine_type, test_secure_boot)
     logging.debug(f"---- debug ---- test_firmware_config=\n{test_firmware_config}")
