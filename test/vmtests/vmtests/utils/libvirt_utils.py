@@ -143,6 +143,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str, uef
     if boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
+        loader.attrib["secure"] = "no"
         loader.attrib["type"] = "pflash"
         loader.text = uefi_firmware_binary
 
