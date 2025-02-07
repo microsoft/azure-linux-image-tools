@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import fnmatch
+import logging
 import json
 import xml.etree.ElementTree as ET  # noqa: N817
 import libvirt  # type: ignore
@@ -42,6 +43,7 @@ def get_firmware_config(
         domain_caps_str = libvirt_conn.getDomainCapabilities(
             machine=machine_type, virttype="kvm"
         )
+        logging.debug(f"domain_caps_str=\n{domain_caps_str}\n----")
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -67,6 +69,8 @@ def get_firmware_config(
             filter(lambda f: f["targets"][0]["architecture"] == arch, firmware_configs)
         )
 
+        logging.debug(f"filtered_firmware_configs 1 =\n{filtered_firmware_configs}\n----")
+
         filtered_firmware_configs = list(
             filter(
                 lambda f: any(
@@ -77,14 +81,20 @@ def get_firmware_config(
             )
         )
 
+        logging.debug(f"filtered_firmware_configs 2 =\n{filtered_firmware_configs}\n----")
+
         # Exclude Intel TDX and AMD SEV-ES firmwares.
         filtered_firmware_configs = list(
             filter(
                 lambda f: "inteltdx" not in f["mapping"]["executable"]["filename"]
-                and "amdsev" not in f["mapping"]["executable"]["filename"],
+                and "amdsev" not in f["mapping"]["executable"]["filename"]
+                # qcow2 does azl2, need to exclude such entries
+                and "qcow2" not in f["mapping"]["executable"]["filename"],
                 filtered_firmware_configs,
             )
         )
+
+        logging.debug(f"filtered_firmware_configs 3 =\n{filtered_firmware_configs}\n----")
 
         # Filter on secure boot.
         if enable_secure_boot:
@@ -103,6 +113,8 @@ def get_firmware_config(
                 )
             )
 
+        logging.debug(f"filtered_firmware_configs 4 =\n{filtered_firmware_configs}\n----")
+
         # Get first matching firmware.
         firmware_config = next(iter(filtered_firmware_configs), None)
         if firmware_config is None:
@@ -110,6 +122,8 @@ def get_firmware_config(
                 f"Could not find matching firmware for machine-type={machine_type} "
                 f"({full_machine_type}) and secure-boot={enable_secure_boot}."
             )
+
+        logging.debug(f"firmware_config 5 =\n{firmware_config}\n----")
 
         return firmware_config
 
