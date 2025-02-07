@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -268,12 +269,17 @@ func TestCustomizeImageLiveCdIsoNoShimEfi(t *testing.T) {
 
 	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCdIso")
 	outImageFilePath := filepath.Join(buildDir, "image.iso")
+	shimPackage := "shim"
+	if runtime.GOARCH == "arm64" {
+		shimPackage = "shim-unsigned"
+
+	}
 
 	config := &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
 				Remove: []string{
-					"shim",
+					shimPackage,
 				},
 			},
 		},
