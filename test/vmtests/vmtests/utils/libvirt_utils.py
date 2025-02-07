@@ -34,6 +34,13 @@ def _read_concat_json_str(json_str: str) -> List[Dict[str, Any]]:
 
     return objs
     
+def get_machine_type(
+    libvirt_conn: libvirt.virConnect,
+) -> str:
+    domain_capabilities_str = libvirt_conn.getDomainCapabilities(None, None, None, None, 0)
+    domain_capabilities = ET.fromstring(domain_capabilities_str)
+    return domain_capabilities.find("./machine").text
+
 def get_firmware_config(
         libvirt_conn: libvirt.virConnect,
         machine_type: str,
@@ -43,7 +50,6 @@ def get_firmware_config(
         domain_caps_str = libvirt_conn.getDomainCapabilities(
             machine=machine_type, virttype="kvm"
         )
-        logging.debug(f"domain_caps_str=\n{domain_caps_str}\n----")
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -69,8 +75,6 @@ def get_firmware_config(
             filter(lambda f: f["targets"][0]["architecture"] == arch, firmware_configs)
         )
 
-        logging.debug(f"filtered_firmware_configs 1 =\n{filtered_firmware_configs}\n----")
-
         filtered_firmware_configs = list(
             filter(
                 lambda f: any(
@@ -80,8 +84,6 @@ def get_firmware_config(
                 filtered_firmware_configs,
             )
         )
-
-        logging.debug(f"filtered_firmware_configs 2 =\n{filtered_firmware_configs}\n----")
 
         # Exclude Intel TDX and AMD SEV-ES firmwares.
         filtered_firmware_configs = list(
@@ -93,8 +95,6 @@ def get_firmware_config(
                 filtered_firmware_configs,
             )
         )
-
-        logging.debug(f"filtered_firmware_configs 3 =\n{filtered_firmware_configs}\n----")
 
         # Filter on secure boot.
         if enable_secure_boot:
@@ -113,8 +113,6 @@ def get_firmware_config(
                 )
             )
 
-        logging.debug(f"filtered_firmware_configs 4 =\n{filtered_firmware_configs}\n----")
-
         # Get first matching firmware.
         firmware_config = next(iter(filtered_firmware_configs), None)
         if firmware_config is None:
@@ -122,8 +120,6 @@ def get_firmware_config(
                 f"Could not find matching firmware for machine-type={machine_type} "
                 f"({full_machine_type}) and secure-boot={enable_secure_boot}."
             )
-
-        logging.debug(f"firmware_config 5 =\n{firmware_config}\n----")
 
         return firmware_config
 
@@ -159,9 +155,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str, uef
     if boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
-        # loader.attrib["secure"] = "no"
         loader.attrib["type"] = "pflash"
-        # loader.text = "/usr/share/OVMF/OVMF_CODE.fd"
         loader.text = uefi_firmware_binary
 
     features = ET.SubElement(domain, "features")

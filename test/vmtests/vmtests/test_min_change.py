@@ -16,28 +16,10 @@ from .conftest import TEST_CONFIGS_DIR
 from .utils import local_client
 from .utils.closeable import Closeable
 from .utils.imagecustomizer import run_image_customizer
-from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml, get_firmware_config
+from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml, get_firmware_config, get_machine_type
 from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
 
-
-def get_firmware_binary_path(
-    host_os: str,
-    vm_machine_type: str,
-    test_secure_boot: bool,
-    libvirt_conn: libvirt.virConnect,
-) -> str:
-    logging.debug("-----------------------------------------------------")
-    firmware_config  = get_firmware_config(libvirt_conn, vm_machine_type, test_secure_boot)
-    logging.debug(f"---- debug ---- firmware_config=\n{firmware_config}")
-
-    uefi_firmware_binary = firmware_config["mapping"]["executable"]["filename"]
-
-    logging.debug(f"---- debug ---- vm_machine_type          = {vm_machine_type}")
-    logging.debug(f"---- debug ---- uefi_firmware_binary new = {uefi_firmware_binary}")
-    logging.debug(f"---- debug ---- uefi_firmware_binary old = /usr/share/OVMF/OVMF_CODE.fd")
-
-    return uefi_firmware_binary
 
 def run_min_change_test(
     docker_client: DockerClient,
@@ -56,14 +38,13 @@ def run_min_change_test(
     (ssh_public_key, ssh_private_key_path) = ssh_key
 
     host_os = get_host_os()
+    secure_boot = False
+    vm_machine_type = get_machine_type(libvirt_conn)
+    firmware_config  = get_firmware_config(libvirt_conn, vm_machine_type, secure_boot)
+    uefi_firmware_binary = firmware_config["mapping"]["executable"]["filename"]
 
-    # virsh domcapabilities --virttype kvm | grep  machine
-    vm_machine_type = "pc-i440fx-6.2"
-    if host_os == "Ubuntu":
-        vm_machine_type = "pc-i440fx-jammy"
-    uefi_firmware_binary = get_firmware_binary_path(host_os, vm_machine_type, False, libvirt_conn)
-    # uefi_firmware_binary = get_firmware_binary_path(host_os, "pc-i440fx-*", False, libvirt_conn)
-    # uefi_firmware_binary = get_firmware_binary_path(host_os, "pc-q35-*", False, libvirt_conn)
+    logging.debug(f"-- debug --- vm_machine_type     ={vm_machine_type}")
+    logging.debug(f"-- debug --- uefi_firmware_binary={uefi_firmware_binary}")
 
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
