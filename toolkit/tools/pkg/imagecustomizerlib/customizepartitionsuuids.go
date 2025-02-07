@@ -150,7 +150,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	}
 
 	// Mount the rootfs partition.
-	tmpDir := filepath.Join(buildDir, tmpParitionDirName)
+	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 	partitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return err
