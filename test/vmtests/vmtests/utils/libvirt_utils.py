@@ -1,10 +1,13 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import fnmatch
+import json
 import xml.etree.ElementTree as ET  # noqa: N817
+import libvirt
 import os
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any
 
 
 class VmSpec:
@@ -15,8 +18,99 @@ class VmSpec:
         self.os_disk_path: Path = os_disk_path
 
 
+def get_libvirt_machine_type(
+    libvirt_conn: libvirt.virConnect,
+) -> str:
+    domain_capabilities_str = libvirt_conn.getDomainCapabilities(None, None, None, None, 0)
+    domain_capabilities = ET.fromstring(domain_capabilities_str)
+    return domain_capabilities.find("./machine").text
+
+
+def get_libvirt_firmware_config(
+        libvirt_conn: libvirt.virConnect,
+        machine_type: str,
+        enable_secure_boot: bool,
+    ) -> Dict[str, Any]:
+        # Resolve the machine type to its full name.
+        domain_caps_str = libvirt_conn.getDomainCapabilities(
+            machine=machine_type, virttype="kvm"
+        )
+        domain_caps = ET.fromstring(domain_caps_str)
+
+        full_machine_type = domain_caps.findall("./machine")[0].text
+        arch = domain_caps.findall("./arch")[0].text
+
+        # Read the QEMU firmware config files, and build a list of json objects
+        # Note: "/usr/share/qemu/firmware" is a well known location for these files.
+        # Loop through all .json files in the folder
+        decoder = json.JSONDecoder()
+        firmware_configs = []
+        for firmware_definition_file in Path("/usr/share/qemu/firmware").glob("*.json"):
+            try:
+                with firmware_definition_file.open("r", encoding="utf-8") as f:
+                    data = f.read().lstrip()  # decode hates leading whitespace
+                    while data:
+                        obj, index = decoder.raw_decode(data)
+                        firmware_configs.append(obj)
+                        data = data[index:].lstrip()
+            except json.JSONDecodeError as e:
+                raise Exception(f"Error reading {firmware_definition_file.name}: {e}")
+
+        # Filter on architecture.
+        filtered_firmware_configs = list(
+            filter(lambda f: f["targets"][0]["architecture"] == arch, firmware_configs)
+        )
+
+        filtered_firmware_configs = list(
+            filter(
+                lambda f: any(
+                    fnmatch.fnmatch(full_machine_type, target_machine)
+                    for target_machine in f["targets"][0]["machines"]
+                ),
+                filtered_firmware_configs,
+            )
+        )
+
+        # Exclude Intel TDX and AMD SEV-ES firmwares.
+        filtered_firmware_configs = list(
+            filter(
+                lambda f: "inteltdx" not in f["mapping"]["executable"]["filename"]
+                and "amdsev" not in f["mapping"]["executable"]["filename"]
+                # qcow2 does azl2, need to exclude such entries
+                and "qcow2" not in f["mapping"]["executable"]["filename"],
+                filtered_firmware_configs,
+            )
+        )
+
+        # Filter on secure boot.
+        if enable_secure_boot:
+            filtered_firmware_configs = list(
+                filter(
+                    lambda f: "secure-boot" in f["features"]
+                    and "enrolled-keys" in f["features"],
+                    filtered_firmware_configs,
+                )
+            )
+        else:
+            filtered_firmware_configs = list(
+                filter(
+                    lambda f: "secure-boot" not in f["features"],
+                    filtered_firmware_configs,
+                )
+            )
+
+        # Get first matching firmware.
+        firmware_config = next(iter(filtered_firmware_configs), None)
+        if firmware_config is None:
+            raise LisaException(
+                f"Could not find matching firmware for machine-type={machine_type} "
+                f"({full_machine_type}) and secure-boot={enable_secure_boot}."
+            )
+
+        return firmware_config
+
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> str:
+def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str, uefi_firmware_binary: str) -> str:
     domain = ET.Element("domain")
     domain.attrib["type"] = "kvm"
 
@@ -49,7 +143,7 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str) -> 
         loader.attrib["readonly"] = "yes"
         loader.attrib["secure"] = "no"
         loader.attrib["type"] = "pflash"
-        loader.text = "/usr/share/OVMF/OVMF_CODE.fd"
+        loader.text = uefi_firmware_binary
 
     features = ET.SubElement(domain, "features")
 
@@ -190,8 +284,9 @@ def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str
     disk_index = next_disk_indexes.get(prefix, 0)
     next_disk_indexes[prefix] = disk_index + 1
 
-    # cannot use python's 'match' because Azure Linux 2.0 has an older version
-    # of python that does not support it.
+    # We cannot use python's 'match' because Azure Linux 2.0 has an older
+    # version of python that does not support it.
+    # This code has been tested on Azure Linux 2.0 with Python 3.9.19.
     if prefix in ("vd", "sd"):
         # The disk device name is required to follow the standard Linux device naming
         # scheme. That is: [ sda, sdb, ..., sdz, sdaa, sdab, ... ]. However, it is
