@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -189,10 +190,17 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 
 func TestCustomizeImagePartitionsEfiToLegacy(t *testing.T) {
 	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImagePartitionsToLegacy(t, "TestCustomizeImagePartitionsEfiToLegacy"+string(version),
-				baseImageTypeCoreEfi, version)
-		})
+		//skip the tests for arm64
+		if runtime.GOARCH == "arm64" {
+			t.Skip("Skipping legacy test for arm64")
+		} else {
+			t.Run(string(version), func(t *testing.T) {
+				testCustomizeImagePartitionsToLegacy(t, "TestCustomizeImagePartitionsEfiToLegacy"+string(version),
+					baseImageTypeCoreEfi, version)
+			})
+
+		}
+
 	}
 }
 
