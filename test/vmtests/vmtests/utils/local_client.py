@@ -37,7 +37,7 @@ class LocalExecutableResult:
             raise Exception("Process timed out")
 
         elif self.exit_code != 0:
-            raise Exception(f"Process failed with exit code: {self.exit_code}")
+            raise Exception(f"Process failed with exit code: {self.exit_code}\ncmd=({self.cmd})")
 
 
 # Handles reading a pipe (stdout or stderr).
