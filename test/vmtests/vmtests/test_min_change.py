@@ -21,6 +21,18 @@ from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
 
 
+def get_host_os() -> str:
+    with open("/etc/os-release", "r") as f:
+        for line in f:
+            key, _, value = line.partition("=")
+            if key == "NAME":
+                os_name = shlex.split(value)[0]  # Safely handle quoted values
+                print(f"OS Name: {os_name}")
+                break
+
+    return os_name
+
+
 def run_min_change_test(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -354,15 +366,3 @@ def test_min_change_legacy_azl3_iso_output(
         libvirt_conn,
         close_list,
     )
-
-
-def get_host_os () -> str:
-    with open("/etc/os-release", "r") as f:
-        for line in f:
-            key, _, value = line.partition("=")
-            if key == "NAME":
-                os_name = shlex.split(value)[0]  # Safely handle quoted values
-                print(f"OS Name: {os_name}")
-                break
-
-    return os_name
