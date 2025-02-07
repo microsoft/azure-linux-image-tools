@@ -1,12 +1,24 @@
 # Azure Linux Image Tools
 
+[![build &
+test](https://github.com/microsoft/azure-linux-image-tools/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/microsoft/azure-linux-image-tools/actions/workflows/build-and-test.yml)
+![GitHub release (latest
+SemVer)](https://img.shields.io/github/v/release/microsoft/azure-linux-image-tools?sort=semver)
+
 Azure Linux Image Tools is a collection of utilities designed to simplify and
 enhance the customization and management of Azure Linux images. The repository
 currently hosts **Prism** (also known as `Image Customizer`), a robust image
 customization tool.
 
-Prism supports multiple formats and customizations features. Full list can be
-found in [supported operations](docs/imagecustomizer/api/configuration.md)
+## Prism
+
+Prism is an image customization tool that supports multiple formats and
+customizations features. Full list can be found in [supported
+operations](docs/imagecustomizer/api/configuration.md)
+
+<p align="center">
+  <img src="./docs/assets/images/logo-wide.png" alt="Prism Logo" width="550">
+</p>
 
 ## Getting Started
 

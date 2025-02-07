@@ -690,8 +690,7 @@ func TestStorageIsValidVerityUsr(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "defining non-root verity devices is not currently supported")
-	assert.ErrorContains(t, err, "filesystems[].mountPoint.path' of verity device (usrverity) must be set to '/'")
+	assert.NoError(t, err)
 }
 
 func TestStorageIsValidVerityInvalidName(t *testing.T) {
@@ -991,7 +990,7 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 		Verity: []Verity{
 			{
 				Id:           "rootverity",
-				Name:         "usr",
+				Name:         "user",
 				DataDeviceId: "root",
 				HashDeviceId: "roothash",
 			},
@@ -999,7 +998,7 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "verity 'name' (usr) must be \"root\" for filesystem (/) partition (root)")
+	assert.ErrorContains(t, err, "filesystems[].mountPoint.path of verity device (rootverity) must match verity name: 'root' for '/'")
 }
 
 func TestStorageIsValidVerityHashFileSystem(t *testing.T) {
@@ -1181,8 +1180,7 @@ func TestStorageIsValidVerityFileSystemMissing(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "defining non-root verity devices is not currently supported:\n"+
-		"filesystems[].mountPoint.path' of verity device (rootverity) must be set to '/'")
+	assert.ErrorContains(t, err, "filesystems[].mountPoint.path of verity device (rootverity) must be set to '/' or '/usr'")
 }
 
 func TestStorageIsValidVerityTwoVerity(t *testing.T) {

@@ -353,9 +353,16 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 			return diskutils.PartitionInfo{}, 0, err
 		}
 
-		mountIdType, mountId, err = extractVerityRootPartitionId(cmdline)
-		if err != nil {
-			return diskutils.PartitionInfo{}, 0, err
+		if mountId == verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName) {
+			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_root_data", imagecustomizerapi.VerityRootDeviceName)
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, err
+			}
+		} else if mountId == verityDevicePathFromName(imagecustomizerapi.VerityUsrDeviceName) {
+			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_usr_data", imagecustomizerapi.VerityUsrDeviceName)
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, err
+			}
 		}
 	}
 
@@ -494,20 +501,21 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 	return args, nil
 }
 
-func extractVerityRootPartitionId(cmdline []grubConfigLinuxArg) (ExtendedMountIdentifierType, string, error) {
-	identifier, err := findKernelCommandLineArgValue(cmdline, "systemd.verity_root_data")
+func extractVerityPartitionId(cmdline []grubConfigLinuxArg, verityDataArg string,
+	verityName string,
+) (ExtendedMountIdentifierType, string, error) {
+	identifier, err := findKernelCommandLineArgValue(cmdline, verityDataArg)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to find or parse systemd.verity_root_data argument: %w", err)
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to find or parse (%s) argument:\n%w", verityDataArg, err)
 	}
 
 	if identifier == "" {
-		fmt.Println("No identifier found.")
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity root identifier found in kernel command-line")
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity (%s) identifier found in kernel command-line", verityName)
 	}
 
 	idType, value, err := parseExtendedSourcePartition(identifier)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s): %w", identifier, err)
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s):\n%w", identifier, err)
 	}
 
 	return idType, value, nil

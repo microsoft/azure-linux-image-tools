@@ -12,11 +12,17 @@ const (
 	DeviceMapperPath = "/dev/mapper"
 
 	VerityRootDeviceName = "root"
+	VerityUsrDeviceName  = "usr"
 )
 
 var (
 	verityNameRegex = regexp.MustCompile("^[a-z]+$")
 )
+
+var verityMountMap = map[string]string{
+	"/":    VerityRootDeviceName,
+	"/usr": VerityUsrDeviceName,
+}
 
 type Verity struct {
 	// ID is used to correlate `Verity` objects with `FileSystem` objects.
