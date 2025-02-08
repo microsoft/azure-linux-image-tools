@@ -52,7 +52,7 @@ def run_min_change_test(
     secure_boot = False
 
     boot_type = "efi"
-    if Path(input_image).suffix.lower() == ".vhd":
+    if Path(input_image).suffix.lower() == ".vhd" and output_format != "iso":
         boot_type = "legacy"
 
     output_image_path = test_temp_dir.joinpath("image." + output_format)
