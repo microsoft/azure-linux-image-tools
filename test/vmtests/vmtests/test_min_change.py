@@ -145,7 +145,7 @@ def test_min_change_efi_azl2_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
@@ -203,7 +203,7 @@ def test_min_change_legacy_azl2_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
