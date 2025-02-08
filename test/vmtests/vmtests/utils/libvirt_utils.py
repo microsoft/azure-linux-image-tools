@@ -11,30 +11,21 @@ from typing import Dict, Any
 
 
 class VmSpec:
-    def __init__(self, name: str, memory_mib: int, core_count: int, os_disk_path: Path):
+    def __init__(self, name: str, memory_mib: int, core_count: int, os_disk_path: Path, boot_type: str, secure_boot: bool):
         self.name: str = name
         self.memory_mib: int = memory_mib
         self.core_count: int = core_count
         self.os_disk_path: Path = os_disk_path
+        self.boot_type: str = boot_type
+        self.secure_boot: bool = secure_boot
 
 
-def get_libvirt_machine_type(
-    libvirt_conn: libvirt.virConnect,
-) -> str:
-    domain_capabilities_str = libvirt_conn.getDomainCapabilities(None, None, None, None, 0)
-    domain_capabilities = ET.fromstring(domain_capabilities_str)
-    return domain_capabilities.find("./machine").text
-
-
-def get_libvirt_firmware_config(
+def _get_libvirt_firmware_config(
         libvirt_conn: libvirt.virConnect,
-        machine_type: str,
-        enable_secure_boot: bool,
+        secure_boot: bool,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(
-            machine=machine_type, virttype="kvm"
-        )
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="kvm")
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -83,7 +74,7 @@ def get_libvirt_firmware_config(
         )
 
         # Filter on secure boot.
-        if enable_secure_boot:
+        if secure_boot:
             filtered_firmware_configs = list(
                 filter(
                     lambda f: "secure-boot" in f["features"]
@@ -104,13 +95,20 @@ def get_libvirt_firmware_config(
         if firmware_config is None:
             raise LisaException(
                 f"Could not find matching firmware for machine-type={machine_type} "
-                f"({full_machine_type}) and secure-boot={enable_secure_boot}."
+                f"({full_machine_type}) and secure-boot={secure_boot}."
             )
 
         return firmware_config
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str, uefi_firmware_binary: str) -> str:
+def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec, host_os: str) -> str:
+
+    secure_boot_str="no"
+    if vm_spec.secure_boot:
+        secure_boot_str="yes"
+
+    firmware_config  = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot)
+
     domain = ET.Element("domain")
     domain.attrib["type"] = "kvm"
 
@@ -125,25 +123,25 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str, uef
     vcpu.text = str(vm_spec.core_count)
 
     os_tag = ET.SubElement(domain, "os")
-    if boot_type == "efi" and host_os == "Ubuntu":
-        os_tag.attrib["firmware"] = "efi"
+    # if vm_spec.boot_type == "efi" and host_os == "Ubuntu":
+    #     os_tag.attrib["firmware"] = "efi"
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
 
-    if boot_type == "efi" and host_os == "Ubuntu":
+    if vm_spec.boot_type == "efi" and host_os == "Ubuntu":
         firmware = ET.SubElement(domain, "firmware")
-        firmware.attrib["secure-boot"] = "yes"
+        firmware.attrib["secure-boot"] = secure_boot_str
         firmware.attrib["enrolled-keys"] = "yes"
 
     nvram = ET.SubElement(os_tag, "nvram")
 
-    if boot_type == "efi":
+    if vm_spec.boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
-        loader.attrib["secure"] = "no"
+        loader.attrib["secure"] = secure_boot_str
         loader.attrib["type"] = "pflash"
-        loader.text = uefi_firmware_binary
+        loader.text = firmware_config["mapping"]["executable"]["filename"]
 
     features = ET.SubElement(domain, "features")
 
@@ -204,21 +202,25 @@ def create_libvirt_domain_xml(vm_spec: VmSpec, host_os: str, boot_type: str, uef
     _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
     if os_disk_ext.lower() != ".iso":
         _add_disk_xml(
-            devices,
-            str(vm_spec.os_disk_path),
-            "disk",
-            "qcow2",
-            "virtio",
-            "vd",
-            next_disk_indexes,
+            devices=devices,
+            file_path=str(vm_spec.os_disk_path),
+            device_type="disk",
+            image_type="qcow2",
+            bus_type="virtio",
+            device_prefix="vd",
+            read_only=False,
+            next_disk_indexes=next_disk_indexes
         )
     else:
-        _add_iso_xml(
-            devices,
-            str(vm_spec.os_disk_path),
-            "sata",
-            "sd",
-            next_disk_indexes,
+        _add_disk_xml(
+            devices=devices,
+            file_path=str(vm_spec.os_disk_path),
+            device_type="cdrom",
+            image_type="raw",
+            bus_type="sata",
+            device_prefix="sd",
+            read_only=True,
+            next_disk_indexes=next_disk_indexes
         )
 
     xml = ET.tostring(domain, "unicode")
@@ -233,6 +235,7 @@ def _add_disk_xml(
     image_type: str,
     bus_type: str,
     device_prefix: str,
+    read_only: bool,
     next_disk_indexes: Dict[str, int],
 ) -> None:
     device_name = _gen_disk_device_name(device_prefix, next_disk_indexes)
@@ -252,32 +255,8 @@ def _add_disk_xml(
     disk_source = ET.SubElement(disk, "source")
     disk_source.attrib["file"] = file_path
 
-# Adds a disk to a libvirt domain XML document.
-def _add_iso_xml(
-    devices: ET.Element,
-    file_path: str,
-    bus_type: str,
-    device_prefix: str,
-    next_disk_indexes: Dict[str, int],
-) -> None:
-    device_name = _gen_disk_device_name(device_prefix, next_disk_indexes)
-
-    disk = ET.SubElement(devices, "disk")
-    disk.attrib["type"] = "file"
-    disk.attrib["device"] = "cdrom"
-
-    disk_driver = ET.SubElement(disk, "driver")
-    disk_driver.attrib["name"] = "qemu"
-    disk_driver.attrib["type"] = "raw"
-
-    disk_target = ET.SubElement(disk, "target")
-    disk_target.attrib["dev"] = device_name
-    disk_target.attrib["bus"] = bus_type
-
-    disk_source = ET.SubElement(disk, "source")
-    disk_source.attrib["file"] = file_path
-
-    disk_readonly = ET.SubElement(disk, "readonly")
+    if read_only:
+        disk_readonly = ET.SubElement(disk, "readonly")
 
 
 def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str:
