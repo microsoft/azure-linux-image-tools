@@ -488,7 +488,7 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
-	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent), true)
+	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent))
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel command-line arguments: %w", err)
 	}

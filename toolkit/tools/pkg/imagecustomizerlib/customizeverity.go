@@ -92,10 +92,6 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 			if err := bootCustomizer.PrepareForVerity(); err != nil {
 				return err
 			}
-		} else if mountPath == "/usr" {
-			if err := bootCustomizer.PrepareForUsrVerity(); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -126,7 +122,7 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 	// So, instead we just modify the /boot/grub2/grub.cfg file directly.
 	grubMkconfigEnabled := isGrubMkconfigConfig(grub2Config)
 
-	grub2Config, err = updateKernelCommandLineArgs(grub2Config, []string{
+	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{
 		"rd.systemd.verity", "roothash", "systemd.verity_root_data",
 		"systemd.verity_root_hash", "systemd.verity_root_options",
 		"usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
@@ -140,7 +136,7 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 		rootDevicePath := verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName)
 
 		if grubMkconfigEnabled {
-			grub2Config, err = updateKernelCommandLineArgs(grub2Config, []string{"root"},
+			grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{"root"},
 				[]string{"root=" + rootDevicePath})
 			if err != nil {
 				return fmt.Errorf("failed to set verity root command-line arg:\n%w", err)
