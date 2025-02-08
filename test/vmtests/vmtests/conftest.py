@@ -22,7 +22,10 @@ TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomi
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
-    parser.addoption("--core-efi-azl2", action="store", help="Path to Azure Linux 2.0 core-efi qcow2 image")
+    parser.addoption("--core-efi-azl2", action="store", help="Path to input image")
+    parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
+    parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
+    parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
@@ -80,6 +83,30 @@ def core_efi_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]
     image = request.config.getoption("--core-efi-azl2")
     if not image:
         raise Exception("--core-efi-azl2 is required for test")
+    yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def core_efi_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-efi-azl3")
+    if not image:
+        raise Exception("--core-efi-azl3 is required for test")
+    yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def core_legacy_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-legacy-azl2")
+    if not image:
+        raise Exception("--core-legacy-azl2 is required for test")
+    yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-legacy-azl3")
+    if not image:
+        raise Exception("--core-legacy-azl3 is required for test")
     yield Path(image)
 
 
