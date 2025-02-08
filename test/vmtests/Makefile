@@ -78,16 +78,4 @@ test:
 		./vmtests
 
 .PHONY: run
-run: image-customizer-container
-	${PYTEST} \
-		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--core-efi-azl2="${CORE_EFI_AZL2}" \
-		--core-efi-azl3="${CORE_EFI_AZL3}" \
-		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \
-		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
-		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
-		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
-		--show-capture=all \
-		--tb=short \
-		./vmtests
+run: image-customizer-container test
