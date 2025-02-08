@@ -15,7 +15,7 @@ from .conftest import TEST_CONFIGS_DIR
 from .utils import local_client
 from .utils.closeable import Closeable
 from .utils.imagecustomizer import run_image_customizer
-from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml, get_libvirt_machine_type, get_libvirt_firmware_config
+from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
 
@@ -50,22 +50,17 @@ def run_min_change_test(
 
     host_os = get_host_os()
     secure_boot = False
-    machine_type = get_libvirt_machine_type(libvirt_conn)
-    firmware_config  = get_libvirt_firmware_config(libvirt_conn, machine_type, secure_boot)
-    uefi_firmware_binary = firmware_config["mapping"]["executable"]["filename"]
-
-    output_image_path = test_temp_dir.joinpath("image." + output_format)
 
     boot_type = "efi"
-    if Path(input_image).suffix.lower() == ".vhd" and output_format != "iso":
+    if Path(input_image).suffix.lower() == ".vhd":
         boot_type = "legacy"
+
+    output_image_path = test_temp_dir.joinpath("image." + output_format)
 
     logging.debug(f"- input_image             = {input_image}")
     logging.debug(f"- input_image_azl_release = {input_image_azl_release}")
     logging.debug(f"- config_path             = {config_path}")
     logging.debug(f"- output_format           = {output_format}")
-    logging.debug(f"- machine_type            = {machine_type}")
-    logging.debug(f"- uefi_firmware_binary    = {uefi_firmware_binary}")
     logging.debug(f"- boot_type               = {boot_type}")
 
     username = getuser()
@@ -100,7 +95,11 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    domain_xml = create_libvirt_domain_xml(VmSpec(vm_name, 4096, 4, vm_image), host_os, boot_type, uefi_firmware_binary)
+    domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot), host_os)
+
+    logging.debug("------------------------------------------------------------")
+    logging.debug(f"- domain_xml            = {domain_xml}")
+    logging.debug("------------------------------------------------------------")
 
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)

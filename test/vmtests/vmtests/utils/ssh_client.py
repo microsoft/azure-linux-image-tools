@@ -196,7 +196,7 @@ class SshClient:
                 break
             except (NoValidConnectionsError, SSHException) as e:
                 delta_time = datetime.now() - start_time
-                if delta_time.total_seconds() > 60:
+                if delta_time.total_seconds() > time_out_in_seconds:
                     raise Exception(f"Error connecting to {hostname}: {e}")
             except Exception as e:
                 raise Exception(f"Error connecting to {hostname}: {e}")
