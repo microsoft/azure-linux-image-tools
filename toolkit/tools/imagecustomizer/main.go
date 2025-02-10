@@ -38,8 +38,8 @@ func main() {
 
 	logger.InitBestEffort(logFlags)
 
-	if *enableShrinkFilesystems && *outputImageFormat != "" {
-		logger.Log.Fatalf("--output-image-format cannot be used with --shrink-filesystems enabled.")
+	if *enableShrinkFilesystems && *outputImageFormat != "cosi" {
+		logger.Log.Fatalf("--output-image-format must be cosi to use --shrink-filesystems.")
 	}
 
 	if *timestampFile != "" {
