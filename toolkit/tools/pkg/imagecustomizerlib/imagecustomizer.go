@@ -45,11 +45,9 @@ const (
 	diskFreeWarnThresholdPercent = 0.05
 )
 
-var (
-	// Version specifies the version of the Azure Linux Image Customizer tool.
-	// The value of this string is inserted during compilation via a linker flag.
-	ToolVersion = ""
-)
+// Version specifies the version of the Azure Linux Image Customizer tool.
+// The value of this string is inserted during compilation via a linker flag.
+var ToolVersion = ""
 
 type ImageCustomizerParameters struct {
 	// build dirs
@@ -62,13 +60,11 @@ type ImageCustomizerParameters struct {
 	inputIsIso       bool
 
 	// configurations
-	configPath                  string
-	config                      *imagecustomizerapi.Config
-	customizeOSPartitions       bool
-	useBaseImageRpmRepos        bool
-	rpmsSources                 []string
-	enableShrinkFilesystems     bool
-	outputSplitPartitionsFormat string
+	configPath            string
+	config                *imagecustomizerapi.Config
+	customizeOSPartitions bool
+	useBaseImageRpmRepos  bool
+	rpmsSources           []string
 
 	// intermediate writeable image
 	rawImageFile string
@@ -101,9 +97,9 @@ type verityDeviceMetadata struct {
 func createImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
-	useBaseImageRpmRepos bool, rpmsSources []string, enableShrinkFilesystems bool, outputSplitPartitionsFormat string,
-	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string) (*ImageCustomizerParameters, error) {
-
+	useBaseImageRpmRepos bool, rpmsSources []string,
+	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string,
+) (*ImageCustomizerParameters, error) {
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
@@ -144,13 +140,6 @@ func createImageCustomizerParameters(buildDir string,
 		return nil, err
 	}
 
-	ic.enableShrinkFilesystems = enableShrinkFilesystems
-	ic.outputSplitPartitionsFormat = outputSplitPartitionsFormat
-
-	err = validateSplitPartitionsFormat(outputSplitPartitionsFormat)
-	if err != nil {
-		return nil, err
-	}
 	// intermediate writeable image
 	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
 
@@ -178,19 +167,6 @@ func createImageCustomizerParameters(buildDir string,
 	}
 
 	if ic.inputIsIso {
-		// When the input is an iso image, there's only one file system: the
-		// suqash file system and it has no empty space since it's a read-only
-		// file system. So, shrinking it does not make sense.
-		if ic.enableShrinkFilesystems {
-			return nil, fmt.Errorf("shrinking file systems is not supported when the input image is an iso image")
-		}
-
-		// While splitting out the partition for an input iso can mean write
-		// the squash file system out to a raw image, we are choosing to
-		// not implement this until there is a need.
-		if ic.outputSplitPartitionsFormat != "" {
-			return nil, fmt.Errorf("extracting partitions is not supported when the input image is an iso image")
-		}
 
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
@@ -211,8 +187,7 @@ func createImageCustomizerParameters(buildDir string,
 
 func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputSplitPartitionsFormat string, outputPXEArtifactsDir string,
-	useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
 	var err error
 
@@ -230,7 +205,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile 
 	}
 
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, imageFile, rpmsSources, outputImageFile, outputImageFormat,
-		outputSplitPartitionsFormat, outputPXEArtifactsDir, useBaseImageRpmRepos, enableShrinkFilesystems)
+		outputPXEArtifactsDir, useBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
@@ -248,8 +223,8 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 }
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageFile string,
-	rpmsSources []string, outputImageFile string, outputImageFormat string, outputSplitPartitionsFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+	rpmsSources []string, outputImageFile string, outputImageFormat string,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
 	err := validateConfig(baseConfigPath, config, rpmsSources, outputImageFile, useBaseImageRpmRepos)
 	if err != nil {
@@ -257,8 +232,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	}
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, imageFile,
-		baseConfigPath, config,
-		useBaseImageRpmRepos, rpmsSources, enableShrinkFilesystems, outputSplitPartitionsFormat,
+		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to create image customizer parameters object:\n%w", err)
@@ -454,8 +428,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
-	if ic.outputImageFormat == ImageFormatCosi || ic.enableShrinkFilesystems {
-		err = shrinkFilesystemsHelper(ic.rawImageFile)
+	if ic.outputImageFormat == ImageFormatCosi {
+		err = shrinkFilesystemsHelper(ic.rawImageFile, ic.config.Storage.Verity, partIdToPartUuid)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
@@ -484,15 +458,6 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	err = checkFileSystems(ic.rawImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to check filesystems:\n%w", err)
-	}
-
-	// If outputSplitPartitionsFormat is specified, extract the partition files.
-	if ic.outputSplitPartitionsFormat != "" {
-		logger.Log.Infof("Extracting partition files")
-		err = extractPartitionsHelper(ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputSplitPartitionsFormat, ic.imageUuid)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -588,15 +553,6 @@ func toQemuImageFormat(imageFormat string) (string, string) {
 	}
 }
 
-func validateSplitPartitionsFormat(partitionFormat string) error {
-	switch partitionFormat {
-	case "", "raw", "raw-zst":
-		return nil
-	default:
-		return fmt.Errorf("unsupported partition format (supported: raw, raw-zst): %s", partitionFormat)
-	}
-}
-
 func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
 	outputImageFile string, useBaseImageRpmRepos bool,
 ) error {
@@ -665,7 +621,6 @@ func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso) er
 func validateSystemConfig(baseConfigPath string, config *imagecustomizerapi.OS,
 	rpmsSources []string, useBaseImageRpmRepos bool,
 ) error {
-
 	if config == nil {
 		return nil
 	}
@@ -730,7 +685,6 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
 	useBaseImageRpmRepos bool,
 ) error {
-
 	if config == nil {
 		return nil
 	}
@@ -827,38 +781,12 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		return nil, "", err
 	}
 
-	return partUuidToFstabEntry, osRelease, nil
+	return partUuidToMountPath, nil
 }
 
-func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasename string, outputSplitPartitionsFormat string, imageUuid [UuidSize]byte) error {
-	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
-	if err != nil {
-		return err
-	}
-	defer imageLoopback.Close()
-
-	// Extract the partitions as files.
-	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputBasename, outputSplitPartitionsFormat, imageUuid)
-	if err != nil {
-		return err
-	}
-
-	// Write partition metadata JSON to a file
-	jsonFilename := outputBasename + "_partition_metadata.json"
-	err = writePartitionMetadataJson(outputDir, jsonFilename, &partitionMetadataOutput)
-	if err != nil {
-		return fmt.Errorf("failed to write partition metadata json:\n%w", err)
-	}
-
-	err = imageLoopback.CleanClose()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func shrinkFilesystemsHelper(buildImageFile string) error {
+func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.Verity,
+	partIdToPartUuid map[string]string,
+) error {
 	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
 		return err

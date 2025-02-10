@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
@@ -219,7 +220,6 @@ func addFileToCosi(tw *tar.Writer, source string, image ImageFile) error {
 		Mode:     0o400,
 		Format:   tar.FormatPAX,
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to write tar header for file '%s':\n%w", image.Path, err)
 	}
@@ -292,4 +292,51 @@ func populateVerityMetadata(source string, verity *Verity) error {
 	}
 
 	return nil
+}
+
+func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error) {
+	var extractedParitionsPaths []string
+
+	cosiFile, err := os.Open(cosiFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open COSI file: %w", err)
+	}
+	defer cosiFile.Close()
+
+	tarReader := tar.NewReader(cosiFile)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading tar: %w", err)
+		}
+
+		// Check if the file has .raw-zst extension
+		if filepath.Ext(header.Name) == "raw-zst" {
+			outputFilePath := filepath.Join(outputDir, header.Name)
+
+			outFile, err := os.Create(outputFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create output file: %w", err)
+			}
+
+			zstReader, err := zstd.NewReader(tarReader)
+			if err != nil {
+				outFile.Close()
+				return nil, fmt.Errorf("failed to create zstd reader: %w", err)
+			}
+
+			if _, err := io.Copy(outFile, zstReader); err != nil {
+				outFile.Close()
+				return nil, fmt.Errorf("failed to decompress file: %w", err)
+			}
+			outFile.Close()
+			extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)
+		}
+	}
+
+	return extractedParitionsPaths, nil
 }

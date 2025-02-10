@@ -47,8 +47,8 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	configFile := filepath.Join(testDir, "iso-files-and-args-config.yaml")
 
 	// Customize vhdx to ISO, with OS changes.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", "", /*outputSplitPartitionsFormat*/
-		pxeArtifactsPathVhdxToIso, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso",
+		pxeArtifactsPathVhdxToIso, true /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Attach ISO.
@@ -128,8 +128,8 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 			},
 		},
 	}
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "iso", "", /*outputSplitPartitionsFormat*/
-		pxeArtifactsPathIsoToIso, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "iso",
+		pxeArtifactsPathIsoToIso, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Attach ISO.
@@ -209,22 +209,22 @@ func TestCustomizeImageLiveCd2(t *testing.T) {
 
 	// Customize vhdx with ISO prereqs.
 	configFile := filepath.Join(testDir, "iso-os-prereqs-config.yaml")
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Customize image to ISO, with no OS changes.
 	config := imagecustomizerapi.Config{
 		Iso: &imagecustomizerapi.Iso{},
 	}
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outIsoFilePath, "iso", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outIsoFilePath, "iso",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Customize ISO to ISO, with OS changes.
 	configFile = filepath.Join(testDir, "addfiles-config.yaml")
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outIsoFilePath, nil, outIsoFilePath, "iso", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outIsoFilePath, nil, outIsoFilePath, "iso",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Attach ISO.
@@ -298,8 +298,8 @@ func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, version
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
@@ -321,8 +321,8 @@ func TestCustomizeImageLiveCdIsoNoGrubEfi(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }
