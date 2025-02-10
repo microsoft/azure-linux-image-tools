@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
@@ -226,17 +225,4 @@ func constructOutputPartitionMetadata(diskPartition diskutils.PartitionInfo, par
 	partitionMetadata.Mountpoint = diskPartition.Mountpoint
 
 	return partitionMetadata, nil
-}
-
-// Write partition metadata as JSON to a file.
-func writePartitionMetadataJson(outDir string, name string, output *[]outputPartitionMetadata) (err error) {
-	fullPath := filepath.Join(outDir, name)
-
-	err = jsonutils.WriteJSONFile(fullPath, output)
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Infof("Partition metadata file created: %s", fullPath)
-	return nil
 }
