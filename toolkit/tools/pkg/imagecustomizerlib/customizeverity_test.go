@@ -221,7 +221,7 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 	// Connect to usr verity image.
 	mountPoints := []mountPoint{
 		{
-			PartitionNum:   3,
+			PartitionNum:   5,
 			Path:           "/",
 			FileSystemType: "ext4",
 		},
@@ -236,7 +236,7 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 			FileSystemType: "vfat",
 		},
 		{
-			PartitionNum:   5,
+			PartitionNum:   3,
 			Path:           "/usr",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
@@ -254,8 +254,8 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 
 	// Verify that usr verity is configured correctly.
 	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
-	usrDevice := partitionDevPath(imageConnection, 5)
+	usrDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
-	verifyVerity(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[5].PartUuid,
+	verifyVerity(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid)
 }

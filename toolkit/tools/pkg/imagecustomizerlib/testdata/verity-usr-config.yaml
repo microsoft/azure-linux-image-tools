@@ -2,27 +2,22 @@ storage:
   bootType: efi
   disks:
   - partitionTableType: gpt
-    maxSize: 5120M
     partitions:
     - id: esp
       type: esp
-      start: 1M
-      end: 9M
+      size: 8M
 
     - id: boot
-      start: 9M
-      end: 1024M
-
-    - id: root
-      start: 1024M
-      end: 3072M
-
-    - id: usrhash
-      start: 3072M
-      end: 3200M
+      size: 1G
 
     - id: usr
-      start: 3200M
+      start: 2G
+
+    - id: usrhash
+      size: 100M
+    
+    - id: root
+      size: 2G
 
   verity:
   - id: verityusr
