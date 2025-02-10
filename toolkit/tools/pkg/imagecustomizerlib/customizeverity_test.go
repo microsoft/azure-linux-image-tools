@@ -191,3 +191,71 @@ func verifyVerity(t *testing.T, bootPath string, rootDevice string, hashDevice s
 	err = shell.ExecuteLive(false, "veritysetup", "verify", rootDevice, hashDevice, roothash)
 	assert.NoError(t, err)
 }
+
+func TestCustomizeImageVerityUsr(t *testing.T) {
+	for _, version := range supportedAzureLinuxVersions {
+		t.Run(string(version), func(t *testing.T) {
+			testCustomizeImageVerityUsrHelper(t, "TestCustomizeImageVerityUsr"+string(version), baseImageTypeCoreEfi,
+				version)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType baseImageType,
+	imageVersion baseImageVersion,
+) {
+	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-usr-config.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Connect to usr verity image.
+	mountPoints := []mountPoint{
+		{
+			PartitionNum:   3,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   5,
+			Path:           "/usr",
+			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
+		},
+	}
+
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify that usr verity is configured correctly.
+	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
+	usrDevice := partitionDevPath(imageConnection, 5)
+	hashDevice := partitionDevPath(imageConnection, 4)
+	verifyVerity(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[5].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid)
+}
