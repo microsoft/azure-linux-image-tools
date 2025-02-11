@@ -445,8 +445,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	// Set partition to mountpath mapping for COSI.
 	ic.partUuidToMountPath = partUuidToMountPath
 
-	// Shrink the filesystems.
-	if ic.enableShrinkFilesystems {
+	// For COSI, always shrink the filesystems.
+	if ic.outputImageFormat == ImageFormatCosi {
 		err = shrinkFilesystemsHelper(ic.rawImageFile, ic.config.Storage.Verity, partIdToPartUuid)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
