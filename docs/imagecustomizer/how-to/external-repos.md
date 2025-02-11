@@ -58,8 +58,8 @@ using Image Customizer. The example below demonstrates installing Kubernetes
    ```yaml
    os:
    additionalFiles:
-      - source: repos/cloud-native-prod.repo
-         destination: /etc/yum.repos.d/cloud-native-prod.repo
+   - source: repos/cloud-native-prod.repo
+     destination: /etc/yum.repos.d/cloud-native-prod.repo
    ```
 
 5. Run Image Customizer with the Repository Configuration
