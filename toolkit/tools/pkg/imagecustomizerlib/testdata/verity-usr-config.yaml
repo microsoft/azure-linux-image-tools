@@ -11,7 +11,7 @@ storage:
       size: 1G
 
     - id: usr
-      start: 2G
+      size: 2G
 
     - id: usrhash
       size: 100M
