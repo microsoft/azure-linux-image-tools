@@ -59,7 +59,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 
 	// Update fstab entries so that verity mounts point to verity device paths.
 	for _, verity := range verityList {
-		mountPath := verity.FileSystem.MountPoint.Path
+		mountPath := verity.MountPath
 
 		for j := range fstabEntries {
 			entry := &fstabEntries[j]
@@ -86,7 +86,7 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 	}
 
 	for _, verity := range verityList {
-		mountPath := verity.FileSystem.MountPoint.Path
+		mountPath := verity.MountPath
 
 		if mountPath == "/" {
 			if err := bootCustomizer.PrepareForVerity(); err != nil {
@@ -308,6 +308,21 @@ func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata
 	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+	}
+
+	return nil
+}
+
+func validateVerityMountPaths(config *imagecustomizerapi.Config) error {
+	if config.Storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
+		// When the verity config uses the partitions config, the verity mount paths are verified by the API
+		// IsValid() checks. So, nothing to do.
+		return nil
+	}
+
+	err := imagecustomizerapi.ValidateVerityMounts(config.Storage.Verity)
+	if err != nil {
+		return fmt.Errorf("verity config is invalid:\n%w", err)
 	}
 
 	return nil
