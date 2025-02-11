@@ -190,12 +190,13 @@ func (im *IsoMaker) buildIsoImage() error {
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-o", isoImageFilePath, "-V", DefaultVolumeId)
+		"-R", "-l", "-D", "-J", "-joliet-long", "-o", isoImageFilePath, "-V", DefaultVolumeId)
 
 	if im.enableBiosBoot {
 		mkisofsArgs = append(mkisofsArgs,
 			// BIOS bootloader, params suggested by https://wiki.syslinux.org/wiki/index.php?title=ISOLINUX.
-			"-b", filepath.Join(im.osFilesPath, "isolinux.bin"), "-c", filepath.Join(im.osFilesPath, "boot.cat"), "-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
+			"-b", filepath.Join(im.osFilesPath, "isolinux.bin"), "-c", filepath.Join(im.osFilesPath, "boot.cat"),
+			"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
 	}
 
 	mkisofsArgs = append(mkisofsArgs,
