@@ -24,7 +24,6 @@ var (
 	configFile               = app.Flag("config-file", "Path of the image customization config file.").Required().String()
 	rpmSources               = app.Flag("rpm-source", "Path to a RPM repo config file or a directory containing RPMs.").Strings()
 	disableBaseImageRpmRepos = app.Flag("disable-base-image-rpm-repos", "Disable the base image's RPM repos as an RPM source").Bool()
-	enableShrinkFilesystems  = app.Flag("shrink-filesystems", "Enable shrinking of filesystems to minimum size. Supports ext2, ext3, ext4 filesystem types.").Bool()
 	outputPXEArtifactsDir    = app.Flag("output-pxe-artifacts-dir", "Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'.").String()
 	logFlags                 = exe.SetupLogFlags(app)
 	timestampFile            = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
@@ -37,10 +36,6 @@ func main() {
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	logger.InitBestEffort(logFlags)
-
-	if *enableShrinkFilesystems && *outputImageFormat != "cosi" {
-		logger.Log.Fatalf("--output-image-format must be cosi to use --shrink-filesystems.")
-	}
 
 	if *timestampFile != "" {
 		timestamp.BeginTiming("imagecustomizer", *timestampFile)
@@ -58,7 +53,7 @@ func customizeImage() error {
 
 	err = imagecustomizerlib.CustomizeImageWithConfigFile(*buildDir, *configFile, *imageFile,
 		*rpmSources, *outputImageFile, *outputImageFormat, *outputPXEArtifactsDir,
-		!*disableBaseImageRpmRepos, *enableShrinkFilesystems)
+		!*disableBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}

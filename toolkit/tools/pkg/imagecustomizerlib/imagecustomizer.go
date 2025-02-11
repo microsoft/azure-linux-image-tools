@@ -62,12 +62,11 @@ type ImageCustomizerParameters struct {
 	inputIsIso       bool
 
 	// configurations
-	configPath              string
-	config                  *imagecustomizerapi.Config
-	customizeOSPartitions   bool
-	useBaseImageRpmRepos    bool
-	rpmsSources             []string
-	enableShrinkFilesystems bool
+	configPath            string
+	config                *imagecustomizerapi.Config
+	customizeOSPartitions bool
+	useBaseImageRpmRepos  bool
+	rpmsSources           []string
 
 	// intermediate writeable image
 	rawImageFile string
@@ -99,7 +98,7 @@ type verityDeviceMetadata struct {
 func createImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
-	useBaseImageRpmRepos bool, rpmsSources []string, enableShrinkFilesystems bool,
+	useBaseImageRpmRepos bool, rpmsSources []string,
 	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string) (*ImageCustomizerParameters, error) {
 
 	ic := &ImageCustomizerParameters{}
@@ -142,8 +141,6 @@ func createImageCustomizerParameters(buildDir string,
 		return nil, err
 	}
 
-	ic.enableShrinkFilesystems = enableShrinkFilesystems
-
 	// intermediate writeable image
 	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
 
@@ -167,12 +164,6 @@ func createImageCustomizerParameters(buildDir string,
 	}
 
 	if ic.inputIsIso {
-		// When the input is an iso image, there's only one file system: the
-		// suqash file system and it has no empty space since it's a read-only
-		// file system. So, shrinking it does not make sense.
-		if ic.enableShrinkFilesystems {
-			return nil, fmt.Errorf("shrinking file systems is not supported when the input image is an iso image")
-		}
 
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
@@ -193,8 +184,7 @@ func createImageCustomizerParameters(buildDir string,
 
 func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputPXEArtifactsDir string,
-	useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
 	var err error
 
@@ -212,7 +202,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile 
 	}
 
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, imageFile, rpmsSources, outputImageFile, outputImageFormat,
-		outputPXEArtifactsDir, useBaseImageRpmRepos, enableShrinkFilesystems)
+		outputPXEArtifactsDir, useBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
@@ -231,7 +221,7 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
 	err := validateConfig(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos)
 	if err != nil {
@@ -239,8 +229,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	}
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, imageFile,
-		baseConfigPath, config,
-		useBaseImageRpmRepos, rpmsSources, enableShrinkFilesystems,
+		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to create image customizer parameters object:\n%w", err)
@@ -433,7 +422,11 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.partUuidToMountPath = partUuidToMountPath
 
 	// For COSI, always shrink the filesystems.
+<<<<<<< HEAD
 	if ic.outputImageFormat == ImageFormatCosi || ic.enableShrinkFilesystems {
+=======
+	if ic.outputImageFormat == ImageFormatCosi {
+>>>>>>> 546084955 (add support for shrinking cosi paritions)
 		err = shrinkFilesystemsHelper(ic.rawImageFile, ic.config.Storage.Verity, partIdToPartUuid)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)

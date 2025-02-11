@@ -48,14 +48,6 @@ When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
 [Image Customizer ISO Support](../concepts/iso.md).
 
-## --shrink-filesystems
-
-Enable shrinking of partition filesystems to their minimum size.
-
-Currently only supports ext2/ext3/ext4 filesystems.
-
-Can only be specified if `--output-image-format` is set to `cosi`.
-
 ## --config-file=FILE-PATH
 
 Required.
