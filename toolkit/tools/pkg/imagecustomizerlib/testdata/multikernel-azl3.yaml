@@ -1,0 +1,10 @@
+os:
+  packages:
+    install:
+    - kernel-6.6.57.1-7.azl3
+    - kernel-6.6.64.2-1.azl3
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0
