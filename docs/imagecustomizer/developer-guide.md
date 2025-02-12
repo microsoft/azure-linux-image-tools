@@ -9,7 +9,7 @@ nav_order: 4
 
 See [Getting started guide](./how-to/quick-start.md)
 
-## Build Image Customizer binary
+## Build Prism (Image Customizer) binary
 
 Run:
 
@@ -17,8 +17,8 @@ Run:
 sudo make -C ./toolkit go-imagecustomizer
 ```
 
-If you're updating the image customizer API as part of your change, you need to
-update the API `schema.json` before sending a PR. To do so, run:
+If you're updating the API as part of your change, you need to update the API
+`schema.json` before sending a PR. To do so, run:
 
 ```bash
 make -C toolkit/tools/imagecustomizerschemacli/
@@ -32,7 +32,7 @@ Run:
 sudo go test -C ./toolkit/tools ./...
 ```
 
-## Run Image Customizer specific tests
+## Run tests
 
 1. Build (or download) the vhdx/vhd image files for:
 

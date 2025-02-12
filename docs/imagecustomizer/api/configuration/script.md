@@ -19,7 +19,7 @@ Restricting the set of capabilities helps prevent scripts from accidentally affe
 the host kernel.
 
 WARNING: Custom scripts are not considered to be on security boundary.
-Only use config files that you trust (or run image customizer in a security sandbox).
+Only use config files that you trust (or run Prism in a security sandbox).
 
 ## path [string]
 

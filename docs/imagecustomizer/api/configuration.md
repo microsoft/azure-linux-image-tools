@@ -4,9 +4,9 @@ parent: API
 nav_order: 2
 ---
 
-# Image Customizer configuration
+# Supported Configuration
 
-The Image Customizer is configured using a YAML (or JSON) file.
+Prism is configured using a YAML (or JSON) file.
 
 ## Top-level
 
@@ -38,7 +38,7 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 4. Update hostname. ([hostname](./configuration/os.md#hostname-string))
 
 5. Copy additional files. ([additionalFiles](./configuration/os.md#additionalfiles-additionalfile))
-  
+
 6. Copy additional directories. ([additionalDirs](./configuration/os.md#additionaldirs-dirconfig))
 
 7. Add/update users. ([users](./configuration/os.md#users-user))

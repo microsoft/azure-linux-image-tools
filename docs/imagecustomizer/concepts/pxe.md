@@ -4,13 +4,14 @@ title: PXE Support
 nav_order: 3
 ---
 
-# Image Customizer PXE Support
+# PXE Support
 
 ## Overview
 
 Booting a host with an OS served over the network is one of the most popular
-methods for booting baremetal hosts. It requires no physical access to individual
-hosts and also centralizes the deployment configuration to a single server.
+methods for booting baremetal hosts. It requires no physical access to
+individual hosts and also centralizes the deployment configuration to a single
+server.
 
 One way of enabling such setup is using the PXE (Preboot eXecution Environment)
 Boot protocol. The user can setup a server with all the OS artifacts, a DHCP
@@ -30,13 +31,13 @@ The tftp protocol expects certain artifacts to be present on the server:
 - the kernel image.
 - the initrd image.
 
-Once retrieved, the boot loader is run. Then the boot loader reads the
-boot loader configuration and then transfers control over to the kernel image
-with the retrieved initrd image as its file system.
+Once retrieved, the boot loader is run. Then the boot loader reads the boot
+loader configuration and then transfers control over to the kernel image with
+the retrieved initrd image as its file system.
 
-The initrd image is customized to perform the next set of tasks now that an
-OS is running. The tasks can range from just running some local scripts all
-the way to installing another OS.
+The initrd image is customized to perform the next set of tasks now that an OS
+is running. The tasks can range from just running some local scripts all the way
+to installing another OS.
 
 ## LiveOS ISOs and PXE Support
 
@@ -44,17 +45,17 @@ A LiveOS ISO image is a bootable ISO image that runs all the necessary
 components from memory (i.e. does not need to install anything to the host
 persistent storage).
 
-The necessary components can be either embedded into the initrd image itself
-or embedded into a separate 'rootfs' image (to allow much smaller
-initrd images). If separate, then, the initrd image must be configured with an
-agent that will look for the rootfs image, and transition control over to the
-rootfs at boot time.
+The necessary components can be either embedded into the initrd image itself or
+embedded into a separate 'rootfs' image (to allow much smaller initrd images).
+If separate, then, the initrd image must be configured with an agent that will
+look for the rootfs image, and transition control over to the rootfs at boot
+time.
 
 Dracut provides the `dmsquash-live` module which managed this transition from
 the initrd image over to the rootfs image.
 
-The **Image Customizer** produces such LiveOS ISO images. A typical
-image holds the following artifacts:
+Prism produces such LiveOS ISO images. A typical image holds the following
+artifacts:
 
 - the boot loader (the shim and something like grub).
 - the boot loader configuration.
@@ -63,9 +64,9 @@ image holds the following artifacts:
 - the rootfs image.
 - other user defined artifacts (optional).
 
-Note that the first 4 artifacts are what is necessary to get an OS kernel up
-and running in a network boot scenario. What remains for a successful booting
-of a LiveOS over the network is to make the rootfs image available for the final
+Note that the first 4 artifacts are what is necessary to get an OS kernel up and
+running in a network boot scenario. What remains for a successful booting of a
+LiveOS over the network is to make the rootfs image available for the final
 transition (during the initrd phase).
 
 Dracut enables that entire flow through the use of the `livenet` module - where
@@ -73,32 +74,31 @@ it inspects the `root=live:liveos-iso-url` kernel parameter from the boot loader
 config file, and if it recognizes the `liveos-iso-url` protocol, it downloads
 the ISO, and then proceeds to pivot to the embedded rootfs image.
 
-The user can customize the rootfs using the Image Customizer as
-usual. In case of additional artifacts that need downloading, the user can
-install a daemon on the rootfs which will run when control is transferred to
-the rootfs image and download any additional items.
+The user can customize the rootfs using Prism as usual. In case of additional
+artifacts that need downloading, the user can install a daemon on the rootfs
+which will run when control is transferred to the rootfs image and download any
+additional items.
 
 ## Creating and Deploying PXE Boot Artifacts
 
-The Image Customizer produces LiveOS ISO images that are also PXE
-bootable. So, the user can simply create an ISO image as usual, and the output
-can be taken and deployed to a PXE server.
+Prism produces LiveOS ISO images that are also PXE bootable. So, the user can
+simply create an ISO image as usual, and the output can be taken and deployed to
+a PXE server.
 
-To make the deployment of the generated artifacts easier for the user, the
-Image Customizer offers the following configurations:
+To make the deployment of the generated artifacts easier for the user, Prism
+offers the following configurations:
 
 - In the input configuration, there is a `pxe` node under which the user can
   configure PXE related properties - like the URL of the LiveOS ISO image to
-  download (note that this image is the same image being built).
-  See the [Image Customizer configuration](../api/configuration/pxe.md)
-  page for more information.
-- When invoking the Image Customizer, the user can also elect to
-  export the artifacts to a local folder.
-  See the [Image Customizer command line](../api/cli.md#output-pxe-artifacts-dir)
-  page for more information.
+  download (note that this image is the same image being built). See the [Image
+  Customizer configuration](../api/configuration/pxe.md) page for more
+  information.
+- When invoking Prism, the user can also elect to export the artifacts to a
+  local folder. See the [supported command
+  line](../api/cli.md#output-pxe-artifacts-dir) page for more information.
 
-Below is a list of required artifacts and where on the PXE server they should
-be deployed:
+Below is a list of required artifacts and where on the PXE server they should be
+deployed:
 
 ```
 ISO media layout           artifacts local folder      target on PXE server
@@ -122,18 +122,18 @@ ISO media layout           artifacts local folder      target on PXE server
 
 Notes:
 
-- Note that the `/boot/grub2/grub.cfg` file in the ISO media is not used for
-  PXE booting. Instead, the `/boot/grub2/grub-pxe.cfg` gets renamed to `grub.cfg`
+- Note that the `/boot/grub2/grub.cfg` file in the ISO media is not used for PXE
+  booting. Instead, the `/boot/grub2/grub-pxe.cfg` gets renamed to `grub.cfg`
   and is used instead.
-- `yyyy` can be any protocol supported by Dracut's `livenet` module (i.e
-  tftp, http, etc).
-- The ISO image file location under the server root is customizable -
-  but it must be such that its URL matches what is specified in the grub.cfg
+- `yyyy` can be any protocol supported by Dracut's `livenet` module (i.e tftp,
+  http, etc).
+- The ISO image file location under the server root is customizable - but it
+  must be such that its URL matches what is specified in the grub.cfg
   `root=live:<URL>`.
 - While the core OS artifacts (the bootloader, its configuration, the kernel,
-  initrd image, and rootfs image) will be downloaded and used automatically,
-  the user will need to independently implement a way to download any
-  additional artifacts. For example, the user can implement a daemon (and place
-  it on the root file system) that will reach out and download the additional
-  artifacts when it is up and running. The daemon can be configured with where
-  to download the artifacts from, and what to do with them.
+  initrd image, and rootfs image) will be downloaded and used automatically, the
+  user will need to independently implement a way to download any additional
+  artifacts. For example, the user can implement a daemon (and place it on the
+  root file system) that will reach out and download the additional artifacts
+  when it is up and running. The daemon can be configured with where to download
+  the artifacts from, and what to do with them.

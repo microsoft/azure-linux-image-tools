@@ -132,8 +132,6 @@ Supported options:
 
 - `usr-verity`: The verity hash partition for `/usr`.
 
-  Note: Image Customizer does not yet support `/usr` verity partitions.
-
 - `var`: The `/var` partition.
 
 - `xbootldr`: The `/boot` partition.
@@ -141,7 +139,7 @@ Supported options:
 - A partition type UUID string.
 
   A list of well-known UUID values can be found in:
-  
+
   - [Wikipedia's GUID Partition Table article](https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs)
   - [The Discoverable Partitions Specification (DPS)](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/#defined-partition-type-uuids)
 
