@@ -6,53 +6,92 @@ nav_order: 5
 
 # Using the Image Customizer Container
 
-The Image Customizer container is designed to simplify the process of
-customizing and configuring system images using the Image Customizer tool.
+The Image Customizer container packages up the Image Customizer executable along with
+all of its dependencies.
 
-## Running the Container
+The container is available at:
 
-To use the Image Customizer container, you will need to pass several parameters
-and mount appropriate volumes for the image and device access. Below is a
-step-by-step guide on how to run this container:
-
-### Prepare Your Environment
-
-Ensure that your configuration file (config.yaml) is ready and accessible. This
-file should define the customization parameters for the MIC tool. Details please
-see [configuration](../api/configuration.md).
-
-### Run the Container
-
-Pull the image:
-
-```bash
-docker pull mcr.microsoft.com/azurelinux/imagecustomizer:0.7.0
+```text
+mcr.microsoft.com/azurelinux/imagecustomizer:<version>
 ```
 
-You can use your own base image, for example:
+For example:
 
-```bash
-docker run --rm --privileged=true \
-   -v ~/image:/image:z \
-   -v /dev:/dev \
-   mcr.microsoft.com/azurelinux/imagecustomizer:0.3.0 \
-   --image-file /baseimg.vhdx \
-   --config-file /config.yaml \
-   --output-image-format raw \
-   --output-image-file /image/customized.raw
+```text
+mcr.microsoft.com/azurelinux/imagecustomizer:0.11.0
 ```
 
-Alternatively, you can use the
-[run.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/run.sh)
-script on the container which runs `imagecustomizer` with a base image downloaded from
-MCR.
+## Prerequisites
 
-Usage: `run.sh $version_tag`
+Unlike running the executable directly, the only prerequisites needed is a Linux host
+and Docker (or equivalent container engine).
 
-For a complete usage example, refer to
-[test-mic-container.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/test-mic-container.sh).
+## Example
 
-### Check the Output
+```bash
+docker run \
+  --rm \
+  --privileged=true \
+  -v /dev:/dev \
+  -v "$HOME/staging:/mnt/staging:z" \
+  mcr.microsoft.com/azurelinux/imagecustomizer:0.11.0 \
+  imagecustomizer \
+    --image-file "/mnt/staging/image.vhdx" \
+    --config-file "/mnt/staging/image-config.yaml" \
+    --build-dir "/build" \
+    --output-image-format "vhdx" \
+    --output-image-file "/mnt/staging/out/image.vhdx"
+```
 
-After the container executes, check the output directory on your host for the
-customized image file. This file contains your customized system image.
+Docker options:
+
+- `run --rm`: Runs the container and cleans up the container once the program
+  has completed.
+
+- `--privileged=true`: Gives the container root permissions, which is needed to mount
+  loopback devices (i.e. disk files) and partitions.
+
+- `-v /dev:/dev`: When mounting loopback devices, the container needs the partition
+  device nodes to be populated under `/dev`. But the udevd service runs in the host not
+  the container. So, the container doesn't receive udev updates.
+
+  This option maps in the host's version of `/dev` into the container, instead of the
+  container getting its own `/dev`.
+
+- `-v $HOME/staging:/mnt/staging:z`: Mounts a host directory (`$HOME/staging`) into the
+   container. This can be used to easily pass files in and out of the container.
+
+- `mcr.microsoft.com/azurelinux/imagecustomizer:0.11.0`: The container to run.
+
+- `imagecustomizer`: Specifies the executable to run within the container.
+
+Image Customizer options ([CLI API](../api/cli.md)):
+
+- `--image-file "/mnt/staging/image.vhdx"`: Use the host's `$HOME/staging/image.vhdx`
+  file as the input image.
+
+- `--config-file "/mnt/staging/image-config.yaml"`: Use the host's
+  `$HOME/staging/image-config.yaml` file as the config.
+
+- `--output-image-format`: Output the customized image as a VHDX file.
+
+- `--output-image-file "/mnt/staging/out/image.vhdx"`: Output the customized image to
+  the host's `$HOME/staging/out/image.vhdx` file path.
+
+## Helper script
+
+[run-mic-container.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/run-mic-container.sh)
+
+This script wraps the Docker call. It is intended to make using the Image Customizer
+container a little easier.
+
+For example, this is the equivalent call to the above example:
+
+```bash
+run-mic-container.sh \
+    -t mcr.microsoft.com/azurelinux/imagecustomizer:0.11.0 \
+    -i "$HOME/staging/image.vhdx" \
+    -c "$HOME/staging/image-config.yaml" \
+    -f vhdx \
+    -o "$HOME/staging/out/image.vhdx" \
+```
