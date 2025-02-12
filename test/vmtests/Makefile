@@ -22,6 +22,8 @@ SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
 
 KEEP_ENVIRONMENT ?= n
 
+DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
+
 .PHONY: create-venv
 create-venv:
 	rm -rf "${VENV_DIR}"
@@ -75,6 +77,7 @@ test:
 		--log-cli-level=DEBUG \
 		--show-capture=all \
 		--tb=short \
+		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests
 
 .PHONY: run
