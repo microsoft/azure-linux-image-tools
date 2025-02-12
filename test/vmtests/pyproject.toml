@@ -9,3 +9,6 @@ profile = "black"
 
 [tool.black]
 line-length = 120
+
+[tool.pytest.ini_options]
+junit_suite_name = "vmtests"
