@@ -65,7 +65,8 @@ def _get_libvirt_firmware_config(
         # Exclude Intel TDX and AMD SEV-ES firmwares.
         filtered_firmware_configs = list(
             filter(
-                lambda f: "inteltdx" not in f["mapping"]["executable"]["filename"]
+                lambda f: "executable" in f["mapping"]
+                and "inteltdx" not in f["mapping"]["executable"]["filename"]
                 and "amdsev" not in f["mapping"]["executable"]["filename"]
                 # qcow2 does azl2, need to exclude such entries
                 and "qcow2" not in f["mapping"]["executable"]["filename"],
