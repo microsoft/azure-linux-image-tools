@@ -37,7 +37,7 @@ The file path to write the final customized image to.
 
 The image format of the the final customized image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and cosi.
+Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and [cosi](./cosi.md).
 
 At least one of `--output-image-format` and `--output-split-partitions-format` is
 required.
