@@ -18,11 +18,11 @@ function showUsage() {
     echo
 }
 
-while getopts ":r:n:t:a:" OPTIONS; do
+while getopts ":r:n:t:a:i" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     a ) ARCH=$OPTARG ;;
-    b ) IMAGE_CUSTOMIZER_BIN=$OPTARG ;;
+    i ) IMAGE_CUSTOMIZER_BIN=$OPTARG ;;
     \? ) echo "Invalid option: $OPTARG" 1>&2; showUsage; exit 1 ;;
   esac
 done
