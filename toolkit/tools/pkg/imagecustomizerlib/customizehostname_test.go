@@ -47,8 +47,8 @@ func TestCustomizeImageHostname(t *testing.T) {
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

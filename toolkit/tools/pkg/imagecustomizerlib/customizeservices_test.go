@@ -21,8 +21,8 @@ func TestCustomizeImageServicesEnableDisable(t *testing.T) {
 
 	// Customize image.
 	configFile := filepath.Join(testDir, "services-config.yaml")
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -62,8 +62,8 @@ func TestCustomizeImageServicesEnableUnknown(t *testing.T) {
 		},
 	}
 
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to enable service (chocolate-chip-muffin)")
 	assert.ErrorContains(t, err, "chocolate-chip-muffin.service does not exist")
 }
@@ -86,8 +86,8 @@ func TestCustomizeImageServicesDisableUnknown(t *testing.T) {
 		},
 	}
 
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to disable service (chocolate-chip-muffin)")
 	assert.ErrorContains(t, err, "No such file or directory")
 }

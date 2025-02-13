@@ -22,8 +22,8 @@ func TestCustomizeImageRunScripts(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

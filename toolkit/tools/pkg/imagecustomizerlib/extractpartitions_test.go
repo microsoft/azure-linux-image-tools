@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 package imagecustomizerlib
 
 import (
@@ -5,17 +8,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/sys/unix"
 )
 
 func TestAddSkippableFrame(t *testing.T) {
@@ -140,148 +138,4 @@ func verifySkippableFrameMetadataFromFile(partitionFilepath string, magicNumber 
 	logger.Log.Infof("Skippable frame is valid and contains the correct metadata!")
 
 	return nil
-}
-
-// Tests partition extracting with partition resize enabled, but where the partition resize is a no-op.
-func TestCustomizeImageNopShrink(t *testing.T) {
-	var err error
-
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
-
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
-	configFile := filepath.Join(testDir, "consume-space.yaml")
-	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
-
-	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw-zst",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, true /*enableShrinkFilesystems*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	espPartitionZstFilePath := filepath.Join(buildDir, "image_1.raw.zst")
-	rootfsPartitionZstFilePath := filepath.Join(buildDir, "image_2.raw.zst")
-
-	espPartitionFilePath := filepath.Join(buildDir, "image_1.raw")
-	rootfsPartitionFilePath := filepath.Join(buildDir, "image_2.raw")
-
-	// Check the file type of the output files.
-	checkFileType(t, espPartitionZstFilePath, "zst")
-	checkFileType(t, rootfsPartitionZstFilePath, "zst")
-
-	// Extract partitions.
-	err = extractZstFile(espPartitionZstFilePath, espPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	err = extractZstFile(rootfsPartitionZstFilePath, rootfsPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Mount the partitions.
-	mountsDir := filepath.Join(buildDir, "testmounts")
-	espMountDir := filepath.Join(mountsDir, "esp")
-	rootfsMountDir := filepath.Join(mountsDir, "rootfs")
-
-	espLoopback, err := safeloopback.NewLoopback(espPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer espLoopback.Close()
-
-	rootfsLoopback, err := safeloopback.NewLoopback(rootfsPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer rootfsLoopback.Close()
-
-	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer espMount.Close()
-
-	rootfsMount, err := safemount.NewMount(rootfsLoopback.DevicePath(), rootfsMountDir, "ext4", 0, "", true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer rootfsMount.Close()
-
-	// Get the file sizes.
-	var rootfsStat unix.Statfs_t
-	err = unix.Statfs(rootfsMountDir, &rootfsStat)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	bigFileStat, err := os.Stat(filepath.Join(rootfsMountDir, "bigfile"))
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	rootfsZstFileStat, err := os.Stat(rootfsPartitionZstFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Confirm that there is almost 0 free space left, thus preventing the shrink partition operation from doing
-	// anything.
-	rootfsFreeSpace := int64(rootfsStat.Bfree) * rootfsStat.Frsize
-	assert.LessOrEqual(t, rootfsFreeSpace, int64(32*diskutils.MiB), "check rootfs free space")
-
-	// Ensure that zst succesfully compressed the rootfs partition.
-	// In particular, bigfile, which is all 0s, should compress down to basically nothing.
-	rootfsSizeLessBigFile := int64(rootfsStat.Blocks)*rootfsStat.Frsize - bigFileStat.Size()
-	assert.LessOrEqual(t, rootfsZstFileStat.Size(), rootfsSizeLessBigFile, "check compression size")
-}
-
-func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
-	var err error
-
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
-
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
-	configFile := filepath.Join(testDir, "partitions-unformatted-partition.yaml")
-	outImageFilePath := filepath.Join(buildDir, "image.raw")
-
-	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	espPartitionFilePath := filepath.Join(buildDir, "image_1.raw")
-	rootfsPartitionFilePath := filepath.Join(buildDir, "image_2.raw")
-
-	// Mount the partitions.
-	mountsDir := filepath.Join(buildDir, "testmounts")
-	espMountDir := filepath.Join(mountsDir, "esp")
-	rootfsMountDir := filepath.Join(mountsDir, "rootfs")
-
-	espLoopback, err := safeloopback.NewLoopback(espPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer espLoopback.Close()
-
-	rootfsLoopback, err := safeloopback.NewLoopback(rootfsPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer espLoopback.Close()
-
-	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer espMount.Close()
-
-	rootfsMount, err := safemount.NewMount(rootfsLoopback.DevicePath(), rootfsMountDir, "ext4", 0, "", true)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer rootfsMount.Close()
 }
