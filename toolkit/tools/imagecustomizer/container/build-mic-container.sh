@@ -18,7 +18,7 @@ function showUsage() {
     echo
 }
 
-while getopts ":r:n:t:a:i" OPTIONS; do
+while getopts ":r:n:t:a:i:" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     a ) ARCH=$OPTARG ;;
