@@ -297,7 +297,7 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	}
 	defer systemBootPartitionMount.Close()
 
-	bootPartitionTmpDir := filepath.Join(buildDir, tmpParitionDirName)
+	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)

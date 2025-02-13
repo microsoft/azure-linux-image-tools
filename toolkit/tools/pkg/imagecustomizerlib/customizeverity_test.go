@@ -83,7 +83,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 	rootDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerity(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid)
+		"PARTUUID="+partitions[4].PartUuid, "root")
 }
 
 func TestCustomizeImageVerityShrinkExtract(t *testing.T) {
@@ -158,10 +158,14 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 
 	// Verify that verity is configured correctly.
 	verifyVerity(t, bootMountPath, rootDevice.DevicePath(), hashDevice.DevicePath(), "PARTLABEL=root",
-		"PARTLABEL=roothash")
+		"PARTLABEL=roothash", "root")
 }
 
-func verifyVerity(t *testing.T, bootPath string, rootDevice string, hashDevice string, rootId string, hashId string) {
+func verifyVerity(t *testing.T, bootPath string, dataDevice string,
+	hashDevice string, dataId string, hashId string, verityType string,
+) {
+	var hashRegexp *regexp.Regexp
+
 	// Verify verity kernel args.
 	grubCfgPath := filepath.Join(bootPath, "/grub2/grub.cfg")
 	grubCfgContents, err := file.Read(grubCfgPath)
@@ -169,25 +173,104 @@ func verifyVerity(t *testing.T, bootPath string, rootDevice string, hashDevice s
 		return
 	}
 
-	assert.Regexp(t, `(?m)linux.* rd.systemd.verity=1 `, grubCfgContents)
-	assert.Regexp(t, fmt.Sprintf(`(?m)linux.* systemd.verity_root_data=%s `, rootId), grubCfgContents)
-	assert.Regexp(t, fmt.Sprintf(`(?m)linux.* systemd.verity_root_hash=%s `, hashId), grubCfgContents)
-	assert.Regexp(t, `(?m)linux.* systemd.verity_root_options=panic-on-corruption `, grubCfgContents)
+	switch verityType {
+	case "root":
+		assert.Regexp(t, `(?m)linux.* rd.systemd.verity=1 `, grubCfgContents)
+		assert.Regexp(t, fmt.Sprintf(`(?m)linux.* systemd.verity_root_data=%s `, dataId), grubCfgContents)
+		assert.Regexp(t, fmt.Sprintf(`(?m)linux.* systemd.verity_root_hash=%s `, hashId), grubCfgContents)
+		assert.Regexp(t, `(?m)linux.* systemd.verity_root_options=panic-on-corruption `, grubCfgContents)
 
-	// Read root hash from grub.cfg file.
-	roothashRegexp, err := regexp.Compile(`(?m)linux.* roothash=([a-fA-F0-9]*) `)
+		hashRegexp, err = regexp.Compile(`(?m)linux.* roothash=([a-fA-F0-9]*) `)
+	case "usr":
+		assert.Regexp(t, `(?m)linux.* rd.systemd.verity=1 `, grubCfgContents)
+		assert.Regexp(t, fmt.Sprintf(`(?m)linux.* systemd.verity_usr_data=%s `, dataId), grubCfgContents)
+		assert.Regexp(t, fmt.Sprintf(`(?m)linux.* systemd.verity_usr_hash=%s `, hashId), grubCfgContents)
+		assert.Regexp(t, `(?m)linux.* systemd.verity_usr_options=panic-on-corruption `, grubCfgContents)
+
+		hashRegexp, err = regexp.Compile(`(?m)linux.* usrhash=([a-fA-F0-9]*) `)
+	default:
+		t.Fatalf("Invalid verity type: (%s)", verityType)
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	roothashMatches := roothashRegexp.FindStringSubmatch(grubCfgContents)
-	if !assert.Equal(t, 2, len(roothashMatches)) {
+	hashMatches := hashRegexp.FindStringSubmatch(grubCfgContents)
+	if !assert.Equal(t, 2, len(hashMatches)) {
 		return
 	}
 
-	roothash := roothashMatches[1]
+	hash := hashMatches[1]
 
 	// Verify verity hashes.
-	err = shell.ExecuteLive(false, "veritysetup", "verify", rootDevice, hashDevice, roothash)
+	err = shell.ExecuteLive(false, "veritysetup", "verify", dataDevice, hashDevice, hash)
 	assert.NoError(t, err)
+}
+
+func TestCustomizeImageVerityUsr(t *testing.T) {
+	for _, version := range supportedAzureLinuxVersions {
+		t.Run(string(version), func(t *testing.T) {
+			testCustomizeImageVerityUsrHelper(t, "TestCustomizeImageVerityUsr"+string(version), baseImageTypeCoreEfi,
+				version)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType baseImageType,
+	imageVersion baseImageVersion,
+) {
+	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-usr-config.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Connect to usr verity image.
+	mountPoints := []mountPoint{
+		{
+			PartitionNum:   5,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   3,
+			Path:           "/usr",
+			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
+		},
+	}
+
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify that usr verity is configured correctly.
+	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
+	usrDevice := partitionDevPath(imageConnection, 3)
+	hashDevice := partitionDevPath(imageConnection, 4)
+	verifyVerity(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid, "usr")
 }

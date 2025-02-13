@@ -1,6 +1,6 @@
 ---
 parent: How To
-nav_order: 2
+nav_order: 3
 ---
 
 # Building custom packages

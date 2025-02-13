@@ -10,24 +10,20 @@ storage:
     - id: boot
       size: 1G
 
-    - id: root
-      label: root
+    - id: usr
       size: 2G
 
-    - id: roothash
-      label: roothash
+    - id: usrhash
       size: 100M
-
-    - id: var
+    
+    - id: root
       size: 2G
 
   verity:
-  - id: verityroot
-    name: root
-    dataDeviceId: root
-    hashDeviceId: roothash
-    dataDeviceMountIdType: part-label
-    hashDeviceMountIdType: part-label
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usrhash
     corruptionOption: panic
 
   filesystems:
@@ -42,16 +38,16 @@ storage:
     mountPoint:
       path: /boot
 
-  - deviceId: verityroot
+  - deviceId: root
     type: ext4
     mountPoint:
       path: /
-      options: ro
 
-  - deviceId: var
+  - deviceId: verityusr
     type: ext4
     mountPoint:
-      path: /var
+      path: /usr
+      options: ro
 
 os:
   bootloader:
@@ -70,15 +66,6 @@ os:
     - veritysetup
     - vim
 
-  additionalFiles:
-    # Change the directory that the sshd-keygen service writes the SSH host keys to.
-  - source: files/sshd-keygen.service
-    destination: /usr/lib/systemd/system/sshd-keygen.service
-
-    # Enable DHCP client on all of the physical NICs.
-  - source: files/89-ethernet.network
-    destination: /etc/systemd/network/89-ethernet.network
-
   services:
     enable:
     - sshd
@@ -89,8 +76,3 @@ os:
       # Your SSH public key here.
     secondaryGroups:
     - sudo
-
-scripts:
-  postCustomization:
-    # Move the SSH host keys off of the read-only /etc directory, so that sshd can run.
-  - path: scripts/ssh-move-host-keys.sh
