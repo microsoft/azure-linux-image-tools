@@ -127,6 +127,6 @@ needing to install the OS.
 ## Links
 
 - [LiveOS ISO Support](../concepts/iso.md)
-- [--output-image-format CLI parameter](../api/cli.md#--output-image-formatformat)
+- [--output-image-format CLI parameter](../api/cli.md#output-image-formatformat)
 - [ISO configuration API](../api/configuration/iso.md)
  
