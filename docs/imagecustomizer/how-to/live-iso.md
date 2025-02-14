@@ -7,7 +7,7 @@ nav_order: 9
 # Create a LiveOS ISO and run it in a VM
 
 This guide demonstrates how to use Image Customizer to build an Azure Linux LiveOS ISO
-and then it in a local VM.
+and then run it in a local VM.
 
 A LiveOS image is an OS image that can be booted from media (e.g. CDROM, USB) without
 needing to install the OS.
