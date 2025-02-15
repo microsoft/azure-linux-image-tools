@@ -86,7 +86,7 @@ type ImageCustomizerParameters struct {
 
 	verityMetadata []verityDeviceMetadata
 
-	partUuidToMountPath map[string]string
+	partUuidToFstabEntry map[string]diskutils.FstabEntry
 }
 
 type verityDeviceMetadata struct {
@@ -436,14 +436,14 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.rawImageFile = newRawImageFile
 
 	// Customize the raw image file.
-	partUuidToMountPath, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
+	partUuidToFstabEntry, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
 		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
 	if err != nil {
 		return err
 	}
 
 	// Set partition to mountpath mapping for COSI.
-	ic.partUuidToMountPath = partUuidToMountPath
+	ic.partUuidToFstabEntry = partUuidToFstabEntry
 
 	// For COSI, always shrink the filesystems.
 	if ic.outputImageFormat == ImageFormatCosi || ic.enableShrinkFilesystems {
@@ -762,10 +762,10 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string,
-) (map[string]string, error) {
+) (map[string]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToMountPath, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
 	if err != nil {
 		return nil, err
 	}
@@ -777,6 +777,11 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		logger.Log.Infof("Base OS version: %s", version)
 		return nil
 	})
+
+	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
+	if err != nil {
+		return nil, fmt.Errorf("verity validation failed:\n%w", err)
+	}
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
@@ -795,7 +800,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		return nil, err
 	}
 
-	return partUuidToMountPath, nil
+	return partUuidToFstabEntry, nil
 }
 
 func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasename string, outputSplitPartitionsFormat string, imageUuid [UuidSize]byte) error {
@@ -867,17 +872,19 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 
 	for _, verityConfig := range config.Storage.Verity {
 		// Extract the partition block device path.
-		dataPartition, err := idToPartitionBlockDevicePath(verityConfig.DataDeviceId, diskPartitions, partIdToPartUuid)
+		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
+			diskPartitions)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find verity data partition:\n%w", err)
 		}
-		hashPartition, err := idToPartitionBlockDevicePath(verityConfig.HashDeviceId, diskPartitions, partIdToPartUuid)
+		hashPartition, err := verityIdToPartition(verityConfig.HashDeviceId, verityConfig.HashDevice, partIdToPartUuid,
+			diskPartitions)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find verity hash partition:\n%w", err)
 		}
 
 		// Extract root hash using regular expressions.
-		verityOutput, _, err := shell.Execute("veritysetup", "format", dataPartition, hashPartition)
+		verityOutput, _, err := shell.Execute("veritysetup", "format", dataPartition.Path, hashPartition.Path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate root hash:\n%w", err)
 		}
@@ -898,22 +905,10 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			return nil, err
 		}
 
-		// Identify the data partition UUID
-		dataPartUuid, ok := partIdToPartUuid[verityConfig.DataDeviceId]
-		if !ok {
-			return nil, fmt.Errorf("failed to determine partition UUID for DataDeviceId: %s", verityConfig.DataDeviceId)
-		}
-
-		// Identify the hash partition UUID
-		hashPartUuid, ok := partIdToPartUuid[verityConfig.HashDeviceId]
-		if !ok {
-			return nil, fmt.Errorf("failed to find hash partition UUID for HashDeviceId: %s", verityConfig.HashDeviceId)
-		}
-
-		verityMetadata[verityConfig.FileSystem.MountPoint.Path] = verityDeviceMetadata{
+		verityMetadata[verityConfig.MountPath] = verityDeviceMetadata{
 			rootHash:              rootHashMatches[1],
-			dataPartUuid:          dataPartUuid,
-			hashPartUuid:          hashPartUuid,
+			dataPartUuid:          dataPartition.PartUuid,
+			hashPartUuid:          hashPartition.PartUuid,
 			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
 		}
