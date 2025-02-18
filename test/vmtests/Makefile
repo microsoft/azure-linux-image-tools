@@ -14,7 +14,6 @@ MYPY=${VENV_BIN_DIR}/mypy
 
 TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
-IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
