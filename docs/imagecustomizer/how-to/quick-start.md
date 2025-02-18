@@ -5,7 +5,7 @@ nav_order: 1
 
 # Quick start
 
-1. Download an Azure Linux core VHDX image file.
+1. Download an Azure Linux VHDX image file.
 
 2. Create a customization config file.
 
@@ -41,6 +41,10 @@ nav_order: 1
         sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
         xfsprogs zstd veritysetup grub2 grub2-pc
      ```
+
+     Note: There are known issues with trying to use Image Customizer in WSL (Windows
+     Subsystem for Linux). It is recommended that use the Image Customizer tool in a
+     Linux OS running on a bare-metal host or a virtual machine.
 
 4. Run the Image Customizer tool.
 
