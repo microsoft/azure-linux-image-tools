@@ -77,7 +77,7 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 
 20. Run finalize image scripts. ([finalizeCustomization](./configuration/scripts.md#finalizecustomization-script))
 
-21. If [--shrink-filesystems](./cli.md#shrink-filesystems) is specified, then shrink
+21. If [--shrink-filesystems](./cli.md#--shrink-filesystems) is specified, then shrink
     the file systems.
 
 22. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
@@ -86,7 +86,7 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 23. If the output format is set to `iso`, copy additional iso media files.
     ([iso](./configuration/iso.md))
 
-24. If [--output-pxe-artifacts-dir](./cli.md#output-pxe-artifacts-dir) is specified,
+24. If [--output-pxe-artifacts-dir](./cli.md#--output-pxe-artifacts-dir) is specified,
     then export the ISO image contents to the specified folder.
 
 ## /etc/resolv.conf
