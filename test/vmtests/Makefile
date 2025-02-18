@@ -61,7 +61,7 @@ ${IMAGE_CUSTOMIZER_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer REBUILD_TOOLS=y
 
 .PHONY: image-customizer-container
-image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
+image-customizer-container:
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-mic-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
 
 .PHONY: test
