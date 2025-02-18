@@ -7,3 +7,7 @@ exclude:
 - Gemfile
 - Gemfile.lock
 - vendor
+kramdown:
+  gfm_quirks:
+    # Don't convert `--` to em-dash.
+  - no_auto_typographic

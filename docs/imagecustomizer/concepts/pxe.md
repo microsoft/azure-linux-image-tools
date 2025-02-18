@@ -94,7 +94,7 @@ Image Customizer offers the following configurations:
   page for more information.
 - When invoking the Image Customizer, the user can also elect to
   export the artifacts to a local folder.
-  See the [Image Customizer command line](../api/cli.md#output-pxe-artifacts-dir)
+  See the [Image Customizer command line](../api/cli.md#--output-pxe-artifacts-dir)
   page for more information.
 
 Below is a list of required artifacts and where on the PXE server they should
