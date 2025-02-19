@@ -60,7 +60,15 @@ runScriptPath="$scriptDir/run.sh"
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
 cp "$IMAGE_CUSTOMIZER_BIN" "${stagingBinDir}"
+chmod +x "${stagingBinDir}/$(basename $IMAGE_CUSTOMIZER_BIN)"
 cp "$runScriptPath" "${stagingBinDir}"
+
+if [ ! -f "${stagingBinDir}/$(basename $IMAGE_CUSTOMIZER_BIN)" ]; then
+    echo "ERROR: Failed to copy $IMAGE_CUSTOMIZER_BIN to $stagingBinDir"
+    exit 1
+fi
+
+echo "Successfully copied $IMAGE_CUSTOMIZER_BIN to $stagingBinDir"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
