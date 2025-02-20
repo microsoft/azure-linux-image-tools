@@ -17,7 +17,7 @@ TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
-KEEP_ENVIRONMENT ?= n
+KEEP_ENVIRONMENT ?= y
 
 DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
 
