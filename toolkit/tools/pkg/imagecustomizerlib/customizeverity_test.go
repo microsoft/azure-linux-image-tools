@@ -102,7 +102,7 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
-	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
 
 	var config imagecustomizerapi.Config
@@ -127,9 +127,14 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 	}
 
 	// Attach partition files.
-	bootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", bootPartitionNum))
-	rootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootPartitionNum))
-	hashPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", hashPartitionNum))
+	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 4) {
+		return
+	}
+
+	bootPartitionPath := partitionsPaths[bootPartitionNum-1]
+	rootPartitionPath := partitionsPaths[rootPartitionNum-1]
+	hashPartitionPath := partitionsPaths[hashPartitionNum-1]
 
 	bootDevice, err := safeloopback.NewLoopback(bootPartitionPath)
 	if !assert.NoError(t, err) {
