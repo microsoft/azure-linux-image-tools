@@ -270,6 +270,8 @@ func appendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine
 type grubConfigLinuxArg struct {
 	// The tokenizer token for the arg.
 	Token grub.Token
+	// The full arg string.
+	Arg string
 	// The name of the argument.
 	Name string
 	// The value of the argument.
@@ -390,6 +392,7 @@ func ParseCommandLineArgs(argTokens []grub.Token) ([]grubConfigLinuxArg, error) 
 
 		arg := grubConfigLinuxArg{
 			Token:                argToken,
+			Arg:                  argString,
 			Name:                 name,
 			Value:                value,
 			ValueHasVarExpansion: hasVarExpansion,

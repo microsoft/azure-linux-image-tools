@@ -1,0 +1,72 @@
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 250M
+
+    - id: boot
+      size: 250M
+
+    - id: usr
+      size: 1G
+
+    - id: usrhash
+      size: 100M
+
+    - id: root
+      size: 2G
+
+  verity:
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usrhash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
+  - deviceId: root
+    type: ext4
+    mountPoint: /
+
+  - deviceId: verityusr
+    type: ext4
+    mountPoint:
+      path: /usr
+      options: ro
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+
+    install:
+    - veritysetup
+    - systemd-ukify
+    - systemd-boot
+    - efibootmgr
