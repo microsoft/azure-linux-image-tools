@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gopkg.in/ini.v1"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
@@ -265,7 +267,7 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 	return kernelToInitramfs, nil
 }
 
-func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
+func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string, outputUkisDir string) error {
 	logger.Log.Debugf("Customizing UKI")
 
 	var err error
@@ -320,6 +322,14 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		)
 		if err != nil {
 			return fmt.Errorf("failed to build UKI for kernel (%s):\n%w", kernel, err)
+		}
+	}
+
+	// Extract UKIs if outputUkisDir is specified
+	if outputUkisDir != "" {
+		err = extractUKIs(outputUkisDir, filepath.Join(systemBootPartitionTmpDir, UkiOutputDir))
+		if err != nil {
+			return fmt.Errorf("failed to extract UKIs:\n%w", err)
 		}
 	}
 
@@ -546,4 +556,100 @@ func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string)
 	}
 
 	return nil
+}
+
+// copyFile copies a file from src to dst and ensures all bytes are transferred correctly.
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file %s: %w", src, err)
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file %s: %w", dst, err)
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy data from %s to %s: %w", src, dst, err)
+	}
+
+	// Ensure data is flushed to disk
+	if err := dstFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync destination file %s: %w", dst, err)
+	}
+
+	return nil
+}
+
+// extractUKIs extracts all UKI files from the image's EFI/Linux directory on
+// ESP partition to a local directory and deletes them from the original location.
+func extractUKIs(outputUkisDir string, ukiDir string) error {
+	// Check if UKI directory exists.
+	if _, err := os.Stat(ukiDir); os.IsNotExist(err) {
+		return fmt.Errorf("UKI directory does not exist: %s", ukiDir)
+	}
+
+	// Create the local directory if it does not exist.
+	err := os.MkdirAll(outputUkisDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create local directory (%s): %w", outputUkisDir, err)
+	}
+
+	// Read the UKI directory UKI(s).
+	files, err := os.ReadDir(ukiDir)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI directory (%s): %w", ukiDir, err)
+	}
+
+	// Iterate over UKI files and move them to the local directory
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".unsigned.efi") {
+			continue
+		}
+
+		// Full source and destination paths
+		srcPath := filepath.Join(ukiDir, file.Name())
+		destPath := filepath.Join(outputUkisDir, file.Name())
+
+		// Copy the UKI file instead of renaming
+		err = copyFile(srcPath, destPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy UKI file from %s to %s: %w", srcPath, destPath, err)
+		}
+
+		// Remove the original file after successful copy
+		err = os.Remove(srcPath)
+		if err != nil {
+			return fmt.Errorf("failed to delete original UKI file %s after copying: %w", srcPath, err)
+		}
+	}
+
+	return nil
+}
+
+// inputUKIs injects signed UKI files back into the EFI/Linux directory on the ESP partition.
+func inputUKIs(signedUKIs []string) (imagecustomizerapi.AdditionalFileList, error) {
+	additionalFiles := imagecustomizerapi.AdditionalFileList{}
+
+	// Iterate over the signed UKI files and prepare them for injection.
+	for _, localFile := range signedUKIs {
+		if !strings.HasSuffix(localFile, ".signed.efi") {
+			continue
+		}
+
+		imageFile := filepath.Join("/boot/efi/EFI/Linux", filepath.Base(localFile))
+
+		additionalFile := imagecustomizerapi.AdditionalFile{
+			Destination: imageFile,
+			Source:      localFile,
+			Permissions: ptrutils.PtrTo(imagecustomizerapi.FilePermissions(0o755)),
+		}
+		additionalFiles = append(additionalFiles, additionalFile)
+	}
+
+	return additionalFiles, nil
 }

@@ -29,8 +29,10 @@ var (
 	requireSignedRootfsRootHash = app.Flag("require-signed-rootfs-root-hash", "Requires that the verity root hash of the rootfs is signed.").Bool()
 	requireSignedRootHashes     = app.Flag("require-signed-root-hashes", "Requires that all root hashes are signed.").Bool()
 	outputPXEArtifactsDir       = app.Flag("output-pxe-artifacts-dir", "Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'.").String()
+	outputUkisDir               = app.Flag("output-ukis-dir", "The directory where the UKI PE imagess will be moved to.").String()
 	outputVerityHashes          = app.Flag("output-verity-hashes", "Save the root hash value of each verity target device in a text file.").Bool()
 	outputVerityHashesDir       = app.Flag("output-verity-hashes-dir", "The directory where the verity root hash files will be saved to.").String()
+	inputSignedUKIs             = app.Flag("input-signed-ukis", "A list of one or more signed UKI PE images.").Strings()
 	inputSignedVerityHashes     = app.Flag("input-signed-verity-hashes-files", "A list of one or more signed verity root hash files.").Strings()
 	logFlags                    = exe.SetupLogFlags(app)
 	timestampFile               = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
@@ -71,8 +73,8 @@ func customizeImage() error {
 
 	err = imagecustomizerlib.CustomizeImageWithConfigFileExtended(*buildDir, *configFile, *imageFile,
 		*rpmSources, *outputImageFile, *outputImageFormat, *outputSplitPartitionsFormat, *outputPXEArtifactsDir,
-		!*disableBaseImageRpmRepos, *requireSignedRootfsRootHash, *requireSignedRootHashes, *outputVerityHashes,
-		*outputVerityHashesDir, *inputSignedVerityHashes, *enableShrinkFilesystems)
+		!*disableBaseImageRpmRepos, *requireSignedRootfsRootHash, *requireSignedRootHashes, *outputUkisDir,
+		*outputVerityHashes, *outputVerityHashesDir, *inputSignedUKIs, *inputSignedVerityHashes, *enableShrinkFilesystems)
 	if err != nil {
 		return err
 	}
