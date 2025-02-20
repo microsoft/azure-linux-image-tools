@@ -61,12 +61,6 @@ os:
   uki:
     kernels: auto
 
-  users:
-  - name: root
-    password:
-      type: plain-text
-      value: hello
-
   packages:
     remove:
     - grub2-efi-binary
