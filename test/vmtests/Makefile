@@ -17,8 +17,6 @@ TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
-SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
-
 KEEP_ENVIRONMENT ?= n
 
 DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
