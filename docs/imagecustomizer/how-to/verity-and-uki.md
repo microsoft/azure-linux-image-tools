@@ -6,7 +6,7 @@ nav_order: 9
 
 # Create image with both verity and UKI
 
-This guide demonstrates how to create a image that uses both `/usr` verity and UKI (
+This guide demonstrates how to create an image that uses both `/usr` verity and UKI (
 Unified Kernel Image).
 
 ## Words of caution
@@ -16,7 +16,7 @@ the future.
 
 ## Steps
 
-1. Create a image config file:
+1. Create an image config file:
 
    ```yaml
    # config.yaml
@@ -164,10 +164,10 @@ the future.
 
    Where:
 
-   - `<image.qcow2>`: Is the path of the ISO file that you generated with Image
+   - `<image.qcow2>`: Is the path of the qcow2 file that you generated with Image
      Customizer.
 
-     Note: It is sometimes necessary to move the ISO file out of your home directory
+     Note: It is sometimes necessary to move the qcow2 file out of your home directory
      to avoid permissions issues.
 
 ## Links
