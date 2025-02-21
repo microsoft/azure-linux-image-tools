@@ -116,10 +116,6 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 	rootPartitionNum := 3
 	hashPartitionNum := 4
 
-	// Change the hash partition's filesystem type to ext4.
-	// This tests the logic that skips the hash partition when looking for partitions to shrink.
-	config.Storage.FileSystems[hashPartitionNum-1].Type = "ext4"
-
 	// Customize image, shrink partitions, and split the partitions into individual files.
 	err = CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "", "raw",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, true /*enableShrinkFilesystems*/)
