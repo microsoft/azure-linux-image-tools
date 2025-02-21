@@ -13,8 +13,9 @@ nav_order: 1
 
     ```yaml
     os:
-      packagesInstall:
-      - dnf
+      packages:
+        install:
+        - dnf
     ```
 
    For documentation on the supported configuration options, see:
