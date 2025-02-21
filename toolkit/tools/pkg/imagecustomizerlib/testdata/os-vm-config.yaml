@@ -3,3 +3,10 @@ os:
     # Enable DHCP client on all of the physical NICs.
   - source: files/89-ethernet.network
     destination: /etc/systemd/network/89-ethernet.network
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
+      echo "updated ssh config"
