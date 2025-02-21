@@ -10,3 +10,5 @@ scripts:
       set -eux
       sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
       echo "updated ssh config"
+      systemctl restart sshd
+      systemctl status sshd
