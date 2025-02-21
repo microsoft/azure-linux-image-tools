@@ -18,7 +18,7 @@ mcr.microsoft.com/azurelinux/imagecustomizer:<version>
 For example:
 
 ```text
-mcr.microsoft.com/azurelinux/imagecustomizer:0.12.0
+mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0
 ```
 
 ## Prerequisites
@@ -34,7 +34,7 @@ docker run \
   --privileged=true \
   -v /dev:/dev \
   -v "$HOME/staging:/mnt/staging:z" \
-  mcr.microsoft.com/azurelinux/imagecustomizer:0.12.0 \
+  mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0 \
   imagecustomizer \
     --image-file "/mnt/staging/image.vhdx" \
     --config-file "/mnt/staging/image-config.yaml" \
@@ -61,7 +61,7 @@ Docker options:
 - `-v $HOME/staging:/mnt/staging:z`: Mounts a host directory (`$HOME/staging`) into the
    container. This can be used to easily pass files in and out of the container.
 
-- `mcr.microsoft.com/azurelinux/imagecustomizer:0.12.0`: The container to run.
+- `mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0`: The container to run.
 
 - `imagecustomizer`: Specifies the executable to run within the container.
 
@@ -89,7 +89,7 @@ For example, this is the equivalent call to the above example:
 
 ```bash
 run-mic-container.sh \
-    -t mcr.microsoft.com/azurelinux/imagecustomizer:0.12.0 \
+    -t mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0 \
     -i "$HOME/staging/image.vhdx" \
     -c "$HOME/staging/image-config.yaml" \
     -f vhdx \
