@@ -1,5 +1,5 @@
 ---
-title: Create Azure VM
+title: Create Verity and UKI image
 parent: How To
 nav_order: 9
 ---
