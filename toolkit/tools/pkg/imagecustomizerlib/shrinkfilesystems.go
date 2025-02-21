@@ -54,14 +54,6 @@ func shrinkFilesystems(imageLoopDevice string, verity []imagecustomizerapi.Verit
 			continue
 		}
 
-		// Don't try to shrink verity hash partitions.
-		for _, verityItem := range verity {
-			if partitionMatchesDeviceId(verityItem.HashDeviceId, diskPartition, partIdToPartUuid) {
-				logger.Log.Infof("Shrinking partition (%s): skipping verity hash partition", partitionLoopDevice)
-				continue
-			}
-		}
-
 		logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)
 
 		startSector, foundStartSector := startSectors[partitionLoopDevice]
