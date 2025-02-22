@@ -1,1 +1,8 @@
 os:
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
+      echo "updated ssh config"
