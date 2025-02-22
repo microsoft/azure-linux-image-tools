@@ -100,7 +100,13 @@ def run_min_change_test(
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
     open(ssh_known_hosts_path, "w").close()
 
-    with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+    logging.debug(f"Attempting SSH connection with parameters:")
+    logging.debug(f"  - Hostname: {vm_ip_address}")
+    logging.debug(f"  - Key Path: {ssh_private_key_path}")
+    logging.debug(f"  - Known Hosts Path: {ssh_known_hosts_path}")
+    logging.debug(f"  - Username: {username}")
+
+    with SshClient(vm_ip_address, username=username, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
         os_release_path = test_temp_dir.joinpath("os-release")
