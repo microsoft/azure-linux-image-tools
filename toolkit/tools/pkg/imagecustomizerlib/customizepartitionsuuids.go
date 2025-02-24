@@ -174,7 +174,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Find the partition.
 		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
-		mountIdType, _, partitionIndex, err := findSourcePartitionHelper(fstabEntry.Source, partitions, buildDir)
+		mountIdType, _, partitionIndex, err := findSourcePartition(fstabEntry.Source, partitions, buildDir)
 		if err != nil {
 			return err
 		}

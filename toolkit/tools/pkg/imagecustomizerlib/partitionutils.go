@@ -32,22 +32,6 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
-func findPartitions(buildDir string, diskPartitions []diskutils.PartitionInfo) ([]*safechroot.MountPoint, error) {
-	var err error
-
-	rootfsPartition, err := findRootfsPartition(diskPartitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
-	}
-
-	mountPoints, err := findMountsFromRootfs(rootfsPartition, diskPartitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
-	}
-
-	return mountPoints, nil
-}
-
 func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {
 	// Look for all system boot partitions, including both EFI System Paritions (ESP) and BIOS boot partitions.
 	var bootPartitions []*diskutils.PartitionInfo
@@ -181,9 +165,9 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	return rootfsPartition, nil
 }
 
-func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
+func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
-) ([]*safechroot.MountPoint, error) {
+) ([]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
@@ -199,7 +183,8 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 	// Read the fstab file.
 	fstabPath := filepath.Join(tmpDir, "/etc/fstab")
 
-	mountPoints, err := findMountsFromFstabFile(fstabPath, diskPartitions, buildDir)
+	// Read the fstab file.
+	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
 		return nil, err
 	}
@@ -210,38 +195,22 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
 	}
 
-	return mountPoints, nil
-}
-
-func findMountsFromFstabFile(fstabPath string, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
-) ([]*safechroot.MountPoint, error) {
-	// Read the fstab file.
-	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
-	if err != nil {
-		return nil, err
-	}
-
-	mountPoints, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
-	}
-
-	return mountPoints, nil
+	return fstabEntries, nil
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
-) ([]*safechroot.MountPoint, error) {
+) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
 	var foundRoot bool
+	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	for _, fstabEntry := range filteredFstabEntries {
-		source, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		_, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
@@ -250,24 +219,25 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
-				source, fstabEntry.Target, fstabEntry.FsType,
+				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 
 			foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
-				source, fstabEntry.Target, fstabEntry.FsType,
+				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
+		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
 	}
 
 	if !foundRoot {
-		return nil, fmt.Errorf("image has invalid fstab file: no root partition found")
+		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
-	return mountPoints, nil
+	return mountPoints, partUuidToFstabEntry, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {
@@ -293,17 +263,6 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 }
 
 func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
-	buildDir string,
-) (string, error) {
-	_, partition, _, err := findSourcePartitionHelper(source, partitions, buildDir)
-	if err != nil {
-		return "", err
-	}
-
-	return partition.Path, nil
-}
-
-func findSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
 	buildDir string,
 ) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)

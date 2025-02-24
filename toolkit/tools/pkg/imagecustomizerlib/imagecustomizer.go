@@ -86,7 +86,7 @@ type ImageCustomizerParameters struct {
 
 	verityMetadata []verityDeviceMetadata
 
-	partUuidToMountPath map[string]string
+	partUuidToFstabEntry map[string]diskutils.FstabEntry
 }
 
 type verityDeviceMetadata struct {
@@ -436,14 +436,14 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.rawImageFile = newRawImageFile
 
 	// Customize the raw image file.
-	partUuidToMountPath, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
+	partUuidToFstabEntry, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
 		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
 	if err != nil {
 		return err
 	}
 
 	// Set partition to mountpath mapping for COSI.
-	ic.partUuidToMountPath = partUuidToMountPath
+	ic.partUuidToFstabEntry = partUuidToFstabEntry
 
 	// For COSI, always shrink the filesystems.
 	if ic.outputImageFormat == ImageFormatCosi || ic.enableShrinkFilesystems {
@@ -762,10 +762,10 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string,
-) (map[string]string, error) {
+) (map[string]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToMountPath, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +795,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		return nil, err
 	}
 
-	return partUuidToMountPath, nil
+	return partUuidToFstabEntry, nil
 }
 
 func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasename string, outputSplitPartitionsFormat string, imageUuid [UuidSize]byte) error {
