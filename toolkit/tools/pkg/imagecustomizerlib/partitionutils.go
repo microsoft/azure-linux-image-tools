@@ -307,22 +307,14 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) (diskutils.PartitionInfo, int, error) {
 	if mountIdType == ExtendedMountIdentifierTypeDev {
-		cmdline, err := extractKernelCmdline(partitions, buildDir)
+		newMountIdType, newMountId, err := findDevPathPartition(mountId, partitions, buildDir)
 		if err != nil {
+			err = fmt.Errorf("failed to find partition (%s):\n%w", mountId, err)
 			return diskutils.PartitionInfo{}, 0, err
 		}
 
-		if mountId == verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName) {
-			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_root_data", imagecustomizerapi.VerityRootDeviceName)
-			if err != nil {
-				return diskutils.PartitionInfo{}, 0, err
-			}
-		} else if mountId == verityDevicePathFromName(imagecustomizerapi.VerityUsrDeviceName) {
-			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_usr_data", imagecustomizerapi.VerityUsrDeviceName)
-			if err != nil {
-				return diskutils.PartitionInfo{}, 0, err
-			}
-		}
+		mountIdType = newMountIdType
+		mountId = newMountId
 	}
 
 	matchedPartitionIndexes := []int(nil)
@@ -354,6 +346,28 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 	partition := partitions[partitionIndex]
 
 	return partition, partitionIndex, nil
+}
+
+func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
+	buildDir string,
+) (ExtendedMountIdentifierType, string, error) {
+	cmdline, err := extractKernelCmdline(partitions, buildDir)
+	if err != nil {
+		return "", "", err
+	}
+
+	switch mountId {
+	case imagecustomizerapi.VerityRootDevicePath:
+		return extractVerityPartitionId(cmdline, "systemd.verity_root_data",
+			imagecustomizerapi.VerityRootDeviceName)
+
+	case imagecustomizerapi.VerityUsrDevicePath:
+		return extractVerityPartitionId(cmdline, "systemd.verity_usr_data",
+			imagecustomizerapi.VerityUsrDeviceName)
+
+	default:
+		return "", "", fmt.Errorf("unknown partition id type (%s)", mountId)
+	}
 }
 
 func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) ([]grubConfigLinuxArg, error) {
@@ -457,14 +471,9 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 	defer bootPartitionMount.Close()
 
 	grubCfgPath := filepath.Join(tmpDirBoot, DefaultGrubCfgPath)
-	grubCfgContent, err := os.ReadFile(grubCfgPath)
+	kernelToArgs, err := extracKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
-	}
-
-	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent))
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract kernel command-line arguments: %w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
@@ -472,7 +481,47 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 		return nil, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
-	return args, nil
+	for _, args := range kernelToArgs {
+		// Pick the first set of the args.
+		// (Hopefully they are all the same.)
+		return args, nil
+	}
+
+	return nil, fmt.Errorf("no kernel args found in grub.cfg file")
+}
+
+// Extracts the kernel args for each kernel from the grub.cfg file.
+// Returns a mapping from kernel version to list of kernel args.
+func extracKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
+	grubCfgContent, err := file.Read(grubCfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+	}
+
+	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find linux command lines in grub.cfg:\n%w", err)
+	}
+
+	kernelToArgs := make(map[string][]grubConfigLinuxArg)
+	for _, line := range lines {
+		if len(line.Tokens) < 3 {
+			return nil, fmt.Errorf("linux line in grub.cfg file has less than 3 args")
+		}
+
+		kernel := line.Tokens[1].RawContent
+		kernel = strings.TrimPrefix(kernel, "/")
+
+		argTokens := line.Tokens[2:]
+		args, err := ParseCommandLineArgs(argTokens)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse linux command lines args (%s):\n%w", kernel, err)
+		}
+
+		kernelToArgs[kernel] = args
+	}
+
+	return kernelToArgs, nil
 }
 
 func extractVerityPartitionId(cmdline []grubConfigLinuxArg, verityDataArg string,

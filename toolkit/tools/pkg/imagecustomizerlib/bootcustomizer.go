@@ -185,7 +185,7 @@ func (b *BootCustomizer) PrepareForVerity() error {
 		}
 
 		// For rootfs verity, the root device will always be "/dev/mapper/root"
-		rootDevicePath := verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName)
+		rootDevicePath := imagecustomizerapi.VerityRootDevicePath
 		defaultGrubFileContent, err = UpdateDefaultGrubFileVariable(defaultGrubFileContent, "GRUB_DEVICE",
 			rootDevicePath)
 		if err != nil {

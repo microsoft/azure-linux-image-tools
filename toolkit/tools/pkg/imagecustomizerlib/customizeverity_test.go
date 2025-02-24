@@ -45,6 +45,21 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 		return
 	}
 
+	verityRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+
+	// Recustomize the image.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+}
+
+func verityRootVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+	outImageFilePath string,
+) {
 	// Connect to customized image.
 	mountPoints := []mountPoint{
 		{
@@ -80,11 +95,17 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 	assert.NoError(t, err, "get disk partitions")
 
 	// Verify that verity is configured correctly.
+	// This helps verify that verity-enabled images can be recustomized.
 	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
 	rootDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", imageVersion)
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
 }
 
 func TestCustomizeImageVerityShrinkExtract(t *testing.T) {
@@ -294,6 +315,22 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 		return
 	}
 
+	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+
+	// Recustomize image.
+	// This helps verify that verity-enabled images can be recustomized.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+}
+
+func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+	outImageFilePath string,
+) {
 	// Connect to usr verity image.
 	mountPoints := []mountPoint{
 		{
