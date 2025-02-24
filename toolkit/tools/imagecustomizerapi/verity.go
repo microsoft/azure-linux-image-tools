@@ -13,6 +13,9 @@ const (
 
 	VerityRootDeviceName = "root"
 	VerityUsrDeviceName  = "usr"
+
+	VerityRootDevicePath = DeviceMapperPath + "/" + VerityRootDeviceName
+	VerityUsrDevicePath  = DeviceMapperPath + "/" + VerityUsrDeviceName
 )
 
 var (

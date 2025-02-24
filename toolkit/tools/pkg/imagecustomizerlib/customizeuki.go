@@ -354,31 +354,13 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 // Note: This function will be optimized by leveraging the internal functions
 // under grubcfgutils.go when implementing bootloader customization.
 func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) {
-	grubCfgContent, err := file.Read(grubCfgPath)
+	kernelToArgs, err := extracKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+		return nil, err
 	}
 
-	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find linux command lines in grub.cfg:\n%w", err)
-	}
-
-	kernelToArgs := make(map[string]string)
-	for _, line := range lines {
-		if len(line.Tokens) < 3 {
-			return nil, fmt.Errorf("linux line in grub.cfg file has less than 3 args")
-		}
-
-		kernel := line.Tokens[1].RawContent
-		kernel = strings.TrimPrefix(kernel, "/")
-
-		argTokens := line.Tokens[2:]
-		args, err := ParseCommandLineArgs(argTokens)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse linux command lines args (%s):\n%w", kernel, err)
-		}
-
+	kernelToArgsString := make(map[string]string)
+	for kernel, args := range kernelToArgs {
 		filteredArgs := []string(nil)
 		for _, arg := range args {
 			if arg.ValueHasVarExpansion {
@@ -390,10 +372,10 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 		}
 
 		filteredArgsString := GrubArgsToString(filteredArgs)
-		kernelToArgs[kernel] = filteredArgsString
+		kernelToArgsString[kernel] = filteredArgsString
 	}
 
-	return kernelToArgs, nil
+	return kernelToArgsString, nil
 }
 
 func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubreleaseFullPath string,
