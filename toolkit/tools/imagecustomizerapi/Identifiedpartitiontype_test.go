@@ -10,12 +10,12 @@ import (
 )
 
 func TestIdTypeIsValid(t *testing.T) {
-	err := IdTypePartLabel.IsValid()
+	err := IdentifiedPartitionTypePartLabel.IsValid()
 	assert.NoError(t, err)
 }
 
 func TestIdTypeIsValidBadValue(t *testing.T) {
-	err := IdType("bad").IsValid()
+	err := IdentifiedPartitionType("bad").IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid idType value")
+	assert.ErrorContains(t, err, "invalid value (bad)")
 }

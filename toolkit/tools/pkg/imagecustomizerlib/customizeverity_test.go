@@ -372,3 +372,41 @@ func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseIma
 	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "usr", "rd.info", imageVersion)
 }
+
+func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
+	for _, version := range supportedAzureLinuxVersions {
+		t.Run(string(version), func(t *testing.T) {
+			testCustomizeImageVerityUsr2StageHelper(t, "testCustomizeImageVerityUsr2Stage"+string(version), baseImageTypeCoreEfi,
+				version)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, imageType baseImageType,
+	imageVersion baseImageVersion,
+) {
+	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
+	stage1ConfigFile := filepath.Join(testDir, "verity-2stage-prepare.yaml")
+	stage2ConfigFile := filepath.Join(testDir, "verity-2stage-enable.yaml")
+	stage1FilePath := filepath.Join(testTempDir, "image.qcow2")
+	stage2FilePath := filepath.Join(testTempDir, "image.raw")
+
+	// Stage 1: Create the partitions for verity.
+	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "qcow2", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Stage 2: Enable verity.
+	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw", "",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
+}
