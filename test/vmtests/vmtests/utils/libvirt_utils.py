@@ -25,7 +25,7 @@ def _get_libvirt_firmware_config(
         secure_boot: bool,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="qemu")
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="virt", virttype="qemu")
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
