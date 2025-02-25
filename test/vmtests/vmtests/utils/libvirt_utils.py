@@ -25,7 +25,7 @@ def _get_libvirt_firmware_config(
         secure_boot: bool,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="kvm")
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="qemu")
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -109,7 +109,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot)
 
     domain = ET.Element("domain")
-    domain.attrib["type"] = "kvm"
+    domain.attrib["type"] = "qemu"
 
     name = ET.SubElement(domain, "name")
     name.text = vm_spec.name
