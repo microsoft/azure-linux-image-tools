@@ -40,7 +40,8 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -139,7 +140,8 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
 	err = CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "", "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, true /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, true, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -310,7 +312,8 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
