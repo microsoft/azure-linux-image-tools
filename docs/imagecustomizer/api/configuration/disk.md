@@ -6,6 +6,8 @@ parent: Configuration
 
 Specifies the properties of a disk, including its partitions.
 
+Added in v0.3.
+
 ## partitionTableType [string]
 
 Specifies how the partition tables are laid out.
@@ -38,8 +40,12 @@ disks:
     size: grow
 ```
 
+Added in v0.3.
+
 ## partitions [[partition](./partition.md)[]]
 
 The partitions to provision on the disk.
 
 Partitions must be specified in order, from the start of the disk to the end.
+
+Added in v0.3.

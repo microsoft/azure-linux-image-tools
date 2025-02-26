@@ -16,6 +16,8 @@ Required.
 
 The directory where the tool will place its temporary files.
 
+Added in v0.3.
+
 ## --image-file=FILE-PATH
 
 Required.
@@ -27,11 +29,15 @@ But it can also be an Azure Linux image that has been customized.
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
 
+Added in v0.3.
+
 ## --output-image-file=FILE-PATH
 
 Required.
 
 The file path to write the final customized image to.
+
+Added in v0.3.
 
 ## --output-image-format=FORMAT
 
@@ -49,6 +55,8 @@ When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
 [Image Customizer ISO Support](../concepts/iso.md).
 
+Added in v0.3.
+
 ## --output-split-partitions-format=FORMAT
 
 Format of partition files. If specified, disk partitions will be extracted as separate
@@ -56,6 +64,8 @@ files and a json file with partition metadata will be produced. For more details
 the json file format, see: [Partition Metadata JSON Format](./partitionmetadatajson.md).
 
 Options: raw, raw-zst.
+
+Added in v0.3.
 
 ## --shrink-filesystems
 
@@ -66,6 +76,8 @@ Currently only supports ext2/ext3/ext4 filesystems.
 Can only be specified if `--output-split-partitions-format` is, and
 cannot be specified with `--output-image-format`.
 
+Added in v0.3.
+
 ## --config-file=FILE-PATH
 
 Required.
@@ -75,6 +87,8 @@ the image.
 
 For documentation on the supported configuration options, see:
 [Image Customizer configuration](./configuration.md)
+
+Added in v0.3.
 
 ## --rpm-source=PATH
 
@@ -107,10 +121,14 @@ See, [Cloning an RPM repo](../how-to/clone-rpm-repo.md) for how to clone or down
 RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
+Added in v0.3.
+
 ## --disable-base-image-rpm-repos
 
 Disable the base image's installed RPM repos as a source of RPMs during package
 installation.
+
+Added in v0.3.
 
 ## --output-pxe-artifacts-dir
 
@@ -118,6 +136,8 @@ Create a folder containing the artifacts to be used for PXE booting.
 
 For an overview of Image Customizer support for PXE, see the
 [PXE support page](../concepts/pxe.md).
+
+Added in v0.8.
 
 ## --log-level=LEVEL
 
@@ -129,3 +149,5 @@ Higher levels of logging may be useful for debugging what the tool is doing.
 
 The levels from lowest to highest level of verbosity are: `panic`, `fatal`, `error`,
 `warn`, `info`, `debug`, and `trace`.
+
+Added in v0.3.

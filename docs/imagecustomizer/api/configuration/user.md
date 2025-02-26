@@ -20,6 +20,8 @@ os:
   - name: test
 ```
 
+Added in v0.3.
+
 ## uid [int]
 
 The ID to use for the user.
@@ -36,11 +38,15 @@ os:
     uid: 1000
 ```
 
+Added in v0.3.
+
 ## password [[password](./password.md)]
 
 Specifies the user's password.
 
 WARNING: Passwords should not be used in images used in production.
+
+Added in v0.3.
 
 ## passwordExpiresDays [int]
 
@@ -58,6 +64,8 @@ os:
     passwordHashed: true
     passwordExpiresDays: 120
 ```
+
+Added in v0.3.
 
 ## sshPublicKeyPaths [string[]]
 
@@ -77,6 +85,8 @@ os:
     - id_ed25519.pub
 ```
 
+Added in v0.3.
+
 ## sshPublicKeys [string[]]
 
 A list of SSH public keys.
@@ -95,6 +105,8 @@ os:
     - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFyWtgGE06d/uBFQm70tYKvJKwJfRDoh06bWQQwC6Qkm test@test-machine
 ```
 
+Added in v0.3.
+
 ## primaryGroup [string]
 
 The primary group of the user.
@@ -107,6 +119,8 @@ os:
   - name: test
     primaryGroup: testgroup
 ```
+
+Added in v0.3.
 
 ## secondaryGroups [string[]]
 
@@ -122,6 +136,8 @@ os:
     - sudo
 ```
 
+Added in v0.3.
+
 ## startupCommand [string]
 
 The command run when the user logs in.
@@ -134,3 +150,18 @@ os:
   - name: test
     startupCommand: /sbin/nologin
 ```
+
+Added in v0.3.
+
+## homeDirectory [string]
+
+Where the user's home directory should be located.
+
+```yaml
+os:
+  users:
+  - name: test
+    homeDirectory: /var/home/test
+```
+
+Added in v0.5.

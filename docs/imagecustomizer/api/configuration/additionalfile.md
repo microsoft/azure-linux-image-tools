@@ -8,6 +8,8 @@ Specifies options for placing a file in the OS.
 
 Type is used by: [additionalFiles](./os.md#additionalfiles-additionalfile)
 
+Added in v0.7.
+
 ## source [string]
 
 The path of the source file to copy to the destination path.
@@ -20,6 +22,8 @@ os:
     files/a.txt:
     - path: /a.txt
 ```
+
+Added in v0.7.
 
 ## content [string]
 
@@ -35,6 +39,8 @@ os:
     destination: /a.txt
 ```
 
+Added in v0.7.
+
 ## destination [string]
 
 The absolute path of the destination file.
@@ -47,6 +53,8 @@ os:
   - source: files/a.txt
     destination: /a.txt
 ```
+
+Added in v0.7.
 
 ## permissions [string]
 
@@ -65,3 +73,5 @@ os:
     destination: /a.txt
     permissions: "664"
 ```
+
+Added in v0.7.

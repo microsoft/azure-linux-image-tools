@@ -13,6 +13,8 @@ This type is used by:
 - [removeLists](./packages.md#removelists-string)
 - [updateLists](./packages.md#updatelists-string)
 
+Added in v0.3.
+
 ## packages [string[]]
 
 Specifies a list of packages.
@@ -23,3 +25,5 @@ Example:
 packages:
 - openssh-server
 ```
+
+Added in v0.3.

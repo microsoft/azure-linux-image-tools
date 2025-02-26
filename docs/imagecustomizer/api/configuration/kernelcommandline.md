@@ -6,6 +6,8 @@ parent: Configuration
 
 Options for configuring the kernel.
 
+Added in v0.3.
+
 ## extraCommandLine [string[]]
 
 Additional Linux kernel command line options to add to the image.
@@ -27,3 +29,5 @@ os:
     - console=tty0
     - console=ttyS0
 ```
+
+Added in v0.3.
