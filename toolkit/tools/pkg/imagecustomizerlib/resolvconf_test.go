@@ -30,7 +30,8 @@ func TestCustomizeImageResolvConfDelete(t *testing.T) {
 	}
 
 	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
