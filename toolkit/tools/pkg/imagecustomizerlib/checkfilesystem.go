@@ -37,18 +37,13 @@ func checkFileSystems(rawImageFile string) error {
 
 func checkFileSystemsHelper(diskDevice string) error {
 	// Get partitions info
-	diskPartitions, err := diskutils.GetDiskPartitions(diskDevice)
+	diskInfo, err := diskutils.ReadDiskPartitionTable(diskDevice)
 	if err != nil {
 		return err
 	}
 
 	errs := []error(nil)
-	for _, diskPartition := range diskPartitions {
-		if diskPartition.Type != "part" {
-			// Skip the disk entry.
-			continue
-		}
-
+	for _, diskPartition := range diskInfo.Partitions {
 		if diskPartition.FileSystemType == "" {
 			// Skip partitions that don't have a known file system type (e.g. the BIOS boot partition).
 			logger.Log.Debugf("Skipping file system check (%s)", diskPartition.Path)

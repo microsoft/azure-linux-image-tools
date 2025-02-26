@@ -860,18 +860,18 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 	}
 	defer loopback.Close()
 
-	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, verityConfig := range config.Storage.Verity {
 		// Extract the partition block device path.
-		dataPartition, err := idToPartitionBlockDevicePath(verityConfig.DataDeviceId, diskPartitions, partIdToPartUuid)
+		dataPartition, err := idToPartitionBlockDevicePath(verityConfig.DataDeviceId, diskInfo, partIdToPartUuid)
 		if err != nil {
 			return nil, err
 		}
-		hashPartition, err := idToPartitionBlockDevicePath(verityConfig.HashDeviceId, diskPartitions, partIdToPartUuid)
+		hashPartition, err := idToPartitionBlockDevicePath(verityConfig.HashDeviceId, diskInfo, partIdToPartUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -893,7 +893,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 
 		// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
-		diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
+		diskInfo, err = diskutils.ReadDiskPartitionTable(loopback.DevicePath())
 		if err != nil {
 			return nil, err
 		}
@@ -919,11 +919,11 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 	}
 
-	systemBootPartition, err := findSystemBootPartition(diskPartitions)
+	systemBootPartition, err := findSystemBootPartition(diskInfo)
 	if err != nil {
 		return nil, err
 	}
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskInfo, buildDir)
 	if err != nil {
 		return nil, err
 	}
@@ -943,13 +943,13 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskInfo, buildDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskInfo, buildDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}
@@ -977,13 +977,13 @@ func isDmVerityEnabled(rawImageFile string) (bool, error) {
 
 	verityEnabled := false
 
-	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
 	if err != nil {
 		return false, err
 	}
 
-	for i := range diskPartitions {
-		diskPartition := diskPartitions[i]
+	for i := range diskInfo.Partitions {
+		diskPartition := diskInfo.Partitions[i]
 
 		if diskPartition.FileSystemType == "DM_verity_hash" {
 			verityEnabled = true

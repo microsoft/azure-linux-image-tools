@@ -49,22 +49,6 @@ type SystemBlockDevice struct {
 	Model       string // Example: Virtual Disk
 }
 
-type partitionInfoOutput struct {
-	Devices []PartitionInfo `json:"blockdevices"`
-}
-
-type PartitionInfo struct {
-	Name              string `json:"name"`       // Example: nbd0p1
-	Path              string `json:"path"`       // Example: /dev/nbd0p1
-	PartitionTypeUuid string `json:"parttype"`   // Example: c12a7328-f81f-11d2-ba4b-00a0c93ec93b
-	FileSystemType    string `json:"fstype"`     // Example: vfat
-	Uuid              string `json:"uuid"`       // Example: 4BD9-3A78
-	PartUuid          string `json:"partuuid"`   // Example: 7b1367a6-5845-43f2-99b1-a742d873f590
-	Mountpoint        string `json:"mountpoint"` // Example: /mnt/os/boot
-	PartLabel         string `json:"partlabel"`  // Example: boot
-	Type              string `json:"type"`       // Example: part
-}
-
 type loopbackListOutput struct {
 	Devices []loopbackDevice `json:"loopdevices"`
 }
@@ -72,6 +56,37 @@ type loopbackListOutput struct {
 type loopbackDevice struct {
 	Name        string `json:"name"`
 	BackingFile string `json:"back-file"`
+}
+
+type Partition struct {
+	// Populated from "sfdisk --json":
+
+	Path         string `json:"node"`  // Example: /dev/loop1p1
+	Start        int64  `json:"start"` // Example: 2048
+	SizeSectors  int64  `json:"size"`  // Example: 16384
+	PartTypeUuid string `json:"type"`  // Example: C12A7328-F81F-11D2-BA4B-00A0C93EC93B
+	PartUuid     string `json:"uuid"`  // Example: 2789D1BC-3909-4B06-AD2D-DA531DABF7C8
+	PartLabel    string `json:"name"`  // Example: rootfs
+
+	// Populated from "blkid --probe":
+
+	FileSystemType string // Example: vfat
+	FileSystemUuid string // Example: 4BD9-3A78
+}
+
+type PartitionTable struct {
+	Label      string      `json:"label"`      // Example: gpt
+	Id         string      `json:"id"`         // Example: 1DFD88CF-6214-4574-97A2-C605D411CFBE
+	Device     string      `json:"device"`     // Example: /dev/loop1
+	Unit       string      `json:"unit"`       // Example: sectors
+	FirstLba   int64       `json:"firstlba"`   // Example: 2048
+	LastLba    int64       `json:"lastlba"`    // Example: 8388574
+	SectorSize int         `json:"sectorsize"` // Example: 512
+	Partitions []Partition `json:"partitions"`
+}
+
+type partitionTableOutput struct {
+	PartitionTable *PartitionTable `json:"partitiontable"`
 }
 
 const (
@@ -501,6 +516,7 @@ func CreatePartitions(targetOs targetos.TargetOs, diskDevPath string, disk confi
 
 		partIDToFsTypeMap[partition.ID] = partFsType
 	}
+
 	return
 }
 
@@ -896,28 +912,74 @@ func SystemBlockDevices() (systemDevices []SystemBlockDevice, err error) {
 	return
 }
 
-func GetDiskPartitions(diskDevPath string) ([]PartitionInfo, error) {
-	// Just in case the disk was only recently connected, wait for the OS to finish processing it.
-	err := WaitForDevicesToSettle()
+// ReadPartitionTable directly reads the partition table directly from the disk.
+func TryReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
+	// Read the partition table directly from disk.
+	// Note: 'lsblk' is not used since that reads the partition info from the kernel's cached metadata and there is no
+	// easy way to know when that information has finished updating.
+	stdout, stderr, err := shell.Execute("sfdisk", "--dump", "--json", diskDevPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list disk (%s) partitions:\n%w", diskDevPath, err)
-	}
-
-	// Read the disk's partitions.
-	jsonString, _, err := shell.Execute("lsblk", diskDevPath, "--output", "NAME,PATH,PARTTYPE,FSTYPE,UUID,MOUNTPOINT,PARTUUID,PARTLABEL,TYPE", "--json", "--list")
-	if err != nil {
-		return nil, fmt.Errorf("failed to list disk (%s) partitions:\n%w", diskDevPath, err)
-	}
-
-	var output partitionInfoOutput
-	if jsonString != "" {
-		err = json.Unmarshal([]byte(jsonString), &output)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse disk (%s) partitions JSON:\n%w", diskDevPath, err)
+		if strings.Contains(stderr, "does not contain a recognized partition table") {
+			// Empty partition table.
+			return nil, nil
 		}
+
+		return nil, fmt.Errorf("failed to read partition table (%s):\n%s\n%w", diskDevPath, stderr, err)
 	}
 
-	return output.Devices, err
+	var output partitionTableOutput
+	if stdout == "" {
+		return output.PartitionTable, nil
+	}
+
+	err = json.Unmarshal([]byte(stdout), &output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse disk (%s) partition table JSON:\n%w", diskDevPath, err)
+	}
+
+	if output.PartitionTable == nil {
+		// Disk is empty.
+		return nil, nil
+	}
+
+	partitionTable := output.PartitionTable
+
+	if partitionTable.Unit != "sectors" {
+		return nil, fmt.Errorf("sfdisk returned unepexted unit size '%s': expecting 'sectors'", partitionTable.Unit)
+	}
+
+	for _, partition := range partitionTable.Partitions {
+		// Read the filesystem type directly from disk.
+		stdout, _, err := shell.Execute("blkid", "--probe", "-s", "TYPE", "-o", "value", partition.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get filesystem type of partition (%s)\n%w", partition.Path, err)
+		}
+
+		partition.FileSystemType = strings.TrimSpace(stdout)
+
+		// Read the filesystem UUID directly from disk.
+		stdout, _, err = shell.Execute("blkid", "--probe", "-s", "UUID", "-o", "value", partition.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get filesystem UUID of partition (%s)\n%w", partition.Path, err)
+		}
+
+		partition.FileSystemUuid = strings.TrimSpace(stdout)
+	}
+
+	return output.PartitionTable, nil
+}
+
+func ReadDiskPartitionTable(diskDevPath string) (PartitionTable, error) {
+	diskInfo, err := TryReadDiskPartitionTable(diskDevPath)
+	if err != nil {
+		return PartitionTable{}, err
+	}
+
+	if diskInfo == nil {
+		return PartitionTable{}, fmt.Errorf("disk appears to be uninitialized/empty (%s)", diskDevPath)
+	}
+
+	return *diskInfo, nil
 }
 
 func createExtendedPartition(diskDevPath string, partitionTableType configuration.PartitionTableType,
@@ -938,16 +1000,6 @@ func createExtendedPartition(diskDevPath string, partitionTableType configuratio
 	}
 	partIDToFsTypeMap[extendedPartition.ID] = ""
 	partDevPathMap[extendedPartition.ID] = partDevPath
-	return
-}
-
-func getPartUUID(device string) (uuid string, err error) {
-	stdout, _, err := shell.Execute("blkid", device, "-s", "UUID", "-o", "value")
-	if err != nil {
-		return
-	}
-	logger.Log.Trace(stdout)
-	uuid = strings.TrimSpace(stdout)
 	return
 }
 

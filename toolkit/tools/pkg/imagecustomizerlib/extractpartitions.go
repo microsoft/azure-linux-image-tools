@@ -36,7 +36,7 @@ const (
 func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [UuidSize]byte) ([]outputPartitionMetadata, error) {
 
 	// Get partition info
-	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
+	diskInfo, err := diskutils.ReadDiskPartitionTable(imageLoopDevice)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +45,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 	var partitionMetadataOutput []outputPartitionMetadata
 
 	// Extract partitions to files
-	for _, partition := range diskPartitions {
-		if partition.Type != "part" {
-			continue
-		}
-
+	for _, partition := range diskInfo.Partitions {
 		partitionNum, err := getPartitionNum(partition.Path)
 		if err != nil {
 			return nil, err
@@ -215,15 +211,15 @@ func createSkippableFrame(magicNumber uint32, frameSize uint32, skippableFrameMe
 }
 
 // Construct outputPartitionMetadata for given partition.
-func constructOutputPartitionMetadata(diskPartition diskutils.PartitionInfo, partitionNum int, partitionFilepath string) (partitionMetadata outputPartitionMetadata, err error) {
+func constructOutputPartitionMetadata(diskPartition diskutils.Partition, partitionNum int, partitionFilepath string) (partitionMetadata outputPartitionMetadata, err error) {
 	partitionMetadata.PartitionNum = partitionNum
 	partitionMetadata.PartitionFilename = filepath.Base(partitionFilepath)
 	partitionMetadata.PartLabel = diskPartition.PartLabel
 	partitionMetadata.FileSystemType = diskPartition.FileSystemType
-	partitionMetadata.PartitionTypeUuid = diskPartition.PartitionTypeUuid
-	partitionMetadata.Uuid = diskPartition.Uuid
+	partitionMetadata.PartitionTypeUuid = diskPartition.PartTypeUuid
+	partitionMetadata.Uuid = diskPartition.FileSystemUuid
 	partitionMetadata.PartUuid = diskPartition.PartUuid
-	partitionMetadata.Mountpoint = diskPartition.Mountpoint
+	partitionMetadata.Mountpoint = ""
 
 	return partitionMetadata, nil
 }

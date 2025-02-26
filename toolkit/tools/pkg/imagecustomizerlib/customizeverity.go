@@ -103,11 +103,11 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 }
 
 func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, grubCfgFullPath string,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	diskInfo diskutils.PartitionTable, buildDir string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, diskInfo, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -158,7 +158,7 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 }
 
 func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	diskInfo diskutils.PartitionTable, buildDir string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
 
@@ -183,13 +183,13 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 		}
 
 		formattedDataPartition, err := systemdFormatPartitionUuid(metadata.dataPartUuid,
-			metadata.dataDeviceMountIdType, partitions, buildDir)
+			metadata.dataDeviceMountIdType, diskInfo, buildDir)
 		if err != nil {
 			return nil, err
 		}
 
 		formattedHashPartition, err := systemdFormatPartitionUuid(metadata.hashPartUuid,
-			metadata.hashDeviceMountIdType, partitions, buildDir)
+			metadata.hashDeviceMountIdType, diskInfo, buildDir)
 		if err != nil {
 			return nil, err
 		}
@@ -220,10 +220,10 @@ func verityDevicePathFromName(name string) string {
 
 // idToPartitionBlockDevicePath returns the block device path for a given idType and id.
 func idToPartitionBlockDevicePath(configDeviceId string,
-	diskPartitions []diskutils.PartitionInfo, partIdToPartUuid map[string]string,
+	diskInfo diskutils.PartitionTable, partIdToPartUuid map[string]string,
 ) (string, error) {
 	// Iterate over each partition to find the matching id.
-	for _, partition := range diskPartitions {
+	for _, partition := range diskInfo.Partitions {
 		if partitionMatchesDeviceId(configDeviceId, partition, partIdToPartUuid) {
 			return partition.Path, nil
 		}
@@ -233,7 +233,7 @@ func idToPartitionBlockDevicePath(configDeviceId string,
 	return "", fmt.Errorf("no partition found with id (%s)", configDeviceId)
 }
 
-func partitionMatchesDeviceId(configDeviceId string, partition diskutils.PartitionInfo,
+func partitionMatchesDeviceId(configDeviceId string, partition diskutils.Partition,
 	partIdToPartUuid map[string]string,
 ) bool {
 	partUuid := partIdToPartUuid[configDeviceId]
@@ -242,9 +242,9 @@ func partitionMatchesDeviceId(configDeviceId string, partition diskutils.Partiti
 
 // systemdFormatPartitionUuid formats the partition UUID based on the ID type following systemd dm-verity style.
 func systemdFormatPartitionUuid(partUuid string, mountIdType imagecustomizerapi.MountIdentifierType,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	diskInfo diskutils.PartitionTable, buildDir string,
 ) (string, error) {
-	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions, buildDir)
+	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, diskInfo, buildDir)
 	if err != nil {
 		return "", err
 	}
@@ -254,7 +254,7 @@ func systemdFormatPartitionUuid(partUuid string, mountIdType imagecustomizerapi.
 		return fmt.Sprintf("%s=%s", "PARTLABEL", partition.PartLabel), nil
 
 	case imagecustomizerapi.MountIdentifierTypeUuid:
-		return fmt.Sprintf("%s=%s", "UUID", partition.Uuid), nil
+		return fmt.Sprintf("%s=%s", "UUID", partition.FileSystemUuid), nil
 
 	case imagecustomizerapi.MountIdentifierTypePartUuid, imagecustomizerapi.MountIdentifierTypeDefault:
 		return fmt.Sprintf("%s=%s", "PARTUUID", partition.PartUuid), nil
@@ -294,9 +294,9 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	diskInfo diskutils.PartitionTable, buildDir string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, diskInfo, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}

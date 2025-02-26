@@ -113,10 +113,10 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 
 	// Check the partition types.
 	if typeSupported, _ := diskutils.PartedSupportsTypeCommand(); typeSupported {
-		assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartitionTypeUuid) // esp
-		assert.Equal(t, "bc13c2ff-59e6-4262-a352-b275fd6f7172", partitions[2].PartitionTypeUuid) // xbootldr
-		assert.Equal(t, "4f68bce3-e8cd-4db1-96e7-fbcaf984b709", partitions[3].PartitionTypeUuid) // root (x64)
-		assert.Equal(t, "4d21b016-b534-45c2-a9fb-5c16e091fd2d", partitions[4].PartitionTypeUuid) // var
+		assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartTypeUuid) // esp
+		assert.Equal(t, "bc13c2ff-59e6-4262-a352-b275fd6f7172", partitions[2].PartTypeUuid) // xbootldr
+		assert.Equal(t, "4f68bce3-e8cd-4db1-96e7-fbcaf984b709", partitions[3].PartTypeUuid) // root (x64)
+		assert.Equal(t, "4d21b016-b534-45c2-a9fb-5c16e091fd2d", partitions[4].PartTypeUuid) // var
 	}
 }
 
@@ -181,9 +181,9 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 
 	// Check the partition types.
 	if typeSupported, _ := diskutils.PartedSupportsTypeCommand(); typeSupported {
-		assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartitionTypeUuid) // esp
-		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
-		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[3].PartitionTypeUuid) // linux generic
+		assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartTypeUuid) // esp
+		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartTypeUuid) // linux generic
+		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[3].PartTypeUuid) // linux generic
 	}
 }
 
@@ -244,8 +244,8 @@ func testCustomizeImagePartitionsToLegacy(t *testing.T, testName string, imageTy
 
 	// Check the partition types.
 	if typeSupported, _ := diskutils.PartedSupportsTypeCommand(); typeSupported {
-		assert.Equal(t, "21686148-6449-6e6f-744e-656564454649", partitions[1].PartitionTypeUuid) // BIOS boot
-		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
+		assert.Equal(t, "21686148-6449-6e6f-744e-656564454649", partitions[1].PartTypeUuid) // BIOS boot
+		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartTypeUuid) // linux generic
 	}
 }
 
@@ -358,13 +358,9 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, imageType b
 			baseImagePartition := baseImagePartitions[partitionNum]
 			newImagePartition := newImagePartitions[partitionNum]
 
-			if baseImagePartition.Type != "part" {
-				continue
-			}
-
 			assert.Equalf(t, baseImagePartition.FileSystemType, newImagePartition.FileSystemType, "[%d] filesystem type didn't change", partitionNum)
 			assert.NotEqualf(t, baseImagePartition.PartUuid, newImagePartition.PartUuid, "[%d] partition UUID did change", partitionNum)
-			assert.NotEqual(t, baseImagePartition.Uuid, newImagePartition.Uuid, "[%d] filesystem UUID did change", partitionNum)
+			assert.NotEqual(t, baseImagePartition.FileSystemUuid, newImagePartition.FileSystemUuid, "[%d] filesystem UUID did change", partitionNum)
 		}
 	}
 
@@ -377,7 +373,7 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, imageType b
 }
 
 func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
-	partitions map[int]diskutils.PartitionInfo,
+	partitions map[int]diskutils.Partition,
 ) {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
@@ -405,9 +401,9 @@ func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoi
 }
 
 func verifyBootloaderConfig(t *testing.T, imageConnection *ImageConnection, extraCommandLineArgs string,
-	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, imageVersion baseImageVersion,
+	bootInfo diskutils.Partition, rootfsInfo diskutils.Partition, imageVersion baseImageVersion,
 ) {
-	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid)
+	verifyEspGrubCfg(t, imageConnection, bootInfo.FileSystemUuid)
 	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, imageVersion)
 }
 
@@ -422,7 +418,7 @@ func verifyEspGrubCfg(t *testing.T, imageConnection *ImageConnection, bootUuid s
 }
 
 func verifyBootGrubCfg(t *testing.T, imageConnection *ImageConnection, extraCommandLineArgs string,
-	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
+	bootInfo diskutils.Partition, rootfsInfo diskutils.Partition,
 	imageVersion baseImageVersion,
 ) {
 	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
@@ -433,19 +429,19 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *ImageConnection, extraComm
 
 	switch imageVersion {
 	case baseImageVersionAzl2:
-		assert.Regexp(t, fmt.Sprintf(`(?m)^search -n -u %s -s$`, regexp.QuoteMeta(bootInfo.Uuid)),
+		assert.Regexp(t, fmt.Sprintf(`(?m)^search -n -u %s -s$`, regexp.QuoteMeta(bootInfo.FileSystemUuid)),
 			grubCfgContents)
 		assert.Regexp(t, fmt.Sprintf(`(?m)^set rootdevice=PARTUUID=%s$`, regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
 
 	case baseImageVersionAzl3:
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.FileSystemUuid)),
 			grubCfgContents)
 
 		// In theory, UUID should always be used (unless GRUB_DISABLE_UUID is set in the /etc/default/grub file, which
 		// it isn't). But on some build hosts, PARTUUID is used instead. Not sure why this is the case. But the OS will
 		// still boot either way. So, allow both for now.
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* root=(UUID=%s|PARTUUID=%s) `, regexp.QuoteMeta(rootfsInfo.Uuid),
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* root=(UUID=%s|PARTUUID=%s) `, regexp.QuoteMeta(rootfsInfo.FileSystemUuid),
 			regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
 	}
@@ -455,18 +451,14 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *ImageConnection, extraComm
 	}
 }
 
-func getDiskPartitionsMap(devicePath string) (map[int]diskutils.PartitionInfo, error) {
-	partitions, err := diskutils.GetDiskPartitions(devicePath)
+func getDiskPartitionsMap(devicePath string) (map[int]diskutils.Partition, error) {
+	diskInfo, err := diskutils.ReadDiskPartitionTable(devicePath)
 	if err != nil {
 		return nil, err
 	}
 
-	partitionsMap := make(map[int]diskutils.PartitionInfo)
-	for _, partition := range partitions {
-		if partition.Type != "part" {
-			continue
-		}
-
+	partitionsMap := make(map[int]diskutils.Partition)
+	for _, partition := range diskInfo.Partitions {
 		num, err := getPartitionNum(partition.Path)
 		if err != nil {
 			return nil, err

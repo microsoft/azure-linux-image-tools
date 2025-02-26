@@ -28,18 +28,14 @@ func resetPartitionsUuids(buildImageFile string, buildDir string) error {
 	}
 	defer loopback.Close()
 
-	partitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
 	if err != nil {
 		return err
 	}
 
 	// Update the UUIDs.
-	newUuids := make([]string, len(partitions))
-	for i, partition := range partitions {
-		if partition.Type != "part" {
-			continue
-		}
-
+	newUuids := make([]string, len(diskInfo.Partitions))
+	for i, partition := range diskInfo.Partitions {
 		newUuid, err := resetFileSystemUuid(partition)
 		if err != nil {
 			return fmt.Errorf("failed to reset partition's (%s) filesystem (%s) UUID:\n%w", partition.Path,
@@ -50,12 +46,8 @@ func resetPartitionsUuids(buildImageFile string, buildDir string) error {
 	}
 
 	// Update the PARTUUIDs.
-	newPartUuids := make([]string, len(partitions))
-	for i, partition := range partitions {
-		if partition.Type != "part" {
-			continue
-		}
-
+	newPartUuids := make([]string, len(diskInfo.Partitions))
+	for i, partition := range diskInfo.Partitions {
 		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i)
 		if err != nil {
 			return fmt.Errorf("failed to update partition (%s) UUID:\n%w", partition.Path, err)
@@ -71,7 +63,7 @@ func resetPartitionsUuids(buildImageFile string, buildDir string) error {
 	}
 
 	// Fix /etc/fstab file.
-	err = fixPartitionUuidsInFstabFile(partitions, newUuids, newPartUuids, buildDir)
+	err = fixPartitionUuidsInFstabFile(diskInfo, newUuids, newPartUuids, buildDir)
 	if err != nil {
 		return err
 	}
@@ -84,7 +76,7 @@ func resetPartitionsUuids(buildImageFile string, buildDir string) error {
 	return nil
 }
 
-func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
+func resetFileSystemUuid(partition diskutils.Partition) (string, error) {
 	newUuid := ""
 	switch partition.FileSystemType {
 	case "ext2", "ext3", "ext4":
@@ -141,10 +133,10 @@ func resetPartitionUuid(device string, partNum int) (string, error) {
 	return newUuid, nil
 }
 
-func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids []string, newPartUuids []string,
+func fixPartitionUuidsInFstabFile(diskInfo diskutils.PartitionTable, newUuids []string, newPartUuids []string,
 	buildDir string,
 ) error {
-	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
+	rootfsPartition, err := findRootfsPartition(diskInfo, buildDir)
 	if err != nil {
 		return err
 	}
@@ -174,7 +166,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Find the partition.
 		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
-		mountIdType, _, partitionIndex, err := findSourcePartition(fstabEntry.Source, partitions, buildDir)
+		mountIdType, _, partitionIndex, err := findSourcePartition(fstabEntry.Source, diskInfo, buildDir)
 		if err != nil {
 			return err
 		}

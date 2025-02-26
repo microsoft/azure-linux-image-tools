@@ -276,16 +276,16 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	}
 	defer loopback.Close()
 
-	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(loopback.DevicePath())
 	if err != nil {
 		return err
 	}
 
-	systemBootPartition, err := findSystemBootPartition(diskPartitions)
+	systemBootPartition, err := findSystemBootPartition(diskInfo)
 	if err != nil {
 		return err
 	}
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskInfo, buildDir)
 	if err != nil {
 		return err
 	}

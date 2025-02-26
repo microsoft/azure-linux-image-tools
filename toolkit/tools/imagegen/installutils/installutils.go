@@ -1264,7 +1264,14 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 		return
 	}
 
+	diskInfo, err := diskutils.ReadDiskPartitionTable(diskDevPath)
+	if err != nil {
+		return
+	}
+
 	// Grub only accepts UUID, not PARTUUID or PARTLABEL
+	bootPartInfo, found := sliceutils.FindValueFunc(diskInfo.Partitions)
+
 	bootUUID, err := GetUUID(bootDevice)
 	if err != nil {
 		err = fmt.Errorf("failed to get UUID: %s", err)
@@ -2181,68 +2188,20 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 	return
 }
 
-// GetUUID queries the UUID of the given partition
-// - device is the device path of the desired partition
-func GetUUID(device string) (stdout string, err error) {
-	stdout, _, err = shell.Execute("blkid", device, "-s", "UUID", "-o", "value")
-	if err != nil {
-		return
-	}
-	logger.Log.Trace(stdout)
-	stdout = strings.TrimSpace(stdout)
-	return
-}
-
-// GetPartUUID queries the PARTUUID of the given partition
-// - device is the device path of the desired partition
-func GetPartUUID(device string) (stdout string, err error) {
-	stdout, _, err = shell.Execute("blkid", device, "-s", "PARTUUID", "-o", "value")
-	if err != nil {
-		return
-	}
-	logger.Log.Trace(stdout)
-	stdout = strings.TrimSpace(stdout)
-	return
-}
-
-// GetPartLabel queries the PARTLABEL of the given partition
-// - device is the device path of the desired partition
-func GetPartLabel(device string) (stdout string, err error) {
-	stdout, _, err = shell.Execute("blkid", device, "-s", "PARTLABEL", "-o", "value")
-	if err != nil {
-		return
-	}
-	logger.Log.Trace(stdout)
-	stdout = strings.TrimSpace(stdout)
-	return
-}
-
 // FormatMountIdentifier finds the requested identifier type for the given device, and formats it for use
 //
 //	ie "UUID=12345678-abcd..."
-func FormatMountIdentifier(identifier configuration.MountIdentifier, device string) (identifierString string, err error) {
-	var id string
+func FormatMountIdentifier(identifier configuration.MountIdentifier, partitionInfo diskutils.Partition,
+) (identifierString string, err error) {
 	switch identifier {
 	case configuration.MountIdentifierUuid:
-		id, err = GetUUID(device)
-		if err != nil {
-			return
-		}
-		identifierString = fmt.Sprintf("UUID=%s", id)
+		identifierString = fmt.Sprintf("UUID=%s", partitionInfo.FileSystemUuid)
 	case configuration.MountIdentifierPartUuid:
-		id, err = GetPartUUID(device)
-		if err != nil {
-			return
-		}
-		identifierString = fmt.Sprintf("PARTUUID=%s", id)
+		identifierString = fmt.Sprintf("PARTUUID=%s", partitionInfo.PartUuid)
 	case configuration.MountIdentifierPartLabel:
-		id, err = GetPartLabel(device)
-		if err != nil {
-			return
-		}
-		identifierString = fmt.Sprintf("PARTLABEL=%s", id)
+		identifierString = fmt.Sprintf("PARTLABEL=%s", partitionInfo.PartLabel)
 	case configuration.MountIdentifierNone:
-		err = fmt.Errorf("must select a mount identifier for device (%s)", device)
+		err = fmt.Errorf("must select a mount identifier for device (%s)", partitionInfo.Path)
 	default:
 		err = fmt.Errorf("unknown mount identifier: (%v)", identifier)
 	}

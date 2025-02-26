@@ -32,13 +32,13 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
-func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {
+func findSystemBootPartition(diskInfo diskutils.PartitionTable) (*diskutils.Partition, error) {
 	// Look for all system boot partitions, including both EFI System Paritions (ESP) and BIOS boot partitions.
-	var bootPartitions []*diskutils.PartitionInfo
-	for i := range diskPartitions {
-		diskPartition := diskPartitions[i]
+	var bootPartitions []*diskutils.Partition
+	for i := range diskInfo.Partitions {
+		diskPartition := diskInfo.Partitions[i]
 
-		switch diskPartition.PartitionTypeUuid {
+		switch diskPartition.PartTypeUuid {
 		case diskutils.EfiSystemPartitionTypeUuid, diskutils.BiosBootPartitionTypeUuid:
 			bootPartitions = append(bootPartitions, &diskPartition)
 		}
@@ -54,7 +54,9 @@ func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskuti
 	return bootPartition, nil
 }
 
-func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
+func findBootPartitionFromEsp(efiSystemPartition *diskutils.Partition, diskInfo diskutils.PartitionTable,
+	buildDir string,
+) (*diskutils.Partition, error) {
 	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
@@ -85,11 +87,11 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 
 	bootPartitionUuid := match[1]
 
-	var bootPartition *diskutils.PartitionInfo
-	for i := range diskPartitions {
-		diskPartition := diskPartitions[i]
+	var bootPartition *diskutils.Partition
+	for i := range diskInfo.Partitions {
+		diskPartition := diskInfo.Partitions[i]
 
-		if diskPartition.Uuid == bootPartitionUuid {
+		if diskPartition.FileSystemUuid == bootPartitionUuid {
 			bootPartition = &diskPartition
 			break
 		}
@@ -105,19 +107,14 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 // Searches for the partition that contains the /etc/fstab file.
 // While technically it is possible to place /etc on a different partition, doing so is fairly difficult and requires
 // a custom initramfs module.
-func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
+func findRootfsPartition(diskInfo diskutils.PartitionTable, buildDir string) (*diskutils.Partition, error) {
 	logger.Log.Debugf("Searching for rootfs partition")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
-	var rootfsPartitions []*diskutils.PartitionInfo
-	for i := range diskPartitions {
-		diskPartition := diskPartitions[i]
-
-		// Skip over disk entries.
-		if diskPartition.Type != "part" {
-			continue
-		}
+	var rootfsPartitions []*diskutils.Partition
+	for i := range diskInfo.Partitions {
+		diskPartition := diskInfo.Partitions[i]
 
 		// Skip over file-system types that can't be used for the rootfs partition.
 		switch diskPartition.FileSystemType {
@@ -165,7 +162,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	return rootfsPartition, nil
 }
 
-func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
+func readFstabEntriesFromRootfs(rootfsPartition *diskutils.Partition, diskInfo diskutils.PartitionTable,
 	buildDir string,
 ) ([]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Reading fstab entries")
@@ -198,7 +195,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	return fstabEntries, nil
 }
 
-func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskInfo diskutils.PartitionTable,
 	buildDir string,
 ) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
@@ -208,7 +205,7 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	var foundRoot bool
 	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	for _, fstabEntry := range filteredFstabEntries {
-		_, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		_, partition, _, err := findSourcePartition(fstabEntry.Source, diskInfo, buildDir)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -262,25 +259,25 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 	}
 }
 
-func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
+func findSourcePartition(source string, diskInfo diskutils.PartitionTable,
 	buildDir string,
-) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
+) (ExtendedMountIdentifierType, diskutils.Partition, int, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		return ExtendedMountIdentifierTypeDefault, diskutils.Partition{}, 0, err
 	}
 
-	partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+	partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, diskInfo, buildDir)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		return ExtendedMountIdentifierTypeDefault, diskutils.Partition{}, 0, err
 	}
 
 	return mountIdType, partition, partitionIndex, nil
 }
 
 func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
-	partitions []diskutils.PartitionInfo, buildDir string,
-) (diskutils.PartitionInfo, int, error) {
+	diskInfo diskutils.PartitionTable, buildDir string,
+) (diskutils.Partition, int, error) {
 	// Map MountIdentifierType to ExtendedMountIdentifierType
 	var extendedType ExtendedMountIdentifierType
 	switch mountIdType {
@@ -291,12 +288,12 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 	case imagecustomizerapi.MountIdentifierTypePartLabel:
 		extendedType = ExtendedMountIdentifierTypePartLabel
 	default:
-		return diskutils.PartitionInfo{}, 0, fmt.Errorf("unsupported identifier type: %v", mountIdType)
+		return diskutils.Partition{}, 0, fmt.Errorf("unsupported identifier type: %v", mountIdType)
 	}
 
-	partition, partitionIndex, err := findExtendedPartition(extendedType, mountId, partitions, buildDir)
+	partition, partitionIndex, err := findExtendedPartition(extendedType, mountId, diskInfo, buildDir)
 	if err != nil {
-		return diskutils.PartitionInfo{}, 0, err
+		return diskutils.Partition{}, 0, err
 	}
 
 	return partition, partitionIndex, nil
@@ -304,33 +301,33 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 
 // findExtendedPartition extends the public func findPartition to handle additional identifier types.
 func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
-	partitions []diskutils.PartitionInfo, buildDir string,
-) (diskutils.PartitionInfo, int, error) {
+	diskInfo diskutils.PartitionTable, buildDir string,
+) (diskutils.Partition, int, error) {
 	if mountIdType == ExtendedMountIdentifierTypeDev {
-		cmdline, err := extractKernelCmdline(partitions, buildDir)
+		cmdline, err := extractKernelCmdline(diskInfo, buildDir)
 		if err != nil {
-			return diskutils.PartitionInfo{}, 0, err
+			return diskutils.Partition{}, 0, err
 		}
 
 		if mountId == verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName) {
 			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_root_data", imagecustomizerapi.VerityRootDeviceName)
 			if err != nil {
-				return diskutils.PartitionInfo{}, 0, err
+				return diskutils.Partition{}, 0, err
 			}
 		} else if mountId == verityDevicePathFromName(imagecustomizerapi.VerityUsrDeviceName) {
 			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_usr_data", imagecustomizerapi.VerityUsrDeviceName)
 			if err != nil {
-				return diskutils.PartitionInfo{}, 0, err
+				return diskutils.Partition{}, 0, err
 			}
 		}
 	}
 
 	matchedPartitionIndexes := []int(nil)
-	for i, partition := range partitions {
+	for i, partition := range diskInfo.Partitions {
 		matches := false
 		switch mountIdType {
 		case ExtendedMountIdentifierTypeUuid:
-			matches = partition.Uuid == mountId
+			matches = partition.FileSystemUuid == mountId
 		case ExtendedMountIdentifierTypePartUuid:
 			matches = partition.PartUuid == mountId
 		case ExtendedMountIdentifierTypePartLabel:
@@ -343,26 +340,26 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 
 	if len(matchedPartitionIndexes) < 1 {
 		err := fmt.Errorf("partition not found (%s=%s)", mountIdType, mountId)
-		return diskutils.PartitionInfo{}, 0, err
+		return diskutils.Partition{}, 0, err
 	}
 	if len(matchedPartitionIndexes) > 1 {
 		err := fmt.Errorf("too many matches for partition found (%s=%s)", mountIdType, mountId)
-		return diskutils.PartitionInfo{}, 0, err
+		return diskutils.Partition{}, 0, err
 	}
 
 	partitionIndex := matchedPartitionIndexes[0]
-	partition := partitions[partitionIndex]
+	partition := diskInfo.Partitions[partitionIndex]
 
 	return partition, partitionIndex, nil
 }
 
-func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) ([]grubConfigLinuxArg, error) {
-	espPartition, err := findSystemBootPartition(partitions)
+func extractKernelCmdline(diskInfo diskutils.PartitionTable, buildDir string) ([]grubConfigLinuxArg, error) {
+	espPartition, err := findSystemBootPartition(diskInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find ESP partition: %w", err)
 	}
 
-	bootPartition, err := findBootPartitionFromEsp(espPartition, partitions, buildDir)
+	bootPartition, err := findBootPartitionFromEsp(espPartition, diskInfo, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find boot partition: %w", err)
 	}
@@ -382,7 +379,7 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 	return cmdline, nil
 }
 
-func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
+func extractKernelCmdlineFromUki(espPartition *diskutils.Partition,
 	buildDir string,
 ) ([]grubConfigLinuxArg, error) {
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
@@ -446,7 +443,7 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) ([]string,
 	return cmdlineContents, nil
 }
 
-func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
+func extractKernelCmdlineFromGrub(bootPartition *diskutils.Partition,
 	buildDir string,
 ) ([]grubConfigLinuxArg, error) {
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
@@ -575,21 +572,21 @@ func findRootMountIdTypeFromFstabFile(imageConnection *ImageConnection,
 }
 
 func getImageBootType(imageConnection *ImageConnection) (imagecustomizerapi.BootType, error) {
-	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
 	if err != nil {
 		return "", err
 	}
 
-	return getImageBootTypeHelper(diskPartitions)
+	return getImageBootTypeHelper(diskInfo)
 }
 
-func getImageBootTypeHelper(diskPartitions []diskutils.PartitionInfo) (imagecustomizerapi.BootType, error) {
-	systemBootPartition, err := findSystemBootPartition(diskPartitions)
+func getImageBootTypeHelper(diskInfo diskutils.PartitionTable) (imagecustomizerapi.BootType, error) {
+	systemBootPartition, err := findSystemBootPartition(diskInfo)
 	if err != nil {
 		return "", err
 	}
 
-	switch systemBootPartition.PartitionTypeUuid {
+	switch systemBootPartition.PartTypeUuid {
 	case diskutils.EfiSystemPartitionTypeUuid:
 		return imagecustomizerapi.BootTypeEfi, nil
 
@@ -598,7 +595,7 @@ func getImageBootTypeHelper(diskPartitions []diskutils.PartitionInfo) (imagecust
 
 	default:
 		return "", fmt.Errorf("internal error: unexpected system boot partition UUID (%s)",
-			systemBootPartition.PartitionTypeUuid)
+			systemBootPartition.PartTypeUuid)
 	}
 }
 

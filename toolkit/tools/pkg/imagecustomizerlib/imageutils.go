@@ -41,22 +41,22 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 		return nil, err
 	}
 
-	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
 	if err != nil {
 		return nil, err
 	}
 
-	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
+	rootfsPartition, err := findRootfsPartition(diskInfo, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
-	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, partitions, buildDir)
+	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, diskInfo, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	mountPoints, partUuidToFstabEntry, err := fstabEntriesToMountPoints(fstabEntries, partitions, buildDir)
+	mountPoints, partUuidToFstabEntry, err := fstabEntriesToMountPoints(fstabEntries, diskInfo, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
@@ -206,13 +206,13 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 	}
 
 	// Read the disk partitions.
-	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	diskInfo, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
 	if err != nil {
 		return nil, "", err
 	}
 
 	// Create mapping from partition ID to partition UUID.
-	partIdToPartUuid, err := createPartIdToPartUuidMap(partIDToDevPathMap, diskPartitions)
+	partIdToPartUuid, err := createPartIdToPartUuidMap(partIDToDevPathMap, diskInfo)
 	if err != nil {
 		return nil, "", err
 	}
@@ -252,7 +252,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		return nil, "", err
 	}
 
-	mountPoints, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
+	mountPoints, _, err := fstabEntriesToMountPoints(fstabEntries, diskInfo, buildDir)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
@@ -268,11 +268,11 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 	return partIdToPartUuid, tmpFstabFile, nil
 }
 
-func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartitions []diskutils.PartitionInfo,
+func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskInfo diskutils.PartitionTable,
 ) (map[string]string, error) {
 	partIdToPartUuid := make(map[string]string)
 	for partId, devPath := range partIDToDevPathMap {
-		partition, found := sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
+		partition, found := sliceutils.FindValueFunc(diskInfo.Partitions, func(partition diskutils.Partition) bool {
 			return devPath == partition.Path
 		})
 		if !found {

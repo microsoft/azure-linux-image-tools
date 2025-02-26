@@ -29,22 +29,18 @@ func shrinkFilesystems(imageLoopDevice string, verity []imagecustomizerapi.Verit
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
-	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
+	diskInfo, err := diskutils.ReadDiskPartitionTable(imageLoopDevice)
 	if err != nil {
 		return err
 	}
 
 	// Get the start sectors of all partitions
-	startSectors, err := getStartSectors(imageLoopDevice, len(diskPartitions)-1)
+	startSectors, err := getStartSectors(imageLoopDevice, len(diskInfo.Partitions))
 	if err != nil {
 		return fmt.Errorf("failed to get partitions start sectors:\n%w", err)
 	}
 
-	for _, diskPartition := range diskPartitions {
-		if diskPartition.Type != "part" {
-			continue
-		}
-
+	for _, diskPartition := range diskInfo.Partitions {
 		partitionLoopDevice := diskPartition.Path
 
 		// Check if the filesystem type is supported
@@ -103,7 +99,7 @@ func shrinkFilesystems(imageLoopDevice string, verity []imagecustomizerapi.Verit
 		// recreated. So, wait for that to finish.
 		err = diskutils.WaitForDevicesToSettle()
 		if err != nil {
-			return fmt.Errorf("failed to list disk (%s) partitions:\n%w", partitionLoopDevice, err)
+			return fmt.Errorf("failed to wait for disk (%s) partitions update:\n%w", imageLoopDevice, err)
 		}
 	}
 	return nil
