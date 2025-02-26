@@ -57,9 +57,14 @@ type ImageCustomizerParameters struct {
 	buildDirAbs string
 
 	// input image
-	inputImageFile   string
-	inputImageFormat string
-	inputIsIso       bool
+	inputImageFile          string
+	inputImageFormat        string
+	inputIsIso              bool
+	inputSignedUKIs         []string
+	inputSignedVerityHashes []string
+
+	requireSignedRootfsRootHash bool
+	requireSignedRootHashes     bool
 
 	// configurations
 	configPath                  string
@@ -80,6 +85,9 @@ type ImageCustomizerParameters struct {
 	outputImageDir        string
 	outputImageBase       string
 	outputPXEArtifactsDir string
+	outputUkisDir         string
+	outputVerityHashes    bool
+	outputVerityHashesDir string
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
@@ -101,8 +109,10 @@ func createImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
 	useBaseImageRpmRepos bool, rpmsSources []string, enableShrinkFilesystems bool, outputSplitPartitionsFormat string,
-	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string) (*ImageCustomizerParameters, error) {
-
+	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string, requireSignedRootfsRootHash bool,
+	requireSignedRootHashes bool, outputVerityHashes bool, outputVerityHashesDir string, inputSignedVerityHashes []string,
+	outputUkisDir string, inputSignedUKIs []string,
+) (*ImageCustomizerParameters, error) {
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
@@ -119,6 +129,11 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputImageFile = inputImageFile
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
+	ic.inputSignedUKIs = inputSignedUKIs
+	ic.inputSignedVerityHashes = inputSignedVerityHashes
+
+	ic.requireSignedRootfsRootHash = requireSignedRootfsRootHash
+	ic.requireSignedRootHashes = requireSignedRootHashes
 
 	// Create a uuid for the image
 	imageUuid, imageUuidStr, err := createUuid()
@@ -160,6 +175,9 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	ic.outputImageDir = filepath.Dir(outputImageFile)
 	ic.outputPXEArtifactsDir = outputPXEArtifactsDir
+	ic.outputUkisDir = outputUkisDir
+	ic.outputVerityHashes = outputVerityHashes
+	ic.outputVerityHashesDir = outputVerityHashesDir
 
 	if ic.outputImageFormat != "" && !ic.outputIsIso {
 		err = validateImageFormat(ic.outputImageFormat)
@@ -207,7 +225,9 @@ func createImageCustomizerParameters(buildDir string,
 func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputSplitPartitionsFormat string, outputPXEArtifactsDir string,
-	useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+	useBaseImageRpmRepos bool, enableShrinkFilesystems bool, requireSignedRootfsRootHash bool,
+	requireSignedRootHashes bool, outputVerityHashes bool, outputVerityHashesDir string,
+	inputSignedVerityHashes []string, outputUkisDir string, inputSignedUKIs []string,
 ) error {
 	var err error
 
@@ -225,7 +245,8 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile 
 	}
 
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, imageFile, rpmsSources, outputImageFile, outputImageFormat,
-		outputSplitPartitionsFormat, outputPXEArtifactsDir, useBaseImageRpmRepos, enableShrinkFilesystems)
+		outputSplitPartitionsFormat, outputPXEArtifactsDir, useBaseImageRpmRepos, enableShrinkFilesystems, requireSignedRootfsRootHash,
+		requireSignedRootHashes, outputVerityHashes, outputVerityHashesDir, inputSignedVerityHashes, outputUkisDir, inputSignedUKIs)
 	if err != nil {
 		return err
 	}
@@ -244,7 +265,9 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, outputSplitPartitionsFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, enableShrinkFilesystems bool, requireSignedRootfsRootHash bool,
+	requireSignedRootHashes bool, outputVerityHashes bool, outputVerityHashesDir string, inputSignedVerityHashes []string,
+	outputUkisDir string, inputSignedUKIs []string,
 ) error {
 	err := validateConfig(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos)
 	if err != nil {
@@ -254,7 +277,9 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, imageFile,
 		baseConfigPath, config,
 		useBaseImageRpmRepos, rpmsSources, enableShrinkFilesystems, outputSplitPartitionsFormat,
-		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		outputImageFormat, outputImageFile, outputPXEArtifactsDir,
+		requireSignedRootfsRootHash, requireSignedRootHashes, outputVerityHashes, outputVerityHashesDir, inputSignedVerityHashes,
+		outputUkisDir, inputSignedUKIs)
 	if err != nil {
 		return fmt.Errorf("failed to create image customizer parameters object:\n%w", err)
 	}
@@ -407,6 +432,36 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		return nil
 	}
 
+	// Are we being invoked to inject signed verity hashes?
+	if len(ic.inputSignedVerityHashes) != 0 {
+		if ic.config.OS != nil {
+			// todo: add other exclusions...
+			return fmt.Errorf("cannot define both --input-signed-verity-hashes and OS configuration.")
+		}
+		var err error
+		ic.config.OS = &imagecustomizerapi.OS{}
+		ic.config.OS.AdditionalFiles, err = generateSignedRootHashConfiguration(ic.inputSignedVerityHashes)
+		if err != nil {
+			return fmt.Errorf("failed to generate configuration for signed root hash files")
+		}
+	}
+
+	// Invokes to inject the UKIs?
+	if len(ic.inputSignedUKIs) != 0 {
+		/*
+			if ic.config.OS != nil {
+				// todo: add other exclusions...
+				return fmt.Errorf("cannot define both --input-signed-ukis and OS configuration.")
+			}
+		*/
+		var err error
+		ic.config.OS = &imagecustomizerapi.OS{}
+		ic.config.OS.AdditionalFiles, err = inputUKIs(ic.inputSignedUKIs)
+		if err != nil {
+			return fmt.Errorf("failed to generate configuration for signed root hash files")
+		}
+	}
+
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is
 	// present or not will lead to a messy mix of if statements that do not
@@ -436,8 +491,9 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.rawImageFile = newRawImageFile
 
 	// Customize the raw image file.
+	onlyAddFiles := len(ic.inputSignedVerityHashes) != 0 || len(ic.inputSignedUKIs) != 0
 	partUuidToFstabEntry, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
-		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
+		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, onlyAddFiles)
 	if err != nil {
 		return err
 	}
@@ -455,7 +511,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid)
+		verityMetadata, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid,
+			ic.requireSignedRootfsRootHash, ic.requireSignedRootHashes, ic.outputVerityHashes, ic.outputVerityHashesDir)
 		if err != nil {
 			return err
 		}
@@ -466,7 +523,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	if ic.config.OS.Uki != nil {
-		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
+		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile, ic.outputUkisDir)
 		if err != nil {
 			return err
 		}
@@ -761,7 +818,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string,
+	imageUuidStr string, onlyAddFiles bool,
 ) (map[string]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -780,7 +837,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, onlyAddFiles)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -850,7 +907,8 @@ func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.
 }
 
 func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Config,
-	buildImageFile string, partIdToPartUuid map[string]string,
+	buildImageFile string, partIdToPartUuid map[string]string, requireSignedRootfsRootHash bool,
+	requireSignedRootHashes bool, outputVerityHashes bool, outputVerityHashesDir string,
 ) (map[string]verityDeviceMetadata, error) {
 	verityMetadata := make(map[string]verityDeviceMetadata)
 
@@ -928,6 +986,8 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, err
 	}
 
+	// mount -U 9bb90123-2744-49e4-a49c-090bcba96ae8  /run/my-boot/
+
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	// Temporarily mount the partition.
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
@@ -941,15 +1001,30 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
+	rootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts("root", verityMetadata["/"].rootHash, outputVerityHashes,
+		outputVerityHashesDir, requireSignedRootfsRootHash, requireSignedRootHashes)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir,
+			rootHashSignatureArgument, requireRootHashSignatureArgument, bootPartition.Uuid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
+
+		// Temporary make UKI also update GRUB for Verity hash for LinuxGuard dev drop.
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir,
+			rootHashSignatureArgument, requireRootHashSignatureArgument, bootPartition.Uuid)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update grub config for verity:\n%w", err)
+		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir,
+			rootHashSignatureArgument, requireRootHashSignatureArgument, bootPartition.Uuid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}

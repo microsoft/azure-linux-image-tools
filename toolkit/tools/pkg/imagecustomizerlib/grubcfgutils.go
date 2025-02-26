@@ -801,7 +801,7 @@ func regenerateInitrd(imageChroot *safechroot.Chroot) error {
 		if mkinitrdExists {
 			return shell.ExecuteLiveWithErr(1, "mkinitrd")
 		} else {
-			return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
+			return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all", "--include", "/usr/lib/locale", "/usr/lib/locale")
 		}
 	})
 	if err != nil {

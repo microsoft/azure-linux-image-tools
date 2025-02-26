@@ -60,7 +60,7 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		{
 			PartitionNum:   3,
 			Path:           "/",
-			FileSystemType: "xfs",
+			FileSystemType: "ext4",
 		},
 		{
 			PartitionNum:   2,
@@ -75,7 +75,7 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		{
 			PartitionNum:   4,
 			Path:           "/var",
-			FileSystemType: "xfs",
+			FileSystemType: "ext4",
 		},
 	}
 
