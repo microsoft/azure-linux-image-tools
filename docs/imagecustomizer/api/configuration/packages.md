@@ -17,6 +17,8 @@ Package names can be specified in the following formats:
 Note: Package names like to `parted-3.4-2` will not work. You must include the distro
 tag. For example, `parted-3.4-2.cm2` will work. (`cm2` means CBL-Mariner 2.0.)
 
+Added in v0.3.
+
 ## updateExistingPackages [bool]
 
 Updates the packages that exist in the base image.
@@ -30,6 +32,8 @@ os:
   packages:
     updateExistingPackages: true
 ```
+
+Added in v0.3.
 
 ## installLists [string[]]
 
@@ -47,6 +51,8 @@ os:
     - lists/ssh.yaml
 ```
 
+Added in v0.3.
+
 ## install [string[]]
 
 Installs packages onto the image.
@@ -61,6 +67,8 @@ os:
     install:
     - openssh-server
 ```
+
+Added in v0.3.
 
 ## removeLists [string[]]
 
@@ -78,6 +86,8 @@ os:
     - lists/ssh.yaml
 ```
 
+Added in v0.3.
+
 ## remove [string[]]
 
 Removes packages from the image.
@@ -92,6 +102,8 @@ os:
     remove:
     - openssh-server
 ```
+
+Added in v0.3.
 
 ## updateLists [string[]]
 
@@ -109,6 +121,8 @@ os:
     - lists/ssh.yaml
 ```
 
+Added in v0.3.
+
 ## update [string[]]
 
 Updates packages on the system.
@@ -123,3 +137,5 @@ os:
     update:
     - openssh-server
 ```
+
+Added in v0.3.

@@ -39,6 +39,8 @@ os:
     resetType: hard-reset
 ```
 
+Added in v0.3.
+
 ## bootType [string]
 
 Specifies the boot system that the image supports.
@@ -81,6 +83,8 @@ os:
     resetType: hard-reset
 ```
 
+Added in v0.3.
+
 ## disks [[disk](./disk.md)[]]
 
 Contains the options for provisioning disks and their partitions.
@@ -88,13 +92,20 @@ Contains the options for provisioning disks and their partitions.
 Note: While disks is a list, only 1 disk is supported at the moment.
 Support for multiple disks may (or may not) be added in the future.
 
+Added in v0.3.
+
 ## verity [[verity](./verity.md)[]]
 
 Configure verity block devices.
 
+Added in v0.7.
+
 ## filesystems [[filesystem](./filesystem.md)[]]
 
 Specifies the mount options of the partitions.
+
+Added in v0.3.
+(Renamed from `fileSystems` to `filesystems` in v0.7.)
 
 ## resetPartitionsUuidsType [string]
 
@@ -122,3 +133,5 @@ os:
   bootloader:
     resetType: hard-reset
 ```
+
+Added in v0.7.

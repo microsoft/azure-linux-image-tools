@@ -27,6 +27,9 @@ previewFeatures:
 - uki
 ```
 
+Added in v0.8.
+(This feature is in preview.)
+
 ## kernels
 
 Specifies which kernels to produce UKIs for.
@@ -62,3 +65,6 @@ os:
       - 6.6.51.1-5.azl3
       - 5.10.120-4.custom
 ```
+
+Added in v0.8.
+(This feature is in preview.)

@@ -6,6 +6,8 @@ parent: Configuration
 
 Contains the configuration options for the OS.
 
+Added in v0.3.
+
 ## hostname [string]
 
 Specifies the hostname for the OS.
@@ -19,13 +21,19 @@ os:
   hostname: example-image
 ```
 
+Added in v0.3.
+
 ## kernelCommandLine [[kernelCommandLine](./kernelcommandline.md)]
 
 Specifies extra kernel command line options.
 
+Added in v0.3.
+
 ## packages [[packages](./packages.md)]
 
 Remove, update, and install packages on the system.
+
+Added in v0.3.
 
 ## additionalFiles [[additionalFile](./additionalfile.md)[]]
 
@@ -65,6 +73,8 @@ os:
       childFilePermissions: 0644
 ```
 
+Added in v0.3.
+
 ## users [[user](./user.md)]
 
 Used to add and/or update user accounts.
@@ -77,21 +87,31 @@ os:
   - name: test
 ```
 
+Added in v0.3.
+
 ## modules [[module](./module.md)[]]
 
 Used to configure kernel modules.
+
+Added in v0.3.
 
 ## overlays [[overlay](./overlay.md)[]]
 
 Used to add filesystem overlays.
 
+Added in v0.6.
+
 ## bootloader [[bootloader](./bootloader.md)]
 
 Defines the configuration for the boot-loader.
 
+Added in v0.8.
+
 ## uki [[uki](./uki.md)]
 
 Used to create UKI PE images and enable UKI as boot entries.
+
+Added in v0.8.
 
 ## selinux [[selinux](./selinux.md)]
 
@@ -105,6 +125,8 @@ os:
     mode: permissive
 ```
 
+Added in v0.3.
+
 ## services [[services](./services.md)]
 
 Options for configuring systemd services.
@@ -115,6 +137,8 @@ os:
     enable:
     - sshd
 ```
+
+Added in v0.3.
 
 ## imageHistory [string]
 
@@ -128,3 +152,5 @@ To learn more about image history, refer to the [Image History Concept](../../co
 os:
   imageHistory: none
 ```
+
+Added in v0.8.

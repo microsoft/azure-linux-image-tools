@@ -6,6 +6,8 @@ parent: Configuration
 
 Specifies the PXE-specific configuration for the generated OS artifacts.
 
+Added in v0.8.
+
 ## isoImageBaseUrl [string]
 
 Specifies the base URL for the ISO image to download at boot time. The Azure
@@ -51,6 +53,8 @@ This field is mutually exclusive with `isoImageFileUrl`.
 For an overview of Image Customizer support for PXE, see the 
 [PXE support page](../../concepts/pxe.md).
 
+Added in v0.8.
+
 ## isoImageFileUrl [string]
 
 Specifies the URL of the ISO image to download at boot time.
@@ -71,3 +75,5 @@ This field is mutually exclusive with `isoImageBaseUrl`.
 
 For an overview of Image Customizer support for PXE, see the 
 [PXE support page](../../concepts/pxe.md).
+
+Added in v0.8.

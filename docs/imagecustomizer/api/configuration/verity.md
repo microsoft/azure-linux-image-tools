@@ -128,6 +128,8 @@ os:
     resetType: hard-reset
 ```
 
+Added in v0.7.
+
 ## id [string]
 
 Required.
@@ -135,6 +137,8 @@ Required.
 The ID of the verity object.
 This is used to correlate verity objects with
 [filesystem](./filesystem.md#deviceid-string) objects.
+
+Added in v0.7.
 
 ## name [string]
 
@@ -144,15 +148,27 @@ The name of the device mapper block device.
 
 The value must be:
 
-- `root` for root partition (i.e. `/`)
+- `root` for root partition (i.e. `/`).
+
+  Added in v0.7.
+  
+- `usr` for the usr partition (i.g. `/usr`).
+
+  Added in v0.11.0.
+
+Added in v0.7.
 
 ## dataDeviceId [string]
 
 The ID of the [partition](./partition.md#id-string) to use as the verity data partition.
 
+Added in v0.7.
+
 ## hashDeviceId [string]
 
 The ID of the [partition](./partition.md#id-string) to use as the verity hash partition.
+
+Added in v0.7.
 
 ## corruptionOption [string]
 
@@ -168,3 +184,5 @@ Supported values:
 - `restart`: Attempts to restart the system.
 
 Default value: `io-error`.
+
+Added in v0.7.

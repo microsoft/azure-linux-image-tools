@@ -25,6 +25,8 @@ os:
       type: locked
 ```
 
+Added in v0.3.
+
 ## type [string]
 
 The manner in which the password is provided.
@@ -44,7 +46,11 @@ Options for debugging purposes only (disabled by default):
 
 - `hashed-file`: The value is a path to a file containing a pre-hashed password.
 
+Added in v0.3.
+
 ## value [string]
 
 The password's value.
 The meaning of this value depends on the type property.
+
+Added in v0.3.

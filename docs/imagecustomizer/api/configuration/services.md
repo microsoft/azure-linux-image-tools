@@ -6,6 +6,8 @@ parent: Configuration
 
 Options for configuring systemd services.
 
+Added in v0.3.
+
 ## enable [string[]]
 
 A list of services to enable.
@@ -20,6 +22,8 @@ os:
     - sshd
 ```
 
+Added in v0.3.
+
 ## disable [string[]]
 
 A list of services to disable.
@@ -33,3 +37,5 @@ os:
     disable:
     - sshd
 ```
+
+Added in v0.3.

@@ -25,6 +25,10 @@ See also: [ISO Support](../../concepts/iso.md)
 
 Specifies extra kernel command line options.
 
+Added in v0.3.
+
 ## additionalFiles [[additionalFile](./additionalfile.md)[]]
 
 Adds files to the ISO.
+
+Added in v0.7.
