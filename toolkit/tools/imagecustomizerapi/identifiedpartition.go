@@ -8,8 +8,8 @@ import (
 )
 
 type IdentifiedPartition struct {
-	IdType IdentifiedPartitionType `yaml:"idType"`
-	Id     string                  `yaml:"id"`
+	IdType IdentifiedPartitionType `yaml:"idType" json:"idType,omitempty"`
+	Id     string                  `yaml:"id" json:"id,omitempty"`
 }
 
 func (i *IdentifiedPartition) IsValid() error {

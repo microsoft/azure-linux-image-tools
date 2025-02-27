@@ -52,7 +52,7 @@ type Verity struct {
 
 	// The mount point of the verity device.
 	// Value is filled in by ValidateVerityMounts() (via Storage.IsValid() or validateVerityMountPaths()).
-	MountPath string
+	MountPath string `json:"-"`
 }
 
 func (v *Verity) IsValid() error {

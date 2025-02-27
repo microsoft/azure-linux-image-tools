@@ -28,7 +28,7 @@ type Storage struct {
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
 
 	// Filled in by Storage.IsValid().
-	VerityPartitionsType VerityPartitionsType
+	VerityPartitionsType VerityPartitionsType `json:"-"`
 }
 
 func (s *Storage) IsValid() error {

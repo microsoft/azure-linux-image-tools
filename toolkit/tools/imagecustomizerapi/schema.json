@@ -140,6 +140,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "IdentifiedPartition": {
+      "properties": {
+        "idType": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Iso": {
       "properties": {
         "kernelCommandLine": {
@@ -555,20 +567,23 @@
         "dataDeviceId": {
           "type": "string"
         },
+        "dataDevice": {
+          "$ref": "#/$defs/IdentifiedPartition"
+        },
         "dataDeviceMountIdType": {
           "type": "string"
         },
         "hashDeviceId": {
           "type": "string"
         },
+        "hashDevice": {
+          "$ref": "#/$defs/IdentifiedPartition"
+        },
         "hashDeviceMountIdType": {
           "type": "string"
         },
         "corruptionOption": {
           "type": "string"
-        },
-        "FileSystem": {
-          "$ref": "#/$defs/FileSystem"
         }
       },
       "additionalProperties": false,
