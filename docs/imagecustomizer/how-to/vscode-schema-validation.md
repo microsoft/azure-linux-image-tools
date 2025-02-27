@@ -30,11 +30,10 @@ Add the following to your `settings.json` file after updating `<RELEASE>` and
 `<SPECIFIC-FOLDER>`:
 
 - `<SPECIFIC-FOLDER>` is the directory containing your image configs.
-- `<RELEASE>` is the version of Image Customizer that you are using (e.g.: v0.13).
-
+- `<RELEASE>` is the version of Image Customizer that you are using (e.g.: v0.13.0).
 ```json
 "yaml.schemas": {
-    "https://raw.githubusercontent.com/microsoft/azure-linux-image-tools/release/<RELEASE>/toolkit/tools/imagecustomizerapi/schema.json": [
+    "https://raw.githubusercontent.com/microsoft/azure-linux-image-tools/refs/tags/<RELEASE>/toolkit/tools/imagecustomizerapi/schema.json": [
         "<SPECIFIC-FOLDER>/**/*.yaml"
     ]
 }
@@ -44,7 +43,7 @@ For example:
 
 ```json
 "yaml.schemas": {
-    "https://raw.githubusercontent.com/microsoft/azure-linux-image-tools/release/v0.13/toolkit/tools/imagecustomizerapi/schema.json": [
+    "https://raw.githubusercontent.com/microsoft/azure-linux-image-tools/refs/tags/v0.13.0/toolkit/tools/imagecustomizerapi/schema.json": [
         "/home/test/image-configs/**/*.yaml"
     ]
 }
