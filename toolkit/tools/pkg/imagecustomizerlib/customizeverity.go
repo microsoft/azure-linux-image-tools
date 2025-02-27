@@ -133,7 +133,7 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 	}
 
 	if _, exists := verityMetadata["/"]; exists {
-		rootDevicePath := verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName)
+		rootDevicePath := imagecustomizerapi.VerityRootDevicePath
 
 		if grubMkconfigEnabled {
 			grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{"root"},
