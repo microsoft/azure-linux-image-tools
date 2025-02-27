@@ -65,7 +65,7 @@ func resetPartitionsUuids(buildImageFile string, buildDir string) error {
 	}
 
 	// Wait for the partition table updates to be processed.
-	err = diskutils.WaitForDevicesToSettle()
+	err = diskutils.WaitForDiskDevice(loopback.DevicePath())
 	if err != nil {
 		return err
 	}

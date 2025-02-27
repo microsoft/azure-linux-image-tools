@@ -445,7 +445,7 @@ func WaitForLoopbackToDetach(devicePath string, diskPath string) error {
 }
 
 func WaitForDiskDevice(diskDevPath string) error {
-	err := WaitForDevicesToSettle()
+	err := waitForDevicesToSettle()
 	if err != nil {
 		return err
 	}
@@ -534,9 +534,9 @@ func waitForDiskToPopulate(diskDevPath string) error {
 	return nil
 }
 
-// WaitForDevicesToSettle waits for all udev events to be processed on the system.
+// waitForDevicesToSettle waits for all udev events to be processed on the system.
 // This can be used to wait for partitions to be discovered after mounting a disk.
-func WaitForDevicesToSettle() error {
+func waitForDevicesToSettle() error {
 	logger.Log.Debugf("Waiting for devices to settle")
 	_, _, err := shell.Execute("udevadm", "settle")
 	if err != nil {
@@ -1028,12 +1028,6 @@ func SystemBlockDevices() (systemDevices []SystemBlockDevice, err error) {
 
 // GetDiskPartitions gets the kernel's view of a disk's partitions.
 func GetDiskPartitions(diskDevPath string) ([]PartitionInfo, error) {
-	// Just in case the disk was only recently connected, wait for the OS to finish processing it.
-	err := WaitForDevicesToSettle()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list disk (%s) partitions:\n%w", diskDevPath, err)
-	}
-
 	// Read the disk's partitions.
 	jsonString, _, err := shell.Execute("lsblk", diskDevPath, "--output", "NAME,PATH,PARTTYPE,FSTYPE,UUID,MOUNTPOINT,PARTUUID,PARTLABEL,TYPE", "--json", "--list")
 	if err != nil {
@@ -1083,7 +1077,7 @@ func ReadDiskPartitionTable(diskDevPath string) (*PartitionTable, error) {
 	partitionTable := output.PartitionTable
 
 	if partitionTable.Unit != "sectors" {
-		return nil, fmt.Errorf("sfdisk returned unepexted unit size '%s': expecting 'sectors'", partitionTable.Unit)
+		return nil, fmt.Errorf("sfdisk returned unexpected unit size '%s': expecting 'sectors'", partitionTable.Unit)
 	}
 
 	for i := range partitionTable.Partitions {
