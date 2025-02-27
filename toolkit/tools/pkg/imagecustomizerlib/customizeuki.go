@@ -6,11 +6,11 @@ package imagecustomizerlib
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/ini.v1"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
+
+	"gopkg.in/ini.v1"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -297,7 +297,7 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	}
 	defer systemBootPartitionMount.Close()
 
-	bootPartitionTmpDir := filepath.Join(buildDir, tmpParitionDirName)
+	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
@@ -359,23 +359,38 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
-	linuxLineRegex := regexp.MustCompile(`^linux\s+(/vmlinuz-[^\s]+)\s+(.*)`)
-
-	lines := strings.Split(string(grubCfgContent), "\n")
-	kernelToArgs := make(map[string]string)
-
-	for _, line := range lines {
-		trimmedLine := strings.TrimSpace(line)
-		matches := linuxLineRegex.FindStringSubmatch(trimmedLine)
-		if len(matches) == 3 {
-			kernel := strings.TrimPrefix(matches[1], "/")
-			args := matches[2]
-			kernelToArgs[kernel] = strings.TrimSpace(args)
-		}
+	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find linux command lines in grub.cfg:\n%w", err)
 	}
 
-	if len(kernelToArgs) == 0 {
-		return nil, fmt.Errorf("failed to find any valid 'linux /vmlinuz-*' lines in grub.cfg file at (%s)", grubCfgPath)
+	kernelToArgs := make(map[string]string)
+	for _, line := range lines {
+		if len(line.Tokens) < 3 {
+			return nil, fmt.Errorf("linux line in grub.cfg file has less than 3 args")
+		}
+
+		kernel := line.Tokens[1].RawContent
+		kernel = strings.TrimPrefix(kernel, "/")
+
+		argTokens := line.Tokens[2:]
+		args, err := ParseCommandLineArgs(argTokens)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse linux command lines args (%s):\n%w", kernel, err)
+		}
+
+		filteredArgs := []string(nil)
+		for _, arg := range args {
+			if arg.ValueHasVarExpansion {
+				// Ignore tokens with $ vars.
+				continue
+			}
+
+			filteredArgs = append(filteredArgs, arg.Arg)
+		}
+
+		filteredArgsString := GrubArgsToString(filteredArgs)
+		kernelToArgs[kernel] = filteredArgsString
 	}
 
 	return kernelToArgs, nil

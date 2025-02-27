@@ -17,18 +17,26 @@ os:
     destination: "usr/project/targetDir"
 ```
 
+Added in v0.3.
+
 ## source [string]
 
 The absolute path to the source directory that will be copied.
+
+Added in v0.3.
 
 ## destination [string]
 
 The absolute path in the target OS that the source directory will be copied to.
 
+Added in v0.3.
+
 ## newDirPermissions [string]
 
 The permissions to set on all of the new directories being created on the target OS
 (including the top-level directory). Default value: `755`.
+
+Added in v0.3.
 
 ## mergedDirPermissions [string]
 
@@ -36,6 +44,8 @@ The permissions to set on the directories being copied that already do exist on 
 target OS (including the top-level directory). **Note:** If this value is not specified
 in the config, the permissions for this field will be the same as that of the
 pre-existing directory.
+
+Added in v0.3.
 
 ## childFilePermissions [string]
 
@@ -56,3 +66,5 @@ os:
     mergedDirPermissions: "777"
     childFilePermissions: "644"
 ```
+
+Added in v0.3.

@@ -501,14 +501,14 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 	}
 
 	rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isomakerlib.DefaultVolumeId)
-	inputContentString, _, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue, true /*allowMultiple*/)
+	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 	if err != nil {
 		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 	}
 
 	if disableSELinux {
-		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString, imagecustomizerapi.SELinuxModeDisabled,
-			true /*allowMultiple*/, false /*requireKernelOpts*/)
+		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString,
+			imagecustomizerapi.SELinuxModeDisabled)
 		if err != nil {
 			return fmt.Errorf("failed to set SELinux mode:\n%w", err)
 		}
@@ -518,8 +518,7 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 	savedArgs := GrubArgsToString(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
-	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline,
-		true /*allowMultiple*/, false /*requireKernelOpts*/)
+	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline)
 	if err != nil {
 		return fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the iso grub.cfg:\n%w", err)
 	}
@@ -584,7 +583,7 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string,
 	outputImageBase string, pxeGrubCfgFileName string) error {
 	if pxeIsoImageBaseUrl != "" && pxeIsoImageFileUrl != "" {
-		return fmt.Errorf("cannot set both iso image base url and full image url at the same time.")
+		return fmt.Errorf("cannot set both iso image base url and full image url at the same time")
 	}
 
 	// remove 'search' commands from PXE grub.cfg because it is not needed.
@@ -602,13 +601,12 @@ func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, px
 		}
 	}
 	rootValue := fmt.Sprintf(rootValuePxeTemplate, pxeIsoImageFileUrl)
-	inputContentString, _, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue, true /*allowMultiple*/)
+	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 	if err != nil {
 		return fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
 	}
 
-	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs,
-		true /*allowMultiple*/, false /*requireKernelOpts*/)
+	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs)
 	if err != nil {
 		return fmt.Errorf("failed to append the kernel arguments (%s) in the PXE grub.cfg:\n%w", pxeKernelsArgs, err)
 	}

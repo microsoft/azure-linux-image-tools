@@ -1,11 +1,11 @@
 ---
 parent: How To
-nav_order: 6
+nav_order: 1
 ---
 
 # Quick start
 
-1. Download an Azure Linux core VHDX image file.
+1. Download an Azure Linux VHDX image file.
 
 2. Create a customization config file.
 
@@ -13,8 +13,9 @@ nav_order: 6
 
     ```yaml
     os:
-      packagesInstall:
-      - dnf
+      packages:
+        install:
+        - dnf
     ```
 
    For documentation on the supported configuration options, see:
@@ -24,7 +25,7 @@ nav_order: 6
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
    `genisoimage`, `parted`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
    `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
-   `veritysetup`, `grub2-install` (or `grub-install`).
+   `veritysetup`, `grub2-install` (or `grub-install`), `ukify`.
 
    - For Ubuntu 22.04 images, run:
 
@@ -34,13 +35,30 @@ nav_order: 6
         xfsprogs zstd cryptsetup-bin grub2-common
      ```
 
-   - For Azure Linux 2.0 and 3.0, run:
+   - For Azure Linux 2.0, run:
 
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
         sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
         xfsprogs zstd veritysetup grub2 grub2-pc
      ```
+
+   - For Azure Linux 3.0, run:
+
+     ```bash
+     sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
+        sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
+        xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify
+     ```
+
+   Note: The `ukify` tool is not available in Ubuntu 22.04 or Azure Linux 2.0. So, you
+   will not be able to use the [UKI API](../api/configuration/uki.md) when running
+   Image Customizer directly on those distros. However, using the
+   [Image Customizer container](../how-to/container.md) on those distros should work.
+
+   Note: There are known issues with trying to use Image Customizer in WSL (Windows
+   Subsystem for Linux). It is recommended that use the Image Customizer tool in a
+   Linux OS running on a bare-metal host or a virtual machine.
 
 4. Run the Image Customizer tool.
 

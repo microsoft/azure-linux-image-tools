@@ -4,6 +4,8 @@ parent: Configuration
 
 # partition type
 
+Added in v0.3.
+
 ## id [string]
 
 Required.
@@ -12,9 +14,13 @@ The ID of the partition.
 This is used to correlate Partition objects with [filesystem](./filesystem.md)
 objects.
 
+Added in v0.3.
+
 ## label [string]
 
 The label to assign to the partition.
+
+Added in v0.3.
 
 ## start [uint64]
 
@@ -31,6 +37,8 @@ Supported format: `<NUM>(K|M|G|T)`: A size in KiB (`K`), MiB (`M`), GiB (`G`), o
 (`T`).
 
 Must be a multiple of 1 MiB.
+
+Added in v0.3.
 
 ## end [uint64]
 
@@ -65,6 +73,8 @@ disks:
     end: 4096M
 ```
 
+Added in v0.3.
+
 ## size [uint64]
 
 The size of the partition.
@@ -90,6 +100,8 @@ disks:
   - id: rootfs
     size: 4G
 ```
+
+Added in v0.3.
 
 ## type [string]
 
@@ -161,3 +173,5 @@ disks:
     type: root
     size: 4G
 ```
+
+Added in v0.3.

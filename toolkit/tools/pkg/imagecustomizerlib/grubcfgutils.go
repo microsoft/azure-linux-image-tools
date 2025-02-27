@@ -240,8 +240,8 @@ func setInitrdPath(inputGrubCfgContent string, initrdPath string) (outputGrubCfg
 // If $kernelopts is present, extraCommandLine is inserted before $kernelopts.
 // If $kernelopts is not present, extraCommandLine is appended at the end.
 func appendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine string,
-	allowMultiple bool, requireKernelOpts bool) (outputGrubCfgContent string, err error) {
-	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, allowMultiple)
+) (outputGrubCfgContent string, err error) {
+	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, true /*allowMultiple*/)
 	if err != nil {
 		return "", err
 	}
@@ -256,31 +256,22 @@ func appendKernelCommandLineArgsAll(inputGrubCfgContent string, extraCommandLine
 		// Skip the "linux" command and the kernel binary path arg.
 		argTokens := line.Tokens[2:]
 
-		insertAt, err := findCommandLineInsertAt(argTokens, requireKernelOpts)
+		insertAt, err := findCommandLineInsertAt(argTokens, line.Tokens[1].Loc.End.Index)
 		if err != nil {
 			return "", err
 		}
 
-		leadingSpace := " "
-		if requireKernelOpts {
-			// When requireKernelOpts is true, we are inserting right before
-			// kernelOpts, and there is already an empty space.
-			leadingSpace = ""
-		}
-		outputGrubCfgContent = outputGrubCfgContent[:insertAt] + leadingSpace + extraCommandLine + " " + outputGrubCfgContent[insertAt:]
+		outputGrubCfgContent = outputGrubCfgContent[:insertAt] + " " + extraCommandLine + " " + outputGrubCfgContent[insertAt:]
 	}
 
 	return outputGrubCfgContent, nil
 }
 
-// Appends kernel command-line args to the linux command within a grub config file.
-func appendKernelCommandLineArgs(inputGrubCfgContent string, extraCommandLine string) (outputGrubCfgContent string, err error) {
-	return appendKernelCommandLineArgsAll(inputGrubCfgContent, extraCommandLine, false /*allow multiple*/, true /*requireKernelOpts*/)
-}
-
 type grubConfigLinuxArg struct {
 	// The tokenizer token for the arg.
 	Token grub.Token
+	// The full arg string.
+	Arg string
 	// The name of the argument.
 	Name string
 	// The value of the argument.
@@ -295,16 +286,17 @@ type grubConfigLinuxArg struct {
 //   - args: A list of kernel command-line arguments.
 //   - insertAt: An index that represents an appropriate insert point for any new args.
 //     For Azure Linux 2.0 images, this points to the index of the $kernelopts token.
-func getLinuxCommandLineArgs(grub2Config string, requireKernelOpts bool) ([]grubConfigLinuxArg, int, error) {
-	linuxLine, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, false /*allowMultiple*/)
+func getLinuxCommandLineArgs(grub2Config string) ([]grubConfigLinuxArg, int, error) {
+	linuxLines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, false /*allowMultiple*/)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// Skip the "linux" command and the kernel binary path arg.
-	argTokens := linuxLine[0].Tokens[2:]
+	linuxLine := linuxLines[0]
+	argTokens := linuxLine.Tokens[2:]
 
-	insertAt, err := findCommandLineInsertAt(argTokens, requireKernelOpts)
+	insertAt, err := findCommandLineInsertAt(argTokens, linuxLine.Tokens[1].Loc.End.Index)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -319,10 +311,12 @@ func getLinuxCommandLineArgs(grub2Config string, requireKernelOpts bool) ([]grub
 
 // Takes a tokenized grub.cfg file and looks for an appropriate place to insert new args.
 // If $kernelopts is present, it returns its location for insertion.
-// If $kernelopts is absent,
-// - If requireKernelOpts is true, it fails (could not find required $kernelopts).
-// - If requireKernelOpts is false, it returns the location after the last token.
-func findCommandLineInsertAt(argTokens []grub.Token, requireKernelOpts bool) (int, error) {
+// If $kernelopts is absent, it returns the location after the last token.
+func findCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, error) {
+	if len(argTokens) <= 0 {
+		return defaultValue, nil
+	}
+
 	insertAtTokens := []grub.Token(nil)
 	for i := range argTokens {
 		argToken := argTokens[i]
@@ -341,13 +335,9 @@ func findCommandLineInsertAt(argTokens []grub.Token, requireKernelOpts bool) (in
 	}
 
 	if len(insertAtTokens) < 1 {
-		// Could not find the grubKernelOpts
-		if !requireKernelOpts && len(argTokens) > 0 {
-			// Try to insert at the very end as long as there are other tokens.
-			return argTokens[len(argTokens)-1].Loc.End.Index, nil
-		} else {
-			return 0, fmt.Errorf("failed to find $%s in linux command line", grubKernelOpts)
-		}
+		// Could not find the grubKernelOpts.
+		// So, insert at the end.
+		return argTokens[len(argTokens)-1].Loc.End.Index, nil
 	}
 	if len(insertAtTokens) > 1 {
 		return 0, fmt.Errorf("too many $%s tokens found in linux command line", grubKernelOpts)
@@ -402,6 +392,7 @@ func ParseCommandLineArgs(argTokens []grub.Token) ([]grubConfigLinuxArg, error) 
 
 		arg := grubConfigLinuxArg{
 			Token:                argToken,
+			Arg:                  argString,
 			Name:                 name,
 			Value:                value,
 			ValueHasVarExpansion: hasVarExpansion,
@@ -444,14 +435,14 @@ func findKernelCommandLineArgValue(args []grubConfigLinuxArg, name string) (stri
 	return lastArg.Value, nil
 }
 
-func replaceKernelCommandLineArgValueAll(inputGrubCfgContent string, name string, value string, allowMultiple bool,
-) (outputGrubCfgContent string, oldValues []string, err error) {
+func replaceKernelCommandLineArgValueAll(inputGrubCfgContent string, name string, value string,
+) (outputGrubCfgContent string, err error) {
 	newArg := fmt.Sprintf("%s=%s", name, value)
 	quotedNewArg := grub.QuoteString(newArg)
 
-	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, allowMultiple)
+	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, true /*allowMultiple*/)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	outputGrubCfgContent = inputGrubCfgContent
@@ -466,31 +457,29 @@ func replaceKernelCommandLineArgValueAll(inputGrubCfgContent string, name string
 
 		args, err := ParseCommandLineArgs(argTokens)
 		if err != nil {
-			return "", nil, err
+			return "", err
 		}
 
 		foundArgs := findMatchingCommandLineArgs(args, []string{name})
 		if len(foundArgs) < 1 {
-			return "", nil, fmt.Errorf("failed to find kernel arg (%s)", name)
+			return "", fmt.Errorf("failed to find kernel arg (%s)", name)
 		}
 		if len(foundArgs) > 1 {
-			return "", nil, fmt.Errorf("too many instances of kernel arg found (%s)", name)
+			return "", fmt.Errorf("too many instances of kernel arg found (%s)", name)
 		}
 
 		arg := foundArgs[0]
 		start := arg.Token.Loc.Start.Index
 		end := arg.Token.Loc.End.Index
 
-		oldValues = append(oldValues, inputGrubCfgContent[start:end])
 		outputGrubCfgContent = outputGrubCfgContent[:start] + quotedNewArg + outputGrubCfgContent[end:]
 	}
 
-	return outputGrubCfgContent, oldValues, nil
+	return outputGrubCfgContent, nil
 }
 
-func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, newArgs []string,
-	allowMultiple bool, requireKernelOpts bool) (string, error) {
-	lines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, allowMultiple /*allowMultiple*/)
+func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, newArgs []string) (string, error) {
+	lines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, true /*allowMultiple*/)
 	if err != nil {
 		return "", err
 	}
@@ -504,7 +493,7 @@ func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, n
 		// Skip the "linux" command and the kernel binary path arg.
 		argTokens := line.Tokens[2:]
 
-		insertAtToken, err := findCommandLineInsertAt(argTokens, requireKernelOpts)
+		insertAtToken, err := findCommandLineInsertAt(argTokens, line.Tokens[1].Loc.End.Index)
 		if err != nil {
 			return "", err
 		}
@@ -520,19 +509,6 @@ func updateKernelCommandLineArgsAll(grub2Config string, argsToRemove []string, n
 		}
 	}
 	return grub2Config, nil
-}
-
-// Finds all the kernel command-line args that match the provided names, then insert replacement arg(s).
-//
-// Params:
-// - grub2Config: The string contents of the grub.cfg file.
-// - argsToRemove: A list of arg names to remove from the command-line args.
-// - newArgs: A list of new arg values to add to the command-line args.
-//
-// Output:
-// - grub2Config: The new string contents of the grub.cfg file.
-func updateKernelCommandLineArgs(grub2Config string, argsToRemove []string, newArgs []string) (string, error) {
-	return updateKernelCommandLineArgsAll(grub2Config, argsToRemove, newArgs, false /*allowMultiple*/, true /*requireKernelOpts*/)
 }
 
 func updateKernelCommandLineArgsHelper(value string, args []grubConfigLinuxArg, insertAt int,
@@ -625,13 +601,13 @@ func selinuxModeToArgsWithPermissiveFlag(selinuxMode imagecustomizerapi.SELinuxM
 }
 
 // Update the SELinux kernel command-line args.
-func updateSELinuxCommandLineHelperAll(grub2Config string, selinuxMode imagecustomizerapi.SELinuxMode, allowMultiple bool, requireKernelOpts bool) (string, error) {
+func updateSELinuxCommandLineHelperAll(grub2Config string, selinuxMode imagecustomizerapi.SELinuxMode) (string, error) {
 	newSELinuxArgs, err := selinuxModeToArgs(selinuxMode)
 	if err != nil {
 		return "", err
 	}
 
-	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, selinuxArgNames, newSELinuxArgs, allowMultiple, requireKernelOpts)
+	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, selinuxArgNames, newSELinuxArgs)
 	if err != nil {
 		return "", err
 	}

@@ -6,9 +6,13 @@ parent: Configuration
 
 Options for configuring a kernel module.
 
+Added in v0.3.
+
 ## name [string]
 
 The name of the kernel module to configure.
+
+Added in v0.3.
 
 ## loadMode [string]
 
@@ -52,6 +56,8 @@ os:
     loadMode: always
 ```
 
+Added in v0.3.
+
 ## options [map\<string, string>]
 
 Kernel options for modules can specify how these modules interact with the system,
@@ -73,3 +79,5 @@ os:
       enable_unsafe_noiommu_mode: Y
       disable_vga: Y
 ```
+
+Added in v0.3.

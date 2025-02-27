@@ -1,8 +1,13 @@
 title: Azure Linux Image Tools
-description: Documentation for Image customizer & other image tools
+description: Documentation for Prism & other image tools
+logo: /assets/images/logo.png
 theme: just-the-docs
 exclude:
 - Makefile
 - Gemfile
 - Gemfile.lock
 - vendor
+kramdown:
+  gfm_quirks:
+    # Don't convert `--` to em-dash.
+  - no_auto_typographic

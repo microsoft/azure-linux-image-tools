@@ -14,3 +14,6 @@ serve:
 build:
 	bundle exec jekyll build
 	bundle exec htmlproofer --assume_extension '.html' ./_site
+
+update-dependencies:
+	bundle update

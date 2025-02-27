@@ -65,7 +65,7 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 		b.defaultGrubFileContent = defaultGrubFileContent
 	} else {
 		// Add the args directly to the /boot/grub2/grub.cfg file.
-		grubCfgContent, err := appendKernelCommandLineArgs(b.grubCfgContent, combinedArgs)
+		grubCfgContent, err := appendKernelCommandLineArgsAll(b.grubCfgContent, combinedArgs)
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (b *BootCustomizer) getSELinuxModeFromGrub() (imagecustomizerapi.SELinuxMod
 			return "", err
 		}
 	} else {
-		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent, true /*requireKernelOpts*/)
+		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, err
 		}
@@ -163,7 +163,7 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 
 		b.defaultGrubFileContent = defaultGrubFileContent
 	} else {
-		grubCfgContent, err := updateKernelCommandLineArgs(b.grubCfgContent, argsToRemove, newArgs)
+		grubCfgContent, err := updateKernelCommandLineArgsAll(b.grubCfgContent, argsToRemove, newArgs)
 		if err != nil {
 			return err
 		}
@@ -179,14 +179,6 @@ func (b *BootCustomizer) PrepareForVerity() error {
 	if b.isGrubMkconfig {
 		// Force root command-line arg to be referenced by /dev path instead of by UUID.
 		defaultGrubFileContent, err := UpdateDefaultGrubFileVariable(b.defaultGrubFileContent, "GRUB_DISABLE_UUID",
-			"true")
-		if err != nil {
-			return err
-		}
-
-		// Disable recovery menu entry, to avoid having more than 1 linux command in the grub.cfg file.
-		// This will make it easier to modify the grub.cfg file to add the verity args.
-		defaultGrubFileContent, err = UpdateDefaultGrubFileVariable(defaultGrubFileContent, "GRUB_DISABLE_RECOVERY",
 			"true")
 		if err != nil {
 			return err

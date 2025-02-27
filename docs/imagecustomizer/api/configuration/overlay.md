@@ -28,6 +28,8 @@ overlay filesystem. It is common for the `mountPoint` to be the same as the
 
 Example: `/etc`
 
+Added in v0.6.
+
 ## `lowerDirs` [string[]]
 
 A list of directories that act as the read-only layers in the overlay filesystem. They
@@ -40,6 +42,8 @@ lowerDirs:
 - /etc
 ```
 
+Added in v0.6.
+
 ## `upperDir` [string]
 
 Required.
@@ -51,6 +55,8 @@ from the lowerDir alone.
 
 Example: `/var/overlays/etc/upper`
 
+Added in v0.6.
+
 ## `workDir` [string]
 
 Required.
@@ -61,6 +67,8 @@ is used for temporary storage by the overlay filesystem to ensure atomic
 operations. The `workDir` should not be directly accessed by users.
 
 Example: `/var/overlays/etc/work`
+
+Added in v0.6.
 
 ## `isInitrdOverlay` [bool]
 
@@ -130,6 +138,8 @@ os:
     - /var
 ```
 
+Added in v0.7.
+
 ## `mountDependencies` [string[]]
 
 Specifies a list of directories that must be mounted before this overlay. Each
@@ -160,6 +170,8 @@ filesystems:
     options: defaults,x-initrd.mount
 ```
 
+Added in v0.6.
+
 ## `mountOptions` [string]
 
 A string of additional mount options that can be applied to the overlay mount.
@@ -168,3 +180,5 @@ Multiple options should be separated by commas.
 This is an optional argument.
 
 Example: `noatime,nodiratime`
+
+Added in v0.6.

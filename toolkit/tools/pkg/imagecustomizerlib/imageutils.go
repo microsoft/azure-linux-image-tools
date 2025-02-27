@@ -21,7 +21,7 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (*ImageConnection, map[string]string, error) {
+) (*ImageConnection, map[string]diskutils.FstabEntry, error) {
 	imageConnection := NewImageConnection()
 
 	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
@@ -34,7 +34,7 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (map[string]string, error) {
+) (map[string]diskutils.FstabEntry, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
@@ -46,14 +46,20 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 		return nil, err
 	}
 
-	// Look for all the partitions on the image.
-	mountPoints, err := findPartitions(buildDir, partitions)
+	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find disk partitions:\n%w", err)
+		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
-	// Create mapping from partition UUID to mount path
-	partUuidToMountPath := createPartUuidToMountPathMap(partitions, mountPoints)
+	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, partitions, buildDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+	}
+
+	mountPoints, partUuidToFstabEntry, err := fstabEntriesToMountPoints(fstabEntries, partitions, buildDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
+	}
 
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
@@ -63,7 +69,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 		return nil, err
 	}
 
-	return partUuidToMountPath, nil
+	return partUuidToFstabEntry, nil
 }
 
 func createNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
@@ -241,9 +247,14 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 	}
 
 	// Read back the fstab file.
-	mountPoints, err := findMountsFromFstabFile(tmpFstabFile, diskPartitions, buildDir)
+	fstabEntries, err := diskutils.ReadFstabFile(tmpFstabFile)
 	if err != nil {
 		return nil, "", err
+	}
+
+	mountPoints, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
 
 	// Create chroot environment.
@@ -272,18 +283,4 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 	}
 
 	return partIdToPartUuid, nil
-}
-
-func createPartUuidToMountPathMap(partitions []diskutils.PartitionInfo, mountPoints []*safechroot.MountPoint,
-) map[string]string {
-	partUuidToMountPath := make(map[string]string)
-	for _, mountPoint := range mountPoints {
-		for _, partition := range partitions {
-			if partition.Path == mountPoint.GetSource() {
-				partUuidToMountPath[partition.PartUuid] = mountPoint.GetTarget()
-				break
-			}
-		}
-	}
-	return partUuidToMountPath
 }

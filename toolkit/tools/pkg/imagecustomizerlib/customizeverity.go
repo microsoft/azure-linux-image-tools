@@ -42,7 +42,7 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 		return false, fmt.Errorf("failed to update fstab file for verity:\n%w", err)
 	}
 
-	err = prepareGrubConfigForVerity(imageChroot)
+	err = prepareGrubConfigForVerity(verity, imageChroot)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare grub config files for verity:\n%w", err)
 	}
@@ -51,8 +51,6 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 }
 
 func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
-	var err error
-
 	fstabFile := filepath.Join(imageChroot.RootDir(), "etc", "fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabFile)
 	if err != nil {
@@ -61,11 +59,6 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 
 	// Update fstab entries so that verity mounts point to verity device paths.
 	for _, verity := range verityList {
-		if verity.FileSystem == nil || verity.FileSystem.MountPoint == nil {
-			// No mount point assigned to verity device.
-			continue
-		}
-
 		mountPath := verity.FileSystem.MountPoint.Path
 
 		for j := range fstabEntries {
@@ -86,31 +79,35 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
-func prepareGrubConfigForVerity(imageChroot *safechroot.Chroot) error {
+func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
 	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = bootCustomizer.PrepareForVerity()
-	if err != nil {
-		return err
+	for _, verity := range verityList {
+		mountPath := verity.FileSystem.MountPoint.Path
+
+		if mountPath == "/" {
+			if err := bootCustomizer.PrepareForVerity(); err != nil {
+				return err
+			}
+		}
 	}
 
-	err = bootCustomizer.WriteToFile(imageChroot)
-	if err != nil {
+	if err := bootCustomizer.WriteToFile(imageChroot); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string, grubCfgFullPath string,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, grubCfgFullPath string,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -125,24 +122,30 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 	// So, instead we just modify the /boot/grub2/grub.cfg file directly.
 	grubMkconfigEnabled := isGrubMkconfigConfig(grub2Config)
 
-	grub2Config, err = updateKernelCommandLineArgs(grub2Config, []string{"rd.systemd.verity", "roothash",
-		"systemd.verity_root_data", "systemd.verity_root_hash", "systemd.verity_root_options"}, newArgs)
+	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{
+		"rd.systemd.verity", "roothash", "systemd.verity_root_data",
+		"systemd.verity_root_hash", "systemd.verity_root_options",
+		"usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
+		"systemd.verity_usr_options",
+	}, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to set verity kernel command line args:\n%w", err)
 	}
 
-	rootDevicePath := verityDevicePath(rootfsVerity)
+	if _, exists := verityMetadata["/"]; exists {
+		rootDevicePath := verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName)
 
-	if grubMkconfigEnabled {
-		grub2Config, err = updateKernelCommandLineArgs(grub2Config, []string{"root"},
-			[]string{"root=" + rootDevicePath})
-		if err != nil {
-			return fmt.Errorf("failed to set verity root command-line arg:\n%w", err)
-		}
-	} else {
-		grub2Config, err = replaceSetCommandValue(grub2Config, "rootdevice", rootDevicePath)
-		if err != nil {
-			return fmt.Errorf("failed to set verity root device:\n%w", err)
+		if grubMkconfigEnabled {
+			grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{"root"},
+				[]string{"root=" + rootDevicePath})
+			if err != nil {
+				return fmt.Errorf("failed to set verity root command-line arg:\n%w", err)
+			}
+		} else {
+			grub2Config, err = replaceSetCommandValue(grub2Config, "rootdevice", rootDevicePath)
+			if err != nil {
+				return fmt.Errorf("failed to set verity root device:\n%w", err)
+			}
 		}
 	}
 
@@ -154,34 +157,54 @@ func updateGrubConfigForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash 
 	return nil
 }
 
-func constructVerityKernelCmdlineArgs(rootfsVerity imagecustomizerapi.Verity, rootHash string,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMetadata,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) ([]string, error) {
-	// Format the dataPartitionId and hashPartitionId using the helper function.
-	formattedDataPartition, err := systemdFormatPartitionId(rootfsVerity.DataDeviceId,
-		rootfsVerity.DataDeviceMountIdType, partIdToPartUuid, partitions, buildDir)
-	if err != nil {
-		return nil, err
-	}
+	newArgs := []string{"rd.systemd.verity=1"}
 
-	formattedHashPartition, err := systemdFormatPartitionId(rootfsVerity.HashDeviceId,
-		rootfsVerity.HashDeviceMountIdType, partIdToPartUuid, partitions, buildDir)
-	if err != nil {
-		return nil, err
-	}
+	for mountPath, metadata := range verityMetadata {
+		var hashArg, dataArg, optionsArg, hashKey string
 
-	formattedCorruptionOption, err := SystemdFormatCorruptionOption(rootfsVerity.CorruptionOption)
-	if err != nil {
-		return nil, err
-	}
+		switch mountPath {
+		case "/":
+			hashArg = "roothash"
+			dataArg = "systemd.verity_root_data"
+			hashKey = "systemd.verity_root_hash"
+			optionsArg = "systemd.verity_root_options"
 
-	// Construct the verity-related kernel arguments.
-	newArgs := []string{
-		"rd.systemd.verity=1",
-		fmt.Sprintf("roothash=%s", rootHash),
-		fmt.Sprintf("systemd.verity_root_data=%s", formattedDataPartition),
-		fmt.Sprintf("systemd.verity_root_hash=%s", formattedHashPartition),
-		fmt.Sprintf("systemd.verity_root_options=%s", formattedCorruptionOption),
+		case "/usr":
+			hashArg = "usrhash"
+			dataArg = "systemd.verity_usr_data"
+			hashKey = "systemd.verity_usr_hash"
+			optionsArg = "systemd.verity_usr_options"
+
+		default:
+			return nil, fmt.Errorf("unsupported verity mount path: %s", mountPath)
+		}
+
+		formattedDataPartition, err := systemdFormatPartitionUuid(metadata.dataPartUuid,
+			metadata.dataDeviceMountIdType, partitions, buildDir)
+		if err != nil {
+			return nil, err
+		}
+
+		formattedHashPartition, err := systemdFormatPartitionUuid(metadata.hashPartUuid,
+			metadata.hashDeviceMountIdType, partitions, buildDir)
+		if err != nil {
+			return nil, err
+		}
+
+		formattedCorruptionOption, err := SystemdFormatCorruptionOption(imagecustomizerapi.CorruptionOptionPanic)
+		if err != nil {
+			return nil, err
+		}
+
+		newArgs = append(newArgs,
+			fmt.Sprintf("%s=%s", hashArg, metadata.rootHash),
+			fmt.Sprintf("%s=%s", dataArg, formattedDataPartition),
+			fmt.Sprintf("%s=%s", hashKey, formattedHashPartition),
+			fmt.Sprintf("%s=%s", optionsArg, formattedCorruptionOption),
+		)
 	}
 
 	return newArgs, nil
@@ -217,12 +240,10 @@ func partitionMatchesDeviceId(configDeviceId string, partition diskutils.Partiti
 	return partition.PartUuid == partUuid
 }
 
-// systemdFormatPartitionId formats the partition ID based on the ID type following systemd dm-verity style.
-func systemdFormatPartitionId(configDeviceId string, mountIdType imagecustomizerapi.MountIdentifierType,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+// systemdFormatPartitionUuid formats the partition UUID based on the ID type following systemd dm-verity style.
+func systemdFormatPartitionUuid(partUuid string, mountIdType imagecustomizerapi.MountIdentifierType,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) (string, error) {
-	partUuid := partIdToPartUuid[configDeviceId]
-
 	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions, buildDir)
 	if err != nil {
 		return "", err
@@ -272,15 +293,14 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 	return nil
 }
 
-func updateUkiKernelArgsForVerity(rootfsVerity imagecustomizerapi.Verity, rootHash string,
-	partIdToPartUuid map[string]string, partitions []diskutils.PartitionInfo, buildDir string,
+func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata,
+	partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(rootfsVerity, rootHash, partIdToPartUuid, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
 
-	// UKI is enabled, update ukify kernel cmdline args file instead of grub.cfg.
 	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)

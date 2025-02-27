@@ -1,7 +1,7 @@
 ---
 title: Create Azure VM
 parent: How To
-nav_order: 1
+nav_order: 2
 ---
 
 # Create a customized image and deploy it as an Azure VM
@@ -151,7 +151,7 @@ in front of any HTTP endpoints.
 5. Run Image Customizer to create the new image:
 
    ```bash
-   IMG_CUSTOMIZER_TAG="mcr.microsoft.com/azurelinux/imagecustomizer:0.10.0"
+   IMG_CUSTOMIZER_TAG="mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0"
    docker run \
      --rm \
      --privileged=true \

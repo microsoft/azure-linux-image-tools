@@ -1,0 +1,10 @@
+os:
+  packages:
+    install:
+    - kernel-5.15.167.1-2.cm2
+    - kernel-5.15.173.1-1.cm2
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0

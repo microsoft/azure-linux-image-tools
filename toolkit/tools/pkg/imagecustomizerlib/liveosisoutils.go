@@ -16,7 +16,7 @@ const (
 
 	// Minumum dracut version required to enable SELinux.
 	LiveOsSelinuxDracutMinVersion        = 102
-	LiveOsSelinuxDracutMinPackageRelease = 8
+	LiveOsSelinuxDracutMinPackageRelease = 9
 	LiveOsSelinuxDracutDistroName        = "azl"
 	LiveOsSelinuxDracutMinDistroVersion  = 3
 

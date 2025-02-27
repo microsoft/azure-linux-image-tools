@@ -21,6 +21,8 @@ the host kernel.
 WARNING: Custom scripts are not considered to be on security boundary.
 Only use config files that you trust (or run image customizer in a security sandbox).
 
+Added in v0.3.
+
 ## path [string]
 
 The path of the script.
@@ -37,6 +39,8 @@ scripts:
   postCustomization:
   - path: scripts/a.sh
 ```
+
+Added in v0.3.
 
 ## content [string]
 
@@ -55,6 +59,8 @@ scripts:
       echo "Hello, World"
 ```
 
+Added in v0.3.
+
 ## interpreter [string]
 
 The program to run the script with.
@@ -71,6 +77,8 @@ scripts:
     interpreter: python3
 ```
 
+Added in v0.3.
+
 ## arguments [string[]]
 
 Additional arguments to pass to the script.
@@ -84,6 +92,8 @@ scripts:
     arguments:
     - abc
 ```
+
+Added in v0.3.
 
 ## environmentVariables [map\<string, string>]
 
@@ -101,6 +111,8 @@ scripts:
       b: world
 ```
 
+Added in v0.3.
+
 ## name [string]
 
 The name of the script.
@@ -117,3 +129,5 @@ scripts:
       echo "Hello, World"
     name: greetings
 ```
+
+Added in v0.3.

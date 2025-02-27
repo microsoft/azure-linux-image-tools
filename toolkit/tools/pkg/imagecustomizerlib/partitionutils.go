@@ -32,22 +32,6 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
-func findPartitions(buildDir string, diskPartitions []diskutils.PartitionInfo) ([]*safechroot.MountPoint, error) {
-	var err error
-
-	rootfsPartition, err := findRootfsPartition(diskPartitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
-	}
-
-	mountPoints, err := findMountsFromRootfs(rootfsPartition, diskPartitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
-	}
-
-	return mountPoints, nil
-}
-
 func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {
 	// Look for all system boot partitions, including both EFI System Paritions (ESP) and BIOS boot partitions.
 	var bootPartitions []*diskutils.PartitionInfo
@@ -124,7 +108,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
 	logger.Log.Debugf("Searching for rootfs partition")
 
-	tmpDir := filepath.Join(buildDir, tmpParitionDirName)
+	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	var rootfsPartitions []*diskutils.PartitionInfo
 	for i := range diskPartitions {
@@ -181,12 +165,12 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	return rootfsPartition, nil
 }
 
-func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
+func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
-) ([]*safechroot.MountPoint, error) {
+) ([]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
-	tmpDir := filepath.Join(buildDir, tmpParitionDirName)
+	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
 	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "",
@@ -199,7 +183,8 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 	// Read the fstab file.
 	fstabPath := filepath.Join(tmpDir, "/etc/fstab")
 
-	mountPoints, err := findMountsFromFstabFile(fstabPath, diskPartitions, buildDir)
+	// Read the fstab file.
+	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
 		return nil, err
 	}
@@ -210,38 +195,22 @@ func findMountsFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitio
 		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
 	}
 
-	return mountPoints, nil
-}
-
-func findMountsFromFstabFile(fstabPath string, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
-) ([]*safechroot.MountPoint, error) {
-	// Read the fstab file.
-	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
-	if err != nil {
-		return nil, err
-	}
-
-	mountPoints, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
-	}
-
-	return mountPoints, nil
+	return fstabEntries, nil
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
-) ([]*safechroot.MountPoint, error) {
+) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
 	var foundRoot bool
+	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	for _, fstabEntry := range filteredFstabEntries {
-		source, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		_, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
@@ -250,24 +219,25 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
-				source, fstabEntry.Target, fstabEntry.FsType,
+				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 
 			foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
-				source, fstabEntry.Target, fstabEntry.FsType,
+				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
+		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
 	}
 
 	if !foundRoot {
-		return nil, fmt.Errorf("image has invalid fstab file: no root partition found")
+		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
-	return mountPoints, nil
+	return mountPoints, partUuidToFstabEntry, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {
@@ -293,17 +263,6 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 }
 
 func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
-	buildDir string,
-) (string, error) {
-	_, partition, _, err := findSourcePartitionHelper(source, partitions, buildDir)
-	if err != nil {
-		return "", err
-	}
-
-	return partition.Path, nil
-}
-
-func findSourcePartitionHelper(source string, partitions []diskutils.PartitionInfo,
 	buildDir string,
 ) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
@@ -353,9 +312,16 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 			return diskutils.PartitionInfo{}, 0, err
 		}
 
-		mountIdType, mountId, err = extractVerityRootPartitionId(cmdline)
-		if err != nil {
-			return diskutils.PartitionInfo{}, 0, err
+		if mountId == verityDevicePathFromName(imagecustomizerapi.VerityRootDeviceName) {
+			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_root_data", imagecustomizerapi.VerityRootDeviceName)
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, err
+			}
+		} else if mountId == verityDevicePathFromName(imagecustomizerapi.VerityUsrDeviceName) {
+			mountIdType, mountId, err = extractVerityPartitionId(cmdline, "systemd.verity_usr_data", imagecustomizerapi.VerityUsrDeviceName)
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, err
+			}
 		}
 	}
 
@@ -426,28 +392,16 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	}
 	defer espPartitionMount.Close()
 
-	espLinuxPath := filepath.Join(tmpDirEsp, UkiOutputDir)
-	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
+	cmdlineContents, err := extractKernelCmdlineFromUkiEfis(tmpDirEsp, buildDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+		return nil, err
 	}
 
-	if len(ukiFiles) == 0 {
+	if len(cmdlineContents) == 0 {
 		return nil, os.ErrNotExist
 	}
 
-	cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
-	_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFiles[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed to dump kernel cmdline args from UKI:\n%w", err)
-	}
-
-	cmdlineContent, err := os.ReadFile(cmdlinePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read kernel cmdline args from dumped file:\n%w", err)
-	}
-
-	tokens, err := grub.TokenizeConfig(string(cmdlineContent))
+	tokens, err := grub.TokenizeConfig(string(cmdlineContents[0]))
 	if err != nil {
 		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI: %w", err)
 	}
@@ -463,6 +417,33 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	}
 
 	return args, nil
+}
+
+func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) ([]string, error) {
+	cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
+
+	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
+	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+	}
+
+	cmdlineContents := []string(nil)
+	for _, ukiFile := range ukiFiles {
+		_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to dump kernel cmdline args from UKI (%s):\n%w", ukiFile, err)
+		}
+
+		cmdlineContent, err := os.ReadFile(cmdlinePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", ukiFile, err)
+		}
+
+		cmdlineContents = append(cmdlineContents, string(cmdlineContent))
+	}
+
+	return cmdlineContents, nil
 }
 
 func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
@@ -481,7 +462,7 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
-	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent), true)
+	args, _, err := getLinuxCommandLineArgs(string(grubCfgContent))
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel command-line arguments: %w", err)
 	}
@@ -494,20 +475,21 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 	return args, nil
 }
 
-func extractVerityRootPartitionId(cmdline []grubConfigLinuxArg) (ExtendedMountIdentifierType, string, error) {
-	identifier, err := findKernelCommandLineArgValue(cmdline, "systemd.verity_root_data")
+func extractVerityPartitionId(cmdline []grubConfigLinuxArg, verityDataArg string,
+	verityName string,
+) (ExtendedMountIdentifierType, string, error) {
+	identifier, err := findKernelCommandLineArgValue(cmdline, verityDataArg)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to find or parse systemd.verity_root_data argument: %w", err)
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to find or parse (%s) argument:\n%w", verityDataArg, err)
 	}
 
 	if identifier == "" {
-		fmt.Println("No identifier found.")
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity root identifier found in kernel command-line")
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity (%s) identifier found in kernel command-line", verityName)
 	}
 
 	idType, value, err := parseExtendedSourcePartition(identifier)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s): %w", identifier, err)
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("failed to parse identifier (%s):\n%w", identifier, err)
 	}
 
 	return idType, value, nil

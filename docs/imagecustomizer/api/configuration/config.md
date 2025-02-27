@@ -6,17 +6,25 @@ parent: Configuration
 
 The top-level type of the configuration.
 
+Added in v0.3.
+
 ## storage [[storage](./storage.md)]
 
 Contains the options for provisioning disks, partitions, and file systems.
+
+Added in v0.3.
 
 ## iso [[iso](./iso.md)]
 
 Optionally specifies the configuration for the generated ISO media.
 
+Added in v0.3.
+
 ## pxe [[pxe](./pxe.md)]
 
 Optionally specifies the PXE-specific configuration for the generated OS artifacts.
+
+Added in v0.8.
 
 ## os [[os](./os.md)]
 
@@ -29,9 +37,13 @@ os:
   hostname: example-image
 ```
 
+Added in v0.3.
+
 ## scripts [[scripts](./scripts.md)]
 
 Specifies custom scripts to run during the customization process.
+
+Added in v0.3.
 
 ## previewFeatures [string[]]
 
@@ -47,6 +59,8 @@ Supported options:
   valid `os.bootloader.reset` value of `hard-reset` is required when `os.uki` is
   configured.
 
+  Added in v0.8.
+
 Example:
 
 ```yaml
@@ -58,3 +72,5 @@ os:
 previewFeatures:
 - uki
 ```
+
+Added in v0.8.

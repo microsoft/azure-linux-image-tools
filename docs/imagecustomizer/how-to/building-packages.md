@@ -1,13 +1,13 @@
 ---
 parent: How To
-nav_order: 2
+nav_order: 3
 ---
 
 # Building custom packages
 
 This is a guide on how to build custom packages for Azure Linux.
 Once built, the RPM files can be provided to the Image Customizer tool using the
-[--rpm-source](../api/cli.md#rpm-sourcepath) command-line arg.
+[--rpm-source](../api/cli.md#--rpm-sourcepath) command-line arg.
 
 This guide uses an Azure Linux container and docker to build the packages.
 This avoids the complexity of using the Azure Linux toolkit (which has to be capable of

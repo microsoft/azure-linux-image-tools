@@ -4,6 +4,8 @@ parent: Configuration
 
 # selinux type
 
+Added in v0.3.
+
 ## mode [string]
 
 Specifies the mode to set SELinux to.
@@ -62,3 +64,5 @@ os:
     - setools-console
     - policycoreutils-python-utils
 ```
+
+Added in v0.3.

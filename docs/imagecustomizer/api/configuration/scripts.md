@@ -9,6 +9,8 @@ Specifies custom scripts to run during the customization process.
 Note: Script files must be in the same directory or a child directory of the directory
 that contains the config file.
 
+Added in v0.3.
+
 ## postCustomization [[script](./script.md)[]]
 
 Scripts to run after all the in-built customization steps have run.
@@ -22,6 +24,8 @@ scripts:
   postCustomization:
   - path: scripts/a.sh
 ```
+
+Added in v0.3.
 
 ## finalizeCustomization [[script](./script.md)[]]
 
@@ -50,3 +54,5 @@ scripts:
   finalizeCustomization:
   - path: scripts/b.sh
 ```
+
+Added in v0.3.

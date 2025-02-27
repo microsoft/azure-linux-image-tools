@@ -6,6 +6,8 @@ parent: Configuration
 
 Defines the configuration for the boot-loader.
 
+Added in v0.8.
+
 ## resetType [string]
 
 Specifies that the boot-loader configuration should be reset and how it should be reset.
@@ -23,3 +25,5 @@ os:
   bootloader:
     resetType: hard-reset
 ```
+
+Added in v0.8.
