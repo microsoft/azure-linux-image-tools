@@ -50,7 +50,8 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 
 	// Recustomize the image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -323,7 +324,8 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 	// Recustomize image.
 	// This helps verify that verity-enabled images can be recustomized.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
