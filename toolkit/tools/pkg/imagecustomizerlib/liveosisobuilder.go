@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -31,16 +32,14 @@ const (
 	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
 	isoBootloaderDir   = "/efi/boot"
 
-	bootx64Binary          = "bootx64.efi"
-	osEspBootx64BinaryPath = osEspBootloaderDir + "/" + bootx64Binary
-	isoBootx64BinaryPath   = isoBootloaderDir + "/" + bootx64Binary
+	bootx64Binary  = "bootx64.efi"
+	bootAA64Binary = "bootaa64.efi"
 
-	grubx64Binary          = "grubx64.efi"
-	osEspGrubx64BinaryPath = osEspBootloaderDir + "/" + grubx64Binary
-	isoGrubx64BinaryPath   = isoBootloaderDir + "/" + grubx64Binary
+	grubx64Binary  = "grubx64.efi"
+	grubAA64Binary = "grubaa64.efi"
 
-	grubx64NoPrefixBinary          = "grubx64-noprefix.efi"
-	osEspGrubx64NoPrefixBinaryPath = osEspBootloaderDir + "/" + grubx64NoPrefixBinary
+	grubx64NoPrefixBinary  = "grubx64-noprefix.efi"
+	grubAA64NoPrefixBinary = "grubaa64-noprefix.efi"
 
 	grubCfgDir     = "/boot/grub2"
 	isoGrubCfg     = "grub.cfg"
@@ -91,6 +90,42 @@ hostonly="no"
 	expansionSafetyFactor = 1.5
 )
 
+type BootFilesArchConfig struct {
+	bootBinary                  string
+	grubBinary                  string
+	grubNoPrefixBinary          string
+	osEspBootBinaryPath         string
+	osEspGrubBinaryPath         string
+	osEspGrubNoPrefixBinaryPath string
+	isoBootBinaryPath           string
+	isoGrubBinaryPath           string
+}
+
+var (
+	bootloaderFilesConfig = map[string]BootFilesArchConfig{
+		"amd64": {
+			bootBinary:                  bootx64Binary,
+			grubBinary:                  grubx64Binary,
+			grubNoPrefixBinary:          grubx64NoPrefixBinary,
+			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64Binary,
+			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
+			isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64Binary,
+			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
+		},
+		"arm64": {
+			bootBinary:                  bootAA64Binary,
+			grubBinary:                  grubAA64Binary,
+			grubNoPrefixBinary:          grubAA64NoPrefixBinary,
+			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64Binary,
+			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
+			isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64Binary,
+			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
+		},
+	}
+)
+
 type IsoWorkingDirs struct {
 	// 'isoBuildDir' is where intermediate files will be placed during the
 	// build.
@@ -109,8 +144,8 @@ type IsoArtifacts struct {
 	kernelVersion            string
 	dracutPackageInfo        *PackageVersionInformation
 	selinuxPolicyPackageInfo *PackageVersionInformation
-	bootx64EfiPath           string
-	grubx64EfiPath           string
+	bootEfiPath              string
+	grubEfiPath              string
 	isoGrubCfgPath           string
 	pxeGrubCfgPath           string
 	savedConfigsFilePath     string
@@ -124,6 +159,21 @@ type LiveOSIsoBuilder struct {
 	workingDirs IsoWorkingDirs
 	artifacts   IsoArtifacts
 	cleanupDirs []string
+}
+
+// getBootArchConfig
+//
+//	returns the architecture of the build machine and
+//
+// the bootloader files configuration for the architecture.
+//
+//	Supported architectures are amd64 and arm64.
+func getBootArchConfig() (string, BootFilesArchConfig, error) {
+	arch := runtime.GOARCH
+	if arch != "amd64" && arch != "arm64" {
+		return "", BootFilesArchConfig{}, fmt.Errorf("unsupported architecture: %s", arch)
+	}
+	return arch, bootloaderFilesConfig[arch], nil
 }
 
 func (b *LiveOSIsoBuilder) addCleanupDir(dirName string) {
@@ -227,18 +277,24 @@ func (b *LiveOSIsoBuilder) stageIsoMakerInitrdArtifacts(writeableRootfsDir, isoM
 		return fmt.Errorf("failed to create %s\n%w", targetBootloadersDir, err)
 	}
 
-	sourceBoot64EfiPath := b.artifacts.bootx64EfiPath
-	targetBoot64EfiPath := filepath.Join(targetBootloadersDir, bootx64Binary)
-	err = file.Copy(sourceBoot64EfiPath, targetBoot64EfiPath)
+	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {
-		return fmt.Errorf("failed to stage bootloader file (bootx64.efi):\n%w", err)
+		return err
 	}
 
-	sourceGrub64EfiPath := b.artifacts.grubx64EfiPath
-	targetGrub64EfiPath := filepath.Join(targetBootloadersDir, grubx64Binary)
-	err = file.Copy(sourceGrub64EfiPath, targetGrub64EfiPath)
+	sourceBootEfiPath := b.artifacts.bootEfiPath
+	targetBootEfiPath := filepath.Join(targetBootloadersDir, bootFilesConfig.bootBinary)
+	err = file.Copy(sourceBootEfiPath, targetBootEfiPath)
 	if err != nil {
-		return fmt.Errorf("failed to stage bootloader file (grubx64.efi):\n%w", err)
+		return fmt.Errorf("failed to stage bootloader file (%s):\n%w", bootFilesConfig.bootBinary, err)
+	}
+
+	sourceGrubEfiPath := b.artifacts.grubEfiPath
+	targetGrubEfiPath := filepath.Join(targetBootloadersDir, bootFilesConfig.grubBinary)
+
+	err = file.Copy(sourceGrubEfiPath, targetGrubEfiPath)
+	if err != nil {
+		return fmt.Errorf("failed to stage bootloader file (%s):\n%w", bootFilesConfig.grubBinary, err)
 	}
 
 	targetVmlinuzLocalDir := filepath.Join(writeableRootfsDir, isoMakerArtifactsStagingDir)
@@ -576,13 +632,19 @@ func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, px
 //   - boolean
 //     true if grubx64-noprefix.efi is one of the files.
 //     false otherwise.
-func containsGrubNoPrefix(filePaths []string) bool {
-	for _, filePath := range filePaths {
-		if filepath.Base(filePath) == grubx64NoPrefixBinary {
-			return true
-		}
+func containsGrubNoPrefix(filePaths []string) (bool, error) {
+	_, bootFilesConfig, err := getBootArchConfig()
+	if err != nil {
+		return false, err
 	}
-	return false
+	for _, filePath := range filePaths {
+
+		if filepath.Base(filePath) == bootFilesConfig.grubNoPrefixBinary {
+			return true, nil
+		}
+
+	}
+	return false, nil
 }
 
 // extractBootDirFiles
@@ -636,7 +698,10 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 		return fmt.Errorf("failed to scan /boot folder:\n%w", err)
 	}
 
-	usingGrubNoPrefix := containsGrubNoPrefix(bootFolderFilePaths)
+	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths)
+	if err != nil {
+		return err
+	}
 
 	for _, sourcePath := range bootFolderFilePaths {
 
@@ -658,19 +723,29 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 
 		scheduleAdditionalFile := true
 
+		_, bootFilesConfig, err := getBootArchConfig()
+		if err != nil {
+			return err
+		}
+		osEspBootBinaryPath := bootFilesConfig.osEspBootBinaryPath
+		osEspGrubBinaryPath := bootFilesConfig.osEspGrubBinaryPath
+		osEspGrubNoPrefixBinaryPath := bootFilesConfig.osEspGrubNoPrefixBinaryPath
+
 		switch relativeFilePath {
-		case osEspBootx64BinaryPath:
-			b.artifacts.bootx64EfiPath = targetPath
+		case osEspBootBinaryPath:
+			b.artifacts.bootEfiPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
-			scheduleAdditionalFile = false
-		case osEspGrubx64BinaryPath, osEspGrubx64NoPrefixBinaryPath:
-			b.artifacts.grubx64EfiPath = targetPath
+			scheduleAdditionalFile = false // No additional file scheduling
+
+		case osEspGrubBinaryPath, osEspGrubNoPrefixBinaryPath:
+			b.artifacts.grubEfiPath = targetPath
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
-			scheduleAdditionalFile = false
+			scheduleAdditionalFile = false // No additional file scheduling
+
 		case isoGrubCfgPath:
 			if usingGrubNoPrefix {
 				// When using the grubx64-noprefix.efi, the 'prefix' grub
@@ -696,6 +771,7 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 			// grub.cfg is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
 		}
+
 		if strings.HasPrefix(filepath.Base(targetPath), vmLinuzPrefix) {
 			targetPath = filepath.Join(filepath.Dir(targetPath), "vmlinuz")
 			b.artifacts.vmlinuzPath = targetPath
@@ -717,16 +793,20 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 		}
 	}
 
-	if b.artifacts.bootx64EfiPath == "" {
+	_, bootFilesConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
+	if b.artifacts.bootEfiPath == "" {
 		return fmt.Errorf("failed to find the boot efi file (%s):\n"+
 			"this file is provided by the (shim) package",
-			bootx64Binary)
+			bootFilesConfig.bootBinary)
 	}
 
-	if b.artifacts.grubx64EfiPath == "" {
+	if b.artifacts.grubEfiPath == "" {
 		return fmt.Errorf("failed to find the grub efi file (%s or %s):\n"+
 			"this file is provided by either the (grub2-efi-binary) or the (grub2-efi-binary-noprefix) package",
-			grubx64Binary, grubx64NoPrefixBinary)
+			bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary)
 	}
 
 	return nil
@@ -1536,25 +1616,32 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 
 	isoBuilder.artifacts.additionalFiles = make(map[string]string)
 
+	_, bootFilesConfig, err := getBootArchConfig()
+	if err != nil {
+		return nil, err
+	}
+	isoBootBinaryPath := bootFilesConfig.isoBootBinaryPath
+	isoGrubBinaryPath := bootFilesConfig.isoGrubBinaryPath
+
 	for _, isoFile := range isoFiles {
 		relativeFilePath := strings.TrimPrefix(isoFile, isoExpansionFolder)
 
 		scheduleAdditionalFile := true
 
 		switch relativeFilePath {
-		case isoBootx64BinaryPath:
-			isoBuilder.artifacts.bootx64EfiPath = isoFile
+		case isoBootBinaryPath:
+			isoBuilder.artifacts.bootEfiPath = isoFile
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
 			scheduleAdditionalFile = false
-		case isoGrubx64BinaryPath:
+		case isoGrubBinaryPath:
 			// Note that grubx64NoPrefixBinary is not expected to on an existing
 			// iso - and hence we do not look for it here. grubx64NoPrefixBinary
 			// may exist only on a vhdx/qcow when the grub-noprefix package is
 			// installed. When such images are converted to an iso, we rename
 			// the grub binary to its regular name (grubx64.efi).
-			isoBuilder.artifacts.grubx64EfiPath = isoFile
+			isoBuilder.artifacts.grubEfiPath = isoFile
 			// isomaker will extract this from initrd and copy it to include it
 			// in the iso media - so no need to schedule it as an additional
 			// file.
@@ -1774,9 +1861,14 @@ func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArti
 		return fmt.Errorf("failed to remove file (%s):\n%w", pxeGrubCfgPath, err)
 	}
 
+	_, bootFilesConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
 	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
 	bootloaderSrcDir := filepath.Join(outputPXEArtifactsDir, isoBootloadersDir)
-	bootloaderFiles := []string{bootx64Binary, grubx64Binary}
+	bootloaderFiles := []string{bootFilesConfig.bootBinary, bootFilesConfig.grubBinary}
+
 	for _, bootloaderFile := range bootloaderFiles {
 		sourcePath := filepath.Join(bootloaderSrcDir, bootloaderFile)
 		targetPath := filepath.Join(outputPXEArtifactsDir, bootloaderFile)

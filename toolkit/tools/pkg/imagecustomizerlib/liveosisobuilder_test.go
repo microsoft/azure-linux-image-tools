@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -264,16 +265,33 @@ func TestCustomizeImageLiveCd2(t *testing.T) {
 }
 
 func TestCustomizeImageLiveCdIsoNoShimEfi(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	for _, version := range supportedAzureLinuxVersions {
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCdIso")
+		t.Run(string(version), func(t *testing.T) {
+			testCustomizeImageLiveCdIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+string(version),
+				version)
+		})
+
+	}
+}
+
+func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, version baseImageVersion) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, version)
+
+	buildDir := filepath.Join(tmpDir, testName)
 	outImageFilePath := filepath.Join(buildDir, "image.iso")
+	shimPackage := "shim"
+
+	// For arm64 and baseImageVersionAzl2, the shim package is shim-unsigned.
+	if runtime.GOARCH == "arm64" && version == baseImageVersionAzl2 {
+		shimPackage = "shim-unsigned"
+	}
 
 	config := &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
 				Remove: []string{
-					"shim",
+					shimPackage,
 				},
 			},
 		},
