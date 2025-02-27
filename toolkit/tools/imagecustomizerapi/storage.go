@@ -11,12 +11,24 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
+type VerityPartitionsType int
+
+const (
+	VerityPartitionsInvalid VerityPartitionsType = iota
+	VerityPartitionsNone
+	VerityPartitionsUsesConfig
+	VerityPartitionsUsesExisting
+)
+
 type Storage struct {
 	ResetPartitionsUuidsType ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType" json:"resetPartitionsUuidsType,omitempty"`
 	BootType                 BootType                 `yaml:"bootType" json:"bootType,omitempty"`
 	Disks                    []Disk                   `yaml:"disks" json:"disks,omitempty"`
 	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
+
+	// Filled in by Storage.IsValid().
+	VerityPartitionsType VerityPartitionsType
 }
 
 func (s *Storage) IsValid() error {
@@ -45,11 +57,36 @@ func (s *Storage) IsValid() error {
 		}
 	}
 
+	verityUsesConfigPartitions := false
+	verityUsesExistingPartitions := false
 	for i, verity := range s.Verity {
 		err = verity.IsValid()
 		if err != nil {
 			return fmt.Errorf("invalid verity item at index %d:\n%w", i, err)
 		}
+
+		if verity.DataDeviceId != "" || verity.HashDeviceId != "" {
+			verityUsesConfigPartitions = true
+		}
+
+		if verity.DataDevice != nil || verity.HashDevice != nil {
+			verityUsesExistingPartitions = true
+		}
+	}
+
+	s.VerityPartitionsType = VerityPartitionsInvalid
+	switch {
+	case verityUsesConfigPartitions && verityUsesExistingPartitions:
+		return fmt.Errorf("cannot use both dataDeviceId/hashDeviceId and dataDevice/hashDevice")
+
+	case verityUsesConfigPartitions:
+		s.VerityPartitionsType = VerityPartitionsUsesConfig
+
+	case verityUsesExistingPartitions:
+		s.VerityPartitionsType = VerityPartitionsUsesExisting
+
+	default:
+		s.VerityPartitionsType = VerityPartitionsNone
 	}
 
 	for i, fileSystem := range s.FileSystems {
@@ -63,7 +100,6 @@ func (s *Storage) IsValid() error {
 	hasBootType := s.BootType != BootTypeNone
 	hasDisks := len(s.Disks) > 0
 	hasFileSystems := len(s.FileSystems) > 0
-	hasVerity := len(s.Verity) > 0
 
 	if hasResetUuids && hasDisks {
 		return fmt.Errorf("cannot specify both 'resetPartitionsUuidsType' and 'disks'")
@@ -81,8 +117,12 @@ func (s *Storage) IsValid() error {
 		return fmt.Errorf("cannot specify 'filesystems' without specifying 'disks'")
 	}
 
-	if hasVerity && !hasDisks {
-		return fmt.Errorf("cannot specify 'verity' without specifying 'disks'")
+	if s.VerityPartitionsType == VerityPartitionsUsesConfig && !hasDisks {
+		return fmt.Errorf("cannot specify 'verity' with dataDeviceId/hashDeviceId without specifying 'disks'")
+	}
+
+	if s.VerityPartitionsType == VerityPartitionsUsesExisting && hasDisks {
+		return fmt.Errorf("cannot specify both 'verity' with dataDevice/hashDevice and 'disks'")
 	}
 
 	// Create a set of all block devices by their Id.
@@ -161,29 +201,49 @@ func (s *Storage) IsValid() error {
 	}
 
 	// Validate verity filesystem settings.
-	for i := range s.Verity {
-		verity := &s.Verity[i]
+	if s.VerityPartitionsType == VerityPartitionsUsesConfig {
+		verityDeviceMountPoint := make(map[*Verity]*MountPoint)
 
-		filesystem, hasFileSystem := deviceParents[verity.Id].(*FileSystem)
-		if hasFileSystem {
-			verity.FileSystem = filesystem
+		for i := range s.Verity {
+			verity := &s.Verity[i]
+
+			filesystem, hasFileSystem := deviceParents[verity.Id].(*FileSystem)
+			if hasFileSystem && filesystem.MountPoint != nil {
+				verityDeviceMountPoint[verity] = filesystem.MountPoint
+			}
 		}
 
-		if !hasFileSystem || filesystem.MountPoint == nil || (filesystem.MountPoint.Path != "/" && filesystem.MountPoint.Path != "/usr") {
-			return fmt.Errorf("filesystems[].mountPoint.path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
+		err := ValidateVerityMounts(s.Verity, verityDeviceMountPoint)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ValidateVerityMounts(vertiyDevices []Verity, verityDeviceMountPoint map[*Verity]*MountPoint) error {
+	for i := range vertiyDevices {
+		verity := &vertiyDevices[i]
+
+		mountPoint, hasMountPoint := verityDeviceMountPoint[verity]
+		if !hasMountPoint || (mountPoint.Path != "/" && mountPoint.Path != "/usr") {
+			return fmt.Errorf("mount path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
 		}
 
-		expectedVerityName, validMount := verityMountMap[filesystem.MountPoint.Path]
+		verity.MountPath = mountPoint.Path
+
+		expectedVerityName, validMount := verityMountMap[mountPoint.Path]
 		if !validMount || verity.Name != expectedVerityName {
 			return fmt.Errorf(
-				"filesystems[].mountPoint.path of verity device (%s) must match verity name: '%s' for '%s'",
-				verity.Id, expectedVerityName, filesystem.MountPoint.Path,
+				"mount path of verity device (%s) must match verity name: '%s' for '%s'",
+				verity.Id, expectedVerityName, mountPoint.Path,
 			)
 		}
 
-		mountOptions := strings.Split(filesystem.MountPoint.Options, ",")
+		mountOptions := strings.Split(mountPoint.Options, ",")
 		if !sliceutils.ContainsValue(mountOptions, "ro") {
-			return fmt.Errorf("verity device's (%s) filesystem must include the 'ro' mount option", verity.Id)
+			return fmt.Errorf("verity device's (%s) mount must include the 'ro' mount option", verity.Id)
 		}
 	}
 
@@ -254,14 +314,18 @@ func (s *Storage) checkDeviceTree(deviceMap map[string]any, partitionLabelCounts
 }
 
 func checkDeviceTreeVerityItem(verity *Verity, deviceMap map[string]any, deviceParents map[string]any) error {
-	err := addVerityParentToDevice(verity.DataDeviceId, deviceMap, deviceParents, verity)
-	if err != nil {
-		return fmt.Errorf("invalid 'dataDeviceId':\n%w", err)
+	if verity.DataDeviceId != "" {
+		err := addVerityParentToDevice(verity.DataDeviceId, deviceMap, deviceParents, verity)
+		if err != nil {
+			return fmt.Errorf("invalid 'dataDeviceId':\n%w", err)
+		}
 	}
 
-	err = addVerityParentToDevice(verity.HashDeviceId, deviceMap, deviceParents, verity)
-	if err != nil {
-		return fmt.Errorf("invalid 'hashDeviceId':\n%w", err)
+	if verity.HashDeviceId != "" {
+		err := addVerityParentToDevice(verity.HashDeviceId, deviceMap, deviceParents, verity)
+		if err != nil {
+			return fmt.Errorf("invalid 'hashDeviceId':\n%w", err)
+		}
 	}
 
 	return nil

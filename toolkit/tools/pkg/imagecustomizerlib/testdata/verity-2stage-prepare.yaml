@@ -1,0 +1,69 @@
+#
+# Stage 1: Create an image that has the partitions for verity but without actually enabling verity.
+#
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: boot
+      size: 1G
+
+    - id: usr
+      size: 2G
+      label: usr
+
+    - id: usrhash
+      size: 100M
+      label: usrhash
+    
+    - id: root
+      size: 2G
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: root
+    type: ext4
+    mountPoint:
+      path: /
+
+  - deviceId: usr
+    type: ext4
+    mountPoint:
+      path: /usr
+      options: ro
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+
+  services:
+    enable:
+    - sshd
