@@ -448,12 +448,10 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Invokes to inject the UKIs?
 	if len(ic.inputSignedUKIs) != 0 {
-		/*
-			if ic.config.OS != nil {
-				// todo: add other exclusions...
-				return fmt.Errorf("cannot define both --input-signed-ukis and OS configuration.")
-			}
-		*/
+		if ic.config.OS != nil {
+			// todo: add other exclusions...
+			return fmt.Errorf("cannot define both --input-signed-ukis and OS configuration.")
+		}
 		var err error
 		ic.config.OS = &imagecustomizerapi.OS{}
 		ic.config.OS.AdditionalFiles, err = inputUKIs(ic.inputSignedUKIs)
@@ -478,7 +476,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if err != nil {
 		return err
 	}
-	if verityEnabled && !ic.customizeOSPartitions {
+	if verityEnabled && !ic.customizeOSPartitions && len(ic.inputSignedVerityHashes) == 0 && len(ic.inputSignedUKIs) == 0 {
 		return fmt.Errorf("dm-verity is enabled on the base image so partitions must be specified.")
 	}
 
@@ -822,7 +820,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 ) (map[string]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true, onlyAddFiles)
 	if err != nil {
 		return nil, err
 	}

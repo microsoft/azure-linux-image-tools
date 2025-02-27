@@ -58,7 +58,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
-	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, 0, "", true)
+	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount EFI system partition:\n%w", err)
 	}
@@ -130,7 +130,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		}
 
 		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, 0,
+		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
 			"", true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
@@ -173,7 +173,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "",
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
 		true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
@@ -199,7 +199,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+	buildDir string, onlyAddFiles bool,
 ) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -213,8 +213,14 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			return nil, nil, err
 		}
 
-		// Unset read-only flag so that read-only partitions can be customized.
-		vfsOptions := fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY)
+		var vfsOptions diskutils.MountFlags
+		if onlyAddFiles {
+			// Preserve MS_RDONLY if it was set
+			vfsOptions = fstabEntry.VfsOptions
+		} else {
+			// Unset read-only flag so that read-only partitions can be customized.
+			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY)
+		}
 
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
@@ -400,7 +406,7 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	buildDir string,
 ) ([]grubConfigLinuxArg, error) {
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
-	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
+	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}

@@ -20,11 +20,11 @@ import (
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
-func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
+func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool, onlyAddFiles bool,
 ) (*ImageConnection, map[string]diskutils.FstabEntry, error) {
 	imageConnection := NewImageConnection()
 
-	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
+	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts, onlyAddFiles)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, err
@@ -33,7 +33,7 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
-	buildDir string, chrootDirName string, includeDefaultMounts bool,
+	buildDir string, chrootDirName string, includeDefaultMounts bool, onlyAddFiles bool,
 ) (map[string]diskutils.FstabEntry, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -56,7 +56,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	mountPoints, partUuidToFstabEntry, err := fstabEntriesToMountPoints(fstabEntries, partitions, buildDir)
+	mountPoints, partUuidToFstabEntry, err := fstabEntriesToMountPoints(fstabEntries, partitions, buildDir, onlyAddFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
@@ -252,7 +252,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		return nil, "", err
 	}
 
-	mountPoints, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
+	mountPoints, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir, false)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}

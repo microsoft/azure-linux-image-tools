@@ -633,7 +633,7 @@ func inputUKIs(signedUKIs []string) (imagecustomizerapi.AdditionalFileList, erro
 
 	// Iterate over the signed UKI files and prepare them for injection.
 	for _, localFile := range signedUKIs {
-		if !strings.HasSuffix(localFile, ".signed.efi") {
+		if !strings.HasSuffix(localFile, ".efi") {
 			continue
 		}
 
