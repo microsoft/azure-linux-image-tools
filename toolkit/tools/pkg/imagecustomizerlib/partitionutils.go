@@ -406,7 +406,7 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	buildDir string,
 ) ([]grubConfigLinuxArg, error) {
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
-	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}
