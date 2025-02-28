@@ -65,6 +65,7 @@ os:
     - openssh-server
     - veritysetup
     - vim
+    - lvm2
 
   services:
     enable:

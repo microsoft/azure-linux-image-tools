@@ -70,3 +70,4 @@ os:
     - systemd-ukify
     - systemd-boot
     - efibootmgr
+    - lvm2
