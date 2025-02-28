@@ -10,6 +10,11 @@ $(call create_folder,$(BUILD_DIR)/tools)
 
 ######## GO TOOLS ########
 
+GOPATH = $(shell go env GOPATH)
+GOBINPATH = $(GOPATH)/bin
+
+GO_LICENSES_TOOL = $(GOBINPATH)/go-licenses
+
 # The version as held in the go.mod file (a line like 'go 1.19'). Add "go" to the front of the version number
 # so that it matches the output of 'go version' (e.g. 'go1.19').
 go_min_version = go$(shell grep -E '^go [0-9]+\.[0-9]+' $(TOOLS_DIR)/go.mod | awk '{print $$2}')
@@ -40,6 +45,10 @@ go_module_files = $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
 go_internal_files = $(shell find $(TOOLS_DIR)/internal/ -type f -name '*.go')
 go_pkg_files = $(shell find $(TOOLS_DIR)/pkg/ -type f -name '*.go')
 go_common_files = $(go_module_files) $(go_internal_files) $(go_pkg_files) $(go_scheduler_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag $(BUILD_DIR)/tools/internal.test_coverage
+
+$(GO_LICENSES_TOOL): $(go_module_files)
+	cd $(TOOLS_DIR) && \
+	go install github.com/google/go-licenses
 
 # A report on test coverage for all the go tools
 test_coverage_report=$(TOOL_BINS_DIR)/test_coverage_report.html
@@ -87,13 +96,15 @@ $(TOOL_BINS_DIR)/%:
 	touch $@
 else
 # Rebuild the go tools as needed
-$(TOOL_BINS_DIR)/%: $(go_common_files)
+$(TOOL_BINS_DIR)/%: $(go_common_files) $(GO_LICENSES_TOOL)
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
 		CGO_ENABLED=0 go build \
 			-ldflags="$(go_ldflags)" \
 			$(if $(filter y,$(BUILD_TOOLS_NONPROD)),,-tags prod) \
-			-o $(TOOL_BINS_DIR)
+			-o $(TOOL_BINS_DIR) && \
+		$(GO_LICENSES_TOOL) save github.com/microsoft/azurelinux/toolkit/tools/$* \
+			--ignore github.com/microsoft/azurelinux --save_path $(TOOL_BINS_DIR)/LICENSES/$* --force
 endif
 
 # Runs tests for common components
