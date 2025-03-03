@@ -20,6 +20,6 @@ func (i IdentifiedPartitionType) IsValid() error {
 		return nil
 
 	default:
-		return fmt.Errorf("invalid value (%v)", i)
+		return fmt.Errorf("invalid value (%s)", i)
 	}
 }

@@ -222,9 +222,9 @@ func (s *Storage) IsValid() error {
 	return nil
 }
 
-func ValidateVerityMounts(vertiyDevices []Verity, verityDeviceMountPoint map[*Verity]*MountPoint) error {
-	for i := range vertiyDevices {
-		verity := &vertiyDevices[i]
+func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Verity]*MountPoint) error {
+	for i := range verityDevices {
+		verity := &verityDevices[i]
 
 		mountPoint, hasMountPoint := verityDeviceMountPoint[verity]
 		if !hasMountPoint || (mountPoint.Path != "/" && mountPoint.Path != "/usr") {

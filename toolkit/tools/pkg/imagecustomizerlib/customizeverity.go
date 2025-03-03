@@ -343,12 +343,12 @@ func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecus
 	for i := range config.Storage.Verity {
 		verity := &config.Storage.Verity[i]
 
-		dataPartition, err := findIdentitiedPartition(partitions, *verity.DataDevice)
+		dataPartition, err := findIdentifiedPartition(partitions, *verity.DataDevice)
 		if err != nil {
 			return fmt.Errorf("verity (%s) data partition not found:\n%w", verity.Id, err)
 		}
 
-		hashPartition, err := findIdentitiedPartition(partitions, *verity.HashDevice)
+		hashPartition, err := findIdentifiedPartition(partitions, *verity.HashDevice)
 		if err != nil {
 			return fmt.Errorf("verity (%s) hash partition not found:\n%w", verity.Id, err)
 		}
@@ -379,12 +379,10 @@ func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecus
 		return err
 	}
 
-	logger.Log.Debugf("HELLO: %s", fmt.Sprintf("%#v", config.Storage.Verity))
-
 	return nil
 }
 
-func findIdentitiedPartition(partitions []diskutils.PartitionInfo, ref imagecustomizerapi.IdentifiedPartition,
+func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecustomizerapi.IdentifiedPartition,
 ) (diskutils.PartitionInfo, error) {
 	partition, found := sliceutils.FindValueFunc(partitions, func(partition diskutils.PartitionInfo) bool {
 		switch ref.IdType {
