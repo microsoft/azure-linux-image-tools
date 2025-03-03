@@ -44,6 +44,9 @@ func TestConfigIsValid(t *testing.T) {
 		},
 		Scripts: Scripts{},
 		Iso:     &Iso{},
+		Output: Output{
+			Path: "./out/image.vhdx",
+		},
 	}
 
 	err := config.IsValid()

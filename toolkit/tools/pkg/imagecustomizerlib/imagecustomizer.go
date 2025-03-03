@@ -157,8 +157,12 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageFormat = outputImageFormat
 	ic.outputIsIso = ic.outputImageFormat == ImageFormatIso
 	ic.outputImageFile = outputImageFile
-	ic.outputImageBase = strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
-	ic.outputImageDir = filepath.Dir(outputImageFile)
+	if ic.outputImageFile == "" {
+		ic.outputImageFile = config.Output.Path
+	}
+
+	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
+	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputPXEArtifactsDir = outputPXEArtifactsDir
 
 	if ic.outputImageFormat != "" && !ic.outputIsIso {
@@ -246,7 +250,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string, outputSplitPartitionsFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, enableShrinkFilesystems bool,
 ) error {
-	err := validateConfig(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos)
+	err := validateConfig(baseConfigPath, config, rpmsSources, outputImageFile, useBaseImageRpmRepos)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -590,7 +594,7 @@ func validateSplitPartitionsFormat(partitionFormat string) error {
 }
 
 func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
-	useBaseImageRpmRepos bool,
+	outputImageFile string, useBaseImageRpmRepos bool,
 ) error {
 	err := config.IsValid()
 	if err != nil {
@@ -608,6 +612,11 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rp
 	}
 
 	err = validateScripts(baseConfigPath, &config.Scripts)
+	if err != nil {
+		return err
+	}
+
+	err = validateOutput(config.Output, outputImageFile)
 	if err != nil {
 		return err
 	}
@@ -755,6 +764,14 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	config.Packages.RemoveLists = nil
 	config.Packages.InstallLists = nil
 	config.Packages.UpdateLists = nil
+
+	return nil
+}
+
+func validateOutput(output imagecustomizerapi.Output, outputImageFile string) error {
+	if outputImageFile == "" && output.Path == "" {
+		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.path'")
+	}
 
 	return nil
 }
