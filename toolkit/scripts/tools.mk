@@ -103,8 +103,12 @@ $(TOOL_BINS_DIR)/%: $(go_common_files) $(GO_LICENSES_TOOL)
 			-ldflags="$(go_ldflags)" \
 			$(if $(filter y,$(BUILD_TOOLS_NONPROD)),,-tags prod) \
 			-o $(TOOL_BINS_DIR) && \
+		$(GO_LICENSES_TOOL) check github.com/microsoft/azurelinux/toolkit/tools/$* \
+			--ignore github.com/microsoft/azurelinux \
+			--disallowed_types forbidden,reciprocal,restricted,unknown && \
 		$(GO_LICENSES_TOOL) save github.com/microsoft/azurelinux/toolkit/tools/$* \
-			--ignore github.com/microsoft/azurelinux --save_path $(TOOL_BINS_DIR)/LICENSES/$* --force
+			--ignore github.com/microsoft/azurelinux \
+			--save_path $(TOOL_BINS_DIR)/LICENSES/$* --force
 endif
 
 # Runs tests for common components
