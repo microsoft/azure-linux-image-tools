@@ -61,6 +61,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "output": {
+          "$ref": "#/$defs/Output"
         }
       },
       "additionalProperties": false,
@@ -248,6 +251,15 @@
           "$ref": "#/$defs/Uki"
         },
         "imageHistory": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Output": {
+      "properties": {
+        "path": {
           "type": "string"
         }
       },
