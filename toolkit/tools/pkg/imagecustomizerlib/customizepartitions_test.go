@@ -121,10 +121,10 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 	}
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].Size)
-	assert.Equal(t, uint64(99*diskutils.MiB), partitions[2].Size)
-	assert.Equal(t, uint64(1940*diskutils.MiB), partitions[3].Size)
-	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].Size)
+	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(99*diskutils.MiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(1940*diskutils.MiB), partitions[3].SizeInBytes)
+	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes)
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
@@ -194,9 +194,9 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	}
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].Size)
-	assert.Equal(t, uint64(2*diskutils.GiB), partitions[2].Size)
-	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].Size)
+	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(2*diskutils.GiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].SizeInBytes)
 }
 
 func TestCustomizeImagePartitionsEfiToLegacy(t *testing.T) {
@@ -266,8 +266,8 @@ func testCustomizeImagePartitionsToLegacy(t *testing.T, testName string, imageTy
 	}
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].Size)
-	assert.Equal(t, uint64(4086*diskutils.MiB), partitions[2].Size)
+	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(4086*diskutils.MiB), partitions[2].SizeInBytes)
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {

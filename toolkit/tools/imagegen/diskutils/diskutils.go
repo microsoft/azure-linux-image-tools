@@ -67,7 +67,7 @@ type PartitionInfo struct {
 	Mountpoint        string `json:"mountpoint"` // Example: /mnt/os/boot
 	PartLabel         string `json:"partlabel"`  // Example: boot
 	Type              string `json:"type"`       // Example: part
-	Size              uint64 `json:"size"`       // Example: 4096
+	SizeInBytes       uint64 `json:"size"`       // Example: 4096
 }
 
 type loopbackListOutput struct {
