@@ -173,8 +173,9 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 	assert.Equal(t, int64(8*diskutils.MiB), espStat.Size())
 	assert.Equal(t, int64(100*diskutils.MiB), hashStat.Size())
 
-	// These partitions are shrunk.
-	// So, their size will vary slightly.
+	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
+	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
+	// were picked by observing values seen during test and adding a good buffer.
 	assert.Greater(t, int64(100*diskutils.MiB), bootStat.Size())
 	assert.Greater(t, int64(650*diskutils.MiB), rootStat.Size())
 	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
