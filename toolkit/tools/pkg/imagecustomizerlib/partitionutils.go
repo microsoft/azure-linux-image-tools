@@ -683,13 +683,3 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 
 	return num, nil
 }
-
-func refreshPartitions(diskDevPath string) error {
-	err := shell.ExecuteLiveWithErr(1 /*stderrLines*/, "flock", "--timeout", "5", diskDevPath,
-		"partprobe", "-s", diskDevPath)
-	if err != nil {
-		return fmt.Errorf("partprobe failed:\n%w", err)
-	}
-
-	return nil
-}
