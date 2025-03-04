@@ -5,12 +5,14 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
@@ -133,9 +135,11 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 		return
 	}
 
+	espPartitionNum := 1
 	bootPartitionNum := 2
 	rootPartitionNum := 3
 	hashPartitionNum := 4
+	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
 	err = CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "", "raw",
@@ -144,11 +148,38 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 		return
 	}
 
-	// Attach partition files.
+	espPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNum))
 	bootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", bootPartitionNum))
 	rootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootPartitionNum))
 	hashPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", hashPartitionNum))
+	varPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", varPartitionNum))
 
+	espStat, err := os.Stat(espPartitionPath)
+	assert.NoError(t, err)
+
+	bootStat, err := os.Stat(bootPartitionPath)
+	assert.NoError(t, err)
+
+	rootStat, err := os.Stat(rootPartitionPath)
+	assert.NoError(t, err)
+
+	hashStat, err := os.Stat(hashPartitionPath)
+	assert.NoError(t, err)
+
+	varStat, err := os.Stat(varPartitionPath)
+	assert.NoError(t, err)
+
+	// Check partition sizes.
+	assert.Equal(t, int64(8*diskutils.MiB), espStat.Size())
+	assert.Equal(t, int64(100*diskutils.MiB), hashStat.Size())
+
+	// These partitions are shrunk.
+	// So, their size will vary slightly.
+	assert.Greater(t, int64(100*diskutils.MiB), bootStat.Size())
+	assert.Greater(t, int64(650*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
+
+	// Attach partition files.
 	bootDevice, err := safeloopback.NewLoopback(bootPartitionPath)
 	if !assert.NoError(t, err) {
 		return
