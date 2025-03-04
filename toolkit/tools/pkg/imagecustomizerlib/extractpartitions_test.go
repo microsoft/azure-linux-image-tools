@@ -154,7 +154,8 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw-zst",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, true /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, true, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -248,7 +249,8 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
+		false, false, false, "", nil, "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -1,0 +1,96 @@
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    maxSize: 5120M
+    partitions:
+    - id: esp
+      type: esp
+      start: 1M
+      end: 9M
+
+    - id: boot
+      start: 9M
+      end: 1024M
+
+    - id: root
+      start: 1024M
+      end: 3072M
+
+    - id: roothash
+      start: 3072M
+      end: 3200M
+
+    - id: var
+      start: 3200M
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+os:
+  resetBootLoaderType: hard-reset
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+    - "console=tty0"
+    - "console=ttyS0"
+
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+    - lvm2
+
+  additionalFiles:
+  # 90mountbootpartition
+  - source: 90mountbootpartition/module-setup.sh
+    destination: /usr/lib/dracut/modules.d/90mountbootpartition/module-setup.sh
+    permissions: "755"
+  - source: 90mountbootpartition/mountbootpartition-generator.sh
+    destination: /usr/lib/dracut/modules.d/90mountbootpartition/mountbootpartition-generator.sh
+    permissions: "755"
+  - source: 90mountbootpartition/mountbootpartition-genrules.sh
+    destination: /usr/lib/dracut/modules.d/90mountbootpartition/mountbootpartition-genrules.sh
+    permissions: "755"
+  - source: 90mountbootpartition/mountbootpartition.sh
+    destination: /usr/lib/dracut/modules.d/90mountbootpartition/mountbootpartition.sh
+    permissions: "755"
+  # ensure mountbootpartition is included
+  - source: 10-mountbootpartition.conf
+    destination: /etc/dracut.conf.d/10-mountbootpartition.conf
+    permissions: "755"
+
+  services:
+    enable:
+    - sshd

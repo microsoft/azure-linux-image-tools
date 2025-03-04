@@ -25,4 +25,8 @@ const (
 
 	// ExtendedMountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	ExtendedMountIdentifierTypeDefault ExtendedMountIdentifierType = ""
+
+	ExtendedMountIdentifierTypeOverlay ExtendedMountIdentifierType = "overlay"
+
+	ExtendedMountIdentifierTypeCustom ExtendedMountIdentifierType = "custom"
 )
