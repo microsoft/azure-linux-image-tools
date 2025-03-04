@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
@@ -59,7 +60,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 
 	// Update fstab entries so that verity mounts point to verity device paths.
 	for _, verity := range verityList {
-		mountPath := verity.FileSystem.MountPoint.Path
+		mountPath := verity.MountPath
 
 		for j := range fstabEntries {
 			entry := &fstabEntries[j]
@@ -86,7 +87,7 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 	}
 
 	for _, verity := range verityList {
-		mountPath := verity.FileSystem.MountPoint.Path
+		mountPath := verity.MountPath
 
 		if mountPath == "/" {
 			if err := bootCustomizer.PrepareForVerity(); err != nil {
@@ -179,7 +180,7 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 			optionsArg = "systemd.verity_usr_options"
 
 		default:
-			return nil, fmt.Errorf("unsupported verity mount path: %s", mountPath)
+			return nil, fmt.Errorf("unsupported verity mount path (%s)", mountPath)
 		}
 
 		formattedDataPartition, err := systemdFormatPartitionUuid(metadata.dataPartUuid,
@@ -218,26 +219,39 @@ func verityDevicePathFromName(name string) string {
 	return imagecustomizerapi.DeviceMapperPath + "/" + name
 }
 
-// idToPartitionBlockDevicePath returns the block device path for a given idType and id.
-func idToPartitionBlockDevicePath(configDeviceId string,
-	diskPartitions []diskutils.PartitionInfo, partIdToPartUuid map[string]string,
-) (string, error) {
-	// Iterate over each partition to find the matching id.
-	for _, partition := range diskPartitions {
-		if partitionMatchesDeviceId(configDeviceId, partition, partIdToPartUuid) {
-			return partition.Path, nil
+func verityIdToPartition(configDeviceId string, deviceId *imagecustomizerapi.IdentifiedPartition,
+	partIdToPartUuid map[string]string, diskPartitions []diskutils.PartitionInfo,
+) (diskutils.PartitionInfo, error) {
+	var partition diskutils.PartitionInfo
+	var found bool
+	switch {
+	case configDeviceId != "":
+		partUuid := partIdToPartUuid[configDeviceId]
+		partition, found = sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
+			return partition.PartUuid == partUuid
+		})
+		if !found {
+			return diskutils.PartitionInfo{}, fmt.Errorf("no partition found with device Id (%s)", configDeviceId)
 		}
+		return partition, nil
+
+	case deviceId != nil:
+		partition, found = sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
+			switch deviceId.IdType {
+			case imagecustomizerapi.IdentifiedPartitionTypePartLabel:
+				return partition.PartLabel == deviceId.Id
+			default:
+				return false
+			}
+		})
+		if !found {
+			return diskutils.PartitionInfo{}, fmt.Errorf("partition not found (%s=%s)", deviceId.IdType, deviceId.Id)
+		}
+		return partition, nil
+
+	default:
+		return diskutils.PartitionInfo{}, fmt.Errorf("must provide config device ID or partition ID")
 	}
-
-	// If no partition is found with the given id.
-	return "", fmt.Errorf("no partition found with id (%s)", configDeviceId)
-}
-
-func partitionMatchesDeviceId(configDeviceId string, partition diskutils.PartitionInfo,
-	partIdToPartUuid map[string]string,
-) bool {
-	partUuid := partIdToPartUuid[configDeviceId]
-	return partition.PartUuid == partUuid
 }
 
 // systemdFormatPartitionUuid formats the partition UUID based on the ID type following systemd dm-verity style.
@@ -307,4 +321,80 @@ func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata
 	}
 
 	return nil
+}
+
+func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecustomizerapi.Config,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+) error {
+	if config.Storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
+		// Either:
+		// - Verity is not being used OR
+		// - Partitions were customized and the verity checks were done during the API validity checks.
+		// Either way, nothing to do.
+		return nil
+	}
+
+	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	if err != nil {
+		return err
+	}
+
+	verityDeviceMountPoint := make(map[*imagecustomizerapi.Verity]*imagecustomizerapi.MountPoint)
+	for i := range config.Storage.Verity {
+		verity := &config.Storage.Verity[i]
+
+		dataPartition, err := findIdentifiedPartition(partitions, *verity.DataDevice)
+		if err != nil {
+			return fmt.Errorf("verity (%s) data partition not found:\n%w", verity.Id, err)
+		}
+
+		hashPartition, err := findIdentifiedPartition(partitions, *verity.HashDevice)
+		if err != nil {
+			return fmt.Errorf("verity (%s) hash partition not found:\n%w", verity.Id, err)
+		}
+
+		dataFstabEntry, found := partUuidToFstabEntry[dataPartition.PartUuid]
+		if !found {
+			return fmt.Errorf("verity's (%s) data partition's fstab entry not found", verity.Id)
+		}
+
+		_, found = partUuidToFstabEntry[hashPartition.PartUuid]
+		if found {
+			return fmt.Errorf("verity's (%s) hash partition cannot have an fstab entry", verity.Id)
+		}
+
+		if hashPartition.FileSystemType != "" {
+			return fmt.Errorf("verity's (%s) hash partition cannot have a filesystem", verity.Id)
+		}
+
+		mountPoint := &imagecustomizerapi.MountPoint{
+			Path:    dataFstabEntry.Target,
+			Options: dataFstabEntry.Options,
+		}
+		verityDeviceMountPoint[verity] = mountPoint
+	}
+
+	err = imagecustomizerapi.ValidateVerityMounts(config.Storage.Verity, verityDeviceMountPoint)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecustomizerapi.IdentifiedPartition,
+) (diskutils.PartitionInfo, error) {
+	partition, found := sliceutils.FindValueFunc(partitions, func(partition diskutils.PartitionInfo) bool {
+		switch ref.IdType {
+		case imagecustomizerapi.IdentifiedPartitionTypePartLabel:
+			return partition.PartLabel == ref.Id
+
+		default:
+			return false
+		}
+	})
+	if !found {
+		return diskutils.PartitionInfo{}, fmt.Errorf("partition not found (%s=%s)", ref.IdType, ref.Id)
+	}
+	return partition, nil
 }

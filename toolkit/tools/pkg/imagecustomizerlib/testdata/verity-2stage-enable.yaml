@@ -1,0 +1,22 @@
+#
+# Stage 2: Enable verity on an image that already has the partitions needed for verity.
+#
+storage:
+  verity:
+  - id: verityusr
+    name: usr
+    dataDevice:
+      idType: part-label
+      id: usr
+    hashDevice:
+      idType: part-label
+      id: usrhash
+    corruptionOption: panic
+
+os:
+  users:
+  - name: test
+    sshPublicKeys:
+      # Your SSH public key here.
+    secondaryGroups:
+    - sudo
