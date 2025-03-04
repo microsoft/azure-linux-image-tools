@@ -67,7 +67,6 @@ os:
 
     install:
     - veritysetup
-    - systemd-ukify
     - systemd-boot
     - efibootmgr
     - lvm2
