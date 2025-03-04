@@ -89,7 +89,6 @@ the future.
 
        install:
        - veritysetup
-       - systemd-ukify
        - systemd-boot
        - efibootmgr
        - lvm2
