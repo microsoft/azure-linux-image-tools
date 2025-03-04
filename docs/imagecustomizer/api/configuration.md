@@ -231,3 +231,5 @@ os:
       - [environmentVariables](./configuration/script.md#environmentvariables-mapstring-string)
       - [name](./configuration/script.md#name-string)
   - [previewFeatures type](./configuration/config.md#previewfeatures-string)
+  - [output](./configuration/config.md#output-output) ([output type](./configuration/output.md))
+    - [path](./configuration/output.md#path-string)

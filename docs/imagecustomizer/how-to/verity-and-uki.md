@@ -89,9 +89,9 @@ the future.
 
        install:
        - veritysetup
-       - systemd-ukify
        - systemd-boot
        - efibootmgr
+       - lvm2
     ```
 
 2. Run Image Customizer to create the image file.

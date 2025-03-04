@@ -1,6 +1,6 @@
-previewFeatures:
-- uki
-
+#
+# Stage 1: Create an image that has the partitions for verity but without actually enabling verity.
+#
 storage:
   bootType: efi
   disks:
@@ -8,26 +8,21 @@ storage:
     partitions:
     - id: esp
       type: esp
-      size: 250M
+      size: 8M
 
     - id: boot
-      size: 250M
+      size: 1G
 
     - id: usr
-      size: 1G
+      size: 2G
+      label: usr
 
     - id: usrhash
       size: 100M
-
+      label: usrhash
+    
     - id: root
       size: 2G
-
-  verity:
-  - id: verityusr
-    name: usr
-    dataDeviceId: usr
-    hashDeviceId: usrhash
-    corruptionOption: panic
 
   filesystems:
   - deviceId: esp
@@ -38,13 +33,15 @@ storage:
 
   - deviceId: boot
     type: ext4
-    mountPoint: /boot
+    mountPoint:
+      path: /boot
 
   - deviceId: root
     type: ext4
-    mountPoint: /
+    mountPoint:
+      path: /
 
-  - deviceId: verityusr
+  - deviceId: usr
     type: ext4
     mountPoint:
       path: /usr
@@ -54,19 +51,19 @@ os:
   bootloader:
     resetType: hard-reset
 
+  selinux:
+    mode: disabled
+
   kernelCommandLine:
     extraCommandLine:
-    - rd.info
-
-  uki:
-    kernels: auto
+    - "rd.info"
 
   packages:
-    remove:
-    - grub2-efi-binary
-
     install:
+    - openssh-server
     - veritysetup
-    - systemd-boot
-    - efibootmgr
-    - lvm2
+    - vim
+
+  services:
+    enable:
+    - sshd

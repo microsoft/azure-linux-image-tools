@@ -44,6 +44,9 @@ func TestConfigIsValid(t *testing.T) {
 		},
 		Scripts: Scripts{},
 		Iso:     &Iso{},
+		Output: Output{
+			Path: "./out/image.vhdx",
+		},
 	}
 
 	err := config.IsValid()
@@ -617,5 +620,5 @@ func TestConfigIsValidVerityNoStorage(t *testing.T) {
 		},
 	}
 	err := config.IsValid()
-	assert.ErrorContains(t, err, "cannot specify 'verity' without specifying 'disks'")
+	assert.ErrorContains(t, err, "cannot specify 'verity' with dataDeviceId/hashDeviceId without specifying 'disks'")
 }

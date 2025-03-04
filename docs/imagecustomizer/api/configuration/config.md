@@ -74,3 +74,9 @@ previewFeatures:
 ```
 
 Added in v0.8.
+
+## output [[output](./output.md)]
+
+Specifies the configuration for the output image.
+
+Added in v0.13.0.
