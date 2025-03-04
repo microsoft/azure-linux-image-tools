@@ -801,7 +801,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
 	if err != nil {
-		return nil, fmt.Errorf("verity validation failed:\n%w", err)
+		return nil, "", fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
 	// Do the actual customizations.
