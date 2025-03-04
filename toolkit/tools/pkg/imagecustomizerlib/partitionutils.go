@@ -287,13 +287,6 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 		}
 	}
 
-	/*
-		partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
-		if err != nil {
-			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
-		}
-	*/
-
 	return mountIdType, partition, partitionIndex, nil
 }
 
