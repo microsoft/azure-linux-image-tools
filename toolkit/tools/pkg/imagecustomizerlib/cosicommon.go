@@ -82,6 +82,12 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			continue
 		}
 
+		// Skip partitions that are unmounted or have no filesystem type
+		fstabEntry, hasMount := partUuidToFstabEntry[partition.PartUuid]
+		if !hasMount || fstabEntry.Target == "" || partition.FileSystemType == "" {
+			continue
+		}
+
 		metadataImage := Image{
 			Image: ImageFile{
 				Path:             path.Join("images", partition.PartitionFilename),
