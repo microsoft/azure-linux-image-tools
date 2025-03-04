@@ -243,12 +243,6 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
 	}
 
-	/*
-	if !foundRoot {
-		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
-	}
-	*/
-
 	return mountPoints, partUuidToFstabEntry, nil
 }
 
