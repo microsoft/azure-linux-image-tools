@@ -205,12 +205,16 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
-	var foundRoot bool
+	// var foundRoot bool
 	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	for _, fstabEntry := range filteredFstabEntries {
-		_, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		partitionType, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
 			return nil, nil, err
+		}
+
+		if partitionType == ExtendedMountIdentifierTypeOverlay || partitionType == ExtendedMountIdentifierTypeCustom {
+			continue
 		}
 
 		var vfsOptions diskutils.MountFlags
@@ -228,7 +232,7 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 
-			foundRoot = true
+			// foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
 				partition.Path, fstabEntry.Target, fstabEntry.FsType,
@@ -239,9 +243,11 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
 	}
 
+	/*
 	if !foundRoot {
 		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
+	*/
 
 	return mountPoints, partUuidToFstabEntry, nil
 }
@@ -276,10 +282,23 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
-	partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
-	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+	var partition diskutils.PartitionInfo
+	var partitionIndex int
+	if mountIdType != ExtendedMountIdentifierTypeOverlay &&
+		mountIdType != ExtendedMountIdentifierTypeCustom {
+
+		partition, partitionIndex, err = findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+		if err != nil {
+			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		}
 	}
+
+	/*
+		partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+		if err != nil {
+			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		}
+	*/
 
 	return mountIdType, partition, partitionIndex, nil
 }
@@ -590,6 +609,15 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 
 	if strings.HasPrefix(source, "/dev") {
 		return ExtendedMountIdentifierTypeDev, source, nil
+	}
+
+	if source == "overlay" {
+		return ExtendedMountIdentifierTypeOverlay, "", nil
+	}
+
+	_, isDeviceCustom := strings.CutPrefix(source, "/dev/disk")
+	if isDeviceCustom {
+		return ExtendedMountIdentifierTypeCustom, "", nil
 	}
 
 	err := fmt.Errorf("unknown fstab source type (%s)", source)
