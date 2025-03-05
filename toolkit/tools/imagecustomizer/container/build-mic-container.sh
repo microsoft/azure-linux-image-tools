@@ -81,8 +81,10 @@ if [ ! -d "$orasUnzipDir" ]; then
 
   mkdir "$orasUnzipDir"
   tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
-  cp "$orasUnzipDir/oras" "${stagingBinDir}"
 fi
+
+# stage oras
+cp "$orasUnzipDir/oras" "${stagingBinDir}"
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
