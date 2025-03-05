@@ -67,7 +67,7 @@ func shrinkFilesystems(imageLoopDevice string) error {
 			continue
 		}
 
-		// Resize the partition with parted resizepart
+		// Resize the partition.
 		sfdiskScript := fmt.Sprintf("unit: sectors\nsize=%d", filesystemSizeInSectors)
 
 		err = shell.NewExecBuilder("flock", "--timeout", "5", imageLoopDevice, "sfdisk", "--lock=no",
