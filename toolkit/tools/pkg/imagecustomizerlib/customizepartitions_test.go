@@ -119,6 +119,12 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		assert.Equal(t, "4f68bce3-e8cd-4db1-96e7-fbcaf984b709", partitions[3].PartitionTypeUuid) // root (x64)
 		assert.Equal(t, "4d21b016-b534-45c2-a9fb-5c16e091fd2d", partitions[4].PartitionTypeUuid) // var
 	}
+
+	// Check the partition sizes.
+	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(99*diskutils.MiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(1940*diskutils.MiB), partitions[3].SizeInBytes)
+	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes)
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
@@ -186,6 +192,11 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
 		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[3].PartitionTypeUuid) // linux generic
 	}
+
+	// Check the partition sizes.
+	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(2*diskutils.GiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].SizeInBytes)
 }
 
 func TestCustomizeImagePartitionsEfiToLegacy(t *testing.T) {
@@ -253,6 +264,10 @@ func testCustomizeImagePartitionsToLegacy(t *testing.T, testName string, imageTy
 		assert.Equal(t, "21686148-6449-6e6f-744e-656564454649", partitions[1].PartitionTypeUuid) // BIOS boot
 		assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
 	}
+
+	// Check the partition sizes.
+	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(4086*diskutils.MiB), partitions[2].SizeInBytes)
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {
