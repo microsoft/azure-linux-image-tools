@@ -1,19 +1,25 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 package imagecustomizerlib
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/klauspost/compress/zstd"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func TestAddSkippableFrame(t *testing.T) {
@@ -77,6 +83,95 @@ func extractZstFile(zstFilePath string, outputFilePath string) error {
 	return nil
 }
 
+// extractPartitionsFromCosi extracts the partition files from a COSI file
+// and returns a list of their paths.
+// It skips directories, metadata.json, and files that are not .zst.
+// It also decompresses the .zst files and writes them to the output directory.
+func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error) {
+	var extractedParitionsPaths []string
+
+	// Open the COSI file
+	cosiFile, err := os.Open(cosiFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open COSI file: %w", err)
+	}
+	defer cosiFile.Close()
+
+	tarReader := tar.NewReader(cosiFile)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading tar: %w", err)
+		}
+
+		// Skip directories
+		if header.Typeflag == tar.TypeDir {
+			continue
+		}
+		// Skip metadata.json
+		if header.Name == "metadata.json" {
+			continue
+		}
+		// Skip files that are not .zst
+		if filepath.Ext(header.Name) != ".zst" {
+			continue
+		}
+
+		// Validate the file path to prevent directory traversal
+		cleanPath := filepath.Clean(header.Name)
+		if strings.Contains(cleanPath, "..") {
+			return nil, fmt.Errorf("invalid file path in tar archive: %s", header.Name)
+		}
+
+		imageFileName := filepath.Base(header.Name)
+
+		zstFilePath := filepath.Join(outputDir, "cosiimages", imageFileName)
+		// remove the .zst extension to get the output file name
+		rawImageFile := imageFileName[:len(imageFileName)-len(filepath.Ext(imageFileName))]
+		outputFilePath := filepath.Join(outputDir, rawImageFile)
+		outputDir := filepath.Dir(outputFilePath)
+		err = os.MkdirAll(outputDir, os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create output directory: %w", err)
+		}
+
+		// Open the .zst file
+		zstFile, err := os.Open(zstFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open .zst file: %w", err)
+		}
+		defer zstFile.Close()
+
+		// Create the output file
+		outFile, err := os.Create(outputFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer outFile.Close()
+
+		// Create a new zstd reader
+		zstReader, err := zstd.NewReader(tarReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create zstd reader: %w", err)
+		}
+		defer zstReader.Close()
+
+		// Decompress the .zst file and write to the output file
+		if _, err := io.Copy(outFile, zstReader); err != nil {
+			return nil, fmt.Errorf("failed to decompress and write to output file: %w", err)
+		}
+
+		extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)
+		logger.Log.Debugf("Extracted partition file: %s", outputFilePath)
+
+	}
+
+	return extractedParitionsPaths, nil
+}
+
 // Decompress the .raw.zst partition file and verify the hash matches with the source .raw file
 func verifySkippableFrameDecompression(rawPartitionFilepath string, rawZstPartitionFilepath string) (err error) {
 	// Decompressing .raw.zst file
@@ -138,4 +233,155 @@ func verifySkippableFrameMetadataFromFile(partitionFilepath string, magicNumber 
 	logger.Log.Infof("Skippable frame is valid and contains the correct metadata!")
 
 	return nil
+}
+
+// Tests partition extracting with partition resize enabled, but where the partition resize is a no-op.
+func TestCustomizeImageNopShrink(t *testing.T) {
+	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	configFile := filepath.Join(testDir, "consume-space.yaml")
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
+
+	// Customize image.
+	err = CustomizeImageWithConfigFile(testTempDir, configFile, baseImage, nil, outImageFilePath, "cosi", "" /*outputPXEArtifactsDir*/, true)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Attach partition files.
+	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
+
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 2) {
+		return
+	}
+
+	espPartitionNumber := 1
+	rootfsPartitionNumber := 2
+
+	espPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw", espPartitionNumber))
+	rootfsPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
+
+	espPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNumber))
+	rootfsPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
+
+	// Check the file type of the output files.
+	checkFileType(t, espPartitionZstFilePath, "zst")
+	checkFileType(t, rootfsPartitionZstFilePath, "zst")
+
+	// Mount the partitions.
+	mountsDir := filepath.Join(testTempDir, "testmounts")
+	espMountDir := filepath.Join(mountsDir, "esp")
+	rootfsMountDir := filepath.Join(mountsDir, "rootfs")
+
+	espLoopback, err := safeloopback.NewLoopback(espPartitionFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espLoopback.Close()
+
+	rootfsLoopback, err := safeloopback.NewLoopback(rootfsPartitionFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer rootfsLoopback.Close()
+
+	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espMount.Close()
+
+	rootfsMount, err := safemount.NewMount(rootfsLoopback.DevicePath(), rootfsMountDir, "ext4", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer rootfsMount.Close()
+
+	// Get the file sizes.
+	var rootfsStat unix.Statfs_t
+	err = unix.Statfs(rootfsMountDir, &rootfsStat)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	bigFileStat, err := os.Stat(filepath.Join(rootfsMountDir, "bigfile"))
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	rootfsZstFileStat, err := os.Stat(rootfsPartitionZstFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Confirm that there is almost 0 free space left, thus preventing the shrink partition operation from doing
+	// anything.
+	rootfsFreeSpace := int64(rootfsStat.Bfree) * rootfsStat.Frsize
+	assert.LessOrEqual(t, rootfsFreeSpace, int64(32*diskutils.MiB), "check rootfs free space")
+
+	// Ensure that zst succesfully compressed the rootfs partition.
+	// In particular, bigfile, which is all 0s, should compress down to basically nothing.
+	rootfsSizeLessBigFile := int64(rootfsStat.Blocks)*rootfsStat.Frsize - bigFileStat.Size()
+	assert.LessOrEqual(t, rootfsZstFileStat.Size(), rootfsSizeLessBigFile, "check compression size")
+}
+
+func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
+	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	buildDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	configFile := filepath.Join(testDir, "partitions-unformatted-partition.yaml")
+	outImageFilePath := filepath.Join(buildDir, "image.raw")
+
+	// Customize image.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", "", false /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Attach partition files.
+	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, buildDir)
+
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 2) {
+		return
+	}
+
+	espPartitionNumber := 1
+	rootfsPartitionNumber := 2
+
+	espPartitionFilePath := filepath.Join(buildDir, fmt.Sprintf("image_%d.raw", espPartitionNumber))
+	rootfsPartitionFilePath := filepath.Join(buildDir, fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
+
+	// Mount the partitions.
+	mountsDir := filepath.Join(buildDir, "testmounts")
+	espMountDir := filepath.Join(mountsDir, "esp")
+	rootfsMountDir := filepath.Join(mountsDir, "rootfs")
+
+	espLoopback, err := safeloopback.NewLoopback(espPartitionFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espLoopback.Close()
+
+	rootfsLoopback, err := safeloopback.NewLoopback(rootfsPartitionFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espLoopback.Close()
+
+	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espMount.Close()
+
+	rootfsMount, err := safemount.NewMount(rootfsLoopback.DevicePath(), rootfsMountDir, "ext4", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer rootfsMount.Close()
 }

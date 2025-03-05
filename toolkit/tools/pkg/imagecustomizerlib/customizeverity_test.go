@@ -5,12 +5,14 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
@@ -45,6 +47,21 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 		return
 	}
 
+	verityRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+
+	// Recustomize the image.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+}
+
+func verityRootVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+	outImageFilePath string,
+) {
 	// Connect to customized image.
 	mountPoints := []mountPoint{
 		{
@@ -93,22 +110,21 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 	}
 }
 
-func TestCustomizeImageVerityShrinkExtract(t *testing.T) {
+func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 	for _, version := range supportedAzureLinuxVersions {
 		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityShrinkExtractHelper(t, "TestCustomizeImageVerityShrinkExtract"+string(version),
+			testCustomizeImageVerityCosiExtractHelper(t, "TestCustomizeImageVerityShrinkExtract"+string(version),
 				baseImageTypeCoreEfi, version)
 		})
 	}
 }
 
-func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, imageType baseImageType,
+func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, imageType baseImageType,
 	imageVersion baseImageVersion,
 ) {
 	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
 
 	testTempDir := filepath.Join(tmpDir, testName)
-	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
 
@@ -125,21 +141,50 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
-	err = CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
+	err = CustomizeImage(testTempDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+
 	if !assert.NoError(t, err) {
 		return
 	}
 
 	// Attach partition files.
 	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 4) {
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 5) {
 		return
 	}
 
-	bootPartitionPath := partitionsPaths[bootPartitionNum-1]
-	rootPartitionPath := partitionsPaths[rootPartitionNum-1]
-	hashPartitionPath := partitionsPaths[hashPartitionNum-1]
+	espPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNum))
+	bootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", bootPartitionNum))
+	rootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootPartitionNum))
+	hashPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", hashPartitionNum))
+	varPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", varPartitionNum))
+
+	espStat, err := os.Stat(espPartitionPath)
+	assert.NoError(t, err)
+
+	bootStat, err := os.Stat(bootPartitionPath)
+	assert.NoError(t, err)
+
+	rootStat, err := os.Stat(rootPartitionPath)
+	assert.NoError(t, err)
+
+	hashStat, err := os.Stat(hashPartitionPath)
+	assert.NoError(t, err)
+
+	varStat, err := os.Stat(varPartitionPath)
+	assert.NoError(t, err)
+
+	// Check partition sizes.
+	assert.Equal(t, int64(8*diskutils.MiB), espStat.Size())
+	assert.Equal(t, int64(100*diskutils.MiB), hashStat.Size())
+
+	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
+	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
+	// were picked by observing values seen during test and adding a good buffer.
+	assert.Greater(t, int64(150*diskutils.MiB), bootStat.Size())
+	assert.Greater(t, int64(650*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
 
 	bootDevice, err := safeloopback.NewLoopback(bootPartitionPath)
 	if !assert.NoError(t, err) {
@@ -159,7 +204,7 @@ func testCustomizeImageVerityShrinkExtractHelper(t *testing.T, testName string, 
 	}
 	defer hashDevice.Close()
 
-	bootMountPath := filepath.Join(buildDir, "bootpartition")
+	bootMountPath := filepath.Join(testTempDir, "bootpartition")
 	bootMount, err := safemount.NewMount(bootDevice.DevicePath(), bootMountPath, "ext4", 0, "", true)
 	if !assert.NoError(t, err) {
 		return
@@ -307,6 +352,22 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 		return
 	}
 
+	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+
+	// Recustomize image.
+	// This helps verify that verity-enabled images can be recustomized.
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+}
+
+func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+	outImageFilePath string,
+) {
 	// Connect to usr verity image.
 	mountPoints := []mountPoint{
 		{
@@ -371,15 +432,15 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, imag
 	stage2FilePath := filepath.Join(testTempDir, "image.raw")
 
 	// Stage 1: Create the partitions for verity.
-	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "qcow2", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "qcow2",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
 	// Stage 2: Enable verity.
-	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

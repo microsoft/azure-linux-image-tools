@@ -29,8 +29,8 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

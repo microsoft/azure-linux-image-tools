@@ -429,7 +429,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// For COSI, always shrink the filesystems.
 	if ic.outputImageFormat == ImageFormatCosi {
-		err = shrinkFilesystemsHelper(ic.rawImageFile, ic.config.Storage.Verity, partIdToPartUuid)
+		err = shrinkFilesystemsHelper(ic.rawImageFile)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
@@ -781,12 +781,10 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		return nil, "", err
 	}
 
-	return partUuidToMountPath, nil
+	return partUuidToFstabEntry, osRelease, nil
 }
 
-func shrinkFilesystemsHelper(buildImageFile string, verity []imagecustomizerapi.Verity,
-	partIdToPartUuid map[string]string,
-) error {
+func shrinkFilesystemsHelper(buildImageFile string) error {
 	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
 		return err
