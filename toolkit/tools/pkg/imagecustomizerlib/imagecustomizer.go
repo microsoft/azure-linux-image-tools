@@ -120,6 +120,8 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
 
+	logger.Log.Infof("Input Image Format: %s", ic.inputImageFormat)
+
 	// Create a uuid for the image
 	imageUuid, imageUuidStr, err := createUuid()
 	if err != nil {
@@ -175,6 +177,8 @@ func createImageCustomizerParameters(buildDir string,
 	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
 		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
 	}
+
+	logger.Log.Infof("Output Image Format: %s", ic.outputImageFormat)
 
 	if ic.inputIsIso {
 		// When the input is an iso image, there's only one file system: the

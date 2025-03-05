@@ -6,6 +6,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/exe"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
@@ -32,6 +33,7 @@ var (
 )
 
 func main() {
+	startTime := time.Now()
 	var err error
 
 	app.Version(imagecustomizerlib.ToolVersion)
@@ -41,6 +43,8 @@ func main() {
 	}
 
 	logger.InitBestEffort(logFlags)
+
+	logger.Log.Infof("Image Customizer Version: %s", imagecustomizerlib.ToolVersion)
 
 	if *enableShrinkFilesystems && *outputSplitPartitionsFormat == "" {
 		logger.Log.Fatalf("--output-split-partitions-format must be specified to use --shrink-filesystems.")
@@ -56,6 +60,9 @@ func main() {
 	}
 
 	err = customizeImage()
+
+	logger.Log.Infof("Elapsed Time: %.2f seconds", time.Since(startTime).Seconds())
+
 	if err != nil {
 		log.Fatalf("image customization failed:\n%v", err)
 	}
