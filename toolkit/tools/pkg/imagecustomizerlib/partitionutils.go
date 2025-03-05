@@ -594,17 +594,17 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 		return ExtendedMountIdentifierTypePartLabel, partLabel, nil
 	}
 
+	_, isDeviceCustom := strings.CutPrefix(source, "/dev/disk")
+	if isDeviceCustom {
+		return ExtendedMountIdentifierTypeCustom, "", nil
+	}
+
 	if strings.HasPrefix(source, "/dev") {
 		return ExtendedMountIdentifierTypeDev, source, nil
 	}
 
 	if source == "overlay" {
 		return ExtendedMountIdentifierTypeOverlay, "", nil
-	}
-
-	_, isDeviceCustom := strings.CutPrefix(source, "/dev/disk")
-	if isDeviceCustom {
-		return ExtendedMountIdentifierTypeCustom, "", nil
 	}
 
 	err := fmt.Errorf("unknown fstab source type (%s)", source)
