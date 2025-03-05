@@ -15,6 +15,21 @@ processors:
     check_interval: 5s
     limit_mib: 100
     spike_limit_mib: 20
+  attributes: # Add attributes to all telemetry
+    actions:
+      - key: "host-os"
+        action: insert
+        value: "Azure Linux 3"
+      - key: "host-os-release"
+        action: insert
+        value: "3.0.20250206"
+      - key: "host-arch"
+        action: insert
+        value: "amd64"
+      - key: "imagecustomizer-version"
+        action: insert
+        value: "0.12.0"
+
   batch:
 
 exporters:
@@ -28,14 +43,14 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, attributes, batch]
       exporters: [azuremonitor, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, attributes, batch]
       exporters: [azuremonitor, debug]
     logs:
       receivers: [filelog]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, attributes, batch]
       exporters: [azuremonitor, debug]
   extensions: [health_check]
