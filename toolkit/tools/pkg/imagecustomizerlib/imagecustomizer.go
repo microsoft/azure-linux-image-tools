@@ -87,6 +87,7 @@ type ImageCustomizerParameters struct {
 	verityMetadata []verityDeviceMetadata
 
 	partUuidToFstabEntry map[string]diskutils.FstabEntry
+	osRelease            string
 }
 
 type verityDeviceMetadata struct {
@@ -440,7 +441,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.rawImageFile = newRawImageFile
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
+	partUuidToFstabEntry, osRelease, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
 		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
 	if err != nil {
 		return err
@@ -448,6 +449,9 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Set partition to mountpath mapping for COSI.
 	ic.partUuidToFstabEntry = partUuidToFstabEntry
+
+	// Set osRelease file content for COSI.
+	ic.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
 	if ic.outputImageFormat == ImageFormatCosi || ic.enableShrinkFilesystems {
@@ -779,14 +783,20 @@ func validateOutput(output imagecustomizerapi.Output, outputImageFile string) er
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string,
-) (map[string]diskutils.FstabEntry, error) {
+) (map[string]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer imageConnection.Close()
+
+	// Extract OS release info from rootfs for COSI
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
 		distro, version := getDistroAndVersion()
@@ -797,7 +807,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
 	if err != nil {
-		return nil, fmt.Errorf("verity validation failed:\n%w", err)
+		return nil, "", fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
 	// Do the actual customizations.
@@ -809,15 +819,15 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	warnOnLowFreeSpace(buildDir, imageConnection)
 
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return partUuidToFstabEntry, nil
+	return partUuidToFstabEntry, osRelease, nil
 }
 
 func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasename string, outputSplitPartitionsFormat string, imageUuid [UuidSize]byte) error {

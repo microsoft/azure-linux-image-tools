@@ -278,3 +278,13 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 
 	return partIdToPartUuid, nil
 }
+
+func extractOSRelease(imageConnection *ImageConnection) (string, error) {
+	osReleasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/os-release")
+	data, err := file.Read(osReleasePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+	}
+
+	return string(data), nil
+}
