@@ -61,6 +61,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "output": {
+          "$ref": "#/$defs/Output"
         }
       },
       "additionalProperties": false,
@@ -135,6 +138,18 @@
         },
         "mountPoint": {
           "$ref": "#/$defs/MountPoint"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "IdentifiedPartition": {
+      "properties": {
+        "idType": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -248,6 +263,15 @@
           "$ref": "#/$defs/Uki"
         },
         "imageHistory": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Output": {
+      "properties": {
+        "path": {
           "type": "string"
         }
       },
@@ -555,20 +579,23 @@
         "dataDeviceId": {
           "type": "string"
         },
+        "dataDevice": {
+          "$ref": "#/$defs/IdentifiedPartition"
+        },
         "dataDeviceMountIdType": {
           "type": "string"
         },
         "hashDeviceId": {
           "type": "string"
         },
+        "hashDevice": {
+          "$ref": "#/$defs/IdentifiedPartition"
+        },
         "hashDeviceMountIdType": {
           "type": "string"
         },
         "corruptionOption": {
           "type": "string"
-        },
-        "FileSystem": {
-          "$ref": "#/$defs/FileSystem"
         }
       },
       "additionalProperties": false,

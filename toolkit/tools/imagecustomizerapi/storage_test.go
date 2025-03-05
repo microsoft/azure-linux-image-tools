@@ -693,6 +693,182 @@ func TestStorageIsValidVerityUsr(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestStorageIsValidVerityRootWrongIdType(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path:    "/",
+					Options: "ro",
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:   "rootverity",
+				Name: "root",
+				DataDevice: &IdentifiedPartition{
+					IdType: IdentifiedPartitionTypePartLabel,
+					Id:     "root",
+				},
+				HashDevice: &IdentifiedPartition{
+					IdType: IdentifiedPartitionTypePartLabel,
+					Id:     "roothash",
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "cannot specify both 'verity' with dataDevice/hashDevice and 'disks'")
+}
+
+func TestStorageIsValidVerityBothIdTypes(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+				{
+					Id: "usr",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "usrhash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path:    "/",
+					Options: "ro",
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:   "rootverity",
+				Name: "root",
+				DataDevice: &IdentifiedPartition{
+					IdType: IdentifiedPartitionTypePartLabel,
+					Id:     "root",
+				},
+				HashDevice: &IdentifiedPartition{
+					IdType: IdentifiedPartitionTypePartLabel,
+					Id:     "roothash",
+				},
+			},
+			{
+				Id:           "usrverity",
+				Name:         "usr",
+				DataDeviceId: "usr",
+				HashDeviceId: "usrhash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "cannot use both dataDeviceId/hashDeviceId and dataDevice/hashDevice")
+}
+
+func TestStorageIsValidVerityRootExistingPartitions(t *testing.T) {
+	value := Storage{
+		Verity: []Verity{
+			{
+				Id:   "rootverity",
+				Name: "root",
+				DataDevice: &IdentifiedPartition{
+					IdType: IdentifiedPartitionTypePartLabel,
+					Id:     "root",
+				},
+				HashDevice: &IdentifiedPartition{
+					IdType: IdentifiedPartitionTypePartLabel,
+					Id:     "roothash",
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
 func TestStorageIsValidVerityInvalidName(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
@@ -751,7 +927,7 @@ func TestStorageIsValidVerityInvalidName(t *testing.T) {
 
 	err := value.IsValid()
 	assert.ErrorContains(t, err, "invalid verity item at index 0")
-	assert.ErrorContains(t, err, "'dataDeviceId' may not be empty")
+	assert.ErrorContains(t, err, "either 'dataDeviceId' or 'dataDevice' must be specified")
 }
 
 func TestStorageIsValidVerityDuplicateId(t *testing.T) {
@@ -998,7 +1174,7 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "filesystems[].mountPoint.path of verity device (rootverity) must match verity name: 'root' for '/'")
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must match verity name: 'root' for '/'")
 }
 
 func TestStorageIsValidVerityHashFileSystem(t *testing.T) {
@@ -1180,7 +1356,7 @@ func TestStorageIsValidVerityFileSystemMissing(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "filesystems[].mountPoint.path of verity device (rootverity) must be set to '/' or '/usr'")
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must be set to '/' or '/usr'")
 }
 
 func TestStorageIsValidVerityTwoVerity(t *testing.T) {
@@ -1309,7 +1485,7 @@ func TestStorageIsValidVerityMissingReadonly(t *testing.T) {
 	}
 
 	err := value.IsValid()
-	assert.ErrorContains(t, err, "verity device's (rootverity) filesystem must include the 'ro' mount option")
+	assert.ErrorContains(t, err, "verity device's (rootverity) mount must include the 'ro' mount option")
 }
 
 func TestStorageIsValidExpectedMountPath(t *testing.T) {

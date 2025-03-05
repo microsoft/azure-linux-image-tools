@@ -56,7 +56,7 @@ func TestVerityIsValidMissingDataDeviceId(t *testing.T) {
 
 	err := invalidVerity.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'dataDeviceId' may not be empty")
+	assert.ErrorContains(t, err, "either 'dataDeviceId' or 'dataDevice' must be specified")
 }
 
 func TestVerityIsValidMissingHashDeviceId(t *testing.T) {
@@ -68,7 +68,7 @@ func TestVerityIsValidMissingHashDeviceId(t *testing.T) {
 
 	err := invalidVerity.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'hashDeviceId' may not be empty")
+	assert.ErrorContains(t, err, "either 'hashDeviceId' or 'hashDevice' must be specified")
 }
 
 func TestVerityIsValidInvalidCorruptionOption(t *testing.T) {
@@ -83,4 +83,54 @@ func TestVerityIsValidInvalidCorruptionOption(t *testing.T) {
 	err := invalidVerity.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid CorruptionOption value")
+}
+
+func TestVerityIsValidTwoDataDevice(t *testing.T) {
+	validVerity := Verity{
+		Id:           "root",
+		Name:         "root",
+		DataDeviceId: "root",
+		DataDevice: &IdentifiedPartition{
+			IdType: IdentifiedPartitionTypePartLabel,
+			Id:     "root",
+		},
+		HashDeviceId:     "roothash",
+		CorruptionOption: CorruptionOption("panic"),
+	}
+
+	err := validVerity.IsValid()
+	assert.ErrorContains(t, err, "cannot specify both 'dataDeviceId' and 'dataDevice'")
+}
+
+func TestVerityIsValidTwoHashDevice(t *testing.T) {
+	validVerity := Verity{
+		Id:           "root",
+		Name:         "root",
+		DataDeviceId: "root",
+		HashDeviceId: "roothash",
+		HashDevice: &IdentifiedPartition{
+			IdType: IdentifiedPartitionTypePartLabel,
+			Id:     "root",
+		},
+		CorruptionOption: CorruptionOption("panic"),
+	}
+
+	err := validVerity.IsValid()
+	assert.ErrorContains(t, err, "cannot specify both 'hashDeviceId' and 'hashDevice'")
+}
+
+func TestVerityIsValidMismatch(t *testing.T) {
+	validVerity := Verity{
+		Id:           "root",
+		Name:         "root",
+		DataDeviceId: "root",
+		HashDevice: &IdentifiedPartition{
+			IdType: IdentifiedPartitionTypePartLabel,
+			Id:     "root",
+		},
+		CorruptionOption: CorruptionOption("panic"),
+	}
+
+	err := validVerity.IsValid()
+	assert.ErrorContains(t, err, "cannot use both dataDeviceId/hashDeviceId and dataDevice/hashDevice")
 }

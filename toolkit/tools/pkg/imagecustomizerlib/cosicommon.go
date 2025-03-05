@@ -44,7 +44,7 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	}
 
 	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata,
-		ic.partUuidToFstabEntry, ic.imageUuidStr)
+		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
@@ -60,7 +60,8 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 }
 
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
-	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry, imageUuidStr string,
+	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	imageUuidStr string, osRelease string,
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
@@ -141,10 +142,11 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version: "1.0",
-		OsArch:  runtime.GOARCH,
-		Id:      imageUuidStr,
-		Images:  make([]Image, len(imageData)),
+		Version:   "1.0",
+		OsArch:    runtime.GOARCH,
+		Id:        imageUuidStr,
+		Images:    make([]Image, len(imageData)),
+		OsRelease: osRelease,
 	}
 
 	// Copy updated metadata

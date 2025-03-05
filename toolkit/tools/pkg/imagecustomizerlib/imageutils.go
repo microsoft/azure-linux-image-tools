@@ -199,12 +199,6 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
 	}
 
-	// Refresh partition entries under /dev.
-	err = refreshPartitions(imageConnection.Loopback().DevicePath())
-	if err != nil {
-		return nil, "", err
-	}
-
 	// Read the disk partitions.
 	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
@@ -283,4 +277,14 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 	}
 
 	return partIdToPartUuid, nil
+}
+
+func extractOSRelease(imageConnection *ImageConnection) (string, error) {
+	osReleasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/os-release")
+	data, err := file.Read(osReleasePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+	}
+
+	return string(data), nil
 }

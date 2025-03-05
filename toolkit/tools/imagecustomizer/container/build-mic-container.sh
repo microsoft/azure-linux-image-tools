@@ -53,15 +53,21 @@ function cleanUp() {
 trap 'cleanUp' ERR
 
 micLocalFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
+micLicensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
+
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
+stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
 
 dockerFile="$scriptDir/Dockerfile.mic-container"
 runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
+mkdir -p "${stagingLicensesDir}"
+
 cp "$micLocalFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
+cp -R "$micLicensesDir" "${stagingLicensesDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
@@ -75,8 +81,10 @@ if [ ! -d "$orasUnzipDir" ]; then
 
   mkdir "$orasUnzipDir"
   tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
-  cp "$orasUnzipDir/oras" "${stagingBinDir}"
 fi
+
+# stage oras
+cp "$orasUnzipDir/oras" "${stagingBinDir}"
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then

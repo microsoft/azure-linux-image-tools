@@ -16,6 +16,7 @@ type Config struct {
 	OS              *OS      `yaml:"os" json:"os,omitempty"`
 	Scripts         Scripts  `yaml:"scripts" json:"scripts,omitempty"`
 	PreviewFeatures []string `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
+	Output          Output   `yaml:"output" json:"output,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
