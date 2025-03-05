@@ -1,0 +1,41 @@
+extensions:
+  health_check:
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "localhost:4317"
+  filelog:
+    include: ["/var/lib/imagecustomizer/*.log"]
+    start_at: beginning
+
+processors:
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 100
+    spike_limit_mib: 20
+  batch:
+
+exporters:
+  azuremonitor:
+    connection_string: 
+    spaneventsenabled: true
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [azuremonitor, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [azuremonitor, debug]
+    logs:
+      receivers: [filelog]
+      processors: [memory_limiter, batch]
+      exporters: [azuremonitor, debug]
+  extensions: [health_check]
