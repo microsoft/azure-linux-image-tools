@@ -795,7 +795,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	// Extract OS release info from rootfs for COSI
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return  nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+		return nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
