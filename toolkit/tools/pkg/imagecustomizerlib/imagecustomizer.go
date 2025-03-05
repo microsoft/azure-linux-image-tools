@@ -103,6 +103,7 @@ type verityDeviceMetadata struct {
 	hashPartUuid          string
 	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
+	dataDeviceId          string
 }
 
 func createImageCustomizerParameters(buildDir string,
