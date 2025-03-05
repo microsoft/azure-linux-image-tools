@@ -972,6 +972,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			hashPartUuid:          hashPartUuid,
 			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
+			dataDeviceId:          verityConfig.DataDeviceId,
 		}
 	}
 
@@ -999,7 +1000,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	rootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts("root", verityMetadata["/"].rootHash, outputVerityHashes,
+	rootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts(verityMetadata["/"].dataDeviceId, verityMetadata["/"].rootHash, outputVerityHashes,
 		outputVerityHashesDir, requireSignedRootfsRootHash, requireSignedRootHashes)
 	if err != nil {
 		return nil, err
