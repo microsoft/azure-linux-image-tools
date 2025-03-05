@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
@@ -23,50 +21,44 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (*ImageConnection, map[string]diskutils.FstabEntry, string, error) {
+) (*ImageConnection, map[string]diskutils.FstabEntry, error) {
 	imageConnection := NewImageConnection()
 
-	partUuidToMountPath, osRelease, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
+	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
 	if err != nil {
 		imageConnection.Close()
-		return nil, nil, "", err
+		return nil, nil, err
 	}
-	return imageConnection, partUuidToMountPath, osRelease, nil
+	return imageConnection, partUuidToMountPath, nil
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (map[string]diskutils.FstabEntry, string, error) {
+) (map[string]diskutils.FstabEntry, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to find rootfs partition:\n%w", err)
+		return nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
 	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, partitions, buildDir)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
-	}
-
-	// Extract OS release info from rootfs for COSI
-	osRelease, err := extractOSRelease(rootfsPartition, buildDir)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
 	mountPoints, partUuidToFstabEntry, err := fstabEntriesToMountPoints(fstabEntries, partitions, buildDir)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
+		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
 
 	// Create chroot environment.
@@ -74,10 +66,10 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 
 	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return partUuidToFstabEntry, osRelease, nil
+	return partUuidToFstabEntry, nil
 }
 
 func createNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
@@ -287,27 +279,11 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 	return partIdToPartUuid, nil
 }
 
-func extractOSRelease(rootfsPartition *diskutils.PartitionInfo, buildDir string) (string, error) {
-	tmpDir := filepath.Join(buildDir, "tmp_rootfs")
-
-	// Temporarily mount the rootfs partition
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "", true)
+func extractOSRelease(imageConnection *ImageConnection) (string, error) {
+	osReleasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/os-release")
+	data, err := file.Read(osReleasePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
-	}
-	defer rootfsPartitionMount.Close()
-
-	// Read /etc/os-release
-	osReleasePath := filepath.Join(tmpDir, "etc/os-release")
-	data, err := os.ReadFile(osReleasePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read /etc/os-release")
-	}
-
-	// Unmount after reading
-	err = rootfsPartitionMount.CleanClose()
-	if err != nil {
-		return "", fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
 	}
 
 	return string(data), nil

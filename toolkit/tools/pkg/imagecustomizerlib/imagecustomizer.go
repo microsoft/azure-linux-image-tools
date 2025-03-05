@@ -786,11 +786,17 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 ) (map[string]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, osRelease, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
 	if err != nil {
 		return nil, "", err
 	}
 	defer imageConnection.Close()
+
+	// Extract OS release info from rootfs for COSI
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return  nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
 		distro, version := getDistroAndVersion()
