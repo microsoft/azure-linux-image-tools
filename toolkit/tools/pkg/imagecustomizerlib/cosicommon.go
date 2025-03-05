@@ -137,7 +137,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 	metadata := MetadataJson{
 		Version:   "1.0",
-		OsArch:    runtime.GOARCH,
+		OsArch:    getArchitecture(),
 		Id:        imageUuidStr,
 		Images:    make([]Image, len(imageData)),
 		OsRelease: osRelease,
@@ -286,4 +286,11 @@ func populateVerityMetadata(source string, verity *Verity) error {
 	}
 
 	return nil
+}
+
+func getArchitecture() string {
+	if runtime.GOARCH == "amd64" {
+		return "x86_64"
+	}
+	return runtime.GOARCH
 }
