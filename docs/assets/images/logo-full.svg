@@ -38,10 +38,10 @@
      showgrid="false"
      inkscape:zoom="1.0814098"
      inkscape:cx="590.43297"
-     inkscape:cy="223.3196"
+     inkscape:cy="224.24432"
      inkscape:window-width="2560"
      inkscape:window-height="1369"
-     inkscape:window-x="-8"
+     inkscape:window-x="3992"
      inkscape:window-y="-8"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1"
@@ -73,14 +73,12 @@
      id="layer1"
      inkscape:label="logo-with-text"
      style="display:inline">
-    <text
-       xml:space="preserve"
+    <path
+       d="m 192.7018,90.828376 h 1.596 v -4.176 h 1.608 l 0.684,-1.26 v -3.156 l -0.684,-1.26 h -3.204 z m 2.208,-8.292 0.168,0.372 v 2.052 l -0.168,0.36 h -0.612 v -2.784 z m 2.25599,8.292 h 1.596 v -8.292 h 0.804 l 0.168,0.372 v 2.052 l -0.72,0.996 0.72,0.888 v 3.3 l 0.348,0.684 h 1.692 l -0.396,-0.684 v -3.36 l -0.588,-1.056 0.588,-0.996 v -2.496 l -0.708,-1.26 h -3.504 z m 6.54,-9.852 h -1.572 v 9.852 h 1.572 z m 1.368,0 -0.78,1.26 v 2.556 l 1.836,2.112 v 1.98 l -0.192,0.372 h -1.812 l 0.228,1.572 h 2.508 l 0.732,-1.26 v -3.552 l -1.788,-2.004 v -1.104 l 0.204,-0.372 h 1.212 l 0.48,-1.56 z m 6.60001,4.968 h 0.048 v 4.884 h 1.392 v -9.852 h -1.668 l -0.756,4.296 h -0.048 l -0.744,-4.296 h -1.656 v 9.852 h 1.368 v -4.884 h 0.06 l 0.972,4.884 h 0.048 z"
        id="text7"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12px;font-family:Spectrashell;-inkscape-font-specification:'Spectrashell, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;white-space:pre;shape-inside:url(#rect7);display:inline;fill:#1a1a1a"
+       style="font-size:12px;font-family:Spectrashell;-inkscape-font-specification:'Spectrashell, Normal';white-space:pre;fill:#1a1a1a"
+       inkscape:label="prism-text"
        transform="matrix(25.010433,0,0,25.010433,-4738.8963,-1725.5345)"
-       inkscape:label="prism-text"><tspan
-         x="192.3418"
-         y="90.828376"
-         id="tspan2">Prism</tspan></text>
+       aria-label="Prism" />
   </g>
 </svg>
