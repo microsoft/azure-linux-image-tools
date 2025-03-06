@@ -125,8 +125,17 @@
       "pattern": "^\\d+[KMGT]$"
     },
     "FilePermissions": {
-      "type": "string",
-      "pattern": "^[0-7]{3,4}$"
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-7]{3,4}$"
+        },
+        {
+          "type": "integer",
+          "maximum": 777,
+          "minimum": 0
+        }
+      ]
     },
     "FileSystem": {
       "properties": {
