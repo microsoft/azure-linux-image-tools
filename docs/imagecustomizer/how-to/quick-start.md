@@ -39,7 +39,7 @@ nav_order: 1
 
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
+        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
         xfsprogs zstd veritysetup grub2 grub2-pc binutils
      ```
 
@@ -47,7 +47,7 @@ nav_order: 1
 
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
+        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
         xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify binutils
      ```
 
