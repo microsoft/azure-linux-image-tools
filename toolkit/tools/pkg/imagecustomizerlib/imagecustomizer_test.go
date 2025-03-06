@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/stretchr/testify/assert"
 )
@@ -383,8 +384,14 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFileSelection")
 	outImageFilePathAsArg := filepath.Join(buildDir, "image-from-arg.vhd")
 	outImageFilePathAsConfig := filepath.Join(buildDir, "image-from-config.vhd")
+	inputImageFile := filepath.Join(buildDir, "image.vhd")
 
-	inputImageFile := "./in/image.vhd"
+	err := os.MkdirAll(buildDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	err = file.Write("", inputImageFile)
+	assert.NoError(t, err)
+
 	configPath := "config.yaml"
 	config := &imagecustomizerapi.Config{}
 	useBaseImageRpmRepos := false

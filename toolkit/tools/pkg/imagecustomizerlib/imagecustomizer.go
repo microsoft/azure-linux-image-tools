@@ -117,6 +117,13 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
 
+	// Check if the input file exists and is accessible.
+	// Pre-checking this ensures the error message is friendly.
+	_, err = os.Stat(ic.inputImageFile)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create a uuid for the image
 	imageUuid, imageUuidStr, err := createUuid()
 	if err != nil {
@@ -235,7 +242,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	if err != nil {
-		return fmt.Errorf("failed to create image customizer parameters object:\n%w", err)
+		return fmt.Errorf("invalid parameters:\n%w", err)
 	}
 	defer func() {
 		cleanupErr := cleanUp(imageCustomizerParameters)
