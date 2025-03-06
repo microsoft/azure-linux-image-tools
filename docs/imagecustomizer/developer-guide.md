@@ -65,3 +65,6 @@ sudo go test -C ./toolkit/tools ./...
      --base-image-core-legacy-azl2 "$AZURE_LINUX_2_CORE_LEGACY_VHD"
      --base-image-core-legacy-azl3 "$AZURE_LINUX_3_CORE_LEGACY_VHD"
    ```
+
+4. To update go dependencies (direct and indirect) to minor or patch versions,
+   run `go get -u ./...` then `go mod tidy`.
