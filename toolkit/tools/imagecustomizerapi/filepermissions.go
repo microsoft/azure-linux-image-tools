@@ -4,6 +4,7 @@
 package imagecustomizerapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -50,7 +51,16 @@ func (p *FilePermissions) UnmarshalYAML(value *yaml.Node) error {
 
 func (FilePermissions) JSONSchema() *jsonschema.Schema {
 	return &jsonschema.Schema{
-		Type:    "string",
-		Pattern: "^[0-7]{3,4}$",
+		OneOf: []*jsonschema.Schema{
+			{
+				Type:    "string",
+				Pattern: "^[0-7]{3,4}$",
+			},
+			{
+				Type:    "integer",
+				Minimum: json.Number("0"),   // no negatives
+				Maximum: json.Number("777"), // Highest valid value
+			},
+		},
 	}
 }
