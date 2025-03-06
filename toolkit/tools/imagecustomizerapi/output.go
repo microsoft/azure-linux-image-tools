@@ -4,9 +4,9 @@
 package imagecustomizerapi
 
 type Output struct {
-	Path string `yaml:"path" json:"path,omitempty"`
+	Image OutputImage `yaml:"image" json:"image,omitempty"`
 }
 
 func (o Output) IsValid() error {
-	return nil
+	return o.Image.IsValid()
 }

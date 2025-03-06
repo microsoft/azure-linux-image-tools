@@ -280,6 +280,15 @@
     },
     "Output": {
       "properties": {
+        "image": {
+          "$ref": "#/$defs/OutputImage"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OutputImage": {
+      "properties": {
         "path": {
           "type": "string"
         }
