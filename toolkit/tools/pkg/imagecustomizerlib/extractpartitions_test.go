@@ -1,13 +1,17 @@
 package imagecustomizerlib
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
@@ -79,6 +83,95 @@ func extractZstFile(zstFilePath string, outputFilePath string) error {
 	return nil
 }
 
+// extractPartitionsFromCosi extracts the partition files from a COSI file
+// and returns a list of their paths.
+// It skips directories, metadata.json, and files that are not .zst.
+// It also decompresses the .zst files and writes them to the output directory.
+func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error) {
+	var extractedParitionsPaths []string
+
+	// Open the COSI file
+	cosiFile, err := os.Open(cosiFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open COSI file: %w", err)
+	}
+	defer cosiFile.Close()
+
+	tarReader := tar.NewReader(cosiFile)
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading tar: %w", err)
+		}
+
+		// Skip directories
+		if header.Typeflag == tar.TypeDir {
+			continue
+		}
+		// Skip metadata.json
+		if header.Name == "metadata.json" {
+			continue
+		}
+		// Skip files that are not .zst
+		if filepath.Ext(header.Name) != ".zst" {
+			continue
+		}
+
+		// Validate the file path to prevent directory traversal
+		cleanPath := filepath.Clean(header.Name)
+		if strings.Contains(cleanPath, "..") {
+			return nil, fmt.Errorf("invalid file path in tar archive: %s", header.Name)
+		}
+
+		imageFileName := filepath.Base(header.Name)
+
+		zstFilePath := filepath.Join(outputDir, "cosiimages", imageFileName)
+		// remove the .zst extension to get the output file name
+		rawImageFile := imageFileName[:len(imageFileName)-len(filepath.Ext(imageFileName))]
+		outputFilePath := filepath.Join(outputDir, rawImageFile)
+		outputDir := filepath.Dir(outputFilePath)
+		err = os.MkdirAll(outputDir, os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create output directory: %w", err)
+		}
+
+		// Open the .zst file
+		zstFile, err := os.Open(zstFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open .zst file: %w", err)
+		}
+		defer zstFile.Close()
+
+		// Create the output file
+		outFile, err := os.Create(outputFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer outFile.Close()
+
+		// Create a new zstd reader
+		zstReader, err := zstd.NewReader(tarReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create zstd reader: %w", err)
+		}
+		defer zstReader.Close()
+
+		// Decompress the .zst file and write to the output file
+		if _, err := io.Copy(outFile, zstReader); err != nil {
+			return nil, fmt.Errorf("failed to decompress and write to output file: %w", err)
+		}
+
+		extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)
+		logger.Log.Debugf("Extracted partition file: %s", outputFilePath)
+
+	}
+
+	return extractedParitionsPaths, nil
+}
+
 // Decompress the .raw.zst partition file and verify the hash matches with the source .raw file
 func verifySkippableFrameDecompression(rawPartitionFilepath string, rawZstPartitionFilepath string) (err error) {
 	// Decompressing .raw.zst file
@@ -148,40 +241,38 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
 	configFile := filepath.Join(testDir, "consume-space.yaml")
-	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw-zst",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, true /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(testTempDir, configFile, baseImage, nil, outImageFilePath, "cosi", "" /*outputPXEArtifactsDir*/, true)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	espPartitionZstFilePath := filepath.Join(buildDir, "image_1.raw.zst")
-	rootfsPartitionZstFilePath := filepath.Join(buildDir, "image_2.raw.zst")
+	// Attach partition files.
+	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
 
-	espPartitionFilePath := filepath.Join(buildDir, "image_1.raw")
-	rootfsPartitionFilePath := filepath.Join(buildDir, "image_2.raw")
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 2) {
+		return
+	}
+
+	espPartitionNumber := 1
+	rootfsPartitionNumber := 2
+
+	espPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw.zst", espPartitionNumber))
+	rootfsPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw.zst", rootfsPartitionNumber))
+
+	espPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNumber))
+	rootfsPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
 
 	// Check the file type of the output files.
 	checkFileType(t, espPartitionZstFilePath, "zst")
 	checkFileType(t, rootfsPartitionZstFilePath, "zst")
 
-	// Extract partitions.
-	err = extractZstFile(espPartitionZstFilePath, espPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	err = extractZstFile(rootfsPartitionZstFilePath, rootfsPartitionFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-
 	// Mount the partitions.
-	mountsDir := filepath.Join(buildDir, "testmounts")
+	mountsDir := filepath.Join(testTempDir, "testmounts")
 	espMountDir := filepath.Join(mountsDir, "esp")
 	rootfsMountDir := filepath.Join(mountsDir, "rootfs")
 
@@ -247,14 +338,23 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	outImageFilePath := filepath.Join(buildDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "", "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", "", false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	espPartitionFilePath := filepath.Join(buildDir, "image_1.raw")
-	rootfsPartitionFilePath := filepath.Join(buildDir, "image_2.raw")
+	// Attach partition files.
+	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, buildDir)
+
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 2) {
+		return
+	}
+
+	espPartitionNumber := 1
+	rootfsPartitionNumber := 2
+
+	espPartitionFilePath := filepath.Join(buildDir, fmt.Sprintf("image_%d.raw", espPartitionNumber))
+	rootfsPartitionFilePath := filepath.Join(buildDir, fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
 
 	// Mount the partitions.
 	mountsDir := filepath.Join(buildDir, "testmounts")

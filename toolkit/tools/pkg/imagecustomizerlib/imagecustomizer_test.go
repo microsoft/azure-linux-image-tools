@@ -57,8 +57,8 @@ func TestCustomizeImageEmptyConfig(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImage(buildDir, buildDir, &imagecustomizerapi.Config{}, baseImage, nil, outImageFilePath,
-		"vhd", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"vhd",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -80,7 +80,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	// Customize image to vhd.
 	err := CustomizeImageWithConfigFile(buildDir, partitionsConfigFile, baseImage, nil, vhdImageFilePath,
-		"vhd", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"vhd", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -96,7 +96,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	// Customize image to vhd-fixed.
 	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdImageFilePath, nil, vhdFixedImageFilePath,
-		"vhd-fixed", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"vhd-fixed", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -114,7 +114,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	// Customize image to vhdx.
 	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdFixedImageFilePath, nil, vhdxImageFilePath,
-		"vhdx", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+		"vhdx", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -189,7 +189,8 @@ func TestValidateConfigValidAdditionalFiles(t *testing.T) {
 					Destination: "/a.txt",
 				},
 			},
-		}}, nil, "./out/image.vhdx", true)
+		},
+	}, nil, "./out/image.vhdx", true)
 	assert.NoError(t, err)
 }
 
@@ -202,7 +203,8 @@ func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
 					Destination: "/a.txt",
 				},
 			},
-		}}, nil, "./out/image.vhdx", true)
+		},
+	}, nil, "./out/image.vhdx", true)
 	assert.Error(t, err)
 }
 
@@ -215,7 +217,8 @@ func TestValidateConfigdditionalFilesIsDir(t *testing.T) {
 					Destination: "/a.txt",
 				},
 			},
-		}}, nil, "./out/image.vhdx", true)
+		},
+	}, nil, "./out/image.vhdx", true)
 	assert.Error(t, err)
 }
 
@@ -294,8 +297,8 @@ func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -345,8 +348,8 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 			},
 		},
 	}
-	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outImageFilePathFromConfig)
 
@@ -356,8 +359,9 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 
 	// Pass the output image file only through the argument.
 	config.Output.Image.Path = ""
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathFromArgs, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathFromArgs, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+
 	assert.NoError(t, err)
 	assert.NoFileExists(t, outImageFilePathFromConfig)
 	assert.FileExists(t, outputImageFilePathFromArgs)
@@ -368,8 +372,9 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 
 	// Pass the output image file through both the config and the argument.
 	config.Output.Image.Path = outImageFilePathFromConfig
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathFromArgs, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathFromArgs, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+
 	assert.NoError(t, err)
 	assert.NoFileExists(t, outImageFilePathFromConfig)
 	assert.FileExists(t, outputImageFilePathFromArgs)
@@ -391,8 +396,6 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	config := &imagecustomizerapi.Config{}
 	useBaseImageRpmRepos := false
 	rpmsSources := []string{}
-	enableShrinkFilesystems := false
-	outputSplitPartitionsFormat := ""
 	outputImageFormat := "raw"
 	outputImageFile := ""
 	outputPXEArtifactsDir := ""
@@ -400,7 +403,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	// The output image file is not specified in the config or as an
 	// argument, so the output image file will be empty.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, enableShrinkFilesystems, outputSplitPartitionsFormat, outputImageFormat, outputImageFile,
+		rpmsSources, outputImageFormat, outputImageFile,
 		outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, "")
@@ -410,7 +413,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value in the config.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, enableShrinkFilesystems, outputSplitPartitionsFormat, outputImageFormat, outputImageFile,
+		rpmsSources, outputImageFormat, outputImageFile,
 		outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outImageFilePathAsConfig)
@@ -423,7 +426,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, enableShrinkFilesystems, outputSplitPartitionsFormat, outputImageFormat, outputImageFile,
+		rpmsSources, outputImageFormat, outputImageFile,
 		outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outImageFilePathAsArg)
@@ -437,7 +440,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	// The output image file should be set to the value passed as an
 	// argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, enableShrinkFilesystems, outputSplitPartitionsFormat, outputImageFormat, outputImageFile,
+		rpmsSources, outputImageFormat, outputImageFile,
 		outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outImageFilePathAsArg)

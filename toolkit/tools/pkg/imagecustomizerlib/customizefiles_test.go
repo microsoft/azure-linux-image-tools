@@ -79,8 +79,8 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -125,8 +125,8 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to copy (/dev/zero)")
 	assert.ErrorContains(t, err, "No space left on device")
 }
@@ -201,8 +201,8 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -257,8 +257,8 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 	}
 
 	// Customize image.
-	err = CustomizeImage(buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw", "",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
+	err = CustomizeImage(buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to copy directory")
 	assert.ErrorContains(t, err, "failed to copy file")
 	assert.ErrorContains(t, err, "No space left on device")

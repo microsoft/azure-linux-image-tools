@@ -38,7 +38,7 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 4. Update hostname. ([hostname](./configuration/os.md#hostname-string))
 
 5. Copy additional files. ([additionalFiles](./configuration/os.md#additionalfiles-additionalfile))
-  
+
 6. Copy additional directories. ([additionalDirs](./configuration/os.md#additionaldirs-dirconfig))
 
 7. Add/update users. ([users](./configuration/os.md#users-user))
@@ -77,8 +77,7 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 
 20. Run finalize image scripts. ([finalizeCustomization](./configuration/scripts.md#finalizecustomization-script))
 
-21. If [--shrink-filesystems](./cli.md#--shrink-filesystems) is specified, then shrink
-    the file systems.
+21. If `--output-image-format` is `cosi`, then shrink the file systems.
 
 22. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.

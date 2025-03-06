@@ -219,7 +219,6 @@ func addFileToCosi(tw *tar.Writer, source string, image ImageFile) error {
 		Mode:     0o400,
 		Format:   tar.FormatPAX,
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to write tar header for file '%s':\n%w", image.Path, err)
 	}
