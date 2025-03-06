@@ -14,7 +14,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  EXPECTED_GO_VERSION: "1.21"
+  EXPECTED_GO_VERSION: "1.23.6"
 
 jobs:
   build:
