@@ -32,7 +32,7 @@ func (f *ImageFormat) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to parse output image format: %s. Supported formats: %s",
+	return fmt.Errorf("failed to parse image format: %s. Supported formats: %s",
 		val, strings.Join(SupportedImageFormats(), ", "))
 }
 
