@@ -11,26 +11,9 @@ require (
 	github.com/google/go-licenses v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.13.0
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-	github.com/klauspost/compress v1.10.5
-	github.com/klauspost/pgzip v1.2.5
-	github.com/moby/sys/mountinfo v0.6.2
-	github.com/muesli/crunchy v0.4.0
-	github.com/rivo/tview v0.0.0-20200219135020-0ba8301b415c
-=======
+	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/pgzip v1.2.6
 	github.com/moby/sys/mountinfo v0.7.2
->>>>>>> 6cc38c6d8 (update go dependencies and remove deadcode)
-=======
-	github.com/klauspost/pgzip v1.2.5
-	github.com/moby/sys/mountinfo v0.6.2
->>>>>>> a44d0bd6d (go 1.22)
-=======
-	github.com/klauspost/pgzip v1.2.6
-	github.com/moby/sys/mountinfo v0.7.2
->>>>>>> e07f3c6c4 (update to 1.23.6)
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.31.0
@@ -57,18 +40,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd // indirect
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	github.com/klauspost/compress v1.18.0 // indirect
->>>>>>> 6cc38c6d8 (update go dependencies and remove deadcode)
-=======
-	github.com/klauspost/compress v1.10.5 // indirect
->>>>>>> a44d0bd6d (go 1.22)
-=======
-	github.com/klauspost/compress v1.18.0 // indirect
->>>>>>> e07f3c6c4 (update to 1.23.6)
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
