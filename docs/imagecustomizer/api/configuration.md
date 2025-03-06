@@ -231,4 +231,5 @@ os:
       - [name](./configuration/script.md#name-string)
   - [previewFeatures type](./configuration/config.md#previewfeatures-string)
   - [output](./configuration/config.md#output-output) ([output type](./configuration/output.md))
-    - [path](./configuration/output.md#path-string)
+    - [image](./configuration/output.md#image-outputimage) ([outputImage type](./configuration/outputImage.md))
+      - [path](./configuration/outputImage.md#path-string)

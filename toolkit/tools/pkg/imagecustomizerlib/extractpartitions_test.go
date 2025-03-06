@@ -261,8 +261,8 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	espPartitionNumber := 1
 	rootfsPartitionNumber := 2
 
-	espPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw", espPartitionNumber))
-	rootfsPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
+	espPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw.zst", espPartitionNumber))
+	rootfsPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw.zst", rootfsPartitionNumber))
 
 	espPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNumber))
 	rootfsPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))

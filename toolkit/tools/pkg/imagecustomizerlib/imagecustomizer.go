@@ -148,7 +148,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputIsIso = ic.outputImageFormat == ImageFormatIso
 	ic.outputImageFile = outputImageFile
 	if ic.outputImageFile == "" {
-		ic.outputImageFile = config.Output.Path
+		ic.outputImageFile = config.Output.Image.Path
 	}
 
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
@@ -727,8 +727,8 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 }
 
 func validateOutput(output imagecustomizerapi.Output, outputImageFile string) error {
-	if outputImageFile == "" && output.Path == "" {
-		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.path'")
+	if outputImageFile == "" && output.Image.Path == "" {
+		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
 	}
 
 	return nil
