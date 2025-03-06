@@ -127,6 +127,9 @@ os:
 ## Schema Overview
 
 - [config type](./configuration/config.md)
+  - [input](./configuration/config.md#input-input) ([input type](./configuration/input.md))
+    - [image](./configuration/input.md#image-inputimage) ([inputImage type](./configuration/inputImage.md))
+      - [path](./configuration/inputImage.md#path-string)
   - [storage](./configuration/config.md#storage-storage)
     - [bootType](./configuration/storage.md#boottype-string)
     - [disks](./configuration/storage.md#disks-disk) ([disk type](./configuration/disk.md))

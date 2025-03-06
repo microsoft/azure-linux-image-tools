@@ -13,6 +13,11 @@ import (
 
 func TestConfigIsValid(t *testing.T) {
 	config := &Config{
+		Input: Input{
+			Image: InputImage{
+				Path: "./base.vhdx",
+			},
+		},
 		Storage: Storage{
 			Disks: []Disk{{
 				PartitionTableType: "gpt",

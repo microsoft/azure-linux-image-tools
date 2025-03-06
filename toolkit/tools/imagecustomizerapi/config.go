@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	Input           Input    `yaml:"input" json:"input,omitempty"`
 	Storage         Storage  `yaml:"storage" json:"storage,omitempty"`
 	Iso             *Iso     `yaml:"iso" json:"iso,omitempty"`
 	Pxe             *Pxe     `yaml:"pxe" json:"pxe,omitempty"`
@@ -20,6 +21,11 @@ type Config struct {
 }
 
 func (c *Config) IsValid() (err error) {
+	err = c.Input.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid 'input' field:\n%w", err)
+	}
+
 	err = c.Storage.IsValid()
 	if err != nil {
 		return err
@@ -76,6 +82,11 @@ func (c *Config) IsValid() (err error) {
 
 	if hasResetPartitionsUuids && !hasResetBootLoader {
 		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+	}
+
+	err = c.Output.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid 'output' field:\n%w", err)
 	}
 
 	return nil
