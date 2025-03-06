@@ -59,7 +59,7 @@ func (FilePermissions) JSONSchema() *jsonschema.Schema {
 			{
 				Type:    "integer",
 				Minimum: json.Number("0"),   // no negatives
-				Maximum: json.Number("777"), // Highest valid value
+				Maximum: json.Number("777"), // highest valid value
 			},
 		},
 	}
