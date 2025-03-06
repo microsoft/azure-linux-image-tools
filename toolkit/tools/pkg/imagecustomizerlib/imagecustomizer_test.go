@@ -466,7 +466,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 
 	// Pass the output image format only through the argument.
 	config.Output.Image.Format = ""
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFormatAsArg, "",
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -478,7 +478,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 
 	// Pass the output image format through both the config and the argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormat(outputImageFormatAsConfig)
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFormatAsArg, "",
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -577,7 +577,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, "")
+	assert.Equal(t, string(ic.outputImageFormat), "")
 
 	// Pass the output image format only in the config.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormat(outputImageFormatAsConfig)
@@ -586,7 +586,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, outputImageFormatAsConfig)
+	assert.Equal(t, string(ic.outputImageFormat), outputImageFormatAsConfig)
 
 	// Pass the output image format only as an argument.
 	config.Output.Image.Format = ""
@@ -596,7 +596,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, outputImageFormatAsArg)
+	assert.Equal(t, string(ic.outputImageFormat), outputImageFormatAsArg)
 
 	// Pass the output image file in both the config and as an argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormat(outputImageFormatAsConfig)
@@ -606,7 +606,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, outputImageFormatAsArg)
+	assert.Equal(t, string(ic.outputImageFormat), outputImageFormatAsArg)
 }
 
 func checkFileType(t *testing.T, filePath string, expectedFileType string) {
