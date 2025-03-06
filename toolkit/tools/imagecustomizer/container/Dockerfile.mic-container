@@ -1,7 +1,17 @@
 FROM mcr.microsoft.com/azurelinux/base/core:3.0
 RUN tdnf update -y && \
    tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-      sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
-      xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify
+   sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
+   xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify
+
+# Copy OpenTelemetry Collector binary and make it executable
+COPY otelcol-contrib /usr/local/bin/otelcol-contrib
+RUN chmod +x /usr/local/bin/otelcol-contrib
+
+# Copy OpenTelemetry configuration
+COPY otel-config.yaml /etc/otelcol-contrib/config.yaml
+
+# Copy the prism configuration
+COPY config.yaml /config.yaml
 
 COPY . /

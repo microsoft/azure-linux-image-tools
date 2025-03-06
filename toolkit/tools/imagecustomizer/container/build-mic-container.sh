@@ -55,6 +55,11 @@ trap 'cleanUp' ERR
 micLocalFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
 micLicensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
 
+otelcolBinary="$enlistmentRoot/toolkit/tools/imagecustomizer/container/otelcol-contrib"
+otelcolConfig="$enlistmentRoot/toolkit/tools/imagecustomizer/container/otel-config.yaml"
+
+prismConfig="$enlistmentRoot/toolkit/tools/imagecustomizer/container/config.yaml"
+
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
 
@@ -68,6 +73,9 @@ mkdir -p "${stagingLicensesDir}"
 cp "$micLocalFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
 cp -R "$micLicensesDir" "${stagingLicensesDir}"
+cp "$otelcolBinary" "${containerStagingFolder}"
+cp "$otelcolConfig" "${containerStagingFolder}"
+cp "$prismConfig" "${containerStagingFolder}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
@@ -82,6 +90,8 @@ if [ ! -d "$orasUnzipDir" ]; then
   mkdir "$orasUnzipDir"
   tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
 fi
+cp "$orasUnzipDir/oras" "${stagingBinDir}"
+ 
 
 # stage oras
 cp "$orasUnzipDir/oras" "${stagingBinDir}"

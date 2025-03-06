@@ -42,4 +42,10 @@ fi
 
 # Remove the first argument (VERSION_TAG) and pass the rest to the MIC binary.
 shift
-imagecustomizer --image-file $VHDX_PATH "$@"
+mkdir -p /var/lib/imagecustomizer
+imagecustomizer --image-file "$VHDX_PATH" "$@" 2>&1 | tee /var/lib/imagecustomizer/imagecustomizer.log
+
+echo "Running the OTEL Collector..."
+# call the otelcol-contrib binary and exit after 60 seconds
+timeout 30s otelcol-contrib --config /etc/otelcol-contrib/config.yaml > /var/lib/otelcol-contrib.log 2>&1
+
