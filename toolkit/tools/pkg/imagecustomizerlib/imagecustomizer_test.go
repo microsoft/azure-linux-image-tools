@@ -554,9 +554,9 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T) {
 	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFormatSelection")
+	inputImageFile := filepath.Join(buildDir, "base.vhd")
 	outputImageFormatAsArg := "vhd"
 	outputImageFormatAsConfig := "raw"
-	inputImageFile := filepath.Join(buildDir, "image.vhd")
 
 	err := os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
