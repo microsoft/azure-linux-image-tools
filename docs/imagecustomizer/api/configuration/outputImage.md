@@ -37,8 +37,8 @@ The image format of the final customized image.
 
 Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and [cosi](../cosi.md).
 
-The vhd-fixed option outputs a fixed size VHD image. This is the required
-format for VMs in Azure.
+The vhd-fixed option outputs a fixed size VHD image. This is the required format for
+VMs in Azure.
 
 When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
