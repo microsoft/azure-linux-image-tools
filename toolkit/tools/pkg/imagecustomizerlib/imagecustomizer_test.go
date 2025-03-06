@@ -263,7 +263,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	err := validateConfig(testDir, config, nil, "./out/image.vhdx", true)
 	assert.NoError(t, err)
 
-	config.Output.Path = "./out/image.vhdx"
+	config.Output.Image.Path = "./out/image.vhdx"
 
 	// The output image file is specified in both the config and as an
 	// argument, so it should not return an error.
@@ -339,7 +339,9 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 			},
 		},
 		Output: imagecustomizerapi.Output{
-			Path: outImageFilePathFromConfig,
+			Image: imagecustomizerapi.OutputImage{
+				Path: outImageFilePathFromConfig,
+			},
 		},
 	}
 	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "raw", "",
@@ -352,7 +354,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Pass the output image file only through the argument.
-	config.Output.Path = ""
+	config.Output.Image.Path = ""
 	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathFromArgs, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
 	assert.NoError(t, err)
@@ -364,7 +366,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Pass the output image file through both the config and the argument.
-	config.Output.Path = outImageFilePathFromConfig
+	config.Output.Image.Path = outImageFilePathFromConfig
 	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathFromArgs, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false /*enableShrinkFilesystems*/)
 	assert.NoError(t, err)
@@ -397,7 +399,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	assert.Equal(t, ic.outputImageFile, "")
 
 	// Pass the output image file only in the config.
-	config.Output.Path = outImageFilePathAsConfig
+	config.Output.Image.Path = outImageFilePathAsConfig
 
 	// The output image file should be set to the value in the config.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
@@ -409,7 +411,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	assert.Equal(t, ic.outputImageDir, buildDir)
 
 	// Pass the output image file only as an argument.
-	config.Output.Path = ""
+	config.Output.Image.Path = ""
 	outputImageFile = outImageFilePathAsArg
 
 	// The output image file should be set to the value passed as an argument.
@@ -422,7 +424,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	assert.Equal(t, ic.outputImageDir, buildDir)
 
 	// Pass the output image file in both the config and as an argument.
-	config.Output.Path = outImageFilePathAsConfig
+	config.Output.Image.Path = outImageFilePathAsConfig
 	outputImageFile = outImageFilePathAsArg
 
 	// The output image file should be set to the value passed as an

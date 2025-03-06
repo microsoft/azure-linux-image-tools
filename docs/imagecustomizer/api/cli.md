@@ -33,8 +33,9 @@ Added in v0.3.
 
 ## --output-image-file=FILE-PATH
 
-Required, unless [output.path](./configuration/output.md#path-string) is
-provided in the configuration file. If both `output.path` and
+Required, unless
+[output.image.path](./configuration/outputImage.md#path-string) is
+provided in the configuration file. If both `output.image.path` and
 `--output-image-file` are provided, then the `--output-image-file` value
 is used.
 
