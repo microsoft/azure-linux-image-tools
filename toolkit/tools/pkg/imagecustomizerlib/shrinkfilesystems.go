@@ -82,7 +82,7 @@ func shrinkFilesystems(imageLoopDevice string) error {
 
 		// Changes to the partition table causes all of the disk's parition /dev nodes to be deleted and then
 		// recreated. So, wait for that to finish.
-		err = diskutils.WaitForDiskDevice(imageLoopDevice)
+		err = diskutils.RefreshPartitions(imageLoopDevice)
 		if err != nil {
 			return fmt.Errorf("failed to wait for disk (%s) to update:\n%w", imageLoopDevice, err)
 		}
