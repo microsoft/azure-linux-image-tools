@@ -156,7 +156,12 @@ func createImageCustomizerParameters(buildDir string,
 
 	// output image
 	ic.outputImageFormat = outputImageFormat
+	if ic.outputImageFormat == "" {
+		ic.outputImageFormat = config.Output.Image.Format
+	}
+
 	ic.outputIsIso = ic.outputImageFormat == ImageFormatIso
+
 	ic.outputImageFile = outputImageFile
 	if ic.outputImageFile == "" {
 		ic.outputImageFile = config.Output.Image.Path
@@ -237,7 +242,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, useBaseImageRpmRepos)
+	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -565,7 +570,7 @@ func toQemuImageFormat(imageFormat string) (string, string) {
 }
 
 func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile string, useBaseImageRpmRepos bool,
+	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool,
 ) error {
 	err := config.IsValid()
 	if err != nil {
@@ -592,7 +597,7 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	err = validateOutput(config.Output, outputImageFile)
+	err = validateOutput(config.Output, outputImageFile, outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -750,9 +755,13 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(output imagecustomizerapi.Output, outputImageFile string) error {
+func validateOutput(output imagecustomizerapi.Output, outputImageFile, outputImageFormat string) error {
 	if outputImageFile == "" && output.Image.Path == "" {
 		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
+	}
+
+	if outputImageFormat == "" && output.Image.Format == "" {
+		return fmt.Errorf("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
 	}
 
 	return nil

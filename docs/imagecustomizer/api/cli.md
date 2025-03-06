@@ -41,16 +41,19 @@ provided in the configuration file. If both `output.image.path` and
 `--output-image-file` are provided, then the `--output-image-file` value
 is used.
 
-
 The file path to write the final customized image to.
 
 Added in v0.3.
 
 ## --output-image-format=FORMAT
 
-Required
+Required, unless
+[output.image.format](./configuration/outputImage.md#format-string) is
+provided in the configuration file. If both `output.image.format` and
+`--output-image-format` are provided, then the `--output-image-format`
+value is used.
 
-The image format of the the final customized image.
+The image format of the final customized image.
 
 Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and [cosi](./cosi.md).
 

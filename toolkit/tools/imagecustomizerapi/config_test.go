@@ -51,7 +51,8 @@ func TestConfigIsValid(t *testing.T) {
 		Iso:     &Iso{},
 		Output: Output{
 			Image: OutputImage{
-				Path: "./out/image.vhdx",
+				Path:   "./out/image.vhdx",
+				Format: "vhdx",
 			},
 		},
 	}
