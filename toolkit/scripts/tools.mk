@@ -35,7 +35,6 @@ go_tool_list = \
 	imagecustomizer \
 	imager \
 	isomaker \
-	liveinstaller \
 	osmodifier \
 
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"
