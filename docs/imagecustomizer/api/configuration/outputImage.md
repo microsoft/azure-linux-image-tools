@@ -30,7 +30,7 @@ Added in v0.13.0.
 Required, unless
 [--output-image-format](../cli.md#--output-image-formatformat) is provided
 on the command line. If both `--output-image-format` and
-`output.image.path` are provided, then the value of
+`output.image.format` are provided, then the value of
 `--output-image-format` is used.
 
 The image format of the final customized image.
