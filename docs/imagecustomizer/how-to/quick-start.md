@@ -23,7 +23,7 @@ nav_order: 1
 
 3. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
-   `genisoimage`, `parted`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
+   `genisoimage`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
    `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
    `veritysetup`, `grub2-install` (or `grub-install`), `ukify`, `objcopy`.
 
@@ -31,7 +31,7 @@ nav_order: 1
 
      ```bash
      sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-        sed createrepo-c squashfs-tools genisoimage parted e2fsprogs dosfstools \
+        sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
         xfsprogs zstd cryptsetup-bin grub2-common binutils
      ```
 

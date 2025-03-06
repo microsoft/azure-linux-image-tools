@@ -193,8 +193,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 
 	// Set up partitions.
 	partIDToDevPathMap, partIDToFsTypeMap, _, err := diskutils.CreatePartitions(
-		targetOs, imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{},
-		true /*diskKnownToBeEmpty*/)
+		targetOs, imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{})
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
 	}
