@@ -26,15 +26,6 @@ const (
 	tmpEspPartitionDirName  = "tmp-esp-partition"
 	tmpBootPartitionDirName = "tmp-boot-partition"
 
-	// supported input formats
-	ImageFormatVhd      = "vhd"
-	ImageFormatVhdFixed = "vhd-fixed"
-	ImageFormatVhdx     = "vhdx"
-	ImageFormatQCow2    = "qcow2"
-	ImageFormatIso      = "iso"
-	ImageFormatRaw      = "raw"
-	ImageFormatCosi     = "cosi"
-
 	// qemu-specific formats
 	QemuFormatVpc = "vpc"
 
@@ -70,7 +61,7 @@ type ImageCustomizerParameters struct {
 	rawImageFile string
 
 	// output image
-	outputImageFormat     string
+	outputImageFormat     imagecustomizerapi.ImageFormatType
 	outputIsIso           bool
 	outputImageFile       string
 	outputImageDir        string
@@ -119,7 +110,7 @@ func createImageCustomizerParameters(buildDir string,
 	}
 
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
-	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
+	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
 
 	// Check if the input file exists and is accessible.
 	// Pre-checking this ensures the error message is friendly.
@@ -155,8 +146,15 @@ func createImageCustomizerParameters(buildDir string,
 	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
 
 	// output image
-	ic.outputImageFormat = outputImageFormat
-	ic.outputIsIso = ic.outputImageFormat == ImageFormatIso
+	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
+	if err := ic.outputImageFormat.IsValid(); err != nil {
+		return nil, fmt.Errorf("invalid output image format:\n%w", err)
+	}
+
+	if ic.outputImageFormat == "" {
+		ic.outputImageFormat = config.Output.Image.Format
+	}
+
 	ic.outputImageFile = outputImageFile
 	if ic.outputImageFile == "" {
 		ic.outputImageFile = config.Output.Image.Path
@@ -165,13 +163,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputPXEArtifactsDir = outputPXEArtifactsDir
-
-	if ic.outputImageFormat != "" && !ic.outputIsIso {
-		err = validateImageFormat(ic.outputImageFormat)
-		if err != nil {
-			return nil, err
-		}
-	}
+	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
 
 	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
 		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
@@ -237,7 +229,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, useBaseImageRpmRepos)
+	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -439,7 +431,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
-	if ic.outputImageFormat == ImageFormatCosi {
+	if ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		err = shrinkFilesystemsHelper(ic.rawImageFile)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
@@ -479,7 +471,9 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 
 	// Create final output image file if requested.
 	switch ic.outputImageFormat {
-	case ImageFormatVhd, ImageFormatVhdFixed, ImageFormatVhdx, ImageFormatQCow2, ImageFormatRaw:
+	case imagecustomizerapi.ImageFormatTypeVhd, imagecustomizerapi.ImageFormatVhdTypeFixed,
+		imagecustomizerapi.ImageFormatTypeVhdx, imagecustomizerapi.ImageFormatTypeQcow2,
+		imagecustomizerapi.ImageFormatTypeRaw:
 		logger.Log.Infof("Writing: %s", ic.outputImageFile)
 
 		err := convertImageFile(ic.rawImageFile, ic.outputImageFile, ic.outputImageFormat)
@@ -487,13 +481,13 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			return err
 		}
 
-	case ImageFormatCosi:
+	case imagecustomizerapi.ImageFormatTypeCosi:
 		err := convertToCosi(ic)
 		if err != nil {
 			return err
 		}
 
-	case ImageFormatIso:
+	case imagecustomizerapi.ImageFormatTypeIso:
 		if ic.customizeOSPartitions || inputIsoArtifacts == nil {
 			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
 			if ic.config.OS != nil {
@@ -516,7 +510,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 	return nil
 }
 
-func convertImageFile(inputPath string, outputPath string, format string) error {
+func convertImageFile(inputPath string, outputPath string, format imagecustomizerapi.ImageFormatType) error {
 	qemuImageFormat, qemuOptions := toQemuImageFormat(format)
 
 	qemuImgArgs := []string{"convert", "-O", qemuImageFormat}
@@ -533,39 +527,29 @@ func convertImageFile(inputPath string, outputPath string, format string) error 
 	return nil
 }
 
-func validateImageFormat(imageFormat string) error {
+func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, string) {
 	switch imageFormat {
-	case ImageFormatVhd, ImageFormatVhdFixed, ImageFormatVhdx, ImageFormatRaw, ImageFormatQCow2, ImageFormatCosi:
-		return nil
-
-	default:
-		return fmt.Errorf("unsupported image format (supported: vhd, vhd-fixed, vhdx, raw, qcow2, cosi): %s", imageFormat)
-	}
-}
-
-func toQemuImageFormat(imageFormat string) (string, string) {
-	switch imageFormat {
-	case ImageFormatVhd:
+	case imagecustomizerapi.ImageFormatTypeVhd:
 		// Use "force_size=on" to ensure the Hyper-V's VHD format is used instead of the old Microsoft Virtual PC's VHD
 		// format.
 		return QemuFormatVpc, "subformat=dynamic,force_size=on"
 
-	case ImageFormatVhdFixed:
+	case imagecustomizerapi.ImageFormatVhdTypeFixed:
 		return QemuFormatVpc, "subformat=fixed,force_size=on"
 
-	case ImageFormatVhdx:
+	case imagecustomizerapi.ImageFormatTypeVhdx:
 		// For VHDX, qemu-img dynamically picks the block-size based on the size of the disk.
 		// However, this can result in a significantly larger file size than other formats.
 		// So, use a fixed block-size of 2 MiB to match the block-sizes used for qcow2 and VHD.
-		return ImageFormatVhdx, "block_size=2097152"
+		return string(imagecustomizerapi.ImageFormatTypeVhdx), "block_size=2097152"
 
 	default:
-		return imageFormat, ""
+		return string(imageFormat), ""
 	}
 }
 
 func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile string, useBaseImageRpmRepos bool,
+	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool,
 ) error {
 	err := config.IsValid()
 	if err != nil {
@@ -592,7 +576,7 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	err = validateOutput(config.Output, outputImageFile)
+	err = validateOutput(config.Output, outputImageFile, outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -750,9 +734,13 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(output imagecustomizerapi.Output, outputImageFile string) error {
+func validateOutput(output imagecustomizerapi.Output, outputImageFile, outputImageFormat string) error {
 	if outputImageFile == "" && output.Image.Path == "" {
 		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
+	}
+
+	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
+		return fmt.Errorf("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
 	}
 
 	return nil

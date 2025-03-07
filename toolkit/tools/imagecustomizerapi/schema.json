@@ -312,6 +312,9 @@
       "properties": {
         "path": {
           "type": "string"
+        },
+        "format": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

@@ -12,6 +12,7 @@ Example:
 output:
   image:
     path: ./out/image.vhdx
+    format: vhdx
 ```
 
 ## image [[outputImage](./outputImage.md)]
