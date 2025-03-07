@@ -8,6 +8,12 @@ The top-level type of the configuration.
 
 Added in v0.3.
 
+## input [[input](./input.md)]
+
+Specifies the configuration for the input image.
+
+Added in v0.13.0.
+
 ## storage [[storage](./storage.md)]
 
 Contains the options for provisioning disks, partitions, and file systems.

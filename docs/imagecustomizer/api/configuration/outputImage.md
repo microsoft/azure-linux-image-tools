@@ -17,7 +17,7 @@ image:
 
 Required, unless
 [--output-image-file](../cli.md#--output-image-filefile-path) is provided
-on the command line. If both `--output-image-file` are `output.image.path`
+on the command line. If both `--output-image-file` and `output.image.path`
 are provided, then the value of `--output-image-file` is used.
 
 The file path to write the final customized image to.

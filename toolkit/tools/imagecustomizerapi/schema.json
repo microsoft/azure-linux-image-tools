@@ -41,6 +41,9 @@
     },
     "Config": {
       "properties": {
+        "input": {
+          "$ref": "#/$defs/Input"
+        },
         "storage": {
           "$ref": "#/$defs/Storage"
         },
@@ -158,6 +161,24 @@
           "type": "string"
         },
         "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Input": {
+      "properties": {
+        "image": {
+          "$ref": "#/$defs/InputImage"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "InputImage": {
+      "properties": {
+        "path": {
           "type": "string"
         }
       },

@@ -114,7 +114,11 @@ func createImageCustomizerParameters(buildDir string,
 
 	// input image
 	ic.inputImageFile = inputImageFile
-	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(inputImageFile), ".")
+	if ic.inputImageFile == "" {
+		ic.inputImageFile = config.Input.Image.Path
+	}
+
+	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
 	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
 
 	// Check if the input file exists and is accessible.
@@ -192,7 +196,7 @@ func createImageCustomizerParameters(buildDir string,
 	return ic, nil
 }
 
-func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile string,
+func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
@@ -211,7 +215,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, imageFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = CustomizeImage(buildDir, absBaseConfigPath, &config, imageFile, rpmsSources, outputImageFile, outputImageFormat,
+	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
 		outputPXEArtifactsDir, useBaseImageRpmRepos)
 	if err != nil {
 		return err
@@ -229,16 +233,16 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageFile string,
+func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
-	err := validateConfig(baseConfigPath, config, rpmsSources, outputImageFile, useBaseImageRpmRepos)
+	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, useBaseImageRpmRepos)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, imageFile,
+	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	if err != nil {
@@ -560,10 +564,15 @@ func toQemuImageFormat(imageFormat string) (string, string) {
 	}
 }
 
-func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
+func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
 	outputImageFile string, useBaseImageRpmRepos bool,
 ) error {
 	err := config.IsValid()
+	if err != nil {
+		return err
+	}
+
+	err = validateInput(config.Input, inputImageFile)
 	if err != nil {
 		return err
 	}
@@ -586,6 +595,14 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rp
 	err = validateOutput(config.Output, outputImageFile)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func validateInput(input imagecustomizerapi.Input, inputImageFile string) error {
+	if inputImageFile == "" && input.Image.Path == "" {
+		return fmt.Errorf("input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'")
 	}
 
 	return nil

@@ -20,7 +20,9 @@ Added in v0.3.
 
 ## --image-file=FILE-PATH
 
-Required.
+Required, unless [input.image.path](./configuration/inputImage.md#path-string) is
+provided in the configuration file. If both `input.image.path` and
+`--image-file` are provided, then the `--image-file` value is used.
 
 The base image file to customize.
 
