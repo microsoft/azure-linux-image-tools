@@ -185,7 +185,7 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	err := validateConfig(testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", true)
+	err := validateConfig(testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", "vhdx", true)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "input image file must be specified")
 }
@@ -195,19 +195,19 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 
 	// The input image file is not specified in the config, but is
 	// specified as an argument, so it should not return an error.
-	err := validateConfig(testDir, config, "./base.vhdx", nil, "./out/image.vhdx", true)
+	err := validateConfig(testDir, config, "./base.vhdx", nil, "./out/image.vhdx", "vhdx", true)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = "./base.vhdx"
 
 	// The input image file is specified in both the config and as an
 	// argument, so it should not return an error.
-	err = validateConfig(testDir, config, "./base.vhdx", nil, "./out/image.vhdx", true)
+	err = validateConfig(testDir, config, "./base.vhdx", nil, "./out/image.vhdx", "vhdx", true)
 	assert.NoError(t, err)
 
 	// The input image file is still specified in the config, but not as
 	// an argument, so it should still not return an error.
-	err = validateConfig(testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", true)
+	err = validateConfig(testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", "vhdx", true)
 	assert.NoError(t, err)
 }
 
@@ -401,14 +401,12 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	config := &imagecustomizerapi.Config{
 		Output: imagecustomizerapi.Output{
 			Image: imagecustomizerapi.OutputImage{
-				Path:   outputImageFilePathAsConfig,
-				Format: "vhd",
+				Path: outputImageFilePathAsConfig,
 			},
 		},
 	}
-	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "",
+	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "vhd",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
-
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFilePathAsConfig)
 
@@ -418,7 +416,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 
 	// Pass the output image file only through the argument.
 	config.Output.Image.Path = ""
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathAsArg, "",
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathAsArg, "vhd",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 	assert.NoFileExists(t, outputImageFilePathAsConfig)
@@ -430,7 +428,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 
 	// Pass the output image file through both the config and the argument.
 	config.Output.Image.Path = outputImageFilePathAsConfig
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathAsArg, "",
+	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathAsArg, "vhd",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 	assert.NoFileExists(t, outputImageFilePathAsConfig)
@@ -440,7 +438,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileSelection")
+	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFormatSelection")
 	outputImageFile := filepath.Join(buildDir, "image.dat")
 	outputImageFormatAsArg := "vhd"
 	outputImageFormatAsConfig := "vhdx"
@@ -450,7 +448,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 		Output: imagecustomizerapi.Output{
 			Image: imagecustomizerapi.OutputImage{
 				Path:   outputImageFile,
-				Format: imagecustomizerapi.ImageFormat(outputImageFormatAsConfig),
+				Format: imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig),
 			},
 		},
 	}
@@ -465,7 +463,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Pass the output image format only through the argument.
-	config.Output.Image.Format = ""
+	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
 	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
@@ -477,12 +475,91 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Pass the output image format through both the config and the argument.
-	config.Output.Image.Format = imagecustomizerapi.ImageFormat(outputImageFormatAsConfig)
+	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
 	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
 	checkFileType(t, outputImageFile, outputImageFormatAsArg)
+}
+
+func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
+	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_InputImageFileSelection")
+	inputImageFileAsArg := filepath.Join(buildDir, "image-as-arg.vhdx")
+	inputImageFileIsoAsArg := filepath.Join(buildDir, "image-as-arg.iso")
+	inputImageFileAsConfig := filepath.Join(buildDir, "image-as-config.vhdx")
+
+	err := os.MkdirAll(buildDir, os.ModePerm)
+	assert.NoError(t, err)
+
+	err = file.Write("", inputImageFileAsArg)
+	assert.NoError(t, err)
+
+	err = file.Write("", inputImageFileIsoAsArg)
+	assert.NoError(t, err)
+
+	err = file.Write("", inputImageFileAsConfig)
+	assert.NoError(t, err)
+
+	// Pass the input image file only in the config.
+	inputImageFile := ""
+	configPath := "config.yaml"
+	config := &imagecustomizerapi.Config{
+		Input: imagecustomizerapi.Input{
+			Image: imagecustomizerapi.InputImage{
+				Path: inputImageFileAsConfig,
+			},
+		},
+	}
+	useBaseImageRpmRepos := false
+	rpmsSources := []string{}
+	outputImageFormat := "vhdx"
+	outputImageFile := "out/image.vhdx"
+	outputPXEArtifactsDir := ""
+
+	// The input image file should be set to the value in the config.
+	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+	assert.NoError(t, err)
+	assert.Equal(t, ic.inputImageFile, inputImageFileAsConfig)
+	assert.Equal(t, ic.inputImageFormat, "vhdx")
+	assert.False(t, ic.inputIsIso)
+
+	// Pass the input image file only as an argument.
+	config.Input.Image.Path = ""
+	inputImageFile = inputImageFileAsArg
+
+	// The input image file should be set to the value passed as an
+	// argument.
+	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+	assert.NoError(t, err)
+	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
+	assert.Equal(t, ic.inputImageFormat, "vhdx")
+	assert.False(t, ic.inputIsIso)
+
+	// Pass the input image file in both the config and as an argument.
+	config.Input.Image.Path = inputImageFileAsConfig
+
+	// The input image file should be set to the value passed as an
+	// argument.
+	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+	assert.NoError(t, err)
+	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
+	assert.Equal(t, ic.inputImageFormat, "vhdx")
+	assert.False(t, ic.inputIsIso)
+
+	// Pass in an ISO to test that inputIsIso is set correctly.
+	inputImageFile = inputImageFileIsoAsArg
+	outputImageFormat = "iso"
+	outputImageFile = "out/image.iso"
+	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+	assert.NoError(t, err)
+	assert.Equal(t, ic.inputImageFile, inputImageFileIsoAsArg)
+	assert.Equal(t, ic.inputImageFormat, "iso")
+	assert.True(t, ic.inputIsIso)
 }
 
 func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) {
@@ -508,8 +585,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	// The output image file is not specified in the config or as an
 	// argument, so the output image file will be empty.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile,
-		outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, "")
 
@@ -518,8 +594,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value in the config.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile,
-		outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
 	assert.Equal(t, ic.outputImageBase, "image-as-config")
@@ -531,8 +606,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile,
-		outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
@@ -544,8 +618,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	// The output image file should be set to the value passed as an
 	// argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile,
-		outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
@@ -554,9 +627,9 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T) {
 	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFormatSelection")
-	inputImageFile := filepath.Join(buildDir, "base.vhd")
+	inputImageFile := filepath.Join(buildDir, "base.dat")
 	outputImageFormatAsArg := "vhd"
-	outputImageFormatAsConfig := "raw"
+	outputImageFormatAsConfig := "vhdx"
 
 	err := os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
@@ -577,36 +650,37 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, string(ic.outputImageFormat), "")
+	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatTypeNone)
 
 	// Pass the output image format only in the config.
-	config.Output.Image.Format = imagecustomizerapi.ImageFormat(outputImageFormatAsConfig)
+	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
 
 	// The output image file should be set to the value in the config.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, string(ic.outputImageFormat), outputImageFormatAsConfig)
+	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig))
 
 	// Pass the output image format only as an argument.
-	config.Output.Image.Format = ""
+	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
 	outputImageFormat = outputImageFormatAsArg
-
-	// The output image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
-	assert.NoError(t, err)
-	assert.Equal(t, string(ic.outputImageFormat), outputImageFormatAsArg)
-
-	// Pass the output image file in both the config and as an argument.
-	config.Output.Image.Format = imagecustomizerapi.ImageFormat(outputImageFormatAsConfig)
 
 	// The output image file should be set to the value passed as an
 	// argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
-	assert.Equal(t, string(ic.outputImageFormat), outputImageFormatAsArg)
+	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
+
+	// Pass the output image file in both the config and as an argument.
+	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
+
+	// The output image file should be set to the value passed as an
+	// argument.
+	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+	assert.NoError(t, err)
+	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 }
 
 func checkFileType(t *testing.T, filePath string, expectedFileType string) {

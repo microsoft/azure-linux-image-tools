@@ -23,7 +23,7 @@ var (
 	buildDir                 = app.Flag("build-dir", "Directory to run build out of.").Required().String()
 	inputImageFile           = app.Flag("image-file", "Path of the base Azure Linux image which the customization will be applied to.").String()
 	outputImageFile          = app.Flag("output-image-file", "Path to write the customized image to.").String()
-	outputImageFormat        = app.Flag("output-image-format", fmt.Sprintf("Format of output image. Supported: %s.", strings.Join(imagecustomizerapi.SupportedImageFormats(), ", "))).Enum(imagecustomizerapi.SupportedImageFormats()...)
+	outputImageFormat        = app.Flag("output-image-format", fmt.Sprintf("Format of output image. Supported: %s.", strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ", "))).Enum(imagecustomizerapi.SupportedImageFormatTypes()...)
 	configFile               = app.Flag("config-file", "Path of the image customization config file.").Required().String()
 	rpmSources               = app.Flag("rpm-source", "Path to a RPM repo config file or a directory containing RPMs.").Strings()
 	disableBaseImageRpmRepos = app.Flag("disable-base-image-rpm-repos", "Disable the base image's RPM repos as an RPM source").Bool()

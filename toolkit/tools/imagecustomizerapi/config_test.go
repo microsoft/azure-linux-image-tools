@@ -52,7 +52,7 @@ func TestConfigIsValid(t *testing.T) {
 		Output: Output{
 			Image: OutputImage{
 				Path:   "./out/image.vhdx",
-				Format: "vhdx",
+				Format: ImageFormatTypeVhdx,
 			},
 		},
 	}
@@ -629,4 +629,17 @@ func TestConfigIsValidVerityNoStorage(t *testing.T) {
 	}
 	err := config.IsValid()
 	assert.ErrorContains(t, err, "cannot specify 'verity' with dataDeviceId/hashDeviceId without specifying 'disks'")
+}
+
+func TestConfigIsValid_InvalidOutputIsInvalid(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Image: OutputImage{
+				Format: ImageFormatType("xxx"),
+			},
+		},
+	}
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'output' field")
 }
