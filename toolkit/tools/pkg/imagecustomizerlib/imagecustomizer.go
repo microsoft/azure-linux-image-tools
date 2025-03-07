@@ -468,7 +468,8 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 
 	// Create final output image file if requested.
 	switch ic.outputImageFormat {
-	case imagecustomizerapi.ImageFormatVhd, imagecustomizerapi.ImageFormatVhdFixed, imagecustomizerapi.ImageFormatVhdx, imagecustomizerapi.ImageFormatQcow2, imagecustomizerapi.ImageFormatRaw:
+	case imagecustomizerapi.ImageFormatVhd, imagecustomizerapi.ImageFormatVhdFixed, imagecustomizerapi.ImageFormatVhdx,
+		imagecustomizerapi.ImageFormatQcow2, imagecustomizerapi.ImageFormatRaw:
 		logger.Log.Infof("Writing: %s", ic.outputImageFile)
 
 		err := convertImageFile(ic.rawImageFile, ic.outputImageFile, ic.outputImageFormat)
