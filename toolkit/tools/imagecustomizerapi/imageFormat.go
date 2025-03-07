@@ -21,6 +21,17 @@ const (
 	ImageFormatCosi     ImageFormat = "cosi"
 )
 
+// supportedImageFormats is a list of all image formats defined above.
+var supportedImageFormats = []string{
+	string(ImageFormatVhd),
+	string(ImageFormatVhdFixed),
+	string(ImageFormatVhdx),
+	string(ImageFormatQcow2),
+	string(ImageFormatRaw),
+	string(ImageFormatIso),
+	string(ImageFormatCosi),
+}
+
 func (f *ImageFormat) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var val string
 	if err := unmarshal(&val); err != nil {
@@ -38,13 +49,5 @@ func (f *ImageFormat) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // SupportedImageFormats returns all valid image formats.
 func SupportedImageFormats() []string {
-	return []string{
-		string(ImageFormatVhd),
-		string(ImageFormatVhdFixed),
-		string(ImageFormatVhdx),
-		string(ImageFormatQcow2),
-		string(ImageFormatRaw),
-		string(ImageFormatIso),
-		string(ImageFormatCosi),
-	}
+	return supportedImageFormats
 }
