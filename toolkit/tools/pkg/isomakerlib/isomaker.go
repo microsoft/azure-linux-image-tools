@@ -264,7 +264,7 @@ func (im *IsoMaker) setUpIsoGrub2Bootloader() (err error) {
 	}
 
 	logger.Log.Debugf("Formatting '%s' as an MS-DOS filesystem.", im.efiBootImgPath)
-	err = shell.ExecuteLive(false /*squashErrors*/, "mkdosfs", im.efiBootImgPath)
+	err = shell.ExecuteLive(true /*squashErrors*/, "mkdosfs", im.efiBootImgPath)
 	if err != nil {
 		return err
 	}
