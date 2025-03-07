@@ -68,7 +68,7 @@ customized using Image Customizer.
 
    ```bash
    SAS_JSON="$(az disk grant-access --duration-in-seconds 86400 --access-level Read --name "$DISK_NAME" --resource-group "$DISK_RG")"
-   SAS_URL="$(jq -r '.accessSas' <<< "$SAS_JSON")"
+   SAS_URL="$(jq -r '.accessSas // .accessSAS' <<< "$SAS_JSON")"
    ```
 
 8. Download VHD:
