@@ -126,12 +126,12 @@ the future.
 
 1. Create VM:
 
-   ```Powershell
+   ```powershell
    New-VM -Name mytestvm `
-     -MemoryStartupBytes 2GB 
-     -Generation 2
-     -BootDevice VHD
-     -SwitchName "Default Switch"
+     -MemoryStartupBytes 2GB `
+     -Generation 2 `
+     -BootDevice VHD `
+     -SwitchName "Default Switch" `
      -VHDPath '<image.vhdx>'
    Set-VMFirmware -VMName mytestvm -EnableSecureBoot Off
    ```
@@ -143,7 +143,7 @@ the future.
 
 2. Start VM:
 
-   ```Powershell
+   ```powershell
    Start-VM -VMName mytestvm
    ```
 
