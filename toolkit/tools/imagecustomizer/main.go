@@ -15,7 +15,9 @@ import (
 )
 
 var (
-	app = kingpin.New("imagecustomizer", "Customizes a pre-built Azure Linux image")
+	app = kingpin.New("imagecustomizer", "Customizes a pre-built Azure Linux image").
+		Version(imagecustomizerlib.ToolVersion).
+		UsageTemplate(kingpin.SeparateOptionalFlagsUsageTemplate)
 
 	buildDir                 = app.Flag("build-dir", "Directory to run build out of.").Required().String()
 	imageFile                = app.Flag("image-file", "Path of the base Azure Linux image which the customization will be applied to.").Required().String()
@@ -30,10 +32,14 @@ var (
 )
 
 func main() {
-	var err error
+	args := os.Args[1:]
+	if len(args) <= 0 {
+		// No args provided. So, print usage.
+		app.Usage([]string(nil))
+		os.Exit(1)
+	}
 
-	app.Version(imagecustomizerlib.ToolVersion)
-	kingpin.MustParse(app.Parse(os.Args[1:]))
+	kingpin.MustParse(app.Parse(args))
 
 	logger.InitBestEffort(logFlags)
 
@@ -42,16 +48,14 @@ func main() {
 		defer timestamp.CompleteTiming()
 	}
 
-	err = customizeImage()
+	err := customizeImage()
 	if err != nil {
 		log.Fatalf("image customization failed:\n%v", err)
 	}
 }
 
 func customizeImage() error {
-	var err error
-
-	err = imagecustomizerlib.CustomizeImageWithConfigFile(*buildDir, *configFile, *imageFile,
+	err := imagecustomizerlib.CustomizeImageWithConfigFile(*buildDir, *configFile, *imageFile,
 		*rpmSources, *outputImageFile, *outputImageFormat, *outputPXEArtifactsDir,
 		!*disableBaseImageRpmRepos)
 	if err != nil {
