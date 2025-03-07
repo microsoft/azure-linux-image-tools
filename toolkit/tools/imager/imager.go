@@ -374,7 +374,7 @@ func setupDisk(outputDir, diskName string, liveInstallFlag bool, diskConfig conf
 		if liveInstallFlag {
 			diskDevPath = diskConfig.TargetDisk.Value
 			partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = setupRealDisk(diskDevPath, diskConfig,
-				rootEncryption, false /*diskKnownToBeEmpty*/)
+				rootEncryption)
 		} else {
 			err = fmt.Errorf("target Disk Type is set but --live-install option is not set. Please check your config or enable the --live-install option")
 			return
@@ -410,8 +410,7 @@ func setupLoopDeviceDisk(outputDir, diskName string, diskConfig configuration.Di
 		return
 	}
 
-	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = setupRealDisk(diskDevPath, diskConfig, rootEncryption,
-		true /*diskKnownToBeEmpty*/)
+	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = setupRealDisk(diskDevPath, diskConfig, rootEncryption)
 	if err != nil {
 		err = fmt.Errorf("failed to setup loopback disk partitions (%s):\n%w", rawDisk, err)
 		return
@@ -420,11 +419,11 @@ func setupLoopDeviceDisk(outputDir, diskName string, diskConfig configuration.Di
 	return
 }
 
-func setupRealDisk(diskDevPath string, diskConfig configuration.Disk, rootEncryption configuration.RootEncryption, diskKnownToBeEmpty bool,
+func setupRealDisk(diskDevPath string, diskConfig configuration.Disk, rootEncryption configuration.RootEncryption,
 ) (partIDToDevPathMap, partIDToFsTypeMap map[string]string, encryptedRoot diskutils.EncryptedRootDevice, err error) {
 	// Set up partitions
 	partIDToDevPathMap, partIDToFsTypeMap, encryptedRoot, err = diskutils.CreatePartitions(
-		targetos.TargetOsAzureLinux3, diskDevPath, diskConfig, rootEncryption, diskKnownToBeEmpty)
+		targetos.TargetOsAzureLinux3, diskDevPath, diskConfig, rootEncryption)
 	if err != nil {
 		err = fmt.Errorf("failed to create partitions on disk (%s):\n%w", diskDevPath, err)
 		return
