@@ -79,7 +79,7 @@ needing to install the OS.
 
 1. Create VM:
 
-   ```Powershell
+   ```powershell
    New-VM -Name mytestvm `
      -MemoryStartupBytes 2GB `
      -Generation 2 `
@@ -97,7 +97,7 @@ needing to install the OS.
 
 2. Start VM:
 
-   ```Powershell
+   ```powershell
    Start-VM -VMName mytestvm
    ```
 
