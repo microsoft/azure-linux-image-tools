@@ -335,7 +335,7 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
-	// Pass the output image file through both the config and the argument.
+	// Pass the input image file through both the config and the argument.
 	config.Input.Image.Path = filepath.Join(buildDir, "doesnotexist.xxx")
 	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
