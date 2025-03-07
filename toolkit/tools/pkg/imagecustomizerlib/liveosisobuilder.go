@@ -988,7 +988,7 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 				updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDefault {
 				return fmt.Errorf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%w", err)
 			} else {
-				logger.Log.Warnf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%s", err)
+				logger.Log.Infof("SELinux disabled due to older dracut and selinux-policy package versions:\n%s", err)
 			}
 
 			disableSELinux = true
@@ -1040,7 +1040,7 @@ func (b *LiveOSIsoBuilder) createSquashfsImage(writeableRootfsDir string) error 
 
 	// '-xattrs' allows SELinux labeling to be retained within the squashfs.
 	mksquashfsParams := []string{writeableRootfsDir, squashfsImagePath, "-xattrs"}
-	err = shell.ExecuteLive(false, "mksquashfs", mksquashfsParams...)
+	err = shell.ExecuteLive(true, "mksquashfs", mksquashfsParams...)
 	if err != nil {
 		return fmt.Errorf("failed to create squashfs:\n%w", err)
 	}
