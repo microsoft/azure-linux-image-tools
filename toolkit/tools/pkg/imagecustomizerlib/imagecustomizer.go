@@ -103,7 +103,6 @@ type verityDeviceMetadata struct {
 	hashPartUuid          string
 	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
-	dataDeviceId          string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -910,6 +909,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 	requireSignedRootHashes bool, outputVerityHashes bool, outputVerityHashesDir string,
 ) (map[string]verityDeviceMetadata, error) {
 	verityMetadata := make(map[string]verityDeviceMetadata)
+	var rootfsDataDeviceId string
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
@@ -973,7 +973,11 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			hashPartUuid:          hashPartUuid,
 			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
-			dataDeviceId:          verityConfig.DataDeviceId,
+		}
+
+		// Store the rootfs data device ID separately
+		if verityConfig.FileSystem.MountPoint.Path == "/" {
+			rootfsDataDeviceId = verityConfig.DataDeviceId
 		}
 	}
 
@@ -1001,7 +1005,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
 	}
 
-	rootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts(verityMetadata["/"].dataDeviceId, verityMetadata["/"].rootHash, outputVerityHashes,
+	rootHashSignatureArgument, requireRootHashSignatureArgument, err := generateSignedRootHashArtifacts(rootfsDataDeviceId, verityMetadata["/"].rootHash, outputVerityHashes,
 		outputVerityHashesDir, requireSignedRootfsRootHash, requireSignedRootHashes)
 	if err != nil {
 		return nil, err
