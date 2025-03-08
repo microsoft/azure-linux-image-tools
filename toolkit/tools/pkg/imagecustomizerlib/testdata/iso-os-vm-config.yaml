@@ -1,9 +1,9 @@
 os:
   selinux:
-    mode: disabled
-  kernelCommandLine:
-    extraCommandLine:
-    - "selinux=0"
+    mode: enforcing
+  # kernelCommandLine:
+  #   extraCommandLine:
+  #   - "selinux=0"
   packages:
     install:
     # iso required packages
@@ -11,8 +11,23 @@ os:
     - tar
     - device-mapper
     - curl
+    - selinux-policy
+    - policycoreutils
+    - policycoreutils-python-utils    
+    update:
+    - dracut
 
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
   - source: files/89-ethernet.network
     destination: /etc/systemd/network/89-ethernet.network
+  users:
+  - name: testuser
+    sshPublicKeys:
+    - AAAAB3NzaC1yc2EAAAADAQABAAABgQCqUOZq1Une/TuABw3ANG3OLu5eWQHPxFti1WdsHxQdtdWuHkbHdXjMqb20gqvhE5JhXkaGPynQ2b/ymCV4/XRAXku+aV/CepzZDQJbz/2AUQxNFSxFMQC9QzPdv1i+cl8NS/DoeBVD9U7i9hPuXeTdmgs66bzDqrpIOX7chbIrdre9B7cHwa4agHSDqCUzLinid50ZJP8UgRlYR6lPGIm0Wc0enraOAImMt1RzIUqxtF7Z5XbE+CTg4xqKH3vSYgKrrj7eFGzAP7Msx1bklTTBAlIQ3Cd6kwuACQnu7Ukj9PstLlK6YJ2c4LDdL75yk1NzBhnriZmgdRs0RSVqOMt6eoiWgO6YVz0TR1CsPhNOIvmfelWR+qreDsw0yyQZQEOGny4h8OYE8M2xAwzjw8uWJoVIPbtcmmW01qoL+vEMEnQv6rRmsIsR+xnnfHKAS9+9oqmCqJVGIHzimhsuxRaHN9tV2s+1hagvtYTAbuQ0OVznhHwNSULm15KsxU6jf08= marinerbuilder@ARM64BuildVM4
+    password:
+      type: plain-text
+      value: testpassword
+    primaryGroup: sudo
+    secondaryGroups:
+    - sudo
