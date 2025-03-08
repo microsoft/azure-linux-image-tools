@@ -155,6 +155,8 @@ class SshProcess:
 
         return result
 
+class SshClientException(Exception):
+    pass
 
 class SshClient:
     def __init__(
@@ -191,15 +193,17 @@ class SshClient:
         # Open SSH connection.
         start_time = datetime.now()
         while True:
+            delta_time = 0
             try:
                 self.ssh_client.connect(hostname=hostname, port=port, username=username, key_filename=key_filename, sock=sock)
                 break
             except (NoValidConnectionsError, SSHException) as e:
                 delta_time = datetime.now() - start_time
                 if delta_time.total_seconds() > time_out_in_seconds:
-                    raise Exception(f"Error connecting to {hostname}: {e}")
+                    raise SshClientException(f"Error connecting to {hostname}: {e}")
             except Exception as e:
-                raise Exception(f"Error connecting to {hostname}: {e}")
+                raise SshClientException(f"Error connecting to {hostname}: {e}")
+            logging.debug(f"Failed to connect to {hostname} - {delta_time}. Will try again...")
             time.sleep(10)
 
 

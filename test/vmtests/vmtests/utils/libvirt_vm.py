@@ -60,7 +60,12 @@ class LibvirtVm:
         if len(addrs) < 1:
             return None
 
-        addr = addrs[0]["addr"]
+        # For arm64 virtual machines, two IP addresses are assigned
+        # temporarily - where the first is not usable and disappears after some
+        # time. So, optimistically, we always return the last IP addrress in
+        # the list assuming that is the one that works for all architectures.
+        addr = addrs[len(addrs) - 1]["addr"]
+
         assert isinstance(addr, str)
         return addr
 

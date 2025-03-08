@@ -1,12 +1,17 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-import os
+from datetime import datetime, timedelta
 from getpass import getuser
 import logging
+import os
 from pathlib import Path
+import platform
+import pytest
 import shlex
+import time
 from typing import List, Tuple
+import shutil
 
 import libvirt  # type: ignore
 from docker import DockerClient
@@ -17,7 +22,18 @@ from .utils.closeable import Closeable
 from .utils.imagecustomizer import run_image_customizer
 from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from .utils.libvirt_vm import LibvirtVm
-from .utils.ssh_client import SshClient
+from .utils.ssh_client import SshClient, SshClientException
+
+
+def get_host_distro() -> str:
+    file_path = "/etc/os-release"
+    name_value = ""
+    with open(file_path, "r") as file:
+        for line in file:
+            if line.startswith("ID="):
+                name_value = line.strip().split("=", 1)[1]  # Get the value part
+                break
+    return name_value
 
 
 def run_min_change_test(
@@ -30,6 +46,7 @@ def run_min_change_test(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -38,9 +55,13 @@ def run_min_change_test(
 
     secure_boot = False
 
-    boot_type = "efi"
-    if Path(input_image).suffix.lower() == ".vhd" and output_format != "iso":
-        boot_type = "legacy"
+    source_boot_type = "efi"
+    if Path(input_image).suffix.lower() == ".vhd":
+        source_boot_type = "legacy"
+
+    target_boot_type = source_boot_type
+    if output_format == "iso":
+        target_boot_type = "efi"
 
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
@@ -49,7 +70,9 @@ def run_min_change_test(
     logging.debug(f"- input_image_azl_release = {input_image_azl_release}")
     logging.debug(f"- config_path             = {config_path}")
     logging.debug(f"- output_format           = {output_format}")
-    logging.debug(f"- boot_type               = {boot_type}")
+    logging.debug(f"- source_boot_type        = {source_boot_type}")
+    logging.debug(f"- target_boot_type        = {target_boot_type}")
+    logging.debug(f"- output_artifacts_dir    = {output_artifacts_dir}")
 
     username = getuser()
 
@@ -64,6 +87,13 @@ def run_min_change_test(
         output_image_path,
         close_list,
     )
+
+    image_name = os.path.basename(output_image_path)
+    image_name_without_ext, image_ext = os.path.splitext(image_name)
+    customized_image_name = image_name_without_ext + "_" + get_host_distro() + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_to_" + target_boot_type + image_ext
+    customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
+    vm_console_log_file_path = customized_image_path + ".console.log"
+    logging.debug(f"- vm_console_log_file_path = {vm_console_log_file_path}")
 
     vm_image = output_image_path
     if output_format != "iso":
@@ -83,7 +113,8 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot))
+    vm_spec = VmSpec(vm_name, 4096, 4, vm_image, target_boot_type, secure_boot)
+    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec, vm_console_log_file_path)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
@@ -93,32 +124,58 @@ def run_min_change_test(
     # Start VM.
     vm.start()
 
-    # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    vm_ip_address = vm.get_vm_ip_address(timeout=30)
+    # arm64 emulated runs take a very long time to boot and get to a state
+    # where we can connect to it.
+    ip_wait_time = 30
+    if platform.machine() == 'aarch64':
+        ip_wait_time = 300
 
-    # Connect to VM using SSH.
-    ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
-    open(ssh_known_hosts_path, "w").close()
+    # For arm64 runs, we are seeing a behavior where the first IP address that
+    # gets assigned becomes unusable by the time we try to ssh into the machine
+    # and ssh fails to connect.
+    # Some time later, a different IP address gets assigned, and that IP
+    # address is usable.
+    stable_ip_time_out = 360
+    stable_ip_wait_time = 120
+    stable_ip_start_time = datetime.now()
+    while True:
+        # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
+        vm_ip_address = vm.get_vm_ip_address(timeout=ip_wait_time)
+        logging.debug(f"found IP address = {vm_ip_address}")
 
-    with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-        vm_ssh.run("cat /proc/cmdline").check_exit_code()
+        # Connect to VM using SSH.
+        ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
+        open(ssh_known_hosts_path, "w").close()
 
-        os_release_path = test_temp_dir.joinpath("os-release")
-        vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
+        try:
+            with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+                vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
-        with open(os_release_path, "r") as os_release_fd:
-            os_release_text = os_release_fd.read()
+                os_release_path = test_temp_dir.joinpath("os-release")
+                vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
 
-            if input_image_azl_release == 2:
-                assert ("ID=mariner" in os_release_text)
-                assert ('VERSION_ID="2.0"' in os_release_text)
-            elif input_image_azl_release == 3:
-                assert ("ID=azurelinux" in os_release_text)
-                assert ('VERSION_ID="3.0"' in os_release_text)
-            else:
-                assert False, "Unexpected image identity in /etc/os-release"
+                with open(os_release_path, "r") as os_release_fd:
+                    os_release_text = os_release_fd.read()
+
+                    if input_image_azl_release == 2:
+                        assert ("ID=mariner" in os_release_text)
+                        assert ('VERSION_ID="2.0"' in os_release_text)
+                    elif input_image_azl_release == 3:
+                        assert ("ID=azurelinux" in os_release_text)
+                        assert ('VERSION_ID="3.0"' in os_release_text)
+                    else:
+                        assert False, "Unexpected image identity in /etc/os-release"
+
+            break
+        except SshClientException as e:
+            delta_time = datetime.now() - stable_ip_start_time
+            if delta_time.total_seconds() > stable_ip_time_out:
+                raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")            
+            logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
+            time.sleep(stable_ip_wait_time)
 
 
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
 def test_min_change_efi_azl2_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -126,6 +183,7 @@ def test_min_change_efi_azl2_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -143,6 +201,7 @@ def test_min_change_efi_azl2_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
@@ -155,11 +214,15 @@ def test_min_change_efi_azl3_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    if platform.machine() == 'x86_64':
+        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
@@ -172,11 +235,13 @@ def test_min_change_efi_azl3_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
 
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
 def test_min_change_legacy_azl2_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -184,6 +249,7 @@ def test_min_change_legacy_azl2_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -201,11 +267,12 @@ def test_min_change_legacy_azl2_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
-
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="no arm64 legacy boot input images are available")
 def test_min_change_legacy_azl3_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -213,6 +280,7 @@ def test_min_change_legacy_azl3_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -230,11 +298,13 @@ def test_min_change_legacy_azl3_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
 
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
 def test_min_change_efi_azl2_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -242,6 +312,7 @@ def test_min_change_efi_azl2_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -259,9 +330,11 @@ def test_min_change_efi_azl2_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
+
 
 def test_min_change_efi_azl3_iso_output(
     docker_client: DockerClient,
@@ -270,6 +343,7 @@ def test_min_change_efi_azl3_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -287,11 +361,13 @@ def test_min_change_efi_azl3_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
 
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
 def test_min_change_legacy_azl2_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -299,6 +375,7 @@ def test_min_change_legacy_azl2_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -316,11 +393,13 @@ def test_min_change_legacy_azl2_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
 
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="no arm64 legacy boot input images are available")
 def test_min_change_legacy_azl3_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -328,6 +407,7 @@ def test_min_change_legacy_azl3_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -345,6 +425,7 @@ def test_min_change_legacy_azl3_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
