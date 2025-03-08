@@ -34,6 +34,7 @@ def run_image_customizer(
     container_config_dir = Path("/mic/config")
     container_output_image_dir = Path("/mic/output_image")
     container_build_dir = Path("/mic/build")
+    container_rpms_dir = Path("/mic/rpms")
 
     base_image_dir = base_image_path.parent.absolute()
     config_dir = config_path.parent.absolute()
@@ -45,6 +46,7 @@ def run_image_customizer(
     container_base_image_path = container_base_image_dir.joinpath(base_image_path.name)
     container_config_path = container_config_dir.joinpath(modified_config_path.name)
     container_output_image_path = container_output_image_dir.joinpath(output_image_path.name)
+
 
     args = [
         "imagecustomizer",
@@ -59,7 +61,7 @@ def run_image_customizer(
         "--output-image-file",
         str(container_output_image_path),
         "--rpm-source",
-        str(rpms_path),
+        str(container_rpms_dir),
         "--log-level",
         "debug",
     ]
@@ -68,6 +70,7 @@ def run_image_customizer(
         f"{base_image_dir}:{container_base_image_dir}:z",
         f"{config_dir}:{container_config_dir}:z",
         f"{output_image_dir}:{container_output_image_dir}:z",
+        f"{rpms_path}:{container_rpms_dir}:z",
         "/dev:/dev",
     ]
 
