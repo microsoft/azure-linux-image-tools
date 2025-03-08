@@ -11,6 +11,9 @@ os:
     - tar
     - device-mapper
     - curl
+    - selinux-policy
+    - policycoreutils
+    - policycoreutils-python-utils    
     update:
     - dracut
 
