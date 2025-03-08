@@ -1,9 +1,9 @@
 os:
   selinux:
     mode: enforcing
-  kernelCommandLine:
-    extraCommandLine:
-    - "selinux=0"
+  # kernelCommandLine:
+  #   extraCommandLine:
+  #   - "selinux=0"
   packages:
     install:
     # iso required packages
