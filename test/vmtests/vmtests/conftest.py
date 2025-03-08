@@ -26,6 +26,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
+    parser.addoption("--artifacts-folder", action="store", help="Path to artifacts folder")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
