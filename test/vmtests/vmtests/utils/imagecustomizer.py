@@ -21,6 +21,7 @@ def run_image_customizer(
     image_customizer_container_url: str,
     base_image_path: Path,
     config_path: Path,
+    rpms_path: Path,
     ssh_username: str,
     ssh_public_key: str,
     output_image_format: str,
@@ -57,6 +58,8 @@ def run_image_customizer(
         output_image_format,
         "--output-image-file",
         str(container_output_image_path),
+        "--rpm-source",
+        str(rpms_path),
         "--log-level",
         "debug",
     ]

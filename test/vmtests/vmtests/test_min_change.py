@@ -32,6 +32,7 @@ def run_min_change_test(
     test_temp_dir: Path,
     test_instance_name: str,
     artifacts_folder: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -53,6 +54,7 @@ def run_min_change_test(
     logging.debug(f"- output_format           = {output_format}")
     logging.debug(f"- boot_type               = {boot_type}")
     logging.debug(f"- artifacts_folder        = {artifacts_folder}")
+    logging.debug(f"- rpms_folder             = {rpms_folder}")
 
     username = getuser()
 
@@ -61,6 +63,7 @@ def run_min_change_test(
         image_customizer_container_url,
         input_image,
         config_path,
+        rpms_folder,
         username,
         ssh_public_key,
         output_format,
@@ -186,6 +189,7 @@ def test_min_change_efi_azl3_qcow_output(
     test_temp_dir: Path,
     test_instance_name: str,
     artifacts_folder: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -204,6 +208,7 @@ def test_min_change_efi_azl3_qcow_output(
         test_temp_dir,
         test_instance_name,
         artifacts_folder,
+        rpms_folder,
         libvirt_conn,
         close_list,
     )
@@ -305,6 +310,7 @@ def test_min_change_efi_azl3_iso_output(
     test_temp_dir: Path,
     test_instance_name: str,
     artifacts_folder: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -323,6 +329,7 @@ def test_min_change_efi_azl3_iso_output(
         test_temp_dir,
         test_instance_name,
         artifacts_folder,
+        rpms_folder,
         libvirt_conn,
         close_list,
     )
