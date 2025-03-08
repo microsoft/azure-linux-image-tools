@@ -1,6 +1,6 @@
 os:
   selinux:
-    mode: disabled
+    mode: enforcing
   kernelCommandLine:
     extraCommandLine:
     - "selinux=0"
