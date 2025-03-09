@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -74,9 +75,15 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		verityHashUuids[verity.hashPartUuid] = struct{}{}
 	}
 
+	// Debug:
+	log.Println("Verity Hash UUIDs:", verityHashUuids)
+
 	imageData := []ImageBuildData{}
 
 	for _, partition := range partitions {
+		// Debug:
+		log.Printf("Checking partition: PartUuid=%s, PartitionFilename=%s\n", partition.PartUuid, partition.PartitionFilename)
+
 		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
 		if _, isVerityHash := verityHashUuids[partition.PartUuid]; isVerityHash {
 			continue
