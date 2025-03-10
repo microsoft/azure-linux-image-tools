@@ -200,21 +200,28 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
 	buildDir string, onlyAddFiles bool,
-) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, error) {
+) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, map[string]verityDeviceMetadata, error) {
+	verityMetadata := make(map[string]verityDeviceMetadata)
+
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
-	// var foundRoot bool
 	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
+
 	for _, fstabEntry := range filteredFstabEntries {
-		partitionType, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		partitionType, partition, _, entryVerityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir, onlyAddFiles)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		if partitionType == ExtendedMountIdentifierTypeOverlay || partitionType == ExtendedMountIdentifierTypeCustom {
 			continue
+		}
+
+		// Merge entry-specific verityMetadata into global verityMetadata
+		for key, value := range entryVerityMetadata {
+			verityMetadata[key] = value
 		}
 
 		var vfsOptions diskutils.MountFlags
@@ -231,8 +238,6 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
 				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
-
-			// foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
 				partition.Path, fstabEntry.Target, fstabEntry.FsType,
@@ -243,7 +248,7 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
 	}
 
-	return mountPoints, partUuidToFstabEntry, nil
+	return mountPoints, partUuidToFstabEntry, verityMetadata, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {
@@ -269,11 +274,13 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 }
 
 func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
-	buildDir string,
-) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, error) {
+	buildDir string, onlyAddFiles bool,
+) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, map[string]verityDeviceMetadata, error) {
+	verityMetadata := make(map[string]verityDeviceMetadata)
+
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
 	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, verityMetadata, err
 	}
 
 	var partition diskutils.PartitionInfo
@@ -281,13 +288,13 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 	if mountIdType != ExtendedMountIdentifierTypeOverlay &&
 		mountIdType != ExtendedMountIdentifierTypeCustom {
 
-		partition, partitionIndex, err = findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+		partition, partitionIndex, verityMetadata, err = findExtendedPartition(mountIdType, mountId, partitions, buildDir, onlyAddFiles)
 		if err != nil {
-			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, verityMetadata, err
 		}
 	}
 
-	return mountIdType, partition, partitionIndex, nil
+	return mountIdType, partition, partitionIndex, verityMetadata, nil
 }
 
 func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
@@ -306,7 +313,7 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 		return diskutils.PartitionInfo{}, 0, fmt.Errorf("unsupported identifier type: %v", mountIdType)
 	}
 
-	partition, partitionIndex, err := findExtendedPartition(extendedType, mountId, partitions, buildDir)
+	partition, partitionIndex, _, err := findExtendedPartition(extendedType, mountId, partitions, buildDir, false)
 	if err != nil {
 		return diskutils.PartitionInfo{}, 0, err
 	}
@@ -316,17 +323,49 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 
 // findExtendedPartition extends the public func findPartition to handle additional identifier types.
 func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
-	partitions []diskutils.PartitionInfo, buildDir string,
-) (diskutils.PartitionInfo, int, error) {
+	partitions []diskutils.PartitionInfo, buildDir string, onlyAddFiles bool,
+) (diskutils.PartitionInfo, int, map[string]verityDeviceMetadata, error) {
+	verityMetadata := make(map[string]verityDeviceMetadata)
+
 	if mountIdType == ExtendedMountIdentifierTypeDev {
 		newMountIdType, newMountId, err := findDevPathPartition(mountId, partitions, buildDir)
 		if err != nil {
 			err = fmt.Errorf("failed to find partition (%s):\n%w", mountId, err)
-			return diskutils.PartitionInfo{}, 0, err
+			return diskutils.PartitionInfo{}, 0, verityMetadata, err
 		}
 
 		mountIdType = newMountIdType
 		mountId = newMountId
+
+		if onlyAddFiles {
+			cmdline, err := extractKernelCmdline(partitions, buildDir)
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, verityMetadata, err
+			}
+
+			roothash, err := findKernelCommandLineArgValue(cmdline, "roothash")
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, verityMetadata, err
+			}
+
+			dataDeviceMountIdType, dataPartUuid, err := extractVerityPartitionId(cmdline, "systemd.verity_root_data")
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, verityMetadata, err
+			}
+
+			hashDeviceMountIdType, hashPartUuid, err := extractVerityPartitionId(cmdline, "systemd.verity_root_hash")
+			if err != nil {
+				return diskutils.PartitionInfo{}, 0, verityMetadata, err
+			}
+
+			verityMetadata["/"] = verityDeviceMetadata{
+				rootHash:              roothash,
+				dataPartUuid:          dataPartUuid,
+				hashPartUuid:          hashPartUuid,
+				dataDeviceMountIdType: extendToMntIdentifierApi(dataDeviceMountIdType),
+				hashDeviceMountIdType: extendToMntIdentifierApi(hashDeviceMountIdType),
+			}
+		}
 	}
 
 	matchedPartitionIndexes := []int(nil)
@@ -347,17 +386,17 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 
 	if len(matchedPartitionIndexes) < 1 {
 		err := fmt.Errorf("partition not found (%s=%s)", mountIdType, mountId)
-		return diskutils.PartitionInfo{}, 0, err
+		return diskutils.PartitionInfo{}, 0, verityMetadata, err
 	}
 	if len(matchedPartitionIndexes) > 1 {
 		err := fmt.Errorf("too many matches for partition found (%s=%s)", mountIdType, mountId)
-		return diskutils.PartitionInfo{}, 0, err
+		return diskutils.PartitionInfo{}, 0, verityMetadata, err
 	}
 
 	partitionIndex := matchedPartitionIndexes[0]
 	partition := partitions[partitionIndex]
 
-	return partition, partitionIndex, nil
+	return partition, partitionIndex, verityMetadata, nil
 }
 
 func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
@@ -370,12 +409,10 @@ func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
 
 	switch mountId {
 	case imagecustomizerapi.VerityRootDevicePath:
-		return extractVerityPartitionId(cmdline, "systemd.verity_root_data",
-			imagecustomizerapi.VerityRootDeviceName)
+		return extractVerityPartitionId(cmdline, "systemd.verity_root_data")
 
 	case imagecustomizerapi.VerityUsrDevicePath:
-		return extractVerityPartitionId(cmdline, "systemd.verity_usr_data",
-			imagecustomizerapi.VerityUsrDeviceName)
+		return extractVerityPartitionId(cmdline, "systemd.verity_usr_data")
 
 	default:
 		return "", "", fmt.Errorf("unknown partition id type (%s)", mountId)
@@ -537,7 +574,6 @@ func extracKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfi
 }
 
 func extractVerityPartitionId(cmdline []grubConfigLinuxArg, verityDataArg string,
-	verityName string,
 ) (ExtendedMountIdentifierType, string, error) {
 	identifier, err := findKernelCommandLineArgValue(cmdline, verityDataArg)
 	if err != nil {
@@ -545,7 +581,7 @@ func extractVerityPartitionId(cmdline []grubConfigLinuxArg, verityDataArg string
 	}
 
 	if identifier == "" {
-		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity (%s) identifier found in kernel command-line", verityName)
+		return ExtendedMountIdentifierTypeDefault, "", fmt.Errorf("no verity identifier found in kernel command-line")
 	}
 
 	idType, value, err := parseExtendedSourcePartition(identifier)
@@ -713,4 +749,17 @@ func refreshPartitions(diskDevPath string) error {
 	}
 
 	return nil
+}
+
+func extendToMntIdentifierApi(extType ExtendedMountIdentifierType) imagecustomizerapi.MountIdentifierType {
+	switch extType {
+	case ExtendedMountIdentifierTypeUuid:
+		return imagecustomizerapi.MountIdentifierTypeUuid
+	case ExtendedMountIdentifierTypePartUuid:
+		return imagecustomizerapi.MountIdentifierTypePartUuid
+	case ExtendedMountIdentifierTypePartLabel:
+		return imagecustomizerapi.MountIdentifierTypePartLabel
+	default:
+		return imagecustomizerapi.MountIdentifierTypeDefault
+	}
 }

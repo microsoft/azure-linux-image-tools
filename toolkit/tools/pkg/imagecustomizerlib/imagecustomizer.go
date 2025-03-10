@@ -490,10 +490,16 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Customize the raw image file.
 	onlyAddFiles := len(ic.inputSignedVerityHashes) != 0 || len(ic.inputSignedUKIs) != 0
-	partUuidToFstabEntry, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
+	partUuidToFstabEntry, verityMetadata, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
 		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, onlyAddFiles)
 	if err != nil {
 		return err
+	}
+
+	if verityEnabled && onlyAddFiles {
+		for _, metadata := range verityMetadata {
+			ic.verityMetadata = append(ic.verityMetadata, metadata)
+		}
 	}
 
 	// Set partition to mountpath mapping for COSI.
@@ -817,12 +823,12 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, onlyAddFiles bool,
-) (map[string]diskutils.FstabEntry, error) {
+) (map[string]diskutils.FstabEntry, map[string]verityDeviceMetadata, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true, onlyAddFiles)
+	imageConnection, partUuidToFstabEntry, verityMetadata, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true, onlyAddFiles)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer imageConnection.Close()
 
@@ -842,15 +848,15 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	warnOnLowFreeSpace(buildDir, imageConnection)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return partUuidToFstabEntry, nil
+	return partUuidToFstabEntry, verityMetadata, nil
 }
 
 func extractPartitionsHelper(rawImageFile string, outputDir string, outputBasename string, outputSplitPartitionsFormat string, imageUuid [UuidSize]byte) error {
