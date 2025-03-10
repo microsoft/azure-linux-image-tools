@@ -65,13 +65,16 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
+	uuidToMetadata := make(map[string]outputPartitionMetadata)
 	for _, partition := range partitions {
 		partUuidToMetadata[partition.PartUuid] = partition
+		uuidToMetadata[partition.Uuid] = partition
 	}
 
 	// Pre-compute a set of verity hash UUIDs for quick lookup
 	verityHashUuids := make(map[string]struct{})
 	for _, verity := range verityMetadata {
+		// Since verity.hashPartUuid might contain either PARTUUID or UUID, we store it as-is
 		verityHashUuids[verity.hashPartUuid] = struct{}{}
 	}
 
@@ -82,10 +85,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 	for _, partition := range partitions {
 		// Debug:
-		log.Printf("Checking partition: PartUuid=%s, PartitionFilename=%s\n", partition.PartUuid, partition.PartitionFilename)
+		log.Printf("Checking partition: PartUuid=%s, Uuid=%s, PartitionFilename=%s\n", partition.PartUuid, partition.Uuid, partition.PartitionFilename)
 
 		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
-		if _, isVerityHash := verityHashUuids[partition.PartUuid]; isVerityHash {
+		if _, isVerityHashByPartUuid := verityHashUuids[partition.PartUuid]; isVerityHashByPartUuid {
+			continue
+		}
+		if _, isVerityHashByUuid := verityHashUuids[partition.Uuid]; isVerityHashByUuid {
 			continue
 		}
 
@@ -108,10 +114,14 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 		// Add Verity metadata if the partition has a matching entry in verityMetadata
 		for _, verity := range verityMetadata {
-			if partition.PartUuid == verity.dataPartUuid {
+			if partition.PartUuid == verity.dataPartUuid || partition.Uuid == verity.dataPartUuid { // Check both PARTUUID & UUID
+				// Find the hash partition using both identifiers
 				hashPartition, exists := partUuidToMetadata[verity.hashPartUuid]
 				if !exists {
-					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
+					hashPartition, exists = uuidToMetadata[verity.hashPartUuid] // Try UUID lookup
+				}
+				if !exists {
+					return fmt.Errorf("missing metadata for hash partition identifier:\n%s", verity.hashPartUuid)
 				}
 
 				metadataImage.Verity = &Verity{
