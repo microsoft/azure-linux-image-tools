@@ -186,7 +186,7 @@ in front of any HTTP endpoints.
 
    ```bash
    SAS_JSON="$(az disk grant-access -n "$DISK_NAME" -g "$VM_RG" --access-level Write --duration-in-seconds 86400)"
-   SAS_URL="$(jq -r '.accessSas' <<< "$SAS_JSON")"
+   SAS_URL="$(jq -r '.accessSas // .accessSAS' <<< "$SAS_JSON")"
 
    azcopy copy "$LOCAL_DISK_PATH" "$SAS_URL" --blob-type PageBlob
 
