@@ -33,9 +33,9 @@ var supportedImageFormatTypes = []string{
 	string(ImageFormatTypeCosi),
 }
 
-func (ft *ImageFormatType) IsValid() error {
-	if *ft != ImageFormatTypeNone && !slices.Contains(SupportedImageFormatTypes(), string(*ft)) {
-		return fmt.Errorf("invalid image format type (%s)", *ft)
+func (ft ImageFormatType) IsValid() error {
+	if ft != ImageFormatTypeNone && !slices.Contains(SupportedImageFormatTypes(), string(ft)) {
+		return fmt.Errorf("invalid image format type (%s)", ft)
 	}
 
 	return nil
