@@ -68,7 +68,7 @@ func TestResourceBusy(t *testing.T) {
 
 	// Set up partitions.
 	_, _, _, err = diskutils.CreatePartitions(targetos.TargetOsAzureLinux3, loopback.DevicePath(), diskConfig,
-		configuration.RootEncryption{}, true /*diskKnownToBeEmpty*/)
+		configuration.RootEncryption{})
 	if !assert.NoError(t, err, "failed to create partitions on disk", loopback.DevicePath()) {
 		return
 	}
