@@ -236,3 +236,4 @@ os:
   - [output](./configuration/config.md#output-output) ([output type](./configuration/output.md))
     - [image](./configuration/output.md#image-outputimage) ([outputImage type](./configuration/outputImage.md))
       - [path](./configuration/outputImage.md#path-string)
+      - [format](./configuration/outputImage.md#format-string)
