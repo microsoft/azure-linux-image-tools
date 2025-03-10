@@ -56,10 +56,6 @@ nav_order: 1
    Image Customizer directly on those distros. However, using the
    [Image Customizer container](../how-to/container.md) on those distros should work.
 
-   Note: There are known issues with trying to use Image Customizer in WSL (Windows
-   Subsystem for Linux). It is recommended that use the Image Customizer tool in a
-   Linux OS running on a bare-metal host or a virtual machine.
-
 4. Run the Image Customizer tool.
 
    For example:
@@ -80,6 +76,11 @@ nav_order: 1
 
    For a description of all the command line options, see:
    [Image Customizer command line](../api/cli.md)
+
+   Note: If you are running in WSL (Windows Subsystem for Linux), then you should place
+   the `--build-dir` directory in one of the Linux directories (e.g. `~/build`).
+   Otherwise, the tool will run very slowly. However, it is fine for `--image-file` and
+   `--output-image-file` to be located in either a Windows or Linux directory.
 
 5. Use the customized image.
 
