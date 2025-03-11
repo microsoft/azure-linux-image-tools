@@ -10,6 +10,7 @@ storage:
       size: 2G
 
     - id: var
+      type: linux-generic
       size: 2G
 
   bootType: efi
