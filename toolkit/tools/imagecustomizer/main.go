@@ -32,8 +32,12 @@ var (
 	outputUkisDir               = app.Flag("output-ukis-dir", "The directory where the UKI PE imagess will be moved to.").String()
 	outputVerityHashes          = app.Flag("output-verity-hashes", "Save the root hash value of each verity target device in a text file.").Bool()
 	outputVerityHashesDir       = app.Flag("output-verity-hashes-dir", "The directory where the verity root hash files will be saved to.").String()
+	outputSystemdBootDir        = app.Flag("output-systemd-boot-dir", "The directory where the systemd-boot executable file will be saved to.").String()
+	outputShimDir               = app.Flag("output-shim-dir", "The directory where the shim executable file will be saved to.").String()
 	inputSignedUKIs             = app.Flag("input-signed-ukis", "A list of one or more signed UKI PE images.").Strings()
 	inputSignedVerityHashes     = app.Flag("input-signed-verity-hashes-files", "A list of one or more signed verity root hash files.").Strings()
+	inputSignedSystemdBoot      = app.Flag("input-signed-systemd-boot", "A one signed systemd-boot executable file.").String()
+	inputSignedShim             = app.Flag("input-signed-shim", "A one signed shim executable file.").String()
 	logFlags                    = exe.SetupLogFlags(app)
 	timestampFile               = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
 )
@@ -74,7 +78,8 @@ func customizeImage() error {
 	err = imagecustomizerlib.CustomizeImageWithConfigFile(*buildDir, *configFile, *imageFile,
 		*rpmSources, *outputImageFile, *outputImageFormat, *outputSplitPartitionsFormat, *outputPXEArtifactsDir,
 		!*disableBaseImageRpmRepos, *enableShrinkFilesystems, *requireSignedRootfsRootHash, *requireSignedRootHashes,
-		*outputVerityHashes, *outputVerityHashesDir, *inputSignedVerityHashes, *outputUkisDir, *inputSignedUKIs)
+		*outputVerityHashes, *outputVerityHashesDir, *inputSignedVerityHashes, *outputUkisDir, *inputSignedUKIs,
+		*outputSystemdBootDir, *outputShimDir, *inputSignedSystemdBoot, *inputSignedShim)
 	if err != nil {
 		return err
 	}

@@ -25,7 +25,7 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -90,7 +90,7 @@ func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -31,7 +31,7 @@ func TestCustomizeImageResolvConfDelete(t *testing.T) {
 
 	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -95,7 +95,7 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 
 	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -166,7 +166,7 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 
 	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -205,7 +205,7 @@ func TestCustomizeImageResolvConfNewSymlink(t *testing.T) {
 
 	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}

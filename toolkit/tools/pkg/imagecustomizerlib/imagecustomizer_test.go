@@ -58,7 +58,7 @@ func TestCustomizeImageEmptyConfig(t *testing.T) {
 	err = CustomizeImage(buildDir, buildDir, &imagecustomizerapi.Config{}, baseImage, nil, outImageFilePath,
 		"vhd", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -81,7 +81,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	// Customize image to vhd.
 	err := CustomizeImageWithConfigFile(buildDir, partitionsConfigFile, baseImage, nil, vhdImageFilePath,
 		"vhd", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -98,7 +98,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	// Customize image to vhd-fixed.
 	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdImageFilePath, nil, vhdFixedImageFilePath,
 		"vhd-fixed", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -117,7 +117,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	// Customize image to vhdx.
 	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdFixedImageFilePath, nil, vhdxImageFilePath,
 		"vhdx", "", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -268,7 +268,7 @@ func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
 
 	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outImageFilePath, "raw", "",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, false, /*enableShrinkFilesystems*/
-		false, false, false, "", nil, "", nil)
+		false, false, false, "", nil, "", nil, "", "", "", "")
 	if !assert.NoError(t, err) {
 		return
 	}

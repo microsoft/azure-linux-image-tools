@@ -31,6 +31,8 @@ const (
 	KernelPrefix          = "vmlinuz-"
 	UkiBuildDir           = "UkiBuildDir"
 	UkiOutputDir          = "EFI/Linux"
+	SystemdBootOutputDir  = "EFI/systemd"
+	ShimOutputDir         = "EFI/BOOT"
 )
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
@@ -267,7 +269,9 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 	return kernelToInitramfs, nil
 }
 
-func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string, outputUkisDir string) error {
+func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string, outputUkisDir string,
+	outputSystemdBootDir string, outputShimDir string,	
+) error {
 	logger.Log.Debugf("Customizing UKI")
 
 	var err error
@@ -330,6 +334,22 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		err = extractUKIs(outputUkisDir, filepath.Join(systemBootPartitionTmpDir, UkiOutputDir))
 		if err != nil {
 			return fmt.Errorf("failed to extract UKIs:\n%w", err)
+		}
+	}
+
+	// Extract systemd-boot if outputSystemdBootDir is specified
+	if outputSystemdBootDir != "" {
+		err = extractSystemdBoot(outputSystemdBootDir, filepath.Join(systemBootPartitionTmpDir, SystemdBootOutputDir))
+		if err != nil {
+			return fmt.Errorf("failed to extract systemd-boot:\n%w", err)
+		}
+	}
+
+	// Extract UKIs if outputShimDir is specified
+	if outputShimDir != "" {
+		err = extractShim(outputShimDir, filepath.Join(systemBootPartitionTmpDir, ShimOutputDir))
+		if err != nil {
+			return fmt.Errorf("failed to extract shim:\n%w", err)
 		}
 	}
 
@@ -648,4 +668,123 @@ func inputUKIs(signedUKIs []string) (imagecustomizerapi.AdditionalFileList, erro
 	}
 
 	return additionalFiles, nil
+}
+
+func extractSystemdBoot(outputSystemdBootDir string, systemdBootSavedDir string) error {
+	// Define the expected systemd-boot executable name
+	const systemdBootFileName = "systemd-bootx64.efi"
+
+	// Check if systemd-boot directory exists
+	if _, err := os.Stat(systemdBootSavedDir); os.IsNotExist(err) {
+		return fmt.Errorf("systemd-boot directory does not exist: %s", systemdBootSavedDir)
+	}
+
+	// Create the local output directory if it does not exist
+	err := os.MkdirAll(outputSystemdBootDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create output directory (%s): %w", outputSystemdBootDir, err)
+	}
+
+	// Construct full source and destination paths
+	srcPath := filepath.Join(systemdBootSavedDir, systemdBootFileName)
+	destPath := filepath.Join(outputSystemdBootDir, systemdBootFileName)
+
+	// Check if the systemd-boot file exists in the source directory
+	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+		return fmt.Errorf("systemd-boot executable not found in directory: %s", systemdBootSavedDir)
+	}
+
+	// Copy the systemd-boot executable
+	err = copyFile(srcPath, destPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy systemd-boot executable from %s to %s: %w", srcPath, destPath, err)
+	}
+
+	// Remove the original file after a successful copy
+	err = os.Remove(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to delete original systemd-boot executable %s after copying: %w", srcPath, err)
+	}
+
+	return nil
+}
+
+func inputSystemdBoot(signedSystemdBoot string) (imagecustomizerapi.AdditionalFileList, error) {
+	// Validate if the input file has a valid .efi extension
+	if !strings.HasSuffix(signedSystemdBoot, ".efi") {
+		return nil, fmt.Errorf("invalid systemd-boot file: %s (must have .efi extension)", signedSystemdBoot)
+	}
+
+	// Define the destination path in the image
+	imageFile := filepath.Join("/boot/efi/EFI/systemd", filepath.Base(signedSystemdBoot))
+
+	// Create an AdditionalFile object
+	additionalFile := imagecustomizerapi.AdditionalFile{
+		Destination: imageFile,
+		Source:      signedSystemdBoot,
+		Permissions: ptrutils.PtrTo(imagecustomizerapi.FilePermissions(0o755)),
+	}
+
+	// Return the AdditionalFileList with a single entry
+	return imagecustomizerapi.AdditionalFileList{additionalFile}, nil
+}
+
+
+func extractShim(outputShimDir string, shimSavedDir string) error {
+	// Define the expected shim executable name
+	const shimFileName = "bootx64.efi"
+
+	// Check if the shim directory exists
+	if _, err := os.Stat(shimSavedDir); os.IsNotExist(err) {
+		return fmt.Errorf("shim directory does not exist: %s", shimSavedDir)
+	}
+
+	// Create the local output directory if it does not exist
+	err := os.MkdirAll(outputShimDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create output directory (%s): %w", outputShimDir, err)
+	}
+
+	// Construct full source and destination paths
+	srcPath := filepath.Join(shimSavedDir, shimFileName)
+	destPath := filepath.Join(outputShimDir, shimFileName)
+
+	// Check if the shim file exists in the source directory
+	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+		return fmt.Errorf("shim executable not found in directory: %s", shimSavedDir)
+	}
+
+	// Copy the shim executable
+	err = copyFile(srcPath, destPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy shim executable from %s to %s: %w", srcPath, destPath, err)
+	}
+
+	// Remove the original file after a successful copy
+	err = os.Remove(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to delete original shim executable %s after copying: %w", srcPath, err)
+	}
+
+	return nil
+}
+
+func inputShim(signedShim string) (imagecustomizerapi.AdditionalFileList, error) {
+	// Validate if the input file has a valid .efi extension
+	if !strings.HasSuffix(signedShim, ".efi") {
+		return nil, fmt.Errorf("invalid shim file: %s (must have .efi extension)", signedShim)
+	}
+
+	// Define the destination path in the image
+	imageFile := filepath.Join("/boot/efi/EFI/BOOT", filepath.Base(signedShim))
+
+	// Create an AdditionalFile object
+	additionalFile := imagecustomizerapi.AdditionalFile{
+		Destination: imageFile,
+		Source:      signedShim,
+		Permissions: ptrutils.PtrTo(imagecustomizerapi.FilePermissions(0o755)),
+	}
+
+	// Return the AdditionalFileList with a single entry
+	return imagecustomizerapi.AdditionalFileList{additionalFile}, nil
 }
