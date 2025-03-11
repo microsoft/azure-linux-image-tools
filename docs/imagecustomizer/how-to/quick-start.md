@@ -78,9 +78,12 @@ nav_order: 1
    [Image Customizer command line](../api/cli.md)
 
    Note: If you are running in WSL (Windows Subsystem for Linux), then you should place
-   the `--build-dir` directory in one of the Linux directories (e.g. `~/build`).
-   Otherwise, the tool will run very slowly. However, it is fine for `--image-file` and
-   `--output-image-file` to be located in either a Windows or Linux directory.
+   the `--build-dir` directory in the native Linux filesystem (e.g. `~/build`) instead
+   of one of the mounted Windows filesystems (e.g. `/mnt/c`). Otherwise, the tool will
+   run very slowly due to I/O performance issues. However, it is fine for `--image-file`
+   and `--output-image-file` to be located in either a Windows or Linux filesystem.
+
+   Also, Image Customizer will not run successfully in WSL1. You must use WSL2.
 
 5. Use the customized image.
 
