@@ -21,6 +21,16 @@ from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
 
 
+def get_host_distro() -> str:
+    file_path = "/etc/os-release"
+    name_value = ""
+    with open(file_path, "r") as file:
+        for line in file:
+            if line.startswith("NAME="):  # Look for the line starting with "NAME="
+                name_value = line.strip().split("=", 1)[1]  # Get the value part
+                break
+    return name_value
+
 def run_min_change_test(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -71,10 +81,12 @@ def run_min_change_test(
         close_list,
     )
 
-    logging.debug(f"copying {output_image_path} to {artifacts_folder}")
-    shutil.copy2(output_image_path, artifacts_folder)
+    image_name = os.path.basename(output_image_path)
+    image_name_without_ext, image_ext = os.path.splitext(image_name)
+    new_image_name = artifacts_folder + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + "_" + image_ext
 
-    return
+    logging.debug(f"copying {output_image_path} to {new_image_name}")
+    shutil.copy2(output_image_path, new_image_name)
 
     vm_image = output_image_path
     if output_format != "iso":
