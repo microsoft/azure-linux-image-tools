@@ -24,9 +24,10 @@ def _get_libvirt_firmware_config(
         libvirt_conn: libvirt.virConnect,
         secure_boot: bool,
         domain_type: str,
+        machine_model: str,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype=domain_type)
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=domain_type)
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -109,10 +110,15 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     # error: invalid argument: KVM is not supported by '/usr/bin/qemu-system-aarch64' on this host
     # domain_type = "kvm"
+    domain_type = "virt"
+
     # error: invalid argument: unknown virttype: virt
     # virt_type="kvm"
-    virt_type="qemu"
-    domain_type = "virt"
+    virt_type = "qemu"
+
+    # error: invalid argument: the machine 'q35' is not supported by emulator '/usr/bin/qemu-system-aarch64'
+    # machine_model = "q35"
+    machine_model = "virt"
 
     firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, virt_type)
 
