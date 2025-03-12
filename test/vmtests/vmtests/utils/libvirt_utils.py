@@ -3,6 +3,7 @@
 
 import fnmatch
 import json
+import logging
 import xml.etree.ElementTree as ET  # noqa: N817
 import libvirt
 import os
@@ -96,7 +97,7 @@ def _get_libvirt_firmware_config(
         # Get first matching firmware.
         firmware_config = next(iter(filtered_firmware_configs), None)
         if firmware_config is None:
-            raise LisaException(
+            raise Exception(
                 f"Could not find matching firmware for machine-type={machine_type} "
                 f"({full_machine_type}) and secure-boot={secure_boot}."
             )
