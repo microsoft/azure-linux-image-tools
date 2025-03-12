@@ -63,35 +63,41 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry, imageUuidStr string,
 ) error {
-	// Pre-compute a map for quick lookup of partition metadata by UUID
+	// Pre-compute a map for quick lookup of partition metadata by UUID, PARTUUID, and PARTLABEL
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
 	uuidToMetadata := make(map[string]outputPartitionMetadata)
+	partLabelToMetadata := make(map[string]outputPartitionMetadata) // New check for PartLabel
 	for _, partition := range partitions {
 		partUuidToMetadata[partition.PartUuid] = partition
 		uuidToMetadata[partition.Uuid] = partition
+		partLabelToMetadata[partition.PartLabel] = partition // Store by PartLabel
 	}
 
-	// Pre-compute a set of verity hash UUIDs for quick lookup
-	verityHashUuids := make(map[string]struct{})
+	// Pre-compute a set of verity hash identifiers for quick lookup
+	verityHashIdentifiers := make(map[string]struct{})
 	for _, verity := range verityMetadata {
-		// Since verity.hashPartUuid might contain either PARTUUID or UUID, we store it as-is
-		verityHashUuids[verity.hashPartUuid] = struct{}{}
+		// Since verity.hashPartUuid might contain PARTUUID, UUID, or PARTLABEL, we store it as-is
+		verityHashIdentifiers[verity.hashPartUuid] = struct{}{}
 	}
 
 	// Debug:
-	log.Println("Verity Hash UUIDs:", verityHashUuids)
+	log.Println("Verity Hash Identifiers:", verityHashIdentifiers)
 
 	imageData := []ImageBuildData{}
 
 	for _, partition := range partitions {
 		// Debug:
-		log.Printf("Checking partition: PartUuid=%s, Uuid=%s, PartitionFilename=%s\n", partition.PartUuid, partition.Uuid, partition.PartitionFilename)
+		log.Printf("Checking partition: PartUuid=%s, Uuid=%s, PartLabel=%s, PartitionFilename=%s\n",
+			partition.PartUuid, partition.Uuid, partition.PartLabel, partition.PartitionFilename)
 
 		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
-		if _, isVerityHashByPartUuid := verityHashUuids[partition.PartUuid]; isVerityHashByPartUuid {
+		if _, isVerityHashByPartUuid := verityHashIdentifiers[partition.PartUuid]; isVerityHashByPartUuid {
 			continue
 		}
-		if _, isVerityHashByUuid := verityHashUuids[partition.Uuid]; isVerityHashByUuid {
+		if _, isVerityHashByUuid := verityHashIdentifiers[partition.Uuid]; isVerityHashByUuid {
+			continue
+		}
+		if _, isVerityHashByLabel := verityHashIdentifiers[partition.PartLabel]; isVerityHashByLabel {
 			continue
 		}
 
@@ -114,11 +120,14 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 		// Add Verity metadata if the partition has a matching entry in verityMetadata
 		for _, verity := range verityMetadata {
-			if partition.PartUuid == verity.dataPartUuid || partition.Uuid == verity.dataPartUuid { // Check both PARTUUID & UUID
-				// Find the hash partition using both identifiers
+			if partition.PartUuid == verity.dataPartUuid || partition.Uuid == verity.dataPartUuid || partition.PartLabel == verity.dataPartUuid { // Check PARTUUID, UUID, and PartLabel
+				// Find the hash partition using all possible identifiers
 				hashPartition, exists := partUuidToMetadata[verity.hashPartUuid]
 				if !exists {
 					hashPartition, exists = uuidToMetadata[verity.hashPartUuid] // Try UUID lookup
+				}
+				if !exists {
+					hashPartition, exists = partLabelToMetadata[verity.hashPartUuid] // Try PartLabel lookup
 				}
 				if !exists {
 					return fmt.Errorf("missing metadata for hash partition identifier:\n%s", verity.hashPartUuid)
