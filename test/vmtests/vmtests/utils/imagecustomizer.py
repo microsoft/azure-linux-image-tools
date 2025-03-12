@@ -70,7 +70,7 @@ def run_image_customizer(
         f"{base_image_dir}:{container_base_image_dir}:z",
         f"{config_dir}:{container_config_dir}:z",
         f"{output_image_dir}:{container_output_image_dir}:z",
-        f"{rpms_path}:{container_rpms_dir}:z",
+        # f"{rpms_path}:{container_rpms_dir}:z",
         "/dev:/dev",
     ]
 
