@@ -124,16 +124,21 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     os_tag = ET.SubElement(domain, "os")
 
     os_type = ET.SubElement(os_tag, "type")
+    os_type.attrib["arch"] = "aarch64"
     os_type.text = "hvm"
 
     nvram = ET.SubElement(os_tag, "nvram")
+
+    # firmware_file = firmware_config["mapping"]["executable"]["filename"]
+    firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
+    logging.debug(f"- firmware_file = {firmware_file}")
 
     if vm_spec.boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
         loader.attrib["secure"] = secure_boot_str
         loader.attrib["type"] = "pflash"
-        loader.text = firmware_config["mapping"]["executable"]["filename"]
+        loader.text = firmware_file
 
     features = ET.SubElement(domain, "features")
 
@@ -157,6 +162,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     on_crash.text = "destroy"
 
     devices = ET.SubElement(domain, "devices")
+    devices.text = "/usr/bin/qemu-system-aarch64"
+
+    emulator = ET.SubElement(devices, "emulator")
 
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "pty"
