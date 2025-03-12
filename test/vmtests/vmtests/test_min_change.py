@@ -83,7 +83,7 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    new_image_name = artifacts_folder + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + "_" + image_ext
+    new_image_name = str(artifacts_folder) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + "_" + image_ext
 
     logging.debug(f"copying {output_image_path} to {new_image_name}")
     shutil.copy2(output_image_path, new_image_name)
