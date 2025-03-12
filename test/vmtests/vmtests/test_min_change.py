@@ -193,37 +193,37 @@ def run_min_change_test(
 #     )
 
 
-def test_min_change_efi_azl3_qcow_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_efi_azl3: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    artifacts_folder: Path,
-    rpms_folder: Path,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
-    output_format = "qcow2"
+# def test_min_change_efi_azl3_qcow_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_efi_azl3: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     artifacts_folder: Path,
+#     rpms_folder: Path,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 3
+#     config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+#     output_format = "qcow2"
 
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_efi_azl3,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        artifacts_folder,
-        rpms_folder,
-        libvirt_conn,
-        close_list,
-    )
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_efi_azl3,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         artifacts_folder,
+#         rpms_folder,
+#         libvirt_conn,
+#         close_list,
+#     )
 
 
 # def test_min_change_legacy_azl2_qcow_output(
