@@ -109,9 +109,12 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     # error: invalid argument: KVM is not supported by '/usr/bin/qemu-system-aarch64' on this host
     # domain_type = "kvm"
+    # error: invalid argument: unknown virttype: virt
+    # virt_type="kvm"
+    virt_type="qemu"
     domain_type = "virt"
 
-    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, domain_type)
+    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, virt_type)
 
     domain = ET.Element("domain")
     domain.attrib["type"] = domain_type
