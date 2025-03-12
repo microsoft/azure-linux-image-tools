@@ -120,7 +120,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     # machine_model = "q35"
     machine_model = "virt"
 
-    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, virt_type, machine_model)
+    # firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, virt_type, machine_model)
 
     domain = ET.Element("domain")
     domain.attrib["type"] = domain_type
