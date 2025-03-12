@@ -1,9 +1,9 @@
 os:
   selinux:
-    mode: enforcing
-  # kernelCommandLine:
-  #   extraCommandLine:
-  #   - "selinux=0"
+    mode: disabled
+  kernelCommandLine:
+    extraCommandLine:
+    - "selinux=0"
   packages:
     install:
     # iso required packages
@@ -11,11 +11,11 @@ os:
     - tar
     - device-mapper
     - curl
-    - selinux-policy
-    - policycoreutils
-    - policycoreutils-python-utils    
-    update:
-    - dracut
+#    - selinux-policy
+#    - policycoreutils
+#    - policycoreutils-python-utils    
+#    update:
+#    - dracut
 
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
