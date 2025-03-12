@@ -26,7 +26,7 @@ def get_host_distro() -> str:
     name_value = ""
     with open(file_path, "r") as file:
         for line in file:
-            if line.startswith("NAME="):  # Look for the line starting with "NAME="
+            if line.startswith("ID="):
                 name_value = line.strip().split("=", 1)[1]  # Get the value part
                 break
     return name_value
@@ -83,9 +83,9 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    new_image_name = str(artifacts_folder) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + "_" + image_ext
+    new_image_name = str(artifacts_folder) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
 
-    logging.debug(f"copying {output_image_path} to {new_image_name}")
+    logging.debug(f"-- copying {output_image_path} to {new_image_name}")
     shutil.copy2(output_image_path, new_image_name)
 
     vm_image = output_image_path
@@ -127,7 +127,7 @@ def run_min_change_test(
     #         "--features", "smm.state=off",
     #         "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])
 
-    logging.debug(f"\n\creating domain xml\n\n")
+    logging.debug(f"\n\ncreating domain xml\n\n")
     domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot))
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")

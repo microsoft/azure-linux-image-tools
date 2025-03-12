@@ -23,9 +23,10 @@ class VmSpec:
 def _get_libvirt_firmware_config(
         libvirt_conn: libvirt.virConnect,
         secure_boot: bool,
+        domain_type: str,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="kvm")
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype=domain_type)
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -106,10 +107,14 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     secure_boot_str = "yes" if vm_spec.secure_boot else "no"
 
-    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot)
+    # error: invalid argument: KVM is not supported by '/usr/bin/qemu-system-aarch64' on this host
+    # domain_type = "kvm"
+    domain_type = "virt"
+
+    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, domain_type)
 
     domain = ET.Element("domain")
-    domain.attrib["type"] = "kvm"
+    domain.attrib["type"] = domain_type
 
     name = ET.SubElement(domain, "name")
     name.text = vm_spec.name
