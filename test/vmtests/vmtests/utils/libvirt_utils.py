@@ -194,15 +194,16 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     # serial_target.attrib["type"] = "virtio"
     # unsupported configuration: unknown target type 'virtio-serial' specified for character device
     # serial_target.attrib["type"] = "virtio-serial"
-    # serial_target.attrib["type"] = "system-serial"
-    serial_target.attrib["type"] = "pci"
+    # unsupported configuration: unknown target type 'pci' specified for character device
+    # serial_target.attrib["type"] = "pci"
+    serial_target.attrib["type"] = "system-serial"
     serial_target.attrib["port"] = "0"
 
     serial_target_model = ET.SubElement(serial_target, "model")
     # serial_target_model.attrib["name"] = "isa-serial"
     # serial_target_model.attrib["name"] = "virtio-serial"
-    serial_target_model.attrib["name"] = "pci-serial"
-    # serial_target_model.attrib["name"] = "pl011"
+    # serial_target_model.attrib["name"] = "pci-serial"
+    serial_target_model.attrib["name"] = "pl011"
 
     console = ET.SubElement(devices, "console")
     console.attrib["type"] = "pty"
