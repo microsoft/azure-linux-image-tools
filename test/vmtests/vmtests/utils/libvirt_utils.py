@@ -184,20 +184,21 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     emulator = ET.SubElement(devices, "emulator")
     emulator.text = "/usr/bin/qemu-system-aarch64"
 
-    # unsupported configuration: Target model 'isa-serial' requires target type 'isa-serial'
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "pty"
 
     serial_target = ET.SubElement(serial, "target")
+    # unsupported configuration: Target model 'isa-serial' requires target type 'isa-serial'
     # serial_target.attrib["type"] = "isa-serial"
+    # unsupported configuration: unknown target type 'virtio' specified for character device
+    serial_target.attrib["type"] = "virtio-serial"
     # serial_target.attrib["type"] = "system-serial"
-    serial_target.attrib["type"] = "virtio"
     serial_target.attrib["port"] = "0"
 
     serial_target_model = ET.SubElement(serial_target, "model")
     # serial_target_model.attrib["name"] = "isa-serial"
-    # serial_target_model.attrib["name"] = "pl011"
     serial_target_model.attrib["name"] = "virtio-serial"
+    # serial_target_model.attrib["name"] = "pl011"
 
     console = ET.SubElement(devices, "console")
     console.attrib["type"] = "pty"
