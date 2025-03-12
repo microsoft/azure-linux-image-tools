@@ -164,8 +164,8 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     ET.SubElement(features, "apic")
 
-    cpu = ET.SubElement(domain, "cpu")
-    cpu.attrib["mode"] = "host-passthrough"
+    # cpu = ET.SubElement(domain, "cpu")
+    # cpu.attrib["mode"] = "host-passthrough"
 
     clock = ET.SubElement(domain, "clock")
     clock.attrib["offset"] = "utc"
