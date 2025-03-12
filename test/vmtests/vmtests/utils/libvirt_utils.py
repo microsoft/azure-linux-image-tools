@@ -140,6 +140,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.attrib["arch"] = "aarch64"
+    os_type.attrib["machine"] = machine_model
     os_type.text = "hvm"
 
     nvram = ET.SubElement(os_tag, "nvram")
@@ -177,9 +178,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     on_crash.text = "destroy"
 
     devices = ET.SubElement(domain, "devices")
-    devices.text = "/usr/bin/qemu-system-aarch64"
 
     emulator = ET.SubElement(devices, "emulator")
+    emulator.text = "/usr/bin/qemu-system-aarch64"
 
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "pty"
