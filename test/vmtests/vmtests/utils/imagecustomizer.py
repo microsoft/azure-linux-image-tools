@@ -60,8 +60,8 @@ def run_image_customizer(
         output_image_format,
         "--output-image-file",
         str(container_output_image_path),
-        "--rpm-source",
-        str(container_rpms_dir),
+        # "--rpm-source",
+        # str(container_rpms_dir),
         "--log-level",
         "debug",
     ]
