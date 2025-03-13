@@ -6,6 +6,7 @@ from getpass import getuser
 import logging
 from pathlib import Path
 import shlex
+import time
 from typing import List, Tuple
 import shutil
 
@@ -106,26 +107,45 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    # local_client.run(
-    #     ["virt-install",
-    #         "--connect", "qemu:///system",
-    #         "--name", "PXE-client",
-    #         "--ram", "4096",
-    #         "--vcpus=1",
-    #         "--osinfo", "generic",
-    #         "--disk", "/var/lib/libvirt/images/PXE-client-aarch64.qcow2,size=40",
-    #         "--pxe",
-    #         "--os-variant", "generic",
-    #         "--noautoconsole",
-    #         "--graphics", "none",
-    #         "--serial=pty",
-    #         "--network", "bridge=virbr0",
-    #         "--check", "path_in_use=off",
-    #         "--machine", "virt",
-    #         "--arch", "aarch64",
-    #         "--cpu", "cortex-a57",
-    #         "--features", "smm.state=off",
-    #         "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])
+    local_client.run(
+        ["virt-install",
+         "--name", "prism_arm64_iso",
+         "--memory", "4096",
+         "--vcpus", "4",
+         "--os-type", "Linux",
+         "--os-variant", "generic",
+         "--console" "pty,target_type=serial",
+         "--cdrom", vm_image,
+         "--disk", "none"
+         "--virt-type", "qemu",
+         "--arch", "aarch64",
+         "--noautoconsole"
+        ])
+
+    time.sleep(10)
+
+    local_client.run(
+        ["virsh",
+         "--connect", "qemu:///system",
+         "list"])
+
+            # "--connect", "qemu:///system",
+            # "--name", "PXE-client",
+            # "--ram", "4096",
+            # "--vcpus=1",
+            # "--osinfo", "generic",
+            # "--disk", "/var/lib/libvirt/images/PXE-client-aarch64.qcow2,size=40",
+            # "--os-variant", "generic",
+            # "--noautoconsole",
+            # "--graphics", "none",
+            # "--serial=pty",
+            # "--network", "bridge=virbr0",
+            # "--check", "path_in_use=off",
+            # "--machine", "virt",
+            # "--arch", "aarch64",
+            # "--cpu", "cortex-a57",
+            # "--features", "smm.state=off",
+            # "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])
 
     logging.debug(f"\n\ncreating domain xml\n\n")
     domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot))
