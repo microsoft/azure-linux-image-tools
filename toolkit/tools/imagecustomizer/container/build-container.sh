@@ -52,22 +52,22 @@ function cleanUp() {
 }
 trap 'cleanUp' ERR
 
-LocalFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
-LicensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
+exeFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
+licensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
 
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
 
-dockerFile="$scriptDir/Dockerfile"
+dockerFile="$scriptDir/prism.Dockerfile"
 runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
 mkdir -p "${stagingLicensesDir}"
 
-cp "$LocalFile" "${stagingBinDir}"
+cp "$exeFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
-cp -R "$LicensesDir" "${stagingLicensesDir}"
+cp -R "$licensesDir" "${stagingLicensesDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
@@ -89,7 +89,7 @@ cp "$orasUnzipDir/oras" "${stagingBinDir}"
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
     echo "Removing grub2-pc and systemd-ukify from Dockerfile for arm64"
-    sed -i 's/\<grub2-pc systemd-ukify\>//g' Dockerfile
+    sed -i 's/\<grub2-pc systemd-ukify\>//g' prism.Dockerfile
 fi
 
 # build the container

@@ -89,7 +89,7 @@ jobs:
 
     - name: Build docker image
       run: |
-        docker build toolkit/tools/imagecustomizer/container/
+        ./toolkit/tools/imagecustomizer/container/build-container.sh -t test
 
   build-docs:
     uses: ./.github/workflows/docs-build.yml
