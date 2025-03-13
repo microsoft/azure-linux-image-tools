@@ -132,18 +132,20 @@ def run_min_change_test(
 
         local_client.run(
             ["virsh",
-            "--connect", "qemu:///system",
             "list"])
 
         local_client.run(
             ["virsh",
-            "--connect", "qemu:///system",
             "dumpxml", "prism_arm64_iso"])
 
+    # with open("/home/cloudtest/.cache/libvirt/qemu/log/prism_arm64_iso-swtpm.log", "r") as file:
+    #     content = file.read()
+    #     logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
 
-    with open("/home/cloudtest/.cache/libvirt/qemu/log/prism_arm64_iso-swtpm.log", "r") as file:
+
+    with open(log_path, "r") as file:
         content = file.read()
-        logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
+        logging.debug("\n\nprism_arm64_iso-console.txt\n\n" + content)
 
     # "--connect", "qemu:///system",
     # "--name", "PXE-client",
