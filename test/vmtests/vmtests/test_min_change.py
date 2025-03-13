@@ -165,7 +165,8 @@ def run_min_change_test(
     # Start VM.
     vm.start()
 
-    time.sleep(20)
+    logging.debug(f"sleeping for 120 seconds")
+    time.sleep(120)
 
     local_client.run(
         ["virsh",
