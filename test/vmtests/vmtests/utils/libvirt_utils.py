@@ -107,7 +107,8 @@ def _get_libvirt_firmware_config(
 # Create XML definition for a VM.
 def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec) -> str:
 
-    secure_boot_str = "yes" if vm_spec.secure_boot else "no"
+    # secure_boot_str = "yes" if vm_spec.secure_boot else "no"
+    secure_boot_str = "no"
 
     # error: invalid argument: KVM is not supported by '/usr/bin/qemu-system-aarch64' on this host
     # domain_type = "kvm"
