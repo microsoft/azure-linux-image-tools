@@ -34,12 +34,12 @@ fi
 # Find the VHDX file matching the pattern 'image.vhdx'.
 VHDX_PATH=$(find $ARTIFACT_DIR -type f -name 'image.vhdx' -print -quit)
 
-# Check if the VHDX base image file exists. 
+# Check if the VHDX base image file exists.
 if [ ! -f $VHDX_PATH ]; then
     echo "Error: VHDX file not found at $VHDX_PATH"
     exit 1
 fi
 
-# Remove the first argument (VERSION_TAG) and pass the rest to the MIC binary.
+# Remove the first argument (VERSION_TAG) and pass the rest to the prism binary.
 shift
 imagecustomizer --image-file $VHDX_PATH "$@"

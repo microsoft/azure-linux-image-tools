@@ -86,10 +86,10 @@ jobs:
         else
           echo "Schema is up-to-date!"
         fi
-        
+
     - name: Build docker image
       run: |
-        docker build toolkit/tools/imagecustomizer/container
+        docker build toolkit/tools/imagecustomizer/container/
 
   build-docs:
     uses: ./.github/workflows/docs-build.yml

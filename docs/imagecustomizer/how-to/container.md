@@ -80,7 +80,7 @@ Image Customizer options ([CLI API](../api/cli.md)):
 
 ## Helper script
 
-[run-mic-container.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/run-mic-container.sh)
+[run-container.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/run-container.sh)
 
 This script wraps the Docker call. It is intended to make using the Image Customizer
 container a little easier.
@@ -88,7 +88,7 @@ container a little easier.
 For example, this is the equivalent call to the above example:
 
 ```bash
-run-mic-container.sh \
+run-container.sh \
     -t mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0 \
     -i "$HOME/staging/image.vhdx" \
     -c "$HOME/staging/image-config.yaml" \

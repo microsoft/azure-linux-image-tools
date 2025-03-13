@@ -62,7 +62,7 @@ ${IMAGE_CUSTOMIZER_BIN}:
 
 .PHONY: image-customizer-container
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
-	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-mic-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
+	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
 
 .PHONY: test
 test:
