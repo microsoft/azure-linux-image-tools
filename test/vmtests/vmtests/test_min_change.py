@@ -117,8 +117,8 @@ def run_min_change_test(
             "--os-type", "Linux",
             "--os-variant", "generic",
             "--console", "pty,target_type=serial",
-            "--cdrom", vm_image,
-            "--disk", "none"
+            "--cdrom", str(vm_image),
+            "--disk", "none",
             "--virt-type", "qemu",
             "--arch", "aarch64",
             "--noautoconsole"

@@ -187,6 +187,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "pty"
 
+
     serial_target = ET.SubElement(serial, "target")
     # unsupported configuration: Target model 'isa-serial' requires target type 'isa-serial'
     # serial_target.attrib["type"] = "isa-serial"
@@ -199,11 +200,14 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     serial_target.attrib["type"] = "system-serial"
     serial_target.attrib["port"] = "0"
 
-    serial_target_model = ET.SubElement(serial_target, "model")
+    # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
+    # serial_target_model = ET.SubElement(serial_target, "model")
     # serial_target_model.attrib["name"] = "isa-serial"
     # serial_target_model.attrib["name"] = "virtio-serial"
     # serial_target_model.attrib["name"] = "pci-serial"
-    serial_target_model.attrib["name"] = "pl011"
+
+    # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
+    # serial_target_model.attrib["name"] = "pl011"
 
     console = ET.SubElement(devices, "console")
     console.attrib["type"] = "pty"
