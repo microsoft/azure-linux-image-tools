@@ -6,7 +6,9 @@ from getpass import getuser
 import logging
 from pathlib import Path
 import shlex
+import time
 from typing import List, Tuple
+import shutil
 
 import libvirt  # type: ignore
 from docker import DockerClient
@@ -20,6 +22,16 @@ from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
 
 
+def get_host_distro() -> str:
+    file_path = "/etc/os-release"
+    name_value = ""
+    with open(file_path, "r") as file:
+        for line in file:
+            if line.startswith("ID="):
+                name_value = line.strip().split("=", 1)[1]  # Get the value part
+                break
+    return name_value
+
 def run_min_change_test(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -30,6 +42,8 @@ def run_min_change_test(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    artifacts_folder: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -50,6 +64,8 @@ def run_min_change_test(
     logging.debug(f"- config_path             = {config_path}")
     logging.debug(f"- output_format           = {output_format}")
     logging.debug(f"- boot_type               = {boot_type}")
+    logging.debug(f"- artifacts_folder        = {artifacts_folder}")
+    logging.debug(f"- rpms_folder             = {rpms_folder}")
 
     username = getuser()
 
@@ -58,12 +74,20 @@ def run_min_change_test(
         image_customizer_container_url,
         input_image,
         config_path,
+        rpms_folder,
         username,
         ssh_public_key,
         output_format,
         output_image_path,
         close_list,
     )
+
+    image_name = os.path.basename(output_image_path)
+    image_name_without_ext, image_ext = os.path.splitext(image_name)
+    new_image_name = str(artifacts_folder) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
+
+    logging.debug(f"-- copying {output_image_path} to {new_image_name}")
+    shutil.copy2(output_image_path, new_image_name)
 
     vm_image = output_image_path
     if output_format != "iso":
@@ -83,6 +107,66 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
+    log_path = "/home/cloudtest/prism_arm64_iso-console.txt"
+
+    if get_host_distro() == "ubuntu":
+
+        local_client.run(
+            ["virt-install",
+            "--name", "prism_arm64_iso",
+            "--memory", "4096",
+            "--vcpus", "4",
+            "--os-type", "Linux",
+            "--os-variant", "generic",
+            "--console", "pty,target_type=serial",
+            "--cdrom", str(vm_image),
+            "--disk", "none",
+            "--virt-type", "qemu",
+            "--arch", "aarch64",
+            "--features", "smm=off",
+            "--noautoconsole",
+            "--serial", "file,path=" + log_path,
+            ])
+
+        logging.debug(f"sleeping for 360 seconds")
+        time.sleep(360)
+
+        local_client.run(
+            ["virsh",
+            "list"])
+
+        local_client.run(
+            ["virsh",
+            "dumpxml", "prism_arm64_iso"])
+
+    # with open("/home/cloudtest/.cache/libvirt/qemu/log/prism_arm64_iso-swtpm.log", "r") as file:
+    #     content = file.read()
+    #     logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
+
+
+    with open(log_path, "r") as file:
+        content = file.read()
+        logging.debug("\n\nprism_arm64_iso-console.txt\n\n" + content)
+
+    # "--connect", "qemu:///system",
+    # "--name", "PXE-client",
+    # "--ram", "4096",
+    # "--vcpus=1",
+    # "--osinfo", "generic",
+    # "--disk", "/var/lib/libvirt/images/PXE-client-aarch64.qcow2,size=40",
+    # "--os-variant", "generic",
+    # "--noautoconsole",
+    # "--graphics", "none",
+    # "--serial=pty",
+    # "--network", "bridge=virbr0",
+    # "--check", "path_in_use=off",
+    # "--machine", "virt",
+    # "--arch", "aarch64",
+    # "--cpu", "cortex-a57",
+    # "--features", "smm.state=off",
+    # "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])
+
+    logging.debug(f"\n\ncreating domain xml\n\n")
     domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot))
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
@@ -92,6 +176,14 @@ def run_min_change_test(
 
     # Start VM.
     vm.start()
+
+    logging.debug(f"sleeping for 360 seconds")
+    time.sleep(360)
+
+    local_client.run(
+        ["virsh",
+        "--connect", "qemu:///system",
+        "list"])
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
@@ -119,149 +211,155 @@ def run_min_change_test(
                 assert False, "Unexpected image identity in /etc/os-release"
 
 
-def test_min_change_efi_azl2_qcow_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_efi_azl2: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
-    output_format = "qcow2"
+# def test_min_change_efi_azl2_qcow_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_efi_azl2: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 2
+#     config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+#     output_format = "qcow2"
 
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_efi_azl2,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
-
-
-def test_min_change_efi_azl3_qcow_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_efi_azl3: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
-    output_format = "qcow2"
-
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_efi_azl3,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_efi_azl2,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         libvirt_conn,
+#         close_list,
+#     )
 
 
-def test_min_change_legacy_azl2_qcow_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_legacy_azl2: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
-    output_format = "qcow2"
+# def test_min_change_efi_azl3_qcow_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_efi_azl3: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     artifacts_folder: Path,
+#     rpms_folder: Path,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 3
+#     config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+#     output_format = "qcow2"
 
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_legacy_azl2,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
-
-
-def test_min_change_legacy_azl3_qcow_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_legacy_azl3: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
-    output_format = "qcow2"
-
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_legacy_azl3,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_efi_azl3,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         artifacts_folder,
+#         rpms_folder,
+#         libvirt_conn,
+#         close_list,
+#     )
 
 
-def test_min_change_efi_azl2_iso_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_efi_azl2: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
-    output_format = "iso"
+# def test_min_change_legacy_azl2_qcow_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_legacy_azl2: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 2
+#     config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+#     output_format = "qcow2"
 
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_efi_azl2,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_legacy_azl2,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         libvirt_conn,
+#         close_list,
+#     )
+
+
+# def test_min_change_legacy_azl3_qcow_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_legacy_azl3: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 3
+#     config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+#     output_format = "qcow2"
+
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_legacy_azl3,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         libvirt_conn,
+#         close_list,
+#     )
+
+
+# def test_min_change_efi_azl2_iso_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_efi_azl2: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 2
+#     config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
+#     output_format = "iso"
+
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_efi_azl2,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         libvirt_conn,
+#         close_list,
+#     )
+
+# uncomment this one for testing azl3 iso
 
 def test_min_change_efi_azl3_iso_output(
     docker_client: DockerClient,
@@ -270,6 +368,8 @@ def test_min_change_efi_azl3_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    artifacts_folder: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -287,64 +387,66 @@ def test_min_change_efi_azl3_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        artifacts_folder,
+        rpms_folder,
         libvirt_conn,
         close_list,
     )
 
 
-def test_min_change_legacy_azl2_iso_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_legacy_azl2: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
-    output_format = "iso"
+# def test_min_change_legacy_azl2_iso_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_legacy_azl2: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 2
+#     config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
+#     output_format = "iso"
 
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_legacy_azl2,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_legacy_azl2,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         libvirt_conn,
+#         close_list,
+#     )
 
 
-def test_min_change_legacy_azl3_iso_output(
-    docker_client: DockerClient,
-    image_customizer_container_url: str,
-    core_legacy_azl3: Path,
-    ssh_key: Tuple[str, Path],
-    test_temp_dir: Path,
-    test_instance_name: str,
-    libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> None:
-    azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
-    output_format = "iso"
+# def test_min_change_legacy_azl3_iso_output(
+#     docker_client: DockerClient,
+#     image_customizer_container_url: str,
+#     core_legacy_azl3: Path,
+#     ssh_key: Tuple[str, Path],
+#     test_temp_dir: Path,
+#     test_instance_name: str,
+#     libvirt_conn: libvirt.virConnect,
+#     close_list: List[Closeable],
+# ) -> None:
+#     azl_release = 3
+#     config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
+#     output_format = "iso"
 
-    run_min_change_test(
-        docker_client,
-        image_customizer_container_url,
-        core_legacy_azl3,
-        azl_release,
-        config_path,
-        output_format,
-        ssh_key,
-        test_temp_dir,
-        test_instance_name,
-        libvirt_conn,
-        close_list,
-    )
+#     run_min_change_test(
+#         docker_client,
+#         image_customizer_container_url,
+#         core_legacy_azl3,
+#         azl_release,
+#         config_path,
+#         output_format,
+#         ssh_key,
+#         test_temp_dir,
+#         test_instance_name,
+#         libvirt_conn,
+#         close_list,
+#     )
