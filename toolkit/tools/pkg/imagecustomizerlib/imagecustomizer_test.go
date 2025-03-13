@@ -316,6 +316,7 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 
 	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileSelection")
 	outputImagePath := filepath.Join(buildDir, "image.vhd")
+	outputImageFormat := filepath.Ext(outputImagePath)[1:]
 
 	// Pass the input image file only through the config.
 	config := &imagecustomizerapi.Config{
@@ -325,19 +326,19 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 			},
 		},
 	}
-	err := CustomizeImage(buildDir, buildDir, config, "" /*inputImageFile*/, nil, outputImagePath, "",
+	err := CustomizeImage(buildDir, buildDir, config, "" /*inputImageFile*/, nil, outputImagePath, outputImageFormat,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Pass the input image file only through the argument.
 	config.Input.Image.Path = ""
-	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, "",
+	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, outputImageFormat,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Pass the input image file through both the config and the argument.
 	config.Input.Image.Path = filepath.Join(buildDir, "doesnotexist.xxx")
-	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, "",
+	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, outputImageFormat,
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 }
