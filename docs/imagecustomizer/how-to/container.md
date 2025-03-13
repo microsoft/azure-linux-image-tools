@@ -80,7 +80,7 @@ Image Customizer options ([CLI API](../api/cli.md)):
 
 ## Helper script
 
-[run-container.sh](https://github.com/microsoft/azure-linux-image-tools/blob/stable/toolkit/tools/imagecustomizer/container/run-container.sh)
+[run-container.sh](../../../toolkit/tools/imagecustomizer/container/run-container.sh)
 
 This script wraps the Docker call. It is intended to make using the Image Customizer
 container a little easier.
