@@ -5,17 +5,18 @@ package safechroot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/processes"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/retry"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/systemdependency"
@@ -507,12 +508,12 @@ func (c *Chroot) Close(leaveOnDisk bool) (err error) {
 			return
 		}
 
-		// Stops gpg-agent and keyboxd if they are running inside the chroot.
+		// Stops processes that are running inside the chroot (e.g. gpg-agent).
 		// This is to avoid leaving folders like /dev mounted when the chroot folder is forcefully deleted in cleanup.
-		err = c.stopGPGComponents()
+		err = c.stopRunningProcesses()
 		if err != nil {
 			// Don't want to leave a stale root if GPG components fail to exit. Logging a Warn and letting close continue...
-			logger.Log.Warnf("Failed to stop GPG components while tearing down the (%s) chroot: %s", c.rootDir, err)
+			logger.Log.Warnf("Failed to stop running processes while tearing down the (%s) chroot: %s", c.rootDir, err)
 		}
 
 		// mount is only supported in regular pipeline
@@ -775,71 +776,31 @@ func (c *Chroot) GetMountPoints() []*MountPoint {
 	return mountPoints
 }
 
-// stopGPGComponents stops gpg-agent and keyboxd if they are running inside the chroot.
-//
-// A GPG agent may have been started while the chroot was in use. Newer versions of "gnupg2" will also start keyboxd.
-// E.g. when installing the azurelinux-repos-shared package, a GPG import occurs. This starts the gpg-agent process inside the chroot.
-// To be able to cleanly exit the setup chroot, we must stop it.
-func (c *Chroot) stopGPGComponents() (err error) {
-	if !c.includeDefaultMounts {
-		// gpgconf doesn't work if it doesn't have access to /proc.
-		return
-	}
-
-	err = c.UnsafeRun(func() (err error) {
-		found, chrootErr := file.CommandExists("gpgconf")
-		if chrootErr != nil {
-			return chrootErr
-		}
-		if !found {
-			logger.Log.Debugf("gpgconf is not installed, so gpg-agent is not running: %s", err)
-			return nil
-		}
-
-		components, chrootErr := listGPGComponents()
-		if chrootErr != nil {
-			return chrootErr
-		}
-		// List of components to kill. The names must be verbatim identical to the name tag that is used by `gpgconf`
-		componentsToKill := []string{"gpg-agent", "keyboxd"}
-		return killGPGComponents(componentsToKill, components)
-	})
-
-	return
-}
-
-// killGPGComponents will kill the GPG components from the 'componentsToKill' list
-// if they are inside the 'availableComponents' set.
-func killGPGComponents(componentsToKill []string, availableComponents map[string]bool) (err error) {
-	for _, component := range componentsToKill {
-		if availableComponents[component] {
-			logger.Log.Debugf("Found %s running inside chroot. Stopping it.", component)
-			_, stderr, err := shell.Execute("gpgconf", "--kill", component)
-			if err != nil {
-				return fmt.Errorf("failed to stop GPG component (%s):\nerr: %w\nstderr: %s", component, err, stderr)
-			}
-		}
-	}
-	return
-}
-
-// listGPGComponents will return a set of all GPG component.
-func listGPGComponents() (components map[string]bool, err error) {
-	stdout, stderr, err := shell.NewExecBuilder("gpgconf", "--list-components").
-		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-		ExecuteCaptureOuput()
+// Stops all the processes running within the chroot.
+func (c *Chroot) stopRunningProcesses() error {
+	records, err := processes.GetProcessesUsingPath(c.rootDir)
 	if err != nil {
-		err = fmt.Errorf("failed to list GPG components.\nerr:%w\nstderr: %s", err, stderr)
-		return
+		return err
 	}
 
-	components = make(map[string]bool)
+	errs := []error(nil)
+	for _, record := range records {
+		if record.ProcessRoot == c.RootDir() {
+			logger.Log.Debugf("Found chroot process: Pid=%d, Name=%s.", record.ProcessId, record.ProcessName)
 
-	// Split --list-components stdout into a list of name tags, one for each component
-	// Stdout has the following format: <component>:<description>:<pgmname>:
-	for _, line := range strings.Split(stdout, "\n") {
-		components[strings.Split(line, ":")[0]] = true
+			err := processes.StopProcessById(record.ProcessId)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
+			logger.Log.Warnf("Found host process using chroot files: Pid=%d, Name=%s.", record.ProcessId,
+				record.ProcessName)
+		}
 	}
 
-	return
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
+	return nil
 }
