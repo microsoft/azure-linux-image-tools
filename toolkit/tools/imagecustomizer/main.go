@@ -17,7 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 )
 
-type BuildCmd struct {
+type CustomizeCmd struct {
 	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
 	OutputImageFile          string   `name:"output-image-file" help:"Path to write the customized image to."`
@@ -29,7 +29,7 @@ type BuildCmd struct {
 }
 
 type RootCmd struct {
-	Build         BuildCmd         `name:"build" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
+	Customize     CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
 	Version       kong.VersionFlag `name:"version" help:"Print version information and quit"`
 	TimeStampFile string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	exekong.LogFlags
@@ -60,8 +60,8 @@ func main() {
 	}
 
 	switch parseContext.Command() {
-	case "build":
-		err := customizeImage(cli.Build)
+	case "customize":
+		err := customizeImage(cli.Customize)
 		if err != nil {
 			log.Fatalf("image customization failed:\n%v", err)
 		}
@@ -71,10 +71,10 @@ func main() {
 	}
 }
 
-func customizeImage(buildCmd BuildCmd) error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFile(buildCmd.BuildDir, buildCmd.ConfigFile,
-		buildCmd.InputImageFile, buildCmd.RpmSources, buildCmd.OutputImageFile, buildCmd.OutputImageFormat,
-		buildCmd.OutputPXEArtifactsDir, !buildCmd.DisableBaseImageRpmRepos)
+func customizeImage(cmd CustomizeCmd) error {
+	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
+		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.OutputPXEArtifactsDir,
+		!cmd.DisableBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
