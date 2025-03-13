@@ -107,6 +107,8 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
+    log_path = "/home/cloudtest/prism_arm64_iso-console.txt"
+
     if get_host_distro() == "ubuntu":
 
         local_client.run(
@@ -121,7 +123,9 @@ def run_min_change_test(
             "--disk", "none",
             "--virt-type", "qemu",
             "--arch", "aarch64",
-            "--noautoconsole"
+            "--features", "smm=off",
+            "--noautoconsole",
+            "--serial", "file,path=" + log_path,
             ])
 
         time.sleep(10)
