@@ -128,7 +128,7 @@ def run_min_change_test(
             "--serial", "file,path=" + log_path,
             ])
 
-        time.sleep(10)
+        time.sleep(180)
 
         local_client.run(
             ["virsh",
