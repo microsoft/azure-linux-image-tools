@@ -128,7 +128,8 @@ def run_min_change_test(
             "--serial", "file,path=" + log_path,
             ])
 
-        time.sleep(180)
+        logging.debug(f"sleeping for 360 seconds")
+        time.sleep(360)
 
         local_client.run(
             ["virsh",
@@ -176,8 +177,8 @@ def run_min_change_test(
     # Start VM.
     vm.start()
 
-    logging.debug(f"sleeping for 120 seconds")
-    time.sleep(120)
+    logging.debug(f"sleeping for 360 seconds")
+    time.sleep(360)
 
     local_client.run(
         ["virsh",
