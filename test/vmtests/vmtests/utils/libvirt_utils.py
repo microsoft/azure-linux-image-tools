@@ -150,6 +150,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     nvram = ET.SubElement(os_tag, "nvram")
     nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
 
+    os_boot = ET.SubElement(os_tag, "boot")
+    os_boot.attrib["dev"] = "cdrom"
+
     # firmware_file = firmware_config["mapping"]["executable"]["filename"]
     firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
     logging.debug(f"- firmware_file = {firmware_file}")
