@@ -149,6 +149,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     nvram = ET.SubElement(os_tag, "nvram")
     nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
+    nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
     os_boot = ET.SubElement(os_tag, "boot")
     os_boot.attrib["dev"] = "cdrom"
@@ -267,7 +268,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
             file_path=str(vm_spec.os_disk_path),
             device_type="cdrom",
             image_type="raw",
-            bus_type="sata",
+            bus_type="scsi",
             device_prefix="sd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
