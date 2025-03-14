@@ -105,7 +105,7 @@ def _get_libvirt_firmware_config(
         return firmware_config
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec) -> str:
+def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec, log_file: str) -> str:
 
     # secure_boot_str = "yes" if vm_spec.secure_boot else "no"
     secure_boot_str = "no"
@@ -122,7 +122,8 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     # error: invalid argument: the machine 'q35' is not supported by emulator '/usr/bin/qemu-system-aarch64'
     # machine_model = "q35"
-    machine_model = "virt"
+    # machine_model = "virt" # boots
+    machine_model = "virt-6.2"
 
     # firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, virt_type, machine_model)
 
@@ -147,6 +148,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     os_type.text = "hvm"
 
     nvram = ET.SubElement(os_tag, "nvram")
+    nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
 
     # firmware_file = firmware_config["mapping"]["executable"]["filename"]
     firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
@@ -163,10 +165,17 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     ET.SubElement(features, "acpi")
 
-    ET.SubElement(features, "apic")
+    # ET.SubElement(features, "apic")
+    gic = ET.SubElement(features, "gic")
+    gic.attrib["version"] = "2"
 
-    # cpu = ET.SubElement(domain, "cpu")
-    # cpu.attrib["mode"] = "host-passthrough"
+    cpu = ET.SubElement(domain, "cpu")
+    cpu.attrib["mode"] = "custom"
+    cpu.attrib["match"] = "exact"
+    cpu.attrib["check"] = "none"
+    cp_model = ET.SubElement(cpu, "model")
+    cp_model.attrib["fallback"] = "cortex-a57"
+    cp_model.text = "cortex-a57"
 
     clock = ET.SubElement(domain, "clock")
     clock.attrib["offset"] = "utc"
@@ -186,8 +195,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     emulator.text = "/usr/bin/qemu-system-aarch64"
 
     serial = ET.SubElement(devices, "serial")
-    serial.attrib["type"] = "pty"
-
+    serial.attrib["type"] = "file"
+    serial_source = ET.SubElement(serial, "source")
+    serial_source.attrib["path"] = log_file
 
     serial_target = ET.SubElement(serial, "target")
     # unsupported configuration: Target model 'isa-serial' requires target type 'isa-serial'
@@ -202,16 +212,19 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     serial_target.attrib["port"] = "0"
 
     # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
-    # serial_target_model = ET.SubElement(serial_target, "model")
+    serial_target_model = ET.SubElement(serial_target, "model")
     # serial_target_model.attrib["name"] = "isa-serial"
     # serial_target_model.attrib["name"] = "virtio-serial"
     # serial_target_model.attrib["name"] = "pci-serial"
 
     # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
-    # serial_target_model.attrib["name"] = "pl011"
+    serial_target_model.attrib["name"] = "pl011"
 
     console = ET.SubElement(devices, "console")
-    console.attrib["type"] = "pty"
+    console.attrib["type"] = "file"
+
+    console_source = ET.SubElement(console, "source")
+    console_source.attrib["path"] = log_file
 
     console_target = ET.SubElement(console, "target")
     console_target.attrib["type"] = "serial"

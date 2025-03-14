@@ -107,7 +107,7 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    log_path = "/home/cloudtest/prism_arm64_iso-console.txt"
+    virt_install_log_file = "/home/cloudtest/prism_arm64_iso-console.txt"
 
     if get_host_distro() == "ubuntu":
 
@@ -125,7 +125,7 @@ def run_min_change_test(
             "--arch", "aarch64",
             "--features", "smm=off",
             "--noautoconsole",
-            "--serial", "file,path=" + log_path,
+            "--serial", "file,path=" + virt_install_log_file,
             ])
 
         logging.debug(f"sleeping for 360 seconds")
@@ -144,9 +144,9 @@ def run_min_change_test(
     #     logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
 
 
-    with open(log_path, "r") as file:
+    with open(virt_install_log_file, "r") as file:
         content = file.read()
-        logging.debug("\n\nprism_arm64_iso-console.txt\n\n" + content)
+        logging.debug("\n\n{virt_install_log_file}\n\n" + content)
 
     # "--connect", "qemu:///system",
     # "--name", "PXE-client",
@@ -166,8 +166,11 @@ def run_min_change_test(
     # "--features", "smm.state=off",
     # "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])
 
+    libvirt_vm_log_file = "/home/cloudtest/prism_arm64_iso-console-2.txt"
+
+
     logging.debug(f"\n\ncreating domain xml\n\n")
-    domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot))
+    domain_xml = create_libvirt_domain_xml(libvirt_conn, VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot), libvirt_vm_log_file)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
@@ -184,6 +187,10 @@ def run_min_change_test(
         ["virsh",
         "--connect", "qemu:///system",
         "list"])
+
+    with open(libvirt_vm_log_file, "r") as file:
+        content = file.read()
+        logging.debug(f"\n\n{libvirt_vm_log_file}\n\n" + content)
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
