@@ -32,6 +32,68 @@ def get_host_distro() -> str:
                 break
     return name_value
 
+def test_virt_install(
+    vm_image: str,
+) -> None:
+    virt_install_log_file = "/home/cloudtest/prism_arm64_iso-console.txt"
+
+    if get_host_distro() != "ubuntu":
+        return
+
+    local_client.run(
+        ["virt-install",
+        "--name", "prism_arm64_iso",
+        "--memory", "4096",
+        "--vcpus", "4",
+        "--os-type", "Linux",
+        "--os-variant", "generic",
+        "--console", "pty,target_type=serial",
+        "--cdrom", str(vm_image),
+        "--disk", "none",
+        "--virt-type", "qemu",
+        "--arch", "aarch64",
+        "--features", "smm=off",
+        "--noautoconsole",
+        "--serial", "file,path=" + virt_install_log_file,
+        ])
+
+    logging.debug(f"sleeping for 360 seconds")
+    time.sleep(360)
+
+    local_client.run(
+        ["virsh",
+        "list"])
+
+    local_client.run(
+        ["virsh",
+        "dumpxml", "prism_arm64_iso"])
+
+    # with open("/home/cloudtest/.cache/libvirt/qemu/log/prism_arm64_iso-swtpm.log", "r") as file:
+    #     content = file.read()
+    #     logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
+
+    with open(virt_install_log_file, "r") as file:
+        content = file.read()
+        logging.debug("\n\n{virt_install_log_file}\n\n" + content)
+
+    # "--connect", "qemu:///system",
+    # "--name", "PXE-client",
+    # "--ram", "4096",
+    # "--vcpus=1",
+    # "--osinfo", "generic",
+    # "--disk", "/var/lib/libvirt/images/PXE-client-aarch64.qcow2,size=40",
+    # "--os-variant", "generic",
+    # "--noautoconsole",
+    # "--graphics", "none",
+    # "--serial=pty",
+    # "--network", "bridge=virbr0",
+    # "--check", "path_in_use=off",
+    # "--machine", "virt",
+    # "--arch", "aarch64",
+    # "--cpu", "cortex-a57",
+    # "--features", "smm.state=off",
+    # "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])    
+
 def run_min_change_test(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -107,64 +169,7 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    virt_install_log_file = "/home/cloudtest/prism_arm64_iso-console.txt"
-
-    if get_host_distro() == "ubuntu":
-
-        local_client.run(
-            ["virt-install",
-            "--name", "prism_arm64_iso",
-            "--memory", "4096",
-            "--vcpus", "4",
-            "--os-type", "Linux",
-            "--os-variant", "generic",
-            "--console", "pty,target_type=serial",
-            "--cdrom", str(vm_image),
-            "--disk", "none",
-            "--virt-type", "qemu",
-            "--arch", "aarch64",
-            "--features", "smm=off",
-            "--noautoconsole",
-            "--serial", "file,path=" + virt_install_log_file,
-            ])
-
-        logging.debug(f"sleeping for 360 seconds")
-        time.sleep(360)
-
-        local_client.run(
-            ["virsh",
-            "list"])
-
-        local_client.run(
-            ["virsh",
-            "dumpxml", "prism_arm64_iso"])
-
-    # with open("/home/cloudtest/.cache/libvirt/qemu/log/prism_arm64_iso-swtpm.log", "r") as file:
-    #     content = file.read()
-    #     logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
-
-
-    with open(virt_install_log_file, "r") as file:
-        content = file.read()
-        logging.debug("\n\n{virt_install_log_file}\n\n" + content)
-
-    # "--connect", "qemu:///system",
-    # "--name", "PXE-client",
-    # "--ram", "4096",
-    # "--vcpus=1",
-    # "--osinfo", "generic",
-    # "--disk", "/var/lib/libvirt/images/PXE-client-aarch64.qcow2,size=40",
-    # "--os-variant", "generic",
-    # "--noautoconsole",
-    # "--graphics", "none",
-    # "--serial=pty",
-    # "--network", "bridge=virbr0",
-    # "--check", "path_in_use=off",
-    # "--machine", "virt",
-    # "--arch", "aarch64",
-    # "--cpu", "cortex-a57",
-    # "--features", "smm.state=off",
-    # "--boot", "uefi,loader=/usr/share/AAVMF/AAVMF_CODE.ms.fd,loader_secure=no"])
+    # test_virt_install(vm_name)
 
     libvirt_vm_log_file = "/home/cloudtest/prism_arm64_iso-console-2.txt"
 
@@ -174,24 +179,29 @@ def run_min_change_test(
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
+    logging.debug(f"\ncreating vm...\n")
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
     # Start VM.
+    logging.debug(f"\nstarting vm...\n")
     vm.start()
 
     logging.debug(f"sleeping for 360 seconds")
     time.sleep(360)
 
+    logging.debug(f"\nlisting vms...\n")
     local_client.run(
         ["virsh",
         "--connect", "qemu:///system",
         "list"])
 
+    logging.debug(f"\ndumping vm console logs...\n")
     with open(libvirt_vm_log_file, "r") as file:
         content = file.read()
         logging.debug(f"\n\n{libvirt_vm_log_file}\n\n" + content)
 
+    logging.debug(f"\n\nwaiting for ip address...\n\n")
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
 

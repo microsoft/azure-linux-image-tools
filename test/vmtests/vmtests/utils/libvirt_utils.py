@@ -174,7 +174,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     cpu.attrib["match"] = "exact"
     cpu.attrib["check"] = "none"
     cp_model = ET.SubElement(cpu, "model")
-    cp_model.attrib["fallback"] = "cortex-a57"
+    cp_model.attrib["fallback"] = "forbid"
     cp_model.text = "cortex-a57"
 
     clock = ET.SubElement(domain, "clock")
