@@ -3,3 +3,6 @@ os:
     # Enable DHCP client on all of the physical NICs.
   - source: files/89-ethernet.network
     destination: /etc/systemd/network/89-ethernet.network
+  packages:
+    update:
+    - dracut
