@@ -32,7 +32,7 @@ def get_host_distro() -> str:
                 break
     return name_value
 
-def test_virt_install(
+def helper_virt_install(
     vm_image: str,
 ) -> None:
     virt_install_log_file = "/home/cloudtest/prism_arm64_iso-console.txt"
@@ -57,8 +57,8 @@ def test_virt_install(
         "--serial", "file,path=" + virt_install_log_file,
         ])
 
-    logging.debug(f"sleeping for 360 seconds")
-    time.sleep(360)
+    logging.debug(f"sleeping for 240 seconds")
+    time.sleep(240)
 
     local_client.run(
         ["virsh",
@@ -169,7 +169,7 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    # test_virt_install(vm_name)
+    # helper_virt_install(vm_name)
 
     libvirt_vm_log_file = "/home/cloudtest/prism_arm64_iso-console-2.txt"
 
@@ -187,8 +187,8 @@ def run_min_change_test(
     logging.debug(f"\nstarting vm...\n")
     vm.start()
 
-    logging.debug(f"sleeping for 360 seconds")
-    time.sleep(360)
+    logging.debug(f"sleeping for 240 seconds")
+    time.sleep(240)
 
     logging.debug(f"\nlisting vms...\n")
     local_client.run(
