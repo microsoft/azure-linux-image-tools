@@ -12,14 +12,14 @@ inputConfigDir="$(dirname "$inputConfig")"
 mkdir -p "$outputImageDir"
 
 # Setup input config within the container.
-containerInputConfigDir="/mic/config"
+containerInputConfigDir="/prism/config"
 containerInputConfig="$containerInputConfigDir/$(basename "$inputConfig")"
 
 # Setup build folder within the container.
-containerBuildDir="/mic/build"
+containerBuildDir="/prism/build"
 
 # Setup output image within the container.
-containerOutputDir="/mic/output"
+containerOutputDir="/prism/output"
 containerOutputImage="$containerOutputDir/$(basename "$outputImage")"
 
 # Run run.sh script in docker container.

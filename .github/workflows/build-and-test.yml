@@ -87,5 +87,9 @@ jobs:
           echo "Schema is up-to-date!"
         fi
 
+    - name: Build docker image
+      run: |
+        ./toolkit/tools/imagecustomizer/container/build-container.sh -t test
+
   build-docs:
     uses: ./.github/workflows/docs-build.yml

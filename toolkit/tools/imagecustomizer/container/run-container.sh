@@ -6,7 +6,7 @@ function showUsage() {
     echo
     echo "usage:"
     echo
-    echo "run-mic-container.sh \\"
+    echo "run-container.sh \\"
     echo "    -t <container-tag> \\"
     echo "    -i <input-image-path> \\"
     echo "    -c <input-config-path> \\"
@@ -70,18 +70,18 @@ outputImageDir=$(dirname $outputImage)
 mkdir -p $outputImageDir
 
 # setup input image within the container
-containerInputImageDir=/mic/input
+containerInputImageDir=/prism/input
 containerInputImage=$containerInputImageDir/$(basename $inputImage)
 
 # setup input config within the container
-containerInputConfigDir=/mic/config
+containerInputConfigDir=/prism/config
 containerInputConfig=$containerInputConfigDir/$(basename $inputConfig)
 
 # setup build folder within the container
-containerBuildDir=/mic/build
+containerBuildDir=/prism/build
 
 # setup output image within the container
-containerOutputDir=/mic/output
+containerOutputDir=/prism/output
 containerOutputImage=$containerOutputDir/$(basename $outputImage)
 
 # invoke

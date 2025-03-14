@@ -13,7 +13,7 @@ function showUsage() {
     echo
     echo "usage:"
     echo
-    echo "build-mic-container.sh \\"
+    echo "build-container.sh \\"
     echo "    -t <container-tag>"
     echo "    -a <architecture> (default: amd64)"
     echo
@@ -52,22 +52,22 @@ function cleanUp() {
 }
 trap 'cleanUp' ERR
 
-micLocalFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
-micLicensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
+exeFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
+licensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
 
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
 
-dockerFile="$scriptDir/Dockerfile.mic-container"
+dockerFile="$scriptDir/prism.Dockerfile"
 runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
 mkdir -p "${stagingLicensesDir}"
 
-cp "$micLocalFile" "${stagingBinDir}"
+cp "$exeFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
-cp -R "$micLicensesDir" "${stagingLicensesDir}"
+cp -R "$licensesDir" "${stagingLicensesDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
@@ -89,7 +89,7 @@ cp "$orasUnzipDir/oras" "${stagingBinDir}"
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
     echo "Removing grub2-pc and systemd-ukify from Dockerfile for arm64"
-    sed -i 's/\<grub2-pc systemd-ukify\>//g' Dockerfile.mic-container
+    sed -i 's/\<grub2-pc systemd-ukify\>//g' prism.Dockerfile
 fi
 
 # build the container
