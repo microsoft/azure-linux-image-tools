@@ -133,6 +133,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     name = ET.SubElement(domain, "name")
     name.text = vm_spec.name
 
+    seclabel = ET.SubElement(domain, "seclabel")
+    seclabel.attrib["type"] = "none"
+
     memory = ET.SubElement(domain, "memory")
     memory.attrib["unit"] = "MiB"
     memory.text = str(vm_spec.memory_mib)
