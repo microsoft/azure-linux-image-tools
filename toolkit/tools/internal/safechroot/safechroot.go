@@ -778,6 +778,7 @@ func (c *Chroot) GetMountPoints() []*MountPoint {
 
 // Stops all the processes running within the chroot.
 func (c *Chroot) stopRunningProcesses() error {
+	// Get a list of all the processes that have a file open in the root directory.
 	records, err := processes.GetProcessesUsingPath(c.rootDir)
 	if err != nil {
 		return err
@@ -786,6 +787,8 @@ func (c *Chroot) stopRunningProcesses() error {
 	errs := []error(nil)
 	for _, record := range records {
 		if record.ProcessRoot == c.RootDir() {
+			// This process was started under the chroot.
+			// So, stop it.
 			logger.Log.Debugf("Found chroot process: Pid=%d, Name=%s.", record.ProcessId, record.ProcessName)
 
 			err := processes.StopProcessById(record.ProcessId)
@@ -793,6 +796,9 @@ func (c *Chroot) stopRunningProcesses() error {
 				errs = append(errs, err)
 			}
 		} else {
+			// There is a host process poking around the root directory. This is very unlikely to be started by us. And
+			// we don't know what it might be doing or why.
+			// So, just warn the user and hopes it stops soon.
 			logger.Log.Warnf("Found host process using chroot files: Pid=%d, Name=%s.", record.ProcessId,
 				record.ProcessName)
 		}

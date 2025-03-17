@@ -21,6 +21,7 @@ type ProcessRecord struct {
 	ProcessRoot string
 }
 
+// GetProcessesUsingPath returns a list of all the processes that have a file opened under the provided path.
 func GetProcessesUsingPath(path string) ([]ProcessRecord, error) {
 	stdout, _, err := shell.NewExecBuilder("lsof", "-Q", "-F", "pcn", "--", path).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
