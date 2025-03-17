@@ -160,7 +160,6 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
     os_boot = ET.SubElement(os_tag, "boot")
-    os_boot.attrib["dev"] = "cdrom"
 
     # firmware_file = firmware_config["mapping"]["executable"]["filename"]
     firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
@@ -265,6 +264,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
     if os_disk_ext.lower() != ".iso":
+        os_boot.attrib["dev"] = "hd"
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
@@ -276,6 +276,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
             next_disk_indexes=next_disk_indexes
         )
     else:
+        os_boot.attrib["dev"] = "cdrom"
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
