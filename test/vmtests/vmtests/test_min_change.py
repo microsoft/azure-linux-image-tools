@@ -57,8 +57,8 @@ def helper_virt_install(
         "--serial", "file,path=" + virt_install_log_file,
         ])
 
-    logging.debug(f"sleeping for 240 seconds")
-    time.sleep(240)
+    logging.debug(f"sleeping for 300 seconds")
+    time.sleep(300)
 
     local_client.run(
         ["virsh",
@@ -187,8 +187,8 @@ def run_min_change_test(
     logging.debug(f"\nstarting vm...\n")
     vm.start()
 
-    logging.debug(f"sleeping for 240 seconds")
-    time.sleep(240)
+    logging.debug(f"sleeping for 300 seconds")
+    time.sleep(300)
 
     logging.debug(f"\nlisting vms...\n")
     local_client.run(
