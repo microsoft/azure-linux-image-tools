@@ -4,57 +4,77 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os"
+	"maps"
 	"strings"
 
+	"github.com/alecthomas/kong"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/exe"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/exekong"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-var (
-	app = kingpin.New("imagecustomizer", "Customizes a pre-built Azure Linux image")
+type CustomizeCmd struct {
+	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
+	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
+	OutputImageFile          string   `name:"output-image-file" help:"Path to write the customized image to."`
+	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
+	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
+	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
+	OutputPXEArtifactsDir    string   `name:"output-pxe-artifacts-dir" help:"Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'."`
+}
 
-	buildDir                 = app.Flag("build-dir", "Directory to run build out of.").Required().String()
-	inputImageFile           = app.Flag("image-file", "Path of the base Azure Linux image which the customization will be applied to.").String()
-	outputImageFile          = app.Flag("output-image-file", "Path to write the customized image to.").String()
-	outputImageFormat        = app.Flag("output-image-format", fmt.Sprintf("Format of output image. Supported: %s.", strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ", "))).Enum(imagecustomizerapi.SupportedImageFormatTypes()...)
-	configFile               = app.Flag("config-file", "Path of the image customization config file.").Required().String()
-	rpmSources               = app.Flag("rpm-source", "Path to a RPM repo config file or a directory containing RPMs.").Strings()
-	disableBaseImageRpmRepos = app.Flag("disable-base-image-rpm-repos", "Disable the base image's RPM repos as an RPM source").Bool()
-	outputPXEArtifactsDir    = app.Flag("output-pxe-artifacts-dir", "Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'.").String()
-	logFlags                 = exe.SetupLogFlags(app)
-	timestampFile            = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
-)
+type RootCmd struct {
+	Customize     CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
+	Version       kong.VersionFlag `name:"version" help:"Print version information and quit"`
+	TimeStampFile string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	exekong.LogFlags
+}
 
 func main() {
-	var err error
+	cli := &RootCmd{}
 
-	app.Version(imagecustomizerlib.ToolVersion)
-	kingpin.MustParse(app.Parse(os.Args[1:]))
+	vars := kong.Vars{
+		"imageformat": strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ",") + ",",
+		"version":     imagecustomizerlib.ToolVersion,
+	}
+	maps.Copy(vars, exekong.KongVars)
 
-	logger.InitBestEffort(logFlags)
+	parseContext := kong.Parse(cli,
+		vars,
+		kong.HelpOptions{
+			Compact:   true,
+			FlagsLast: true,
+		},
+		kong.UsageOnError())
 
-	if *timestampFile != "" {
-		timestamp.BeginTiming("imagecustomizer", *timestampFile)
+	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
+
+	if cli.TimeStampFile != "" {
+		timestamp.BeginTiming("imagecustomizer", cli.TimeStampFile)
 		defer timestamp.CompleteTiming()
 	}
 
-	err = customizeImage()
-	if err != nil {
-		log.Fatalf("image customization failed:\n%v", err)
+	switch parseContext.Command() {
+	case "customize":
+		err := customizeImage(cli.Customize)
+		if err != nil {
+			log.Fatalf("image customization failed:\n%v", err)
+		}
+
+	default:
+		panic(parseContext.Command())
 	}
 }
 
-func customizeImage() error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFile(*buildDir, *configFile, *inputImageFile,
-		*rpmSources, *outputImageFile, *outputImageFormat, *outputPXEArtifactsDir,
-		!*disableBaseImageRpmRepos)
+func customizeImage(cmd CustomizeCmd) error {
+	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
+		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.OutputPXEArtifactsDir,
+		!cmd.DisableBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
