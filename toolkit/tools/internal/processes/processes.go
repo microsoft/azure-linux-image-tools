@@ -38,7 +38,7 @@ func GetProcessesUsingPath(path string) ([]ProcessRecord, error) {
 	scanner := bufio.NewScanner(strings.NewReader(stdout))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if len(line) < 0 {
+		if len(line) <= 0 {
 			continue
 		}
 
