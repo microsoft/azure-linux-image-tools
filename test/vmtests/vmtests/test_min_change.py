@@ -212,10 +212,14 @@ def run_min_change_test(
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
 
     # Connect to VM using SSH.
+    logging.debug(f"\n\nconnecting to ip address {vm_ip_address}...\n\n")
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
     open(ssh_known_hosts_path, "w").close()
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+
+        logging.debug(f"\n\nrunning tests...\n\n")
+
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
         os_release_path = test_temp_dir.joinpath("os-release")
