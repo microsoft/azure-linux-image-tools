@@ -5,4 +5,19 @@ os:
     destination: /etc/systemd/network/89-ethernet.network
 #  packages:
 #    update:
-#    - dracut
+#git push    - dracut
+  users:
+  - name: testuser
+    password:
+      type: plain-text
+      value: testpassword
+    primaryGroup: sudo
+    secondaryGroups:
+    - sudo
+  - name: root
+    password:
+      type: plain-text
+      value: rootpassword
+    primaryGroup: sudo
+    secondaryGroups:
+    - sudo
