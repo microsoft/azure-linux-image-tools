@@ -25,14 +25,14 @@ nav_order: 1
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
    `genisoimage`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
    `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
-   `veritysetup`, `grub2-install` (or `grub-install`), `ukify`, `objcopy`.
+   `veritysetup`, `grub2-install` (or `grub-install`), `ukify`, `objcopy`, `lsof`.
 
    - For Ubuntu 22.04 images, run:
 
      ```bash
      sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
         sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-        xfsprogs zstd cryptsetup-bin grub2-common binutils
+        xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
      ```
 
    - For Azure Linux 2.0, run:
@@ -40,7 +40,7 @@ nav_order: 1
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
         sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 grub2-pc binutils
+        xfsprogs zstd veritysetup grub2 grub2-pc binutils lsof
      ```
 
    - For Azure Linux 3.0, run:
@@ -48,7 +48,7 @@ nav_order: 1
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
         sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify binutils
+        xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify binutils lsof
      ```
 
    Note: The `ukify` tool is not available in Ubuntu 22.04 or Azure Linux 2.0. So, you
