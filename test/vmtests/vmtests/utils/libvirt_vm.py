@@ -60,6 +60,9 @@ class LibvirtVm:
         if len(addrs) < 1:
             return None
 
+        for addr_entry in addrs:
+            logging.debug(f"-- address = {addr_entry["addr"]}")
+
         addr = addrs[0]["addr"]
         assert isinstance(addr, str)
         return addr

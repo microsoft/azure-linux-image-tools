@@ -201,6 +201,11 @@ def run_min_change_test(
         "--connect", "qemu:///system",
         "dumpxml", vm_spec.name])
 
+    local_client.run(
+        ["virsh",
+        "--connect", "qemu:///system",
+        "domifaddr", vm_spec.name])
+
     # fails with permission denied
     # logging.debug(f"\ndumping vm console logs...\n")
     # with open(libvirt_vm_log_file, "r") as file:
