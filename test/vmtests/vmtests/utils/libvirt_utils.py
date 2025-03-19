@@ -156,8 +156,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     os_type.text = "hvm"
 
     nvram = ET.SubElement(os_tag, "nvram")
-    nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
-    nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
+    if vm_spec.boot_type == "efi":
+        nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
+        nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
     os_boot = ET.SubElement(os_tag, "boot")
 
