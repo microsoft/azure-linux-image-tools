@@ -61,7 +61,8 @@ class LibvirtVm:
             return None
 
         for addr_entry in addrs:
-            logging.debug(f"-- address = {addr_entry["addr"]}")
+            ip_address = addr_entry["addr"]
+            logging.debug(f"-- ip address = {ip_address}")
 
         addr = addrs[0]["addr"]
         assert isinstance(addr, str)
