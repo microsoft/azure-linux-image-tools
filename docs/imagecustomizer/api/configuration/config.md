@@ -81,8 +81,27 @@ previewFeatures:
 
 Added in v0.8.
 
+- `output.artifacts`: Enables the configuration for the output directory
+  containing the generated artifacts.
+
+  When this option is specified, The `output.artifacts` configuration becomes available.
+
+Example:
+
+```yaml
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - systemdBoot
+    path: /home/usr/output
+previewFeatures:
+- output.artifacts
+```
+
 ## output [[output](./output.md)]
 
-Specifies the configuration for the output image.
+Specifies the configuration for the output image and artifacts.
 
 Added in v0.13.0.

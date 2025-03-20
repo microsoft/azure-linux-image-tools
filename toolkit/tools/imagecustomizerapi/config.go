@@ -89,6 +89,13 @@ func (c *Config) IsValid() (err error) {
 		return fmt.Errorf("invalid 'output' field:\n%w", err)
 	}
 
+	if c.Output.Artifacts != nil {
+		// Ensure "outputArtifacts" is included in PreviewFeatures at this time.
+		if !sliceutils.ContainsValue(c.PreviewFeatures, "output.artifacts") {
+			return fmt.Errorf("the 'output.artifacts' preview feature must be enabled to use 'output.artifacts'")
+		}
+	}
+
 	return nil
 }
 

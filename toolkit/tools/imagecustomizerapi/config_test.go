@@ -643,3 +643,34 @@ func TestConfigIsValid_InvalidOutputIsInvalid(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid 'output' field")
 }
+
+func TestConfigIsValidWithPreviewFeaturesAndOutputArtifacts(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Artifacts: Artifacts{
+				Items: []Item{ItemUkis, ItemShim, ItemSystemdBoot},
+				Path:  "/valid/path",
+			},
+		},
+		PreviewFeatures: []string{"output.artifacts"},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingOutputArtifactsPreviewFeature(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Artifacts: Artifacts{
+				Items: []Item{ItemUkis, ItemShim, ItemSystemdBoot},
+				Path:  "/valid/path",
+			},
+		},
+		PreviewFeatures: []string{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'output.artifacts' preview feature must be enabled to use 'output.artifacts'")
+}
