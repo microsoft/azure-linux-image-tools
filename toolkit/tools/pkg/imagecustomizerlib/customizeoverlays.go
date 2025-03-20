@@ -175,6 +175,15 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 	}
 
 	for _, overlay := range overlays {
+		workDirGlob := overlay.WorkDir + "(/.*)?"
+
+		// Remove old rules, if they exist.
+		_ = imageChroot.UnsafeRun(func() error {
+			_ = shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.UpperDir)
+			_ = shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", workDirGlob)
+			return nil
+		})
+
 		// Give the upper directory the same SELinux rules as the target directory.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-e", overlay.MountPoint, overlay.UpperDir)
@@ -187,7 +196,7 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 		// Give the work directory the no_access_t type, since only the kernel should be accessing that directory.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-f", "a", "-t", "no_access_t", "-r", "s0",
-				overlay.WorkDir+"(/.*)?")
+				workDirGlob)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to set SELinux label (no_access_t) on overlay's workdir (%s):\n%w",
