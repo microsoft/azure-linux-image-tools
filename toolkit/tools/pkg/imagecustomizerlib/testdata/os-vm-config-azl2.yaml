@@ -1,0 +1,20 @@
+os:
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+  users:
+  - name: testuser
+    password:
+      type: plain-text
+      value: testpassword
+    primaryGroup: sudo
+    secondaryGroups:
+    - sudo
+  - name: root
+    password:
+      type: plain-text
+      value: rootpassword
+    primaryGroup: sudo
+    secondaryGroups:
+    - sudo
