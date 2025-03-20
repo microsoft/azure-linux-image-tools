@@ -104,7 +104,7 @@ def run_min_change_test(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    artifacts_folder: Path,
+    output_images_dir: Path,
     rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
@@ -126,7 +126,7 @@ def run_min_change_test(
     logging.debug(f"- config_path             = {config_path}")
     logging.debug(f"- output_format           = {output_format}")
     logging.debug(f"- boot_type               = {boot_type}")
-    logging.debug(f"- artifacts_folder        = {artifacts_folder}")
+    logging.debug(f"- output_images_dir       = {output_images_dir}")
     logging.debug(f"- rpms_folder             = {rpms_folder}")
 
     username = getuser()
@@ -146,7 +146,7 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    new_image_name = str(artifacts_folder) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
+    new_image_name = str(output_images_dir) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
 
     logging.debug(f"-- copying {output_image_path} to {new_image_name}")
     shutil.copy2(output_image_path, new_image_name)
@@ -250,6 +250,8 @@ def test_min_change_efi_azl2_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_images_dir: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -267,6 +269,8 @@ def test_min_change_efi_azl2_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_images_dir,
+        rpms_folder,
         libvirt_conn,
         close_list,
     )
@@ -279,7 +283,7 @@ def test_min_change_efi_azl2_qcow_output(
 #     ssh_key: Tuple[str, Path],
 #     test_temp_dir: Path,
 #     test_instance_name: str,
-#     artifacts_folder: Path,
+#     output_images_dir: Path,
 #     rpms_folder: Path,
 #     libvirt_conn: libvirt.virConnect,
 #     close_list: List[Closeable],
@@ -298,7 +302,7 @@ def test_min_change_efi_azl2_qcow_output(
 #         ssh_key,
 #         test_temp_dir,
 #         test_instance_name,
-#         artifacts_folder,
+#         output_images_dir,
 #         rpms_folder,
 #         libvirt_conn,
 #         close_list,
@@ -370,6 +374,8 @@ def test_min_change_efi_azl2_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
+    output_images_dir: Path,
+    rpms_folder: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -387,6 +393,8 @@ def test_min_change_efi_azl2_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
+        output_images_dir,
+        rpms_folder,
         libvirt_conn,
         close_list,
     )
@@ -399,7 +407,7 @@ def test_min_change_efi_azl2_iso_output(
 #     ssh_key: Tuple[str, Path],
 #     test_temp_dir: Path,
 #     test_instance_name: str,
-#     artifacts_folder: Path,
+#     output_images_dir: Path,
 #     rpms_folder: Path,
 #     libvirt_conn: libvirt.virConnect,
 #     close_list: List[Closeable],
@@ -418,7 +426,7 @@ def test_min_change_efi_azl2_iso_output(
 #         ssh_key,
 #         test_temp_dir,
 #         test_instance_name,
-#         artifacts_folder,
+#         output_images_dir,
 #         rpms_folder,
 #         libvirt_conn,
 #         close_list,

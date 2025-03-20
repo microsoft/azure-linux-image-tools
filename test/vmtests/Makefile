@@ -68,7 +68,7 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 test:
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--artifacts-folder="${ARTIFACTS_DIR}" \
+		--output-images-dir="${OUTPUT_IMAGES_DIR}" \
 		--rpms-folder=${RPMS_DIR} \
 		--core-efi-azl2="${CORE_EFI_AZL2}" \
 		--core-efi-azl3="${CORE_EFI_AZL3}" \

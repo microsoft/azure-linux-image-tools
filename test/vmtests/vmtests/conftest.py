@@ -26,7 +26,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
-    parser.addoption("--artifacts-folder", action="store", help="Path to artifacts folder")
+    parser.addoption("--output-images-dir", action="store", help="Path to output images directory")
     parser.addoption("--rpms-folder", action="store", help="Path to rpms folder")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
@@ -112,11 +112,11 @@ def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, No
     yield Path(image)
 
 @pytest.fixture(scope="session")
-def artifacts_folder(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    artifacts_folder = request.config.getoption("--artifacts-folder")
-    if not artifacts_folder:
-        raise Exception("--artifacts-folder is required for test")
-    yield Path(artifacts_folder)
+def output_images_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    output_images_dir = request.config.getoption("--output-images-dir")
+    if not output_images_dir:
+        raise Exception("--output-images-dir is required for test")
+    yield Path(output_images_dir)
 
 @pytest.fixture(scope="session")
 def rpms_folder(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
