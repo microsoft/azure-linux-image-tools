@@ -303,6 +303,9 @@
       "properties": {
         "image": {
           "$ref": "#/$defs/OutputImage"
+        },
+        "artifacts": {
+          "$ref": "#/$defs/OutputArtifacts"
         }
       },
       "additionalProperties": false,
@@ -316,6 +319,19 @@
         "format": {
           "type": "string"
         }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OutputArtifacts": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
       },
       "additionalProperties": false,
       "type": "object"
