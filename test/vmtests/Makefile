@@ -69,7 +69,6 @@ test:
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--output-images-dir="${OUTPUT_IMAGES_DIR}" \
-		--rpms-folder=${RPMS_DIR} \
 		--core-efi-azl2="${CORE_EFI_AZL2}" \
 		--core-efi-azl3="${CORE_EFI_AZL3}" \
 		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \

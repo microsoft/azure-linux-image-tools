@@ -27,7 +27,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
     parser.addoption("--output-images-dir", action="store", help="Path to output images directory")
-    parser.addoption("--rpms-folder", action="store", help="Path to rpms folder")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
@@ -117,13 +116,6 @@ def output_images_dir(request: pytest.FixtureRequest) -> Generator[Path, None, N
     if not output_images_dir:
         raise Exception("--output-images-dir is required for test")
     yield Path(output_images_dir)
-
-@pytest.fixture(scope="session")
-def rpms_folder(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    rpms_folder = request.config.getoption("--rpms-folder")
-    if not rpms_folder:
-        raise Exception("--rpms-folder is required for test")
-    yield Path(rpms_folder)
 
 @pytest.fixture(scope="session")
 def image_customizer_container_url(request: pytest.FixtureRequest) -> Generator[str, None, None]:
