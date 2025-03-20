@@ -68,6 +68,9 @@ type ImageCustomizerParameters struct {
 	outputImageBase       string
 	outputPXEArtifactsDir string
 
+	// output artifacts
+	outputArtifactsDir string
+
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
 
@@ -167,6 +170,14 @@ func createImageCustomizerParameters(buildDir string,
 
 	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
 		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
+	}
+
+	// output artifacts
+	ic.outputArtifactsDir = config.Output.Artifacts.Path
+
+	if (ic.outputArtifactsDir == "" && len(config.Output.Artifacts.Items) > 0) ||
+		(ic.outputArtifactsDir != "" && len(config.Output.Artifacts.Items) == 0) {
+		return nil, fmt.Errorf("output artifact path and output artifact items must be either both specified or neither")
 	}
 
 	if ic.inputIsIso {
@@ -452,6 +463,13 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if ic.config.OS.Uki != nil {
 		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ic.outputArtifactsDir != "" {
+		err = outputArtifacts(ic.config.Output.Artifacts.Items, ic.outputArtifactsDir, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
 		}
