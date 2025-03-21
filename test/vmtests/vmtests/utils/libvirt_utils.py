@@ -110,26 +110,19 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     host_arch = platform.machine()
 
-    # secure_boot_str = "yes" if vm_spec.secure_boot else "no"
-    secure_boot_str = "no"
+    secure_boot_str = "yes" if vm_spec.secure_boot else "no"
 
     if host_arch == "x86_64":
         domain_type = "kvm"
         machine_model = "q35"
         virt_type="kvm"
-        firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
-        firmware_file = firmware_config["mapping"]["executable"]["filename"]
     else:
         domain_type = "qemu"
         machine_model = "virt-6.2"
         virt_type = "qemu"
 
-        firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
-        firmware_file = firmware_config["mapping"]["executable"]["filename"]
-        logging.debug(f"- firmware_file = {firmware_file}")
-
-        # firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
-
+    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
+    firmware_file = firmware_config["mapping"]["executable"]["filename"]
     logging.debug(f"- firmware_file final = {firmware_file}")
 
     domain = ET.Element("domain")
