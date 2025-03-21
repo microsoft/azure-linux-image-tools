@@ -11,10 +11,12 @@ import (
 
 func (t PasswordType) IsValid() error {
 	switch t {
-	case PasswordTypeLocked, PasswordTypePlainText, PasswordTypeHashed, PasswordTypePlainTextFile,
-		PasswordTypeHashedFile:
+	case PasswordTypeLocked:
 		// All good.
 		return nil
+
+	case PasswordTypePlainText, PasswordTypeHashed, PasswordTypePlainTextFile, PasswordTypeHashedFile:
+		return fmt.Errorf("password type (%s) only supported in dev builds", t)
 
 	default:
 		return fmt.Errorf("invalid password type (%s)", t)

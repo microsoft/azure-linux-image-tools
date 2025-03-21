@@ -165,7 +165,7 @@ class SshClient:
         key_path: Optional[Path] = None,
         gateway: "Optional[SshClient]" = None,
         known_hosts_path: Optional[Path] = None,
-        time_out_in_seconds: int = 120,
+        time_out_in_seconds: int = 60,
     ) -> None:
         self.ssh_client: SSHClient
 
@@ -197,10 +197,9 @@ class SshClient:
             except (NoValidConnectionsError, SSHException) as e:
                 delta_time = datetime.now() - start_time
                 if delta_time.total_seconds() > time_out_in_seconds:
-                    raise Exception(f"[1] Error connecting to {hostname}: {e}")
+                    raise Exception(f"Error connecting to {hostname}: {e}")
             except Exception as e:
-                raise Exception(f"[2] Error connecting to {hostname}: {e}")
-            logging.debug("no valid connection error - retrying in 10 seconds...")
+                raise Exception(f"Error connecting to {hostname}: {e}")
             time.sleep(10)
 
 

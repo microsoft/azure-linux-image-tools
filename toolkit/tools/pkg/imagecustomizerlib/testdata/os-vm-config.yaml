@@ -7,18 +7,3 @@ os:
     install:
     - dracut-virtio
     - dracut-xen
-  users:
-  - name: testuser
-    password:
-      type: plain-text
-      value: testpassword
-    primaryGroup: sudo
-    secondaryGroups:
-    - sudo
-  - name: root
-    password:
-      type: plain-text
-      value: rootpassword
-    primaryGroup: sudo
-    secondaryGroups:
-    - sudo

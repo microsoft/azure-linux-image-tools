@@ -162,6 +162,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     features = ET.SubElement(domain, "features")
 
     ET.SubElement(features, "acpi")
+    
     ET.SubElement(features, "apic")
 
     cpu = ET.SubElement(domain, "cpu")
