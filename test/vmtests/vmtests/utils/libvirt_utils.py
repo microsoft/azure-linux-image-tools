@@ -157,9 +157,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     nvram = ET.SubElement(os_tag, "nvram")
     if vm_spec.boot_type == "efi":
-        # works for azl3
-        # nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
-        nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.fd"
+        nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
         nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
     os_boot = ET.SubElement(os_tag, "boot")
