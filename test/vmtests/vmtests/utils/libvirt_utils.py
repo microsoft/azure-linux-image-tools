@@ -113,10 +113,6 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     # secure_boot_str = "yes" if vm_spec.secure_boot else "no"
     secure_boot_str = "no"
 
-    # error: invalid argument: KVM is not supported by '/usr/bin/qemu-system-aarch64' on this host
-    # domain_type = "kvm"
-    # error: unsupported configuration: invalid domain type virt
-    # domain_type = "virt"
     if host_arch == "x86_64":
         domain_type = "kvm"
         machine_model = "q35"
@@ -127,21 +123,14 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         domain_type = "qemu"
         machine_model = "virt-6.2"
         virt_type = "qemu"
+
+        firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
+        firmware_file = firmware_config["mapping"]["executable"]["filename"]
+        logging.debug(f"- firmware_file = {firmware_file}")
+
         firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
 
-    logging.debug(f"- firmware_file = {firmware_file}")
-
-    # error: invalid argument: unknown virttype: virt
-    # virt_type="kvm"
-    # working for arm64
-    # virt_type = "qemu"
-
-    # error: invalid argument: the machine 'q35' is not supported by emulator '/usr/bin/qemu-system-aarch64'
-    # machine_model = "q35"
-    # machine_model = "virt" # boots
-    # working for arm64
-    # machine_model = "virt-6.2"
-   
+    logging.debug(f"- firmware_file final = {firmware_file}")
 
     domain = ET.Element("domain")
     domain.attrib["type"] = domain_type
@@ -228,27 +217,13 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     serial_source.attrib["path"] = log_file
 
     serial_target = ET.SubElement(serial, "target")
-    # unsupported configuration: Target model 'isa-serial' requires target type 'isa-serial'
-    # serial_target.attrib["type"] = "isa-serial"
-    # unsupported configuration: unknown target type 'virtio' specified for character device
-    # serial_target.attrib["type"] = "virtio"
-    # unsupported configuration: unknown target type 'virtio-serial' specified for character device
-    # serial_target.attrib["type"] = "virtio-serial"
-    # unsupported configuration: unknown target type 'pci' specified for character device
-    # serial_target.attrib["type"] = "pci"
     if host_arch == "x86_64":
         serial_target.attrib["type"] = "isa-serial"
     else:
         serial_target.attrib["type"] = "system-serial"
     serial_target.attrib["port"] = "0"
 
-    # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
     serial_target_model = ET.SubElement(serial_target, "model")
-    # serial_target_model.attrib["name"] = "isa-serial"
-    # serial_target_model.attrib["name"] = "virtio-serial"
-    # serial_target_model.attrib["name"] = "pci-serial"
-
-    # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
     if host_arch == "x86_64":
         serial_target_model.attrib["name"] = "isa-serial"
     else:
