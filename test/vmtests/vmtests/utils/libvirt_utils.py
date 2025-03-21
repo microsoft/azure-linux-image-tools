@@ -149,14 +149,6 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     name = ET.SubElement(domain, "name")
     name.text = vm_spec.name
 
-    # seclabel_apparmor = ET.SubElement(domain, "seclabel")
-    # seclabel_apparmor.attrib["type"] = "none"
-    # seclabel_apparmor.attrib["model"] = "apparmor"
-
-    # seclabel_dac = ET.SubElement(domain, "seclabel")
-    # seclabel_dac.attrib["type"] = "none"
-    # seclabel_dac.attrib["model"] = "dac"
-
     memory = ET.SubElement(domain, "memory")
     memory.attrib["unit"] = "MiB"
     memory.text = str(vm_spec.memory_mib)
@@ -167,9 +159,10 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     os_tag = ET.SubElement(domain, "os")
 
     os_type = ET.SubElement(os_tag, "type")
-    os_type.attrib["arch"] = "aarch64"
-    os_type.attrib["machine"] = machine_model
     os_type.text = "hvm"
+    if host_arch == "aarch64":
+        os_type.attrib["arch"] = "aarch64"
+        os_type.attrib["machine"] = machine_model
 
     nvram = ET.SubElement(os_tag, "nvram")
     if host_arch == "aarch64":
