@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET  # noqa: N817
 import libvirt
 import os
 from pathlib import Path
+import platform
 from typing import Dict, Any
 
 
@@ -24,11 +25,11 @@ class VmSpec:
 def _get_libvirt_firmware_config(
         libvirt_conn: libvirt.virConnect,
         secure_boot: bool,
-        domain_type: str,
         machine_model: str,
+        virt_type: str,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=domain_type)
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=virt_type)
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -107,6 +108,8 @@ def _get_libvirt_firmware_config(
 # Create XML definition for a VM.
 def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec, log_file: str) -> str:
 
+    host_arch = platform.machine()
+
     # secure_boot_str = "yes" if vm_spec.secure_boot else "no"
     secure_boot_str = "no"
 
@@ -114,18 +117,31 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     # domain_type = "kvm"
     # error: unsupported configuration: invalid domain type virt
     # domain_type = "virt"
-    domain_type = "qemu"
+    if host_arch == "x86_64":
+        domain_type = "kvm"
+        machine_model = "q35"
+        virt_type="kvm"
+        firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
+        firmware_file = firmware_config["mapping"]["executable"]["filename"]
+    else:
+        domain_type = "qemu"
+        machine_model = "virt-6.2"
+        virt_type = "qemu"
+        firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
+
+    logging.debug(f"- firmware_file = {firmware_file}")
 
     # error: invalid argument: unknown virttype: virt
     # virt_type="kvm"
-    virt_type = "qemu"
+    # working for arm64
+    # virt_type = "qemu"
 
     # error: invalid argument: the machine 'q35' is not supported by emulator '/usr/bin/qemu-system-aarch64'
     # machine_model = "q35"
     # machine_model = "virt" # boots
-    machine_model = "virt-6.2"
-
-    # firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, virt_type, machine_model)
+    # working for arm64
+    # machine_model = "virt-6.2"
+   
 
     domain = ET.Element("domain")
     domain.attrib["type"] = domain_type
@@ -156,15 +172,11 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     os_type.text = "hvm"
 
     nvram = ET.SubElement(os_tag, "nvram")
-    if vm_spec.boot_type == "efi":
+    if host_arch == "aarch64":
         nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
         nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
     os_boot = ET.SubElement(os_tag, "boot")
-
-    # firmware_file = firmware_config["mapping"]["executable"]["filename"]
-    firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
-    logging.debug(f"- firmware_file = {firmware_file}")
 
     if vm_spec.boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
@@ -182,12 +194,15 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     gic.attrib["version"] = "2"
 
     cpu = ET.SubElement(domain, "cpu")
-    cpu.attrib["mode"] = "custom"
-    cpu.attrib["match"] = "exact"
-    cpu.attrib["check"] = "none"
-    cp_model = ET.SubElement(cpu, "model")
-    cp_model.attrib["fallback"] = "forbid"
-    cp_model.text = "cortex-a57"
+    if host_arch == "x86_64":
+        cpu.attrib["mode"] = "host-passthrough"
+    else:
+        cpu.attrib["mode"] = "custom"
+        cpu.attrib["match"] = "exact"
+        cpu.attrib["check"] = "none"
+        cp_model = ET.SubElement(cpu, "model")
+        cp_model.attrib["fallback"] = "forbid"
+        cp_model.text = "cortex-a57"
 
     clock = ET.SubElement(domain, "clock")
     clock.attrib["offset"] = "utc"
@@ -203,13 +218,14 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     devices = ET.SubElement(domain, "devices")
 
-    emulator = ET.SubElement(devices, "emulator")
-    emulator.text = "/usr/bin/qemu-system-aarch64"
+    if host_arch == "aarch64":
+        emulator = ET.SubElement(devices, "emulator")
+        emulator.text = "/usr/bin/qemu-system-aarch64"
 
-    controller_scsi = ET.SubElement(devices, "controller")
-    controller_scsi.attrib["type"] = "scsi"
-    controller_scsi.attrib["index"] = "0"
-    controller_scsi.attrib["model"] = "virtio-scsi"
+        controller_scsi = ET.SubElement(devices, "controller")
+        controller_scsi.attrib["type"] = "scsi"
+        controller_scsi.attrib["index"] = "0"
+        controller_scsi.attrib["model"] = "virtio-scsi"
 
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "file"
@@ -225,7 +241,10 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     # serial_target.attrib["type"] = "virtio-serial"
     # unsupported configuration: unknown target type 'pci' specified for character device
     # serial_target.attrib["type"] = "pci"
-    serial_target.attrib["type"] = "system-serial"
+    if host_arch == "x86_64":
+        serial_target.attrib["type"] = "isa-serial"
+    else:
+        serial_target.attrib["type"] = "system-serial"
     serial_target.attrib["port"] = "0"
 
     # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
@@ -235,7 +254,10 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     # serial_target_model.attrib["name"] = "pci-serial"
 
     # error: -device VGA,id=video0,vgamem_mb=16,bus=pci.3,addr=0x2: failed to find romfile "vgabios-stdvga.bin"
-    serial_target_model.attrib["name"] = "pl011"
+    if host_arch == "x86_64":
+        serial_target_model.attrib["name"] = "isa-serial"
+    else:
+        serial_target_model.attrib["name"] = "pl011"
 
     console = ET.SubElement(devices, "console")
     console.attrib["type"] = "file"
