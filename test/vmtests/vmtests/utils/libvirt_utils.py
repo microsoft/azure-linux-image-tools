@@ -116,14 +116,17 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         domain_type = "kvm"
         machine_model = "q35"
         virt_type="kvm"
+        serial_target_type = "isa-serial"
+        serial_target_model_name = "isa-serial"
     else:
         domain_type = "qemu"
         machine_model = "virt-6.2"
         virt_type = "qemu"
+        serial_target_type = "system-serial"
+        serial_target_model_name = "pl011"
 
     firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
     firmware_file = firmware_config["mapping"]["executable"]["filename"]
-    logging.debug(f"- firmware_file final = {firmware_file}")
 
     domain = ET.Element("domain")
     domain.attrib["type"] = domain_type
@@ -142,15 +145,10 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
-    if host_arch == "aarch64":
-        os_type.attrib["arch"] = "aarch64"
-        os_type.attrib["machine"] = machine_model
+    os_type.attrib["arch"] = host_arch
+    os_type.attrib["machine"] = machine_model
 
     nvram = ET.SubElement(os_tag, "nvram")
-    # if host_arch == "aarch64":
-    #    nvram.attrib["template"] = firmware_file
-        # nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
-        # nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
     os_boot = ET.SubElement(os_tag, "boot")
 
@@ -164,12 +162,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     features = ET.SubElement(domain, "features")
 
     ET.SubElement(features, "acpi")
-
-    # if host_arch == "x86_64":
     ET.SubElement(features, "apic")
-    # else:
-    #     gic = ET.SubElement(features, "gic")
-    #     gic.attrib["version"] = "2"
 
     cpu = ET.SubElement(domain, "cpu")
     if host_arch == "x86_64":
@@ -211,17 +204,11 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     serial_source.attrib["path"] = log_file
 
     serial_target = ET.SubElement(serial, "target")
-    if host_arch == "x86_64":
-        serial_target.attrib["type"] = "isa-serial"
-    else:
-        serial_target.attrib["type"] = "system-serial"
+    serial_target.attrib["type"] = serial_target_type
     serial_target.attrib["port"] = "0"
 
     serial_target_model = ET.SubElement(serial_target, "model")
-    if host_arch == "x86_64":
-        serial_target_model.attrib["name"] = "isa-serial"
-    else:
-        serial_target_model.attrib["name"] = "pl011"
+    serial_target_model.attrib["name"] = serial_target_model_name
 
     console = ET.SubElement(devices, "console")
     console.attrib["type"] = "file"
