@@ -125,10 +125,12 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    new_image_name = str(output_images_dir) + "/" + image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
+    customized_image_name = image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
+    customized_image_path = str(output_images_dir) + "/" + customized_image_name
+    vm_console_log_file_path = customized_image_path + ".console.log"
 
-    logging.debug(f"-- copying {output_image_path} to {new_image_name}")
-    shutil.copy2(output_image_path, new_image_name)
+    logging.debug(f"-- copying {output_image_path} to {customized_image_path}")
+    shutil.copy2(output_image_path, customized_image_path)
 
     vm_image = output_image_path
     if output_format != "iso":
@@ -150,11 +152,10 @@ def run_min_change_test(
 
     # helper_virt_install(vm_name)
 
-    libvirt_vm_log_file = "/home/cloudtest/prism_arm64_iso-console-2.txt"
 
     logging.debug(f"\n\ncreating domain xml\n\n")
     vm_spec = VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot)
-    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec, libvirt_vm_log_file)
+    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec, vm_console_log_file_path)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
@@ -187,9 +188,9 @@ def run_min_change_test(
 
     # fails with permission denied
     # logging.debug(f"\ndumping vm console logs...\n")
-    # with open(libvirt_vm_log_file, "r") as file:
+    # with open(vm_console_log_file_path, "r") as file:
     #     content = file.read()
-    #     logging.debug(f"\n\n{libvirt_vm_log_file}\n\n" + content)
+    #     logging.debug(f"\n\n{vm_console_log_file_path}\n\n" + content)
 
     logging.debug(f"\n\nwaiting for ip address...\n\n")
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
