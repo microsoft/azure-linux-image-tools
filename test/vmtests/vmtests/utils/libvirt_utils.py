@@ -128,7 +128,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         firmware_file = firmware_config["mapping"]["executable"]["filename"]
         logging.debug(f"- firmware_file = {firmware_file}")
 
-        firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
+        # firmware_file = "/usr/share/AAVMF/AAVMF_CODE.ms.fd"
 
     logging.debug(f"- firmware_file final = {firmware_file}")
 
