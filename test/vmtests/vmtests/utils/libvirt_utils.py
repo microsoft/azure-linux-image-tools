@@ -295,12 +295,17 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         )
     else:
         os_boot.attrib["dev"] = "cdrom"
+        if host_arch == "x86_64":
+            bus_type="sata"
+        else:
+            bus_type="scsi"
+
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
             device_type="cdrom",
             image_type="raw",
-            bus_type="scsi",
+            bus_type=bus_type,
             device_prefix="sd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
