@@ -147,8 +147,8 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         os_type.attrib["machine"] = machine_model
 
     nvram = ET.SubElement(os_tag, "nvram")
-    if host_arch == "aarch64":
-        nvram.attrib["template"] = firmware_file
+    # if host_arch == "aarch64":
+    #    nvram.attrib["template"] = firmware_file
         # nvram.attrib["template"] = "/usr/share/AAVMF/AAVMF_VARS.ms.fd"
         # nvram.text = "/home/cloudtest/prism_arm64_iso_VARS.fd"
 
