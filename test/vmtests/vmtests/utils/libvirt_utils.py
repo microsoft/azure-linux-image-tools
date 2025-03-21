@@ -165,11 +165,11 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     ET.SubElement(features, "acpi")
 
-    if host_arch == "x86_64":
-        ET.SubElement(features, "apic")
-    else:
-        gic = ET.SubElement(features, "gic")
-        gic.attrib["version"] = "2"
+    # if host_arch == "x86_64":
+    ET.SubElement(features, "apic")
+    # else:
+    #     gic = ET.SubElement(features, "gic")
+    #     gic.attrib["version"] = "2"
 
     cpu = ET.SubElement(domain, "cpu")
     if host_arch == "x86_64":
