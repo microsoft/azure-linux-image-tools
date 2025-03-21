@@ -10,7 +10,7 @@ Added in v0.3.
 
 ## input [[input](./input.md)]
 
-Specifies the configuration for the input image.
+Specifies the configuration for the input image and associated files required for customizing.
 
 Added in v0.13.0.
 
@@ -83,6 +83,6 @@ Added in v0.8.
 
 ## output [[output](./output.md)]
 
-Specifies the configuration for the output image.
+Specifies the configuration for the output image and associated files required for customizing.
 
 Added in v0.13.0.
