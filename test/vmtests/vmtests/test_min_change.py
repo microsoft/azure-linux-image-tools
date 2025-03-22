@@ -194,7 +194,10 @@ def test_min_change_efi_azl3_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    if platform.machine() == 'x86_64':
+        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
