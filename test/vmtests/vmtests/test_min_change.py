@@ -32,49 +32,6 @@ def get_host_distro() -> str:
                 break
     return name_value
 
-def helper_virt_install(
-    vm_image: str,
-) -> None:
-    virt_install_log_file = "/home/cloudtest/prism_arm64_iso-console.txt"
-
-    if get_host_distro() != "ubuntu":
-        return
-
-    local_client.run(
-        ["virt-install",
-        "--name", "prism_arm64_iso",
-        "--memory", "4096",
-        "--vcpus", "4",
-        "--os-type", "Linux",
-        "--os-variant", "generic",
-        "--console", "pty,target_type=serial",
-        "--cdrom", str(vm_image),
-        "--disk", "none",
-        "--virt-type", "qemu",
-        "--arch", "aarch64",
-        "--features", "smm=off",
-        "--noautoconsole",
-        "--serial", "file,path=" + virt_install_log_file,
-        ])
-
-    logging.debug(f"sleeping for 300 seconds")
-    time.sleep(300)
-
-    local_client.run(
-        ["virsh",
-        "list"])
-
-    local_client.run(
-        ["virsh",
-        "dumpxml", "prism_arm64_iso"])
-
-    # with open("/home/cloudtest/.cache/libvirt/qemu/log/prism_arm64_iso-swtpm.log", "r") as file:
-    #     content = file.read()
-    #     logging.debug("\n\nprism_arm64_iso-swtpm.log\n\n" + content)
-
-    with open(virt_install_log_file, "r") as file:
-        content = file.read()
-        logging.debug("\n\n{virt_install_log_file}\n\n" + content)
 
 def run_min_change_test(
     docker_client: DockerClient,
@@ -150,61 +107,29 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    # helper_virt_install(vm_name)
-
-
-    logging.debug(f"\n\ncreating domain xml\n\n")
     vm_spec = VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot)
     domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec, vm_console_log_file_path)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
-    logging.debug(f"\ncreating vm...\n")
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
     # Start VM.
-    logging.debug(f"\nstarting vm...\n")
     vm.start()
 
-    logging.debug(f"sleeping for 300 seconds")
-    time.sleep(300)
+    if platform.machine() == 'aarch64':
+        logging.debug(f"sleeping for 300 seconds")
+        time.sleep(300)
 
-    logging.debug(f"\nlisting vms...\n")
-    local_client.run(
-        ["virsh",
-        "--connect", "qemu:///system",
-        "list"])
-
-    local_client.run(
-        ["virsh",
-        "--connect", "qemu:///system",
-        "dumpxml", vm_spec.name])
-
-    local_client.run(
-        ["virsh",
-        "--connect", "qemu:///system",
-        "domifaddr", vm_spec.name])
-
-    # fails with permission denied
-    # logging.debug(f"\ndumping vm console logs...\n")
-    # with open(vm_console_log_file_path, "r") as file:
-    #     content = file.read()
-    #     logging.debug(f"\n\n{vm_console_log_file_path}\n\n" + content)
-
-    logging.debug(f"\n\nwaiting for ip address...\n\n")
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
 
     # Connect to VM using SSH.
-    logging.debug(f"\n\nconnecting to ip address {vm_ip_address}...\n\n")
     ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
     open(ssh_known_hosts_path, "w").close()
 
     with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-
-        logging.debug(f"\n\nrunning tests...\n\n")
-
         vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
         os_release_path = test_temp_dir.joinpath("os-release")
