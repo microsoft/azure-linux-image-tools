@@ -43,7 +43,7 @@ def run_min_change_test(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_images_dir: Path,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -64,7 +64,7 @@ def run_min_change_test(
     logging.debug(f"- config_path             = {config_path}")
     logging.debug(f"- output_format           = {output_format}")
     logging.debug(f"- boot_type               = {boot_type}")
-    logging.debug(f"- output_images_dir       = {output_images_dir}")
+    logging.debug(f"- output_artifacts_dir    = {output_artifacts_dir}")
 
     username = getuser()
 
@@ -83,7 +83,7 @@ def run_min_change_test(
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
     customized_image_name = image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
-    customized_image_path = str(output_images_dir) + "/" + customized_image_name
+    customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
 
     logging.debug(f"-- copying {output_image_path} to {customized_image_path}")
@@ -147,38 +147,39 @@ def run_min_change_test(
             else:
                 assert False, "Unexpected image identity in /etc/os-release"
 
-# we won't have arm64 support in azl2
-# def test_min_change_efi_azl2_qcow_output(
-#     docker_client: DockerClient,
-#     image_customizer_container_url: str,
-#     core_efi_azl2: Path,
-#     ssh_key: Tuple[str, Path],
-#     test_temp_dir: Path,
-#     test_instance_name: str,
-#     output_images_dir: Path,
-#     libvirt_conn: libvirt.virConnect,
-#     close_list: List[Closeable],
-# ) -> None:
-#     azl_release = 2
-#     config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl2.yaml")
-#     output_format = "qcow2"
 
-#     run_min_change_test(
-#         docker_client,
-#         image_customizer_container_url,
-#         core_efi_azl2,
-#         azl_release,
-#         config_path,
-#         output_format,
-#         ssh_key,
-#         test_temp_dir,
-#         test_instance_name,
-#         output_images_dir,
-#         libvirt_conn,
-#         close_list,
-#     )
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+def test_min_change_efi_azl2_qcow_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl2: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    output_artifacts_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 2
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl2.yaml")
+    output_format = "qcow2"
 
-# ok
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl2,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        output_artifacts_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
 def test_min_change_efi_azl3_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -186,7 +187,7 @@ def test_min_change_efi_azl3_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_images_dir: Path,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -204,104 +205,106 @@ def test_min_change_efi_azl3_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_images_dir,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
-# we won't have arm64 support in azl2
-# def test_min_change_legacy_azl2_qcow_output(
-#     docker_client: DockerClient,
-#     image_customizer_container_url: str,
-#     core_legacy_azl2: Path,
-#     ssh_key: Tuple[str, Path],
-#     test_temp_dir: Path,
-#     test_instance_name: str,
-#     libvirt_conn: libvirt.virConnect,
-#     close_list: List[Closeable],
-# ) -> None:
-#     azl_release = 2
-#     config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
-#     output_format = "qcow2"
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+def test_min_change_legacy_azl2_qcow_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl2: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    output_artifacts_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 2
+    config_path = TEST_CONFIGS_DIR.joinpath("nochange-config.yaml")
+    output_format = "qcow2"
 
-#     run_min_change_test(
-#         docker_client,
-#         image_customizer_container_url,
-#         core_legacy_azl2,
-#         azl_release,
-#         config_path,
-#         output_format,
-#         ssh_key,
-#         test_temp_dir,
-#         test_instance_name,
-#         libvirt_conn,
-#         close_list,
-#     )
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl2,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        output_artifacts_dir,
+        libvirt_conn,
+        close_list,
+    )
 
-# we won't have arm64 support in legacy (no vhd images)
-# def test_min_change_legacy_azl3_qcow_output(
-#     docker_client: DockerClient,
-#     image_customizer_container_url: str,
-#     core_legacy_azl3: Path,
-#     ssh_key: Tuple[str, Path],
-#     test_temp_dir: Path,
-#     test_instance_name: str,
-#     output_images_dir: Path,
-#     libvirt_conn: libvirt.virConnect,
-#     close_list: List[Closeable],
-# ) -> None:
-#     azl_release = 3
-#     config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
-#     output_format = "qcow2"
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+def test_min_change_legacy_azl3_qcow_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    output_artifacts_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 3
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    output_format = "qcow2"
 
-#     run_min_change_test(
-#         docker_client,
-#         image_customizer_container_url,
-#         core_legacy_azl3,
-#         azl_release,
-#         config_path,
-#         output_format,
-#         ssh_key,
-#         test_temp_dir,
-#         test_instance_name,
-#         output_images_dir,
-#         libvirt_conn,
-#         close_list,
-#     )
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        output_artifacts_dir,
+        libvirt_conn,
+        close_list,
+    )
 
 
-# we won't have arm64 support in azl2
-# def test_min_change_efi_azl2_iso_output(
-#     docker_client: DockerClient,
-#     image_customizer_container_url: str,
-#     core_efi_azl2: Path,
-#     ssh_key: Tuple[str, Path],
-#     test_temp_dir: Path,
-#     test_instance_name: str,
-#     output_images_dir: Path,
-#     libvirt_conn: libvirt.virConnect,
-#     close_list: List[Closeable],
-# ) -> None:
-#     azl_release = 2
-#     config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
-#     output_format = "iso"
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+def test_min_change_efi_azl2_iso_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl2: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    output_artifacts_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 2
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
+    output_format = "iso"
 
-#     run_min_change_test(
-#         docker_client,
-#         image_customizer_container_url,
-#         core_efi_azl2,
-#         azl_release,
-#         config_path,
-#         output_format,
-#         ssh_key,
-#         test_temp_dir,
-#         test_instance_name,
-#         output_images_dir,
-#         libvirt_conn,
-#         close_list,
-#     )
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl2,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        output_artifacts_dir,
+        libvirt_conn,
+        close_list,
+    )
 
-# ok
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
 def test_min_change_efi_azl3_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -309,7 +312,7 @@ def test_min_change_efi_azl3_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_images_dir: Path,
+    output_artifacts_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -327,67 +330,71 @@ def test_min_change_efi_azl3_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_images_dir,
+        output_artifacts_dir,
         libvirt_conn,
         close_list,
     )
 
 
-# we won't have arm64 support in azl2
-# def test_min_change_legacy_azl2_iso_output(
-#     docker_client: DockerClient,
-#     image_customizer_container_url: str,
-#     core_legacy_azl2: Path,
-#     ssh_key: Tuple[str, Path],
-#     test_temp_dir: Path,
-#     test_instance_name: str,
-#     libvirt_conn: libvirt.virConnect,
-#     close_list: List[Closeable],
-# ) -> None:
-#     azl_release = 2
-#     config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
-#     output_format = "iso"
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+def test_min_change_legacy_azl2_iso_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl2: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    output_artifacts_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 2
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
+    output_format = "iso"
 
-#     run_min_change_test(
-#         docker_client,
-#         image_customizer_container_url,
-#         core_legacy_azl2,
-#         azl_release,
-#         config_path,
-#         output_format,
-#         ssh_key,
-#         test_temp_dir,
-#         test_instance_name,
-#         libvirt_conn,
-#         close_list,
-#     )
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl2,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        output_artifacts_dir,
+        libvirt_conn,
+        close_list,
+    )
 
 
-# we won't have arm64 support in legacy (no vhd images)
-# def test_min_change_legacy_azl3_iso_output(
-#     docker_client: DockerClient,
-#     image_customizer_container_url: str,
-#     core_legacy_azl3: Path,
-#     ssh_key: Tuple[str, Path],
-#     test_temp_dir: Path,
-#     test_instance_name: str,
-#     libvirt_conn: libvirt.virConnect,
-#     close_list: List[Closeable],
-# ) -> None:
-#     azl_release = 3
-#     config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
-#     output_format = "iso"
+@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+def test_min_change_legacy_azl3_iso_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    output_artifacts_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 3
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-os-vm-config.yaml")
+    output_format = "iso"
 
-#     run_min_change_test(
-#         docker_client,
-#         image_customizer_container_url,
-#         core_legacy_azl3,
-#         azl_release,
-#         config_path,
-#         output_format,
-#         ssh_key,
-#         test_temp_dir,
-#         test_instance_name,
-#         libvirt_conn,
-#         close_list,
-#     )
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        output_artifacts_dir,
+        libvirt_conn,
+        close_list,
+    )

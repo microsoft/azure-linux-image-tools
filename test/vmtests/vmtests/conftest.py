@@ -26,7 +26,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
-    parser.addoption("--output-images-dir", action="store", help="Path to output images directory")
+    parser.addoption("--output-artifacts-dir", action="store", help="Path to output artifacts directory")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
@@ -111,11 +111,11 @@ def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, No
     yield Path(image)
 
 @pytest.fixture(scope="session")
-def output_images_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    output_images_dir = request.config.getoption("--output-images-dir")
-    if not output_images_dir:
-        raise Exception("--output-images-dir is required for test")
-    yield Path(output_images_dir)
+def output_artifacts_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    output_artifacts_dir = request.config.getoption("--output-artifacts-dir")
+    if not output_artifacts_dir:
+        raise Exception("--output-artifacts-dir is required for test")
+    yield Path(output_artifacts_dir)
 
 @pytest.fixture(scope="session")
 def image_customizer_container_url(request: pytest.FixtureRequest) -> Generator[str, None, None]:
