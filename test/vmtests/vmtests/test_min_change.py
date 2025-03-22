@@ -6,6 +6,7 @@ from getpass import getuser
 import logging
 from pathlib import Path
 import platform
+import pytest
 import shlex
 import time
 from typing import List, Tuple
