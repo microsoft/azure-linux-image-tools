@@ -306,7 +306,7 @@ def test_min_change_efi_azl2_iso_output(
         close_list,
     )
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+
 def test_min_change_efi_azl3_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
