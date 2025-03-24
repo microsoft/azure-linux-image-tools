@@ -312,35 +312,116 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 }
 
 func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
-	inputImagePath := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
-
 	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileSelection")
-	outputImagePath := filepath.Join(buildDir, "image.vhd")
-	outputImageFormat := filepath.Ext(outputImagePath)[1:]
+	baseConfigPath := buildDir
+	config := &imagecustomizerapi.Config{}
 
-	// Pass the input image file only through the config.
-	config := &imagecustomizerapi.Config{
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: inputImagePath,
-			},
-		},
-	}
-	err := CustomizeImage(buildDir, buildDir, config, "" /*inputImageFile*/, nil, outputImagePath, outputImageFormat,
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
-	assert.NoError(t, err)
+	inputImageFileFake := filepath.Join(buildDir, "doesnotexist.xxx")
+	inputImageFileReal := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	inputImageFile := inputImageFileReal
+	rpmSources := []string{}
+	outputImageFile := filepath.Join(buildDir, "image.vhd")
+	outputImageFormat := filepath.Ext(outputImageFile)[1:]
+	outputPXEArtifactsDir := ""
+	useBaseImageRpmRepos := false
 
 	// Pass the input image file only through the argument.
-	config.Input.Image.Path = ""
-	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, outputImageFormat,
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+	err := CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFile)
+	err = os.Remove(outputImageFile)
 	assert.NoError(t, err)
 
-	// Pass the input image file through both the config and the argument.
-	config.Input.Image.Path = filepath.Join(buildDir, "doesnotexist.xxx")
-	err = CustomizeImage(buildDir, buildDir, config, inputImagePath, nil, outputImagePath, outputImageFormat,
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+	config.Input.Image.Path = inputImageFileReal
+	inputImageFile = ""
+
+	// Pass the input image file only through the config.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
 	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFile)
+	err = os.Remove(outputImageFile)
+	assert.NoError(t, err)
+
+	inputImageFile = inputImageFileReal
+	config.Input.Image.Path = inputImageFileFake
+
+	// Pass the input image file through both the config and the argument. The config's Path is ignored, so even though
+	// it doesn't exist, there will be no error.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFile)
+	err = os.Remove(outputImageFile)
+	assert.NoError(t, err)
+}
+
+func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
+	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileAsRelativePathOnCommandLine")
+	baseConfigPath := buildDir
+	config := &imagecustomizerapi.Config{}
+
+	inputImageFileAbsoluteFake := filepath.Join(buildDir, "doesnotexist.xxx")
+	inputImageFileAbsoluteReal := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	cwd, err := os.Getwd()
+	assert.NoError(t, err)
+	inputImageFileRelativeToCwdReal, err := filepath.Rel(cwd, inputImageFileAbsoluteReal)
+	assert.NoError(t, err)
+	inputImageFileRelativeToCwdFake, err := filepath.Rel(cwd, inputImageFileAbsoluteFake)
+	assert.NoError(t, err)
+
+	inputImageFileRelativeToConfigReal, err := filepath.Rel(baseConfigPath, inputImageFileAbsoluteReal)
+	assert.NoError(t, err)
+	inputImageFileRelativeToConfigFake, err := filepath.Rel(baseConfigPath, inputImageFileAbsoluteFake)
+	assert.NoError(t, err)
+
+	inputImageFile := inputImageFileRelativeToCwdReal
+	rpmSources := []string{}
+	outputImageFile := filepath.Join(buildDir, "image.vhd")
+	outputImageFormat := filepath.Ext(outputImageFile)[1:]
+	outputPXEArtifactsDir := ""
+	useBaseImageRpmRepos := false
+
+	// Pass the input image file relative to the current working directory through the argument. This works because
+	// paths on the command-line are expected to be relative to the current working directory.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFile)
+	err = os.Remove(outputImageFile)
+	assert.NoError(t, err)
+
+	inputImageFile = inputImageFileRelativeToCwdFake
+
+	// The same as above but for the fake path. This fails because the file does not exist.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
+	assert.NoFileExists(t, outputImageFile)
+
+	config.Input.Image.Path = inputImageFileRelativeToConfigReal
+	inputImageFile = ""
+
+	// Pass the input image file relative to the config file through the config. This works because paths in the config
+	// as expected to be relative to the config file.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFile)
+	err = os.Remove(outputImageFile)
+	assert.NoError(t, err)
+
+	config.Input.Image.Path = inputImageFileRelativeToConfigFake
+
+	// The same as above but for the fake path. This fails because the file does not exist.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 }
 
 func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
@@ -392,48 +473,95 @@ func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
 }
 
 func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
-
 	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileSelection")
-	outputImageFilePathAsArg := filepath.Join(buildDir, "image-as-arg.vhd")
+	baseConfigPath := buildDir
+	config := &imagecustomizerapi.Config{}
+	inputImageFile := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	rpmSources := []string{}
+
+	outputImageFileAsArgument := filepath.Join(buildDir, "image-as-arg.vhd")
 	outputImageFilePathAsConfig := filepath.Join(buildDir, "image-as-config.vhd")
 
+	outputImageFile := outputImageFileAsArgument
+	outputImageFormat := filepath.Ext(outputImageFile)[1:]
+	outputPXEArtifactsDir := ""
+	useBaseImageRpmRepos := false
+
+	// Pass the output image file only through the argument.
+	err := CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFileAsArgument)
+	err = os.Remove(outputImageFileAsArgument)
+	assert.NoError(t, err)
+
+	config.Output.Image.Path = outputImageFilePathAsConfig
+	outputImageFile = ""
+
 	// Pass the output image file only through the config.
-	config := &imagecustomizerapi.Config{
-		Output: imagecustomizerapi.Output{
-			Image: imagecustomizerapi.OutputImage{
-				Path: outputImageFilePathAsConfig,
-			},
-		},
-	}
-	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "vhd",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, "",
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFilePathAsConfig)
-
-	// Clean up previous test.
 	err = os.Remove(outputImageFilePathAsConfig)
 	assert.NoError(t, err)
 
-	// Pass the output image file only through the argument.
-	config.Output.Image.Path = ""
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathAsArg, "vhd",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
-	assert.NoError(t, err)
-	assert.NoFileExists(t, outputImageFilePathAsConfig)
-	assert.FileExists(t, outputImageFilePathAsArg)
-
-	// Clean up previous test.
-	err = os.Remove(outputImageFilePathAsArg)
-	assert.NoError(t, err)
-
-	// Pass the output image file through both the config and the argument.
 	config.Output.Image.Path = outputImageFilePathAsConfig
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outputImageFilePathAsArg, "vhd",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+	outputImageFile = outputImageFileAsArgument
+
+	// Pass the output image file through both the config and the argument. The argument is ultimately used, so it will
+	// be created, while the config's Path will not.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
 	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFileAsArgument)
 	assert.NoFileExists(t, outputImageFilePathAsConfig)
-	assert.FileExists(t, outputImageFilePathAsArg)
+	err = os.Remove(outputImageFileAsArgument)
+	assert.NoError(t, err)
+}
+
+func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
+	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileAsRelativePathOnCommandLine")
+	baseConfigPath := buildDir
+	config := &imagecustomizerapi.Config{}
+	inputImageFile := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	rpmSources := []string{}
+
+	outputImageFileAbsolute := filepath.Join(buildDir, "image.vhdx")
+
+	cwd, err := os.Getwd()
+	assert.NoError(t, err)
+	outputImageFileRelativeToCwd, err := filepath.Rel(cwd, outputImageFileAbsolute)
+	assert.NoError(t, err)
+
+	outputImageFileRelativeToConfig, err := filepath.Rel(baseConfigPath, outputImageFileAbsolute)
+	assert.NoError(t, err)
+
+	outputImageFile := outputImageFileRelativeToCwd
+	outputImageFormat := filepath.Ext(outputImageFile)[1:]
+	outputPXEArtifactsDir := ""
+	useBaseImageRpmRepos := false
+
+	// Pass the output image file relative to the current working directory through the argument. This will create
+	// the file at the absolute path.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFileAbsolute)
+	err = os.Remove(outputImageFileAbsolute)
+	assert.NoError(t, err)
+
+	config.Output.Image.Path = outputImageFileRelativeToConfig
+	outputImageFile = ""
+
+	// Pass the output image file relative to the config file through the config. This will create the file at the
+	// absolute path.
+	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
+	assert.NoError(t, err)
+	assert.FileExists(t, outputImageFileAbsolute)
+	err = os.Remove(outputImageFileAbsolute)
+	assert.NoError(t, err)
 }
 
 func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
@@ -530,8 +658,7 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	config.Input.Image.Path = ""
 	inputImageFile = inputImageFileAsArg
 
-	// The input image file should be set to the value passed as an
-	// argument.
+	// The input image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
@@ -542,8 +669,7 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	// Pass the input image file in both the config and as an argument.
 	config.Input.Image.Path = inputImageFileAsConfig
 
-	// The input image file should be set to the value passed as an
-	// argument.
+	// The input image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)
@@ -583,8 +709,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	outputImageFile := ""
 	outputPXEArtifactsDir := ""
 
-	// The output image file is not specified in the config or as an
-	// argument, so the output image file will be empty.
+	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
 		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	assert.NoError(t, err)

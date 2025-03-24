@@ -105,8 +105,8 @@ func createImageCustomizerParameters(buildDir string,
 
 	// input image
 	ic.inputImageFile = inputImageFile
-	if ic.inputImageFile == "" {
-		ic.inputImageFile = config.Input.Image.Path
+	if ic.inputImageFile == "" && config.Input.Image.Path != "" {
+		ic.inputImageFile = file.GetAbsPathWithBase(configPath, config.Input.Image.Path)
 	}
 
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
@@ -156,8 +156,8 @@ func createImageCustomizerParameters(buildDir string,
 	}
 
 	ic.outputImageFile = outputImageFile
-	if ic.outputImageFile == "" {
-		ic.outputImageFile = config.Output.Image.Path
+	if ic.outputImageFile == "" && config.Output.Image.Path != "" {
+		ic.outputImageFile = file.GetAbsPathWithBase(configPath, config.Output.Image.Path)
 	}
 
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
