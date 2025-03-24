@@ -39,4 +39,4 @@ previewFeatures:
 - output-artifacts
 ```
 
-Added in v0.XX.
+Added in v0.14.

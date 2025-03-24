@@ -86,7 +86,7 @@ Supported options:
 
   See [Output Artifacts](./outputArtifacts.md) for more details.
 
-  Added in v0.XX.
+  Added in v0.14.
 
 ## output [[output](./output.md)]
 
