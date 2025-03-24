@@ -62,19 +62,18 @@ func (o *Overlay) IsValid() error {
 }
 
 func validatePath(filePath string) error {
-	return validatePathWithAbs(filePath, true)
-}
-
-func validatePathWithAbs(filePath string, requireAbs bool) error {
+	// Check if the path is empty.
 	if filePath == "" {
 		return fmt.Errorf("path cannot be empty")
 	}
 
+	// Check if the path contains spaces, tabs, newlines, colons, or commas.
 	if strings.ContainsAny(filePath, " \t\n:,") {
 		return fmt.Errorf("path (%s) contains invalid characters (spaces, tabs, newlines, colons, or commas)", filePath)
 	}
 
-	if requireAbs && !path.IsAbs(filePath) {
+	// Check if the path is an absolute path.
+	if !path.IsAbs(filePath) {
 		return fmt.Errorf("invalid path (%s): must be an absolute path", filePath)
 	}
 

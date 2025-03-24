@@ -31,7 +31,7 @@ Specifies the directory path where Prism will output the selected artifacts.
 
 Required.
 
-Specifies the artifacts that will be selected to output after the image customization.
+Specifies the artifacts that will be output after the image customization.
 
 Supported values:
 
@@ -39,8 +39,9 @@ Supported values:
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
 - `systemd-boot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
 
-The `output-artifacts` field must be used with the `output-artifacts` enabled in `previewFeatures`.
+The `output.artifacts` field must be used with the `output-artifacts` enabled in `previewFeatures`.
 
 These artifacts are generated in an unsigned format and must be signed externally if required.
 
-Supported architectures for shim and systemd-boot include x64 and arm64, reflected in the <arch> portion of the filenames.
+Supported architectures for shim and systemd-boot include x64 and arm64,
+reflected in the `<arch>` portion of the filenames.

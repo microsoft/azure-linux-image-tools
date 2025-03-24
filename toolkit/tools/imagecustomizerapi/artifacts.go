@@ -10,20 +10,15 @@ type Artifacts struct {
 	Path  string                    `yaml:"path" json:"path,omitempty"`
 }
 
-func (a Artifacts) IsValid() error {
+func (a *Artifacts) IsValid() error {
 	if len(a.Items) == 0 || a.Path == "" {
 		return fmt.Errorf("'items' and 'path' must both be specified and non-empty")
 	}
 
 	for _, item := range a.Items {
-		err := item.IsValid()
-		if err != nil {
+		if err := item.IsValid(); err != nil {
 			return err
 		}
-	}
-
-	if err := validatePathWithAbs(a.Path, false); err != nil {
-		return fmt.Errorf("invalid 'path' field:\n%w", err)
 	}
 
 	return nil

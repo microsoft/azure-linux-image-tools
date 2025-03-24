@@ -68,9 +68,6 @@ type ImageCustomizerParameters struct {
 	outputImageBase       string
 	outputPXEArtifactsDir string
 
-	// output artifacts
-	outputArtifactsDir string
-
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
 
@@ -294,10 +291,11 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
 	}
 
-	if config.Output.Artifacts != nil && config.Output.Artifacts.Path != "" {
+	if config.Output.Artifacts != nil {
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile)
+		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
+			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile)
 		if err != nil {
 			return err
 		}

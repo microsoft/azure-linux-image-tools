@@ -38,3 +38,5 @@ output:
 previewFeatures:
 - output-artifacts
 ```
+
+Added in v0.XX.

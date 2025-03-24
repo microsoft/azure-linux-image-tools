@@ -41,13 +41,3 @@ func TestArtifactsIsValid_InvalidItemsPathCombination(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "'items' and 'path' must both be specified and non-empty")
 }
-
-func TestArtifactsIsValid_InvalidPath(t *testing.T) {
-	artifacts := Artifacts{
-		Items: []OutputArtifactsItemType{OutputArtifactsItemUkis},
-		Path:  "/invalid path",
-	}
-	err := artifacts.IsValid()
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid 'path' field")
-}

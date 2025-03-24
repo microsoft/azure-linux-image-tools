@@ -53,7 +53,7 @@ Added in v0.3.
 
 ## previewFeatures [string[]]
 
-Enables experimental and preview features that are not yet generally available.
+Enables experimental and preview features that are not yet generally available.  
 Features listed under previewFeatures must be explicitly included in the Image
 Customizer configuration to enable their usage.
 
@@ -61,32 +61,32 @@ Supported options:
 
 - `uki`: Enables the Unified Kernel Image (UKI) feature.
 
-  When this option is specified, The `os.uki` configuration becomes available. A
+  When this option is specified, the `os.uki` configuration becomes available. A
   valid `os.bootloader.reset` value of `hard-reset` is required when `os.uki` is
   configured.
 
   Added in v0.8.
 
-Example:
+  Example:
 
-```yaml
-os:
-  bootloader:
-    resetType: hard-reset
-  uki:
-    kernels: auto
-previewFeatures:
-- uki
-```
-
-Added in v0.8.
+  ```yaml
+  os:
+    bootloader:
+      resetType: hard-reset
+    uki:
+      kernels: auto
+  previewFeatures:
+  - uki
+  ```
 
 - `output-artifacts`: Enables the configuration for the output directory
   containing the generated artifacts.
 
-  When this option is specified, The `output-artifacts` configuration becomes available.
+  When this option is specified, the `output.artifacts` configuration becomes available.
 
   See [Output Artifacts](./outputArtifacts.md) for more details.
+
+  Added in v0.XX.
 
 ## output [[output](./output.md)]
 

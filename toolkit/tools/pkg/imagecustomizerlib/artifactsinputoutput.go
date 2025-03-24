@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -47,25 +46,17 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType, outputD
 	}
 
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
-	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
+		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
 	// Detect system architecture
-	arch := runtime.GOARCH
-	var shimBinaryName, systemdBootBinaryName string
-
-	switch arch {
-	case "amd64", "x86_64":
-		shimBinaryName = "bootx64.efi"
-		systemdBootBinaryName = "systemd-bootx64.efi"
-	case "arm64":
-		shimBinaryName = "bootaa64.efi"
-		systemdBootBinaryName = "systemd-bootaa64.efi"
-	default:
-		return fmt.Errorf("unsupported architecture: %s", arch)
+	_, bootConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
 	}
 
 	// Output UKIs
@@ -90,8 +81,8 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType, outputD
 
 	// Output shim
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemShim) {
-		srcPath := filepath.Join(systemBootPartitionTmpDir, ShimDir, shimBinaryName)
-		destPath := filepath.Join(outputDir, shimBinaryName)
+		srcPath := filepath.Join(systemBootPartitionTmpDir, ShimDir, bootConfig.bootBinary)
+		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
@@ -100,8 +91,8 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType, outputD
 
 	// Output systemd-boot
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemSystemdBoot) {
-		srcPath := filepath.Join(systemBootPartitionTmpDir, SystemdBootDir, systemdBootBinaryName)
-		destPath := filepath.Join(outputDir, systemdBootBinaryName)
+		srcPath := filepath.Join(systemBootPartitionTmpDir, SystemdBootDir, bootConfig.systemdBootBinary)
+		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)

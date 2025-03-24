@@ -41,6 +41,9 @@ const (
 	grubx64NoPrefixBinary  = "grubx64-noprefix.efi"
 	grubAA64NoPrefixBinary = "grubaa64-noprefix.efi"
 
+	systemdBootx64Binary  = "systemd-bootx64.efi"
+	systemdBootAA64Binary = "systemd-bootaa64.efi"
+
 	grubCfgDir     = "/boot/grub2"
 	isoGrubCfg     = "grub.cfg"
 	isoGrubCfgPath = grubCfgDir + "/" + isoGrubCfg
@@ -94,6 +97,7 @@ type BootFilesArchConfig struct {
 	bootBinary                  string
 	grubBinary                  string
 	grubNoPrefixBinary          string
+	systemdBootBinary           string
 	osEspBootBinaryPath         string
 	osEspGrubBinaryPath         string
 	osEspGrubNoPrefixBinaryPath string
@@ -107,6 +111,7 @@ var (
 			bootBinary:                  bootx64Binary,
 			grubBinary:                  grubx64Binary,
 			grubNoPrefixBinary:          grubx64NoPrefixBinary,
+			systemdBootBinary:           systemdBootx64Binary,
 			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64Binary,
 			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
 			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
@@ -117,6 +122,7 @@ var (
 			bootBinary:                  bootAA64Binary,
 			grubBinary:                  grubAA64Binary,
 			grubNoPrefixBinary:          grubAA64NoPrefixBinary,
+			systemdBootBinary:           systemdBootAA64Binary,
 			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64Binary,
 			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
 			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
