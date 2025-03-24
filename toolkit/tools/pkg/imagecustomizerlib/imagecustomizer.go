@@ -566,7 +566,7 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	err = validateInput(config.Input, inputImageFile)
+	err = validateInput(baseConfigPath, config.Input, inputImageFile)
 	if err != nil {
 		return err
 	}
@@ -594,9 +594,24 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 	return nil
 }
 
-func validateInput(input imagecustomizerapi.Input, inputImageFile string) error {
+func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) error {
 	if inputImageFile == "" && input.Image.Path == "" {
 		return fmt.Errorf("input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'")
+	}
+
+	if inputImageFile != "" {
+		if yes, err := file.IsFile(inputImageFile); err != nil {
+			return fmt.Errorf("invalid command-line option '--image-file': '%s'\n%w", inputImageFile, err)
+		} else if !yes {
+			return fmt.Errorf("invalid command-line option '--image-file': '%s'\nnot a file", inputImageFile)
+		}
+	} else {
+		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
+		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
+			return fmt.Errorf("invalid config file property 'input.image.path': '%s'\n%w", input.Image.Path, err)
+		} else if !yes {
+			return fmt.Errorf("invalid config file property 'input.image.path': '%s'\nnot a file", input.Image.Path)
+		}
 	}
 
 	return nil
