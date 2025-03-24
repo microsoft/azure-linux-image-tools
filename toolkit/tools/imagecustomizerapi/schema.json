@@ -30,6 +30,21 @@
       },
       "type": "array"
     },
+    "Artifacts": {
+      "properties": {
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BootLoader": {
       "properties": {
         "resetType": {
@@ -305,7 +320,7 @@
           "$ref": "#/$defs/OutputImage"
         },
         "artifacts": {
-          "$ref": "#/$defs/OutputArtifacts"
+          "$ref": "#/$defs/Artifacts"
         }
       },
       "additionalProperties": false,
@@ -319,19 +334,6 @@
         "format": {
           "type": "string"
         }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
-    "OutputArtifacts": {
-      "properties": {
-        "path": {
-          "type": "string"
-        },
-        "items": {
-          "type": "string"
-        },
-        "type": "array"
       },
       "additionalProperties": false,
       "type": "object"
