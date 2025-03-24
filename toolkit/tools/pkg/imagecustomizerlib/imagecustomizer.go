@@ -291,6 +291,16 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
 	}
 
+	if config.Output.Artifacts != nil {
+		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
+
+		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
+			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts)
 	if err != nil {
 		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
