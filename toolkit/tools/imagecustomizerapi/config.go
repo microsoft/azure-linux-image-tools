@@ -10,14 +10,14 @@ import (
 )
 
 type Config struct {
-	Input           Input    `yaml:"input" json:"input,omitempty"`
-	Storage         Storage  `yaml:"storage" json:"storage,omitempty"`
-	Iso             *Iso     `yaml:"iso" json:"iso,omitempty"`
-	Pxe             *Pxe     `yaml:"pxe" json:"pxe,omitempty"`
-	OS              *OS      `yaml:"os" json:"os,omitempty"`
-	Scripts         Scripts  `yaml:"scripts" json:"scripts,omitempty"`
-	PreviewFeatures []string `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
-	Output          Output   `yaml:"output" json:"output,omitempty"`
+	Input           Input            `yaml:"input" json:"input,omitempty"`
+	Storage         Storage          `yaml:"storage" json:"storage,omitempty"`
+	Iso             *Iso             `yaml:"iso" json:"iso,omitempty"`
+	Pxe             *Pxe             `yaml:"pxe" json:"pxe,omitempty"`
+	OS              *OS              `yaml:"os" json:"os,omitempty"`
+	Scripts         Scripts          `yaml:"scripts" json:"scripts,omitempty"`
+	PreviewFeatures []PreviewFeature `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
+	Output          Output           `yaml:"output" json:"output,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -57,7 +57,7 @@ func (c *Config) IsValid() (err error) {
 
 		if c.OS.Uki != nil {
 			// Ensure "uki" is included in PreviewFeatures at this time.
-			if !sliceutils.ContainsValue(c.PreviewFeatures, "uki") {
+			if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureUki) {
 				return fmt.Errorf("the 'uki' preview feature must be enabled to use 'os.uki'")
 			}
 
@@ -91,8 +91,8 @@ func (c *Config) IsValid() (err error) {
 
 	if c.Output.Artifacts != nil {
 		// Ensure "outputArtifacts" is included in PreviewFeatures at this time.
-		if !sliceutils.ContainsValue(c.PreviewFeatures, "output.artifacts") {
-			return fmt.Errorf("the 'output.artifacts' preview feature must be enabled to use 'output.artifacts'")
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputArtifacts) {
+			return fmt.Errorf("the 'output-artifacts' preview feature must be enabled to use 'output.artifacts'")
 		}
 	}
 

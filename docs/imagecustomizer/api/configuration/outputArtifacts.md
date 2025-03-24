@@ -10,12 +10,15 @@ artifacts, including UKI PE images, shim and systemd-boot.
 Example:
 
 ```yaml
-artifacts:
-  items: 
-  - ukis
-  - shim
-  - systemdBoot
-  path: /home/usr/output
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - systemd-boot
+    path: ./output
+previewFeatures:
+- output-artifacts
 ```
 
 ## path [string]
@@ -30,15 +33,13 @@ Required.
 
 Specifies the artifacts that will be selected to output after the image customization.
 
-### Supported Artifacts
+Supported values:
 
 - `ukis` – UKI PE images (`vmlinuz-<version>.efi`).
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
-- `systemdBoot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
+- `systemd-boot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
 
-### Additional Requirements
-
-The `output.artifacts` field must be used with the `output.artifacts` enabled in `PreviewFeatures`.
+The `output-artifacts` field must be used with the `output-artifacts` enabled in `previewFeatures`.
 
 These artifacts are generated in an unsigned format and must be signed externally if required.
 

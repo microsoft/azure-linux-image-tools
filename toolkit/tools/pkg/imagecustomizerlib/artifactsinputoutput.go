@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -22,10 +23,11 @@ import (
 const (
 	ShimDir        = "EFI/BOOT"
 	SystemdBootDir = "EFI/systemd"
-	UkiPattern     = `vmlinuz-.*\.efi$`
 )
 
-func outputArtifacts(items []imagecustomizerapi.Item, outputDir string, buildDir string, buildImage string) error {
+var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
+
+func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType, outputDir string, buildDir string, buildImage string) error {
 	logger.Log.Infof("Outputting artifacts")
 
 	loopback, err := safeloopback.NewLoopback(buildImage)
@@ -66,45 +68,43 @@ func outputArtifacts(items []imagecustomizerapi.Item, outputDir string, buildDir
 		return fmt.Errorf("unsupported architecture: %s", arch)
 	}
 
-	ukiRegex, err := regexp.Compile(UkiPattern)
-	if err != nil {
-		return fmt.Errorf("failed to compile UKI regex: %w", err)
-	}
+	// Output UKIs
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemUkis) {
+		ukiDir := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
+		dirEntries, err := os.ReadDir(ukiDir)
+		if err != nil {
+			return fmt.Errorf("failed to read UKI directory (%s):\n%w", ukiDir, err)
+		}
 
-	for _, item := range items {
-		switch item {
-		case imagecustomizerapi.ItemUkis:
-			ukiDir := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
-			dirEntries, err := os.ReadDir(ukiDir)
-			if err != nil {
-				return fmt.Errorf("failed to read UKI directory (%s):\n%w", ukiDir, err)
-			}
-
-			for _, entry := range dirEntries {
-				if !entry.IsDir() && ukiRegex.MatchString(entry.Name()) {
-					srcPath := filepath.Join(ukiDir, entry.Name())
-					destPath := filepath.Join(outputDir, entry.Name())
-					err := extractAndCopyArtifact(srcPath, destPath)
-					if err != nil {
-						return err
-					}
+		for _, entry := range dirEntries {
+			if !entry.IsDir() && ukiRegex.MatchString(entry.Name()) {
+				srcPath := filepath.Join(ukiDir, entry.Name())
+				destPath := filepath.Join(outputDir, entry.Name())
+				err := file.Copy(srcPath, destPath)
+				if err != nil {
+					return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 				}
 			}
-		case imagecustomizerapi.ItemShim:
-			srcPath := filepath.Join(systemBootPartitionTmpDir, ShimDir, shimBinaryName)
-			destPath := filepath.Join(outputDir, shimBinaryName)
-			err := extractAndCopyArtifact(srcPath, destPath)
-			if err != nil {
-				return err
-			}
+		}
+	}
 
-		case imagecustomizerapi.ItemSystemdBoot:
-			srcPath := filepath.Join(systemBootPartitionTmpDir, SystemdBootDir, systemdBootBinaryName)
-			destPath := filepath.Join(outputDir, systemdBootBinaryName)
-			err := extractAndCopyArtifact(srcPath, destPath)
-			if err != nil {
-				return err
-			}
+	// Output shim
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemShim) {
+		srcPath := filepath.Join(systemBootPartitionTmpDir, ShimDir, shimBinaryName)
+		destPath := filepath.Join(outputDir, shimBinaryName)
+		err := file.Copy(srcPath, destPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
+		}
+	}
+
+	// Output systemd-boot
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemSystemdBoot) {
+		srcPath := filepath.Join(systemBootPartitionTmpDir, SystemdBootDir, systemdBootBinaryName)
+		destPath := filepath.Join(outputDir, systemdBootBinaryName)
+		err := file.Copy(srcPath, destPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 		}
 	}
 
@@ -116,22 +116,6 @@ func outputArtifacts(items []imagecustomizerapi.Item, outputDir string, buildDir
 	err = loopback.CleanClose()
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func extractAndCopyArtifact(srcPath string, destPath string) error {
-	exists, err := file.PathExists(srcPath)
-	if err != nil {
-		return fmt.Errorf("failed to check file path (%s):\n%w", srcPath, err)
-	} else if !exists {
-		return fmt.Errorf("binary not found at expected location: %s", srcPath)
-	}
-
-	err = file.Copy(srcPath, destPath)
-	if err != nil {
-		return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 	}
 
 	return nil

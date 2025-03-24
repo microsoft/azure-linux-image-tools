@@ -10,7 +10,12 @@ import (
 )
 
 func TestItemIsValid_ValidItems(t *testing.T) {
-	validItems := []Item{ItemUkis, ItemShim, ItemSystemdBoot, ItemDefault}
+	validItems := []OutputArtifactsItemType{
+		OutputArtifactsItemUkis,
+		OutputArtifactsItemShim,
+		OutputArtifactsItemSystemdBoot,
+		OutputArtifactsItemDefault,
+	}
 
 	for _, item := range validItems {
 		err := item.IsValid()
@@ -19,7 +24,7 @@ func TestItemIsValid_ValidItems(t *testing.T) {
 }
 
 func TestItemIsValid_InvalidItem(t *testing.T) {
-	invalidItem := Item("invalidItem")
+	invalidItem := OutputArtifactsItemType("invalidItem")
 	err := invalidItem.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid item value")

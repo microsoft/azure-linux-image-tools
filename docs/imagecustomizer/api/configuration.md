@@ -237,6 +237,6 @@ os:
     - [image](./configuration/output.md#image-outputimage) ([outputImage type](./configuration/outputImage.md))
       - [path](./configuration/outputImage.md#path-string)
       - [format](./configuration/outputImage.md#format-string)
-    - [artifacts](./configuration/output.md#image-outputartifacts) ([outputArtifacts type](./configuration/outputArtifacts.md))
+    - [artifacts](./configuration/output.md#artifacts-outputartifacts) ([outputArtifacts type](./configuration/outputArtifacts.md))
       - [path](./configuration/outputArtifacts.md#path-string)
       - [items](./configuration/outputArtifacts.md#items-string)

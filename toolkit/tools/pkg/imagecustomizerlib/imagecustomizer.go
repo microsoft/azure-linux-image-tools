@@ -172,14 +172,6 @@ func createImageCustomizerParameters(buildDir string,
 		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
 	}
 
-	// output artifacts
-	ic.outputArtifactsDir = config.Output.Artifacts.Path
-
-	if (ic.outputArtifactsDir == "" && len(config.Output.Artifacts.Items) > 0) ||
-		(ic.outputArtifactsDir != "" && len(config.Output.Artifacts.Items) == 0) {
-		return nil, fmt.Errorf("output artifact path and output artifact items must be either both specified or neither")
-	}
-
 	if ic.inputIsIso {
 
 		// While re-creating a disk image from the iso is technically possible,
@@ -300,6 +292,15 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	err = customizeOSContents(imageCustomizerParameters)
 	if err != nil {
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
+	}
+
+	if config.Output.Artifacts != nil && config.Output.Artifacts.Path != "" {
+		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
+
+		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts)
@@ -463,13 +464,6 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if ic.config.OS.Uki != nil {
 		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
-		if err != nil {
-			return err
-		}
-	}
-
-	if ic.outputArtifactsDir != "" {
-		err = outputArtifacts(ic.config.Output.Artifacts.Items, ic.outputArtifactsDir, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
 		}

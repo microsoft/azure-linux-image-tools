@@ -15,8 +15,10 @@ func (o Output) IsValid() error {
 		return fmt.Errorf("invalid 'image' field:\n%w", err)
 	}
 
-	if err := o.Artifacts.IsValid(); err != nil {
-		return fmt.Errorf("invalid 'artifacts' field:\n%w", err)
+	if o.Artifacts != nil {
+		if err := o.Artifacts.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'artifacts' field:\n%w", err)
+		}
 	}
 
 	return nil

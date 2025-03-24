@@ -9,15 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestArtifactsIsValid_EmptyIsValid(t *testing.T) {
-	artifacts := Artifacts{}
-	err := artifacts.IsValid()
-	assert.NoError(t, err)
-}
-
 func TestArtifactsIsValid_InvalidItemIsInvalid(t *testing.T) {
 	artifacts := Artifacts{
-		Items: []Item{"invalidItem"},
+		Items: []OutputArtifactsItemType{"invalidItem"},
 		Path:  "/valid/path",
 	}
 	err := artifacts.IsValid()
@@ -27,8 +21,12 @@ func TestArtifactsIsValid_InvalidItemIsInvalid(t *testing.T) {
 
 func TestArtifactsIsValid_ValidArtifactsIsValid(t *testing.T) {
 	artifacts := Artifacts{
-		Items: []Item{ItemUkis, ItemShim, ItemSystemdBoot},
-		Path:  "/valid/path",
+		Items: []OutputArtifactsItemType{
+			OutputArtifactsItemUkis,
+			OutputArtifactsItemShim,
+			OutputArtifactsItemSystemdBoot,
+		},
+		Path: "/valid/path",
 	}
 	err := artifacts.IsValid()
 	assert.NoError(t, err)
@@ -36,18 +34,18 @@ func TestArtifactsIsValid_ValidArtifactsIsValid(t *testing.T) {
 
 func TestArtifactsIsValid_InvalidItemsPathCombination(t *testing.T) {
 	artifacts := Artifacts{
-		Items: []Item{ItemUkis},
+		Items: []OutputArtifactsItemType{OutputArtifactsItemUkis},
 		Path:  "",
 	}
 	err := artifacts.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'items' and 'path' should either both be provided or neither")
+	assert.ErrorContains(t, err, "'items' and 'path' must both be specified and non-empty")
 }
 
 func TestArtifactsIsValid_InvalidPath(t *testing.T) {
 	artifacts := Artifacts{
-		Items: []Item{ItemUkis},
-		Path:  "invalid_path\\with\\backslashes",
+		Items: []OutputArtifactsItemType{OutputArtifactsItemUkis},
+		Path:  "/invalid path",
 	}
 	err := artifacts.IsValid()
 	assert.Error(t, err)

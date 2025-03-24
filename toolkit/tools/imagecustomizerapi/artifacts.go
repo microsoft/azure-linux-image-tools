@@ -6,13 +6,13 @@ package imagecustomizerapi
 import "fmt"
 
 type Artifacts struct {
-	Items []Item `yaml:"items" json:"items,omitempty"`
-	Path  string `yaml:"path" json:"path,omitempty"`
+	Items []OutputArtifactsItemType `yaml:"items" json:"items,omitempty"`
+	Path  string                    `yaml:"path" json:"path,omitempty"`
 }
 
 func (a Artifacts) IsValid() error {
-	if (len(a.Items) == 0 && a.Path != "") || (len(a.Items) > 0 && a.Path == "") {
-		return fmt.Errorf("'items' and 'path' should either both be provided or neither")
+	if len(a.Items) == 0 || a.Path == "" {
+		return fmt.Errorf("'items' and 'path' must both be specified and non-empty")
 	}
 
 	for _, item := range a.Items {
@@ -22,7 +22,7 @@ func (a Artifacts) IsValid() error {
 		}
 	}
 
-	if err := validatePath(a.Path); err != nil {
+	if err := validatePathWithAbs(a.Path, false); err != nil {
 		return fmt.Errorf("invalid 'path' field:\n%w", err)
 	}
 

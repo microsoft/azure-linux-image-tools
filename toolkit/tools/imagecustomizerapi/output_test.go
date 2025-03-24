@@ -28,8 +28,8 @@ func TestOutputIsValid_InvalidImageIsInvalid(t *testing.T) {
 
 func TestOutputIsValid_InvalidArtifactsIsInvalid(t *testing.T) {
 	output := Output{
-		Artifacts: Artifacts{
-			Items: []Item{"invalidItem"},
+		Artifacts: &Artifacts{
+			Items: []OutputArtifactsItemType{"invalidItem"},
 			Path:  "/valid/path",
 		},
 	}
@@ -40,9 +40,13 @@ func TestOutputIsValid_InvalidArtifactsIsInvalid(t *testing.T) {
 
 func TestOutputIsValid_ValidArtifactsIsValid(t *testing.T) {
 	output := Output{
-		Artifacts: Artifacts{
-			Items: []Item{ItemUkis, ItemShim, ItemSystemdBoot},
-			Path:  "/valid/path",
+		Artifacts: &Artifacts{
+			Items: []OutputArtifactsItemType{
+				OutputArtifactsItemUkis,
+				OutputArtifactsItemShim,
+				OutputArtifactsItemSystemdBoot,
+			},
+			Path: "/valid/path",
 		},
 	}
 	err := output.IsValid()
@@ -51,21 +55,21 @@ func TestOutputIsValid_ValidArtifactsIsValid(t *testing.T) {
 
 func TestOutputIsValid_InvalidArtifactsPathCombination(t *testing.T) {
 	output := Output{
-		Artifacts: Artifacts{
-			Items: []Item{ItemUkis},
+		Artifacts: &Artifacts{
+			Items: []OutputArtifactsItemType{OutputArtifactsItemUkis},
 			Path:  "",
 		},
 	}
 	err := output.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'items' and 'path' should either both be provided or neither")
+	assert.ErrorContains(t, err, "'items' and 'path' must both be specified and non-empty")
 }
 
 func TestOutputIsValid_InvalidPath(t *testing.T) {
 	output := Output{
-		Artifacts: Artifacts{
-			Items: []Item{ItemUkis},
-			Path:  "invalid_path\\with\\backslashes",
+		Artifacts: &Artifacts{
+			Items: []OutputArtifactsItemType{OutputArtifactsItemUkis},
+			Path:  "/invalid path",
 		},
 	}
 	err := output.IsValid()
