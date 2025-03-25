@@ -124,6 +124,11 @@ def run_min_change_test(
         logging.debug(f"sleeping for 300 seconds")
         time.sleep(300)
 
+    local_client.run(
+        ["virsh",
+        "--connect", "qemu:///system",
+        "dumpxml", vm_spec.name])
+
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
 
