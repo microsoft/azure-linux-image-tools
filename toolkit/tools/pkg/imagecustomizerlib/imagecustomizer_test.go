@@ -191,29 +191,80 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 }
 
 func TestValidateInput_AcceptsValidPaths(t *testing.T) {
+	cwd, err := os.Getwd()
+	assert.NoError(t, err)
+
+	baseConfigPath := testDir
 	config := &imagecustomizerapi.Config{}
-	inputImageFile := filepath.Join(testDir, "testimages", "empty.vhdx")
+
+	inputImageFileFake := filepath.Join(testDir, "testimages", "doesnotexist.xxx")
+	inputImageFileReal := filepath.Join(testDir, "testimages", "empty.vhdx")
+	inputImageFileRealRelativeCwd, err := filepath.Rel(cwd, inputImageFileReal)
+	assert.NoError(t, err)
+	inputImageFileRealRelativeConfig, err := filepath.Rel(baseConfigPath, inputImageFileReal)
+	assert.NoError(t, err)
+
+	inputImageFile := inputImageFileReal
 	rpmSources := []string{}
 	outputImageFile := "out/image.vhdx"
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
 	useBaseImageRpmRepos := false
 
-	// The input image file is not specified in the config, but as an argument, so it should not return an error.
-	err := validateConfig(testDir, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	// The input image file can be specified as an argument without being specified in the config.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos)
 	assert.NoError(t, err)
 
-	config.Input.Image.Path = inputImageFile
+	inputImageFile = inputImageFileRealRelativeCwd
 
-	// The input image file is specified in both the config and as an argument, so it should not return an error.
-	err = validateConfig(testDir, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	// The input image file specified as an argument can be relative to the current working directory.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos)
 	assert.NoError(t, err)
+
+	inputImageFile = inputImageFileFake
+
+	// The input image file, specified as an argument, must be a file.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 
 	inputImageFile = ""
+	config.Input.Image.Path = inputImageFileReal
 
-	// The input image file is specified in the config, but not as an argument, so it should still not return an error.
-	err = validateConfig(testDir, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	// The input image file can be specified in the config without being specified as an argument.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Input.Image.Path = inputImageFileRealRelativeConfig
+
+	// The input image file specified in the config can be relative to the bash config path.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Input.Image.Path = inputImageFileFake
+
+	// The input image file, specified in the config, must be a file.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
+
+	inputImageFile = inputImageFileReal
+	config.Input.Image.Path = inputImageFileReal
+
+	// The input image file can be specified both as an argument and in the config.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Input.Image.Path = inputImageFileFake
+
+	// The input image file can even be invalid in the config if it is specified as an argument.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos)
 	assert.NoError(t, err)
 }
@@ -325,6 +376,13 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 }
 
 func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
+	cwd, err := os.Getwd()
+	assert.NoError(t, err)
+
+	buildDir := filepath.Join(tmpDir, "TestValidateOutput_AcceptsValidPaths")
+	err = os.MkdirAll(buildDir, os.ModePerm)
+	assert.NoError(t, err)
+
 	baseConfigPath := testDir
 	config := &imagecustomizerapi.Config{
 		Input: imagecustomizerapi.Input{
@@ -335,25 +393,131 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	}
 	inputImageFile := ""
 	rpmSources := []string{}
-	outputImageFile := "out/image.vhdx"
+
+	outputImageDir := filepath.Join(buildDir, "out")
+	err = os.MkdirAll(outputImageDir, os.ModePerm)
+	assert.NoError(t, err)
+	outputImageDirRelativeCwd, err := filepath.Rel(cwd, outputImageDir)
+	assert.NoError(t, err)
+	outputImageDirRelativeConfig, err := filepath.Rel(baseConfigPath, outputImageDir)
+	assert.NoError(t, err)
+
+	outputImageFileNew := filepath.Join(outputImageDir, "new.vhdx")
+	outputImageFileNewRelativeCwd, err := filepath.Rel(cwd, outputImageFileNew)
+	assert.NoError(t, err)
+	outputImageFileNewRelativeConfig, err := filepath.Rel(baseConfigPath, outputImageFileNew)
+	assert.NoError(t, err)
+
+	outputImageFileExists := filepath.Join(outputImageDir, "exists.vhdx")
+	err = file.Write("", outputImageFileExists)
+	assert.NoError(t, err)
+	outputImageFileExistsRelativeCwd, err := filepath.Rel(cwd, outputImageFileExists)
+	assert.NoError(t, err)
+	outputImageFileExistsRelativeConfig, err := filepath.Rel(baseConfigPath, outputImageFileExists)
+	assert.NoError(t, err)
+
+	outputImageFile := outputImageFileNew
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
 	useBaseImageRpmRepos := false
 
-	// The output image file is not specified in the config, but as an argument, so it should not return an error.
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	// The output image file can be sepcified as an argument without being in specified the config.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos)
 	assert.NoError(t, err)
 
-	config.Output.Image.Path = outputImageFile
+	outputImageFile = outputImageFileNewRelativeCwd
 
-	// The output image file is specified in both the config and as an argument, so it should not return an error.
+	// The output image file can be specified as an argument relative to the current working directory.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	outputImageFile = outputImageDir
+
+	// The output image file, specified as an argument, must not be a directory.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "is a directory")
+
+	outputImageFile = outputImageDirRelativeCwd
+
+	// The above is also true for relative paths.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "is a directory")
+
+	outputImageFile = outputImageFileExists
+
+	// The output image file, specified as an argument, may be a file that already exists.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	outputImageFile = outputImageFileExistsRelativeCwd
+
+	// The above is also true for relative paths.
 	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos)
 	assert.NoError(t, err)
 
 	outputImageFile = ""
+	config.Output.Image.Path = outputImageFileNew
 
-	// The output image file is specified in the config, but not as an argument, so it still should not return an error.
+	// The output image file cab be specified in the config without being specified as an argument.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Output.Image.Path = outputImageFileNewRelativeConfig
+
+	// The output image file can be specified in the config relative to the base config path.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Output.Image.Path = outputImageDir
+
+	// The output image file, specified in the config, must not be a directory.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "is a directory")
+
+	config.Output.Image.Path = outputImageDirRelativeConfig
+
+	// The above is also true for relative paths.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "is a directory")
+
+	config.Output.Image.Path = outputImageFileExists
+
+	// The output image file, specified in the config, may be a file that already exists.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Output.Image.Path = outputImageFileExistsRelativeConfig
+
+	// The above is also true for relative paths.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	outputImageFile = outputImageFileNew
+	config.Output.Image.Path = outputImageFileNew
+
+	// The output image file can be specified both as an argument and in the config.
+	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+		useBaseImageRpmRepos)
+	assert.NoError(t, err)
+
+	config.Output.Image.Path = outputImageDir
+
+	// The output image file can even be invalid in the config if it is specified as an argument.
 	err = validateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos)
 	assert.NoError(t, err)
@@ -554,11 +718,11 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	err = os.Remove(outputImageFilePathAsConfig)
 	assert.NoError(t, err)
 
-	config.Output.Image.Path = outputImageFilePathAsConfig
+	config.Output.Image.Path = buildDir
 	outputImageFile = outputImageFileAsArgument
 
-	// Pass the output image file through both the config and the argument. The argument is ultimately used, so it will
-	// be created, while the config's Path will not.
+	// Pass the output image file through both the config and the argument. The config's Path is ignored, so even though
+	// it is a directory, there will be no error.
 	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, outputPXEArtifactsDir, useBaseImageRpmRepos)
 	assert.NoError(t, err)
