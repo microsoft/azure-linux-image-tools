@@ -134,21 +134,19 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Removing packages: %v", allPackagesToRemove)
 
-	tdnfRemoveArgs := []string{
-		"-v", "remove", "--assumeyes", "--disablerepo", "*",
-		// Placeholder for package name.
-		"",
+	if len(allPackagesToRemove) <= 0 {
+		return nil
 	}
 
-	// Remove packages.
-	// Do this one at a time, to avoid running out of memory.
-	for _, packageName := range allPackagesToRemove {
-		tdnfRemoveArgs[len(tdnfRemoveArgs)-1] = packageName
+	tdnfRemoveArgs := []string{
+		"-v", "remove", "--assumeyes", "--disablerepo", "*",
+	}
 
-		err := callTdnf(tdnfRemoveArgs, tdnfRemovePrefix, imageChroot)
-		if err != nil {
-			return fmt.Errorf("failed to remove package (%s):\n%w", packageName, err)
-		}
+	tdnfRemoveArgs = append(tdnfRemoveArgs, allPackagesToRemove...)
+
+	err := callTdnf(tdnfRemoveArgs, tdnfRemovePrefix, imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
 	}
 
 	return nil
@@ -171,25 +169,23 @@ func updateAllPackages(imageChroot *safechroot.Chroot) error {
 }
 
 func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot) error {
+	if len(allPackagesToAdd) <= 0 {
+		return nil
+	}
+
 	// Create tdnf command args.
 	// Note: When using `--repofromdir`, tdnf will not use any default repos and will only use the last
 	// `--repofromdir` specified.
 	tdnfInstallArgs := []string{
 		"-v", action, "--nogpgcheck", "--assumeyes", "--cacheonly",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
-		// Placeholder for package name.
-		"",
 	}
 
-	// Install packages.
-	// Do this one at a time, to avoid running out of memory.
-	for _, packageName := range allPackagesToAdd {
-		tdnfInstallArgs[len(tdnfInstallArgs)-1] = packageName
+	tdnfInstallArgs = append(tdnfInstallArgs, allPackagesToAdd...)
 
-		err := callTdnf(tdnfInstallArgs, tdnfInstallPrefix, imageChroot)
-		if err != nil {
-			return fmt.Errorf("failed to %s package (%s):\n%w", action, packageName, err)
-		}
+	err := callTdnf(tdnfInstallArgs, tdnfInstallPrefix, imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
 	}
 
 	return nil
@@ -223,7 +219,6 @@ func callTdnf(tdnfArgs []string, tdnfMessagePrefix string, imageChroot *safechro
 }
 
 func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool {
-
 	err := imageChroot.UnsafeRun(func() error {
 		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
 		return err
