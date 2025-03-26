@@ -112,13 +112,6 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
 	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
 
-	// Check if the input file exists and is accessible.
-	// Pre-checking this ensures the error message is friendly.
-	_, err = os.Stat(ic.inputImageFile)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create a uuid for the image
 	imageUuid, imageUuidStr, err := createUuid()
 	if err != nil {
