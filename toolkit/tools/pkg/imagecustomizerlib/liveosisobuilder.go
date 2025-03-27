@@ -1842,14 +1842,8 @@ func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArti
 
 	logger.Log.Infof("Copying PXE artifacts to (%s)", outputPXEArtifactsDir)
 
-	// Ensure output folder is clean.
-	err := os.RemoveAll(outputPXEArtifactsDir)
-	if err != nil {
-		return fmt.Errorf("failed to remove (%s):\n%w", outputPXEArtifactsDir, err)
-	}
-
 	// Extract all files from the iso image file.
-	err = extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)
+	err := extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return err
 	}
