@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Overview
+title: Home
 nav_order: 1
 ---
 
@@ -8,6 +8,5 @@ nav_order: 1
 
 We provide a range of open-source tools to simplify your developer experience on Azure Linux and sometimes, other distros. In this repo, you'll find documentation for for the following tools:
 
-- Image Customizer:
+- Image Customizer
 - *... more coming soon!*
-
