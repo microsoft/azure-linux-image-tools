@@ -199,10 +199,10 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         # controller_scsi.attrib["index"] = "0"
         # controller_scsi.attrib["model"] = "virtio-scsi"
 
-        # controller_scsi = ET.SubElement(devices, "controller")
-        # controller_scsi.attrib["type"] = "sata"
-        # controller_scsi.attrib["index"] = "0"
-        # controller_scsi.attrib["model"] = "virtio-sata"
+        controller_scsi = ET.SubElement(devices, "controller")
+        controller_scsi.attrib["type"] = "sata"
+        controller_scsi.attrib["index"] = "0"
+        controller_scsi.attrib["model"] = "virtio-sata"
 
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "file"
