@@ -320,11 +320,34 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		if err != nil {
 			return fmt.Errorf("failed to build UKI for kernel (%s):\n%w", kernel, err)
 		}
+
+		// Generate a .pcrlock file via systemd-pcrlock based on the specified UKI PE binary
+		ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.unsigned.efi", kernel))
+		pcrlockFilePath := "/var/lib/pcrlock.d/650-uki.pcrlock.d/generated.pcrlock"
+
+		// Build the UKI using ukify.
+		pcrlockCommand := []string{
+			"lock-uki", ukiFullPath,
+			fmt.Sprintf("--pcrlock=%s", pcrlockFilePath),
+		}
+
+		err = shell.ExecuteLiveWithErr(1, "/usr/lib/systemd/systemd-pcrlock", pcrlockCommand...)
+		if err != nil {
+			return fmt.Errorf("failed to generate a .pcrlock file with lock-uki command (%s):\n%w", pcrlockFilePath, err)
+		}
+
+		// Read and return .pcrlock file contents
+		pcrlockData, err := os.ReadFile(pcrlockFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to read generated .pcrlock file (%s):\n%w", pcrlockFilePath, err)
+		}
+
+		logger.Log.Infof("Successfully generated .pcrlock file at %s:\n%s", pcrlockFilePath, string(pcrlockData))
 	}
 
 	err = cleanupUkiBuildDir(buildDir)
 	if err != nil {
-		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
+		return fmt.Errorf("error during cleanup UKI build dir:\n%w", err)
 	}
 
 	err = cleanupBootPartition(bootPartitionTmpDir)
@@ -438,6 +461,7 @@ func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubrele
 		"-c", configFilePath, "build",
 		fmt.Sprintf("--stub=%s", stubPath),
 		fmt.Sprintf("--output=%s", ukiFullPath),
+		"--measure",
 	}
 
 	err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
