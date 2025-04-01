@@ -32,10 +32,7 @@ System extensions may be delivered in several formats:
 - Raw disk images without a partition table, using a naked Linux file system such as
   erofs, squashfs, or ext4
 
-This doc focuses on GPT-labeled disk images because they offer strong standardization,
-compatibility with the Discoverable Partitions Specification, and support for integrity
-features like `dm-verity`. This makes them ideal for production environments where
-immutability, verifiability, and consistent system behavior are critical.
+This doc focuses on Raw disk images.
 
 A properly formatted sysext image will typically contain:
 
