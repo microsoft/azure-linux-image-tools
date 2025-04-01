@@ -121,8 +121,8 @@ def run_min_change_test(
     vm.start()
 
     if platform.machine() == 'aarch64':
-        logging.debug(f"sleeping for 300 seconds")
-        time.sleep(300)
+        logging.debug(f"sleeping for 600 seconds")
+        time.sleep(600)
 
     local_client.run(
         ["virsh",
