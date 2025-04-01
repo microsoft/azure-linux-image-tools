@@ -39,14 +39,11 @@ immutability, verifiability, and consistent system behavior are critical.
 
 A properly formatted sysext image will typically contain:
 
-| Partition Name                     | Description                                       |
-|------------------------------------|---------------------------------------------------|
-| **Root Filesystem Partition**      | Contains the extension's files (e.g., binaries,   |
-|                                    | libraries, configurations).                        |
-| **Verity Hash Partition**          | Stores a Merkle tree hash of the root filesystem, |
-| **(Optional)**                     | enabling dm-verity for integrity checks.          |
-| **Signature Partition**            | Holds a digital signature verifying the integrity |
-| **(Optional)**                     | of the hash data.                                 |
+| Partition Name              | Description                                                                 |
+|----------------------------|-----------------------------------------------------------------------------|
+| Root Filesystem Partition  | Contains the extension's files (e.g., binaries, libraries, configurations). |
+| Verity Hash Partition (optional)      | Stores a Merkle tree hash of the root filesystem for dm-verity integrity.  |
+| Signature Partition  (optional)     | Holds a digital signature verifying the integrity of the hash data.        |
 
 # Building Sysext Images with mkosi
 
@@ -167,7 +164,7 @@ To have your sysext extensions automatically applied at boot time, ensure
 systemd-sysext.service is active so that `systemd-sysext merge` is triggered automatically
 at boot.
 
-Example Prism config.yaml:
+Example Prism config
 ```yaml
 # config.yaml
 os:
