@@ -213,7 +213,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to customize raw image")
-	assert.ErrorContains(t, err, "failed to install package (gcc)")
+	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }
 
 func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirPath string) {
