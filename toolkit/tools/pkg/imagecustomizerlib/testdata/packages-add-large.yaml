@@ -1,0 +1,62 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      size: 10G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+      # Install a large number of packages, mainly by picking packages with lots of dependencies.
+    - llvm
+    - gcc
+    - clang
+    - kubernetes
+    - fluent-bit
+    - kernel-devel
+    - perl
+    - python3
+    - ocaml
+    - mariadb
+    - ceph
+    - curl
+    - lvm2
+    - etcd
+    - fuse
+    - gdb
+    - golang
+    - grpc
+    - java
+    - lldb
+    - lua
+    - moby-engine
+    - nodejs
+    - postgresql
+    - qemu
+    - libvirt
+    - ruby
+    - rust
+    - xz
+    - zstd
