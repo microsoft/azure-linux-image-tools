@@ -32,7 +32,10 @@ System extensions may be delivered in several formats:
 - Raw disk images without a partition table, using a naked Linux file system such as
   erofs, squashfs, or ext4
 
-This doc focuses on Raw disk images.
+This doc focuses on GPT-labeled disk images because they offer strong standardization,
+compatibility with the Discoverable Partitions Specification, and support for integrity
+features like `dm-verity`. This makes them ideal for production environments where
+immutability, verifiability, and consistent system behavior are critical.
 
 A properly formatted sysext image will typically contain:
 
@@ -40,7 +43,7 @@ A properly formatted sysext image will typically contain:
 |----------------------------|-----------------------------------------------------------------------------|
 | Root Filesystem Partition  | Contains the extension's files (e.g., binaries, libraries, configurations). |
 | Verity Hash Partition (optional)      | Stores a Merkle tree hash of the root filesystem for dm-verity integrity.  |
-| Signature Partition  (optional)     | Holds a digital signature verifying the integrity of the hash data.        |
+| Signature Partition  ()     | Holds a digital signature verifying the integrity of the hash data.        |
 
 # Building Sysext Images with mkosi
 
