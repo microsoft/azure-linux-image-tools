@@ -128,20 +128,15 @@ The Verity= setting determines how your sysext image is secured:
   external signing).
 - hash: Hash verification only (no signature).
 - false: No verity at all (unsigned, unverified image).
-- VerityKey=verity_key.pem → The private key used for signing.
-- VerityCertificate=verity_cert.crt → The public certificate used for verification.
+- VerityKey=verity_key.pem: The private key used for signing.
+- VerityCertificate=verity_cert.crt: The public certificate used for verification.
 
 ### [Content] Section
 
 The `ExtraTrees=` setting specifies which binaries or files to include in the `sysext`
 image.
-
 Format:
 `source_path:destination_path` (comma-separated for multiple entries)
-
-Examples:
-- `/usr/local/bin/kubectl:/usr/local/bin/kubectl` — Copies the `kubectl` binary.
-- `/usr/local/bin/kubelet:/usr/local/bin/kubelet` — Copies the `kubelet` binary.
 
 ## Build and validate the Image
 ```
@@ -156,17 +151,23 @@ When a sysext image is built with the configurations above, it contains three pa
 | kubernetes.raw2   | 79984        | 100463     | 10M   | Linux root verity (x86-64) |
 | kubernetes.raw3   | 100464       | 100495     | 16K   | Linux root verity sign. (x86-64)|
 
-- kubernetes.raw1 - main filesystem partition (contains kubectl and kubelet)
-- kubernetes.raw2 - contains the Merkle tree hash data used to verify the integrity of
+- kubernetes.raw1: main filesystem partition (contains kubectl and kubelet)
+- kubernetes.raw2: contains the Merkle tree hash data used to verify the integrity of
   the main filesystem partition
-- kubernetes.raw3 - contains the verity signature
+- kubernetes.raw3: contains the verity signature
 
 # Integrate Sysext image into base image through Prism
 
 As part of its image customization process, Prism can include the .raw image into
-/var/lib/extensions/, along with public certificate (verity_cert.pem) used for signing
-the sysext.
+/var/lib/extensions/. The public certificate verity_cert.crt can be placed under /etc/verity.d/
+if you'd like for persistent certificate storage across reboots, or be copied to /run/verity.d/
+at runtime for temporary certificate storage that will be cleared after system restart.
 
+To have your sysext extensions automatically applied at boot time, ensure
+systemd-sysext.service is active so that `systemd-sysext merge` is triggered automatically
+at boot.
+
+Example Prism config.yaml:
 ```yaml
 # config.yaml
 os:
@@ -182,10 +183,6 @@ scripts:
       systemctl enable systemd-sysext.service
       systemctl start systemd-sysext.service
 ```
-
-To have your sysext extensions automatically applied at boot time, ensure
-systemd-sysext.service is active so that `systemd-sysext merge` is triggered automatically
-at boot. Ensure verity_cert.crt is either placed or 
 
 Systemd Verification Process at Runtime:
 
