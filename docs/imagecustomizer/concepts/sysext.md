@@ -39,11 +39,11 @@ immutability, verifiability, and consistent system behavior are critical.
 
 A properly formatted sysext image will typically contain:
 
-| Partition Name              | Description                                                                 |
-|----------------------------|-----------------------------------------------------------------------------|
-| Root Filesystem Partition  | Contains the extension's files (e.g., binaries, libraries, configurations). |
-| Verity Hash Partition (optional)      | Stores a Merkle tree hash of the root filesystem for dm-verity integrity.  |
-| Signature Partition  ()     | Holds a digital signature verifying the integrity of the hash data.        |
+| Partition Name                   | Description                                                                 |
+|----------------------------------|-----------------------------------------------------------------------------|
+| Root Filesystem Partition        | Contains the extension's files (e.g., binaries, libraries, configurations). |
+| Verity Hash Partition (optional) | Stores a Merkle tree hash of the root filesystem for dm-verity integrity.   |
+| Signature Partition (optional)   | Holds a digital signature verifying the integrity of the hash data.         |
 
 # Building Sysext Images with mkosi
 
@@ -80,16 +80,16 @@ Or install via package manager.
     - Verity hash partition (used for integrity verification)
     - Signature partition (optional, contains cryptographic signature)
 
-   Typically, users can create customized sysext.repart.d/ files for certain aspects of
-   the image structure. However, when using Format=sysext - unlike Format=disk, you
-   cannot completely replace these definitions with your own custom repart
-   configurations. **For format=sysext, mkosi is specifically using its own predefined
-   repart definitions located at 
-   [mkosi/resources/repart/definitions/sysext.repart.d](https://github.com/systemd/mkosi/tree/e4be13971af896ac6301b78cb045fb4cbe7a2b04/mkosi/resources/repart/definitions/sysext.repart.d).
-   If you need to modify the partition structure (e.g., to change filesystem types or
-   partition sizes), you'll need to edit the .conf files in the mkosi installation
-   directory, which will be in the system paths if installed via package manager or in
-   the cloned repository.**
+  Typically, users can create customized sysext.repart.d/ files for certain aspects of
+  the image structure. However, when using Format=sysext - unlike Format=disk, you
+  cannot completely replace these definitions with your own custom repart
+  configurations. **For format=sysext, mkosi is specifically using its own predefined
+  repart definitions located at [mkosi/resources/repart/definitions/sysext.repart.d]
+  (https://github.com/systemd/mkosi/tree/main/mkosi/resources/repart/definitions/sysext.repart.d)
+  If you need to modify the partition structure (e.g., to change filesystem types or
+  partition sizes), you'll need to edit the .conf files in the mkosi installation
+  directory, which will be in the system paths if installed via package manager or in
+  the cloned repository.
 
 Example mkosi.conf
 
@@ -106,7 +106,7 @@ VerityKey=verity_key.pem
 VerityCertificate=verity_cert.crt
 
 [Content]
-ExtraTrees=/usr/local/bin/kubectl:/usr/local/bin/kubectl, /usr/local/bin/kubelet:/usr/local/bin/kubelet
+ExtraTrees=/usr/local/bin/kubectl:/usr/local/bin/kubectl,/usr/local/bin/kubelet:/usr/local/bin/kubelet
 ```
 
 ### [Output] Section
@@ -120,7 +120,8 @@ ExtraTrees=/usr/local/bin/kubectl:/usr/local/bin/kubectl, /usr/local/bin/kubelet
 ### [Validation] Section
 The Verity= setting determines how your sysext image is secured:
 - signed: Fully signed image with both hash data and a cryptographic signature (requires
-  VerityKey & VerityCertificate).
+  VerityKey & VerityCertificate). Only X.509 certificates are supported for signing dm-verity
+  partitions in systemd-sysext.
 - defer: Allocates space for a signature but does not populate it yet (useful for
   external signing).
 - hash: Hash verification only (no signature).
@@ -155,10 +156,15 @@ When a sysext image is built with the configurations above, it contains three pa
 
 # Integrate Sysext image into base image through Prism
 
+These system extension procedures work seamlessly on Azure Linux 3.0, which include the
+required systemd tooling. For older versions like Azure Linux 2.0, additional patches or
+configuration may be needed to ensure compatibility with the mkosi build environment.
+
 As part of its image customization process, Prism can include the .raw image into
-/var/lib/extensions/. The public certificate verity_cert.crt can be placed under /etc/verity.d/
-if you'd like for persistent certificate storage across reboots, or be copied to /run/verity.d/
-at runtime for temporary certificate storage that will be cleared after system restart.
+/var/lib/extensions/. The public certificate verity_cert.crt can be placed under
+/etc/verity.d/ if you'd like for persistent certificate storage across reboots, or be
+copied to /run/verity.d/ at runtime for temporary certificate storage that will be cleared
+after system restart.
 
 To have your sysext extensions automatically applied at boot time, ensure
 systemd-sysext.service is active so that `systemd-sysext merge` is triggered automatically
@@ -195,26 +201,49 @@ To check whether a system extension has been successfully loaded:
 ```
 systemd-sysext status
 ```
+As we specified kubernetes binaries to be under /usr, only /usr was overlaid from the sysext image.
+We will see:
+
+| HIERARCHY | EXTENSIONS | SINCE                      |
+|-----------|------------|----------------------------|
+| /opt      | none       | -                          |
+| /usr      | kubernetes | Tue 2025-04-01 16:51:25 UTC |
 
 # What if Prism and sysext create overlay on the same mount point?
 
 Prism has an API for overlay creation, so there could be a case where Prism and sysext create overlay on
-the same mount point. Here is what will happen:
+the same mount point. They interact in a specific way that affects system behavior:
 
-Prism creating an overlay first (e.g. for /usr or /opt)
-systemd-sysext trying to create another overlay on the same mount point
+- Mounting Sequence:
 
-When systemd-sysext detects this situation, it automatically adds the redirect_dir=on option
-to allow its overlay to function without fully merging with the existing one. This is a way to
-stack its overlay on top of the existing overlay. It "redirects" directory lookup operations to
-the appropriate layer rather than merging directory contents. 
+  Prism's overlay mounts first during the boot process
+  When systemd-sysext later attempts to create its overlay on the same mount point
+  systemd-sysext detects the existing overlay and automatically adds the redirect_dir=on
+  option
 
-Binaries and files would not be visible in the PATH lookup. You can either 
-use full paths to access the binaries directly
-(e.g., /usr/local/bin/kubectl instead of just kubectl), or create symbolic links from a 
-directory that is properly in your PATH to the actual binary locations.
+- How redirect_dir=on Changes Behavior:
 
-If Prism doesn't create overlays on /usr or /opt, then systemd-sysext would be
-the only system creating overlays on these directories, and there would be no need for the
-redirect_dir=on option. These overlays would function normally, without redirection
-Binaries and files would be properly visible in the PATH lookup.
+  Standard overlays perform a complete merge of all layers, presenting files from all
+  sources as if they were in a single directory
+  With redirect_dir=on, systemd-sysext doesn't fully merge with Prism's overlay
+  Instead, it redirects directory lookups to specific layers based on the access path
+  This creates a partial separation between the two overlay systems
+
+- Impact:
+
+  Prism's overlay continues to merge its upper and lower directories normally
+  systemd-sysext's overlay creates its own partially separate view
+  Files from systemd-sysext aren't completely integrated into the unified view
+  This separation is why PATH lookups may not find binaries provided by systemd-sysext
+
+- Working with This Behavior:
+
+  You can access these binaries using their full paths (e.g., /usr/local/bin/kubectl
+  instead of just kubectl)
+  Alternatively, create symbolic links from a PATH-accessible directory to the actual
+  binary locations
+
+- Best Practice:
+
+  To ensure predictable behavior, avoid overlapping Prism and systemd-sysext overlays
+  Reserve /usr and /opt exclusively for systemd-sysext.
