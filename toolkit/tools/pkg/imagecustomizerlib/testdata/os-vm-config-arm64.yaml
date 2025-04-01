@@ -1,9 +1,162 @@
+storage:
+  bootType: efi
+
+  disks:
+    - partitionTableType: gpt
+      partitions:
+        - id: esp
+          type: esp
+          size: 512M
+
+        - id: trident
+          type: linux-generic
+          size: 512M
+
+        - id: boot-a
+          size: 256M
+          type: xbootldr
+
+        - id: boot-b
+          size: 256M
+          type: xbootldr
+
+        - id: root-a
+          label: root-a
+          type: root
+          size: 4G
+
+        - id: root-b
+          type: root
+          size: 4G
+
+        - id: root-hash-a
+          label: root-hash-a
+          type: root-verity
+          size: 128M
+
+        - id: root-hash-b
+          type: root-verity
+          size: 128M
+
+        - id: var-a
+          type: linux-generic
+          size: 1G
+
+        - id: var-b
+          type: linux-generic
+          size: 1G
+
+        - id: trident-overlay-a
+          type: linux-generic
+          size: 32M
+
+        - id: trident-overlay-b
+          type: linux-generic
+          size: 32M
+
+        - id: home
+          type: linux-generic
+          size: 1G
+
+        - id: srv
+          type: linux-generic
+          size: 128M
+
+  verity:
+    - id: rootverity
+      name: root
+      dataDeviceId: root-a
+      hashDeviceId: root-hash-a
+      dataDeviceMountIdType: part-label
+      hashDeviceMountIdType: part-label
+
+  filesystems:
+    - deviceId: esp
+      type: fat32
+      mountPoint:
+        path: /boot/efi
+        options: umask=0077
+
+    - deviceId: trident
+      type: ext4
+      mountPoint:
+        path: /var/lib/trident
+
+    - deviceId: boot-a
+      type: ext4
+      mountPoint:
+        path: /boot
+
+    - deviceId: rootverity
+      type: ext4
+      mountPoint:
+        path: /
+        options: defaults,ro
+
+    - deviceId: var-a
+      type: ext4
+      mountPoint:
+        path: /var
+
+    - deviceId: trident-overlay-a
+      type: ext4
+      mountPoint:
+        path: /var/lib/trident-overlay
+
+    - deviceId: home
+      type: ext4
+      mountPoint:
+        path: /home
+
+    - deviceId: srv
+      type: ext4
+      mountPoint:
+        path: /srv
 os:
+  bootloader:
+    resetType: hard-reset
+  hostname: trident-vm-verity-testimg
+
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.debug
+    - loglevel=6
+    - log_buf_len=1M
+    - udev.log_level=debug
+    - systemd.default_device_timeout_sec=3600  
+
+  packages:
+    install:
+      - device-mapper
+      - dnf
+      - efibootmgr
+      - grub2-efi-binary
+      - iproute
+      - iptables
+      - jq
+      - kexec-tools
+      - lvm2
+      - openssh-server
+      - systemd-udev
+      # - trident
+      - veritysetup
+      - vim
+      # Debugging ARM64 qemu issues
+      - dracut-hyperv
+      - dracut-virtio
+      - dracut-xen
+      # Required for verity
+      - cryptsetup
+      - device-mapper
+      - e2fsprogs 
+      - xfsprogs   
+      - dosfstools
+
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
   - source: files/89-ethernet.network
     destination: /etc/systemd/network/89-ethernet.network
-  packages:
-    install:
-    - dracut-virtio
-    - dracut-xen
+
