@@ -513,7 +513,7 @@ func (c *Chroot) Close(leaveOnDisk bool) (err error) {
 		err = c.stopRunningProcesses()
 		if err != nil {
 			// Don't want to leave a stale root if GPG components fail to exit. Logging a Warn and letting close continue...
-			logger.Log.Warnf("Failed to stop running processes while tearing down the (%s) chroot: %s", c.rootDir, err)
+			logger.Log.Warnf("Failed to stop running processes while tearing down the (%s) chroot:\n%s", c.rootDir, err)
 		}
 
 		// mount is only supported in regular pipeline
