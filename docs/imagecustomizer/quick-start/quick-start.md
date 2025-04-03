@@ -68,7 +68,9 @@ Using the [Image Customizer container](../quick-start/container.md) is the recom
    Image Customizer directly on those distros. However, using the
    [Image Customizer container](../quick-start/container.md) on those distros should work.
 
-4. Run the Image Customizer tool. You might have to add executable permissions using `chmod +x imagecustomizer`
+5. Add executable permissions using `chmod +x imagecustomizer`.
+
+4. Run the Image Customizer tool.
 
    For example:
 
