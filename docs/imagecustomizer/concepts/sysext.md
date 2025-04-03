@@ -56,8 +56,6 @@ creation of properly formatted GPT images, including:
 For detailed documentation on mkosi commands and configuration, refer to 
 [doc](https://github.com/systemd/mkosi/blob/main/mkosi/resources/man/mkosi.1.md)
 
-## 1. Install mkosi
-
 ## 1. Get mkosi
 
 You can either use mkosi directly from source or install it via a package manager:
@@ -239,14 +237,14 @@ the same mount point. They interact in a specific way that affects system behavi
 
   Prism's overlay mounts first during the boot process
   When systemd-sysext later attempts to create its overlay on the same mount point
-  systemd-sysext detects the existing overlay and automatically adds the redirect_dir=on
+  systemd-sysext detects the existing overlay and automatically adds the `redirect_dir=on`
   option
 
-- How redirect_dir=on Changes Behavior:
+- How `redirect_dir=on` Changes Behavior:
 
   Standard overlays perform a complete merge of all layers, presenting files from all
   sources as if they were in a single directory
-  With redirect_dir=on, systemd-sysext doesn't fully merge with Prism's overlay
+  With `redirect_dir=on`, systemd-sysext doesn't fully merge with Prism's overlay
   Instead, it redirects directory lookups to specific layers based on the access path
   This creates a partial separation between the two overlay systems
 
