@@ -72,7 +72,7 @@ jobs:
     - name: build & test
       run: |
         pushd toolkit
-        sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier REBUILD_TOOLS=y
+        sudo env "PATH=$PATH" make go-imager go-imagecustomizer go-osmodifier
 
     - name: check schema.json is up-to-date
       run: |
