@@ -1,15 +1,19 @@
 ---
-title: Use Container
-parent: How To
-nav_order: 5
+title: Quick Start - Container
+parent: Image Customizer
+nav_order: 1
+has_toc: false
 ---
 
 # Using the Image Customizer Container
 
-The Image Customizer container packages up the Image Customizer executable along with
-all of its dependencies.
+{: .highlight }
+This is the *recommended* way to use Image Customizer. 
 
-The container is available at:
+The Image Customizer container packages up the Image Customizer executable along with
+all of its dependencies. 
+
+The container is published to the [Microsoft Artifact Registry](https://mcr.microsoft.com/en-us/artifact/mar/azurelinux/imagecustomizer/) at:
 
 ```text
 mcr.microsoft.com/azurelinux/imagecustomizer:<version>
@@ -21,12 +25,20 @@ For example:
 mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0
 ```
 
+You can also use the mcr REST API to query available and latest tags:
+
+``` bash 
+curl -s "https://mcr.microsoft.com/v2/azurelinux/imagecustomizer/tags/list" | jq '.tags[]' 
+```
+
 ## Prerequisites
 
-Unlike running the executable directly, the only prerequisites needed is a Linux host
-and Docker (or equivalent container engine).
+- Linux host
+- Docker (or equivalent container engine) installed on your host
 
-## Example
+## Instructions
+Here is a sample command to run Prism (version 0.13.0): 
+
 
 ```bash
 docker run \
@@ -43,7 +55,7 @@ docker run \
     --output-image-file "/mnt/staging/out/image.vhdx"
 ```
 
-Docker options:
+**Docker options:**
 
 - `run --rm`: Runs the container and cleans up the container once the program
   has completed.
@@ -65,7 +77,7 @@ Docker options:
 
 - `imagecustomizer`: Specifies the executable to run within the container.
 
-Image Customizer options ([CLI API](../api/cli.md)):
+**Image Customizer options ([CLI API](../api/cli.md)):**
 
 - `--image-file "/mnt/staging/image.vhdx"`: Use the host's `$HOME/staging/image.vhdx`
   file as the input image.
@@ -95,3 +107,7 @@ run-container.sh \
     -f vhdx \
     -o "$HOME/staging/out/image.vhdx" \
 ```
+## Next Steps
+- Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm.md)
+- Learn more about the [Image Customizer command line](../api/cli.md)
+- Learn more about the [Image Customizer config options](../api/configuration.md)

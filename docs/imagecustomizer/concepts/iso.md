@@ -20,7 +20,7 @@ The input image can be a:
 - Full disk images: VHD, VHDX, QCOW2, RAW 
 - another LiveOS ISO images
 
-To generate a LiveOS ISO, set the `--output-image-format` parameter to `iso`.
+To generate a LiveOS ISO, set the `--output-image-format` parameter to `iso`. More info can be found at [Creating a LiveOS ISO how-to guide](../how-to/live-iso.md)
 
 ### Input Image Layout Assumptions
 To successfully convert an input image into a LiveOS ISO, the input image must

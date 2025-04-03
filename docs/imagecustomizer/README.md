@@ -17,27 +17,39 @@ to build the Azure Linux images, along with most other Linux distros. This is in
 contrast to some other image customization tools, like Packer, which customize
 the image by booting it inside a VM.
 
-There are a number of advantages and disadvantages to the `chroot` approach to
-customizing images.
+## Why use Image Customizer?
 
-Advantages:
+Unlike VM-based image customization, Image Customizer directly modifies the image without booting an OS. This 'chroot' based approach has several advantages and trade-offs:
 
-- Lower overhead, since you don't need to boot up and shutdown the OS.
-- More precision when making changes, since you won't see any side effects that
+### Advantages:
+
+- **Lower overhead,** since you don't need to boot up and shutdown the OS.
+- **More precision when making changes,** since you won't see any side effects that
   come from the OS running.
-- The image has fewer requirements (e.g. ssh doesn't need to be installed).
+- The image has **fewer requirements** (e.g. ssh doesn't need to be installed).
 
-Disadvantages:
+### Limitations:
 
-- Not all Linux tools play nicely when run under chroot. For example, while it
+- **Not all Linux tools play nicely when run under chroot.** For example, while it
   is possible to install Kubernetes using Image Customizer, initialization of a
   Kubernetes cluster node must be done while the OS is running (e.g. using
   cloud-init).
 
-## Helpful Links
+## Supported Hosts
+Image Customizer has been tested and verified to work on the following host environments:
+- Ubuntu 22.04
+- Azure Linux 2.0 and 3.0
+- WSL2 (Windows Subsystem for Linux)
 
-- [Quick Start](./how-to/quick-start.md)
-- [Things to Avoid](./concepts/things-to-avoid.md)
-- API:
-  - [CLI](./api/cli.md)
-  - [Configuration](./api/configuration.md)
+While officially tested on these platforms, Image Customizer will likely work on other Linux distributions that support `chroot`.
+
+## Getting Started with Image Customizer
+
+- [Quick Start](./quick-start/container.md) - A beginner-friendly guide to quickly customize an Azure Linux image using Image Customizer
+- [Things to Avoid](./concepts/things-to-avoid.md) - Best practices to ensure a smooth customization experience
+- API Documentation:
+  - [CLI](./api/cli.md) - Learn about the available command-line interface commands for Image Customizer
+  - [Configuration](./api/configuration.md) - Understand how to configure Image Customizer to suit your needs
+
+## Help and Feedback
+If you'd like to report bugs, request features, or contribute to the tool, you can do so directly through our [GitHub repo](https://github.com/microsoft/azure-linux-image-tools). We welcome feedback and contributions from the community!
