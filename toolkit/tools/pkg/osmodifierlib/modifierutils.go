@@ -37,17 +37,30 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		return err
 	}
 
-	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot)
-	if err != nil {
-		return err
-	}
+	// Only initialize BootCustomizer if any GRUB-related settings are present
+	needsBootCustomizer := osConfig.KernelCommandLine.ExtraCommandLine != nil ||
+		osConfig.Overlays != nil ||
+		osConfig.SELinux.Mode != "" ||
+		osConfig.Verity != nil ||
+		osConfig.RootDevice != ""
 
-	err = bootCustomizer.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine)
-	if err != nil {
-		return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
+	var bootCustomizer *imagecustomizerlib.BootCustomizer
+	if needsBootCustomizer {
+		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	updateGrubRequired := false
+
+	if osConfig.KernelCommandLine.ExtraCommandLine != nil {
+		err = bootCustomizer.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine)
+		if err != nil {
+			return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
+		}
+		updateGrubRequired = true
+	}
 
 	if osConfig.Overlays != nil {
 		err = updateGrubConfigForOverlay(*osConfig.Overlays, bootCustomizer)
