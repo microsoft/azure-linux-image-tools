@@ -75,6 +75,8 @@ type ImageCustomizerParameters struct {
 
 	partUuidToFstabEntry map[string]diskutils.FstabEntry
 	osRelease            string
+
+	outputArtifactsMetadata []OutputArtifactMetadata
 }
 
 type verityDeviceMetadata struct {
@@ -285,12 +287,15 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	}
 
 	if config.Output.Artifacts != nil {
-		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
-
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
-			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile)
+		outputArtifactsMetadata, err := outputArtifacts(config.Output.Artifacts.Items, config.Output.Artifacts.Path,
+			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile, baseConfigPath)
 		if err != nil {
 			return err
+		}
+
+		err = writeInjectFilesYaml(outputArtifactsMetadata, baseConfigPath)
+		if err != nil {
+			return fmt.Errorf("failed to write inject-files.yaml:\n%w", err)
 		}
 	}
 
@@ -1080,6 +1085,28 @@ func checkEnvironmentVars() error {
 		return fmt.Errorf("tool should be run as root (e.g. by using sudo):\n"+
 			"HOME must be set to '%s' (is '%s') and USER must be set to '%s' or '' (is '%s')",
 			rootHome, envHome, rootUser, envUser)
+	}
+
+	return nil
+}
+
+func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string) error {
+	var injectConfig InjectFilesYaml
+	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &injectConfig)
+	if err != nil {
+		return err
+	}
+
+	baseConfigPath, _ := filepath.Split(configFile)
+
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path of inject-files.yaml:\n%w", err)
+	}
+
+	err = InjectFiles(buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles)
+	if err != nil {
+		return err
 	}
 
 	return nil
