@@ -66,7 +66,7 @@ Using the [Image Customizer container](../quick-start/container.md) is the recom
    Note: The `ukify` tool is not available in Ubuntu 22.04 or Azure Linux 2.0. So, you
    will not be able to use the [UKI API](../api/configuration/uki.md) when running
    Image Customizer directly on those distros. However, using the
-   [Image Customizer container](../how-to/container.md) on those distros should work.
+   [Image Customizer container](../quick-start/container.md) on those distros should work.
 
 4. Run the Image Customizer tool. You might have to add executable permissions using `chmod +x imagecustomizer`
 
