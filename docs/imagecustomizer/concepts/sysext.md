@@ -58,16 +58,39 @@ For detailed documentation on mkosi commands and configuration, refer to
 
 ## 1. Install mkosi
 
-Clone the latest version from GitHub (recommended):
+## 1. Get mkosi
+
+You can either use mkosi directly from source or install it via a package manager:
+
+Option 1: Use from source (recommended if you need to modify partition configurations):
+
 ```
-git clone https://github.com/systemd/mkosi.git
-cd mkosi
-./bin/mkosi --version
+git clone https://github.com/systemd/mkosi
+ln -s $PWD/mkosi/bin/mkosi ~/.local/bin/mkosi
+mkosi --version
 ```
 
-Or install via package manager.
+Option 2: Install via package manager
 
-## 2. Define the Image Configuration
+For detailed installation instructions, refer to [mkosi's documentation](https://github.com/systemd/mkosi).
+
+## 2. Generating Verity Keys and Certificates
+
+Before building a signed sysext image, you'll need to generate a key pair.
+Here are example commands for using OpenSSL to generate keys for private signing:
+
+1. Generate a private key:
+
+`openssl genpkey -algorithm RSA -out verity_key.pem -pkeyopt rsa_keygen_bits:4096`
+
+2. Create a self-signed certificate using the private key:
+
+`openssl req -new -x509 -key verity_key.pem -out verity_cert.crt -days 365`
+
+For production use, you may want to use a certificate signed by a trusted Certificate
+Authority instead of a self-signed certificate.
+
+## 3. Define the Image Configuration
 
 1. Create a `mkosi.conf`: defines the build parameters for your sysext image. This
    configuration file tells mkosi what to include in the image, how to format it, and how
@@ -80,7 +103,7 @@ Or install via package manager.
     - Verity hash partition (used for integrity verification)
     - Signature partition (optional, contains cryptographic signature)
 
-  Typically, users can create customized sysext.repart.d/ files for certain aspects of
+  (Note: Typically, users can create customized sysext.repart.d/ files for certain aspects of
   the image structure. However, when using Format=sysext - unlike Format=disk, you
   cannot completely replace these definitions with your own custom repart
   configurations. **For format=sysext, mkosi is specifically using its own predefined
@@ -89,7 +112,7 @@ Or install via package manager.
   If you need to modify the partition structure (e.g., to change filesystem types or
   partition sizes), you'll need to edit the .conf files in the mkosi installation
   directory, which will be in the system paths if installed via package manager or in
-  the cloned repository.
+  the cloned repository.)
 
 Example mkosi.conf
 
@@ -136,9 +159,9 @@ image.
 Format:
 `source_path:destination_path` (comma-separated for multiple entries)
 
-## Build and validate the Image
+## 4. Build and validate the Image
 ```
-./bin/mkosi --force
+mkosi --force
 ```
 
 When a sysext image is built with the configurations above, it contains three partitions:
@@ -178,13 +201,11 @@ os:
   - source: kubernetes.raw
     destination: /var/lib/extensions/kubernetes.raw
   - source: verity_cert.crt
-    destination: /etc/verity.d/verity_cert.crt 
+    destination: /etc/verity.d/verity_cert.crt
 
-scripts:
-  postCustomization:
-  - content: |
-      systemctl enable systemd-sysext.service
-      systemctl start systemd-sysext.service
+  services:
+    enable:
+    - systemd-sysext
 ```
 
 Systemd Verification Process at Runtime:
