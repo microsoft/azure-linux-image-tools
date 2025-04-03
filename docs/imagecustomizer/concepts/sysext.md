@@ -54,7 +54,7 @@ creation of properly formatted GPT images, including:
 - Signing the image (if needed).
 
 For detailed documentation on mkosi commands and configuration, refer to 
-[doc](https://github.com/systemd/mkosi/blob/main/mkosi/resources/man/mkosi.1.md)
+[mkosi documentation](https://github.com/systemd/mkosi/blob/main/mkosi/resources/man/mkosi.1.md)
 
 ## 1. Get mkosi
 
@@ -70,7 +70,7 @@ mkosi --version
 
 Option 2: Install via package manager
 
-For detailed installation instructions, refer to [mkosi's documentation](https://github.com/systemd/mkosi).
+For detailed installation instructions, refer to [mkosi source repo](https://github.com/systemd/mkosi).
 
 ## 2. Generating Verity Keys and Certificates
 
@@ -79,11 +79,11 @@ Here are example commands for using OpenSSL to generate keys for private signing
 
 1. Generate a private key:
 
-`openssl genpkey -algorithm RSA -out verity_key.pem -pkeyopt rsa_keygen_bits:4096`
+    `openssl genpkey -algorithm RSA -out verity_key.pem -pkeyopt rsa_keygen_bits:4096`
 
 2. Create a self-signed certificate using the private key:
 
-`openssl req -new -x509 -key verity_key.pem -out verity_cert.crt -days 365`
+    `openssl req -new -x509 -key verity_key.pem -out verity_cert.crt -days 365`
 
 For production use, you may want to use a certificate signed by a trusted Certificate
 Authority instead of a self-signed certificate.
@@ -104,7 +104,7 @@ Authority instead of a self-signed certificate.
   (Note: Typically, users can create customized sysext.repart.d/ files for certain aspects of
   the image structure. However, when using Format=sysext - unlike Format=disk, you
   cannot completely replace these definitions with your own custom repart
-  configurations. **For format=sysext, mkosi is specifically using its own predefined
+  configurations. For format=sysext, mkosi is specifically using its own predefined
   repart definitions located at [mkosi/resources/repart/definitions/sysext.repart.d]
   (https://github.com/systemd/mkosi/tree/main/mkosi/resources/repart/definitions/sysext.repart.d)
   If you need to modify the partition structure (e.g., to change filesystem types or
@@ -133,10 +133,10 @@ ExtraTrees=/usr/local/bin/kubectl:/usr/local/bin/kubectl,/usr/local/bin/kubelet:
 ### [Output] Section
 - Format=sysext: Specifies that we are building a system extension image.
 - ImageId=kubernetes: Defines the image identifier, which is used in the output filename.
-- ImageVersion=1.30.7: Sets the version number of the image, included in metadata and
+- ImageVersion=1.30.7: (Optional)Sets the version number of the image, included in metadata and
   the default filename.
-- OutputDirectory=mkosi.output: Specifies the directory where the output file will be
-  stored.
+- OutputDirectory=mkosi.output: (Optional)Specifies the directory where the output file will be
+  stored. If not specified, the current working directory will be used.
 
 ### [Validation] Section
 The Verity= setting determines how your sysext image is secured:
@@ -208,7 +208,7 @@ os:
 
 Systemd Verification Process at Runtime:
 
-- `systemd-sysext merge` is triggered either manually or automatically at boot.
+- `systemd-sysext merge` is triggered automatically at boot.
 - systemd checks for a signature partition in the sysext image:
     - It extracts the embedded public key.
     - It compares it with the trusted certs in the base image.
