@@ -5,10 +5,3 @@ nav_order: 6
 ---
 
 # Image Customizer Reference
-
-
-
-
-
-
-
