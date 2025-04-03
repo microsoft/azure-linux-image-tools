@@ -2,6 +2,7 @@
 title: Configuration
 parent: API
 nav_order: 2
+has_toc: false
 ---
 
 # Image Customizer configuration

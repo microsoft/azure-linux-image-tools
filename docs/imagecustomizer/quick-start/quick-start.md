@@ -1,11 +1,23 @@
 ---
-parent: How To
+title: Quick Start - Binary
+parent: Quick Start - Container
 nav_order: 1
 ---
 
-# Quick start
+# Using the Image Customizer Binary
 
-1. Download an Azure Linux VHDX image file.
+{: .highlight }
+Using the [Image Customizer container](../quick-start/container.md) is the recommended way to use Image Customizer.
+
+## Prerequisities 
+- Linux host
+- Image Customizer binary downloaded. Check out [Developers Guide](../developer-guide.md) to learn how.
+
+## Instructions
+
+1. Download an Azure Linux VHDX image file. 
+   - You can [download a marketplace image from Azure](../how-to/download-marketplace-image.md). 
+   - You can also download and build one from the [Azure Linux repo](https://github.com/microsoft/azurelinux).
 
 2. Create a customization config file.
 
@@ -56,7 +68,7 @@ nav_order: 1
    Image Customizer directly on those distros. However, using the
    [Image Customizer container](../how-to/container.md) on those distros should work.
 
-4. Run the Image Customizer tool.
+4. Run the Image Customizer tool. You might have to add executable permissions using `chmod +x imagecustomizer`
 
    For example:
 
@@ -90,3 +102,8 @@ nav_order: 1
    The customized image is placed in the file that you specified with the
    `--output-image-file` parameter. You can now use this image as you see fit.
    (For example, boot it in a Hyper-V VM.)
+
+## Next Steps
+- Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm.md)
+- Learn more about the [Image Customizer command line](../api/cli.md)
+- Learn more about the [Image Customizer config options](../api/configuration.md)

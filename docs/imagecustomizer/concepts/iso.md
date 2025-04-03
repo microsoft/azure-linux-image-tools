@@ -24,7 +24,40 @@ Image Customizer, and will naturally carry over into the LiveOS iso image.
 This includes customizations for kernel modules, dracut, and other early
 boot-time actions.
 
-While converting the input full disk image into a LiveOS iso involves copying
+To generate a LiveOS ISO, set the `--output-image-format` parameter to `iso`. More info can be found at [Creating a LiveOS ISO how-to guide](../how-to/live-iso.md)
+
+### Input Image Layout Assumptions
+To successfully convert an input image into a LiveOS ISO, the input image must
+meet certain requirements. 
+
+#### 1. Full Disk Image
+The input full disk image must satisfy the following requirements in order for
+the Azure Linux Image Cuztomizer to be able to generate an iso image out of it:
+
+- File layout (after all partitions have been mounted):
+  - `/boot/grub2/grub.cfg` must exist and is the 'main' grub configuration (not
+    a redirection grub configuration file for example).
+  - The bootloader and the shim must exist under the `/boot` folder or any of
+    its subdirectories.
+    - For x64, `bootx64.efi` and `grubx64.efi` (or `grubx64-noprefix.efi`).
+    - For ARM64, `bootaa64.efi` and `grubaa64.efi` (or `grubaa64-noprefix.efi`).
+  - All grub configurations and related files must be stored under the `/boot`
+    folder. For example, grub.cfg cannot reference files outside that folder. If
+    it does, those referenced files will not be copied to the iso and may cause
+    grub to fail booting the desired operating system.
+
+#### 2. LiveOS ISO Image
+If the input image is of type LiveOS ISO, it must have been previously generated
+using the Azure Linux Image Customizer.
+
+## How LiveOS ISO Customization Works
+
+Customizations are made to the input rootfs as usual using the Azure Linux Image
+Customizer, and will naturally carry over into the LiveOS ISO image. This
+includes customizations for kernel modules, dracut, and other early boot-time
+actions.
+
+While converting the input full disk image into a LiveOS ISO involves copying
 almost all the artifacts unchanged - some artifacts are changed as follows:
 
 - `grub.cfg` is modified by updating the kernel command-line arguments as
