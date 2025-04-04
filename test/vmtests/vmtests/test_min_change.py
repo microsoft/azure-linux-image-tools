@@ -24,6 +24,17 @@ from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
 
 
+def dump_console_log_file(
+        file_ath: str,
+) -> None:
+    logging.debug(f"\n\nVirtual Machine Console Log\n\n")
+    try:
+        with open(file_path, "r") as file:
+            logging.debug(file.read())
+    except Exception as e:
+        logging.debug(f"failed to read console log file '{file_path}': {e}")
+
+
 def get_host_distro() -> str:
     file_path = "/etc/os-release"
     name_value = ""
@@ -117,42 +128,45 @@ def run_min_change_test(
     vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
     close_list.append(vm)
 
-    # Start VM.
-    vm.start()
+    try:
+        # Start VM.
+        vm.start()
 
-    if platform.machine() == 'aarch64':
-        logging.debug(f"sleeping for 300 seconds")
-        time.sleep(300)
+        if platform.machine() == 'aarch64':
+            logging.debug(f"sleeping for 300 seconds")
+            time.sleep(300)
 
-    local_client.run(
-        ["virsh",
-        "--connect", "qemu:///system",
-        "dumpxml", vm_spec.name])
+        local_client.run(
+            ["virsh",
+            "--connect", "qemu:///system",
+            "dumpxml", vm_spec.name])
 
-    # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    vm_ip_address = vm.get_vm_ip_address(timeout=30)
+        # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
+        vm_ip_address = vm.get_vm_ip_address(timeout=30)
 
-    # Connect to VM using SSH.
-    ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
-    open(ssh_known_hosts_path, "w").close()
+        # Connect to VM using SSH.
+        ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
+        open(ssh_known_hosts_path, "w").close()
 
-    with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-        vm_ssh.run("cat /proc/cmdline").check_exit_code()
+        with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+            vm_ssh.run("cat /proc/cmdline").check_exit_code()
 
-        os_release_path = test_temp_dir.joinpath("os-release")
-        vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
+            os_release_path = test_temp_dir.joinpath("os-release")
+            vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
 
-        with open(os_release_path, "r") as os_release_fd:
-            os_release_text = os_release_fd.read()
+            with open(os_release_path, "r") as os_release_fd:
+                os_release_text = os_release_fd.read()
 
-            if input_image_azl_release == 2:
-                assert ("ID=mariner" in os_release_text)
-                assert ('VERSION_ID="2.0"' in os_release_text)
-            elif input_image_azl_release == 3:
-                assert ("ID=azurelinux" in os_release_text)
-                assert ('VERSION_ID="3.0"' in os_release_text)
-            else:
-                assert False, "Unexpected image identity in /etc/os-release"
+                if input_image_azl_release == 2:
+                    assert ("ID=mariner" in os_release_text)
+                    assert ('VERSION_ID="2.0"' in os_release_text)
+                elif input_image_azl_release == 3:
+                    assert ("ID=azurelinux" in os_release_text)
+                    assert ('VERSION_ID="3.0"' in os_release_text)
+                else:
+                    assert False, "Unexpected image identity in /etc/os-release"
+    finally
+        dump_console_log_file(vm_console_log_file_path)
 
 
 @pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
