@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"log"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -175,6 +176,14 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 	}
 
 	for _, overlay := range overlays {
+		err = imageChroot.UnsafeRun(func() error {
+			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.UpperDir)
+		})
+		if err != nil {
+			log.Printf("warning: failed to delete existing SELinux fcontext for %s (likely doesn't exist): %v", overlay.UpperDir, err)
+			// continue anyway
+		}
+
 		// Give the upper directory the same SELinux rules as the target directory.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-e", overlay.MountPoint, overlay.UpperDir)
