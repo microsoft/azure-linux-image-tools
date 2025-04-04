@@ -84,11 +84,12 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    customized_image_name = image_name_without_ext + "_" + boot_type + "_" + get_host_distro() + image_ext
+    customized_image_name = image_name_without_ext + "_azl" + str(input_image_azl_release) + "_" + boot_type + "_" + get_host_distro() + image_ext
     customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
 
-    logging.debug(f"-- copying {output_image_path} to {customized_image_path}")
+    logging.debug(f"- vm_console_log_file_path = {vm_console_log_file_path}")
+    logging.debug(f"- copying {output_image_path} to {customized_image_path}")
     shutil.copy2(output_image_path, customized_image_path)
 
     vm_image = output_image_path
@@ -123,11 +124,6 @@ def run_min_change_test(
     if platform.machine() == 'aarch64':
         logging.debug(f"sleeping for 300 seconds")
         time.sleep(300)
-
-    local_client.run(
-        ["virsh",
-        "--connect", "qemu:///system",
-        "dumpxml", vm_spec.name])
 
     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
     vm_ip_address = vm.get_vm_ip_address(timeout=30)
