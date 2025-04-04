@@ -1,0 +1,45 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Fork, build, test, and publish new minor version.
+
+on:
+  # Allow pipeline to be run manually.
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-and-test.yml
+
+  publish-release:
+    name: Publish release
+    # Only publish the release when built against main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      # Create release branch and publish release.
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: checkout
+      uses: actions/checkout@v4
+
+    - name: Fork release branch
+      run: |
+        VERSION=$(<"out/version/version.txt")
+        MINOR_VERSION="$(sed 's/\([0-9]*\.[0-9]*\)\..*/\1/' <<< "$VERSION")"
+
+        MINOR_VERSION_BRANCH="release/v${MINOR_VERSION}"
+        git checkout -b "$MINOR_VERSION_BRANCH"
+        git push
+
+        TAG="v${VERSION}"
+        git tag "$TAG"
+        git push origin tag "$TAG"
+
+    # Publish to GHCR
+
+    # Publish GitHub release
