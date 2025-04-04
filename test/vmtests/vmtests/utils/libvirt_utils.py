@@ -194,11 +194,10 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         emulator = ET.SubElement(devices, "emulator")
         emulator.text = "/usr/bin/qemu-system-aarch64"
 
-        # commented to cause an error
-        # controller_scsi = ET.SubElement(devices, "controller")
-        # controller_scsi.attrib["type"] = "scsi"
-        # controller_scsi.attrib["index"] = "0"
-        # controller_scsi.attrib["model"] = "virtio-scsi"
+        controller_scsi = ET.SubElement(devices, "controller")
+        controller_scsi.attrib["type"] = "scsi"
+        controller_scsi.attrib["index"] = "0"
+        controller_scsi.attrib["model"] = "virtio-scsi"
 
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "file"
@@ -257,9 +256,6 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
             bus_type="sata"
         else:
             bus_type="scsi"
-
-        # bad for arm64
-        bus_type="sata"
 
         _add_disk_xml(
             devices=devices,
