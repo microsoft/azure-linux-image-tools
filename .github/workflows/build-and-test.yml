@@ -90,7 +90,13 @@ jobs:
 
     - name: Build container
       run: |
-        ./toolkit/tools/imagecustomizer/container/build-container.sh -t test
+        CONTAINER_TAG="imagecustomizer:build"
+        CONTAINER_DIR="out/container"
+
+        ./toolkit/tools/imagecustomizer/container/build-container.sh -t "$CONTAINER_TAG"
+
+        mkdir -p "$CONTAINER_DIR"
+        docker image save "$CONTAINER_TAG" | gzip > "$CONTAINER_DIR/imagecustomizer.tar.gz"
 
     - uses: actions/upload-artifact@v4
       with:
@@ -100,7 +106,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: container
-        path: TODO
+        path: out/container/imagecustomizer.tar.gz
 
   build-docs:
     uses: ./.github/workflows/docs-build.yml

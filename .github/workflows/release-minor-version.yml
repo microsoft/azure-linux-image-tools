@@ -1,8 +1,7 @@
-name: Fork, build, test, and publish new minor version.
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 
-permissions:
-  # Fork release branch and publish release.
-  contents: write
+name: Fork, build, test, and publish new minor version.
 
 on:
   # Allow pipeline to be run manually.
@@ -12,14 +11,16 @@ jobs:
   build:
     uses: ./.github/workflows/build-and-test.yml
 
-  fork:
-    name: Create release branch
-    runs-on: ubuntu-latest
-    steps:
-    - 
-    
+
   publish-release:
-    name: Publish to GHCR and GitHub releases
+    name: Publish release
     runs-on: ubuntu-latest
+    permissions:
+      # Fork release branch and publish release.
+      contents: write
     steps:
-    - 
+    # Fork release branch
+
+    # Publish to GHCR
+
+    # Publish GitHub release
