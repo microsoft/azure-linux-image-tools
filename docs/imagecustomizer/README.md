@@ -1,6 +1,7 @@
 ---
 title: Image Customizer
 nav_order: 2
+has_toc: false
 ---
 
 # Image Customizer
@@ -10,12 +11,11 @@ nav_order: 2
 The Image Customizer is a tool that can take an existing generic Azure Linux
 image and modify it to be suited for particular scenario.
 
-The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) (and loopback
-block devices) to customize the image.
-This is the same technology used to build the Azure Linux images, along with most other
-Linux distros.
-This is in contrast to some other image customization tools, like Packer, which
-customize the image by booting it inside a VM.
+The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) (and
+loopback block devices) to customize the image. This is the same technology used
+to build the Azure Linux images, along with most other Linux distros. This is in
+contrast to some other image customization tools, like Packer, which customize
+the image by booting it inside a VM.
 
 ## Why use Image Customizer?
 
