@@ -267,7 +267,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
             device_type="cdrom",
             image_type="raw",
             bus_type=bus_type,
-            device_prefix="sd",
+            # device_prefix="sd",
+            # bad
+            device_prefix="vd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
         )
