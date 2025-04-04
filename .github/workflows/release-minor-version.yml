@@ -1,0 +1,25 @@
+name: Fork, build, test, and publish new minor version.
+
+permissions:
+  # Fork release branch and publish release.
+  contents: write
+
+on:
+  # Allow pipeline to be run manually.
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-and-test.yml
+
+  fork:
+    name: Create release branch
+    runs-on: ubuntu-latest
+    steps:
+    - 
+    
+  publish-release:
+    name: Publish to GHCR and GitHub releases
+    runs-on: ubuntu-latest
+    steps:
+    - 

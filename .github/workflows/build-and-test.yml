@@ -12,6 +12,7 @@ on:
   pull_request:
     branches: [main, release/*]
   workflow_dispatch: {}
+  workflow_call: {}
 
 env:
   EXPECTED_GO_VERSION: "1.23.6"
@@ -87,9 +88,19 @@ jobs:
           echo "Schema is up-to-date!"
         fi
 
-    - name: Build docker image
+    - name: Build container
       run: |
         ./toolkit/tools/imagecustomizer/container/build-container.sh -t test
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: binary
+        path: toolkit/out/tools/imagecustomizer
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: container
+        path: TODO
 
   build-docs:
     uses: ./.github/workflows/docs-build.yml
