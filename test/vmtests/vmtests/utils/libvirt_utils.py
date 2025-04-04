@@ -258,7 +258,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         else:
             bus_type="scsi"
 
-        # bad
+        # bad for arm64
         bus_type="sata"
 
         _add_disk_xml(
@@ -267,9 +267,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
             device_type="cdrom",
             image_type="raw",
             bus_type=bus_type,
-            # device_prefix="sd",
-            # bad
-            device_prefix="vd",
+            device_prefix="sd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
         )
