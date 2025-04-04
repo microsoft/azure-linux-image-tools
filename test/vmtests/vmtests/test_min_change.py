@@ -165,7 +165,7 @@ def run_min_change_test(
                     assert ('VERSION_ID="3.0"' in os_release_text)
                 else:
                     assert False, "Unexpected image identity in /etc/os-release"
-    finally
+    finally:
         dump_console_log_file(vm_console_log_file_path)
 
 
