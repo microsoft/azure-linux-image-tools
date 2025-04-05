@@ -89,7 +89,7 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    customized_image_name = image_name_without_ext + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_" + target_boot_type + "_" + get_host_distro() + image_ext
+    customized_image_name = image_name_without_ext + "_" + get_host_distro() + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_to_" + target_boot_type + image_ext
     customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
 
