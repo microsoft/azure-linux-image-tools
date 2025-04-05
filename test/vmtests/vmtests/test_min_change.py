@@ -92,10 +92,7 @@ def run_min_change_test(
     customized_image_name = image_name_without_ext + "_" + get_host_distro() + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_to_" + target_boot_type + image_ext
     customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
-
     logging.debug(f"- vm_console_log_file_path = {vm_console_log_file_path}")
-    logging.debug(f"- copying {output_image_path} to {customized_image_path}")
-    shutil.copy2(output_image_path, customized_image_path)
 
     vm_image = output_image_path
     if output_format != "iso":
