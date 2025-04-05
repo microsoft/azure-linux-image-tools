@@ -54,9 +54,13 @@ def run_min_change_test(
 
     secure_boot = False
 
-    boot_type = "efi"
-    if Path(input_image).suffix.lower() == ".vhd" and output_format != "iso":
-        boot_type = "legacy"
+    source_boot_type = "efi"
+    if Path(input_image).suffix.lower() == ".vhd":
+        source_boot_type = "legacy"
+
+    target_boot_type = source_boot_type
+    if output_format == "iso":
+        target_boot_type = "efi"
 
     output_image_path = test_temp_dir.joinpath("image." + output_format)
 
@@ -65,7 +69,8 @@ def run_min_change_test(
     logging.debug(f"- input_image_azl_release = {input_image_azl_release}")
     logging.debug(f"- config_path             = {config_path}")
     logging.debug(f"- output_format           = {output_format}")
-    logging.debug(f"- boot_type               = {boot_type}")
+    logging.debug(f"- source_boot_type        = {source_boot_type}")
+    logging.debug(f"- target_boot_type        = {target_boot_type}")
     logging.debug(f"- output_artifacts_dir    = {output_artifacts_dir}")
 
     username = getuser()
@@ -84,7 +89,7 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    customized_image_name = image_name_without_ext + "_azl" + str(input_image_azl_release) + "_" + boot_type + "_" + get_host_distro() + image_ext
+    customized_image_name = image_name_without_ext + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_" + target_boot_type + "_" + get_host_distro() + image_ext
     customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
 
@@ -110,7 +115,7 @@ def run_min_change_test(
     # Create VM.
     vm_name = test_instance_name
 
-    vm_spec = VmSpec(vm_name, 4096, 4, vm_image, boot_type, secure_boot)
+    vm_spec = VmSpec(vm_name, 4096, 4, vm_image, target_boot_type, secure_boot)
     domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec, vm_console_log_file_path)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
