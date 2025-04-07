@@ -1,0 +1,56 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Fork, build, test, and publish new minor version.
+
+on:
+  # Allow pipeline to be run manually.
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-and-test.yml
+
+  publish-release:
+    name: Publish release
+    # Only publish the release when built against main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      # Create release branch and publish release.
+      contents: write
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Fork release branch
+      run: |
+        VERSION=$(<"out/version/version.txt")
+        MINOR_VERSION="$(grep -oP '^[0-9]+\.[0-9]+' <<< "$VERSION")"
+
+        MINOR_VERSION_BRANCH="release/v${MINOR_VERSION}"
+        git checkout -b "$MINOR_VERSION_BRANCH"
+        git push
+
+        TAG="v${VERSION}"
+        git tag "$TAG"
+        git push origin tag "$TAG"
+
+    - name: Publish container
+      run: |
+        # Import the image from the tarball.
+        OUTPUT="$(docker image load -i "out/container/imagecustomizer.tar.gz" 2>&1)"
+        TARBALL_TAG="$(echo $OUTPUT | awk '{print $3}')"
+        
+        DOCKER_FULL_PATH="ghcr.io/microsoft/prism:$VERSION-$HOST_ARCH"
+
+        docker tag "$TARBALL_TAG" "$DOCKER_FULL_PATH"
+
+    # Publish to GHCR
+
+    # Publish GitHub release
