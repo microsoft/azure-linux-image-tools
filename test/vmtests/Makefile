@@ -58,7 +58,7 @@ fix-black:
 
 .PHONY: ${IMAGE_CUSTOMIZER_BIN}
 ${IMAGE_CUSTOMIZER_BIN}:
-	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer REBUILD_TOOLS=y
+	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer
 
 .PHONY: image-customizer-container
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
