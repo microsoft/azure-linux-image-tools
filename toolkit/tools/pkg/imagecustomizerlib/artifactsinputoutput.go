@@ -166,7 +166,7 @@ func replaceSuffix(input string, oldSuffix string, newSuffix string) string {
 }
 
 func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {
-	yamlStruct := imagecustomizerapi.InjectFilesYaml{
+	yamlStruct := imagecustomizerapi.InjectFilesConfig{
 		InjectFiles: metadata,
 	}
 
@@ -176,25 +176,16 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 		return fmt.Errorf("failed to marshal inject files metadata: %w", err)
 	}
 
-	// Prepend header comment
-	var builder strings.Builder
-	builder.WriteString("# This file is generated automatically by Prism output artifacts API.\n\n")
-	builder.Write(yamlBytes)
-
 	outputFilePath := filepath.Join(outputDir, "inject-files.yaml")
-	if err := os.WriteFile(outputFilePath, []byte(builder.String()), 0644); err != nil {
+	if err := os.WriteFile(outputFilePath, yamlBytes, 0o644); err != nil {
 		return fmt.Errorf("failed to write inject-files.yaml: %w", err)
 	}
 
 	return nil
 }
 
-func leadingSpaces(s string) int {
-	return len(s) - len(strings.TrimLeft(s, " "))
-}
-
 func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string) error {
-	var injectConfig imagecustomizerapi.InjectFilesYaml
+	var injectConfig imagecustomizerapi.InjectFilesConfig
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &injectConfig)
 	if err != nil {
 		return err
@@ -220,36 +211,23 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
-	ic := &ImageCustomizerParameters{}
 	buildDirAbs, err := filepath.Abs(buildDir)
 	if err != nil {
 		return err
 	}
-	ic.inputImageFile = inputImageFile
-	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
-	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
-	ic.outputImageFile = ic.inputImageFile
-	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(ic.inputImageFormat)
-	if err := ic.outputImageFormat.IsValid(); err != nil {
+	inputImageFormat := strings.TrimLeft(filepath.Ext(inputImageFile), ".")
+	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
+	outputImageFormat := imagecustomizerapi.ImageFormatType(inputImageFormat)
+	if err := outputImageFormat.IsValid(); err != nil {
 		return fmt.Errorf("invalid output image format:\n%w", err)
 	}
-	defer func() {
-		cleanupErr := cleanUp(ic)
-		if cleanupErr != nil {
-			if err != nil {
-				err = fmt.Errorf("%w:\nfailed to clean-up:\n%w", err, cleanupErr)
-			} else {
-				err = fmt.Errorf("failed to clean-up:\n%w", cleanupErr)
-			}
-		}
-	}()
 
-	err = convertImageToRaw(ic)
+	err = convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
 	if err != nil {
 		return err
 	}
 
-	loopback, err := safeloopback.NewLoopback(ic.rawImageFile)
+	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to image file to inject files:\n%w", err)
 	}
@@ -264,7 +242,7 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	var mountedPartitions []*safemount.Mount
 
 	for idx, item := range metadata {
-		partitionKey := imagecustomizerapi.InjectFilePartition{MountIdType: item.Partition.MountIdType, Id: item.Partition.Id}
+		partitionKey := item.Partition
 		if _, exists := partitionsToMountpoints[partitionKey]; !exists {
 			partitionsToMountpoints[partitionKey] = filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
 
@@ -277,10 +255,9 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 			if err != nil {
 				return fmt.Errorf("failed to mount partition (%s):\n%w", partition.Path, err)
 			}
-
-			logger.Log.Infof("Mounted partition %s at %s", partition.Path, partitionsToMountpoints[partitionKey])
-			mountedPartitions = append(mountedPartitions, mount)
 			defer mount.Close()
+
+			mountedPartitions = append(mountedPartitions, mount)
 		}
 
 		srcPath := filepath.Join(baseConfigPath, item.Source)
@@ -293,7 +270,7 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 
 	for _, m := range mountedPartitions {
 		if err := m.CleanClose(); err != nil {
-			logger.Log.Warnf("Failed to cleanly unmount %s: %v", m.Target(), err)
+			return fmt.Errorf("failed to cleanly unmount (%s):\n%w", m.Target(), err)
 		}
 	}
 
@@ -302,7 +279,7 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	err = convertWriteableFormatToOutputImage(ic, nil)
+	err = convertImageFile(rawImageFile, inputImageFile, outputImageFormat)
 	if err != nil {
 		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
 	}

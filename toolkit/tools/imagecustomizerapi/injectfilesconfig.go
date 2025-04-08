@@ -7,11 +7,13 @@ import (
 	"fmt"
 )
 
-type InjectFilesYaml struct {
+// InjectFilesConfig defines the list of files to be injected into partitions.
+type InjectFilesConfig struct {
 	InjectFiles []InjectArtifactMetadata `yaml:"injectFiles" json:"injectFiles,omitempty"`
 }
 
-func (i *InjectFilesYaml) IsValid() error {
+// IsValid verifies that all entries in the InjectFilesConfig are valid.
+func (i *InjectFilesConfig) IsValid() error {
 	for idx, entry := range i.InjectFiles {
 		if entry.Source == "" || entry.Destination == "" {
 			return fmt.Errorf("injectFiles[%d] has empty source or destination", idx)
@@ -20,7 +22,7 @@ func (i *InjectFilesYaml) IsValid() error {
 			return fmt.Errorf("injectFiles[%d] has empty partition id", idx)
 		}
 		if err := entry.Partition.MountIdType.IsValid(); err != nil {
-			return fmt.Errorf("injectFiles[%d] has invalid partition mount id type: %w", idx, err)
+			return fmt.Errorf("injectFiles[%d] has invalid partition mount id type:\n%w", idx, err)
 		}
 	}
 	return nil
