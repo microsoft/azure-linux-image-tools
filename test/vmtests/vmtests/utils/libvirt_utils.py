@@ -3,10 +3,12 @@
 
 import fnmatch
 import json
+import logging
 import xml.etree.ElementTree as ET  # noqa: N817
 import libvirt
 import os
 from pathlib import Path
+import platform
 from typing import Dict, Any
 
 
@@ -23,9 +25,11 @@ class VmSpec:
 def _get_libvirt_firmware_config(
         libvirt_conn: libvirt.virConnect,
         secure_boot: bool,
+        machine_model: str,
+        virt_type: str,
     ) -> Dict[str, Any]:
         # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="kvm")
+        domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=virt_type)
         domain_caps = ET.fromstring(domain_caps_str)
 
         full_machine_type = domain_caps.findall("./machine")[0].text
@@ -94,7 +98,7 @@ def _get_libvirt_firmware_config(
         # Get first matching firmware.
         firmware_config = next(iter(filtered_firmware_configs), None)
         if firmware_config is None:
-            raise LisaException(
+            raise Exception(
                 f"Could not find matching firmware for machine-type={machine_type} "
                 f"({full_machine_type}) and secure-boot={secure_boot}."
             )
@@ -102,14 +106,30 @@ def _get_libvirt_firmware_config(
         return firmware_config
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec) -> str:
+def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec, log_file: str) -> str:
+
+    host_arch = platform.machine()
 
     secure_boot_str = "yes" if vm_spec.secure_boot else "no"
 
-    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot)
+    if host_arch == "x86_64":
+        domain_type = "kvm"
+        machine_model = "q35"
+        virt_type="kvm"
+        serial_target_type = "isa-serial"
+        serial_target_model_name = "isa-serial"
+    else:
+        domain_type = "qemu"
+        machine_model = "virt-6.2"
+        virt_type = "qemu"
+        serial_target_type = "system-serial"
+        serial_target_model_name = "pl011"
+
+    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
+    firmware_file = firmware_config["mapping"]["executable"]["filename"]
 
     domain = ET.Element("domain")
-    domain.attrib["type"] = "kvm"
+    domain.attrib["type"] = domain_type
 
     name = ET.SubElement(domain, "name")
     name.text = vm_spec.name
@@ -125,15 +145,19 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
+    os_type.attrib["arch"] = host_arch
+    os_type.attrib["machine"] = machine_model
 
     nvram = ET.SubElement(os_tag, "nvram")
+
+    os_boot = ET.SubElement(os_tag, "boot")
 
     if vm_spec.boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
         loader.attrib["secure"] = secure_boot_str
         loader.attrib["type"] = "pflash"
-        loader.text = firmware_config["mapping"]["executable"]["filename"]
+        loader.text = firmware_file
 
     features = ET.SubElement(domain, "features")
 
@@ -142,7 +166,15 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     ET.SubElement(features, "apic")
 
     cpu = ET.SubElement(domain, "cpu")
-    cpu.attrib["mode"] = "host-passthrough"
+    if host_arch == "x86_64":
+        cpu.attrib["mode"] = "host-passthrough"
+    else:
+        cpu.attrib["mode"] = "custom"
+        cpu.attrib["match"] = "exact"
+        cpu.attrib["check"] = "none"
+        cp_model = ET.SubElement(cpu, "model")
+        cp_model.attrib["fallback"] = "forbid"
+        cp_model.text = "cortex-a57"
 
     clock = ET.SubElement(domain, "clock")
     clock.attrib["offset"] = "utc"
@@ -158,18 +190,32 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     devices = ET.SubElement(domain, "devices")
 
+    if host_arch == "aarch64":
+        emulator = ET.SubElement(devices, "emulator")
+        emulator.text = "/usr/bin/qemu-system-aarch64"
+
+        controller_scsi = ET.SubElement(devices, "controller")
+        controller_scsi.attrib["type"] = "scsi"
+        controller_scsi.attrib["index"] = "0"
+        controller_scsi.attrib["model"] = "virtio-scsi"
+
     serial = ET.SubElement(devices, "serial")
-    serial.attrib["type"] = "pty"
+    serial.attrib["type"] = "file"
+    serial_source = ET.SubElement(serial, "source")
+    serial_source.attrib["path"] = log_file
 
     serial_target = ET.SubElement(serial, "target")
-    serial_target.attrib["type"] = "isa-serial"
+    serial_target.attrib["type"] = serial_target_type
     serial_target.attrib["port"] = "0"
 
     serial_target_model = ET.SubElement(serial_target, "model")
-    serial_target_model.attrib["name"] = "isa-serial"
+    serial_target_model.attrib["name"] = serial_target_model_name
 
     console = ET.SubElement(devices, "console")
-    console.attrib["type"] = "pty"
+    console.attrib["type"] = "file"
+
+    console_source = ET.SubElement(console, "source")
+    console_source.attrib["path"] = log_file
 
     console_target = ET.SubElement(console, "target")
     console_target.attrib["type"] = "serial"
@@ -193,6 +239,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
     if os_disk_ext.lower() != ".iso":
+        os_boot.attrib["dev"] = "hd"
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
@@ -204,12 +251,18 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
             next_disk_indexes=next_disk_indexes
         )
     else:
+        os_boot.attrib["dev"] = "cdrom"
+        if host_arch == "x86_64":
+            bus_type="sata"
+        else:
+            bus_type="scsi"
+
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
             device_type="cdrom",
             image_type="raw",
-            bus_type="sata",
+            bus_type=bus_type,
             device_prefix="sd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
