@@ -89,7 +89,7 @@ func StopAllChildProcesses(signal unix.Signal) {
 func Execute(program string, args ...string) (stdout, stderr string, err error) {
 	return NewExecBuilder(program, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		ExecuteCaptureOuput()
+		ExecuteCaptureOutput()
 }
 
 // ExecuteWithStdin - Run the command and use Stdin to pass input during execution
@@ -97,7 +97,7 @@ func ExecuteWithStdin(input, program string, args ...string) (stdout, stderr str
 	return NewExecBuilder(program, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Stdin(input).
-		ExecuteCaptureOuput()
+		ExecuteCaptureOutput()
 }
 
 // ExecuteLive runs a command in the shell and logs it in real-time
