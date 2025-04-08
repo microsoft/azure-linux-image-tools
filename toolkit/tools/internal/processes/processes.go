@@ -46,7 +46,7 @@ func GetProcessesUsingPath(path string) ([]ProcessRecord, error) {
 
 	stdout, _, err := shell.NewExecBuilder("lsof", args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		ExecuteCaptureOuput()
+		ExecuteCaptureOutput()
 	if err != nil {
 		if !qArgAvailable {
 			// The -Q arg isn't available. So, this error could just mean there are no results.
@@ -109,7 +109,7 @@ func GetProcessesUsingPath(path string) ([]ProcessRecord, error) {
 func getLsofVersion() (int, int, error) {
 	_, stderr, err := shell.NewExecBuilder("lsof", "-v").
 		LogLevel(logrus.TraceLevel, logrus.TraceLevel).
-		ExecuteCaptureOuput()
+		ExecuteCaptureOutput()
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get lsof's version:\n%w", err)
 	}
