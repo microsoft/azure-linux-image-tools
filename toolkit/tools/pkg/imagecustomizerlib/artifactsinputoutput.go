@@ -26,66 +26,46 @@ const (
 	SystemdBootDir = "EFI/systemd"
 )
 
-type OutputArtifactMetadata struct {
-	Partition   InjectFilePartition `yaml:"partition"`
-	Destination string              `yaml:"destination"`
-	Source      string              `yaml:"source"`
-}
-
-type InjectFilePartition struct {
-	MountIdType imagecustomizerapi.MountIdentifierType `yaml:"mountIdType"`
-	Id          string                                 `yaml:"id"`
-}
-
-type InjectFilesYaml struct {
-	InjectFiles []OutputArtifactMetadata `yaml:"injectFiles"`
-}
-
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
-	configOutputArtifactsPath string, buildDir string, buildImage string, baseConfigPath string,
-) ([]OutputArtifactMetadata, error) {
+	outputDir string, buildDir string, buildImage string, baseConfigPath string,
+) error {
 	logger.Log.Infof("Outputting artifacts")
 
-	var outputArtifactsMetadata []OutputArtifactMetadata
-	outputDir := file.GetAbsPathWithBase(baseConfigPath, configOutputArtifactsPath)
-	prefix := ""
-	if !filepath.IsAbs(configOutputArtifactsPath) {
-		prefix = "./"
-	}
+	var outputArtifactsMetadata []imagecustomizerapi.InjectArtifactMetadata
 
 	loopback, err := safeloopback.NewLoopback(buildImage)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to image file to output artifacts:\n%w", err)
+		return fmt.Errorf("failed to connect to image file to output artifacts:\n%w", err)
 	}
 	defer loopback.Close()
 
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	systemBootPartition, err := findSystemBootPartition(diskPartitions)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
 		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
+		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
 	// Detect system architecture
 	_, bootConfig, err := getBootArchConfig()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	partition := InjectFilePartition{
+	partition := imagecustomizerapi.InjectFilePartition{
 		MountIdType: imagecustomizerapi.MountIdentifierTypePartUuid,
 		Id:          systemBootPartition.PartUuid,
 	}
@@ -95,7 +75,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		ukiDir := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
 		dirEntries, err := os.ReadDir(ukiDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read UKI directory (%s):\n%w", ukiDir, err)
+			return fmt.Errorf("failed to read UKI directory (%s):\n%w", ukiDir, err)
 		}
 
 		for _, entry := range dirEntries {
@@ -104,17 +84,19 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 				destPath := filepath.Join(outputDir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
-					return nil, fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
+					return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 				}
 
 				signedName := replaceSuffix(entry.Name(), ".unsigned.efi", ".signed.efi")
-				source := prefix + filepath.Join(configOutputArtifactsPath, signedName)
+				source := "./" + signedName
+				unsignedSource := "./" + entry.Name()
 				destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
 
-				outputArtifactsMetadata = append(outputArtifactsMetadata, OutputArtifactMetadata{
-					Partition:   partition,
-					Source:      source,
-					Destination: filepath.Join("/EFI/Linux", destinationName),
+				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+					Partition:      partition,
+					Source:         source,
+					Destination:    filepath.Join("/", UkiOutputDir, destinationName),
+					UnsignedSource: unsignedSource,
 				})
 			}
 		}
@@ -126,15 +108,16 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
+			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 		}
 
-		signedPath := prefix + replaceSuffix(filepath.Join(configOutputArtifactsPath, bootConfig.bootBinary), ".efi", ".signed.efi")
+		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
 
-		outputArtifactsMetadata = append(outputArtifactsMetadata, OutputArtifactMetadata{
-			Partition:   partition,
-			Source:      signedPath,
-			Destination: filepath.Join("/EFI/BOOT", bootConfig.bootBinary),
+		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+			Partition:      partition,
+			Source:         signedPath,
+			Destination:    filepath.Join("/", ShimDir, bootConfig.bootBinary),
+			UnsignedSource: "./" + bootConfig.bootBinary,
 		})
 	}
 
@@ -144,29 +127,35 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
+			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 		}
 
-		signedPath := prefix + replaceSuffix(filepath.Join(configOutputArtifactsPath, bootConfig.systemdBootBinary), ".efi", ".signed.efi")
+		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
 
-		outputArtifactsMetadata = append(outputArtifactsMetadata, OutputArtifactMetadata{
-			Partition:   partition,
-			Source:      signedPath,
-			Destination: filepath.Join("/EFI/systemd", bootConfig.systemdBootBinary),
+		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+			Partition:      partition,
+			Source:         signedPath,
+			Destination:    filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
+			UnsignedSource: "./" + bootConfig.systemdBootBinary,
 		})
+	}
+
+	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
+	if err != nil {
+		return fmt.Errorf("failed to write inject-files.yaml:\n%w", err)
 	}
 
 	err = systemBootPartitionMount.CleanClose()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return outputArtifactsMetadata, nil
+	return nil
 }
 
 func replaceSuffix(input string, oldSuffix string, newSuffix string) string {
@@ -176,12 +165,8 @@ func replaceSuffix(input string, oldSuffix string, newSuffix string) string {
 	return strings.TrimSuffix(input, oldSuffix) + newSuffix
 }
 
-func writeInjectFilesYaml(metadata []OutputArtifactMetadata, baseConfigPath string) error {
-	type injectFileYaml struct {
-		InjectFiles []OutputArtifactMetadata `yaml:"injectFiles"`
-	}
-
-	yamlStruct := injectFileYaml{
+func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {
+	yamlStruct := imagecustomizerapi.InjectFilesYaml{
 		InjectFiles: metadata,
 	}
 
@@ -191,29 +176,12 @@ func writeInjectFilesYaml(metadata []OutputArtifactMetadata, baseConfigPath stri
 		return fmt.Errorf("failed to marshal inject files metadata: %w", err)
 	}
 
-	// Construct YAML with header and inline unsigned comments
+	// Prepend header comment
 	var builder strings.Builder
 	builder.WriteString("# This file is generated automatically by Prism output artifacts API.\n\n")
+	builder.Write(yamlBytes)
 
-	lines := strings.Split(string(yamlBytes), "\n")
-	i := 0
-	for _, item := range metadata {
-		for ; i < len(lines); i++ {
-			line := lines[i]
-			builder.WriteString(line + "\n")
-
-			// When you hit the 'source:' line, add the comment line
-			if strings.TrimSpace(line) == "source: "+item.Source {
-				indent := strings.Repeat(" ", leadingSpaces(line))
-				unsignedSource := replaceSuffix(item.Source, ".signed.efi", ".unsigned.efi")
-				builder.WriteString(fmt.Sprintf("%s# unsigned source: %s\n", indent, unsignedSource))
-				i++
-				break
-			}
-		}
-	}
-
-	outputFilePath := filepath.Join(baseConfigPath, "inject-files.yaml")
+	outputFilePath := filepath.Join(outputDir, "inject-files.yaml")
 	if err := os.WriteFile(outputFilePath, []byte(builder.String()), 0644); err != nil {
 		return fmt.Errorf("failed to write inject-files.yaml: %w", err)
 	}
@@ -225,30 +193,63 @@ func leadingSpaces(s string) int {
 	return len(s) - len(strings.TrimLeft(s, " "))
 }
 
-func (i *InjectFilesYaml) IsValid() error {
-	if len(i.InjectFiles) == 0 {
-		return fmt.Errorf("injectFiles is empty")
+func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string) error {
+	var injectConfig imagecustomizerapi.InjectFilesYaml
+	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &injectConfig)
+	if err != nil {
+		return err
 	}
-	for idx, entry := range i.InjectFiles {
-		if entry.Source == "" || entry.Destination == "" {
-			return fmt.Errorf("injectFiles[%d] has empty source or destination", idx)
-		}
-		if entry.Partition.Id == "" {
-			return fmt.Errorf("injectFiles[%d] has empty partition id", idx)
-		}
-		if err := entry.Partition.MountIdType.IsValid(); err != nil {
-			return fmt.Errorf("injectFiles[%d] has invalid partition mount id type: %w", idx, err)
-		}
+
+	baseConfigPath, _ := filepath.Split(configFile)
+
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path of inject-files.yaml:\n%w", err)
 	}
+
+	err = InjectFiles(buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
-	metadata []OutputArtifactMetadata,
+	metadata []imagecustomizerapi.InjectArtifactMetadata,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
-	loopback, err := safeloopback.NewLoopback(inputImageFile)
+	ic := &ImageCustomizerParameters{}
+	buildDirAbs, err := filepath.Abs(buildDir)
+	if err != nil {
+		return err
+	}
+	ic.inputImageFile = inputImageFile
+	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
+	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
+	ic.outputImageFile = ic.inputImageFile
+	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(ic.inputImageFormat)
+	if err := ic.outputImageFormat.IsValid(); err != nil {
+		return fmt.Errorf("invalid output image format:\n%w", err)
+	}
+	defer func() {
+		cleanupErr := cleanUp(ic)
+		if cleanupErr != nil {
+			if err != nil {
+				err = fmt.Errorf("%w:\nfailed to clean-up:\n%w", err, cleanupErr)
+			} else {
+				err = fmt.Errorf("failed to clean-up:\n%w", cleanupErr)
+			}
+		}
+	}()
+
+	err = convertImageToRaw(ic)
+	if err != nil {
+		return err
+	}
+
+	loopback, err := safeloopback.NewLoopback(ic.rawImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to image file to inject files:\n%w", err)
 	}
@@ -259,32 +260,54 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	uniqueKeys := make(map[InjectFilePartition]bool)
-	var partitions []diskutils.PartitionInfo
+	partitionsToMountpoints := make(map[imagecustomizerapi.InjectFilePartition]string)
+	var mountedPartitions []*safemount.Mount
 
-	for _, item := range metadata {
-		key := InjectFilePartition{MountIdType: item.Partition.MountIdType, Id: item.Partition.Id}
-		if uniqueKeys[key] {
-			continue
+	for idx, item := range metadata {
+		partitionKey := imagecustomizerapi.InjectFilePartition{MountIdType: item.Partition.MountIdType, Id: item.Partition.Id}
+		if _, exists := partitionsToMountpoints[partitionKey]; !exists {
+			partitionsToMountpoints[partitionKey] = filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
+
+			partition, _, err := findPartition(item.Partition.MountIdType, item.Partition.Id, diskPartitions, buildDir)
+			if err != nil {
+				return err
+			}
+
+			mount, err := safemount.NewMount(partition.Path, partitionsToMountpoints[partitionKey], partition.FileSystemType, 0, "", true)
+			if err != nil {
+				return fmt.Errorf("failed to mount partition (%s):\n%w", partition.Path, err)
+			}
+
+			logger.Log.Infof("Mounted partition %s at %s", partition.Path, partitionsToMountpoints[partitionKey])
+			mountedPartitions = append(mountedPartitions, mount)
+			defer mount.Close()
 		}
-		uniqueKeys[key] = true
 
-		partition, _, err := findPartition(item.Partition.MountIdType, item.Partition.Id, diskPartitions, buildDir)
+		srcPath := filepath.Join(baseConfigPath, item.Source)
+		destPath := filepath.Join(partitionsToMountpoints[partitionKey], item.Destination)
+		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 		}
-
-		partitions = append(partitions, partition)
-		logger.Log.Infof("Identified partition %s (%s) -> device %s", item.Partition.Id, item.Partition.MountIdType, partition.Path)
 	}
 
-	// Next step: Mount & inject (to be added later)
-	// ...
+	for _, m := range mountedPartitions {
+		if err := m.CleanClose(); err != nil {
+			logger.Log.Warnf("Failed to cleanly unmount %s: %v", m.Target(), err)
+		}
+	}
 
 	err = loopback.CleanClose()
 	if err != nil {
 		return err
 	}
+
+	err = convertWriteableFormatToOutputImage(ic, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+	}
+
+	logger.Log.Infof("Success!")
 
 	return nil
 }
