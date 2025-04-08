@@ -5,11 +5,11 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"log"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -176,24 +176,32 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 	}
 
 	for _, overlay := range overlays {
+		// Best-effort removal of existing fcontext rule for UpperDir.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.UpperDir)
 		})
 		if err != nil {
 			log.Printf("warning: failed to delete existing SELinux fcontext for %s (likely doesn't exist): %v", overlay.UpperDir, err)
-			// continue anyway
 		}
 
-		// Give the upper directory the same SELinux rules as the target directory.
+		// Add equivalency rule: UpperDir inherits from MountPoint.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-e", overlay.MountPoint, overlay.UpperDir)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to add equivalency rule between %s and %s:\n%w", overlay.MountPoint,
-				overlay.UpperDir, err)
+			return fmt.Errorf("failed to add equivalency rule between %s and %s:\n%w",
+				overlay.MountPoint, overlay.UpperDir, err)
 		}
 
-		// Give the work directory the no_access_t type, since only the kernel should be accessing that directory.
+		// Best-effort removal of existing fcontext rule for WorkDir.
+		err = imageChroot.UnsafeRun(func() error {
+			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.WorkDir+"(/.*)?")
+		})
+		if err != nil {
+			log.Printf("warning: failed to delete existing SELinux fcontext for %s(/.*)? (likely doesn't exist): %v", overlay.WorkDir, err)
+		}
+
+		// Apply no_access_t label to WorkDir recursively.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-f", "a", "-t", "no_access_t", "-r", "s0",
 				overlay.WorkDir+"(/.*)?")
