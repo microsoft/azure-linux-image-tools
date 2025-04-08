@@ -51,7 +51,7 @@ other Linux distributions as well.
 
 ## Getting Started with Image Customizer
 
-- [Quick Start](./quick-start/container.md) - A beginner-friendly guide to
+- [Quick Start](./quick-start/quick-start.md) - A beginner-friendly guide to
   quickly customize an Azure Linux image using Image Customizer
 - [Things to Avoid](./concepts/things-to-avoid.md) - Best practices to ensure a
   smooth customization experience

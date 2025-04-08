@@ -1,6 +1,6 @@
 ---
-parent: How To
-nav_order: 4
+parent: Reference
+nav_order: 2
 ---
 
 # Cloning an RPM repo

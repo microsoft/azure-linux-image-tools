@@ -7,7 +7,7 @@ nav_order: 5
 
 ## Prerequisites
 
-See [Getting started guide](./quick-start/container.md)
+See [Getting started guide](./quick-start/quick-start.md)
 
 ## Build Image Customizer binary
 
