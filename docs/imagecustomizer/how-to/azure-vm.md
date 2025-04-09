@@ -2,6 +2,7 @@
 title: Create Azure VM
 parent: How To
 nav_order: 2
+has_toc: false
 ---
 
 # Create a customized image and deploy it as an Azure VM
