@@ -167,10 +167,10 @@ func replaceSuffix(input string, oldSuffix string, newSuffix string) string {
 
 func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {
 	yamlStruct := imagecustomizerapi.InjectFilesConfig{
-		InjectFiles: metadata,
+		InjectFiles:     metadata,
+		PreviewFeatures: []string{"inject-files"},
 	}
 
-	// Marshal YAML
 	yamlBytes, err := yaml.Marshal(&yamlStruct)
 	if err != nil {
 		return fmt.Errorf("failed to marshal inject files metadata: %w", err)
@@ -189,6 +189,10 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &injectConfig)
 	if err != nil {
 		return err
+	}
+
+	if err := injectConfig.IsValid(); err != nil {
+		return fmt.Errorf("invalid inject files config: %w", err)
 	}
 
 	baseConfigPath, _ := filepath.Split(configFile)
@@ -217,10 +221,11 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	}
 	inputImageFormat := strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
-	outputImageFormat := imagecustomizerapi.ImageFormatType(inputImageFormat)
-	if err := outputImageFormat.IsValid(); err != nil {
-		return fmt.Errorf("invalid output image format:\n%w", err)
+	imageInfo, err := getImageFileInfo(inputImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
 	}
+	outputImageFormat := imagecustomizerapi.ImageFormatType(imageInfo.Format)
 
 	err = convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
 	if err != nil {

@@ -3,7 +3,22 @@
 
 package imagecustomizerapi
 
+import "fmt"
+
 type InjectFilePartition struct {
 	MountIdType MountIdentifierType `yaml:"mountIdType" json:"mountIdType,omitempty"`
 	Id          string              `yaml:"id" json:"id,omitempty"`
+}
+
+func (ifp *InjectFilePartition) IsValid() error {
+	if ifp.Id == "" {
+		return fmt.Errorf("partition id is empty")
+	}
+
+	err := ifp.MountIdType.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid mount id type:\n%w", err)
+	}
+
+	return nil
 }
