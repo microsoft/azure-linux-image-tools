@@ -1,5 +1,5 @@
 ---
-title: Quick Start - Container
+title: Quick Start
 parent: Image Customizer
 nav_order: 1
 has_toc: false
