@@ -169,7 +169,7 @@ func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
 				},
 			},
 		},
-		PreviewFeatures: []string{"uki"},
+		PreviewFeatures: []PreviewFeature{"uki"},
 	}
 
 	err := config.IsValid()
@@ -189,7 +189,7 @@ func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 				},
 			},
 		},
-		PreviewFeatures: []string{},
+		PreviewFeatures: []PreviewFeature{},
 	}
 
 	err := config.IsValid()
@@ -207,7 +207,7 @@ func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
 				},
 			},
 		},
-		PreviewFeatures: []string{"uki"},
+		PreviewFeatures: []PreviewFeature{"uki"},
 	}
 
 	err := config.IsValid()
@@ -642,4 +642,45 @@ func TestConfigIsValid_InvalidOutputIsInvalid(t *testing.T) {
 	err := config.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid 'output' field")
+}
+
+func TestConfigIsValidWithPreviewFeaturesAndOutputArtifacts(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Artifacts: &Artifacts{
+				Items: []OutputArtifactsItemType{
+					OutputArtifactsItemUkis,
+					OutputArtifactsItemShim,
+					OutputArtifactsItemSystemdBoot,
+				},
+				Path: "/valid/path",
+			},
+		},
+		PreviewFeatures: []PreviewFeature{
+			PreviewFeatureOutputArtifacts,
+		},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingOutputArtifactsPreviewFeature(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Artifacts: &Artifacts{
+				Items: []OutputArtifactsItemType{
+					OutputArtifactsItemUkis,
+					OutputArtifactsItemShim,
+					OutputArtifactsItemSystemdBoot,
+				},
+				Path: "/valid/path",
+			},
+		},
+		PreviewFeatures: []PreviewFeature{}, // empty
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'output-artifacts' preview feature must be enabled to use 'output.artifacts'")
 }

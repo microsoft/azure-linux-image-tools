@@ -40,7 +40,7 @@ the way to installing another OS.
 
 ## LiveOS ISOs and PXE Support
 
-A LiveOS ISO image is a bootable ISO image that runs all the necessary
+A [LiveOS ISO](./iso.md) image is a bootable ISO image that runs all the necessary
 components from memory (i.e. does not need to install anything to the host
 persistent storage).
 
@@ -48,20 +48,18 @@ The necessary components can be either embedded into the initrd image itself
 or embedded into a separate 'rootfs' image (to allow much smaller
 initrd images). If separate, then, the initrd image must be configured with an
 agent that will look for the rootfs image, and transition control over to the
-rootfs at boot time.
-
-Dracut provides the `dmsquash-live` module which managed this transition from
+rootfs at boot time. Dracut provides the `dmsquash-live` module which managed this transition from
 the initrd image over to the rootfs image.
 
-The **Image Customizer** produces such LiveOS ISO images. A typical
+The **Image Customizer** produces such [LiveOS ISO](./iso.md) images. A typical
 image holds the following artifacts:
 
-- the boot loader (the shim and something like grub).
-- the boot loader configuration.
-- the kernel image.
-- the initrd image.
-- the rootfs image.
-- other user defined artifacts (optional).
+- the boot loader (the shim and something like grub)
+- the boot loader configuration
+- the kernel image
+- the initrd image
+- the rootfs image
+- other user defined artifacts (optional)
 
 Note that the first 4 artifacts are what is necessary to get an OS kernel up
 and running in a network boot scenario. What remains for a successful booting
@@ -80,7 +78,7 @@ the rootfs image and download any additional items.
 
 ## Creating and Deploying PXE Boot Artifacts
 
-The Image Customizer produces LiveOS ISO images that are also PXE
+The Image Customizer produces [LiveOS ISO](./iso.md) images that are also PXE
 bootable. So, the user can simply create an ISO image as usual, and the output
 can be taken and deployed to a PXE server.
 

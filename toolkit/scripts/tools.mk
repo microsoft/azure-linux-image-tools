@@ -22,12 +22,10 @@ go_min_version = go$(shell grep -E '^go [0-9]+\.[0-9]+' $(TOOLS_DIR)/go.mod | aw
 # Check if the go version is high enough to build the tools. The 'sort' command is used to compare the versions
 # (with -V which sorts by version number). If the lowest version in the sort is the same as the minimum version, then
 # the installed version must be greater than or equal to the minimum version and we are fine.
-ifeq ($(REBUILD_TOOLS),y)
 go_current_version = $(shell go version | awk '{print $$3}')
 go_version_check = $(shell printf '%s\n%s\n' "$(go_min_version)" "$(go_current_version)" | sort -V | head -n1)
 ifneq ($(go_version_check),$(go_min_version))
 $(error Go version '$(go_current_version)' is less than minimum required version '$(go_min_version)')
-endif
 endif
 
 # List of go utilities in tools/ directory
@@ -67,7 +65,7 @@ endef
 $(foreach tool,$(go_tool_targets),$(eval $(go_util_rule)))
 
 .PHONY: go-tools clean-go-tools go-tidy-all go-test-coverage
-##help:target:go-tools=Preps all go tools (ensure `REBUILD_TOOLS=y` to rebuild).
+##help:target:go-tools=Preps all go tools.
 go-tools: $(go_tool_targets)
 
 clean: clean-go-tools
@@ -82,19 +80,6 @@ go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.Too
 
 # Matching rules for the above targets
 # Tool specific pre-requisites are tracked via $(go-util): $(shell find...) dynamic variable defined above
-ifneq ($(REBUILD_TOOLS),y)
-# SDK by default will ship with tool binaries pre-compiled (REBUILD_TOOLS=n), don't build them, just copy.
-$(TOOL_BINS_DIR)/%:
-	@if [ ! -f $@ ]; then \
-		if [ -f $(TOOLKIT_BINS_DIR)/$(notdir $@) ]; then \
-			echo "Restoring '$@' from '$(TOOLKIT_BINS_DIR)/$(notdir $@)'"; \
-			cp $(TOOLKIT_BINS_DIR)/$(notdir $@) $@ ; \
-		fi ; \
-	fi && \
-	[ -f $@ ] || $(call print_error,Unable to find tool $@. Set TOOL_BINS_DIR=.../ or set REBUILD_TOOLS=y ) ; \
-	touch $@
-else
-# Rebuild the go tools as needed
 $(TOOL_BINS_DIR)/%: $(go_common_files) $(GO_LICENSES_TOOL)
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
@@ -108,7 +93,6 @@ $(TOOL_BINS_DIR)/%: $(go_common_files) $(GO_LICENSES_TOOL)
 		$(GO_LICENSES_TOOL) save github.com/microsoft/azurelinux/toolkit/tools/$* \
 			--ignore github.com/microsoft/azurelinux \
 			--save_path $(TOOL_BINS_DIR)/LICENSES/$* --force
-endif
 
 # Runs tests for common components
 $(BUILD_DIR)/tools/internal.test_coverage: $(go_internal_files) $(go_imagegen_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag

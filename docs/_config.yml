@@ -1,6 +1,7 @@
 title: Azure Linux Image Tools
 description: Documentation for Prism & other image tools
 logo: /assets/images/logo.png
+favicon_ico: "/assets/images/favicon.png"
 theme: just-the-docs
 exclude:
 - Makefile
@@ -11,3 +12,7 @@ kramdown:
   gfm_quirks:
     # Don't convert `--` to em-dash.
   - no_auto_typographic
+
+aux_links:
+  "GitHub Repo":
+    - "https://github.com/microsoft/azure-linux-image-tools"

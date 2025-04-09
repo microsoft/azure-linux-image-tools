@@ -30,6 +30,21 @@
       },
       "type": "array"
     },
+    "Artifacts": {
+      "properties": {
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BootLoader": {
       "properties": {
         "resetType": {
@@ -303,6 +318,9 @@
       "properties": {
         "image": {
           "$ref": "#/$defs/OutputImage"
+        },
+        "artifacts": {
+          "$ref": "#/$defs/Artifacts"
         }
       },
       "additionalProperties": false,
