@@ -46,7 +46,7 @@ func HashPassword(password string) (string, error) {
 	stdout, _, err := shell.NewExecBuilder("openssl", "passwd", "-6", "-salt", salt, "-stdin").
 		Stdin(password).
 		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
-		ExecuteCaptureOuput()
+		ExecuteCaptureOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate hashed password:\n%w", err)
 	}
