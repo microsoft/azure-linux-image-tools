@@ -5,15 +5,11 @@ package isomakerlib
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"github.com/cavaliercoder/go-cpio"
-	"github.com/klauspost/pgzip"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
@@ -21,20 +17,14 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
 const (
-	DefaultVolumeId = "CDROM"
-
-	efiBootImgPathRelativeToIsoRoot = "boot/grub2/efiboot.img"
-	initrdEFIBootDirectoryPath      = "boot/efi/EFI/BOOT"
-	isoRootArchDependentDirPath     = "assets/isomaker/iso_root_arch-dependent_files"
-	defaultImageNameBase            = "azure-linux"
-	defaultOSFilesPath              = "isolinux"
-	repoSnapshotFilePath            = "repo-snapshot-time.txt"
+	isoRootArchDependentDirPath = "assets/isomaker/iso_root_arch-dependent_files"
+	defaultImageNameBase        = "azure-linux"
+	defaultOSFilesPath          = "isolinux"
+	repoSnapshotFilePath        = "repo-snapshot-time.txt"
 )
 
 // IsoMaker builds ISO images and populates them with packages and files required by the installer.
@@ -171,214 +161,14 @@ func (im *IsoMaker) Make() (err error) {
 		return err
 	}
 
+	isoImageFilePath := im.buildIsoImageFilePath()
+
 	err = im.buildIsoImage()
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (im *IsoMaker) buildIsoImage() error {
-	isoImageFilePath := im.buildIsoImageFilePath()
-
-	logger.Log.Infof("Generating ISO image under '%s'.", isoImageFilePath)
-
-	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
-	// Mkisofs requires all argument paths to be relative to the input directory.
-	mkisofsArgs := []string{}
-
-	mkisofsArgs = append(mkisofsArgs,
-		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", isoImageFilePath, "-V", DefaultVolumeId)
-
-	if im.enableBiosBoot {
-		mkisofsArgs = append(mkisofsArgs,
-			// BIOS bootloader, params suggested by https://wiki.syslinux.org/wiki/index.php?title=ISOLINUX.
-			"-b", filepath.Join(im.osFilesPath, "isolinux.bin"), "-c", filepath.Join(im.osFilesPath, "boot.cat"),
-			"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
-	}
-
-	mkisofsArgs = append(mkisofsArgs,
-		// UEFI bootloader.
-		"-eltorito-alt-boot", "-e", efiBootImgPathRelativeToIsoRoot, "-no-emul-boot",
-
-		// Directory to convert to an ISO.
-		im.buildDirPath)
-
-	// Note: mkisofs has a noisy stderr.
-	return shell.ExecuteLive(true /*squashErrors*/, "mkisofs", mkisofsArgs...)
-}
-
-// prepareIsoBootLoaderFilesAndFolders copies the files required by the ISO's bootloader
-func (im *IsoMaker) prepareIsoBootLoaderFilesAndFolders() (err error) {
-	err = im.setUpIsoGrub2Bootloader()
-	if err != nil {
-		return err
-	}
-
-	err = im.createVmlinuzImage()
-	if err != nil {
-		return err
-	}
-
-	err = im.copyInitrd()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// copyInitrd copies a pre-built initrd into the isolinux folder.
-func (im *IsoMaker) copyInitrd() error {
-	initrdDestinationPath := filepath.Join(im.buildDirPath, im.osFilesPath, "initrd.img")
-
-	logger.Log.Debugf("Copying initrd from '%s'.", im.initrdPath)
-
-	return file.Copy(im.initrdPath, initrdDestinationPath)
-}
-
-// setUpIsoGrub2BootLoader prepares an efiboot.img containing Grub2,
-// which is booted in case of an UEFI boot of the ISO image.
-func (im *IsoMaker) setUpIsoGrub2Bootloader() (err error) {
-	const (
-		blockSizeInBytes     = 1024 * 1024
-		numberOfBlocksToCopy = 3
-	)
-
-	logger.Log.Info("Preparing ISO's bootloaders.")
-
-	ddArgs := []string{
-		"if=/dev/zero",                                // Zero device to read a stream of zeroed bytes from.
-		fmt.Sprintf("of=%s", im.efiBootImgPath),       // Output file.
-		fmt.Sprintf("bs=%d", blockSizeInBytes),        // Size of one copied block. Used together with "count".
-		fmt.Sprintf("count=%d", numberOfBlocksToCopy), // Number of blocks to copy to the output file.
-	}
-	logger.Log.Debugf("Creating an empty '%s' file of %d bytes.", im.efiBootImgPath, blockSizeInBytes*numberOfBlocksToCopy)
-
-	// Note: dd has a noisy stderr.
-	err = shell.ExecuteLive(true /*squashErrors*/, "dd", ddArgs...)
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Debugf("Formatting '%s' as an MS-DOS filesystem.", im.efiBootImgPath)
-	err = shell.ExecuteLive(true /*squashErrors*/, "mkdosfs", im.efiBootImgPath)
-	if err != nil {
-		return err
-	}
-
-	efiBootImgTempMountDir := filepath.Join(im.buildDirPath, "efiboot_temp")
-
-	logger.Log.Debugf("Mounting '%s' to '%s' to copy EFI modules required to boot grub2.", im.efiBootImgPath, efiBootImgTempMountDir)
-	loopback, err := safeloopback.NewLoopback(im.efiBootImgPath)
-	if err != nil {
-		return fmt.Errorf("failed to connect efiboot.img:\n%w", err)
-	}
-	defer loopback.Close()
-
-	mount, err := safemount.NewMount(loopback.DevicePath(), efiBootImgTempMountDir, "vfat", 0, "",
-		true /*makeAndDeleteDir*/)
-	if err != nil {
-		return fmt.Errorf("failed to mount efiboot.img:\n%w", err)
-	}
-	defer mount.Close()
-
-	logger.Log.Debug("Copying EFI modules into efiboot.img.")
-	// Copy Shim (boot<arch>64.efi) and grub2 (grub<arch>64.efi)
-	if runtime.GOARCH == "arm64" {
-		err = im.copyShimFromInitrd(efiBootImgTempMountDir, "bootaa64.efi", "grubaa64.efi")
-		if err != nil {
-			return err
-		}
-	} else {
-		err = im.copyShimFromInitrd(efiBootImgTempMountDir, "bootx64.efi", "grubx64.efi")
-		if err != nil {
-			return err
-		}
-	}
-
-	err = mount.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to unmount efiboot.img:\n%w", err)
-	}
-
-	err = loopback.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to disconnect efiboot.img:\n%w", err)
-	}
-
-	return nil
-}
-
-func (im *IsoMaker) copyShimFromInitrd(efiBootImgTempMountDir, bootBootloaderFile, grubBootloaderFile string) (err error) {
-	bootDirPath := filepath.Join(efiBootImgTempMountDir, "EFI", "BOOT")
-
-	initrdBootBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIFilePath := filepath.Join(bootDirPath, bootBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdBootBootloaderFilePath, buildDirBootEFIFilePath)
-	if err != nil {
-		return err
-	}
-
-	initrdGrubBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIFilePath := filepath.Join(bootDirPath, grubBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdGrubBootloaderFilePath, buildDirGrubEFIFilePath)
-	if err != nil {
-		return err
-	}
-
-	err = im.applyRufusWorkaround(bootBootloaderFile, grubBootloaderFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Rufus ISO-to-USB converter has a limitation where it will only copy the boot<arch>64.efi binary from a given efi*.img
-// archive into the standard UEFI EFI/BOOT folder instead of extracting the whole archive as per the El Torito ISO
-// specification.
-//
-// Most distros (including ours) use a 2 stage bootloader flow (shim->grub->kernel). Since the Rufus limitation only
-// copies the 1st stage to EFI/BOOT/boot<arch>64.efi, it cannot find the 2nd stage bootloader (grub<arch>64.efi) which should
-// be in the same directory: EFI/BOOT/grub<arch>64.efi. This causes the USB installation to fail to boot.
-//
-// Rufus prioritizes the presence of an EFI folder on the ISO disk over extraction of the efi*.img archive.
-// So to workaround the limitation, create an EFI folder and make a duplicate copy of the bootloader files
-// in EFI/Boot so Rufus doesn't attempt to extract the efi*.img in the first place.
-func (im *IsoMaker) applyRufusWorkaround(bootBootloaderFile, grubBootloaderFile string) (err error) {
-	const buildDirBootEFIDirectoryPath = "efi/boot"
-
-	initrdBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIUsbFilePath := filepath.Join(im.buildDirPath, buildDirBootEFIDirectoryPath, bootBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdBootloaderFilePath, buildDirBootEFIUsbFilePath)
-	if err != nil {
-		return err
-	}
-
-	initrdGrubEFIFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIUsbFilePath := filepath.Join(im.buildDirPath, buildDirBootEFIDirectoryPath, grubBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdGrubEFIFilePath, buildDirGrubEFIUsbFilePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// createVmlinuzImage builds the 'vmlinuz' file containing the Linux kernel
-// ran by the ISO bootloader.
-func (im *IsoMaker) createVmlinuzImage() error {
-	const bootKernelFile = "boot/vmlinuz"
-
-	vmlinuzFilePath := filepath.Join(im.buildDirPath, im.osFilesPath, "vmlinuz")
-
-	// In order to select the correct kernel for isolinux, open the initrd archive
-	// and extract the vmlinuz file in it. An initrd is a gzip of a cpio archive.
-	//
-	return im.extractFromInitrdAndCopy(bootKernelFile, vmlinuzFilePath)
 }
 
 // createIsoRpmsRepo initializes the RPMs repo on the ISO image
@@ -774,8 +564,6 @@ func (im *IsoMaker) initializePaths() (err error) {
 		return fmt.Errorf("failed while retrieving absolute path from source root path: '%s':\n%w", im.buildDirPath, err)
 	}
 
-	im.efiBootImgPath = filepath.Join(im.buildDirPath, efiBootImgPathRelativeToIsoRoot)
-
 	return nil
 }
 
@@ -863,58 +651,5 @@ func recursiveCopyDereferencingLinks(source string, target string) (err error) {
 		}
 	}
 
-	return nil
-}
-
-func (im *IsoMaker) extractFromInitrdAndCopy(srcFileName, destFilePath string) (err error) {
-	// Setup a series of io readers: initrd file -> parallelized gzip -> cpio
-
-	logger.Log.Debugf("Searching for (%s) in initrd (%s) and copying to (%s)", srcFileName, im.initrdPath, destFilePath)
-
-	initrdFile, err := os.Open(im.initrdPath)
-	if err != nil {
-		return err
-	}
-	defer initrdFile.Close()
-
-	gzipReader, err := pgzip.NewReader(initrdFile)
-	if err != nil {
-		return err
-	}
-	cpioReader := cpio.NewReader(gzipReader)
-
-	for {
-		// Search through the headers until the source file is found
-		var hdr *cpio.Header
-		hdr, err = cpioReader.Next()
-		if err == io.EOF {
-			return fmt.Errorf("did not find (%s) in initrd (%s)", srcFileName, im.initrdPath)
-		}
-		if err != nil {
-			return err
-		}
-
-		if strings.HasPrefix(hdr.Name, srcFileName) {
-			logger.Log.Debugf("Found source file (%s) in initrd", srcFileName)
-			// Source file found, copy it to destination
-			err = os.MkdirAll(filepath.Dir(destFilePath), os.ModePerm)
-			if err != nil {
-				return err
-			}
-
-			dstFile, err := os.Create(destFilePath)
-			if err != nil {
-				return err
-			}
-			defer dstFile.Close()
-
-			logger.Log.Debugf("Copying (%s) to (%s)", srcFileName, destFilePath)
-			_, err = io.Copy(dstFile, cpioReader)
-			if err != nil {
-				return err
-			}
-			break
-		}
-	}
 	return nil
 }
