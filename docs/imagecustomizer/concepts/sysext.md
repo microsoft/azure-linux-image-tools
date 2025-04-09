@@ -20,7 +20,7 @@ Key Characteristics:
 - No Persistent Changes: Once deactivated, system extensions disappear from the
   filesystem without leaving traces.
 
-# System Extension Image
+## System Extension Image
 
 System extension images are the packaged format used to deliver system extensions.
 They contain the files to be overlaid onto the base system, typically under `/usr` and
@@ -45,7 +45,7 @@ A properly formatted sysext image will typically contain:
 | Verity Hash Partition (optional) | Stores a Merkle tree hash of the root filesystem for dm-verity integrity.   |
 | Signature Partition (optional)   | Holds a digital signature verifying the integrity of the hash data.         |
 
-# Building Sysext Images with mkosi
+## Building Sysext Images with mkosi
 
 mkosi is the recommended tool for building system extension images. It automates the
 creation of properly formatted GPT images, including:
@@ -56,7 +56,7 @@ creation of properly formatted GPT images, including:
 For detailed documentation on mkosi commands and configuration, refer to 
 [mkosi documentation](https://github.com/systemd/mkosi/blob/main/mkosi/resources/man/mkosi.1.md)
 
-## 1. Get mkosi
+### 1. Get mkosi
 
 You can either use mkosi directly from source or install it via a package manager:
 
@@ -72,7 +72,7 @@ Option 2: Install via package manager
 
 For detailed installation instructions, refer to [mkosi source repo](https://github.com/systemd/mkosi).
 
-## 2. Generating Verity Keys and Certificates
+### 2. Generating Verity Keys and Certificates
 
 Before building a signed sysext image, you'll need to generate a key pair.
 Here are example commands for using OpenSSL to generate keys for private signing:
@@ -88,7 +88,7 @@ Here are example commands for using OpenSSL to generate keys for private signing
 For production use, you may want to use a certificate signed by a trusted Certificate
 Authority instead of a self-signed certificate.
 
-## 3. Define the Image Configuration
+### 3. Define the Image Configuration
 
 1. Create a `mkosi.conf`: defines the build parameters for your sysext image. This
    configuration file tells mkosi what to include in the image, how to format it, and how
@@ -117,8 +117,8 @@ Example mkosi.conf
 ```ini
 [Output]
 Format=sysext
-ImageId=kubernetes
-ImageVersion=1.30.7
+ImageId=custom-tools
+ImageVersion=1.0.0
 OutputDirectory=mkosi.output
 
 [Validation]
@@ -127,18 +127,18 @@ VerityKey=verity_key.pem
 VerityCertificate=verity_cert.crt
 
 [Content]
-ExtraTrees=/usr/local/bin/kubectl:/usr/local/bin/kubectl,/usr/local/bin/kubelet:/usr/local/bin/kubelet
+ExtraTrees=/path/to/custom-tool:/usr/bin/custom-tool,/path/to/tool-config:/usr/bin/custom-tool/config
 ```
 
-### [Output] Section
+#### [Output] Section
 - Format=sysext: Specifies that we are building a system extension image.
-- ImageId=kubernetes: Defines the image identifier, which is used in the output filename.
-- ImageVersion=1.30.7: (Optional)Sets the version number of the image, included in metadata and
+- ImageId=custom-tools: Defines the image identifier, which is used in the output filename.
+- ImageVersion=1.0.0: (Optional)Sets the version number of the image, included in metadata and
   the default filename.
 - OutputDirectory=mkosi.output: (Optional)Specifies the directory where the output file will be
   stored. If not specified, the current working directory will be used.
 
-### [Validation] Section
+#### [Validation] Section
 The Verity= setting determines how your sysext image is secured:
 - signed: Fully signed image with both hash data and a cryptographic signature (requires
   VerityKey & VerityCertificate). Only X.509 certificates are supported for signing dm-verity
@@ -150,32 +150,35 @@ The Verity= setting determines how your sysext image is secured:
 - VerityKey=verity_key.pem: The private key used for signing.
 - VerityCertificate=verity_cert.crt: The public certificate used for verification.
 
-### [Content] Section
+#### [Content] Section
+While there are multiple ways to include content in a sysext image, we will focus on the
+direct file copying method with `ExtraTrees=`. This approach is the most straightforward for
+extending the system with custom tools, utilities, or specialized binaries that need to be
+available at runtime without modifying the base OS.
 
-The `ExtraTrees=` setting specifies which binaries or files to include in the `sysext`
-image.
+`ExtraTrees=` specifies which binaries or files to include in the `sysext` image.
 Format:
 `source_path:destination_path` (comma-separated for multiple entries)
 
-## 4. Build and validate the Image
+### 4. Build and validate the Image
 ```
 mkosi --force
 ```
 
 When a sysext image is built with the configurations above, it contains three partitions:
 
-| Device            | Start Sector | End Sector | Size  | Type                       |
-|-------------------|--------------|------------|-------|----------------------------|
-| kubernetes.raw1   | 2048         | 79983      | 38.1M | Linux root (x86-64)        |
-| kubernetes.raw2   | 79984        | 100463     | 10M   | Linux root verity (x86-64) |
-| kubernetes.raw3   | 100464       | 100495     | 16K   | Linux root verity sign. (x86-64)|
+| Device             | Start Sector | End Sector | Size  | Type                          |
+|--------------------|--------------|------------|-------|-------------------------------|
+| custom-tools.raw1  | 2048         | 79983      | 38.1M | Linux root (x86-64)           |
+| custom-tools.raw2  | 79984        | 100463     | 10M   | Linux root verity (x86-64)    |
+| custom-tools.raw3  | 100464       | 100495     | 16K   | Linux root verity sign. (x86-64) |
 
-- kubernetes.raw1: main filesystem partition (contains kubectl and kubelet)
-- kubernetes.raw2: contains the Merkle tree hash data used to verify the integrity of
+- custom-tools.raw1: main filesystem partition (contains the custom tool and configuration)
+- custom-tools.raw2: contains the Merkle tree hash data used to verify the integrity of
   the main filesystem partition
-- kubernetes.raw3: contains the verity signature
+- custom-tools.raw3: contains the verity signature
 
-# Integrate Sysext image into base image through Prism
+## Integrate Sysext image into base image through Prism
 
 These system extension procedures work seamlessly on Azure Linux 3.0, which include the
 required systemd tooling. For older versions like Azure Linux 2.0, additional patches or
@@ -196,8 +199,8 @@ Example Prism config
 # config.yaml
 os:
   additionalFiles:
-  - source: kubernetes.raw
-    destination: /var/lib/extensions/kubernetes.raw
+  - source: custom-tools.raw
+    destination: /var/lib/extensions/custom-tools.raw
   - source: verity_cert.crt
     destination: /etc/verity.d/verity_cert.crt
 
@@ -220,15 +223,15 @@ To check whether a system extension has been successfully loaded:
 ```
 systemd-sysext status
 ```
-As we specified kubernetes binaries to be under /usr, only /usr was overlaid from the sysext image.
+As we specified the custom tool to be under /usr, only /usr was overlaid from the sysext image.
 We will see:
 
-| HIERARCHY | EXTENSIONS | SINCE                      |
-|-----------|------------|----------------------------|
-| /opt      | none       | -                          |
-| /usr      | kubernetes | Tue 2025-04-01 16:51:25 UTC |
+| HIERARCHY | EXTENSIONS   | SINCE                      |
+|-----------|--------------|----------------------------|
+| /opt      | none         | -                          |
+| /usr      | custom-tools | Tue 2025-04-01 16:51:25 UTC |
 
-# What if Prism and sysext create overlay on the same mount point?
+## What if Prism and sysext create overlay on the same mount point?
 
 Prism has an API for overlay creation, so there could be a case where Prism and sysext create overlay on
 the same mount point. They interact in a specific way that affects system behavior:
@@ -257,8 +260,8 @@ the same mount point. They interact in a specific way that affects system behavi
 
 - Working with This Behavior:
 
-  You can access these binaries using their full paths (e.g., /usr/local/bin/kubectl
-  instead of just kubectl)
+  You can access these binaries using their full paths (e.g., /usr/local/bin/custom-tool
+  instead of just custom-tool)
   Alternatively, create symbolic links from a PATH-accessible directory to the actual
   binary locations
 
