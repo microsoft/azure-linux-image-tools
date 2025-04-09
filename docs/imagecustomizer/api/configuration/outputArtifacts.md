@@ -7,6 +7,12 @@ parent: Configuration
 Specifies the configuration for the output directory containing the generated
 artifacts, including UKI PE images, shim and systemd-boot.
 
+After Prism outputs the selected artifacts, it will also generate a helper
+configuration file named `inject-files.yaml` under the same directory of output
+artifacts. This file can later be used to inject signed artifacts back into an
+image. For more details, see the [`injectFilesConfig`](./injectFilesConfig.md)
+documentation.
+
 Example:
 
 ```yaml

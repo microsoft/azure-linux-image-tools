@@ -53,7 +53,7 @@ Added in v0.3.
 
 ## previewFeatures [string[]]
 
-Enables experimental and preview features that are not yet generally available.  
+Enables experimental and preview features that are not yet generally available.
 Features listed under previewFeatures must be explicitly included in the Image
 Customizer configuration to enable their usage.
 
