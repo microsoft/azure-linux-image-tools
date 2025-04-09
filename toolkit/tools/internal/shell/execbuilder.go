@@ -144,7 +144,7 @@ func (b ExecBuilder) Execute() error {
 	return err
 }
 
-func (b ExecBuilder) ExecuteCaptureOuput() (string, string, error) {
+func (b ExecBuilder) ExecuteCaptureOutput() (string, string, error) {
 	return b.executeHelper(true /*captureOutput*/)
 }
 

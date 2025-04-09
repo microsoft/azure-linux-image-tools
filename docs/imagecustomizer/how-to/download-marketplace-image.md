@@ -1,7 +1,8 @@
 ---
 title: Download Marketplace Image
-parent: How To
-nav_order: 6
+parent: Create Azure VM
+nav_order: 1
+has_toc: false
 ---
 
 # Download Azure Linux Marketplace Image
