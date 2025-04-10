@@ -10,7 +10,7 @@ import platform
 import pytest
 import shlex
 import time
-from typing import List, Tuple
+from typing import Callable, List, Tuple, TypeVar
 import shutil
 
 import libvirt  # type: ignore
@@ -19,21 +19,11 @@ from docker import DockerClient
 from .conftest import TEST_CONFIGS_DIR
 from .utils import local_client
 from .utils.closeable import Closeable
+from .utils.host_utils import get_host_distro
 from .utils.imagecustomizer import run_image_customizer
 from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient, SshClientException
-
-
-def get_host_distro() -> str:
-    file_path = "/etc/os-release"
-    name_value = ""
-    with open(file_path, "r") as file:
-        for line in file:
-            if line.startswith("ID="):
-                name_value = line.strip().split("=", 1)[1]  # Get the value part
-                break
-    return name_value
 
 
 def run_min_change_test(
@@ -124,6 +114,92 @@ def run_min_change_test(
     # Start VM.
     vm.start()
 
+    connect_and_run_test(vm, ssh_private_key_path, run_basic_checks, test_temp_dir, input_image_azl_release)
+
+    # ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
+    # open(ssh_known_hosts_path, "w").close()
+
+    # # arm64 emulated runs take a very long time to boot and get to a state
+    # # where we can connect to it.
+    # ip_wait_time = 30
+    # if platform.machine() == 'aarch64':
+    #     ip_wait_time = 300
+
+    # # For arm64 runs, we are seeing a behavior where the first IP address that
+    # # gets assigned becomes unusable by the time we try to ssh into the machine
+    # # and ssh fails to connect.
+    # # Some time later, a different IP address gets assigned, and that IP
+    # # address is usable.
+    # stable_ip_time_out = 360
+    # stable_ip_wait_time = 120
+    # stable_ip_start_time = datetime.now()
+    # while True:
+    #     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
+    #     vm_ip_address = vm.get_vm_ip_address(timeout=ip_wait_time)
+    #     logging.debug(f"found IP address = {vm_ip_address}")
+
+    #     # Connect to VM using SSH.
+    #     try:
+    #         with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
+    #             vm_ssh.run("cat /proc/cmdline").check_exit_code()
+
+    #             os_release_path = test_temp_dir.joinpath("os-release")
+    #             vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
+
+    #             with open(os_release_path, "r") as os_release_fd:
+    #                 os_release_text = os_release_fd.read()
+
+    #                 if input_image_azl_release == 2:
+    #                     assert ("ID=mariner" in os_release_text)
+    #                     assert ('VERSION_ID="2.0"' in os_release_text)
+    #                 elif input_image_azl_release == 3:
+    #                     assert ("ID=azurelinux" in os_release_text)
+    #                     assert ('VERSION_ID="3.0"' in os_release_text)
+    #                 else:
+    #                     assert False, "Unexpected image identity in /etc/os-release"
+
+    #         break
+    #     except SshClientException as e:
+    #         delta_time = datetime.now() - stable_ip_start_time
+    #         if delta_time.total_seconds() > stable_ip_time_out:
+    #             raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")
+    #         logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
+    #         time.sleep(stable_ip_wait_time)
+
+def run_basic_checks(
+    vm_ssh: SshClient,
+    test_temp_dir: Path,
+    input_image_azl_release: int,
+) -> None:
+
+    vm_ssh.run("cat /proc/cmdline").check_exit_code()
+
+    os_release_path = test_temp_dir.joinpath("os-release")
+    vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
+
+    with open(os_release_path, "r") as os_release_fd:
+        os_release_text = os_release_fd.read()
+
+        if input_image_azl_release == 2:
+            assert ("ID=mariner" in os_release_text)
+            assert ('VERSION_ID="2.0"' in os_release_text)
+        elif input_image_azl_release == 3:
+            assert ("ID=azurelinux" in os_release_text)
+            assert ('VERSION_ID="3.0"' in os_release_text)
+        else:
+            assert False, "Unexpected image identity in /etc/os-release"
+
+def connect_and_run_test(
+    vm: LibvirtVm,
+    ssh_private_key_path: Path,
+    test_func: Callable[[SshClient],None],
+    test_temp_dir: Path,
+    input_image_azl_release: int,
+) -> None:
+
+    ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
+    open(ssh_known_hosts_path, "w").close()
+
     # arm64 emulated runs take a very long time to boot and get to a state
     # where we can connect to it.
     ip_wait_time = 30
@@ -144,33 +220,14 @@ def run_min_change_test(
         logging.debug(f"found IP address = {vm_ip_address}")
 
         # Connect to VM using SSH.
-        ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
-        open(ssh_known_hosts_path, "w").close()
-
         try:
             with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-                vm_ssh.run("cat /proc/cmdline").check_exit_code()
-
-                os_release_path = test_temp_dir.joinpath("os-release")
-                vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
-
-                with open(os_release_path, "r") as os_release_fd:
-                    os_release_text = os_release_fd.read()
-
-                    if input_image_azl_release == 2:
-                        assert ("ID=mariner" in os_release_text)
-                        assert ('VERSION_ID="2.0"' in os_release_text)
-                    elif input_image_azl_release == 3:
-                        assert ("ID=azurelinux" in os_release_text)
-                        assert ('VERSION_ID="3.0"' in os_release_text)
-                    else:
-                        assert False, "Unexpected image identity in /etc/os-release"
-
+                test_func(vm_ssh, test_temp_dir, input_image_azl_release)
             break
         except SshClientException as e:
             delta_time = datetime.now() - stable_ip_start_time
             if delta_time.total_seconds() > stable_ip_time_out:
-                raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")            
+                raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")
             logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
             time.sleep(stable_ip_wait_time)
 

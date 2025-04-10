@@ -22,16 +22,26 @@ class VmSpec:
         self.secure_boot: bool = secure_boot
 
 
-def _get_libvirt_firmware_config(
+def _get_domain_caps(
         libvirt_conn: libvirt.virConnect,
-        secure_boot: bool,
         machine_model: str,
         virt_type: str,
-    ) -> Dict[str, Any]:
-        # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=virt_type)
-        domain_caps = ET.fromstring(domain_caps_str)
+) -> ET.Element:
+    # Resolve the machine type to its full name.
+    domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=virt_type)
+    return ET.fromstring(domain_caps_str)
 
+
+def _get_libvirt_path(
+        domain_caps: ET.Element
+    ) -> str:
+    return domain_caps.findall("./path")[0].text
+
+
+def _get_libvirt_firmware_config(
+        domain_caps: ET.Element,
+        secure_boot: bool,
+    ) -> Dict[str, Any]:
         full_machine_type = domain_caps.findall("./machine")[0].text
         arch = domain_caps.findall("./arch")[0].text
 
@@ -125,7 +135,9 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         serial_target_type = "system-serial"
         serial_target_model_name = "pl011"
 
-    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot, machine_model, virt_type)
+    domain_caps_xml = _get_domain_caps(libvirt_conn, machine_model, virt_type)
+
+    firmware_config = _get_libvirt_firmware_config(domain_caps_xml, vm_spec.secure_boot)
     firmware_file = firmware_config["mapping"]["executable"]["filename"]
 
     domain = ET.Element("domain")
@@ -192,12 +204,12 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
 
     if host_arch == "aarch64":
         emulator = ET.SubElement(devices, "emulator")
-        emulator.text = "/usr/bin/qemu-system-aarch64"
+        emulator.text = _get_libvirt_path(domain_caps_xml)
 
-        controller_scsi = ET.SubElement(devices, "controller")
-        controller_scsi.attrib["type"] = "scsi"
-        controller_scsi.attrib["index"] = "0"
-        controller_scsi.attrib["model"] = "virtio-scsi"
+    controller_scsi = ET.SubElement(devices, "controller")
+    controller_scsi.attrib["type"] = "scsi"
+    controller_scsi.attrib["index"] = "0"
+    controller_scsi.attrib["model"] = "virtio-scsi"
 
     serial = ET.SubElement(devices, "serial")
     serial.attrib["type"] = "file"
@@ -252,17 +264,12 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
         )
     else:
         os_boot.attrib["dev"] = "cdrom"
-        if host_arch == "x86_64":
-            bus_type="sata"
-        else:
-            bus_type="scsi"
-
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
             device_type="cdrom",
             image_type="raw",
-            bus_type=bus_type,
+            bus_type="scsi",
             device_prefix="sd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
