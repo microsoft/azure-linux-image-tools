@@ -2,6 +2,7 @@
 title: Configuration
 parent: API
 nav_order: 2
+has_toc: false
 ---
 
 # Image Customizer configuration
@@ -237,3 +238,6 @@ os:
     - [image](./configuration/output.md#image-outputimage) ([outputImage type](./configuration/outputImage.md))
       - [path](./configuration/outputImage.md#path-string)
       - [format](./configuration/outputImage.md#format-string)
+    - [artifacts](./configuration/output.md#artifacts-outputartifacts) ([outputArtifacts type](./configuration/outputArtifacts.md))
+      - [path](./configuration/outputArtifacts.md#path-string)
+      - [items](./configuration/outputArtifacts.md#items-string)

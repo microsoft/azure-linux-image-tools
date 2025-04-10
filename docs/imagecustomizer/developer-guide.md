@@ -1,13 +1,13 @@
 ---
 parent: Image Customizer
-nav_order: 4
+nav_order: 5
 ---
 
 # Developers guide
 
 ## Prerequisites
 
-See [Getting started guide](./how-to/quick-start.md)
+See [Getting started guide](./quick-start/quick-start.md)
 
 ## Build Image Customizer binary
 

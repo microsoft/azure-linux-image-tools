@@ -100,10 +100,10 @@ RPM sources are specified in the order or priority from lowest to highest.
 If `--disable-base-image-rpm-repos` is not specified, then the in-built RPM repos are
 given the lowest priority.
 
-See, [Building custom packages](../how-to/building-packages.md) for a guide on how to
+See, [Building custom packages](../reference/building-packages.md) for a guide on how to
 build your own packages for Azure Linux.
 
-See, [Cloning an RPM repo](../how-to/clone-rpm-repo.md) for how to clone or download
+See, [Cloning an RPM repo](../reference/clone-rpm-repo.md) for how to clone or download
 RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
