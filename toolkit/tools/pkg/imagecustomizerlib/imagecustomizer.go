@@ -328,7 +328,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	} else {
 		logger.Log.Infof("Creating raw base image: %s", ic.rawImageFile)
 
-		err := convertImageToRaw(ic.inputImageFile, ic.inputImageFormat, ic.rawImageFile)
+		_, err := convertImageToRaw(ic.inputImageFile, ic.inputImageFormat, ic.rawImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -337,10 +337,12 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	}
 }
 
-func convertImageToRaw(inputImageFile string, inputImageFormat string, rawImageFile string) error {
+func convertImageToRaw(inputImageFile string, inputImageFormat string,
+	rawImageFile string,
+) (imagecustomizerapi.ImageFormatType, error) {
 	imageInfo, err := getImageFileInfo(inputImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
+		return "", fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
 	}
 
 	detectedImageFormat := imageInfo.Format
@@ -368,10 +370,10 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string, rawImageF
 
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to convert image file to raw format:\n%w", err)
+		return "", fmt.Errorf("failed to convert image file to raw format:\n%w", err)
 	}
 
-	return nil
+	return imagecustomizerapi.ImageFormatType(detectedImageFormat), nil
 }
 
 func qemuImgEscapeOptionValue(value string) string {

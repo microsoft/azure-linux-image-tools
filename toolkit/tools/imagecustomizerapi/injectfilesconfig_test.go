@@ -11,7 +11,7 @@ import (
 
 func TestInjectFilesConfig_Valid(t *testing.T) {
 	cfg := InjectFilesConfig{
-		PreviewFeatures: []string{"inject-files"},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureInjectFiles},
 		InjectFiles: []InjectArtifactMetadata{
 			{
 				Source:         "./bootx64.signed.efi",
@@ -31,7 +31,8 @@ func TestInjectFilesConfig_Valid(t *testing.T) {
 
 func TestInjectFilesConfig_MissingPreviewFeature(t *testing.T) {
 	cfg := InjectFilesConfig{
-		InjectFiles: []InjectArtifactMetadata{},
+		PreviewFeatures: []PreviewFeature{},
+		InjectFiles:     []InjectArtifactMetadata{},
 	}
 
 	err := cfg.IsValid()
@@ -41,7 +42,7 @@ func TestInjectFilesConfig_MissingPreviewFeature(t *testing.T) {
 
 func TestInjectFilesConfig_InvalidInjectArtifact(t *testing.T) {
 	cfg := InjectFilesConfig{
-		PreviewFeatures: []string{"inject-files"},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureInjectFiles},
 		InjectFiles: []InjectArtifactMetadata{
 			{
 				Source:         "",

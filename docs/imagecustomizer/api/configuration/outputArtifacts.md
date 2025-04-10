@@ -51,3 +51,5 @@ These artifacts are generated in an unsigned format and must be signed externall
 
 Supported architectures for shim and systemd-boot include x64 and arm64,
 reflected in the `<arch>` portion of the filenames.
+
+Added in v0.14.0
