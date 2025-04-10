@@ -168,7 +168,7 @@ func replaceSuffix(input string, oldSuffix string, newSuffix string) string {
 func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {
 	yamlStruct := imagecustomizerapi.InjectFilesConfig{
 		InjectFiles:     metadata,
-		PreviewFeatures: []string{"inject-files"},
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureInjectFiles},
 	}
 
 	yamlBytes, err := yaml.Marshal(&yamlStruct)
@@ -221,13 +221,8 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	}
 	inputImageFormat := strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
-	imageInfo, err := getImageFileInfo(inputImageFile)
-	if err != nil {
-		return fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
-	}
-	outputImageFormat := imagecustomizerapi.ImageFormatType(imageInfo.Format)
 
-	err = convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
+	outputImageFormat, err := convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
 	if err != nil {
 		return err
 	}

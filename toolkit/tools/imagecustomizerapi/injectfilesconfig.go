@@ -14,12 +14,18 @@ type InjectFilesConfig struct {
 	InjectFiles []InjectArtifactMetadata `yaml:"injectFiles" json:"injectFiles,omitempty"`
 
 	// PreviewFeatures lists preview features required to enable this config.
-	PreviewFeatures []string `yaml:"previewFeatures,omitempty" json:"previewFeatures,omitempty"`
+	PreviewFeatures []PreviewFeature `yaml:"previewFeatures,omitempty" json:"previewFeatures,omitempty"`
 }
 
 func (ifc *InjectFilesConfig) IsValid() error {
-	if !slices.Contains(ifc.PreviewFeatures, "inject-files") {
+	if !slices.Contains(ifc.PreviewFeatures, PreviewFeatureInjectFiles) {
 		return fmt.Errorf("the 'inject-files' feature is currently in preview; please add 'inject-files' to 'previewFeatures' to enable it")
+	}
+
+	for _, feature := range ifc.PreviewFeatures {
+		if err := feature.IsValid(); err != nil {
+			return fmt.Errorf("invalid preview feature in list:\n%w", err)
+		}
 	}
 
 	for idx, entry := range ifc.InjectFiles {

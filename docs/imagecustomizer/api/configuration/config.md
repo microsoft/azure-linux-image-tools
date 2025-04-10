@@ -86,7 +86,18 @@ Supported options:
 
   See [Output Artifacts](./outputArtifacts.md) for more details.
 
-  Added in v0.14.
+  Added in v0.14.0
+
+- `inject-files`: Enables support for injecting files into specific partitions
+  using a configuration file.
+
+  When this option is specified, the `inject-files.yaml` configuration becomes
+  available. This file can be generated using the `output.artifacts` API and
+  later consumed via the `inject-files` CLI command.
+
+  See [`injectFilesConfig`](./injectFilesConfig.md) for more details.
+
+  Added in v0.14.0
 
 ## output [[output](./output.md)]
 
