@@ -434,7 +434,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
-	if ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+	shrinkPartitions := ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
+	if shrinkPartitions {
 		err = shrinkFilesystemsHelper(ic.rawImageFile)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
@@ -443,7 +444,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if len(ic.config.Storage.Verity) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid)
+		verityMetadata, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid,
+			shrinkPartitions)
 		if err != nil {
 			return err
 		}
@@ -851,7 +853,7 @@ func shrinkFilesystemsHelper(buildImageFile string) error {
 }
 
 func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Config,
-	buildImageFile string, partIdToPartUuid map[string]string,
+	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
 ) (map[string]verityDeviceMetadata, error) {
 	logger.Log.Debugf("Provisioning verity")
 
@@ -866,6 +868,11 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
 		return nil, err
+	}
+
+	sectorSize, _, err := diskutils.GetSectorSize(loopback.DevicePath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get disk's (%s) sector size:\n%w", loopback.DevicePath(), err)
 	}
 
 	for _, verityConfig := range config.Storage.Verity {
@@ -895,6 +902,27 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
 		if len(rootHashMatches) <= 1 {
 			return nil, fmt.Errorf("failed to parse root hash from veritysetup output")
+		}
+
+		err = diskutils.RefreshPartitions(loopback.DevicePath())
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for disk (%s) to update:\n%w", loopback.DevicePath(), err)
+		}
+
+		if shrinkHashPartition {
+			// In newer `veritysetup` versions, `veritysetup format` returns the size in its output.
+			// But alas, we can't rely on that yet.
+			hashPartitionSizeInBytes, err := calculateHashFileSystemSize(hashPartition.Path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to calculate hash partition's (%s) size:\n%w", hashPartition.Path, err)
+			}
+
+			hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
+
+			err = resizePartition(hashPartition.Path, loopback.DevicePath(), hashPartitionSizeInSectors)
+			if err != nil {
+				return nil, fmt.Errorf("failed to shrink hash partition (%s):\n%w", loopback.DevicePath(), err)
+			}
 		}
 
 		// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
