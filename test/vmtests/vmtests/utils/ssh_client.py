@@ -4,7 +4,7 @@
 import logging
 import shlex
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from threading import Thread
@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Union
 from paramiko import AutoAddPolicy, SSHClient
 from paramiko.channel import ChannelFile, ChannelStderrFile
 from paramiko.ssh_exception import NoValidConnectionsError, SSHException
+
 
 # The result of a SSH process execution.
 class SshExecutableResult:
@@ -155,8 +156,10 @@ class SshProcess:
 
         return result
 
+
 class SshClientException(Exception):
     pass
+
 
 class SshClient:
     def __init__(
@@ -205,7 +208,6 @@ class SshClient:
                 raise SshClientException(f"Error connecting to {hostname}: {e}")
             logging.debug(f"Failed to connect to {hostname} - {delta_time}. Will try again...")
             time.sleep(10)
-
 
     def close(self) -> None:
         self.ssh_client.close()
