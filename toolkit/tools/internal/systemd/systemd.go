@@ -19,7 +19,7 @@ func IsServiceEnabled(name string, imageChroot safechroot.ChrootInterface) (bool
 		stdout, _, err := shell.NewExecBuilder("systemctl", "is-enabled", name).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
-			ExecuteCaptureOuput()
+			ExecuteCaptureOutput()
 
 		// `systemctl is-enabled` returns:
 		//   enabled:  Exit code = 0, stdout = "enabled"

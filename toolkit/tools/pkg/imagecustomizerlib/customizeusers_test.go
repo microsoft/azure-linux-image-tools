@@ -225,7 +225,7 @@ func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword st
 	reencryptedPassword, _, err := shell.NewExecBuilder("openssl", "passwd", "-6", "-salt", roundsAndSalt, "-stdin").
 		Stdin(plainTextPassword).
 		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
-		ExecuteCaptureOuput()
+		ExecuteCaptureOutput()
 	if !assert.NoError(t, err) {
 		return false
 	}
