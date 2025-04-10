@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-from datetime import datetime, timedelta
 from getpass import getuser
 import logging
 import os
@@ -10,7 +9,7 @@ import platform
 import pytest
 import shlex
 import time
-from typing import Callable, List, Tuple, TypeVar
+from typing import List, Tuple
 import shutil
 
 import libvirt  # type: ignore
@@ -114,68 +113,22 @@ def run_min_change_test(
     # Start VM.
     vm.start()
 
-    connect_and_run_test(vm, ssh_private_key_path, run_basic_checks, test_temp_dir, input_image_azl_release)
+    # Connect to the VM.
+    with vm.create_ssh_client(ssh_private_key_path, test_temp_dir) as ssh_client:
+        # Run the test
+        run_basic_checks(ssh_client, input_image_azl_release, test_temp_dir)
 
-    # ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
-    # open(ssh_known_hosts_path, "w").close()
-
-    # # arm64 emulated runs take a very long time to boot and get to a state
-    # # where we can connect to it.
-    # ip_wait_time = 30
-    # if platform.machine() == 'aarch64':
-    #     ip_wait_time = 300
-
-    # # For arm64 runs, we are seeing a behavior where the first IP address that
-    # # gets assigned becomes unusable by the time we try to ssh into the machine
-    # # and ssh fails to connect.
-    # # Some time later, a different IP address gets assigned, and that IP
-    # # address is usable.
-    # stable_ip_time_out = 360
-    # stable_ip_wait_time = 120
-    # stable_ip_start_time = datetime.now()
-    # while True:
-    #     # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-    #     vm_ip_address = vm.get_vm_ip_address(timeout=ip_wait_time)
-    #     logging.debug(f"found IP address = {vm_ip_address}")
-
-    #     # Connect to VM using SSH.
-    #     try:
-    #         with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-    #             vm_ssh.run("cat /proc/cmdline").check_exit_code()
-
-    #             os_release_path = test_temp_dir.joinpath("os-release")
-    #             vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
-
-    #             with open(os_release_path, "r") as os_release_fd:
-    #                 os_release_text = os_release_fd.read()
-
-    #                 if input_image_azl_release == 2:
-    #                     assert ("ID=mariner" in os_release_text)
-    #                     assert ('VERSION_ID="2.0"' in os_release_text)
-    #                 elif input_image_azl_release == 3:
-    #                     assert ("ID=azurelinux" in os_release_text)
-    #                     assert ('VERSION_ID="3.0"' in os_release_text)
-    #                 else:
-    #                     assert False, "Unexpected image identity in /etc/os-release"
-
-    #         break
-    #     except SshClientException as e:
-    #         delta_time = datetime.now() - stable_ip_start_time
-    #         if delta_time.total_seconds() > stable_ip_time_out:
-    #             raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")
-    #         logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
-    #         time.sleep(stable_ip_wait_time)
 
 def run_basic_checks(
-    vm_ssh: SshClient,
-    test_temp_dir: Path,
+    ssh_client: SshClient,
     input_image_azl_release: int,
+    test_temp_dir: Path,
 ) -> None:
 
-    vm_ssh.run("cat /proc/cmdline").check_exit_code()
+    ssh_client.run("cat /proc/cmdline").check_exit_code()
 
     os_release_path = test_temp_dir.joinpath("os-release")
-    vm_ssh.get_file(Path("/etc/os-release"), os_release_path)
+    ssh_client.get_file(Path("/etc/os-release"), os_release_path)
 
     with open(os_release_path, "r") as os_release_fd:
         os_release_text = os_release_fd.read()
@@ -188,48 +141,6 @@ def run_basic_checks(
             assert ('VERSION_ID="3.0"' in os_release_text)
         else:
             assert False, "Unexpected image identity in /etc/os-release"
-
-def connect_and_run_test(
-    vm: LibvirtVm,
-    ssh_private_key_path: Path,
-    test_func: Callable[[SshClient],None],
-    test_temp_dir: Path,
-    input_image_azl_release: int,
-) -> None:
-
-    ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
-    open(ssh_known_hosts_path, "w").close()
-
-    # arm64 emulated runs take a very long time to boot and get to a state
-    # where we can connect to it.
-    ip_wait_time = 30
-    if platform.machine() == 'aarch64':
-        ip_wait_time = 300
-
-    # For arm64 runs, we are seeing a behavior where the first IP address that
-    # gets assigned becomes unusable by the time we try to ssh into the machine
-    # and ssh fails to connect.
-    # Some time later, a different IP address gets assigned, and that IP
-    # address is usable.
-    stable_ip_time_out = 360
-    stable_ip_wait_time = 120
-    stable_ip_start_time = datetime.now()
-    while True:
-        # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
-        vm_ip_address = vm.get_vm_ip_address(timeout=ip_wait_time)
-        logging.debug(f"found IP address = {vm_ip_address}")
-
-        # Connect to VM using SSH.
-        try:
-            with SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path) as vm_ssh:
-                test_func(vm_ssh, test_temp_dir, input_image_azl_release)
-            break
-        except SshClientException as e:
-            delta_time = datetime.now() - stable_ip_start_time
-            if delta_time.total_seconds() > stable_ip_time_out:
-                raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")
-            logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
-            time.sleep(stable_ip_wait_time)
 
 
 @pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
