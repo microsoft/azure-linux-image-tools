@@ -7,10 +7,7 @@ import os
 from pathlib import Path
 import platform
 import pytest
-import shlex
-import time
 from typing import List, Tuple
-import shutil
 
 import libvirt  # type: ignore
 from docker import DockerClient
@@ -22,7 +19,7 @@ from .utils.host_utils import get_host_distro
 from .utils.imagecustomizer import run_image_customizer
 from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from .utils.libvirt_vm import LibvirtVm
-from .utils.ssh_client import SshClient, SshClientException
+from .utils.ssh_client import SshClient
 
 
 def run_min_change_test(
@@ -239,6 +236,7 @@ def test_min_change_legacy_azl2_qcow_output(
         libvirt_conn,
         close_list,
     )
+
 
 @pytest.mark.skipif(platform.machine() != 'x86_64', reason="no arm64 legacy boot input images are available")
 def test_min_change_legacy_azl3_qcow_output(

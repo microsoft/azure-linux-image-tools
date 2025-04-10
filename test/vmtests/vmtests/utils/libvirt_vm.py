@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from pathlib import Path
 import platform
@@ -11,6 +11,7 @@ from typing import Any, Optional
 import libvirt  # type: ignore
 
 from .ssh_client import SshClient, SshClientException
+
 
 # Assists with creating and destroying a libvirt VM.
 class LibvirtVm:
@@ -103,7 +104,6 @@ class LibvirtVm:
         except libvirt.libvirtError as ex:
             logging.warning(f"VM delete failed. {ex}")
 
-
     def create_ssh_client(
         self,
         ssh_private_key_path: Path,
@@ -142,7 +142,6 @@ class LibvirtVm:
                     raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")
                 logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
                 time.sleep(stable_ip_wait_time)
-
 
     def __enter__(self) -> "LibvirtVm":
         return self

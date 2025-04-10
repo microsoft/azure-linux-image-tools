@@ -110,6 +110,7 @@ def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, No
         raise Exception("--core-legacy-azl3 is required for test")
     yield Path(image)
 
+
 @pytest.fixture(scope="session")
 def output_artifacts_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     output_artifacts_dir = request.config.getoption("--output-artifacts-dir")
@@ -122,6 +123,7 @@ def output_artifacts_dir(request: pytest.FixtureRequest) -> Generator[Path, None
         os.chmod(output_artifacts_dir, 0o775)
 
     yield Path(output_artifacts_dir)
+
 
 @pytest.fixture(scope="session")
 def image_customizer_container_url(request: pytest.FixtureRequest) -> Generator[str, None, None]:
