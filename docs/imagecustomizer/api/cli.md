@@ -138,7 +138,7 @@ The levels from lowest to highest level of verbosity are: `panic`, `fatal`, `err
 
 Added in v0.3.
 
-## inject-files (Subcommand)
+## inject-files
 
 This subcommand takes a base image and a config file (typically auto-generated
 from the [output.artifacts](./configuration/outputArtifacts.md) API) and injects
