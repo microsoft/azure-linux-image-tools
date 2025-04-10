@@ -114,7 +114,13 @@ def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, No
 def output_artifacts_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     output_artifacts_dir = request.config.getoption("--output-artifacts-dir")
     if not output_artifacts_dir:
-        raise Exception("--output-artifacts-dir is required for test")
+        build_dir = SCRIPT_PATH.joinpath("build")
+        os.makedirs(build_dir, exist_ok=True)
+        output_artifacts_dir = tempfile.mkdtemp(prefix="output-artifacts-", dir=build_dir)
+
+        # Ensure VM can access directory.
+        os.chmod(output_artifacts_dir, 0o775)
+
     yield Path(output_artifacts_dir)
 
 @pytest.fixture(scope="session")
