@@ -127,7 +127,7 @@ VerityKey=verity_key.pem
 VerityCertificate=verity_cert.crt
 
 [Content]
-ExtraTrees=/path/to/custom-tool:/usr/bin/custom-tool,/path/to/tool-config:/usr/bin/custom-tool/config
+ExtraTrees=/path/to/custom-tool:/usr/bin/custom-tool,/path/to/tool-config:/usr/lib/custom-tool/config
 ```
 
 #### [Output] Section
