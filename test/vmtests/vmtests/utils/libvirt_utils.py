@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET  # noqa: N817
 import libvirt
 import os
 from pathlib import Path
+import platform
 from typing import Dict, Any
 
 
@@ -20,96 +21,127 @@ class VmSpec:
         self.secure_boot: bool = secure_boot
 
 
-def _get_libvirt_firmware_config(
+def _get_domain_caps(
         libvirt_conn: libvirt.virConnect,
+        machine_model: str,
+        virt_type: str,
+) -> ET.Element:
+    # Resolve the machine type to its full name.
+    domain_caps_str = libvirt_conn.getDomainCapabilities(machine=machine_model, virttype=virt_type)
+    return ET.fromstring(domain_caps_str)
+
+
+def _get_libvirt_path(
+        domain_caps: ET.Element
+) -> str:
+    return domain_caps.findall("./path")[0].text
+
+
+def _get_libvirt_firmware_config(
+        domain_caps: ET.Element,
         secure_boot: bool,
-    ) -> Dict[str, Any]:
-        # Resolve the machine type to its full name.
-        domain_caps_str = libvirt_conn.getDomainCapabilities(machine="q35", virttype="kvm")
-        domain_caps = ET.fromstring(domain_caps_str)
+) -> Dict[str, Any]:
+    full_machine_type = domain_caps.findall("./machine")[0].text
+    arch = domain_caps.findall("./arch")[0].text
 
-        full_machine_type = domain_caps.findall("./machine")[0].text
-        arch = domain_caps.findall("./arch")[0].text
+    # Read the QEMU firmware config files, and build a list of json objects
+    # Note: "/usr/share/qemu/firmware" is a well known location for these files.
+    # Loop through all .json files in the folder
+    decoder = json.JSONDecoder()
+    firmware_configs = []
+    for firmware_definition_file in Path("/usr/share/qemu/firmware").glob("*.json"):
+        try:
+            with firmware_definition_file.open("r", encoding="utf-8") as f:
+                data = f.read().lstrip()  # decode hates leading whitespace
+                while data:
+                    obj, index = decoder.raw_decode(data)
+                    firmware_configs.append(obj)
+                    data = data[index:].lstrip()
+        except json.JSONDecodeError as e:
+            raise Exception(f"Error reading {firmware_definition_file.name}: {e}")
 
-        # Read the QEMU firmware config files, and build a list of json objects
-        # Note: "/usr/share/qemu/firmware" is a well known location for these files.
-        # Loop through all .json files in the folder
-        decoder = json.JSONDecoder()
-        firmware_configs = []
-        for firmware_definition_file in Path("/usr/share/qemu/firmware").glob("*.json"):
-            try:
-                with firmware_definition_file.open("r", encoding="utf-8") as f:
-                    data = f.read().lstrip()  # decode hates leading whitespace
-                    while data:
-                        obj, index = decoder.raw_decode(data)
-                        firmware_configs.append(obj)
-                        data = data[index:].lstrip()
-            except json.JSONDecodeError as e:
-                raise Exception(f"Error reading {firmware_definition_file.name}: {e}")
+    # Filter on architecture.
+    filtered_firmware_configs = list(
+        filter(lambda f: f["targets"][0]["architecture"] == arch, firmware_configs)
+    )
 
-        # Filter on architecture.
-        filtered_firmware_configs = list(
-            filter(lambda f: f["targets"][0]["architecture"] == arch, firmware_configs)
+    filtered_firmware_configs = list(
+        filter(
+            lambda f: any(
+                fnmatch.fnmatch(full_machine_type, target_machine)
+                for target_machine in f["targets"][0]["machines"]
+            ),
+            filtered_firmware_configs,
         )
+    )
 
+    # Exclude Intel TDX and AMD SEV-ES firmwares.
+    filtered_firmware_configs = list(
+        filter(
+            lambda f: "executable" in f["mapping"]
+            and "inteltdx" not in f["mapping"]["executable"]["filename"]
+            and "amdsev" not in f["mapping"]["executable"]["filename"]
+            # qcow2 does azl2, need to exclude such entries
+            and "qcow2" not in f["mapping"]["executable"]["filename"],
+            filtered_firmware_configs,
+        )
+    )
+
+    # Filter on secure boot.
+    if secure_boot:
         filtered_firmware_configs = list(
             filter(
-                lambda f: any(
-                    fnmatch.fnmatch(full_machine_type, target_machine)
-                    for target_machine in f["targets"][0]["machines"]
-                ),
+                lambda f: "secure-boot" in f["features"]
+                and "enrolled-keys" in f["features"],
+                filtered_firmware_configs,
+            )
+        )
+    else:
+        filtered_firmware_configs = list(
+            filter(
+                lambda f: "secure-boot" not in f["features"],
                 filtered_firmware_configs,
             )
         )
 
-        # Exclude Intel TDX and AMD SEV-ES firmwares.
-        filtered_firmware_configs = list(
-            filter(
-                lambda f: "executable" in f["mapping"]
-                and "inteltdx" not in f["mapping"]["executable"]["filename"]
-                and "amdsev" not in f["mapping"]["executable"]["filename"]
-                # qcow2 does azl2, need to exclude such entries
-                and "qcow2" not in f["mapping"]["executable"]["filename"],
-                filtered_firmware_configs,
-            )
+    # Get first matching firmware.
+    firmware_config = next(iter(filtered_firmware_configs), None)
+    if firmware_config is None:
+        raise Exception(
+            f"Could not find matching firmware for machine type={full_machine_type} "
+            f"and secure-boot={secure_boot}."
         )
 
-        # Filter on secure boot.
-        if secure_boot:
-            filtered_firmware_configs = list(
-                filter(
-                    lambda f: "secure-boot" in f["features"]
-                    and "enrolled-keys" in f["features"],
-                    filtered_firmware_configs,
-                )
-            )
-        else:
-            filtered_firmware_configs = list(
-                filter(
-                    lambda f: "secure-boot" not in f["features"],
-                    filtered_firmware_configs,
-                )
-            )
+    return firmware_config
 
-        # Get first matching firmware.
-        firmware_config = next(iter(filtered_firmware_configs), None)
-        if firmware_config is None:
-            raise LisaException(
-                f"Could not find matching firmware for machine-type={machine_type} "
-                f"({full_machine_type}) and secure-boot={secure_boot}."
-            )
-
-        return firmware_config
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec) -> str:
+def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec, log_file: str) -> str:
+
+    host_arch = platform.machine()
 
     secure_boot_str = "yes" if vm_spec.secure_boot else "no"
 
-    firmware_config = _get_libvirt_firmware_config(libvirt_conn, vm_spec.secure_boot)
+    if host_arch == "x86_64":
+        domain_type = "kvm"
+        machine_model = "q35"
+        virt_type = "kvm"
+        serial_target_type = "isa-serial"
+        serial_target_model_name = "isa-serial"
+    else:
+        domain_type = "qemu"
+        machine_model = "virt-6.2"
+        virt_type = "qemu"
+        serial_target_type = "system-serial"
+        serial_target_model_name = "pl011"
+
+    domain_caps_xml = _get_domain_caps(libvirt_conn, machine_model, virt_type)
+
+    firmware_config = _get_libvirt_firmware_config(domain_caps_xml, vm_spec.secure_boot)
+    firmware_file = firmware_config["mapping"]["executable"]["filename"]
 
     domain = ET.Element("domain")
-    domain.attrib["type"] = "kvm"
+    domain.attrib["type"] = domain_type
 
     name = ET.SubElement(domain, "name")
     name.text = vm_spec.name
@@ -125,15 +157,19 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     os_type = ET.SubElement(os_tag, "type")
     os_type.text = "hvm"
+    os_type.attrib["arch"] = host_arch
+    os_type.attrib["machine"] = machine_model
 
-    nvram = ET.SubElement(os_tag, "nvram")
+    ET.SubElement(os_tag, "nvram")
+
+    os_boot = ET.SubElement(os_tag, "boot")
 
     if vm_spec.boot_type == "efi":
         loader = ET.SubElement(os_tag, "loader")
         loader.attrib["readonly"] = "yes"
         loader.attrib["secure"] = secure_boot_str
         loader.attrib["type"] = "pflash"
-        loader.text = firmware_config["mapping"]["executable"]["filename"]
+        loader.text = firmware_file
 
     features = ET.SubElement(domain, "features")
 
@@ -142,7 +178,15 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     ET.SubElement(features, "apic")
 
     cpu = ET.SubElement(domain, "cpu")
-    cpu.attrib["mode"] = "host-passthrough"
+    if host_arch == "x86_64":
+        cpu.attrib["mode"] = "host-passthrough"
+    else:
+        cpu.attrib["mode"] = "custom"
+        cpu.attrib["match"] = "exact"
+        cpu.attrib["check"] = "none"
+        cp_model = ET.SubElement(cpu, "model")
+        cp_model.attrib["fallback"] = "forbid"
+        cp_model.text = "cortex-a57"
 
     clock = ET.SubElement(domain, "clock")
     clock.attrib["offset"] = "utc"
@@ -158,18 +202,32 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     devices = ET.SubElement(domain, "devices")
 
+    if host_arch == "aarch64":
+        emulator = ET.SubElement(devices, "emulator")
+        emulator.text = _get_libvirt_path(domain_caps_xml)
+
+    controller_scsi = ET.SubElement(devices, "controller")
+    controller_scsi.attrib["type"] = "scsi"
+    controller_scsi.attrib["index"] = "0"
+    controller_scsi.attrib["model"] = "virtio-scsi"
+
     serial = ET.SubElement(devices, "serial")
-    serial.attrib["type"] = "pty"
+    serial.attrib["type"] = "file"
+    serial_source = ET.SubElement(serial, "source")
+    serial_source.attrib["path"] = log_file
 
     serial_target = ET.SubElement(serial, "target")
-    serial_target.attrib["type"] = "isa-serial"
+    serial_target.attrib["type"] = serial_target_type
     serial_target.attrib["port"] = "0"
 
     serial_target_model = ET.SubElement(serial_target, "model")
-    serial_target_model.attrib["name"] = "isa-serial"
+    serial_target_model.attrib["name"] = serial_target_model_name
 
     console = ET.SubElement(devices, "console")
-    console.attrib["type"] = "pty"
+    console.attrib["type"] = "file"
+
+    console_source = ET.SubElement(console, "source")
+    console_source.attrib["path"] = log_file
 
     console_target = ET.SubElement(console, "target")
     console_target.attrib["type"] = "serial"
@@ -193,6 +251,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
 
     _, os_disk_ext = os.path.splitext(vm_spec.os_disk_path)
     if os_disk_ext.lower() != ".iso":
+        os_boot.attrib["dev"] = "hd"
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
@@ -204,12 +263,13 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
             next_disk_indexes=next_disk_indexes
         )
     else:
+        os_boot.attrib["dev"] = "cdrom"
         _add_disk_xml(
             devices=devices,
             file_path=str(vm_spec.os_disk_path),
             device_type="cdrom",
             image_type="raw",
-            bus_type="sata",
+            bus_type="scsi",
             device_prefix="sd",
             read_only=True,
             next_disk_indexes=next_disk_indexes
@@ -248,7 +308,7 @@ def _add_disk_xml(
     disk_source.attrib["file"] = file_path
 
     if read_only:
-        disk_readonly = ET.SubElement(disk, "readonly")
+        ET.SubElement(disk, "readonly")
 
 
 def _gen_disk_device_name(prefix: str, next_disk_indexes: Dict[str, int]) -> str:

@@ -2,10 +2,14 @@
 # Licensed under the MIT License.
 
 import logging
+from pathlib import Path
+import platform
 import time
 from typing import Any, Optional
 
 import libvirt  # type: ignore
+
+from .ssh_client import SshClient, SshClientException
 
 
 # Assists with creating and destroying a libvirt VM.
@@ -60,7 +64,12 @@ class LibvirtVm:
         if len(addrs) < 1:
             return None
 
-        addr = addrs[0]["addr"]
+        # For arm64 virtual machines, two IP addresses are assigned
+        # temporarily - where the first is not usable and disappears after some
+        # time. So, optimistically, we always return the last IP addrress in
+        # the list assuming that is the one that works for all architectures.
+        addr = addrs[len(addrs) - 1]["addr"]
+
         assert isinstance(addr, str)
         return addr
 
@@ -93,6 +102,45 @@ class LibvirtVm:
             )
         except libvirt.libvirtError as ex:
             logging.warning(f"VM delete failed. {ex}")
+
+    def create_ssh_client(
+        self,
+        ssh_private_key_path: Path,
+        test_temp_dir: Path,
+    ) -> SshClient:
+
+        ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
+        open(ssh_known_hosts_path, "w").close()
+
+        # arm64 emulated runs take a very long time to boot and get to a state
+        # where we can connect to it.
+        ip_wait_time = 30
+        if platform.machine() == 'aarch64':
+            ip_wait_time = 300
+
+        # For arm64 runs, we are seeing a behavior where the first IP address that
+        # gets assigned becomes unusable by the time we try to ssh into the machine
+        # and then ssh fails to connect.
+        # Some time later, a different IP address gets assigned, and that IP
+        # address is usable.
+        stable_ip_time_out = 360
+        stable_ip_wait_time = 120
+        stable_ip_start_time = time.monotonic()
+        while True:
+            # Wait for VM to boot by waiting for it to request an IP address from the DHCP server.
+            vm_ip_address = self.get_vm_ip_address(timeout=ip_wait_time)
+            logging.debug(f"found IP address = {vm_ip_address}")
+
+            # Connect to VM using SSH.
+            try:
+                vm_ssh = SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path)
+                return vm_ssh
+            except SshClientException as e:
+                delta_time = time.monotonic() - stable_ip_start_time
+                if delta_time > stable_ip_time_out:
+                    raise Exception(f"Error connecting to {vm_ip_address} - giving up: {e}")
+                logging.debug(f"will retry the ssh connection in case the assigned IP address has changed")
+                time.sleep(stable_ip_wait_time)
 
     def __enter__(self) -> "LibvirtVm":
         return self
