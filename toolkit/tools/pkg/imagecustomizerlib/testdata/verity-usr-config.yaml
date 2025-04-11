@@ -1,5 +1,9 @@
+previewFeatures:
+- shrink-partitions
+
 storage:
   bootType: efi
+  shrinkPartitions: verity-only
   disks:
   - partitionTableType: gpt
     partitions:

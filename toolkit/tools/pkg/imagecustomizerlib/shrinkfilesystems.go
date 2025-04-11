@@ -3,16 +3,20 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
 )
 
-func shrinkFilesystems(imageLoopDevice string) error {
+func shrinkFilesystems(imageLoopDevice string, verityOnly bool, verity []imagecustomizerapi.Verity,
+	partIdToPartUuid map[string]string,
+) error {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
@@ -24,6 +28,19 @@ func shrinkFilesystems(imageLoopDevice string) error {
 	sectorSize, _, err := diskutils.GetSectorSize(imageLoopDevice)
 	if err != nil {
 		return fmt.Errorf("failed to get disk (%s) sector size:\n%w", imageLoopDevice, err)
+	}
+
+	verityPartUuidList := []string(nil)
+	if verityOnly {
+		for _, verityConfig := range verity {
+			dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice,
+				partIdToPartUuid, diskPartitions)
+			if err != nil {
+				return fmt.Errorf("failed to find verity (%s) data partition:\n%w", verityConfig.Id, err)
+			}
+
+			verityPartUuidList = append(verityPartUuidList, dataPartition.PartUuid)
+		}
 	}
 
 	for _, diskPartition := range diskPartitions {
@@ -38,6 +55,14 @@ func shrinkFilesystems(imageLoopDevice string) error {
 		if !supportedShrinkFsType(fstype) {
 			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
 			continue
+		}
+
+		if verityOnly {
+			isVerityDataDevice := slices.Contains(verityPartUuidList, diskPartition.PartUuid)
+			if !isVerityDataDevice {
+				logger.Log.Infof("Shrinking partition (%s): not a verity data device (%s)", partitionLoopDevice, fstype)
+				continue
+			}
 		}
 
 		logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)

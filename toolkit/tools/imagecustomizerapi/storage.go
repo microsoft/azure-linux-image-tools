@@ -26,6 +26,7 @@ type Storage struct {
 	Disks                    []Disk                   `yaml:"disks" json:"disks,omitempty"`
 	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
+	ShrinkPartitions         ShrinkPartitionsType     `yaml:"shrinkPartitions" json:"shrinkPartitions,omitempty"`
 
 	// Filled in by Storage.IsValid().
 	VerityPartitionsType VerityPartitionsType `json:"-"`
@@ -40,6 +41,11 @@ func (s *Storage) IsValid() error {
 	}
 
 	err = s.BootType.IsValid()
+	if err != nil {
+		return err
+	}
+
+	err = s.ShrinkPartitions.IsValid()
 	if err != nil {
 		return err
 	}

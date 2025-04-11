@@ -16,11 +16,14 @@ const (
 
 	// PreviewFeatureInjectFiles enables files injection into target partitions.
 	PreviewFeatureInjectFiles PreviewFeature = "inject-files"
+
+	// PreviewFeatureOutputArtifacts enables output of selected artifacts after image customization.
+	PreviewFeatureShrinkPartitions PreviewFeature = "shrink-partitions"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
-	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles:
+	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureShrinkPartitions:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

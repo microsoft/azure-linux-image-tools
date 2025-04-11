@@ -96,6 +96,12 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	if c.Storage.ShrinkPartitions != ShrinkPartitionsTypeDefault {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureShrinkPartitions) {
+			return fmt.Errorf("the 'shrink-partitions' preview feature must be enabled to use 'storage.shrinkPartitions'")
+		}
+	}
+
 	return nil
 }
 

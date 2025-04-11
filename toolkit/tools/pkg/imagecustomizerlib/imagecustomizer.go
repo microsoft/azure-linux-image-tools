@@ -458,9 +458,11 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
-	shrinkPartitions := ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
+	shrinkPartitions := ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi ||
+		ic.config.Storage.ShrinkPartitions == imagecustomizerapi.ShrinkPartitionsTypeVerityOnly
 	if shrinkPartitions {
-		err = shrinkFilesystemsHelper(ic.rawImageFile)
+		shrinkVerityOnly := ic.outputImageFormat != imagecustomizerapi.ImageFormatTypeCosi
+		err = shrinkFilesystemsHelper(ic.rawImageFile, shrinkVerityOnly, ic.config.Storage.Verity, partIdToPartUuid)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
@@ -855,7 +857,9 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	return partUuidToFstabEntry, osRelease, nil
 }
 
-func shrinkFilesystemsHelper(buildImageFile string) error {
+func shrinkFilesystemsHelper(buildImageFile string, verityOnly bool, verity []imagecustomizerapi.Verity,
+	partIdToPartUuid map[string]string,
+) error {
 	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
 		return err
@@ -863,7 +867,7 @@ func shrinkFilesystemsHelper(buildImageFile string) error {
 	defer imageLoopback.Close()
 
 	// Shrink the filesystems.
-	err = shrinkFilesystems(imageLoopback.DevicePath())
+	err = shrinkFilesystems(imageLoopback.DevicePath(), verityOnly, verity, partIdToPartUuid)
 	if err != nil {
 		return err
 	}
