@@ -42,14 +42,7 @@ def keep_environment(request: pytest.FixtureRequest) -> Generator[bool, None, No
 
 @pytest.fixture(scope="session")
 def session_temp_dir(request: pytest.FixtureRequest, keep_environment: bool) -> Generator[Path, None, None]:
-    build_dir = SCRIPT_PATH.joinpath("build")
-    os.makedirs(build_dir, exist_ok=True)
-
-    temp_path = tempfile.mkdtemp(prefix="vmtests-", dir=build_dir)
-
-    # Ensure VM can access directory.
-    os.chmod(temp_path, 0o775)
-
+    temp_path = create_temp_folder("vmtests-")
     yield Path(temp_path)
 
     if not keep_environment:
@@ -115,14 +108,8 @@ def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, No
 def logs_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     logs_dir = request.config.getoption("--logs-dir")
     if not logs_dir:
-        build_dir = SCRIPT_PATH.joinpath("build")
-        os.makedirs(build_dir, exist_ok=True)
-        logs_dir = tempfile.mkdtemp(prefix="logs-", dir=build_dir)
-
-        # Ensure VM can access directory.
-        os.chmod(logs_dir, 0o775)
-
-    yield Path(logs_dir)
+        temp_path = create_temp_folder("logs-")
+    yield Path(temp_path)
 
 
 @pytest.fixture(scope="session")
@@ -186,3 +173,17 @@ def close_list(keep_environment: bool) -> Generator[List[Closeable], None, None]
 
     if len(exceptions) > 0:
         raise ExceptionGroup("failed to close resources", exceptions)
+
+
+def create_temp_folder(
+    prefix: str,
+) -> None:
+    build_dir = SCRIPT_PATH.joinpath("build")
+    os.makedirs(build_dir, exist_ok=True)
+
+    temp_path = tempfile.mkdtemp(prefix=prefix, dir=build_dir)
+
+    # Ensure VM can access directory.
+    os.chmod(temp_path, 0o775)
+
+    return temp_path
