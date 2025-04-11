@@ -68,7 +68,7 @@ image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 test:
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
-		--output-artifacts-dir="${OUTPUT_ARTIFACTS_DIR}" \
+		--logs-dir="${LOGS_DIR}" \
 		--core-efi-azl2="${CORE_EFI_AZL2}" \
 		--core-efi-azl3="${CORE_EFI_AZL3}" \
 		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \

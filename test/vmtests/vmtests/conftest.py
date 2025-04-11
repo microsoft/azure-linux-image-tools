@@ -26,7 +26,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
-    parser.addoption("--output-artifacts-dir", action="store", help="Path to output artifacts directory")
+    parser.addoption("--logs-dir", action="store", help="Path to logs directory")
     parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
     parser.addoption(
         "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
@@ -112,17 +112,17 @@ def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, No
 
 
 @pytest.fixture(scope="session")
-def output_artifacts_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
-    output_artifacts_dir = request.config.getoption("--output-artifacts-dir")
-    if not output_artifacts_dir:
+def logs_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    logs_dir = request.config.getoption("--logs-dir")
+    if not logs_dir:
         build_dir = SCRIPT_PATH.joinpath("build")
         os.makedirs(build_dir, exist_ok=True)
-        output_artifacts_dir = tempfile.mkdtemp(prefix="output-artifacts-", dir=build_dir)
+        logs_dir = tempfile.mkdtemp(prefix="logs-", dir=build_dir)
 
         # Ensure VM can access directory.
-        os.chmod(output_artifacts_dir, 0o775)
+        os.chmod(logs_dir, 0o775)
 
-    yield Path(output_artifacts_dir)
+    yield Path(logs_dir)
 
 
 @pytest.fixture(scope="session")

@@ -32,7 +32,7 @@ def run_min_change_test(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -58,7 +58,7 @@ def run_min_change_test(
     logging.debug(f"- output_format           = {output_format}")
     logging.debug(f"- source_boot_type        = {source_boot_type}")
     logging.debug(f"- target_boot_type        = {target_boot_type}")
-    logging.debug(f"- output_artifacts_dir    = {output_artifacts_dir}")
+    logging.debug(f"- logs_dir                = {logs_dir}")
 
     username = getuser()
 
@@ -77,7 +77,7 @@ def run_min_change_test(
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
     customized_image_name = image_name_without_ext + "_" + get_host_distro() + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_to_" + target_boot_type + image_ext
-    customized_image_path = str(output_artifacts_dir) + "/" + customized_image_name
+    customized_image_path = str(logs_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
     logging.debug(f"- vm_console_log_file_path = {vm_console_log_file_path}")
 
@@ -148,7 +148,7 @@ def test_min_change_efi_azl2_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -166,7 +166,7 @@ def test_min_change_efi_azl2_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -179,7 +179,7 @@ def test_min_change_efi_azl3_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -200,7 +200,7 @@ def test_min_change_efi_azl3_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -214,7 +214,7 @@ def test_min_change_legacy_azl2_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -232,7 +232,7 @@ def test_min_change_legacy_azl2_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -246,7 +246,7 @@ def test_min_change_legacy_azl3_qcow_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -264,7 +264,7 @@ def test_min_change_legacy_azl3_qcow_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -278,7 +278,7 @@ def test_min_change_efi_azl2_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -296,7 +296,7 @@ def test_min_change_efi_azl2_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -309,7 +309,7 @@ def test_min_change_efi_azl3_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -327,7 +327,7 @@ def test_min_change_efi_azl3_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -341,7 +341,7 @@ def test_min_change_legacy_azl2_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -359,7 +359,7 @@ def test_min_change_legacy_azl2_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
@@ -373,7 +373,7 @@ def test_min_change_legacy_azl3_iso_output(
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
-    output_artifacts_dir: Path,
+    logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
 ) -> None:
@@ -391,7 +391,7 @@ def test_min_change_legacy_azl3_iso_output(
         ssh_key,
         test_temp_dir,
         test_instance_name,
-        output_artifacts_dir,
+        logs_dir,
         libvirt_conn,
         close_list,
     )
