@@ -184,7 +184,9 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 	return nil
 }
 
-func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string) error {
+func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string,
+	outputImageFile string, outputImageFormat string,
+) error {
 	var injectConfig imagecustomizerapi.InjectFilesConfig
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &injectConfig)
 	if err != nil {
@@ -202,7 +204,8 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 		return fmt.Errorf("failed to get absolute path of inject-files.yaml:\n%w", err)
 	}
 
-	err = InjectFiles(buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles)
+	err = InjectFiles(buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
+		outputImageFile, outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -211,7 +214,8 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 }
 
 func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
-	metadata []imagecustomizerapi.InjectArtifactMetadata,
+	metadata []imagecustomizerapi.InjectArtifactMetadata, outputImageFile string,
+	outputImageFormat string,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
@@ -222,9 +226,16 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	inputImageFormat := strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
-	outputImageFormat, err := convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
+	detectedImageFormat, err := convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
 	if err != nil {
 		return err
+	}
+	if outputImageFormat != "" {
+		detectedImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
+	}
+
+	if outputImageFile == "" {
+		outputImageFile = inputImageFile
 	}
 
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
@@ -279,7 +290,7 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	err = convertImageFile(rawImageFile, inputImageFile, outputImageFormat)
+	err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
 	if err != nil {
 		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
 	}

@@ -140,38 +140,6 @@ Added in v0.3.
 
 ## inject-files
 
-This subcommand takes a base image and a config file (typically auto-generated
-from the [output.artifacts](./configuration/outputArtifacts.md) API) and injects
-files (like signed bootchain artifacts) back into the image at specified locations.
+Injects files into a disk image using an injection configuration.
 
-The image formats supported are `vhd`, `vhdx`, `qcow2`, and `raw`. The output
-image will be written to the same path as the input image (in-place modification).
-
-The injection config must have the `inject-files`
-[previewFeatures](./configuration/config.md#previewfeatures-string) enabled.
-
-See [`injectFilesConfig`](./configuration/injectFilesConfig.md) for config format.
-
-### Required Arguments
-
-- `--config-file=FILE-PATH`
-
-  Path to the file injection configuration.
-
-- `--image-file=FILE-PATH`
-
-  Path to the image file to modify.
-
-- `--build-dir=DIRECTORY-PATH`
-
-  Temporary workspace directory.
-
-Example:
-
-```bash
-imagecustomizer \
-  inject-files \
-  --config-file /path/to/inject-files.yaml \
-  --image-file /path/to/input-image.qcow2 \
-  --build-dir /path/to/build-dir
-```
+See [inject-files subcommand](./cli/inject-files.md) for full documentation.

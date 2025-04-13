@@ -29,9 +29,11 @@ type CustomizeCmd struct {
 }
 
 type InjectFilesCmd struct {
-	BuildDir       string `name:"build-dir" help:"Directory to run build out of." required:""`
-	ConfigFile     string `name:"config-file" help:"Path to the inject-files.yaml config file." required:""`
-	InputImageFile string `name:"image-file" help:"Path of the base image to inject files into." required:""`
+	BuildDir          string `name:"build-dir" help:"Directory to run build out of." required:""`
+	ConfigFile        string `name:"config-file" help:"Path to the inject-files.yaml config file." required:""`
+	InputImageFile    string `name:"image-file" help:"Path of the base image to inject files into." required:""`
+	OutputImageFile   string `name:"output-image-file" help:"Path to write the injected image to."`
+	OutputImageFormat string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 }
 
 type RootCmd struct {
@@ -96,7 +98,8 @@ func customizeImage(cmd CustomizeCmd) error {
 }
 
 func injectFiles(cmd InjectFilesCmd) error {
-	err := imagecustomizerlib.InjectFilesWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile)
+	err := imagecustomizerlib.InjectFilesWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
+		cmd.OutputImageFile, cmd.OutputImageFormat)
 	if err != nil {
 		return err
 	}

@@ -373,7 +373,30 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 		return "", fmt.Errorf("failed to convert image file to raw format:\n%w", err)
 	}
 
-	return imagecustomizerapi.ImageFormatType(detectedImageFormat), nil
+	format, err := qemuStringtoImageFormatType(detectedImageFormat)
+	if err != nil {
+		return "", err
+	}
+	return format, nil
+}
+
+func qemuStringtoImageFormatType(qemuFormat string) (imagecustomizerapi.ImageFormatType, error) {
+	switch qemuFormat {
+	case "raw":
+		return imagecustomizerapi.ImageFormatTypeRaw, nil
+	case "qcow2":
+		return imagecustomizerapi.ImageFormatTypeQcow2, nil
+	case "vpc":
+		return imagecustomizerapi.ImageFormatTypeVhd, nil
+	case "vhdx":
+		return imagecustomizerapi.ImageFormatTypeVhdx, nil
+	case "iso":
+		return imagecustomizerapi.ImageFormatTypeIso, nil
+	case "cosi":
+		return imagecustomizerapi.ImageFormatTypeCosi, nil
+	default:
+		return "", fmt.Errorf("unsupported qemu-img format: %s", qemuFormat)
+	}
 }
 
 func qemuImgEscapeOptionValue(value string) string {
