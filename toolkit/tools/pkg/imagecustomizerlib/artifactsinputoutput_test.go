@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -27,11 +28,11 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	outputArtifactsDir := filepath.Join(testTempDir, "output")
 
 	// Copy test config to the temp dir so it's isolated
-	err := file.Copy(originalConfigFile, configFile)
+	err = file.Copy(originalConfigFile, configFile)
 	assert.NoError(t, err)
 
 	// Customize image
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
@@ -151,13 +152,13 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	// Check the injected files
 	// shim
 	expectedInjectedShim := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "BOOT", filepath.Base(bootBinary))
-	contains, err := fileContains(expectedInjectedShim, marker)
+	contains, err := fileContainsMarker(expectedInjectedShim, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected shim to exist:\n%s", expectedInjectedShim)
 
 	// systemd-boot
 	expectedInjectedSystemdBoot := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "systemd", filepath.Base(systemdBootBinary))
-	contains, err := fileContains(expectedInjectedSystemdBoot, marker)
+	contains, err = fileContainsMarker(expectedInjectedSystemdBoot, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected systemd-boot to exist:\n%s", expectedInjectedSystemdBoot)
 
