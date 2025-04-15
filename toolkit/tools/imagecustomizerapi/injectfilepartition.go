@@ -6,7 +6,7 @@ package imagecustomizerapi
 import "fmt"
 
 type InjectFilePartition struct {
-	MountIdType MountIdentifierType `yaml:"mountIdType" json:"mountIdType,omitempty"`
+	MountIdType MountIdentifierType `yaml:"idType" json:"idType,omitempty"`
 	Id          string              `yaml:"id" json:"id,omitempty"`
 }
 

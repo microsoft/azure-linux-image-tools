@@ -392,8 +392,6 @@ func qemuStringtoImageFormatType(qemuFormat string) (imagecustomizerapi.ImageFor
 		return imagecustomizerapi.ImageFormatTypeVhdx, nil
 	case "iso":
 		return imagecustomizerapi.ImageFormatTypeIso, nil
-	case "cosi":
-		return imagecustomizerapi.ImageFormatTypeCosi, nil
 	default:
 		return "", fmt.Errorf("unsupported qemu-img format: %s", qemuFormat)
 	}

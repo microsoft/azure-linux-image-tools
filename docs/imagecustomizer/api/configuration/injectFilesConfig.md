@@ -20,19 +20,19 @@ Example:
 ```yaml
 injectFiles:
 - partition:
-    mountIdType: part-uuid
+    idType: part-uuid
     id: b9f59ced-d1a6-44a7-91d9-4d623a39b032
   destination: /EFI/Linux/vmlinuz-6.6.51.1-5.azl3.efi
   source: ./vmlinuz-6.6.51.1-5.azl3.signed.efi
   unsignedSource: ./vmlinuz-6.6.51.1-5.azl3.unsigned.efi
 - partition:
-    mountIdType: part-uuid
+    idType: part-uuid
     id: b9f59ced-d1a6-44a7-91d9-4d623a39b032
   destination: /EFI/BOOT/bootx64.efi
   source: ./bootx64.signed.efi
   unsignedSource: ./bootx64.efi
 - partition:
-    mountIdType: part-uuid
+    idType: part-uuid
     id: b9f59ced-d1a6-44a7-91d9-4d623a39b032
   destination: /EFI/systemd/systemd-bootx64.efi
   source: ./systemd-bootx64.signed.efi

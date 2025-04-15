@@ -86,7 +86,7 @@ Supported options:
 
   See [Output Artifacts](./outputArtifacts.md) for more details.
 
-  Added in v0.14.0
+  Added in v0.14.
 
 - `inject-files`: Enables support for injecting files into specific partitions
   using a configuration file.
@@ -97,10 +97,10 @@ Supported options:
 
   See [`injectFilesConfig`](./injectFilesConfig.md) for more details.
 
-  Added in v0.14.0
+  Added in v0.14.
 
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
 
-Added in v0.13.0.
+Added in v0.13.
