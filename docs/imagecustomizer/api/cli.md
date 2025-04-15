@@ -137,3 +137,9 @@ The levels from lowest to highest level of verbosity are: `panic`, `fatal`, `err
 `warn`, `info`, `debug`, and `trace`.
 
 Added in v0.3.
+
+## inject-files
+
+Injects files into a disk image using an injection configuration.
+
+See [inject-files subcommand](./cli/inject-files.md) for full documentation.

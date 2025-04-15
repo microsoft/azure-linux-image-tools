@@ -288,7 +288,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
 		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
-			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile)
+			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile, baseConfigPath)
 		if err != nil {
 			return err
 		}
@@ -328,7 +328,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	} else {
 		logger.Log.Infof("Creating raw base image: %s", ic.rawImageFile)
 
-		err := convertImageToRaw(ic)
+		_, err := convertImageToRaw(ic.inputImageFile, ic.inputImageFormat, ic.rawImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -337,19 +337,21 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	}
 }
 
-func convertImageToRaw(ic *ImageCustomizerParameters) error {
-	imageInfo, err := getImageFileInfo(ic.inputImageFile)
+func convertImageToRaw(inputImageFile string, inputImageFormat string,
+	rawImageFile string,
+) (imagecustomizerapi.ImageFormatType, error) {
+	imageInfo, err := getImageFileInfo(inputImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to detect input image (%s) format:\n%w", ic.inputImageFile, err)
+		return "", fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
 	}
 
 	detectedImageFormat := imageInfo.Format
-	sourceArg := fmt.Sprintf("file.filename=%s", qemuImgEscapeOptionValue(ic.inputImageFile))
+	sourceArg := fmt.Sprintf("file.filename=%s", qemuImgEscapeOptionValue(inputImageFile))
 
 	// The fixed-size VHD format is just a raw disk file with small metadata footer appended to the end. Unfortunatley,
 	// that footer doesn't contain a file signature (i.e. "magic number"). So, qemu-img can't correctly detect this
 	// format and instead reports fixed-size VHDs as raw images. So, use the filename extension as a hint.
-	if ic.inputImageFormat == "vhd" && detectedImageFormat == "raw" {
+	if inputImageFormat == "vhd" && detectedImageFormat == "raw" {
 		// Force qemu-img to treat the file as a VHD.
 		detectedImageFormat = "vpc"
 	}
@@ -366,12 +368,33 @@ func convertImageToRaw(ic *ImageCustomizerParameters) error {
 		sourceArg += ",driver=vpc,force_size_calc=current_size"
 	}
 
-	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, ic.rawImageFile)
+	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to convert image file to raw format:\n%w", err)
+		return "", fmt.Errorf("failed to convert image file to raw format:\n%w", err)
 	}
 
-	return nil
+	format, err := qemuStringtoImageFormatType(detectedImageFormat)
+	if err != nil {
+		return "", err
+	}
+	return format, nil
+}
+
+func qemuStringtoImageFormatType(qemuFormat string) (imagecustomizerapi.ImageFormatType, error) {
+	switch qemuFormat {
+	case "raw":
+		return imagecustomizerapi.ImageFormatTypeRaw, nil
+	case "qcow2":
+		return imagecustomizerapi.ImageFormatTypeQcow2, nil
+	case "vpc":
+		return imagecustomizerapi.ImageFormatTypeVhd, nil
+	case "vhdx":
+		return imagecustomizerapi.ImageFormatTypeVhdx, nil
+	case "iso":
+		return imagecustomizerapi.ImageFormatTypeIso, nil
+	default:
+		return "", fmt.Errorf("unsupported qemu-img format: %s", qemuFormat)
+	}
 }
 
 func qemuImgEscapeOptionValue(value string) string {

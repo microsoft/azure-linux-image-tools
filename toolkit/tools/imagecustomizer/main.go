@@ -28,8 +28,17 @@ type CustomizeCmd struct {
 	OutputPXEArtifactsDir    string   `name:"output-pxe-artifacts-dir" help:"Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'."`
 }
 
+type InjectFilesCmd struct {
+	BuildDir          string `name:"build-dir" help:"Directory to run build out of." required:""`
+	ConfigFile        string `name:"config-file" help:"Path to the inject-files.yaml config file." required:""`
+	InputImageFile    string `name:"image-file" help:"Path of the base image to inject files into." required:""`
+	OutputImageFile   string `name:"output-image-file" help:"Path to write the injected image to."`
+	OutputImageFormat string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+}
+
 type RootCmd struct {
 	Customize     CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
+	InjectFiles   InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
 	Version       kong.VersionFlag `name:"version" help:"Print version information and quit"`
 	TimeStampFile string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	exekong.LogFlags
@@ -66,6 +75,12 @@ func main() {
 			log.Fatalf("image customization failed:\n%v", err)
 		}
 
+	case "inject-files":
+		err := injectFiles(cli.InjectFiles)
+		if err != nil {
+			log.Fatalf("inject-files failed:\n%v", err)
+		}
+
 	default:
 		panic(parseContext.Command())
 	}
@@ -75,6 +90,16 @@ func customizeImage(cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.OutputPXEArtifactsDir,
 		!cmd.DisableBaseImageRpmRepos)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func injectFiles(cmd InjectFilesCmd) error {
+	err := imagecustomizerlib.InjectFilesWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
+		cmd.OutputImageFile, cmd.OutputImageFormat)
 	if err != nil {
 		return err
 	}

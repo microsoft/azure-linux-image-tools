@@ -53,7 +53,7 @@ Added in v0.3.
 
 ## previewFeatures [string[]]
 
-Enables experimental and preview features that are not yet generally available.  
+Enables experimental and preview features that are not yet generally available.
 Features listed under previewFeatures must be explicitly included in the Image
 Customizer configuration to enable their usage.
 
@@ -88,8 +88,19 @@ Supported options:
 
   Added in v0.14.
 
+- `inject-files`: Enables support for injecting files into specific partitions
+  using a configuration file.
+
+  When this option is specified, the `inject-files.yaml` configuration becomes
+  available. This file can be generated using the `output.artifacts` API and
+  later consumed via the `inject-files` CLI command.
+
+  See [`injectFilesConfig`](./injectFilesConfig.md) for more details.
+
+  Added in v0.14.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
 
-Added in v0.13.0.
+Added in v0.13.
