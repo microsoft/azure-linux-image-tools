@@ -1,0 +1,67 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    maxSize: 2048M
+    partitions:
+    - id: esp
+      type: esp
+      start: 1M
+      end: 9M
+
+    - id: boot
+      start: 9M
+      end: 108M
+
+    - id: rootfs
+      start: 108M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+previewFeatures:
+- uki
+- output-artifacts
+
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - systemd-boot
+    path: ./output
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+    install:
+    - systemd-ukify
+    - systemd-boot
+    - efibootmgr
+    - openssh-server
+
+  services:
+    enable:
+    - sshd
