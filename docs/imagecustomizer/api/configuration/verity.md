@@ -128,6 +128,22 @@ os:
     resetType: hard-reset
 ```
 
+Example of enabling verity on existing partitions in the base image:
+
+```yaml
+storage:
+  verity:
+  - id: verityusr
+    name: usr
+    dataDevice:
+      idType: part-label
+      id: usr
+    hashDevice:
+      idType: part-label
+      id: usrhash
+    corruptionOption: panic
+```
+
 Added in v0.7.
 
 ## id [string]
@@ -158,15 +174,63 @@ The value must be:
 
 Added in v0.7.
 
+## dataDevice [[verityPartition](./verityPartition.md)]
+
+The existing partition within the base image to use as the verity data partition.
+
+Must be used with `hashDevice`.
+
+Added in v0.13.
+
 ## dataDeviceId [string]
 
-The ID of the [partition](./partition.md#id-string) to use as the verity data partition.
+The ID of the new [partition](./partition.md#id-string) to use as the verity data
+partition.
+
+Must be used with `hashDeviceId`.
 
 Added in v0.7.
 
+## dataDeviceMountIdType [string]
+
+How the verity data partition is referenced in the OS. For example, within the
+`/etc/fstab` and within the kernel command-line args.
+
+Supported values:
+
+- `uuid`: Identify the partition by filesystem UUID.
+- `part-uuid`: Identify the partition by partition UUID.
+- `part-label`: Identify the partition by partition label.
+
+Added in v0.7.
+
+## hashDevice [[verityPartition](./verityPartition.md)]
+
+The existing partition within the base image to use as the verity hash partition.
+
+Must be used with `dataDevice`.
+
+Added in v0.13.
+
 ## hashDeviceId [string]
 
-The ID of the [partition](./partition.md#id-string) to use as the verity hash partition.
+The ID of the new [partition](./partition.md#id-string) to use as the verity hash
+partition.
+
+Must be used with `dataDeviceId`.
+
+Added in v0.7.
+
+## hashDeviceMountIdType [string]
+
+How the verity hash partition is referenced in the OS. For example, within the
+`/etc/fstab` and within the kernel command-line args.
+
+Supported values:
+
+- `uuid`: Identify the partition by filesystem UUID.
+- `part-uuid`: Identify the partition by partition UUID.
+- `part-label`: Identify the partition by partition label.
 
 Added in v0.7.
 
