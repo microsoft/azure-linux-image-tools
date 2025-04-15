@@ -15,16 +15,16 @@ import (
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/isomakerlib"
 	"golang.org/x/sys/unix"
 )
 
@@ -465,7 +465,7 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 		return err
 	}
 
-	searchCommand := fmt.Sprintf(searchCommandTemplate, isomakerlib.DefaultVolumeId)
+	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
 	inputContentString, err = replaceSearchCommandAll(inputContentString, searchCommand)
 	if err != nil {
 		return fmt.Errorf("failed to update the search command in the iso grub.cfg:\n%w", err)
@@ -506,7 +506,7 @@ func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFi
 		}
 	}
 
-	rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isomakerlib.DefaultVolumeId)
+	rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
 	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 	if err != nil {
 		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
@@ -1206,31 +1206,9 @@ func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePa
 // ouptuts:
 //   - create a LiveOS ISO.
 func (b *LiveOSIsoBuilder) createIsoImage(additionalIsoFiles []safechroot.FileToCopy, isoOutputDir, isoOutputBaseName string) (isoImagePath string, err error) {
-	baseDirPath := ""
-
-	// unattended install is where the ISO OS configures a persistent storage
-	// and installs RPMs to it. This is different from the LiveOS scenario.
-	unattendedInstall := false
-
-	// We are disabling BIOS booloaders because enabling them will requires
-	// MIC to take a dependency on binary artifacts stored elsewhere.
-	// Should we decide to include the BIOS bootloader, we need to find a
-	// reliable and efficient way to pull those binaries.
-	enableBiosBoot := false
-	isoResourcesDir := ""
-
-	// No stock resources are needed for the LiveOS scenario.
-	// No rpms are needed for the LiveOS scenario.
-	enableRpmRepo := false
-	isoRepoDirPath := ""
-
 	// Construct the output image full path
 	isoImageNameInfo := getImageNameFromImageBaseName(isoOutputBaseName)
 	isoImagePath = filepath.Join(isoOutputDir, isoImageNameInfo.name)
-
-	// empty target system config since LiveOS does not install the OS
-	// artifacts to the target system.
-	targetSystemConfig := configuration.Config{}
 
 	// Add the squashfs file
 	squashfsImageToCopy := safechroot.FileToCopy{
@@ -1280,28 +1258,25 @@ func (b *LiveOSIsoBuilder) createIsoImage(additionalIsoFiles []safechroot.FileTo
 		return "", err
 	}
 
-	isoMaker, err := isomakerlib.NewIsoMakerWithConfig(
-		unattendedInstall,
-		enableBiosBoot,
-		enableRpmRepo,
-		baseDirPath,
-		b.workingDirs.isomakerBuildDir,
-		isoImageNameInfo.releaseVersion,
-		isoResourcesDir,
-		additionalIsoFiles,
-		targetSystemConfig,
-		isoBootDir,
-		b.artifacts.initrdImagePath,
-		b.artifacts.isoGrubCfgPath,
-		isoRepoDirPath,
-		isoOutputDir,
-		isoOutputBaseName,
-		isoImageNameInfo.tag)
+	targetGrubCfg := filepath.Join(b.workingDirs.isomakerBuildDir, installutils.GrubCfgFile)
+	err = file.Copy(b.artifacts.isoGrubCfgPath, targetGrubCfg)
 	if err != nil {
 		return "", err
 	}
 
-	err = isoMaker.Make()
+	err = safechroot.AddFilesToDestination(b.workingDirs.isomakerBuildDir, additionalIsoFiles...)
+	if err != nil {
+		return "", err
+	}
+
+	err = isogenerator.GenerateIso(isogenerator.IsoGenConfig{
+		BuildDirPath:      b.workingDirs.isoBuildDir,
+		StagingDirPath:    b.workingDirs.isomakerBuildDir,
+		EnableBiosBoot:    false,
+		OutputFilePath:    isoImagePath,
+		IsoOsFilesDirPath: isoBootDir,
+		InitrdPath:        b.artifacts.initrdImagePath,
+	})
 	if err != nil {
 		return "", err
 	}
