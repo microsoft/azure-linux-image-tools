@@ -20,7 +20,7 @@ source: ./bootx64.signed.efi
 unsignedSource: ./bootx64.efi
 ```
 
-## `partition` [InjectFilePartition]
+## `partition` [InjectFilePartition](./injectFilePartition.md)
 
 Required.
 

@@ -57,7 +57,6 @@ os:
     remove:
     - grub2-efi-binary
     install:
-    - systemd-ukify
     - systemd-boot
     - efibootmgr
     - openssh-server

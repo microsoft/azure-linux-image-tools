@@ -41,7 +41,7 @@ previewFeatures:
 - inject-files
 ```
 
-## injectFiles [InjectArtifactMetadata[]]
+## injectFiles [`InjectArtifactMetadata`](./injectArtifactMetadata.md)[]
 
 Required.
 
