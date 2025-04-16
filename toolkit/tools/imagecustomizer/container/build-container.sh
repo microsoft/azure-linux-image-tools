@@ -58,7 +58,7 @@ licensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
 
-dockerFile="$scriptDir/prism.Dockerfile"
+dockerFile="$scriptDir/imagecustomizer.Dockerfile"
 runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
@@ -89,7 +89,7 @@ cp "$orasUnzipDir/oras" "${stagingBinDir}"
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
     echo "Removing grub2-pc and systemd-ukify from Dockerfile for arm64"
-    sed -i 's/\<grub2-pc systemd-ukify\>//g' prism.Dockerfile
+    sed -i 's/\<grub2-pc systemd-ukify\>//g' imagecustomizer.Dockerfile
 fi
 
 # build the container

@@ -70,18 +70,18 @@ outputImageDir=$(dirname $outputImage)
 mkdir -p $outputImageDir
 
 # setup input image within the container
-containerInputImageDir=/prism/input
+containerInputImageDir=/container/input
 containerInputImage=$containerInputImageDir/$(basename $inputImage)
 
 # setup input config within the container
-containerInputConfigDir=/prism/config
+containerInputConfigDir=/container/config
 containerInputConfig=$containerInputConfigDir/$(basename $inputConfig)
 
 # setup build folder within the container
-containerBuildDir=/prism/build
+containerBuildDir=/container/build
 
 # setup output image within the container
-containerOutputDir=/prism/output
+containerOutputDir=/container/output
 containerOutputImage=$containerOutputDir/$(basename $outputImage)
 
 # invoke

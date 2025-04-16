@@ -4,7 +4,7 @@ parent: How To
 nav_order: 8
 ---
 
-# Enabling VS Code Configuration Validation for Prism (Image Customizer)
+# Enabling VS Code Configuration Validation for Image Customizer
 
 This guide explains how to set up YAML validation in Visual Studio Code (VS
 Code) for authoring image customization configurations.
@@ -24,7 +24,7 @@ This extension provides YAML validation and syntax highlighting.
 ### 2. Update VS Code Settings
 
 Modify your VS Code `settings.json` to point to the schema corresponding to the
-version of Prism you are using.
+version you are using.
 
 Add the following to your `settings.json` file after updating `<RELEASE>` and
 `<SPECIFIC-FOLDER>`:
