@@ -10,3 +10,7 @@ kramdown:
   gfm_quirks:
     # Don't convert `--` to em-dash.
   - no_auto_typographic
+
+aux_links:
+  "GitHub Repo":
+    - "https://github.com/microsoft/azure-linux-image-tools"

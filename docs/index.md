@@ -1,10 +1,15 @@
 ---
 layout: default
-title: Azure Linux Image Tools
+title: Home
 nav_order: 1
 ---
 
-# Welcome to the Azure Linux Image Tools Documentation!
+# Azure Linux Image Tools
 
-Here you'll find all the documentation for the Image Customizer and other
-related tools.
+Azure Linux Image Tools is a collection of open-source tools to simplify the
+customization and management of Azure Linux images.
+
+In this repo, you'll find documentation for the following tools:
+
+- Image Customizer
+- *... more coming soon!*
