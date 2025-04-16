@@ -29,10 +29,10 @@ def run_image_customizer(
 ) -> None:
     modified_config_path = None
 
-    container_base_image_dir = Path("/prism/base_image")
-    container_config_dir = Path("/prism/config")
-    container_output_image_dir = Path("/prism/output_image")
-    container_build_dir = Path("/prism/build")
+    container_base_image_dir = Path("/container/base_image")
+    container_config_dir = Path("/container/config")
+    container_output_image_dir = Path("/container/output_image")
+    container_build_dir = Path("/container/build")
 
     base_image_dir = base_image_path.parent.absolute()
     config_dir = config_path.parent.absolute()

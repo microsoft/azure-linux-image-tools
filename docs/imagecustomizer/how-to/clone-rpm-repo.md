@@ -5,7 +5,7 @@ nav_order: 4
 
 # Cloning an RPM repo
 
-By default, the image customizer tool uses the base image's inbuilt repo files for where
+By default, Image Customizer uses the base image's inbuilt repo files for where
 to source RPMs from. The Azure Linux default repos typically point to
 packages.microsoft.com (PMC).
 

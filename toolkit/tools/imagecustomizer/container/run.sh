@@ -40,6 +40,6 @@ if [ ! -f $VHDX_PATH ]; then
     exit 1
 fi
 
-# Remove the first argument (VERSION_TAG) and pass the rest to the prism binary.
+# Remove the first argument (VERSION_TAG) and pass the rest to the binary.
 shift
 imagecustomizer --image-file $VHDX_PATH "$@"
