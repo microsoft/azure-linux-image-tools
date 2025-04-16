@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -72,7 +73,8 @@ type ImageCustomizerParameters struct {
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
 
-	verityMetadata []verityDeviceMetadata
+	baseImageVerityMetadata []verityDeviceMetadata
+	verityMetadata          []verityDeviceMetadata
 
 	partUuidToFstabEntry map[string]diskutils.FstabEntry
 	osRelease            string
@@ -427,15 +429,6 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 		ic.config.OS = &imagecustomizerapi.OS{}
 	}
 
-	// Check if dm-verity is enabled on the base image.
-	verityEnabled, err := isDmVerityEnabled(ic.rawImageFile)
-	if err != nil {
-		return err
-	}
-	if verityEnabled && !ic.config.CustomizePartitions() {
-		return fmt.Errorf("dm-verity is enabled on the base image so partitions must be specified")
-	}
-
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
@@ -445,16 +438,22 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.rawImageFile = newRawImageFile
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, osRelease, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
-		ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
+	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
+		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
 	if err != nil {
 		return err
 	}
 
-	// Set partition to mountpath mapping for COSI.
-	ic.partUuidToFstabEntry = partUuidToFstabEntry
+	if len(baseImageVerityMetadata) > 0 {
+		previewFeatureEnabled := slices.Contains(ic.config.PreviewFeatures, imagecustomizerapi.PreviewFeatureReinitializeVerity)
+		if !previewFeatureEnabled {
+			return fmt.Errorf("Please enable the '%s' preview feature to customize a verity enabled base image",
+				imagecustomizerapi.PreviewFeatureReinitializeVerity)
+		}
+	}
 
-	// Set osRelease file content for COSI.
+	ic.partUuidToFstabEntry = partUuidToFstabEntry
+	ic.baseImageVerityMetadata = baseImageVerityMetadata
 	ic.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
@@ -808,19 +807,20 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string,
-) (map[string]diskutils.FstabEntry, string, error) {
+) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
+		buildDir, "imageroot", true)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	defer imageConnection.Close()
 
 	// Extract OS release info from rootfs for COSI
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+		return nil, nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
@@ -832,7 +832,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
 	if err != nil {
-		return nil, "", fmt.Errorf("verity validation failed:\n%w", err)
+		return nil, nil, "", fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
 	// Do the actual customizations.
@@ -844,15 +844,15 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	warnOnLowFreeSpace(buildDir, imageConnection)
 
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 
-	return partUuidToFstabEntry, osRelease, nil
+	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, nil
 }
 
 func shrinkFilesystemsHelper(buildImageFile string) error {
@@ -1024,37 +1024,6 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 	}
 
 	return verityMetadata, nil
-}
-
-func isDmVerityEnabled(rawImageFile string) (bool, error) {
-	loopback, err := safeloopback.NewLoopback(rawImageFile)
-	if err != nil {
-		return false, fmt.Errorf("failed to create a loopback device for checking if dm-verity is enabled on the base image:\n%w", err)
-	}
-	defer loopback.Close()
-
-	verityEnabled := false
-
-	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
-	if err != nil {
-		return false, err
-	}
-
-	for i := range diskPartitions {
-		diskPartition := diskPartitions[i]
-
-		if diskPartition.FileSystemType == "DM_verity_hash" {
-			verityEnabled = true
-			break
-		}
-	}
-
-	err = loopback.CleanClose()
-	if err != nil {
-		return false, fmt.Errorf("failed to cleanly close loopback device:\n%w", err)
-	}
-
-	return verityEnabled, nil
 }
 
 func warnOnLowFreeSpace(buildDir string, imageConnection *ImageConnection) {
