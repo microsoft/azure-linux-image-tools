@@ -1,6 +1,6 @@
 ---
 title: Quick Start - Binary
-parent: Quick Start - Container
+parent: Quick Start
 nav_order: 1
 ---
 
