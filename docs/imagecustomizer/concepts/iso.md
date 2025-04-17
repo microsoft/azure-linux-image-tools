@@ -19,8 +19,8 @@ in memory is created so that processes can successfully write state.
 The input image can be a full disk image (vhd/vhdx/qcow2/raw) or another LiveOS iso image. 
 
 To generate a LiveOS ISO, set the `--output-image-format` parameter to `iso`.
-More info can be found at [Creating a LiveOS ISO how-to
-guide](../how-to/live-iso.md)
+More info can be found at 
+[Creating a LiveOS ISO how-to guide](../how-to/live-iso.md)
 
 ## Input Image Layout Assumptions
 
