@@ -1,7 +1,7 @@
 ---
 title: API Schema for VSCode
-parent: How To
-nav_order: 8
+parent: Reference
+nav_order: 3
 ---
 
 # Enabling VS Code Configuration Validation for Image Customizer
