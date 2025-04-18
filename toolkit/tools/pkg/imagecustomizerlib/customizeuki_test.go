@@ -74,5 +74,5 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	usrDevice := partitionDevPath(imageConnection, 3)
 	usrHashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info")
+		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
 }

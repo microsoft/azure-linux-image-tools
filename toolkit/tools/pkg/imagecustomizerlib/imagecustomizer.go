@@ -84,6 +84,7 @@ type verityDeviceMetadata struct {
 	hashPartUuid          string
 	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
+	corruptionOption      imagecustomizerapi.CorruptionOption
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -974,6 +975,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			hashPartUuid:          hashPartition.PartUuid,
 			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
+			corruptionOption:      verityConfig.CorruptionOption,
 		}
 	}
 

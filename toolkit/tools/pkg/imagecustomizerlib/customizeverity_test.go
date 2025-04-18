@@ -102,7 +102,7 @@ func verityRootVerity(t *testing.T, imageType baseImageType, imageVersion baseIm
 	rootDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", imageVersion)
+		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", imageVersion, "panic-on-corruption")
 
 	err = imageConnection.CleanClose()
 	if !assert.NoError(t, err) {
@@ -213,11 +213,11 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, im
 
 	// Verify that verity is configured correctly.
 	verifyVerityGrub(t, bootMountPath, rootDevice.DevicePath(), hashDevice.DevicePath(), "PARTLABEL=root",
-		"PARTLABEL=roothash", "root", "rd.info", imageVersion)
+		"PARTLABEL=roothash", "root", "rd.info", imageVersion, "panic-on-corruption")
 }
 
 func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevice string, dataId string, hashId string,
-	verityType string, extraCommandLine string, imageVersion baseImageVersion,
+	verityType string, extraCommandLine string, imageVersion baseImageVersion, corruptionOption string,
 ) {
 	// Extract kernel command line args.
 	grubCfgPath := filepath.Join(bootPath, "/grub2/grub.cfg")
@@ -235,7 +235,7 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 	}
 
 	// Verify verity.
-	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType)
+	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption)
 
 	// Verity extra command line args.
 	recoveryCount := 0
@@ -260,6 +260,7 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 
 func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	hashDevice string, dataId string, hashId string, verityType string, buildDir string, extraCommandLine string,
+	corruptionOption string,
 ) {
 	// Extract kernel command line args.
 	kernelArgsList, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
@@ -268,7 +269,7 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	}
 
 	// Verify verity
-	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType)
+	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption)
 
 	// Verify extra command line
 	for _, kernelArgs := range kernelArgsList {
@@ -277,7 +278,7 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 }
 
 func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string,
-	hashDevice string, dataId string, hashId string, verityType string,
+	hashDevice string, dataId string, hashId string, verityType string, corruptionOption string,
 ) {
 	assert.GreaterOrEqual(t, len(kernelArgsList), 1)
 
@@ -289,7 +290,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 			assert.Regexp(t, ` rd.systemd.verity=1 `, kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_data=%s `, dataId), kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_hash=%s `, hashId), kernelArgs)
-			assert.Regexp(t, ` systemd.verity_root_options=panic-on-corruption( |$)`, kernelArgs)
+			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_options=%s( |$)`, corruptionOption), kernelArgs)
 
 			hashRegexp = regexp.MustCompile(` roothash=([a-fA-F0-9]*) `)
 
@@ -297,7 +298,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 			assert.Regexp(t, ` rd.systemd.verity=1 `, kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_data=%s `, dataId), kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_hash=%s `, hashId), kernelArgs)
-			assert.Regexp(t, ` systemd.verity_usr_options=panic-on-corruption( |$)`, kernelArgs)
+			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_options=%s( |$)`, corruptionOption), kernelArgs)
 
 			hashRegexp = regexp.MustCompile(` usrhash=([a-fA-F0-9]*) `)
 
@@ -352,7 +353,7 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath, "")
 
 	// Recustomize image.
 	// This helps verify that verity-enabled images can be recustomized.
@@ -362,11 +363,11 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath, "")
 }
 
 func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
-	outImageFilePath string,
+	outImageFilePath string, corruptionOption string,
 ) {
 	// Connect to usr verity image.
 	mountPoints := []mountPoint{
@@ -407,7 +408,7 @@ func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseIma
 	usrDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "usr", "rd.info", imageVersion)
+		"PARTUUID="+partitions[4].PartUuid, "usr", "rd.info", imageVersion, corruptionOption)
 }
 
 func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
@@ -445,5 +446,5 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, imag
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
+	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath, "panic-on-corruption")
 }
