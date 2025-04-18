@@ -5,6 +5,9 @@
 package safeloopback
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
@@ -18,6 +21,10 @@ type Loopback struct {
 }
 
 func NewLoopback(diskFilePath string) (*Loopback, error) {
+	if !filepath.IsAbs(diskFilePath) {
+		return nil, fmt.Errorf("loopback disk path must be absolute (%s)", diskFilePath)
+	}
+
 	loopback := &Loopback{
 		diskFilePath: diskFilePath,
 	}

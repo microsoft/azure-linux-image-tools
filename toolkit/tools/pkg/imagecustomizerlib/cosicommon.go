@@ -25,7 +25,7 @@ type ImageBuildData struct {
 
 func convertToCosi(ic *ImageCustomizerParameters) error {
 	logger.Log.Infof("Extracting partition files")
-	outputDir := filepath.Join(ic.buildDir, "cosiimages")
+	outputDir := filepath.Join(ic.buildDirAbs, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)

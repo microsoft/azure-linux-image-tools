@@ -5,58 +5,44 @@ package isomakerlib
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"github.com/cavaliercoder/go-cpio"
-	"github.com/klauspost/pgzip"
-
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
 const (
-	DefaultVolumeId = "CDROM"
-
-	efiBootImgPathRelativeToIsoRoot = "boot/grub2/efiboot.img"
-	initrdEFIBootDirectoryPath      = "boot/efi/EFI/BOOT"
-	isoRootArchDependentDirPath     = "assets/isomaker/iso_root_arch-dependent_files"
-	defaultImageNameBase            = "azure-linux"
-	defaultOSFilesPath              = "isolinux"
-	repoSnapshotFilePath            = "repo-snapshot-time.txt"
+	isoRootArchDependentDirPath = "assets/isomaker/iso_root_arch-dependent_files"
+	defaultImageNameBase        = "azure-linux"
+	defaultOSFilesPath          = "isolinux"
+	repoSnapshotFilePath        = "repo-snapshot-time.txt"
 )
 
 // IsoMaker builds ISO images and populates them with packages and files required by the installer.
 type IsoMaker struct {
-	enableBiosBoot     bool                    // Flag deciding whether to include BIOS bootloaders or not in the generated ISO image.
-	enableRpmRepo      bool                    // Flag deciding whether to include the contents of the Rpm repo folder in the generated ISO image.
-	unattendedInstall  bool                    // Flag deciding if the installer should run in unattended mode.
-	config             configuration.Config    // Configuration for the built ISO image and its installer.
-	configSubDirNumber int                     // Current number for the subdirectories storing files mentioned in the config.
-	baseDirPath        string                  // Base directory for config's relative paths.
-	buildDirPath       string                  // Path to the temporary build directory.
-	efiBootImgPath     string                  // Path to the efiboot.img file needed to boot the ISO installer.
-	fetchedRepoDirPath string                  // Path to the directory containing an RPM repository with all packages required by the ISO installer.
-	initrdPath         string                  // Path to ISO's initrd file.
-	grubCfgPath        string                  // Path to ISO's grub.cfg file. If provided, overrides the grub.cfg from the resourcesDirPath location.
-	outputDirPath      string                  // Path to the output ISO directory.
-	releaseVersion     string                  // Current Azure Linux release version.
-	resourcesDirPath   string                  // Path to the 'resources' directory.
-	additionalIsoFiles []safechroot.FileToCopy // Additional files to copy to the ISO media (absolute-source-path -> iso-root-relative-path).
-	imageNameBase      string                  // Base name of the ISO to generate (no path, and no file extension).
-	imageNameTag       string                  // Optional user-supplied tag appended to the generated ISO's name.
-	repoSnapshotTime   string                  // tdnf repo snapshot time
+	enableBiosBoot     bool                 // Flag deciding whether to include BIOS bootloaders or not in the generated ISO image.
+	enableRpmRepo      bool                 // Flag deciding whether to include the contents of the Rpm repo folder in the generated ISO image.
+	unattendedInstall  bool                 // Flag deciding if the installer should run in unattended mode.
+	config             configuration.Config // Configuration for the built ISO image and its installer.
+	configSubDirNumber int                  // Current number for the subdirectories storing files mentioned in the config.
+	baseDirPath        string               // Base directory for config's relative paths.
+	buildDirPath       string               // Path to the temporary build directory.
+	fetchedRepoDirPath string               // Path to the directory containing an RPM repository with all packages required by the ISO installer.
+	initrdPath         string               // Path to ISO's initrd file.
+	outputDirPath      string               // Path to the output ISO directory.
+	releaseVersion     string               // Current Azure Linux release version.
+	resourcesDirPath   string               // Path to the 'resources' directory.
+	imageNameBase      string               // Base name of the ISO to generate (no path, and no file extension).
+	imageNameTag       string               // Optional user-supplied tag appended to the generated ISO's name.
+	repoSnapshotTime   string               // tdnf repo snapshot time
 	osFilesPath        string
 
 	isoMakerCleanUpTasks []func() error // List of clean-up tasks to perform at the end of the ISO generation process.
@@ -100,44 +86,6 @@ func NewIsoMaker(unattendedInstall bool, baseDirPath, buildDirPath, releaseVersi
 	return isoMaker, nil
 }
 
-func NewIsoMakerWithConfig(unattendedInstall, enableBiosBoot, enableRpmRepo bool, baseDirPath, buildDirPath, releaseVersion, resourcesDirPath string, additionalIsoFiles []safechroot.FileToCopy, config configuration.Config, osFilesPath, initrdPath, grubCfgPath, isoRepoDirPath, outputDir, imageNameBase, imageNameTag string) (isoMaker *IsoMaker, err error) {
-
-	if imageNameBase == "" {
-		imageNameBase = defaultImageNameBase
-	}
-
-	if osFilesPath == "" {
-		osFilesPath = defaultOSFilesPath
-	}
-
-	err = verifyConfig(config, unattendedInstall)
-	if err != nil {
-		return nil, err
-	}
-
-	isoMaker = &IsoMaker{
-		enableBiosBoot:     enableBiosBoot,
-		enableRpmRepo:      enableRpmRepo,
-		unattendedInstall:  unattendedInstall,
-		config:             config,
-		baseDirPath:        baseDirPath,
-		buildDirPath:       buildDirPath,
-		initrdPath:         initrdPath,
-		grubCfgPath:        grubCfgPath,
-		releaseVersion:     releaseVersion,
-		resourcesDirPath:   resourcesDirPath,
-		additionalIsoFiles: additionalIsoFiles,
-		fetchedRepoDirPath: isoRepoDirPath,
-		outputDirPath:      outputDir,
-		imageNameBase:      imageNameBase,
-		imageNameTag:       imageNameTag,
-		osFilesPath:        osFilesPath,
-		repoSnapshotTime:   "",
-	}
-
-	return isoMaker, nil
-}
-
 // Make builds the ISO image to 'buildDirPath' with the packages included in the config JSON.
 func (im *IsoMaker) Make() (err error) {
 	defer func() {
@@ -166,219 +114,19 @@ func (im *IsoMaker) Make() (err error) {
 		return err
 	}
 
-	err = im.prepareIsoBootLoaderFilesAndFolders()
-	if err != nil {
-		return err
-	}
-
-	err = im.buildIsoImage()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (im *IsoMaker) buildIsoImage() error {
-	isoImageFilePath := im.buildIsoImageFilePath()
-
-	logger.Log.Infof("Generating ISO image under '%s'.", isoImageFilePath)
-
-	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
-	// Mkisofs requires all argument paths to be relative to the input directory.
-	mkisofsArgs := []string{}
-
-	mkisofsArgs = append(mkisofsArgs,
-		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", isoImageFilePath, "-V", DefaultVolumeId)
-
-	if im.enableBiosBoot {
-		mkisofsArgs = append(mkisofsArgs,
-			// BIOS bootloader, params suggested by https://wiki.syslinux.org/wiki/index.php?title=ISOLINUX.
-			"-b", filepath.Join(im.osFilesPath, "isolinux.bin"), "-c", filepath.Join(im.osFilesPath, "boot.cat"),
-			"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
-	}
-
-	mkisofsArgs = append(mkisofsArgs,
-		// UEFI bootloader.
-		"-eltorito-alt-boot", "-e", efiBootImgPathRelativeToIsoRoot, "-no-emul-boot",
-
-		// Directory to convert to an ISO.
-		im.buildDirPath)
-
-	// Note: mkisofs has a noisy stderr.
-	return shell.ExecuteLive(true /*squashErrors*/, "mkisofs", mkisofsArgs...)
-}
-
-// prepareIsoBootLoaderFilesAndFolders copies the files required by the ISO's bootloader
-func (im *IsoMaker) prepareIsoBootLoaderFilesAndFolders() (err error) {
-	err = im.setUpIsoGrub2Bootloader()
-	if err != nil {
-		return err
-	}
-
-	err = im.createVmlinuzImage()
-	if err != nil {
-		return err
-	}
-
-	err = im.copyInitrd()
+	err = isogenerator.GenerateIso(isogenerator.IsoGenConfig{
+		BuildDirPath:      im.buildDirPath,
+		StagingDirPath:    im.buildDirPath,
+		EnableBiosBoot:    im.enableBiosBoot,
+		OutputFilePath:    im.buildIsoImageFilePath(),
+		IsoOsFilesDirPath: im.osFilesPath,
+		InitrdPath:        im.initrdPath,
+	})
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// copyInitrd copies a pre-built initrd into the isolinux folder.
-func (im *IsoMaker) copyInitrd() error {
-	initrdDestinationPath := filepath.Join(im.buildDirPath, im.osFilesPath, "initrd.img")
-
-	logger.Log.Debugf("Copying initrd from '%s'.", im.initrdPath)
-
-	return file.Copy(im.initrdPath, initrdDestinationPath)
-}
-
-// setUpIsoGrub2BootLoader prepares an efiboot.img containing Grub2,
-// which is booted in case of an UEFI boot of the ISO image.
-func (im *IsoMaker) setUpIsoGrub2Bootloader() (err error) {
-	const (
-		blockSizeInBytes     = 1024 * 1024
-		numberOfBlocksToCopy = 3
-	)
-
-	logger.Log.Info("Preparing ISO's bootloaders.")
-
-	ddArgs := []string{
-		"if=/dev/zero",                                // Zero device to read a stream of zeroed bytes from.
-		fmt.Sprintf("of=%s", im.efiBootImgPath),       // Output file.
-		fmt.Sprintf("bs=%d", blockSizeInBytes),        // Size of one copied block. Used together with "count".
-		fmt.Sprintf("count=%d", numberOfBlocksToCopy), // Number of blocks to copy to the output file.
-	}
-	logger.Log.Debugf("Creating an empty '%s' file of %d bytes.", im.efiBootImgPath, blockSizeInBytes*numberOfBlocksToCopy)
-
-	// Note: dd has a noisy stderr.
-	err = shell.ExecuteLive(true /*squashErrors*/, "dd", ddArgs...)
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Debugf("Formatting '%s' as an MS-DOS filesystem.", im.efiBootImgPath)
-	err = shell.ExecuteLive(true /*squashErrors*/, "mkdosfs", im.efiBootImgPath)
-	if err != nil {
-		return err
-	}
-
-	efiBootImgTempMountDir := filepath.Join(im.buildDirPath, "efiboot_temp")
-
-	logger.Log.Debugf("Mounting '%s' to '%s' to copy EFI modules required to boot grub2.", im.efiBootImgPath, efiBootImgTempMountDir)
-	loopback, err := safeloopback.NewLoopback(im.efiBootImgPath)
-	if err != nil {
-		return fmt.Errorf("failed to connect efiboot.img:\n%w", err)
-	}
-	defer loopback.Close()
-
-	mount, err := safemount.NewMount(loopback.DevicePath(), efiBootImgTempMountDir, "vfat", 0, "",
-		true /*makeAndDeleteDir*/)
-	if err != nil {
-		return fmt.Errorf("failed to mount efiboot.img:\n%w", err)
-	}
-	defer mount.Close()
-
-	logger.Log.Debug("Copying EFI modules into efiboot.img.")
-	// Copy Shim (boot<arch>64.efi) and grub2 (grub<arch>64.efi)
-	if runtime.GOARCH == "arm64" {
-		err = im.copyShimFromInitrd(efiBootImgTempMountDir, "bootaa64.efi", "grubaa64.efi")
-		if err != nil {
-			return err
-		}
-	} else {
-		err = im.copyShimFromInitrd(efiBootImgTempMountDir, "bootx64.efi", "grubx64.efi")
-		if err != nil {
-			return err
-		}
-	}
-
-	err = mount.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to unmount efiboot.img:\n%w", err)
-	}
-
-	err = loopback.CleanClose()
-	if err != nil {
-		return fmt.Errorf("failed to disconnect efiboot.img:\n%w", err)
-	}
-
-	return nil
-}
-
-func (im *IsoMaker) copyShimFromInitrd(efiBootImgTempMountDir, bootBootloaderFile, grubBootloaderFile string) (err error) {
-	bootDirPath := filepath.Join(efiBootImgTempMountDir, "EFI", "BOOT")
-
-	initrdBootBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIFilePath := filepath.Join(bootDirPath, bootBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdBootBootloaderFilePath, buildDirBootEFIFilePath)
-	if err != nil {
-		return err
-	}
-
-	initrdGrubBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIFilePath := filepath.Join(bootDirPath, grubBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdGrubBootloaderFilePath, buildDirGrubEFIFilePath)
-	if err != nil {
-		return err
-	}
-
-	err = im.applyRufusWorkaround(bootBootloaderFile, grubBootloaderFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Rufus ISO-to-USB converter has a limitation where it will only copy the boot<arch>64.efi binary from a given efi*.img
-// archive into the standard UEFI EFI/BOOT folder instead of extracting the whole archive as per the El Torito ISO
-// specification.
-//
-// Most distros (including ours) use a 2 stage bootloader flow (shim->grub->kernel). Since the Rufus limitation only
-// copies the 1st stage to EFI/BOOT/boot<arch>64.efi, it cannot find the 2nd stage bootloader (grub<arch>64.efi) which should
-// be in the same directory: EFI/BOOT/grub<arch>64.efi. This causes the USB installation to fail to boot.
-//
-// Rufus prioritizes the presence of an EFI folder on the ISO disk over extraction of the efi*.img archive.
-// So to workaround the limitation, create an EFI folder and make a duplicate copy of the bootloader files
-// in EFI/Boot so Rufus doesn't attempt to extract the efi*.img in the first place.
-func (im *IsoMaker) applyRufusWorkaround(bootBootloaderFile, grubBootloaderFile string) (err error) {
-	const buildDirBootEFIDirectoryPath = "efi/boot"
-
-	initrdBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIUsbFilePath := filepath.Join(im.buildDirPath, buildDirBootEFIDirectoryPath, bootBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdBootloaderFilePath, buildDirBootEFIUsbFilePath)
-	if err != nil {
-		return err
-	}
-
-	initrdGrubEFIFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIUsbFilePath := filepath.Join(im.buildDirPath, buildDirBootEFIDirectoryPath, grubBootloaderFile)
-	err = im.extractFromInitrdAndCopy(initrdGrubEFIFilePath, buildDirGrubEFIUsbFilePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// createVmlinuzImage builds the 'vmlinuz' file containing the Linux kernel
-// ran by the ISO bootloader.
-func (im *IsoMaker) createVmlinuzImage() error {
-	const bootKernelFile = "boot/vmlinuz"
-
-	vmlinuzFilePath := filepath.Join(im.buildDirPath, im.osFilesPath, "vmlinuz")
-
-	// In order to select the correct kernel for isolinux, open the initrd archive
-	// and extract the vmlinuz file in it. An initrd is a gzip of a cpio archive.
-	//
-	return im.extractFromInitrdAndCopy(bootKernelFile, vmlinuzFilePath)
 }
 
 // createIsoRpmsRepo initializes the RPMs repo on the ISO image
@@ -452,41 +200,23 @@ func (im *IsoMaker) prepareWorkDirectory() (err error) {
 		return err
 	}
 
-	err = im.copyIsoAdditionalFiles()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 // copyStaticIsoRootFiles copies architecture-independent files from the
 // Azure Linux repo directories.
 func (im *IsoMaker) copyStaticIsoRootFiles() (err error) {
-
-	if im.resourcesDirPath == "" && im.grubCfgPath == "" {
-		return fmt.Errorf("missing required parameters. Must specify either the resources directory or provide a grub.cfg")
+	if im.resourcesDirPath == "" {
+		return fmt.Errorf("missing required parameters. Must specify the resources directory")
 	}
 
-	if im.resourcesDirPath != "" {
-		staticIsoRootFilesPath := filepath.Join(im.resourcesDirPath, "assets/isomaker/iso_root_static_files/*")
+	staticIsoRootFilesPath := filepath.Join(im.resourcesDirPath, "assets/isomaker/iso_root_static_files/*")
 
-		logger.Log.Debugf("Copying static ISO root files from '%s' to '%s'", staticIsoRootFilesPath, im.buildDirPath)
+	logger.Log.Debugf("Copying static ISO root files from '%s' to '%s'", staticIsoRootFilesPath, im.buildDirPath)
 
-		err = recursiveCopyDereferencingLinks(staticIsoRootFilesPath, im.buildDirPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	// im.grubCfgPath allows the user to overwrite the default grub.cfg that is
-	// copied from the resource folder.
-	if im.grubCfgPath != "" {
-		targetGrubCfg := filepath.Join(im.buildDirPath, installutils.GrubCfgFile)
-		err = file.Copy(im.grubCfgPath, targetGrubCfg)
-		if err != nil {
-			return err
-		}
+	err = recursiveCopyDereferencingLinks(staticIsoRootFilesPath, im.buildDirPath)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -505,12 +235,12 @@ func (im *IsoMaker) copyArchitectureDependentIsoRootFiles() error {
 	// functions that copy non-architecture dependent files. Setting
 	// enableBiosBoot will not affect those on-architecture dependent files
 	// though.
-	if im.resourcesDirPath == "" || !im.enableBiosBoot {
-		return nil
-	}
-
 	if im.resourcesDirPath == "" && im.enableBiosBoot {
 		return fmt.Errorf("missing required parameters. Must specify the resources directory if BIOS bootloaders are to be included")
+	}
+
+	if !im.enableBiosBoot {
+		return nil
 	}
 
 	architectureDependentFilesDirectory := filepath.Join(im.resourcesDirPath, isoRootArchDependentDirPath, runtime.GOARCH, "*")
@@ -568,14 +298,6 @@ func (im *IsoMaker) copyAndRenameConfigFiles() (err error) {
 	}
 
 	return nil
-}
-
-// copyIsoAdditionalFiles copies user-specified files to the iso media. Such
-// files can be used by custom initrd/LiveOS images that will look for them
-// on the iso media.
-func (im *IsoMaker) copyIsoAdditionalFiles() (err error) {
-	logger.Log.Debugf("Copying ISO additional files")
-	return safechroot.AddFilesToDestination(im.buildDirPath, im.additionalIsoFiles...)
 }
 
 func (im *IsoMaker) addSnapshotTimeFile(configFilesAbsDirPath string) (err error) {
@@ -774,8 +496,6 @@ func (im *IsoMaker) initializePaths() (err error) {
 		return fmt.Errorf("failed while retrieving absolute path from source root path: '%s':\n%w", im.buildDirPath, err)
 	}
 
-	im.efiBootImgPath = filepath.Join(im.buildDirPath, efiBootImgPathRelativeToIsoRoot)
-
 	return nil
 }
 
@@ -863,58 +583,5 @@ func recursiveCopyDereferencingLinks(source string, target string) (err error) {
 		}
 	}
 
-	return nil
-}
-
-func (im *IsoMaker) extractFromInitrdAndCopy(srcFileName, destFilePath string) (err error) {
-	// Setup a series of io readers: initrd file -> parallelized gzip -> cpio
-
-	logger.Log.Debugf("Searching for (%s) in initrd (%s) and copying to (%s)", srcFileName, im.initrdPath, destFilePath)
-
-	initrdFile, err := os.Open(im.initrdPath)
-	if err != nil {
-		return err
-	}
-	defer initrdFile.Close()
-
-	gzipReader, err := pgzip.NewReader(initrdFile)
-	if err != nil {
-		return err
-	}
-	cpioReader := cpio.NewReader(gzipReader)
-
-	for {
-		// Search through the headers until the source file is found
-		var hdr *cpio.Header
-		hdr, err = cpioReader.Next()
-		if err == io.EOF {
-			return fmt.Errorf("did not find (%s) in initrd (%s)", srcFileName, im.initrdPath)
-		}
-		if err != nil {
-			return err
-		}
-
-		if strings.HasPrefix(hdr.Name, srcFileName) {
-			logger.Log.Debugf("Found source file (%s) in initrd", srcFileName)
-			// Source file found, copy it to destination
-			err = os.MkdirAll(filepath.Dir(destFilePath), os.ModePerm)
-			if err != nil {
-				return err
-			}
-
-			dstFile, err := os.Create(destFilePath)
-			if err != nil {
-				return err
-			}
-			defer dstFile.Close()
-
-			logger.Log.Debugf("Copying (%s) to (%s)", srcFileName, destFilePath)
-			_, err = io.Copy(dstFile, cpioReader)
-			if err != nil {
-				return err
-			}
-			break
-		}
-	}
 	return nil
 }
