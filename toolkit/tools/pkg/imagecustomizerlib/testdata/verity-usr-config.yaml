@@ -24,7 +24,7 @@ storage:
     name: usr
     dataDeviceId: usr
     hashDeviceId: usrhash
-    corruptionOption: panic
+    corruptionOption: io-error
 
   filesystems:
   - deviceId: esp

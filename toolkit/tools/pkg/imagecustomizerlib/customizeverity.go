@@ -195,7 +195,7 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 			return nil, err
 		}
 
-		formattedCorruptionOption, err := SystemdFormatCorruptionOption(imagecustomizerapi.CorruptionOptionPanic)
+		formattedCorruptionOption, err := SystemdFormatCorruptionOption(metadata.corruptionOption)
 		if err != nil {
 			return nil, err
 		}
