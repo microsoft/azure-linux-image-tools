@@ -64,7 +64,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
        Note: arm64 machines only support UEFI, so the `grub2-pc` package is only needed
        when building x86_64 images.
 
-     - For Azure Linux 3.0 on x86_64, run:
+     - For Azure Linux 3.0 on x86_64, to install the `ukify` tool, additionally run:
 
        ```bash
        sudo tdnf install -y systemd-ukify
