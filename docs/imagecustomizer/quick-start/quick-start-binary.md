@@ -73,7 +73,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
        Note: The `ukify` tool is only available in Azure Linux 3.0 on x86_64 machines. So, you
        will only be able to use the [UKI API](../api/configuration/uki.md) when running
        Image Customizer directly in that environment. However, using the
-       [Image Customizer container](../how-to/container.md) in other environments should work.
+       [Image Customizer container](../quick-start/quick-start.md) in other environments should work.
 
 4. Add executable permissions using `chmod +x imagecustomizer`.
 
