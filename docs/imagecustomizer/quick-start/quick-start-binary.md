@@ -47,52 +47,33 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
         xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
      ```
 
-   - For Azure Linux 2.0 on x86_64, run:
+   - For Azure Linux (2.0 and 3.0, x86_64 and arm64), run:
 
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 grub2-pc binutils lsof
+       sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+       xfsprogs zstd veritysetup grub2 binutils lsof
      ```
 
-    - For Azure Linux 2.0 on arm64, run:
+     - On x86_64, to install libraries for BIOS booting, additionally run:
 
-      ```bash
-      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 binutils lsof
-      ```
+       ```bash
+       sudo tdnf install -y grub2-pc
+       ```
 
-      Note: This command is identical to the command for x86_64 machines,
-      except that `grub2-pc` is not installed. This is because the
-      `grub2-pc` package contains libraries for BIOS booting, but arm64
-      machines only support UEFI.
+       Note: arm64 machines only support UEFI, so the `grub2-pc` package is only needed
+       when building x86_64 images.
 
-   - For Azure Linux 3.0 on x86_64, run:
+     - For Azure Linux 3.0 on x86_64, run:
 
-     ```bash
-     sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify binutils lsof
-     ```
+       ```bash
+       sudo tdnf install -y systemd-ukify
+       ```
 
-   - For Azure Linux 3.0 on arm64, run:
-
-     ```bash
-     sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-        xfsprogs zstd veritysetup grub2 binutils lsof
-     ```
-
-      Note: This command is identical to the command for x86_64 machines,
-      except that `grub2-pc` is not installed, as above with Azure Linux
-      2.0 on arm64. `systemd-ukify` is also not installed, as explained
-      below.
-
-   Note: The `ukify` tool is only available in Azure Linux 3.0 on x86_64 machines. So, you
-   will only be able to use the [UKI API](../api/configuration/uki.md) when running
-   Image Customizer directly in that environment. However, using the
-   [Image Customizer container](../how-to/container.md) in other x86_64 environments should work.
+       Note: The `ukify` tool is only available in Azure Linux 3.0 on x86_64 machines. So, you
+       will only be able to use the [UKI API](../api/configuration/uki.md) when running
+       Image Customizer directly in that environment. However, using the
+       [Image Customizer container](../how-to/container.md) in other environments should work.
 
 4. Add executable permissions using `chmod +x imagecustomizer`.
 
