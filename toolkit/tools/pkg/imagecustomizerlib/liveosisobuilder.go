@@ -1272,10 +1272,10 @@ func (b *LiveOSIsoBuilder) createIsoImage(additionalIsoFiles []safechroot.FileTo
 	err = isogenerator.GenerateIso(isogenerator.IsoGenConfig{
 		BuildDirPath:      b.workingDirs.isoBuildDir,
 		StagingDirPath:    b.workingDirs.isomakerBuildDir,
-		EnableBiosBoot:    false,
-		OutputFilePath:    isoImagePath,
-		IsoOsFilesDirPath: isoBootDir,
 		InitrdPath:        b.artifacts.initrdImagePath,
+		EnableBiosBoot:    false,
+		IsoOsFilesDirPath: isoBootDir,
+		OutputFilePath:    isoImagePath,
 	})
 	if err != nil {
 		return "", err

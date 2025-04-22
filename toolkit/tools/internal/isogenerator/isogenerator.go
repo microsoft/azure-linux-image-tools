@@ -32,19 +32,19 @@ type IsoGenConfig struct {
 	// Directory where to stage ISO files.
 	// If the directory exists, any existing files will be included in the ISO.
 	StagingDirPath string
+	// The path of the initrd file to use in the ISO.
+	InitrdPath string
 	// Enable legacy boot.
 	// Note: This isn't useful unless some additional assets are included in 'StagingDirPath'.
 	EnableBiosBoot bool
-	// The path where the ISO file will be written.
-	OutputFilePath string
 	// The directory in the ISO where the following files will be written to:
 	// - initrd.img
 	// - vmlinuz
 	// - isolinux.bin (for BIOS boot)
 	// - boot.cat (for BIOS boot)
 	IsoOsFilesDirPath string
-	// The path of the initrd file to use in the ISO.
-	InitrdPath string
+	// The path where the ISO file will be written.
+	OutputFilePath string
 }
 
 type isoGenInfo struct {

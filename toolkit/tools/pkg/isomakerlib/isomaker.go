@@ -117,10 +117,10 @@ func (im *IsoMaker) Make() (err error) {
 	err = isogenerator.GenerateIso(isogenerator.IsoGenConfig{
 		BuildDirPath:      im.buildDirPath,
 		StagingDirPath:    im.buildDirPath,
-		EnableBiosBoot:    im.enableBiosBoot,
-		OutputFilePath:    im.buildIsoImageFilePath(),
-		IsoOsFilesDirPath: im.osFilesPath,
 		InitrdPath:        im.initrdPath,
+		EnableBiosBoot:    im.enableBiosBoot,
+		IsoOsFilesDirPath: im.osFilesPath,
+		OutputFilePath:    im.buildIsoImageFilePath(),
 	})
 	if err != nil {
 		return err
