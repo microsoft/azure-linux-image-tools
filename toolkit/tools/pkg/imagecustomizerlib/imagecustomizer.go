@@ -613,6 +613,11 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
+	err = validateStorage(&config.Storage)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -803,6 +808,57 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 
 	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
 		return fmt.Errorf("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
+	}
+
+	return nil
+}
+
+func validateStorage(storage *imagecustomizerapi.Storage) error {
+	if storage == nil {
+		return nil
+	}
+
+	err := validateVeritySignatureInjection(storage.Verity, storage.FileSystems)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateVeritySignatureInjection(verityList []imagecustomizerapi.Verity,
+	fileSystems []imagecustomizerapi.FileSystem,
+) error {
+	if len(verityList) == 0 {
+		return nil
+	}
+
+	var espMount string
+
+	for _, fs := range fileSystems {
+		if fs.Type == "fat32" && fs.MountPoint != nil {
+			espMount = fs.MountPoint.Path
+			break
+		}
+	}
+
+	if espMount == "" {
+		return fmt.Errorf("could not find mount point for ESP partition (fat32)")
+	}
+
+	espMountClean := filepath.Clean(espMount)
+
+	for _, verity := range verityList {
+		if verity.HashSignatureInjection == "" {
+			continue
+		}
+
+		sigPath := filepath.Clean(verity.HashSignatureInjection)
+
+		// Ensure it's under the ESP mount point
+		if !strings.HasPrefix(sigPath, espMountClean+"/") {
+			return fmt.Errorf("verity.hashSignatureInjection path (%s) must be located under ESP mount point (%s)", sigPath, espMountClean)
+		}
 	}
 
 	return nil

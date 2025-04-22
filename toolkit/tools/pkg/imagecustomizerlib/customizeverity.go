@@ -211,7 +211,7 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 			fmt.Sprintf("%s=%s", hashArg, metadata.rootHash),
 			fmt.Sprintf("%s=%s", dataArg, formattedDataPartition),
 			fmt.Sprintf("%s=%s", hashKey, formattedHashPartition),
-			fmt.Sprintf("%s=%s", optionsArg, formattedCorruptionOption),
+			fmt.Sprintf("%s=%s", optionsArg, options),
 		)
 	}
 
