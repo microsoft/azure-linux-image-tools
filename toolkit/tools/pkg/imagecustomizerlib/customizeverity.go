@@ -104,11 +104,11 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 }
 
 func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, grubCfgFullPath string,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, hashSigPartUuid string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, hashSigPartUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -159,9 +159,10 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 }
 
 func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, hashSigPartUuid string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
+	hasSignatureInjection := false
 
 	for mountPath, metadata := range verityMetadata {
 		var hashArg, dataArg, optionsArg, hashKey string
@@ -200,11 +201,24 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 			return nil, err
 		}
 
+		options := formattedCorruptionOption
+		if metadata.hashSignatureInjection != "" {
+			options += fmt.Sprintf(",root-hash-signature=%s", metadata.hashSignatureInjection)
+			hasSignatureInjection = true
+		}
+
 		newArgs = append(newArgs,
 			fmt.Sprintf("%s=%s", hashArg, metadata.rootHash),
 			fmt.Sprintf("%s=%s", dataArg, formattedDataPartition),
 			fmt.Sprintf("%s=%s", hashKey, formattedHashPartition),
 			fmt.Sprintf("%s=%s", optionsArg, formattedCorruptionOption),
+		)
+	}
+
+	if hasSignatureInjection {
+		newArgs = append(newArgs,
+			"dm_verity.require_signatures=1",
+			fmt.Sprintf("verity.signature.mount=%s", hashSigPartUuid),
 		)
 	}
 
@@ -308,9 +322,9 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, hashSigPartUuid string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, hashSigPartUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}

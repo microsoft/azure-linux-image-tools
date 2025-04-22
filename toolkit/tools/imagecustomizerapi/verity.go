@@ -21,7 +21,7 @@ const (
 var (
 	verityNameRegex = regexp.MustCompile("^[a-z]+$")
 
-	verityMountMap = map[string]string{
+	VerityMountMap = map[string]string{
 		"/":    VerityRootDeviceName,
 		"/usr": VerityUsrDeviceName,
 	}
@@ -49,6 +49,9 @@ type Verity struct {
 	HashDeviceMountIdType MountIdentifierType `yaml:"hashDeviceMountIdType" json:"hashDeviceMountIdType,omitempty"`
 	// How to handle corruption.
 	CorruptionOption CorruptionOption `yaml:"corruptionOption" json:"corruptionOption,omitempty"`
+
+	// Path to the root hash signature to inject into the image.
+	HashSignatureInjection string `yaml:"hashSignatureInjection" json:"hashSignatureInjection,omitempty"`
 
 	// The mount point of the verity device.
 	// Value is filled in by ValidateVerityMounts() (via Storage.IsValid() or validateVerityMountPaths()).
@@ -87,6 +90,12 @@ func (v *Verity) IsValid() error {
 
 	if err := v.CorruptionOption.IsValid(); err != nil {
 		return fmt.Errorf("invalid corruptionOption:\n%w", err)
+	}
+
+	if v.HashSignatureInjection != "" {
+		if err := validatePath(v.HashSignatureInjection); err != nil {
+			return fmt.Errorf("invalid hashSignatureInjection path:\n%w", err)
+		}
 	}
 
 	return nil

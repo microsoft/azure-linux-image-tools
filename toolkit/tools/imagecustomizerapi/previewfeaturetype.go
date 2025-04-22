@@ -16,11 +16,15 @@ const (
 
 	// PreviewFeatureInjectFiles enables files injection into target partitions.
 	PreviewFeatureInjectFiles PreviewFeature = "inject-files"
+
+	// PreviewFeatureVerityHashSignatureInjection enables support for hashSignatureInjection in Verity.
+	PreviewFeatureVerityHashSignatureInjection PreviewFeature = "verity-hashSignatureInjection"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
-	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles:
+	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles,
+		PreviewFeatureVerityHashSignatureInjection:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

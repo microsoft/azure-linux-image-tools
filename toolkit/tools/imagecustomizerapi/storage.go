@@ -233,7 +233,7 @@ func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Ve
 
 		verity.MountPath = mountPoint.Path
 
-		expectedVerityName, validMount := verityMountMap[mountPoint.Path]
+		expectedVerityName, validMount := VerityMountMap[mountPoint.Path]
 		if !validMount || verity.Name != expectedVerityName {
 			return fmt.Errorf(
 				"mount path of verity device (%s) must match verity name: '%s' for '%s'",

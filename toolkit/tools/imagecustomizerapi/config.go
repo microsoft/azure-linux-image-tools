@@ -96,6 +96,14 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	for _, verity := range c.Storage.Verity {
+		if verity.HashSignatureInjection != "" {
+			if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureVerityHashSignatureInjection) {
+				return fmt.Errorf("the 'verity-hashSignatureInjection' preview feature must be enabled to use 'verity.hashSignatureInjection'")
+			}
+		}
+	}
+
 	return nil
 }
 

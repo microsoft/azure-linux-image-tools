@@ -79,12 +79,14 @@ type ImageCustomizerParameters struct {
 }
 
 type verityDeviceMetadata struct {
-	rootHash              string
-	dataPartUuid          string
-	hashPartUuid          string
-	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
-	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
-	corruptionOption      imagecustomizerapi.CorruptionOption
+	name                   string
+	rootHash               string
+	dataPartUuid           string
+	hashPartUuid           string
+	dataDeviceMountIdType  imagecustomizerapi.MountIdentifierType
+	hashDeviceMountIdType  imagecustomizerapi.MountIdentifierType
+	corruptionOption       imagecustomizerapi.CorruptionOption
+	hashSignatureInjection string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -289,8 +291,8 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	if config.Output.Artifacts != nil {
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
-			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile, baseConfigPath)
+		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
+			imageCustomizerParameters.rawImageFile, baseConfigPath, imageCustomizerParameters.verityMetadata)
 		if err != nil {
 			return err
 		}
@@ -970,12 +972,14 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 
 		verityMetadata[verityConfig.MountPath] = verityDeviceMetadata{
-			rootHash:              rootHash,
-			dataPartUuid:          dataPartition.PartUuid,
-			hashPartUuid:          hashPartition.PartUuid,
-			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
-			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
-			corruptionOption:      verityConfig.CorruptionOption,
+			name:                   imagecustomizerapi.VerityMountMap[verityConfig.MountPath],
+			rootHash:               rootHash,
+			dataPartUuid:           dataPartition.PartUuid,
+			hashPartUuid:           hashPartition.PartUuid,
+			dataDeviceMountIdType:  verityConfig.DataDeviceMountIdType,
+			hashDeviceMountIdType:  verityConfig.HashDeviceMountIdType,
+			corruptionOption:       verityConfig.CorruptionOption,
+			hashSignatureInjection: verityConfig.HashSignatureInjection,
 		}
 	}
 
@@ -1003,13 +1007,13 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 
 	if config.OS.Uki != nil {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, systemBootPartition.Uuid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, systemBootPartition.Uuid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}
