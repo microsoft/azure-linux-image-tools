@@ -656,6 +656,9 @@
         },
         "corruptionOption": {
           "type": "string"
+        },
+        "hashSignatureInjection": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
