@@ -87,7 +87,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	verityUpdated, err := enableVerityPartition(config.Storage.Verity, imageChroot)
+	verityUpdated, err := enableVerityPartition(config.Storage.Verity, imageConnection)
 	if err != nil {
 		return err
 	}

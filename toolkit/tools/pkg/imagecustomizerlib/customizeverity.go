@@ -15,7 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
-func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
+func enableVerityPartition(verity []imagecustomizerapi.Verity, imageConnection *ImageConnection,
 ) (bool, error) {
 	var err error
 
@@ -24,6 +24,8 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 	}
 
 	logger.Log.Infof("Enable verity")
+
+	imageChroot := imageConnection.Chroot()
 
 	err = validateVerityDependencies(imageChroot)
 	if err != nil {
@@ -36,6 +38,37 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
 	if err != nil {
 		return false, fmt.Errorf("failed to add dracut modules for verity:\n%w", err)
+	}
+
+	for _, v := range verity {
+		if v.HashSignatureInjection != "" {
+			diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.loopback.DevicePath())
+			if err != nil {
+				return false, err
+			}
+			systemBootPartition, err := findSystemBootPartition(diskPartitions)
+			if err != nil {
+				return false, err
+			}
+
+			fstabDracutConfigFile := filepath.Join(imageChroot.RootDir(), dracutConfigDir, "fstab.conf")
+			lines := []string{
+				fmt.Sprintf(
+					"UUID=%s /boot/efi vfat defaults,"+
+						"x-systemd.before=veritysetup-pre.target,"+
+						"x-systemd.wanted-by=veritysetup-pre.target,"+
+						"x-systemd.wanted-by=local-fs.target 0 2",
+					systemBootPartition.Uuid,
+				),
+			}
+
+			err = addDracutConfig(fstabDracutConfigFile, lines)
+			if err != nil {
+				return false, fmt.Errorf("failed to add dracut config for verity:\n%w", err)
+			}
+
+			break
+		}
 	}
 
 	err = updateFstabForVerity(verity, imageChroot)
