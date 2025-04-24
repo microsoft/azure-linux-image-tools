@@ -320,7 +320,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
 		if ic.customizeOSPartitions {
-			err = inputIsoArtifacts.createWriteableImageFromSquashfs(ic.buildDir, ic.rawImageFile)
+			err = inputIsoArtifacts.createWriteableImageFromArtifacts(ic.buildDir, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}
@@ -524,13 +524,13 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
 			err := createLiveOSIsoImage(ic.buildDir, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
-				ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputPXEArtifactsDir)
+				ic.rawImageFile, ic.outputImageFile, ic.outputPXEArtifactsDir)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
 		} else {
 			err := inputIsoArtifacts.createImageFromUnchangedOS(ic.configPath, ic.config.Iso, ic.config.Pxe,
-				ic.outputImageDir, ic.outputImageBase, ic.outputPXEArtifactsDir)
+				ic.outputImageFile, ic.outputPXEArtifactsDir)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
