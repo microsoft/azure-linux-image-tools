@@ -657,7 +657,7 @@
         "corruptionOption": {
           "type": "string"
         },
-        "hashSignatureInjection": {
+        "hashSignaturePath": {
           "type": "string"
         }
       },

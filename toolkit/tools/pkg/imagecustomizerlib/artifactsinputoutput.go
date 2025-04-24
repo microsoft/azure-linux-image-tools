@@ -161,7 +161,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 			}
 
 			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
-			destination := strings.TrimPrefix(verity.hashSignatureInjection, espMount)
+			destination := strings.TrimPrefix(verity.hashSignaturePath, espMount)
 			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 				Partition:      partition,
 				Source:         "./" + signedHashFile,

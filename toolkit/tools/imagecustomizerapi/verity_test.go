@@ -135,32 +135,32 @@ func TestVerityIsValidMismatch(t *testing.T) {
 	assert.ErrorContains(t, err, "cannot use both dataDeviceId/hashDeviceId and dataDevice/hashDevice")
 }
 
-func TestVerityIsValidWithValidHashSignatureInjection(t *testing.T) {
+func TestVerityIsValidWithValidHashSignaturePath(t *testing.T) {
 	validVerity := Verity{
-		Id:                     "root",
-		Name:                   "root",
-		DataDeviceId:           "root",
-		HashDeviceId:           "roothash",
-		CorruptionOption:       CorruptionOption("panic"),
-		HashSignatureInjection: "/boot/root.hash.sig",
+		Id:                "root",
+		Name:              "root",
+		DataDeviceId:      "root",
+		HashDeviceId:      "roothash",
+		CorruptionOption:  CorruptionOption("panic"),
+		HashSignaturePath: "/boot/root.hash.sig",
 	}
 
 	err := validVerity.IsValid()
 	assert.NoError(t, err)
 }
 
-func TestVerityIsValidWithInvalidHashSignatureInjection(t *testing.T) {
+func TestVerityIsValidWithInvalidHashSignaturePath(t *testing.T) {
 	invalidVerity := Verity{
-		Id:                     "root",
-		Name:                   "root",
-		DataDeviceId:           "root",
-		HashDeviceId:           "roothash",
-		CorruptionOption:       CorruptionOption("panic"),
-		HashSignatureInjection: "relative/path.sig",
+		Id:                "root",
+		Name:              "root",
+		DataDeviceId:      "root",
+		HashDeviceId:      "roothash",
+		CorruptionOption:  CorruptionOption("panic"),
+		HashSignaturePath: "relative/path.sig",
 	}
 
 	err := invalidVerity.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid hashSignatureInjection path")
+	assert.ErrorContains(t, err, "invalid hashSignaturePath")
 	assert.ErrorContains(t, err, "must be an absolute path")
 }

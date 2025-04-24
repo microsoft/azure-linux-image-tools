@@ -79,14 +79,14 @@ type ImageCustomizerParameters struct {
 }
 
 type verityDeviceMetadata struct {
-	name                   string
-	rootHash               string
-	dataPartUuid           string
-	hashPartUuid           string
-	dataDeviceMountIdType  imagecustomizerapi.MountIdentifierType
-	hashDeviceMountIdType  imagecustomizerapi.MountIdentifierType
-	corruptionOption       imagecustomizerapi.CorruptionOption
-	hashSignatureInjection string
+	name                  string
+	rootHash              string
+	dataPartUuid          string
+	hashPartUuid          string
+	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
+	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
+	corruptionOption      imagecustomizerapi.CorruptionOption
+	hashSignaturePath     string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -849,15 +849,15 @@ func validateVeritySignatureInjection(verityList []imagecustomizerapi.Verity,
 	espMountClean := filepath.Clean(espMount)
 
 	for _, verity := range verityList {
-		if verity.HashSignatureInjection == "" {
+		if verity.HashSignaturePath == "" {
 			continue
 		}
 
-		sigPath := filepath.Clean(verity.HashSignatureInjection)
+		sigPath := filepath.Clean(verity.HashSignaturePath)
 
 		// Ensure it's under the ESP mount point
 		if !strings.HasPrefix(sigPath, espMountClean+"/") {
-			return fmt.Errorf("verity.hashSignatureInjection path (%s) must be located under ESP mount point (%s)", sigPath, espMountClean)
+			return fmt.Errorf("verity.hashSignaturePath path (%s) must be located under ESP mount point (%s)", sigPath, espMountClean)
 		}
 	}
 
@@ -1028,14 +1028,14 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 
 		verityMetadata[verityConfig.MountPath] = verityDeviceMetadata{
-			name:                   imagecustomizerapi.VerityMountMap[verityConfig.MountPath],
-			rootHash:               rootHash,
-			dataPartUuid:           dataPartition.PartUuid,
-			hashPartUuid:           hashPartition.PartUuid,
-			dataDeviceMountIdType:  verityConfig.DataDeviceMountIdType,
-			hashDeviceMountIdType:  verityConfig.HashDeviceMountIdType,
-			corruptionOption:       verityConfig.CorruptionOption,
-			hashSignatureInjection: verityConfig.HashSignatureInjection,
+			name:                  imagecustomizerapi.VerityMountMap[verityConfig.MountPath],
+			rootHash:              rootHash,
+			dataPartUuid:          dataPartition.PartUuid,
+			hashPartUuid:          hashPartition.PartUuid,
+			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
+			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
+			corruptionOption:      verityConfig.CorruptionOption,
+			hashSignaturePath:     verityConfig.HashSignaturePath,
 		}
 	}
 

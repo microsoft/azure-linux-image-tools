@@ -15,7 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
-func enableVerityPartition(verity []imagecustomizerapi.Verity, imageConnection *ImageConnection,
+func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
 ) (bool, error) {
 	var err error
 
@@ -24,8 +24,6 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageConnection *
 	}
 
 	logger.Log.Infof("Enable verity")
-
-	imageChroot := imageConnection.Chroot()
 
 	err = validateVerityDependencies(imageChroot)
 	if err != nil {
@@ -38,37 +36,6 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageConnection *
 	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
 	if err != nil {
 		return false, fmt.Errorf("failed to add dracut modules for verity:\n%w", err)
-	}
-
-	for _, v := range verity {
-		if v.HashSignatureInjection != "" {
-			diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.loopback.DevicePath())
-			if err != nil {
-				return false, err
-			}
-			systemBootPartition, err := findSystemBootPartition(diskPartitions)
-			if err != nil {
-				return false, err
-			}
-
-			fstabDracutConfigFile := filepath.Join(imageChroot.RootDir(), dracutConfigDir, "fstab.conf")
-			lines := []string{
-				fmt.Sprintf(
-					"UUID=%s /boot/efi vfat defaults,"+
-						"x-systemd.before=veritysetup-pre.target,"+
-						"x-systemd.wanted-by=veritysetup-pre.target,"+
-						"x-systemd.wanted-by=local-fs.target 0 2",
-					systemBootPartition.Uuid,
-				),
-			}
-
-			err = addDracutConfig(fstabDracutConfigFile, lines)
-			if err != nil {
-				return false, fmt.Errorf("failed to add dracut config for verity:\n%w", err)
-			}
-
-			break
-		}
 	}
 
 	err = updateFstabForVerity(verity, imageChroot)
@@ -235,8 +202,8 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 		}
 
 		options := formattedCorruptionOption
-		if metadata.hashSignatureInjection != "" {
-			options += fmt.Sprintf(",root-hash-signature=%s", metadata.hashSignatureInjection)
+		if metadata.hashSignaturePath != "" {
+			options += fmt.Sprintf(",root-hash-signature=%s", metadata.hashSignaturePath)
 			hasSignatureInjection = true
 		}
 

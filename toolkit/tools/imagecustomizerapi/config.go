@@ -5,6 +5,7 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
@@ -96,11 +97,11 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
-	for _, verity := range c.Storage.Verity {
-		if verity.HashSignatureInjection != "" {
-			if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureVerityHashSignatureInjection) {
-				return fmt.Errorf("the 'verity-hashSignatureInjection' preview feature must be enabled to use 'verity.hashSignatureInjection'")
-			}
+	if slices.ContainsFunc(c.Storage.Verity, func(v Verity) bool {
+		return v.HashSignaturePath != ""
+	}) {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputArtifacts) {
+			return fmt.Errorf("the 'output-artifacts' preview feature must be enabled to use 'verity.hashSignaturePath'")
 		}
 	}
 
