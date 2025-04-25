@@ -1381,10 +1381,15 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 		pxeIsoImageFileUrl = pxeConfig.IsoImageFileUrl
 	}
 
-	isoBuildDir := filepath.Join(buildDir, "tmp")
+	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	isoArtifactsDir := filepath.Join(isoBuildDir, "artifacts")
-	// IsoMaker needs its own folder to work in (it starts by deleting and re-creating it).
 	isomakerBuildDir := filepath.Join(isoBuildDir, "isomaker-tmp")
+
+	// Ensure the artifacts staging directory is empty to begin with.
+	err = os.RemoveAll(isomakerBuildDir)
+	if err != nil {
+		return fmt.Errorf("failed to delete artifact staging directory (%s):\n%w", isomakerBuildDir, err)
+	}
 
 	isoBuilder := &LiveOSIsoBuilder{
 		//
@@ -1539,10 +1544,15 @@ func extractIsoImageContents(buildDir string, isoImageFile string, isoExpansionF
 //     extracted contents.
 func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageFile string) (isoBuilder *LiveOSIsoBuilder, err error) {
 
-	isoBuildDir := filepath.Join(buildDir, "tmp")
+	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	isoArtifactsDir := filepath.Join(isoBuildDir, "artifacts")
-	// IsoMaker needs its own folder to work in (it starts by deleting and re-creating it).
 	isomakerBuildDir := filepath.Join(isoBuildDir, "isomaker-tmp")
+
+	// Ensure the artifacts staging directory is empty to begin with.
+	err = os.RemoveAll(isomakerBuildDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete artifact staging directory (%s):\n%w", isomakerBuildDir, err)
+	}
 
 	isoBuilder = &LiveOSIsoBuilder{
 		//
