@@ -20,7 +20,7 @@ const (
 	initrdEFIBootDirectoryPath      = "boot/efi/EFI/BOOT"
 )
 
-func BuildIsoImage(stagingPath string, outputImagePath string) error {
+func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
 	logger.Log.Infof("-- Generating ISO image (%s) using (%s).", outputImagePath, stagingPath)
 
 	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
@@ -29,7 +29,17 @@ func BuildIsoImage(stagingPath string, outputImagePath string) error {
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId,
+		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId)
+
+	if enableBiosBoot {
+		mkisofsArgs = append(mkisofsArgs,
+			// BIOS bootloader, params suggested by https://wiki.syslinux.org/wiki/index.php?title=ISOLINUX.
+			"-b", filepath.Join(isoOsFilesDirPath, "isolinux.bin"),
+			"-c", filepath.Join(isoOsFilesDirPath, "boot.cat"),
+			"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
+	}
+
+	mkisofsArgs = append(mkisofsArgs,
 		// UEFI bootloader.
 		"-eltorito-alt-boot", "-e", efiBootImgPathRelativeToIsoRoot, "-no-emul-boot",
 		// Directory to convert to an ISO.

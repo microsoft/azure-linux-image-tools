@@ -1994,7 +1994,9 @@ func (b *LiveOSIsoBuilder) createIsoImage(outputImagePath string) error {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}
 
-	err = isogenerator.BuildIsoImage(stagingDir, outputImagePath)
+	biosBootEnabled := false
+	biosFilesDirPath := ""
+	err = isogenerator.BuildIsoImage(stagingDir, biosBootEnabled, biosFilesDirPath, outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create (%s) using the (%s) folder:\n%w", outputImagePath, stagingDir, err)
 	}
