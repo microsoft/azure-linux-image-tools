@@ -21,7 +21,7 @@ const (
 var (
 	verityNameRegex = regexp.MustCompile("^[a-z]+$")
 
-	VerityMountMap = map[string]string{
+	verityMountMap = map[string]string{
 		"/":    VerityRootDeviceName,
 		"/usr": VerityUsrDeviceName,
 	}

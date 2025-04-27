@@ -613,11 +613,6 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	err = validateStorage(&config.Storage)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -813,57 +808,6 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 	return nil
 }
 
-func validateStorage(storage *imagecustomizerapi.Storage) error {
-	if storage == nil {
-		return nil
-	}
-
-	err := validateVeritySignatureInjection(storage.Verity, storage.FileSystems)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validateVeritySignatureInjection(verityList []imagecustomizerapi.Verity,
-	fileSystems []imagecustomizerapi.FileSystem,
-) error {
-	if len(verityList) == 0 {
-		return nil
-	}
-
-	var espMount string
-
-	for _, fs := range fileSystems {
-		if fs.Type == "fat32" && fs.MountPoint != nil {
-			espMount = fs.MountPoint.Path
-			break
-		}
-	}
-
-	if espMount == "" {
-		return fmt.Errorf("could not find mount point for ESP partition (fat32)")
-	}
-
-	espMountClean := filepath.Clean(espMount)
-
-	for _, verity := range verityList {
-		if verity.HashSignaturePath == "" {
-			continue
-		}
-
-		sigPath := filepath.Clean(verity.HashSignaturePath)
-
-		// Ensure it's under the ESP mount point
-		if !strings.HasPrefix(sigPath, espMountClean+"/") {
-			return fmt.Errorf("verity.hashSignaturePath path (%s) must be located under ESP mount point (%s)", sigPath, espMountClean)
-		}
-	}
-
-	return nil
-}
-
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string,
@@ -1028,7 +972,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 
 		verityMetadata[verityConfig.MountPath] = verityDeviceMetadata{
-			name:                  imagecustomizerapi.VerityMountMap[verityConfig.MountPath],
+			name:                  verityConfig.Name,
 			rootHash:              rootHash,
 			dataPartUuid:          dataPartition.PartUuid,
 			hashPartUuid:          hashPartition.PartUuid,

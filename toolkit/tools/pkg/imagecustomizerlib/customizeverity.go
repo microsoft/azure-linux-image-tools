@@ -104,11 +104,11 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 }
 
 func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, grubCfgFullPath string,
-	partitions []diskutils.PartitionInfo, buildDir string, hashSigPartUuid string,
+	partitions []diskutils.PartitionInfo, buildDir string, espUuid string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, hashSigPartUuid)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, espUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -159,7 +159,7 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 }
 
 func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string, hashSigPartUuid string,
+	partitions []diskutils.PartitionInfo, buildDir string, espUuid string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
 	hasSignatureInjection := false
@@ -216,10 +216,7 @@ func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMeta
 	}
 
 	if hasSignatureInjection {
-		newArgs = append(newArgs,
-			"dm_verity.require_signatures=1",
-			fmt.Sprintf("verity.signature.mount=%s", hashSigPartUuid),
-		)
+		newArgs = append(newArgs, fmt.Sprintf("pre.verity.mount=%s", espUuid))
 	}
 
 	return newArgs, nil
@@ -322,9 +319,9 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string, hashSigPartUuid string,
+	partitions []diskutils.PartitionInfo, buildDir string, espUuid string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, hashSigPartUuid)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, espUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}

@@ -5,6 +5,7 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
@@ -223,6 +224,8 @@ func (s *Storage) IsValid() error {
 }
 
 func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Verity]*MountPoint) error {
+	const espMountPoint = "/boot/efi"
+
 	for i := range verityDevices {
 		verity := &verityDevices[i]
 
@@ -233,7 +236,7 @@ func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Ve
 
 		verity.MountPath = mountPoint.Path
 
-		expectedVerityName, validMount := VerityMountMap[mountPoint.Path]
+		expectedVerityName, validMount := verityMountMap[mountPoint.Path]
 		if !validMount || verity.Name != expectedVerityName {
 			return fmt.Errorf(
 				"mount path of verity device (%s) must match verity name: '%s' for '%s'",
@@ -244,6 +247,17 @@ func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Ve
 		mountOptions := strings.Split(mountPoint.Options, ",")
 		if !sliceutils.ContainsValue(mountOptions, "ro") {
 			return fmt.Errorf("verity device's (%s) mount must include the 'ro' mount option", verity.Id)
+		}
+
+		if verity.HashSignaturePath != "" {
+			sigPath := filepath.Clean(verity.HashSignaturePath)
+
+			if !strings.HasPrefix(sigPath, espMountPoint+"/") {
+				return fmt.Errorf(
+					"verity.hashSignaturePath (%s) must be located under ESP mount point (%s)",
+					sigPath, espMountPoint,
+				)
+			}
 		}
 	}
 
