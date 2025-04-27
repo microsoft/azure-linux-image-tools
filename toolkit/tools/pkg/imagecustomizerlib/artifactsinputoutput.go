@@ -25,13 +25,13 @@ import (
 const (
 	ShimDir        = "EFI/BOOT"
 	SystemdBootDir = "EFI/systemd"
+	EspMountPoint  = "/boot/efi"
 )
 
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
-	fileSystems []imagecustomizerapi.FileSystem,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -144,14 +144,6 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 
 	// Output verity hash
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemVerityHash) {
-		var espMount string
-		for _, fs := range fileSystems {
-			if fs.Type == "fat32" && fs.MountPoint != nil {
-				espMount = fs.MountPoint.Path
-				break
-			}
-		}
-
 		for _, verity := range verityMetadata {
 			unsignedHashFile := verity.name + ".hash"
 			destPath := filepath.Join(outputDir, unsignedHashFile)
@@ -161,7 +153,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 			}
 
 			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
-			destination := strings.TrimPrefix(verity.hashSignaturePath, espMount)
+			destination := strings.TrimPrefix(verity.hashSignaturePath, EspMountPoint)
 			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 				Partition:      partition,
 				Source:         "./" + signedHashFile,

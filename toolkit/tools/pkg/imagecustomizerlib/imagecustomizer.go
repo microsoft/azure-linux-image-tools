@@ -292,7 +292,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
 		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
-			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata, config.Storage.FileSystems)
+			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata)
 		if err != nil {
 			return err
 		}
