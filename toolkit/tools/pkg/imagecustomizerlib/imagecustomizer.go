@@ -43,7 +43,6 @@ var ToolVersion = ""
 
 type ImageCustomizerParameters struct {
 	// build dirs
-	buildDir    string
 	buildDirAbs string
 
 	// input image
@@ -96,8 +95,6 @@ func createImageCustomizerParameters(buildDir string,
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
-	ic.buildDir = buildDir
-
 	buildDirAbs, err := filepath.Abs(buildDir)
 	if err != nil {
 		return nil, err
@@ -310,7 +307,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	logger.Log.Infof("Converting input image to a writeable format")
 
 	if ic.inputIsIso {
-		inputIsoArtifacts, err := createIsoBuilderFromIsoImage(ic.buildDir, ic.buildDirAbs, ic.inputImageFile)
+		inputIsoArtifacts, err := createIsoBuilderFromIsoImage(ic.buildDirAbs, ic.buildDirAbs, ic.inputImageFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load input iso artifacts:\n%w", err)
 		}
@@ -320,7 +317,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
 		if ic.customizeOSPartitions {
-			err = inputIsoArtifacts.createWriteableImageFromSquashfs(ic.buildDir, ic.rawImageFile)
+			err = inputIsoArtifacts.createWriteableImageFromSquashfs(ic.buildDirAbs, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}
@@ -523,7 +520,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			if ic.config.OS != nil {
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
-			err := createLiveOSIsoImage(ic.buildDir, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
+			err := createLiveOSIsoImage(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
 				ic.rawImageFile, ic.outputImageDir, ic.outputImageBase, ic.outputPXEArtifactsDir)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
