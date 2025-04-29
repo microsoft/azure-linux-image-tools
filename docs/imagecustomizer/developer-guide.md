@@ -8,11 +8,9 @@ nav_order: 5
 ## Prerequisites
 
 - Golang
-- [Trivy](https://github.com/aquasecurity/trivy/releases/latest) for license
-  scanning
+- [Trivy](https://github.com/aquasecurity/trivy/releases/latest) for license scanning
 
-For other package dependencies, see [Getting started
-guide](./quick-start/quick-start.md)
+For other package dependencies, see [Getting started guide](./quick-start/quick-start.md)
 
 ## Build Image Customizer binary
 
