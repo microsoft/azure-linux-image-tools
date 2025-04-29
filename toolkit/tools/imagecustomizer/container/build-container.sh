@@ -53,7 +53,7 @@ function cleanUp() {
 trap 'cleanUp' ERR
 
 exeFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
-licensesDir="$enlistmentRoot/toolkit/out/tools/LICENSES/imagecustomizer"
+licensesDir="$enlistmentRoot/toolkit/out/LICENSES"
 
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"

@@ -10,10 +10,23 @@ $(call create_folder,$(BUILD_DIR)/tools)
 
 ######## GO TOOLS ########
 
-GOPATH = $(shell go env GOPATH)
-GOBINPATH = $(GOPATH)/bin
-
-GO_LICENSES_TOOL = $(GOBINPATH)/go-licenses
+# Scans go.mod for critical & high severity license violations which catches
+# Forbidden & Restricted licenses based on
+# https://trivy.dev/v0.61/docs/scanner/license
+.PHONY: license-scan
+license-scan:
+	@echo "Running Trivy license scan..."
+	@mkdir -p ./out/LICENSES
+	@trivy fs --scanners license --format json --list-all-pkgs . > ./out/LICENSES/imagecustomizer.json
+	@echo "Checking for HIGH or CRITICAL severity licenses..."
+	@output=$$(jq -r '.Results[] | select(.Licenses) | .Licenses[] | select(.Severity == "HIGH" or .Severity == "CRITICAL") | "- \(.PkgName) [\(.Category)]"' licenses.json); \
+	if [ -n "$$output" ]; then \
+	  echo "❌ Found HIGH or CRITICAL severity license classification:"; \
+	  echo "$$output"; \
+	  exit 1; \
+	else \
+	  echo "✅ License check passed."; \
+	fi
 
 # The version as held in the go.mod file (a line like 'go 1.19'). Add "go" to the front of the version number
 # so that it matches the output of 'go version' (e.g. 'go1.19').
@@ -43,9 +56,6 @@ go_internal_files = $(shell find $(TOOLS_DIR)/internal/ -type f -name '*.go')
 go_pkg_files = $(shell find $(TOOLS_DIR)/pkg/ -type f -name '*.go')
 go_common_files = $(go_module_files) $(go_internal_files) $(go_pkg_files) $(go_scheduler_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag $(BUILD_DIR)/tools/internal.test_coverage
 
-$(GO_LICENSES_TOOL): $(go_module_files)
-	cd $(TOOLS_DIR) && \
-	go install github.com/google/go-licenses
 
 # A report on test coverage for all the go tools
 test_coverage_report=$(TOOL_BINS_DIR)/test_coverage_report.html
@@ -80,19 +90,13 @@ go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.Too
 
 # Matching rules for the above targets
 # Tool specific pre-requisites are tracked via $(go-util): $(shell find...) dynamic variable defined above
-$(TOOL_BINS_DIR)/%: $(go_common_files) $(GO_LICENSES_TOOL)
+$(TOOL_BINS_DIR)/%: $(go_common_files)
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
 		CGO_ENABLED=0 go build \
 			-ldflags="$(go_ldflags)" \
 			$(if $(filter y,$(BUILD_TOOLS_NONPROD)),,-tags prod) \
-			-o $(TOOL_BINS_DIR) && \
-		$(GO_LICENSES_TOOL) check github.com/microsoft/azurelinux/toolkit/tools/$* \
-			--ignore github.com/microsoft/azurelinux \
-			--disallowed_types forbidden,reciprocal,restricted,unknown && \
-		$(GO_LICENSES_TOOL) save github.com/microsoft/azurelinux/toolkit/tools/$* \
-			--ignore github.com/microsoft/azurelinux \
-			--save_path $(TOOL_BINS_DIR)/LICENSES/$* --force
+			-o $(TOOL_BINS_DIR) &&
 
 # Runs tests for common components
 $(BUILD_DIR)/tools/internal.test_coverage: $(go_internal_files) $(go_imagegen_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag
