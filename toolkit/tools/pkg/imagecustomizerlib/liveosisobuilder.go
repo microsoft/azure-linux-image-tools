@@ -1099,47 +1099,6 @@ func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePa
 	return nil
 }
 
-// micIsoConfigToIsoMakerConfig
-//
-//	converts imagecustomizerapi.Iso to isomaker configuration.
-//
-// inputs:
-//
-//   - 'baseConfigPath'
-//     path to the folder where the mic configuration was loaded from.
-//     This path will be used to construct absolute paths for build machine
-//     file references defined in the config.
-//   - 'isoConfig'
-//     user provided configuration for the iso image.
-//
-// outputs:
-//   - 'additionalIsoFiles'
-//     list of files to copy from the build machine to the iso media.
-func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomizerapi.Iso) (additionalIsoFiles []safechroot.FileToCopy, extraCommandLine []string, err error) {
-
-	if isoConfig == nil {
-		return
-	}
-
-	additionalIsoFiles = []safechroot.FileToCopy{}
-
-	for _, additionalFile := range isoConfig.AdditionalFiles {
-		absSourceFile := ""
-		if additionalFile.Source != "" {
-			absSourceFile = file.GetAbsPathWithBase(baseConfigPath, additionalFile.Source)
-		}
-		fileToCopy := safechroot.FileToCopy{
-			Src:         absSourceFile,
-			Content:     additionalFile.Content,
-			Dest:        additionalFile.Destination,
-			Permissions: (*fs.FileMode)(additionalFile.Permissions),
-		}
-		additionalIsoFiles = append(additionalIsoFiles, fileToCopy)
-	}
-
-	return additionalIsoFiles, isoConfig.KernelCommandLine.ExtraCommandLine, nil
-}
-
 // createLiveOSIsoImage
 //
 //	main function to create a LiveOS ISO image from a raw full disk image file.
@@ -1178,9 +1137,11 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
 	outputPXEArtifactsDir string) (err error) {
 
-	additionalIsoFiles, extraCommandLine, err := micIsoConfigToIsoMakerConfig(baseConfigPath, isoConfig)
-	if err != nil {
-		return fmt.Errorf("failed to convert iso configuration to isomaker format:\n%w", err)
+	var extraCommandLine []string
+	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
+	if isoConfig != nil {
+		extraCommandLine = isoConfig.KernelCommandLine.ExtraCommandLine
+		additionalIsoFiles = isoConfig.AdditionalFiles
 	}
 
 	pxeIsoImageBaseUrl := ""
@@ -1261,7 +1222,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 		}
 	}
 
-	err = isoBuilder.createIsoImageAndPXEFolder(additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
+	err = isoBuilder.createIsoImageAndPXEFolder(baseConfigPath, additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -1503,9 +1464,11 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 
-	additionalIsoFiles, extraCommandLine, err := micIsoConfigToIsoMakerConfig(baseConfigPath, isoConfig)
-	if err != nil {
-		return fmt.Errorf("failed to convert iso configuration to isomaker configuration format:\n%w", err)
+	var extraCommandLine []string
+	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
+	if isoConfig != nil {
+		extraCommandLine = isoConfig.KernelCommandLine.ExtraCommandLine
+		additionalIsoFiles = isoConfig.AdditionalFiles
 	}
 
 	pxeIsoImageBaseUrl := ""
@@ -1547,7 +1510,7 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	err = b.createIsoImageAndPXEFolder(additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
+	err = b.createIsoImageAndPXEFolder(baseConfigPath, additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -1575,10 +1538,10 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 //
 //   - create an iso image.
 //   - creates a folder with PXE artifacts.
-func (b *LiveOSIsoBuilder) createIsoImageAndPXEFolder(additionalIsoFiles []safechroot.FileToCopy, outputImagePath string,
+func (b *LiveOSIsoBuilder) createIsoImageAndPXEFolder(baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string,
 	outputPXEArtifactsDir string) error {
 
-	err := b.createIsoImage(outputImagePath)
+	err := b.createIsoImage(baseConfigPath, additionalIsoFiles, outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create the Iso image.\n%w", err)
 	}
@@ -1925,7 +1888,7 @@ func stageIsoFile(sourcePath string, stageDirPath string, isoRelativeDir string)
 	return nil
 }
 
-func stageIsoFiles(artifacts IsoArtifacts, stagingDir string) error {
+func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string) error {
 	err := os.RemoveAll(stagingDir)
 	if err != nil {
 		return err
@@ -1970,6 +1933,7 @@ func stageIsoFiles(artifacts IsoArtifacts, stagingDir string) error {
 	}
 
 	// Add additional files
+	// - This is typically populated if a previous run added additional files.
 	for source, isoRelativePath := range artifacts.additionalFiles {
 		isoRelativeDir := filepath.Dir(isoRelativePath)
 		artifactsToIsoMap[source] = isoRelativeDir
@@ -1983,13 +1947,37 @@ func stageIsoFiles(artifacts IsoArtifacts, stagingDir string) error {
 		}
 	}
 
+	// Stage config-defined additional files
+	// - This is typically populated if the current configuration defines
+	//   additional files.
+	var filesToCopy []safechroot.FileToCopy
+	for _, additionalFile := range additionalIsoFiles {
+		absSourceFile := ""
+		if additionalFile.Source != "" {
+			absSourceFile = file.GetAbsPathWithBase(baseConfigPath, additionalFile.Source)
+		}
+
+		fileToCopy := safechroot.FileToCopy{
+			Src:         absSourceFile,
+			Content:     additionalFile.Content,
+			Dest:        additionalFile.Destination,
+			Permissions: (*fs.FileMode)(additionalFile.Permissions),
+		}
+		filesToCopy = append(filesToCopy, fileToCopy)
+	}
+
+	err = safechroot.AddFilesToDestination(stagingDir, filesToCopy...)
+	if err != nil {
+		return fmt.Errorf("failed to stage config-defined additional files:\n%w", err)
+	}
+
 	return nil
 }
 
-func (b *LiveOSIsoBuilder) createIsoImage(outputImagePath string) error {
+func (b *LiveOSIsoBuilder) createIsoImage(baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
 	stagingDir := filepath.Join(b.workingDirs.isoBuildDir, "staging")
 
-	err := stageIsoFiles(b.artifacts, stagingDir)
+	err := stageIsoFiles(b.artifacts, baseConfigPath, additionalIsoFiles, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}
