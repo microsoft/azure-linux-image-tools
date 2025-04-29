@@ -5,7 +5,7 @@ RUN tdnf update -y && \
    tdnf install -y dnf dnf-plugins-core createrepo_c
 
 # Download the RPMs needed by the following tests:
-# - TestCustomizeImageAddPackage
+# - TestCustomizeImagePackagesAddOfflineLocalRepo
 RUN dnf download -y --resolve --alldeps --destdir /downloadedrpms \
     jq \
     golang
