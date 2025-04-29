@@ -80,7 +80,7 @@ func GenerateIso(config IsoGenConfig) error {
 }
 
 func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
-	logger.Log.Infof("-- Generating ISO image (%s) using (%s).", outputImagePath, stagingPath)
+	logger.Log.Infof("Generating ISO image (%s) using (%s).", outputImagePath, stagingPath)
 
 	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
 	// Mkisofs requires all argument paths to be relative to the input directory.
@@ -245,7 +245,7 @@ func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 	}
 
 	// Copy the extracted shim/grub binaries to the Rufus workaround folder.
-	err = applyRufusWorkaround(info.Config.InitrdPath, info.Config.StagingDirPath, shimFileName, grubFileName)
+	err = ApplyRufusWorkaround(shimPath, grubPath, info.Config.StagingDirPath)
 	if err != nil {
 		return err
 	}
@@ -284,21 +284,19 @@ func extractShimFromInitrd(initrdPath, outputDir, bootBootloaderFile, grubBootlo
 // Rufus prioritizes the presence of an EFI folder on the ISO disk over extraction of the efi*.img archive.
 // So to workaround the limitation, create an EFI folder and make a duplicate copy of the bootloader files
 // in EFI/Boot so Rufus doesn't attempt to extract the efi*.img in the first place.
-func applyRufusWorkaround(initrdPath, stagingPath, bootBootloaderFile, grubBootloaderFile string) (err error) {
+func ApplyRufusWorkaround(sourceShimPath, sourceGrubPath, stagingPath string) (err error) {
 	const buildDirBootEFIDirectoryPath = "efi/boot"
 
-	initrdBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIUsbFilePath := filepath.Join(stagingPath, buildDirBootEFIDirectoryPath, bootBootloaderFile)
-	err = extractFromInitrdAndCopy(initrdPath, initrdBootloaderFilePath, buildDirBootEFIUsbFilePath)
+	targetShimPath := filepath.Join(stagingPath, buildDirBootEFIDirectoryPath, filepath.Base(sourceShimPath))
+	err = file.Copy(sourceShimPath, targetShimPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to copy (%s) to (%s):\n%w", sourceShimPath, targetShimPath, err)
 	}
 
-	initrdGrubEFIFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIUsbFilePath := filepath.Join(stagingPath, buildDirBootEFIDirectoryPath, grubBootloaderFile)
-	err = extractFromInitrdAndCopy(initrdPath, initrdGrubEFIFilePath, buildDirGrubEFIUsbFilePath)
+	targetGrubPath := filepath.Join(stagingPath, buildDirBootEFIDirectoryPath, filepath.Base(sourceGrubPath))
+	err = file.Copy(sourceGrubPath, targetGrubPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to copy (%s) to (%s):\n%w", sourceGrubPath, targetGrubPath, err)
 	}
 
 	return nil

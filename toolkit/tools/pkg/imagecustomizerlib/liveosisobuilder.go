@@ -1923,8 +1923,6 @@ func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoF
 
 	// map of file full local path to location on iso media.
 	artifactsToIsoMap := map[string]string{
-		artifacts.bootEfiPath:       "efi/boot",
-		artifacts.grubEfiPath:       "efi/boot",
 		artifacts.isoBootImagePath:  "boot/grub2",
 		artifacts.isoGrubCfgPath:    "boot/grub2",
 		artifacts.vmlinuzPath:       "boot",
@@ -1991,6 +1989,12 @@ func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoF
 	err = safechroot.AddFilesToDestination(stagingDir, filesToCopy...)
 	if err != nil {
 		return fmt.Errorf("failed to stage config-defined additional files:\n%w", err)
+	}
+
+	// Apply Rufus workaround
+	err = isogenerator.ApplyRufusWorkaround(artifacts.bootEfiPath, artifacts.grubEfiPath, stagingDir)
+	if err != nil {
+		return fmt.Errorf("failed to apply Rufus work-around:\n%w", err)
 	}
 
 	return nil
