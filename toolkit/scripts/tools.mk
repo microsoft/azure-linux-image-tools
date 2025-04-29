@@ -96,7 +96,7 @@ $(TOOL_BINS_DIR)/%: $(go_common_files)
 		CGO_ENABLED=0 go build \
 			-ldflags="$(go_ldflags)" \
 			$(if $(filter y,$(BUILD_TOOLS_NONPROD)),,-tags prod) \
-			-o $(TOOL_BINS_DIR) &&
+			-o $(TOOL_BINS_DIR)
 
 # Runs tests for common components
 $(BUILD_DIR)/tools/internal.test_coverage: $(go_internal_files) $(go_imagegen_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag
