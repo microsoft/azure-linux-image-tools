@@ -70,7 +70,8 @@ func GenerateIso(config IsoGenConfig) error {
 		return err
 	}
 
-	err = buildIsoImage(info)
+	err = BuildIsoImage(config.StagingDirPath, config.EnableBiosBoot, config.IsoOsFilesDirPath,
+		config.OutputFilePath)
 	if err != nil {
 		return err
 	}
@@ -78,8 +79,8 @@ func GenerateIso(config IsoGenConfig) error {
 	return nil
 }
 
-func buildIsoImage(info isoGenInfo) error {
-	logger.Log.Infof("Generating ISO image under '%s'.", info.Config.OutputFilePath)
+func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
+	logger.Log.Infof("-- Generating ISO image (%s) using (%s).", outputImagePath, stagingPath)
 
 	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
 	// Mkisofs requires all argument paths to be relative to the input directory.
@@ -87,22 +88,21 @@ func buildIsoImage(info isoGenInfo) error {
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", info.Config.OutputFilePath, "-V", DefaultVolumeId)
+		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId)
 
-	if info.Config.EnableBiosBoot {
+	if enableBiosBoot {
 		mkisofsArgs = append(mkisofsArgs,
 			// BIOS bootloader, params suggested by https://wiki.syslinux.org/wiki/index.php?title=ISOLINUX.
-			"-b", filepath.Join(info.Config.IsoOsFilesDirPath, "isolinux.bin"),
-			"-c", filepath.Join(info.Config.IsoOsFilesDirPath, "boot.cat"),
+			"-b", filepath.Join(isoOsFilesDirPath, "isolinux.bin"),
+			"-c", filepath.Join(isoOsFilesDirPath, "boot.cat"),
 			"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
 	}
 
 	mkisofsArgs = append(mkisofsArgs,
 		// UEFI bootloader.
 		"-eltorito-alt-boot", "-e", efiBootImgPathRelativeToIsoRoot, "-no-emul-boot",
-
 		// Directory to convert to an ISO.
-		info.Config.StagingDirPath)
+		stagingPath)
 
 	// Note: mkisofs has a noisy stderr.
 	err := shell.ExecuteLive(true /*squashErrors*/, "mkisofs", mkisofsArgs...)
@@ -142,7 +142,7 @@ func copyInitrd(info isoGenInfo) error {
 	return file.Copy(info.Config.InitrdPath, initrdDestinationPath)
 }
 
-func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
+func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath string, outputImagePath string) (err error) {
 	const (
 		blockSizeInBytes     = 1024 * 1024
 		numberOfBlocksToCopy = 3
@@ -151,12 +151,12 @@ func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 	logger.Log.Info("Preparing ISO's bootloaders.")
 
 	ddArgs := []string{
-		"if=/dev/zero", // Zero device to read a stream of zeroed bytes from.
-		fmt.Sprintf("of=%s", info.EfiBootImgPath),     // Output file.
+		"if=/dev/zero",                                // Zero device to read a stream of zeroed bytes from.
+		fmt.Sprintf("of=%s", outputImagePath),         // Output file.
 		fmt.Sprintf("bs=%d", blockSizeInBytes),        // Size of one copied block. Used together with "count".
 		fmt.Sprintf("count=%d", numberOfBlocksToCopy), // Number of blocks to copy to the output file.
 	}
-	logger.Log.Debugf("Creating an empty '%s' file of %d bytes.", info.EfiBootImgPath, blockSizeInBytes*numberOfBlocksToCopy)
+	logger.Log.Debugf("Creating an empty '%s' file of %d bytes.", outputImagePath, blockSizeInBytes*numberOfBlocksToCopy)
 
 	// Note: dd has a noisy stderr.
 	err = shell.ExecuteLive(true /*squashErrors*/, "dd", ddArgs...)
@@ -164,17 +164,17 @@ func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 		return err
 	}
 
-	logger.Log.Debugf("Formatting '%s' as an MS-DOS filesystem.", info.EfiBootImgPath)
-	err = shell.ExecuteLive(true /*squashErrors*/, "mkdosfs", info.EfiBootImgPath)
+	logger.Log.Debugf("Formatting '%s' as an MS-DOS filesystem.", outputImagePath)
+	err = shell.ExecuteLive(true /*squashErrors*/, "mkdosfs", outputImagePath)
 	if err != nil {
 		return err
 	}
 
-	efiBootImgTempMountDir := filepath.Join(info.Config.BuildDirPath, "efiboot_temp")
+	efiBootImgTempMountDir := filepath.Join(buildDir, "efiboot_temp")
 
-	logger.Log.Debugf("Mounting '%s' to '%s' to copy EFI modules required to boot grub2.", info.EfiBootImgPath,
+	logger.Log.Debugf("Mounting '%s' to '%s' to copy EFI modules required to boot grub2.", outputImagePath,
 		efiBootImgTempMountDir)
-	loopback, err := safeloopback.NewLoopback(info.EfiBootImgPath)
+	loopback, err := safeloopback.NewLoopback(outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to connect efiboot.img:\n%w", err)
 	}
@@ -189,16 +189,18 @@ func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 
 	logger.Log.Debug("Copying EFI modules into efiboot.img.")
 	// Copy Shim (boot<arch>64.efi) and grub2 (grub<arch>64.efi)
-	if runtime.GOARCH == "arm64" {
-		err = copyShimFromInitrd(info, efiBootImgTempMountDir, "bootaa64.efi", "grubaa64.efi")
-		if err != nil {
-			return err
-		}
-	} else {
-		err = copyShimFromInitrd(info, efiBootImgTempMountDir, "bootx64.efi", "grubx64.efi")
-		if err != nil {
-			return err
-		}
+	bootDirPath := filepath.Join(efiBootImgTempMountDir, "EFI", "BOOT")
+
+	targetShimPath := filepath.Join(bootDirPath, filepath.Base(sourceShimPath))
+	err = file.Copy(sourceShimPath, targetShimPath)
+	if err != nil {
+		return err
+	}
+
+	targetGrubPath := filepath.Join(bootDirPath, filepath.Base(sourceGrubPath))
+	err = file.Copy(sourceGrubPath, targetGrubPath)
+	if err != nil {
+		return err
 	}
 
 	err = mount.CleanClose()
@@ -214,30 +216,61 @@ func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 	return nil
 }
 
-func copyShimFromInitrd(info isoGenInfo, efiBootImgTempMountDir, bootBootloaderFile, grubBootloaderFile string,
-) (err error) {
-	bootDirPath := filepath.Join(efiBootImgTempMountDir, "EFI", "BOOT")
+func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 
-	initrdBootBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIFilePath := filepath.Join(bootDirPath, bootBootloaderFile)
-	err = extractFromInitrdAndCopy(info, initrdBootBootloaderFilePath, buildDirBootEFIFilePath)
+	extractedShimDir, err := os.MkdirTemp(info.Config.BuildDirPath, "extracted-shim")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary folder for extracting the shim:\n%w", err)
+	}
+	defer os.RemoveAll(extractedShimDir)
+
+	shimFileName := "bootx64.efi"
+	grubFileName := "grubx64.efi"
+
+	if runtime.GOARCH == "arm64" {
+		shimFileName = "bootaa64.efi"
+		grubFileName = "grubaa64.efi"
+	}
+
+	// Extract the shim/grub binaries.
+	shimPath, grubPath, err := extractShimFromInitrd(info.Config.InitrdPath, extractedShimDir, shimFileName, grubFileName)
 	if err != nil {
 		return err
 	}
 
-	initrdGrubBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIFilePath := filepath.Join(bootDirPath, grubBootloaderFile)
-	err = extractFromInitrdAndCopy(info, initrdGrubBootloaderFilePath, buildDirGrubEFIFilePath)
+	// Pack the extracted shim/grub binaries into the iso boot image.
+	err = BuildIsoBootImage(info.Config.BuildDirPath, shimPath, grubPath, info.EfiBootImgPath)
 	if err != nil {
-		return err
+		return nil
 	}
 
-	err = applyRufusWorkaround(info, bootBootloaderFile, grubBootloaderFile)
+	// Copy the extracted shim/grub binaries to the Rufus workaround folder.
+	err = applyRufusWorkaround(info.Config.InitrdPath, info.Config.StagingDirPath, shimFileName, grubFileName)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func extractShimFromInitrd(initrdPath, outputDir, bootBootloaderFile, grubBootloaderFile string,
+) (buildDirBootEFIFilePath string, buildDirGrubEFIFilePath string, err error) {
+
+	initrdBootBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
+	buildDirBootEFIFilePath = filepath.Join(outputDir, bootBootloaderFile)
+	err = extractFromInitrdAndCopy(initrdPath, initrdBootBootloaderFilePath, buildDirBootEFIFilePath)
+	if err != nil {
+		return "", "", err
+	}
+
+	initrdGrubBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
+	buildDirGrubEFIFilePath = filepath.Join(outputDir, grubBootloaderFile)
+	err = extractFromInitrdAndCopy(initrdPath, initrdGrubBootloaderFilePath, buildDirGrubEFIFilePath)
+	if err != nil {
+		return "", "", err
+	}
+
+	return buildDirBootEFIFilePath, buildDirGrubEFIFilePath, nil
 }
 
 // Rufus ISO-to-USB converter has a limitation where it will only copy the boot<arch>64.efi binary from a given efi*.img
@@ -251,19 +284,19 @@ func copyShimFromInitrd(info isoGenInfo, efiBootImgTempMountDir, bootBootloaderF
 // Rufus prioritizes the presence of an EFI folder on the ISO disk over extraction of the efi*.img archive.
 // So to workaround the limitation, create an EFI folder and make a duplicate copy of the bootloader files
 // in EFI/Boot so Rufus doesn't attempt to extract the efi*.img in the first place.
-func applyRufusWorkaround(info isoGenInfo, bootBootloaderFile string, grubBootloaderFile string) (err error) {
+func applyRufusWorkaround(initrdPath, stagingPath, bootBootloaderFile, grubBootloaderFile string) (err error) {
 	const buildDirBootEFIDirectoryPath = "efi/boot"
 
 	initrdBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIUsbFilePath := filepath.Join(info.Config.StagingDirPath, buildDirBootEFIDirectoryPath, bootBootloaderFile)
-	err = extractFromInitrdAndCopy(info, initrdBootloaderFilePath, buildDirBootEFIUsbFilePath)
+	buildDirBootEFIUsbFilePath := filepath.Join(stagingPath, buildDirBootEFIDirectoryPath, bootBootloaderFile)
+	err = extractFromInitrdAndCopy(initrdPath, initrdBootloaderFilePath, buildDirBootEFIUsbFilePath)
 	if err != nil {
 		return err
 	}
 
 	initrdGrubEFIFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIUsbFilePath := filepath.Join(info.Config.StagingDirPath, buildDirBootEFIDirectoryPath, grubBootloaderFile)
-	err = extractFromInitrdAndCopy(info, initrdGrubEFIFilePath, buildDirGrubEFIUsbFilePath)
+	buildDirGrubEFIUsbFilePath := filepath.Join(stagingPath, buildDirBootEFIDirectoryPath, grubBootloaderFile)
+	err = extractFromInitrdAndCopy(initrdPath, initrdGrubEFIFilePath, buildDirGrubEFIUsbFilePath)
 	if err != nil {
 		return err
 	}
@@ -281,15 +314,15 @@ func createVmlinuzImage(info isoGenInfo) error {
 	// In order to select the correct kernel for isolinux, open the initrd archive
 	// and extract the vmlinuz file in it. An initrd is a gzip of a cpio archive.
 	//
-	return extractFromInitrdAndCopy(info, bootKernelFile, vmlinuzFilePath)
+	return extractFromInitrdAndCopy(info.Config.InitrdPath, bootKernelFile, vmlinuzFilePath)
 }
 
-func extractFromInitrdAndCopy(info isoGenInfo, srcFileName, destFilePath string) (err error) {
+func extractFromInitrdAndCopy(initrdPath, srcFileName, destFilePath string) (err error) {
 	// Setup a series of io readers: initrd file -> parallelized gzip -> cpio
 
-	logger.Log.Debugf("Searching for (%s) in initrd (%s) and copying to (%s)", srcFileName, info.Config.InitrdPath, destFilePath)
+	logger.Log.Debugf("Searching for (%s) in initrd (%s) and copying to (%s)", srcFileName, initrdPath, destFilePath)
 
-	initrdFile, err := os.Open(info.Config.InitrdPath)
+	initrdFile, err := os.Open(initrdPath)
 	if err != nil {
 		return err
 	}
@@ -306,7 +339,7 @@ func extractFromInitrdAndCopy(info isoGenInfo, srcFileName, destFilePath string)
 		var hdr *cpio.Header
 		hdr, err = cpioReader.Next()
 		if err == io.EOF {
-			return fmt.Errorf("did not find (%s) in initrd (%s)", srcFileName, info.Config.InitrdPath)
+			return fmt.Errorf("did not find (%s) in initrd (%s)", srcFileName, initrdPath)
 		}
 		if err != nil {
 			return err
