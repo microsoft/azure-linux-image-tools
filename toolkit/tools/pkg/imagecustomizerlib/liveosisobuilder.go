@@ -1653,18 +1653,18 @@ func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArti
 //
 // inputs:
 //
-//   - 'rootDir':
+//   - 'fileOrDir':
 //     root folder to calculate its size.
 //
 // outputs:
 //
 //   - returns the size in bytes.
-func getSizeOnDiskInBytes(rootDir string) (size uint64, err error) {
-	logger.Log.Debugf("Calculating total size for (%s)", rootDir)
+func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
+	logger.Log.Debugf("Calculating total size for (%s)", fileOrDir)
 
-	duStdout, _, err := shell.Execute("du", "-s", rootDir)
+	duStdout, _, err := shell.Execute("du", "-s", fileOrDir)
 	if err != nil {
-		return 0, fmt.Errorf("failed to find the size of the specified folder using 'du' for (%s):\n%w", rootDir, err)
+		return 0, fmt.Errorf("failed to find the size of the specified file/dir using 'du' for (%s):\n%w", fileOrDir, err)
 	}
 
 	// parse and get count and unit
@@ -1698,22 +1698,26 @@ func getSizeOnDiskInBytes(rootDir string) (size uint64, err error) {
 //
 // inputs:
 //
-//   - 'rootDir':
-//     root folder to calculate its size.
+//   - 'filesOrDirs':
+//     list of files or directories to include in the calculation.
 //   - 'safetyFactor':
 //     a multiplier used with the total number of bytes calculated.
 //
 // outputs:
 //
 //   - returns the size in mega bytes.
-func getDiskSizeEstimateInMBs(rootDir string, safetyFactor float64) (size uint64, err error) {
+func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size uint64, err error) {
 
-	sizeInBytes, err := getSizeOnDiskInBytes(rootDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get folder size on disk while estimating total disk size:\n%w", err)
+	totalSizeInBytes := uint64(0)
+	for _, fileOrDir := range filesOrDirs {
+		sizeInBytes, err := getSizeOnDiskInBytes(fileOrDir)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get the size of (%s) on disk while estimating total disk size:\n%w", fileOrDir, err)
+		}
+		totalSizeInBytes += sizeInBytes
 	}
 
-	sizeInMBs := sizeInBytes/diskutils.MiB + 1
+	sizeInMBs := totalSizeInBytes/diskutils.MiB + 1
 	estimatedSizeInMBs := uint64(float64(sizeInMBs) * safetyFactor)
 	return estimatedSizeInMBs, nil
 }
@@ -1741,7 +1745,7 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromArtifacts(buildDir, rawImageF
 
 	logger.Log.Infof("Creating writeable image from squashfs (%s)", b.artifacts.squashfsImagePath)
 
-	// mount squash fs
+	// rootfs folder (mount squash fs)
 	squashMountDir, err := os.MkdirTemp(buildDir, "tmp-squashfs-mount-")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
@@ -1761,8 +1765,17 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromArtifacts(buildDir, rawImageF
 	}
 	defer squashfsMount.Close()
 
+	// boot folder (from artifacts)
+	artifactsBootDir := filepath.Join(b.workingDirs.isoArtifactsDir, "boot")
+
+	imageContentList := []string{
+		squashMountDir,
+		b.artifacts.bootEfiPath,
+		b.artifacts.grubEfiPath,
+		artifactsBootDir}
+
 	// estimate the new disk size
-	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(squashMountDir, expansionSafetyFactor)
+	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
 	if err != nil {
 		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", squashMountDir, err)
 	}
@@ -1835,7 +1848,6 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromArtifacts(buildDir, rawImageF
 		// it is restored to its original state and subsequent customization
 		// or extraction can proceed transparently.
 
-		artifactsBootDir := filepath.Join(b.workingDirs.isoArtifactsDir, "boot")
 		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
