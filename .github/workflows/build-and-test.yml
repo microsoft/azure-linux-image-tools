@@ -69,6 +69,12 @@ jobs:
           exit 1
         fi
 
+    - name: Install Trivy
+      run: |
+        wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.61.1_Linux-64bit.tar.gz
+        tar zxvf trivy_0.45.0_Linux-64bit.tar.gz
+        sudo mv trivy /usr/local/bin/
+
     - name: build & test
       run: |
         pushd toolkit
