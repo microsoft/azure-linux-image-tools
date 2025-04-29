@@ -13,13 +13,14 @@ $(call create_folder,$(BUILD_DIR)/tools)
 # Scans go.mod for critical & high severity license violations which catches
 # Forbidden & Restricted licenses based on
 # https://trivy.dev/v0.61/docs/scanner/license
-.PHONY: license-scan
+LICENSE_SCAN_OUTPUT := ./out/LICENSES/imagecustomizer.json
 license-scan:
+	@rm -f $(LICENSE_SCAN_OUTPUT)
 	@echo "Running Trivy license scan..."
-	@mkdir -p ./out/LICENSES
-	@trivy fs --scanners license --format json --list-all-pkgs . > ./out/LICENSES/imagecustomizer.json
+	@mkdir -p $(dir $(LICENSE_SCAN_OUTPUT))
+	@trivy fs --scanners license --format json --list-all-pkgs . > $(LICENSE_SCAN_OUTPUT)
 	@echo "Checking for HIGH or CRITICAL severity licenses..."
-	@output=$$(jq -r '.Results[] | select(.Licenses) | .Licenses[] | select(.Severity == "HIGH" or .Severity == "CRITICAL") | "- \(.PkgName) [\(.Category)]"' licenses.json); \
+	@output=$$(jq -r '.Results[] | select(.Licenses) | .Licenses[] | select(.Severity == "HIGH" or .Severity == "CRITICAL") | "- \(.PkgName) [\(.Category)]"' $(LICENSE_SCAN_OUTPUT)); \
 	if [ -n "$$output" ]; then \
 	  echo "❌ Found HIGH or CRITICAL severity license classification:"; \
 	  echo "$$output"; \
@@ -91,6 +92,7 @@ go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.Too
 # Matching rules for the above targets
 # Tool specific pre-requisites are tracked via $(go-util): $(shell find...) dynamic variable defined above
 $(TOOL_BINS_DIR)/%: $(go_common_files)
+	$(MAKE) license-scan
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
 		CGO_ENABLED=0 go build \
