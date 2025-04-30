@@ -224,12 +224,17 @@ func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
 	}
 	defer os.RemoveAll(extractedShimDir)
 
-	shimFileName := "bootx64.efi"
-	grubFileName := "grubx64.efi"
-
-	if runtime.GOARCH == "arm64" {
+	shimFileName := ""
+	grubFileName := ""
+	switch runtime.GOARCH {
+	case "arm64":
 		shimFileName = "bootaa64.efi"
 		grubFileName = "grubaa64.efi"
+	case "amd64":
+		shimFileName = "bootx64.efi"
+		grubFileName = "grubx64.efi"
+	default:
+		return fmt.Errorf("failed to determine shim/grub efi file names. Unsupported host architecture (%s)", runtime.GOARCH)
 	}
 
 	// Extract the shim/grub binaries.
