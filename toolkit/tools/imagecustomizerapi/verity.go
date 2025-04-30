@@ -50,6 +50,9 @@ type Verity struct {
 	// How to handle corruption.
 	CorruptionOption CorruptionOption `yaml:"corruptionOption" json:"corruptionOption,omitempty"`
 
+	// Path to the root hash signature to inject into the image.
+	HashSignaturePath string `yaml:"hashSignaturePath" json:"hashSignaturePath,omitempty"`
+
 	// The mount point of the verity device.
 	// Value is filled in by ValidateVerityMounts() (via Storage.IsValid() or validateVerityMountPaths()).
 	MountPath string `json:"-"`
@@ -87,6 +90,12 @@ func (v *Verity) IsValid() error {
 
 	if err := v.CorruptionOption.IsValid(); err != nil {
 		return fmt.Errorf("invalid corruptionOption:\n%w", err)
+	}
+
+	if v.HashSignaturePath != "" {
+		if err := validatePath(v.HashSignaturePath); err != nil {
+			return fmt.Errorf("invalid hashSignaturePath:\n%w", err)
+		}
 	}
 
 	return nil
