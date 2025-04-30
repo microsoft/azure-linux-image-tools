@@ -13,12 +13,14 @@ $(call create_folder,$(BUILD_DIR)/tools)
 # Scans go.mod for critical & high severity license violations which catches
 # Forbidden & Restricted licenses based on
 # https://trivy.dev/v0.61/docs/scanner/license
-LICENSE_SCAN_OUTPUT := ./out/LICENSES/imagecustomizer.json
+LICENSE_SCAN_JSON := out/license-scan.json
+LICENSES_DIR := out/LICENSES
+
 license-scan:
-	@rm -f $(LICENSE_SCAN_OUTPUT)
 	@echo "Running Trivy license scan..."
-	@mkdir -p $(dir $(LICENSE_SCAN_OUTPUT))
-	@trivy fs --scanners license --format json --list-all-pkgs . > $(LICENSE_SCAN_OUTPUT)
+	@mkdir -p $(dir $(LICENSE_SCAN_JSON))
+	@trivy fs --scanners license --format json --list-all-pkgs . > $(LICENSE_SCAN_JSON)
+
 	@echo "Checking for HIGH or CRITICAL severity licenses..."
 	@output=$$(jq -r '.Results[] | select(.Licenses) | .Licenses[] | select(.Severity == "HIGH" or .Severity == "CRITICAL") | "- \(.PkgName) [\(.Category)]"' $(LICENSE_SCAN_OUTPUT)); \
 	if [ -n "$$output" ]; then \
@@ -28,6 +30,22 @@ license-scan:
 	else \
 	  echo "✅ License check passed."; \
 	fi
+
+	@echo "Copying license files from Go module cache..."
+	@rm -f $(LICENSES_DIR)
+	@mkdir -p $(LICENSES_DIR)
+	@cd tools && go mod download && go list -m -json all | jq -r '.Path + " " + .Version' | \
+	while read -r module version; do \
+	  modpath=$$(go env GOMODCACHE)/$$module@$$version; \
+	  if [ -d "$$modpath" ]; then \
+	    find "$$modpath" -maxdepth 1 -type f \( -iname "LICENSE*" -o -iname "COPYING*" -o -iname "NOTICE*" \) | \
+	    while read -r file; do \
+	      safe_name=$$(echo "$$module" | sed 's|/|_|g'); \
+	      cp "$$file" "../$(LICENSES_DIR)/$${safe_name}_$$(basename "$$file")"; \
+	    done; \
+	  fi; \
+	done
+
 
 # The version as held in the go.mod file (a line like 'go 1.19'). Add "go" to the front of the version number
 # so that it matches the output of 'go version' (e.g. 'go1.19').
