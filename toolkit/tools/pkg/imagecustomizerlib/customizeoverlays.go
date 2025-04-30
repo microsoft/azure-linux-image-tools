@@ -180,7 +180,7 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.UpperDir)
 		})
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "is not defined") {
 			return fmt.Errorf("failed to delete existing SELinux fcontext for upperdir (%s) (possibly does not exist):\n%w",
 				overlay.UpperDir, err)
 		}
@@ -199,7 +199,7 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.WorkDir+"(/.*)?")
 		})
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "is not defined") {
 			return fmt.Errorf("failed to delete existing SELinux fcontext for workdir (%s(/.*)?) (possibly does not exist):\n%w",
 				overlay.WorkDir, err)
 		}
