@@ -11,12 +11,14 @@ const (
 	OutputArtifactsItemUkis        OutputArtifactsItemType = "ukis"
 	OutputArtifactsItemShim        OutputArtifactsItemType = "shim"
 	OutputArtifactsItemSystemdBoot OutputArtifactsItemType = "systemd-boot"
+	OutputArtifactsItemVerityHash  OutputArtifactsItemType = "verity-hash"
 	OutputArtifactsItemDefault     OutputArtifactsItemType = ""
 )
 
 func (i OutputArtifactsItemType) IsValid() error {
 	switch i {
-	case OutputArtifactsItemUkis, OutputArtifactsItemShim, OutputArtifactsItemSystemdBoot, OutputArtifactsItemDefault:
+	case OutputArtifactsItemUkis, OutputArtifactsItemShim, OutputArtifactsItemSystemdBoot,
+		OutputArtifactsItemVerityHash, OutputArtifactsItemDefault:
 		return nil
 	default:
 		return fmt.Errorf("invalid item value (%v)", i)
