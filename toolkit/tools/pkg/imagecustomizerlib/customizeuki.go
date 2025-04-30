@@ -52,6 +52,18 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 		return fmt.Errorf("failed to create UKI directories:\n%w", err)
 	}
 
+	// ToDo: copy and paste back shim binary.
+	//
+	filesToCopy := map[string]string{
+		filepath.Join(imageChroot.RootDir(), "/boot/efi/EFI/BOOT/BOOTX64.EFI"): filepath.Join(buildDir, UkiBuildDir, "BOOTX64.EFI"),
+	}
+	for src, dest := range filesToCopy {
+		err := file.Copy(src, dest)
+		if err != nil {
+			return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", src, dest, err)
+		}
+	}
+
 	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
 	// Note: When proper support for systemd-boot is implemented, the `bootctl install` command
 	// will likely be invoked as part of the `hardResetBootLoader()` function under BootLoader structure.
@@ -84,6 +96,18 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	randomSeedPath := filepath.Join(imageChroot.RootDir(), "/boot/efi/loader/random-seed")
 	if err := file.RemoveFileIfExists(randomSeedPath); err != nil {
 		return fmt.Errorf("failed to remove random-seed file (%s):\n%w", randomSeedPath, err)
+	}
+
+	// ToDo: copy and paste back shim binary.
+	//
+	filesToCopy = map[string]string{
+		filepath.Join(buildDir, UkiBuildDir, "BOOTX64.EFI"): filepath.Join(imageChroot.RootDir(), "/boot/efi/EFI/BOOT/BOOTX64.EFI"),
+	}
+	for src, dest := range filesToCopy {
+		err := file.Copy(src, dest)
+		if err != nil {
+			return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", src, dest, err)
+		}
 	}
 
 	// Map kernels and initramfs.
