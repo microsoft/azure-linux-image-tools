@@ -5,6 +5,7 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
@@ -223,6 +224,8 @@ func (s *Storage) IsValid() error {
 }
 
 func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Verity]*MountPoint) error {
+	const bootMountPoint = "/boot"
+
 	for i := range verityDevices {
 		verity := &verityDevices[i]
 
@@ -244,6 +247,17 @@ func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Ve
 		mountOptions := strings.Split(mountPoint.Options, ",")
 		if !sliceutils.ContainsValue(mountOptions, "ro") {
 			return fmt.Errorf("verity device's (%s) mount must include the 'ro' mount option", verity.Id)
+		}
+
+		if verity.HashSignaturePath != "" {
+			sigPath := filepath.Clean(verity.HashSignaturePath)
+
+			if !strings.HasPrefix(sigPath, bootMountPoint+"/") {
+				return fmt.Errorf(
+					"verity.hashSignaturePath (%s) must be located under ESP mount point (%s)",
+					sigPath, bootMountPoint,
+				)
+			}
 		}
 	}
 
