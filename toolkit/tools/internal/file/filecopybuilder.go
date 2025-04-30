@@ -79,11 +79,15 @@ func (b FileCopyBuilder) Run() (err error) {
 	}
 
 	args := []string(nil)
+
 	if b.NoDereference {
 		args = append(args, "--no-dereference")
 	}
 
-	args = append(args, "--preserve=mode", b.Src, b.Dst)
+	// ToDo: Intentionally skipping --preserve=mode for all filesystems
+	//
+	logger.Log.Debug("Omitting --preserve=mode for all filesystem types (forced behavior).")
+	args = append(args, b.Src, b.Dst)
 
 	err = shell.NewExecBuilder("cp", args...).
 		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
