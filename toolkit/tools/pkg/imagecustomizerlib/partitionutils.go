@@ -208,9 +208,15 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	var foundRoot bool
 	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	for _, fstabEntry := range filteredFstabEntries {
-		_, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		partitionType, partition, _, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
 			return nil, nil, err
+		}
+
+		// ToDo: Ignore when overlay / diskpath enabled base image.
+		//
+		if partitionType == ExtendedMountIdentifierTypeOverlay || partitionType == ExtendedMountIdentifierTypeDiskPath {
+			continue
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
@@ -270,9 +276,15 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
 	}
 
-	partition, partitionIndex, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
-	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+	// ToDo: Ignore when customize overlay / diskpath enabled base image.
+	//
+	var partition diskutils.PartitionInfo
+	var partitionIndex int
+	if mountIdType != ExtendedMountIdentifierTypeOverlay && mountIdType != ExtendedMountIdentifierTypeDiskPath {
+		partition, partitionIndex, err = findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+		if err != nil {
+			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, err
+		}
 	}
 
 	return mountIdType, partition, partitionIndex, nil
@@ -580,6 +592,16 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 	partLabel, isPartLabel := strings.CutPrefix(source, "PARTLABEL=")
 	if isPartLabel {
 		return ExtendedMountIdentifierTypePartLabel, partLabel, nil
+	}
+
+	// ToDo: Ignore when customize overlay / diskpath enabled base image.
+	//
+	if source == "overlay" {
+		return ExtendedMountIdentifierTypeOverlay, "", nil
+	}
+	_, isDeviceCustom := strings.CutPrefix(source, "/dev/disk")
+	if isDeviceCustom {
+		return ExtendedMountIdentifierTypeDiskPath, "", nil
 	}
 
 	if strings.HasPrefix(source, "/dev") {
