@@ -175,6 +175,16 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 	}
 
 	for _, overlay := range overlays {
+		// ToDo: removal of existing fcontext rule for UpperDir.
+		//
+		err = imageChroot.UnsafeRun(func() error {
+			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.UpperDir)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete existing SELinux fcontext for upperdir (%s) (possibly does not exist):\n%w",
+				overlay.UpperDir, err)
+		}
+
 		// Give the upper directory the same SELinux rules as the target directory.
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-e", overlay.MountPoint, overlay.UpperDir)
@@ -182,6 +192,16 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 		if err != nil {
 			return fmt.Errorf("failed to add equivalency rule between %s and %s:\n%w", overlay.MountPoint,
 				overlay.UpperDir, err)
+		}
+
+		// ToDo: removal of existing fcontext rule for WorkDir.
+		//
+		err = imageChroot.UnsafeRun(func() error {
+			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-d", overlay.WorkDir+"(/.*)?")
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete existing SELinux fcontext for workdir (%s(/.*)?) (possibly does not exist):\n%w",
+				overlay.WorkDir, err)
 		}
 
 		// Give the work directory the no_access_t type, since only the kernel should be accessing that directory.
