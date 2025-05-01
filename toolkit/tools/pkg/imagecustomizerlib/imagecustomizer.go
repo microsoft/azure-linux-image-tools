@@ -440,7 +440,11 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if err != nil {
 		return err
 	}
-	ic.rawImageFile = newRawImageFile
+
+	if ic.rawImageFile != newRawImageFile {
+		os.Remove(ic.rawImageFile)
+		ic.rawImageFile = newRawImageFile
+	}
 
 	// Customize the raw image file.
 	partUuidToFstabEntry, osRelease, err := customizeImageHelper(ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources,
