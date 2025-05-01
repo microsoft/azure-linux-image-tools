@@ -17,9 +17,9 @@ import (
 )
 
 type Mount struct {
-	target      string
-	isMounted   bool
-	fileCreated bool
+	target           string
+	isMounted        bool
+	fileOrDirCreated bool
 }
 
 // Creates a new system mount.
@@ -53,14 +53,18 @@ func (m *Mount) newMountHelper(source, target, fstype string, flags uintptr, dat
 			return fmt.Errorf("failed to stat mount source (%s):\n%w", source, err)
 		}
 
-		isFile := (sourceInfo.Mode() & os.ModeType) == 0
-		if !isFile {
+		sourceIsFile := (sourceInfo.Mode() & os.ModeType) == 0
+		isBindMount := (flags & unix.MS_BIND) == unix.MS_BIND
+		if !sourceIsFile || !isBindMount {
 			// Create the mount target directory.
 			err = os.MkdirAll(target, os.ModePerm)
 			if err != nil {
 				return fmt.Errorf("failed to create mount directory (%s):\n%w", target, err)
 			}
 		} else {
+			// Mount is a file bind mount.
+			// So, create a placeholder file instead of a placeholder directory.
+
 			// Create parent directory.
 			err = os.MkdirAll(filepath.Dir(target), os.ModePerm)
 			if err != nil {
@@ -74,7 +78,7 @@ func (m *Mount) newMountHelper(source, target, fstype string, flags uintptr, dat
 			}
 		}
 
-		m.fileCreated = true
+		m.fileOrDirCreated = true
 	}
 
 	// Create the mount.
@@ -137,7 +141,7 @@ func (m *Mount) close(async bool) error {
 		m.isMounted = false
 	}
 
-	if m.fileCreated {
+	if m.fileOrDirCreated {
 		logger.Log.Debugf("Deleting directory (%s)", m.target)
 
 		// Note: Do not use `RemoveAll` here in case the unmount silently failed.
@@ -147,7 +151,7 @@ func (m *Mount) close(async bool) error {
 			return fmt.Errorf("failed to delete mount directory (%s):\n%w", m.target, err)
 		}
 
-		m.fileCreated = false
+		m.fileOrDirCreated = false
 	}
 
 	return nil

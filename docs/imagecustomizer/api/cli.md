@@ -96,7 +96,7 @@ Can be one of:
 
   If the repo file's `baseurl` or `gpgkey` fields contain a `file://` URL, then the
   host's directories pointed to by the URL will be bind mounted into the chroot
-  environment and the URL will replaced with the chroot equivalent URL.
+  environment and the URL will be replaced with the chroot equivalent URL.
 
   GPG signature checking is enabled by default.
   If you wish to disable GPG checking, then set both `gpgcheck` and `repo_gpgcheck` to

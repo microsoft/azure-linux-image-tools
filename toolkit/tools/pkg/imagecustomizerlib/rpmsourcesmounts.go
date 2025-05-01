@@ -153,7 +153,7 @@ func (m *rpmSourcesMounts) createRepoFromDirectory(rpmSource string, allReposCon
 	}
 
 	// Add local repo config.
-	err = appendLocalRepo(allReposConfig, mountTargetDirectoryInChroot)
+	err = appendLocalRepo(allReposConfig, mountTargetDirectoryInChroot, rpmSource)
 	if err != nil {
 		return fmt.Errorf("failed to append local repo config:\n%w", err)
 	}
@@ -181,9 +181,19 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 		}
 
 		if isHostConfig {
-			_, err := repoConfig.GetKey("baseurl")
+			_, err = repoConfig.GetKey("baseurl")
 			if err != nil {
 				return fmt.Errorf("invalid repo config (%s):\n%w", rpmSource, err)
+			}
+
+			gpgCheckKey, _ := repoConfig.GetKey("gpgcheck")
+			repoGpgCheckKey, _ := repoConfig.GetKey("repo_gpgcheck")
+			switch {
+			case gpgCheckKey != nil && gpgCheckKey.String() != "1":
+				logger.Log.Infof("GPG signature checking disabled for RPM repo (%s)", repoConfig.Name())
+
+			case repoGpgCheckKey != nil && repoGpgCheckKey.String() != "1":
+				logger.Log.Infof("GPG signature checking disabled for RPM repo metadata (%s)", repoConfig.Name())
 			}
 
 			for _, field := range []string{"baseurl", "gpgkey"} {
@@ -327,7 +337,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 }
 
 // Add a local directory containing RPMs to the allrepos.repo file.
-func appendLocalRepo(iniFile *ini.File, mountTargetDirectoryInChroot string) error {
+func appendLocalRepo(iniFile *ini.File, mountTargetDirectoryInChroot string, rpmSource string) error {
 	repoName := filepath.Base(mountTargetDirectoryInChroot)
 	iniSection, err := iniFile.NewSection(repoName)
 	if err != nil {
@@ -366,6 +376,7 @@ func appendLocalRepo(iniFile *ini.File, mountTargetDirectoryInChroot string) err
 		return err
 	}
 
+	logger.Log.Infof("GPG signature checking disabled for RPM repo (%s)", rpmSource)
 	return nil
 }
 
