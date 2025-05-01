@@ -5,12 +5,13 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -24,12 +25,13 @@ import (
 const (
 	ShimDir        = "EFI/BOOT"
 	SystemdBootDir = "EFI/systemd"
+	EspMountPoint  = "/boot/efi"
 )
 
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
-	outputDir string, buildDir string, buildImage string, baseConfigPath string,
+	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -138,6 +140,27 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 			Destination:    filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
 			UnsignedSource: "./" + bootConfig.systemdBootBinary,
 		})
+	}
+
+	// Output verity hash
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemVerityHash) {
+		for _, verity := range verityMetadata {
+			unsignedHashFile := verity.name + ".hash"
+			destPath := filepath.Join(outputDir, unsignedHashFile)
+			err = file.Write(verity.rootHash, destPath)
+			if err != nil {
+				return fmt.Errorf("failed to dump root hash for (%s) to (%s):\n%w", verity.name, destPath, err)
+			}
+
+			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
+			destination := strings.TrimPrefix(verity.hashSignaturePath, EspMountPoint)
+			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+				Partition:      partition,
+				Source:         "./" + signedHashFile,
+				Destination:    filepath.Join("/", destination),
+				UnsignedSource: "./" + unsignedHashFile,
+			})
+		}
 	}
 
 	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
