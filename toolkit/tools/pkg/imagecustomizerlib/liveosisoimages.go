@@ -101,7 +101,7 @@ func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
 	return nil
 }
 
-func stageIsoFile(sourcePath string, stageDirPath string, isoRelativeDir string) error {
+func stageIsoFile(sourcePath, stageDirPath, isoRelativeDir string) error {
 	targetPath := filepath.Join(stageDirPath, isoRelativeDir, filepath.Base(sourcePath))
 	targetDir := filepath.Dir(targetPath)
 	err := os.MkdirAll(targetDir, os.ModePerm)
@@ -117,7 +117,7 @@ func stageIsoFile(sourcePath string, stageDirPath string, isoRelativeDir string)
 	return nil
 }
 
-func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
+func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
 	stagingDir string,
 ) error {
 	err := os.RemoveAll(stagingDir)
@@ -132,38 +132,38 @@ func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoF
 
 	// map of file full local path to location on iso media.
 	artifactsToIsoMap := map[string]string{
-		artifacts.isoBootImagePath:  "boot/grub2",
-		artifacts.isoGrubCfgPath:    "boot/grub2",
-		artifacts.vmlinuzPath:       "boot",
-		artifacts.initrdImagePath:   "boot",
-		artifacts.squashfsImagePath: "liveos",
+		filesStore.isoBootImagePath:  "boot/grub2",
+		filesStore.isoGrubCfgPath:    "boot/grub2",
+		filesStore.vmlinuzPath:       "boot",
+		filesStore.initrdImagePath:   "boot",
+		filesStore.squashfsImagePath: "liveos",
 	}
 
 	// Add optional saved config file if it exists.
-	if artifacts.savedConfigsFilePath != "" {
-		exists, err := file.PathExists(artifacts.savedConfigsFilePath)
+	if filesStore.savedConfigsFilePath != "" {
+		exists, err := file.PathExists(filesStore.savedConfigsFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to check if (%s) exists:\n%w", artifacts.savedConfigsFilePath, err)
+			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.savedConfigsFilePath, err)
 		}
 		if exists {
-			artifactsToIsoMap[artifacts.savedConfigsFilePath] = "azl-image-customizer"
+			artifactsToIsoMap[filesStore.savedConfigsFilePath] = "azl-image-customizer"
 		}
 	}
 
 	// Add optional grub-pxe.cfg file if it exists.
-	if artifacts.pxeGrubCfgPath != "" {
-		exists, err := file.PathExists(artifacts.pxeGrubCfgPath)
+	if filesStore.pxeGrubCfgPath != "" {
+		exists, err := file.PathExists(filesStore.pxeGrubCfgPath)
 		if err != nil {
-			return fmt.Errorf("failed to check if (%s) exists:\n%w", artifacts.pxeGrubCfgPath, err)
+			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.pxeGrubCfgPath, err)
 		}
 		if exists {
-			artifactsToIsoMap[artifacts.pxeGrubCfgPath] = "boot/grub2"
+			artifactsToIsoMap[filesStore.pxeGrubCfgPath] = "boot/grub2"
 		}
 	}
 
 	// Add additional files
 	// - This is typically populated if a previous run added additional files.
-	for source, isoRelativePath := range artifacts.additionalFiles {
+	for source, isoRelativePath := range filesStore.additionalFiles {
 		isoRelativeDir := filepath.Dir(isoRelativePath)
 		artifactsToIsoMap[source] = isoRelativeDir
 	}
@@ -201,7 +201,7 @@ func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoF
 	}
 
 	// Apply Rufus workaround
-	err = isogenerator.ApplyRufusWorkaround(artifacts.bootEfiPath, artifacts.grubEfiPath, stagingDir)
+	err = isogenerator.ApplyRufusWorkaround(filesStore.bootEfiPath, filesStore.grubEfiPath, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to apply Rufus work-around:\n%w", err)
 	}
@@ -209,11 +209,11 @@ func stageIsoFiles(artifacts IsoArtifacts, baseConfigPath string, additionalIsoF
 	return nil
 }
 
-func createIsoImage(buildDir string, artifacts IsoArtifacts, baseConfigPath string,
+func createIsoImage(buildDir string, filesStore *IsoFilesStore, baseConfigPath string,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "staging")
 
-	err := stageIsoFiles(artifacts, baseConfigPath, additionalIsoFiles, stagingDir)
+	err := stageIsoFiles(filesStore, baseConfigPath, additionalIsoFiles, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}
