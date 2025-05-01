@@ -141,9 +141,6 @@ type IsoWorkingDirs struct {
 	// 'isoArtifactsDir' is where extracted and generated files will be placed
 	// during the build.
 	isoArtifactsDir string
-	// 'isomakerBuildDir' will be deleted/re-created by IsoMaker before it
-	// proceeds. It needs to be different from `isoBuildDir`.
-	isomakerBuildDir string
 }
 
 // `IsoArtifacts` holds the extracted/generated artifacts necessary to build
@@ -623,16 +620,10 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 		switch relativeFilePath {
 		case osEspBootBinaryPath:
 			b.artifacts.bootEfiPath = targetPath
-			// isomaker will extract this from initrd and copy it to include it
-			// in the iso media - so no need to schedule it as an additional
-			// file.
 			scheduleAdditionalFile = false // No additional file scheduling
 
 		case osEspGrubBinaryPath, osEspGrubNoPrefixBinaryPath:
 			b.artifacts.grubEfiPath = targetPath
-			// isomaker will extract this from initrd and copy it to include it
-			// in the iso media - so no need to schedule it as an additional
-			// file.
 			scheduleAdditionalFile = false // No additional file scheduling
 
 		case isoGrubCfgPath:
@@ -657,16 +648,12 @@ func (b *LiveOSIsoBuilder) extractBootDirFiles(writeableRootfsDir string) error 
 			b.artifacts.isoGrubCfgPath = targetPath
 			// We will place the pxe grub config next to the iso grub config.
 			b.artifacts.pxeGrubCfgPath = filepath.Join(filepath.Dir(b.artifacts.isoGrubCfgPath), pxeGrubCfg)
-			// grub.cfg is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
 		}
 
 		if strings.HasPrefix(filepath.Base(targetPath), vmLinuzPrefix) {
 			targetPath = filepath.Join(filepath.Dir(targetPath), "vmlinuz")
 			b.artifacts.vmlinuzPath = targetPath
-			// isomaker will extract this from initrd and copy it to include it
-			// in the iso media - so no need to schedule it as an additional
-			// file.
 			scheduleAdditionalFile = false
 		}
 
@@ -766,9 +753,6 @@ func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxM
 //	given a rootfs, this function:
 //	- extracts the kernel version, and the files under the boot folder.
 //	- stages bootloaders and vmlinuz to a specific folder structure.
-//	This folder structure is to be included later in the initrd image when
-//	it gets generated. IsoMaker extracts those artifacts from the initrd
-//	image file and uses them.
 //	-prepares the rootfs to run dracut (dracut will generate the initrd later).
 //	- creates the squashfs.
 //
@@ -1021,13 +1005,6 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	isoArtifactsDir := filepath.Join(isoBuildDir, "artifacts")
-	isomakerBuildDir := filepath.Join(isoBuildDir, "isomaker-tmp")
-
-	// Ensure the artifacts staging directory is empty to begin with.
-	err = os.RemoveAll(isomakerBuildDir)
-	if err != nil {
-		return fmt.Errorf("failed to delete artifact staging directory (%s):\n%w", isomakerBuildDir, err)
-	}
 
 	isoBuilder := &LiveOSIsoBuilder{
 		//
@@ -1035,12 +1012,10 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 		//  |--tmp   (LiveOSIsoBuilder specific)
 		//     |--<various mount points>
 		//     |--artifacts        (extracted and generated artifacts)
-		//     |--isomaker-tmp     (used exclusively by isomaker)
 		//
 		workingDirs: IsoWorkingDirs{
-			isoBuildDir:      isoBuildDir,
-			isoArtifactsDir:  isoArtifactsDir,
-			isomakerBuildDir: isomakerBuildDir,
+			isoBuildDir:     isoBuildDir,
+			isoArtifactsDir: isoArtifactsDir,
 		},
 		artifacts: IsoArtifacts{
 			savedConfigsFilePath: filepath.Join(isoArtifactsDir, savedConfigsDir, savedConfigsFileName),
@@ -1184,13 +1159,6 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	isoArtifactsDir := filepath.Join(isoBuildDir, "artifacts")
-	isomakerBuildDir := filepath.Join(isoBuildDir, "isomaker-tmp")
-
-	// Ensure the artifacts staging directory is empty to begin with.
-	err = os.RemoveAll(isomakerBuildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete artifact staging directory (%s):\n%w", isomakerBuildDir, err)
-	}
 
 	isoBuilder = &LiveOSIsoBuilder{
 		//
@@ -1198,13 +1166,10 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 		//  |--tmp   (LiveOSIsoBuilder specific)
 		//     |--<various mount points>
 		//     |--artifacts        (extracted and generated artifacts)
-		//     |--isomaker-tmp     (used exclusively by isomaker)
 		//
 		workingDirs: IsoWorkingDirs{
 			isoBuildDir:     isoBuildDir,
 			isoArtifactsDir: isoArtifactsDir,
-			// IsoMaker needs its own folder to work in (it starts by deleting and re-creating it).
-			isomakerBuildDir: isomakerBuildDir,
 		},
 		artifacts: IsoArtifacts{
 			savedConfigsFilePath: filepath.Join(isoArtifactsDir, savedConfigsDir, savedConfigsFileName),
@@ -1274,7 +1239,6 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 			isoBuilder.artifacts.isoGrubCfgPath = isoFile
 			// We will place the pxe grub config next to the iso grub config.
 			isoBuilder.artifacts.pxeGrubCfgPath = filepath.Join(filepath.Dir(isoBuilder.artifacts.isoGrubCfgPath), pxeGrubCfg)
-			// grub.cfg is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
 		case liveOSImagePath:
 			isoBuilder.artifacts.squashfsImagePath = isoFile
