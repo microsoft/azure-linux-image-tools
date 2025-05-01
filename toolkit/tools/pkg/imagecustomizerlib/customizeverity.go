@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -103,7 +104,7 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 	return nil
 }
 
-func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, grubCfgFullPath string,
+func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
 	var err error
@@ -133,7 +134,10 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 		return fmt.Errorf("failed to set verity kernel command line args:\n%w", err)
 	}
 
-	if _, exists := verityMetadata["/"]; exists {
+	rootExists := slices.ContainsFunc(verityMetadata, func(metadata verityDeviceMetadata) bool {
+		return metadata.name == imagecustomizerapi.VerityRootDeviceName
+	})
+	if rootExists {
 		rootDevicePath := imagecustomizerapi.VerityRootDevicePath
 
 		if grubMkconfigEnabled {
@@ -158,29 +162,29 @@ func updateGrubConfigForVerity(verityMetadata map[string]verityDeviceMetadata, g
 	return nil
 }
 
-func constructVerityKernelCmdlineArgs(verityMetadata map[string]verityDeviceMetadata,
+func constructVerityKernelCmdlineArgs(verityMetadata []verityDeviceMetadata,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
 
-	for mountPath, metadata := range verityMetadata {
+	for _, metadata := range verityMetadata {
 		var hashArg, dataArg, optionsArg, hashKey string
 
-		switch mountPath {
-		case "/":
+		switch metadata.name {
+		case imagecustomizerapi.VerityRootDeviceName:
 			hashArg = "roothash"
 			dataArg = "systemd.verity_root_data"
 			hashKey = "systemd.verity_root_hash"
 			optionsArg = "systemd.verity_root_options"
 
-		case "/usr":
+		case imagecustomizerapi.VerityUsrDeviceName:
 			hashArg = "usrhash"
 			dataArg = "systemd.verity_usr_data"
 			hashKey = "systemd.verity_usr_hash"
 			optionsArg = "systemd.verity_usr_options"
 
 		default:
-			return nil, fmt.Errorf("unsupported verity mount path (%s)", mountPath)
+			return nil, fmt.Errorf("unsupported verity device (%s)", metadata.name)
 		}
 
 		formattedDataPartition, err := systemdFormatPartitionUuid(metadata.dataPartUuid,
@@ -307,7 +311,7 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 	return nil
 }
 
-func updateUkiKernelArgsForVerity(verityMetadata map[string]verityDeviceMetadata,
+func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	partitions []diskutils.PartitionInfo, buildDir string,
 ) error {
 	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
