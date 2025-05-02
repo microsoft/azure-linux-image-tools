@@ -16,7 +16,6 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
@@ -56,12 +55,15 @@ const (
 	rootValueLiveOSTemplate = "live:LABEL=%s"
 	rootValuePxeTemplate    = "live:%s"
 
-	isoBootDir        = "boot"
-	initrdImage       = "initrd.img"
-	vmLinuzPrefix     = "vmlinuz-"
+	isoBootDir  = "boot"
+	initrdImage = "initrd.img"
+	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
+	// In the ISO image, the kernel is named 'vmlinuz'.
+	vmLinuzPrefix     = "vmlinuz"
 	isoInitrdPath     = "/boot/" + initrdImage
 	isoKernelPath     = "/boot/vmlinuz"
 	isoBootloadersDir = "/efi/boot"
+	isoBootImagePath  = "/boot/grub2/efiboot.img"
 
 	// This folder is necessary to include in the initrd image so that the
 	// emergency shell can work correctly with the keyboard.
@@ -152,6 +154,7 @@ type IsoArtifacts struct {
 	selinuxPolicyPackageInfo *PackageVersionInformation
 	bootEfiPath              string
 	grubEfiPath              string
+	isoBootImagePath         string
 	isoGrubCfgPath           string
 	pxeGrubCfgPath           string
 	savedConfigsFilePath     string
@@ -201,24 +204,6 @@ func (b *LiveOSIsoBuilder) cleanUp() error {
 	return err
 }
 
-type isoImageNameInfo struct {
-	tag            string
-	releaseVersion string
-	baseName       string
-	name           string // derived from the other fields.
-}
-
-func getImageNameFromImageBaseName(isoOutputBaseName string) isoImageNameInfo {
-	// isoMaker constructs the final image name as follows:
-	// {isoOutputBaseName}{releaseVersion}{imageNameTag}.iso
-	var info isoImageNameInfo
-	info.baseName = isoOutputBaseName
-	info.releaseVersion = ""
-	info.tag = ""
-	info.name = info.baseName + info.releaseVersion + info.tag + ".iso"
-	return info
-}
-
 // populateWriteableRootfsDir
 //
 //	copies the contents of the rootfs partition unto the build machine.
@@ -244,108 +229,6 @@ func (b *LiveOSIsoBuilder) populateWriteableRootfsDir(sourceDir, writeableRootfs
 	err = copyPartitionFiles(sourceDir+"/.", writeableRootfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to copy rootfs contents to a writeable folder (%s):\n%w", writeableRootfsDir, err)
-	}
-
-	return nil
-}
-
-// stageIsoMakerInitrdArtifacts
-//
-//	IsoMaker looks for the vmlinuz/bootloader files inside the initrd image
-//	file under specific directory structure.
-//	This function stages those artifacts and places them under the same
-//	directory structure expected by IsoMaker.
-//	Later,  we run 'dracut' which takes this directory structure and embeds
-//	it into the initrd image.
-//	Finaly, the IsoMaker will read the initrd image and find the artifacts
-//	it needs to copy to the final iso media.
-//	Something to consider in the future: change IsoMaker so that it can pick
-//	those artifacts from the build machine directly.
-//
-// inputs:
-//   - 'writeableRootfsDir':
-//     path to an existing folder holding the contents of the rootfs.
-//   - 'isoMakerArtifactsStagingDir'
-//     path to a folder where the extracted artifacts will stored under.
-//
-// outputs:
-//
-//	the artifacts will be stored in 'isoMakerArtifactsStagingDir'.
-func (b *LiveOSIsoBuilder) stageIsoMakerInitrdArtifacts(writeableRootfsDir, isoMakerArtifactsStagingDir string) error {
-
-	logger.Log.Debugf("Staging isomaker artifacts into writeable image")
-
-	targetBootloadersInChroot := filepath.Join(isoMakerArtifactsStagingDir, "/efi/EFI/BOOT")
-	targetBootloadersDir := filepath.Join(writeableRootfsDir, targetBootloadersInChroot)
-
-	err := os.MkdirAll(targetBootloadersDir, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to create %s\n%w", targetBootloadersDir, err)
-	}
-
-	_, bootFilesConfig, err := getBootArchConfig()
-	if err != nil {
-		return err
-	}
-
-	sourceBootEfiPath := b.artifacts.bootEfiPath
-	targetBootEfiPath := filepath.Join(targetBootloadersDir, bootFilesConfig.bootBinary)
-	err = file.Copy(sourceBootEfiPath, targetBootEfiPath)
-	if err != nil {
-		return fmt.Errorf("failed to stage bootloader file (%s):\n%w", bootFilesConfig.bootBinary, err)
-	}
-
-	sourceGrubEfiPath := b.artifacts.grubEfiPath
-	targetGrubEfiPath := filepath.Join(targetBootloadersDir, bootFilesConfig.grubBinary)
-
-	err = file.Copy(sourceGrubEfiPath, targetGrubEfiPath)
-	if err != nil {
-		return fmt.Errorf("failed to stage bootloader file (%s):\n%w", bootFilesConfig.grubBinary, err)
-	}
-
-	targetVmlinuzLocalDir := filepath.Join(writeableRootfsDir, isoMakerArtifactsStagingDir)
-
-	sourceVmlinuzPath := b.artifacts.vmlinuzPath
-	targetVmlinuzPath := filepath.Join(targetVmlinuzLocalDir, "vmlinuz")
-	err = file.Copy(sourceVmlinuzPath, targetVmlinuzPath)
-	if err != nil {
-		return fmt.Errorf("failed to stage vmlinuz:\n%w", err)
-	}
-
-	return nil
-}
-
-// prepareRootfsForDracut
-//
-//	ensures two things:
-//	- initrd image build time configuration is in place.
-//	- rootfs (squashfs) image contents are compatible with our LiveOS initrd
-//	  boot flow.
-//	note that the same rootfs is used for both:
-//	(1) creating the initrd image and
-//	(2) creating the squashfs image.
-//
-// inputs:
-//   - writeableRootfsDir:
-//     root directory of existing rootfs content to modify.
-//
-// outputs:
-// - all changes will be applied to the specified rootfs directory in the input.
-func (b *LiveOSIsoBuilder) prepareRootfsForDracut(writeableRootfsDir string) error {
-
-	logger.Log.Debugf("Preparing writeable image for dracut")
-
-	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
-	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
-	err := os.Remove(fstabFile)
-	if err != nil {
-		return fmt.Errorf("failed to delete fstab:\n%w", err)
-	}
-
-	targetConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
-	err = file.Write(dracutConfig, targetConfigFile)
-	if err != nil {
-		return fmt.Errorf("failed to create %s:\n%w", targetConfigFile, err)
 	}
 
 	return nil
@@ -601,7 +484,7 @@ func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, px
 	// If the specified URL is not a full path to an iso, append the generated
 	// iso file name to it.
 	if pxeIsoImageFileUrl == "" {
-		pxeIsoImageFileUrl, err = url.JoinPath(pxeIsoImageBaseUrl, getImageNameFromImageBaseName(outputImageBase).name)
+		pxeIsoImageFileUrl, err = url.JoinPath(pxeIsoImageBaseUrl, outputImageBase)
 		if err != nil {
 			return fmt.Errorf("failed to concatenate URL (%s) and (%s)\n%w", pxeIsoImageBaseUrl, outputImageBase, err)
 		}
@@ -893,10 +776,6 @@ func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxM
 //   - 'inputSavedConfigsFilePath':
 //   - writeableRootfsDir:
 //     A writeable folder where the rootfs content is.
-//   - 'isoMakerArtifactsStagingDir':
-//     The folder where the artifacts needed by isoMaker will be staged before
-//     'dracut' is run. 'dracut' will include this folder as-is and place it in
-//     the initrd image.
 //   - 'requestedSelinuxMode'
 //     requested selinux mode by the user (from os.selinux.mode).
 //   - 'extraCommandLine':
@@ -914,7 +793,7 @@ func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxM
 //   - customized writeableRootfsDir (new files, deleted files, etc)
 //   - extracted artifacts
 func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, writeableRootfsDir string,
-	isoMakerArtifactsStagingDir string, requestedSelinuxMode imagecustomizerapi.SELinuxMode, extraCommandLine []string,
+	requestedSelinuxMode imagecustomizerapi.SELinuxMode, extraCommandLine []string,
 	pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
 
 	logger.Log.Debugf("Creating LiveOS squashfs image")
@@ -1006,118 +885,11 @@ func (b *LiveOSIsoBuilder) prepareLiveOSDir(inputSavedConfigsFilePath string, wr
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	err = b.stageIsoMakerInitrdArtifacts(writeableRootfsDir, isoMakerArtifactsStagingDir)
+	b.artifacts.isoBootImagePath = filepath.Join(b.workingDirs.isoArtifactsDir, isoBootImagePath)
+	err = isogenerator.BuildIsoBootImage(b.workingDirs.isoBuildDir, b.artifacts.bootEfiPath, b.artifacts.grubEfiPath, b.artifacts.isoBootImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to stage isomaker initrd artifacts:\n%w", err)
+		return fmt.Errorf("failed to build iso boot image:\n%w", err)
 	}
-
-	err = b.prepareRootfsForDracut(writeableRootfsDir)
-	if err != nil {
-		return fmt.Errorf("failed to prepare rootfs for dracut:\n%w", err)
-	}
-
-	return nil
-}
-
-// createSquashfsImage
-//
-//	creates a squashfs image based on a given folder.
-//
-// inputs:
-//   - writeableRootfsDir:
-//     directory tree root holding the contents to be placed in the squashfs image.
-//
-// output
-//   - creates a squashfs image and stores its path in
-//     b.artifacts.squashfsImagePath
-func (b *LiveOSIsoBuilder) createSquashfsImage(writeableRootfsDir string) error {
-
-	logger.Log.Debugf("Creating squashfs of %s", writeableRootfsDir)
-
-	squashfsImagePath := filepath.Join(b.workingDirs.isoArtifactsDir, liveOSImage)
-
-	exists, err := file.PathExists(squashfsImagePath)
-	if err == nil && exists {
-		err = os.Remove(squashfsImagePath)
-		if err != nil {
-			return fmt.Errorf("failed to delete existing squashfs image (%s):\n%w", squashfsImagePath, err)
-		}
-	}
-
-	// '-xattrs' allows SELinux labeling to be retained within the squashfs.
-	mksquashfsParams := []string{writeableRootfsDir, squashfsImagePath, "-xattrs"}
-	err = shell.ExecuteLive(true, "mksquashfs", mksquashfsParams...)
-	if err != nil {
-		return fmt.Errorf("failed to create squashfs:\n%w", err)
-	}
-
-	b.artifacts.squashfsImagePath = squashfsImagePath
-
-	return nil
-}
-
-// generateInitrdImage
-//
-//	runs dracut against rootfs to create an initrd image file.
-//
-// inputs:
-//   - rootfsSourceDir:
-//     local folder (on the build machine) of the rootfs to be used when
-//     creating the initrd image.
-//   - artifactsSourceDir:
-//     source directory (on the build machine) holding an artifacts tree to
-//     include in the initrd image.
-//   - artifactsTargetDir:
-//     target directory (within the initrd image) where the contents of the
-//     artifactsSourceDir tree will be copied to.
-//
-// outputs:
-// - creates an initrd.img and stores its path in b.artifacts.initrdImagePath.
-func (b *LiveOSIsoBuilder) generateInitrdImage(rootfsSourceDir, artifactsSourceDir, artifactsTargetDir string) error {
-
-	logger.Log.Debugf("Generating initrd")
-
-	chroot := safechroot.NewChroot(rootfsSourceDir, true /*isExistingDir*/)
-	if chroot == nil {
-		return fmt.Errorf("failed to create a new chroot object for %s.", rootfsSourceDir)
-	}
-	defer chroot.Close(true /*leaveOnDisk*/)
-
-	err := chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
-	if err != nil {
-		return fmt.Errorf("failed to initialize chroot object for %s:\n%w", rootfsSourceDir, err)
-	}
-
-	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
-	for _, requiredRpm := range requiredRpms {
-		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		if !isPackageInstalled(chroot, requiredRpm) {
-			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to generate an iso: %v", requiredRpm, requiredRpms)
-		}
-	}
-
-	initrdPathInChroot := "/initrd.img"
-	err = chroot.UnsafeRun(func() error {
-		dracutParams := []string{
-			initrdPathInChroot,
-			"--kver", b.artifacts.kernelVersion,
-			"--filesystems", "squashfs",
-			"--include", artifactsSourceDir, artifactsTargetDir,
-			"--include", usrLibLocaleDir, usrLibLocaleDir}
-
-		return shell.ExecuteLive(true /*squashErrors*/, "dracut", dracutParams...)
-	})
-	if err != nil {
-		return fmt.Errorf("failed to run dracut:\n%w", err)
-	}
-
-	generatedInitrdPath := filepath.Join(rootfsSourceDir, initrdPathInChroot)
-	targetInitrdPath := filepath.Join(b.workingDirs.isoArtifactsDir, initrdImage)
-	err = file.Copy(generatedInitrdPath, targetInitrdPath)
-	if err != nil {
-		return fmt.Errorf("failed to copy generated initrd:\n%w", err)
-	}
-	b.artifacts.initrdImagePath = targetInitrdPath
 
 	return nil
 }
@@ -1148,7 +920,7 @@ func (b *LiveOSIsoBuilder) generateInitrdImage(rootfsSourceDir, artifactsSourceD
 // outputs:
 //   - all the extracted/generated artifacts will be placed in the
 //     `LiveOSIsoBuilder.workingDirs.isoArtifactsDir` folder.
-//   - the paths to individual artifaces are found in the
+//   - the paths to individual artifacts are found in the
 //     `LiveOSIsoBuilder.artifacts` data structure.
 func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePath string, rawImageFile string, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	extraCommandLine []string, pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
@@ -1167,162 +939,29 @@ func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputSavedConfigsFilePa
 		return fmt.Errorf("failed to copy the contents of rootfs from image (%s) to local folder (%s):\n%w", rawImageFile, writeableRootfsDir, err)
 	}
 
-	isoMakerArtifactsStagingDir := "/boot-staging"
-	err = b.prepareLiveOSDir(inputSavedConfigsFilePath, writeableRootfsDir, isoMakerArtifactsStagingDir,
-		requestedSelinuxMode, extraCommandLine, pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
+	err = b.prepareLiveOSDir(inputSavedConfigsFilePath, writeableRootfsDir, requestedSelinuxMode, extraCommandLine,
+		pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
 	if err != nil {
 		return fmt.Errorf("failed to convert rootfs folder to a LiveOS folder:\n%w", err)
 	}
 
-	err = b.createSquashfsImage(writeableRootfsDir)
+	// Generate the initrd image
+	outputInitrdPath := filepath.Join(b.workingDirs.isoArtifactsDir, initrdImage)
+	err = createInitrdImage(writeableRootfsDir, b.artifacts.kernelVersion, outputInitrdPath)
+	if err != nil {
+		return fmt.Errorf("failed to create initrd image:\n%w", err)
+	}
+	b.artifacts.initrdImagePath = outputInitrdPath
+
+	// Generate the squashfs image
+	outputSquashfsPath := filepath.Join(b.workingDirs.isoArtifactsDir, liveOSImage)
+	err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
 	if err != nil {
 		return fmt.Errorf("failed to create squashfs image:\n%w", err)
 	}
-
-	isoMakerArtifactsDirInInitrd := "/boot"
-	err = b.generateInitrdImage(writeableRootfsDir, isoMakerArtifactsStagingDir, isoMakerArtifactsDirInInitrd)
-	if err != nil {
-		return fmt.Errorf("failed to generate initrd image:\n%w", err)
-	}
+	b.artifacts.squashfsImagePath = outputSquashfsPath
 
 	return nil
-}
-
-// createIsoImage
-//
-//	creates an LiveOS ISO image.
-//
-// inputs:
-//   - additionalIsoFiles:
-//     map of addition files to copy to the iso media.
-//     sourcePath -> [ targetPath0, targetPath1, ...]
-//   - isoOutputDir:
-//     path to a folder where the output image will be placed. It does not
-//     need to be created before calling this function.
-//   - isoOutputBaseName:
-//     path to the iso image to be created upon successful copmletion of this
-//     function.
-//
-// ouptuts:
-//   - create a LiveOS ISO.
-func (b *LiveOSIsoBuilder) createIsoImage(additionalIsoFiles []safechroot.FileToCopy, isoOutputDir, isoOutputBaseName string) (isoImagePath string, err error) {
-	// Construct the output image full path
-	isoImageNameInfo := getImageNameFromImageBaseName(isoOutputBaseName)
-	isoImagePath = filepath.Join(isoOutputDir, isoImageNameInfo.name)
-
-	// Add the squashfs file
-	squashfsImageToCopy := safechroot.FileToCopy{
-		Src:  b.artifacts.squashfsImagePath,
-		Dest: filepath.Join(liveOSDir, liveOSImage),
-	}
-	additionalIsoFiles = append(additionalIsoFiles, squashfsImageToCopy)
-
-	// Add /boot/* files
-	for sourceFile, targetFile := range b.artifacts.additionalFiles {
-		fileToCopy := safechroot.FileToCopy{
-			Src:           sourceFile,
-			Dest:          targetFile,
-			NoDereference: true,
-		}
-		additionalIsoFiles = append(additionalIsoFiles, fileToCopy)
-	}
-
-	// Add the iso saved config file
-	exists, err := file.PathExists(b.artifacts.savedConfigsFilePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to check if (%s) exists:\n%w", b.artifacts.savedConfigsFilePath, err)
-	}
-	if exists {
-		fileToCopy := safechroot.FileToCopy{
-			Src:  b.artifacts.savedConfigsFilePath,
-			Dest: filepath.Join("/", savedConfigsDir, savedConfigsFileName),
-		}
-		additionalIsoFiles = append(additionalIsoFiles, fileToCopy)
-	}
-
-	// Add the grub-pxe.cfg file
-	exists, err = file.PathExists(b.artifacts.pxeGrubCfgPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to check if (%s) exists:\n%w", b.artifacts.pxeGrubCfgPath, err)
-	}
-	if exists {
-		fileToCopy := safechroot.FileToCopy{
-			Src:  b.artifacts.pxeGrubCfgPath,
-			Dest: filepath.Join("/", grubCfgDir, pxeGrubCfg),
-		}
-		additionalIsoFiles = append(additionalIsoFiles, fileToCopy)
-	}
-
-	err = os.MkdirAll(isoOutputDir, os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-
-	targetGrubCfg := filepath.Join(b.workingDirs.isomakerBuildDir, installutils.GrubCfgFile)
-	err = file.Copy(b.artifacts.isoGrubCfgPath, targetGrubCfg)
-	if err != nil {
-		return "", err
-	}
-
-	err = safechroot.AddFilesToDestination(b.workingDirs.isomakerBuildDir, additionalIsoFiles...)
-	if err != nil {
-		return "", err
-	}
-
-	err = isogenerator.GenerateIso(isogenerator.IsoGenConfig{
-		BuildDirPath:      b.workingDirs.isoBuildDir,
-		StagingDirPath:    b.workingDirs.isomakerBuildDir,
-		InitrdPath:        b.artifacts.initrdImagePath,
-		EnableBiosBoot:    false,
-		IsoOsFilesDirPath: isoBootDir,
-		OutputFilePath:    isoImagePath,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return isoImagePath, nil
-}
-
-// micIsoConfigToIsoMakerConfig
-//
-//	converts imagecustomizerapi.Iso to isomaker configuration.
-//
-// inputs:
-//
-//   - 'baseConfigPath'
-//     path to the folder where the mic configuration was loaded from.
-//     This path will be used to construct absolute paths for build machine
-//     file references defined in the config.
-//   - 'isoConfig'
-//     user provided configuration for the iso image.
-//
-// outputs:
-//   - 'additionalIsoFiles'
-//     list of files to copy from the build machine to the iso media.
-func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomizerapi.Iso) (additionalIsoFiles []safechroot.FileToCopy, extraCommandLine []string, err error) {
-
-	if isoConfig == nil {
-		return
-	}
-
-	additionalIsoFiles = []safechroot.FileToCopy{}
-
-	for _, additionalFile := range isoConfig.AdditionalFiles {
-		absSourceFile := ""
-		if additionalFile.Source != "" {
-			absSourceFile = file.GetAbsPathWithBase(baseConfigPath, additionalFile.Source)
-		}
-		fileToCopy := safechroot.FileToCopy{
-			Src:         absSourceFile,
-			Content:     additionalFile.Content,
-			Dest:        additionalFile.Destination,
-			Permissions: (*fs.FileMode)(additionalFile.Permissions),
-		}
-		additionalIsoFiles = append(additionalIsoFiles, fileToCopy)
-	}
-
-	return additionalIsoFiles, isoConfig.KernelCommandLine.ExtraCommandLine, nil
 }
 
 // createLiveOSIsoImage
@@ -1350,11 +989,8 @@ func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomi
 //     user provided configuration for the PXE flow.
 //   - 'rawImageFile':
 //     path to an existing raw full disk image (has boot + rootfs partitions).
-//   - 'outputImageDir':
-//     path to a folder where the generated iso will be placed.
-//   - 'outputImageBase':
-//     base name of the image to generate. The generated name will be on the
-//     form: {outputImageDir}/{outputImageBase}.iso
+//   - 'outputImagePath':
+//     path to the output image.
 //   - 'outputPXEArtifactsDir'
 //     optional directory path where the PXE artifacts will be exported to if
 //     specified.
@@ -1363,12 +999,14 @@ func micIsoConfigToIsoMakerConfig(baseConfigPath string, isoConfig *imagecustomi
 //
 //	creates a LiveOS ISO image.
 func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *LiveOSIsoBuilder, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
-	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImageDir, outputImageBase string,
+	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
 	outputPXEArtifactsDir string) (err error) {
 
-	additionalIsoFiles, extraCommandLine, err := micIsoConfigToIsoMakerConfig(baseConfigPath, isoConfig)
-	if err != nil {
-		return fmt.Errorf("failed to convert iso configuration to isomaker format:\n%w", err)
+	var extraCommandLine []string
+	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
+	if isoConfig != nil {
+		extraCommandLine = isoConfig.KernelCommandLine.ExtraCommandLine
+		additionalIsoFiles = isoConfig.AdditionalFiles
 	}
 
 	pxeIsoImageBaseUrl := ""
@@ -1419,7 +1057,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 		}
 	}()
 
-	// if there is an input iso, make sure to pick-up it's saved kernel args
+	// if there is an input iso, make sure to pick-up its saved kernel args
 	// file.
 	inputSavedConfigsFilePath := ""
 	if inputIsoArtifacts != nil {
@@ -1427,7 +1065,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 	}
 
 	err = isoBuilder.prepareArtifactsFromFullImage(inputSavedConfigsFilePath, rawImageFile, requestedSelinuxMode, extraCommandLine,
-		pxeIsoImageBaseUrl, pxeIsoImageFileUrl, outputImageBase)
+		pxeIsoImageBaseUrl, pxeIsoImageFileUrl, filepath.Base(outputImagePath))
 	if err != nil {
 		return err
 	}
@@ -1454,7 +1092,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 		}
 	}
 
-	err = isoBuilder.createIsoImageAndPXEFolder(additionalIsoFiles, outputImageDir, outputImageBase, outputPXEArtifactsDir)
+	err = isoBuilder.createIsoImageAndPXEFolder(baseConfigPath, additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -1622,20 +1260,15 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 		switch relativeFilePath {
 		case isoBootBinaryPath:
 			isoBuilder.artifacts.bootEfiPath = isoFile
-			// isomaker will extract this from initrd and copy it to include it
-			// in the iso media - so no need to schedule it as an additional
-			// file.
 			scheduleAdditionalFile = false
 		case isoGrubBinaryPath:
-			// Note that grubx64NoPrefixBinary is not expected to on an existing
-			// iso - and hence we do not look for it here. grubx64NoPrefixBinary
-			// may exist only on a vhdx/qcow when the grub-noprefix package is
-			// installed. When such images are converted to an iso, we rename
-			// the grub binary to its regular name (grubx64.efi).
+			// Note that grubx64NoPrefixBinary is not expected to be present on
+			// an existing iso - and hence we do not look for it here.
+			// grubx64NoPrefixBinary may exist only on a vhdx/qcow when the
+			// grub-noprefix package is installed. When such images are
+			// converted to an iso, we rename the grub binary to its regular
+			// name (grubx64.efi).
 			isoBuilder.artifacts.grubEfiPath = isoFile
-			// isomaker will extract this from initrd and copy it to include it
-			// in the iso media - so no need to schedule it as an additional
-			// file.
 			scheduleAdditionalFile = false
 		case isoGrubCfgPath:
 			isoBuilder.artifacts.isoGrubCfgPath = isoFile
@@ -1650,17 +1283,15 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 			scheduleAdditionalFile = false
 		case isoInitrdPath:
 			isoBuilder.artifacts.initrdImagePath = isoFile
-			// initrd.img is passed as a parameter to isomaker.
 			scheduleAdditionalFile = false
 		case savedConfigsFileNamePath:
 			isoBuilder.artifacts.savedConfigsFilePath = isoFile
 			scheduleAdditionalFile = false
-		}
-		if strings.HasPrefix(filepath.Base(isoFile), vmLinuzPrefix) {
+		case isoKernelPath:
 			isoBuilder.artifacts.vmlinuzPath = isoFile
-			// isomaker will extract this from initrd and copy it to include it
-			// in the iso media - so no need to schedule it as an additional
-			// file.
+			scheduleAdditionalFile = false
+		case isoBootImagePath:
+			isoBuilder.artifacts.isoBootImagePath = isoFile
 			scheduleAdditionalFile = false
 		}
 
@@ -1668,6 +1299,11 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 			isoBuilder.artifacts.additionalFiles[isoFile] = strings.TrimPrefix(isoFile, isoExpansionFolder)
 		}
 	}
+
+	// Instead of creating a new 'artifacts' directory and copying everything
+	// from the expansion folder over to the artifacts folder, we use the
+	// expansion folder as the artifacts folder.
+	isoBuilder.workingDirs.isoArtifactsDir = isoExpansionFolder
 
 	return isoBuilder, nil
 }
@@ -1689,11 +1325,8 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 //     user provided configuration for the iso image.
 //   - 'pxeConfig'
 //     user provided configuration for the PXE flow.
-//   - 'outputImageDir':
-//     path to a folder where the generated iso will be placed.
-//   - 'outputImageBase':
-//     base name of the image to generate. The generated name will be on the
-//     form: {outputImageDir}/{outputImageBase}.iso
+//   - 'outputImagePath':
+//     path to a the output image.
 //   - 'outputPXEArtifactsDir'
 //     optional directory path where the PXE artifacts will be exported to if
 //     specified.
@@ -1702,13 +1335,15 @@ func createIsoBuilderFromIsoImage(buildDir string, buildDirAbs string, isoImageF
 //
 //   - creates an iso image.
 func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, outputImageDir string, outputImageBase string, outputPXEArtifactsDir string) error {
+	pxeConfig *imagecustomizerapi.Pxe, outputImagePath string, outputPXEArtifactsDir string) error {
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 
-	additionalIsoFiles, extraCommandLine, err := micIsoConfigToIsoMakerConfig(baseConfigPath, isoConfig)
-	if err != nil {
-		return fmt.Errorf("failed to convert iso configuration to isomaker configuration format:\n%w", err)
+	var extraCommandLine []string
+	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
+	if isoConfig != nil {
+		extraCommandLine = isoConfig.KernelCommandLine.ExtraCommandLine
+		additionalIsoFiles = isoConfig.AdditionalFiles
 	}
 
 	pxeIsoImageBaseUrl := ""
@@ -1745,12 +1380,12 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	// selinux and not enable it either.
 	disableSELinux := false
 
-	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, outputImageBase)
+	err = b.updateGrubCfg(b.artifacts.isoGrubCfgPath, b.artifacts.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	err = b.createIsoImageAndPXEFolder(additionalIsoFiles, outputImageDir, outputImageBase, outputPXEArtifactsDir)
+	err = b.createIsoImageAndPXEFolder(baseConfigPath, additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -1768,10 +1403,7 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 //   - additionalIsoFiles:
 //     map of addition files to copy to the iso media.
 //     sourcePath -> [ targetPath0, targetPath1, ...]
-//   - outputImageDir:
-//     path to a folder where the output image will be placed. It does not
-//     need to be created before calling this function.
-//   - outputImageBase:
+//   - outputIsoImage:
 //     path to the iso image to be created upon successful copmletion of this
 //     function.
 //   - 'outputPXEArtifactsDir'
@@ -1781,21 +1413,22 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 //
 //   - create an iso image.
 //   - creates a folder with PXE artifacts.
-func (b *LiveOSIsoBuilder) createIsoImageAndPXEFolder(additionalIsoFiles []safechroot.FileToCopy, outputImageDir string,
-	outputImageBase string, outputPXEArtifactsDir string) error {
-	isoImagePath, err := b.createIsoImage(additionalIsoFiles, outputImageDir, outputImageBase)
+func (b *LiveOSIsoBuilder) createIsoImageAndPXEFolder(baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string,
+	outputPXEArtifactsDir string) error {
+
+	err := createIsoImage(b.workingDirs.isoBuildDir, b.artifacts, baseConfigPath, additionalIsoFiles, outputImagePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create the Iso image.\n%w", err)
 	}
 
 	if outputPXEArtifactsDir != "" {
 		err = verifyDracutPXESupport(b.artifacts.dracutPackageInfo)
 		if err != nil {
-			return fmt.Errorf("cannot generate the PXE artifacts folder.\n%w", err)
+			return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
 		}
-		err = populatePXEArtifactsDir(isoImagePath, b.workingDirs.isoBuildDir, outputPXEArtifactsDir, outputImageBase)
+		err = populatePXEArtifactsDir(outputImagePath, b.workingDirs.isoBuildDir, outputPXEArtifactsDir)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to populate the PXE artifacts folder.\n%w", err)
 		}
 	}
 
@@ -1816,14 +1449,11 @@ func (b *LiveOSIsoBuilder) createIsoImageAndPXEFolder(additionalIsoFiles []safec
 //     path to a directory to hold intermediate files.
 //   - 'outputPXEArtifactsDir'
 //     path to the output directory where the extract artifacts will be saved to.
-//   - 'outputImageBase':
-//     base name of the image to generate. The generated name will be on the
-//     form: {outputImageDir}/{outputImageBase}.iso
 //
 // outputs:
 //
 //   - creates a folder with PXE artifacts.
-func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArtifactsDir string, outputImageBase string) error {
+func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArtifactsDir string) error {
 
 	logger.Log.Infof("Copying PXE artifacts to (%s)", outputPXEArtifactsDir)
 
@@ -1872,7 +1502,7 @@ func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArti
 
 	// The iso image file itself must be placed in the PXE folder because
 	// dracut livenet module will download it.
-	artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, getImageNameFromImageBaseName(outputImageBase).name)
+	artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, filepath.Base(isoImagePath))
 	err = file.Copy(isoImagePath, artifactsIsoImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to copy (%s) while populating the PXE artifacts directory:\n%w", isoImagePath, err)
@@ -1887,18 +1517,18 @@ func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArti
 //
 // inputs:
 //
-//   - 'rootDir':
+//   - 'fileOrDir':
 //     root folder to calculate its size.
 //
 // outputs:
 //
 //   - returns the size in bytes.
-func getSizeOnDiskInBytes(rootDir string) (size uint64, err error) {
-	logger.Log.Debugf("Calculating total size for (%s)", rootDir)
+func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
+	logger.Log.Debugf("Calculating total size for (%s)", fileOrDir)
 
-	duStdout, _, err := shell.Execute("du", "-s", rootDir)
+	duStdout, _, err := shell.Execute("du", "-s", fileOrDir)
 	if err != nil {
-		return 0, fmt.Errorf("failed to find the size of the specified folder using 'du' for (%s):\n%w", rootDir, err)
+		return 0, fmt.Errorf("failed to find the size of the specified file/dir using 'du' for (%s):\n%w", fileOrDir, err)
 	}
 
 	// parse and get count and unit
@@ -1932,27 +1562,31 @@ func getSizeOnDiskInBytes(rootDir string) (size uint64, err error) {
 //
 // inputs:
 //
-//   - 'rootDir':
-//     root folder to calculate its size.
+//   - 'filesOrDirs':
+//     list of files or directories to include in the calculation.
 //   - 'safetyFactor':
 //     a multiplier used with the total number of bytes calculated.
 //
 // outputs:
 //
 //   - returns the size in mega bytes.
-func getDiskSizeEstimateInMBs(rootDir string, safetyFactor float64) (size uint64, err error) {
+func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size uint64, err error) {
 
-	sizeInBytes, err := getSizeOnDiskInBytes(rootDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get folder size on disk while estimating total disk size:\n%w", err)
+	totalSizeInBytes := uint64(0)
+	for _, fileOrDir := range filesOrDirs {
+		sizeInBytes, err := getSizeOnDiskInBytes(fileOrDir)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get the size of (%s) on disk while estimating total disk size:\n%w", fileOrDir, err)
+		}
+		totalSizeInBytes += sizeInBytes
 	}
 
-	sizeInMBs := sizeInBytes/diskutils.MiB + 1
+	sizeInMBs := totalSizeInBytes/diskutils.MiB + 1
 	estimatedSizeInMBs := uint64(float64(sizeInMBs) * safetyFactor)
 	return estimatedSizeInMBs, nil
 }
 
-// createWriteableImageFromSquashfs
+// createWriteableImageFromArtifacts
 //
 //   - given a squashfs image file, it creates a writeable image with two
 //     partitions, and copies the contents of the squashfs unto that writeable
@@ -1971,11 +1605,11 @@ func getDiskSizeEstimateInMBs(rootDir string, safetyFactor float64) (size uint64
 // outputs:
 //
 //   - creates the specified writeable image.
-func (b *LiveOSIsoBuilder) createWriteableImageFromSquashfs(buildDir, rawImageFile string) error {
+func (b *LiveOSIsoBuilder) createWriteableImageFromArtifacts(buildDir, rawImageFile string) error {
 
 	logger.Log.Infof("Creating writeable image from squashfs (%s)", b.artifacts.squashfsImagePath)
 
-	// mount squash fs
+	// rootfs folder (mount squash fs)
 	squashMountDir, err := os.MkdirTemp(buildDir, "tmp-squashfs-mount-")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
@@ -1988,15 +1622,24 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromSquashfs(buildDir, rawImageFi
 	}
 	defer squashfsLoopDevice.Close()
 
-	isoImageMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), squashMountDir,
+	squashfsMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), squashMountDir,
 		"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
 	if err != nil {
 		return err
 	}
-	defer isoImageMount.Close()
+	defer squashfsMount.Close()
+
+	// boot folder (from artifacts)
+	artifactsBootDir := filepath.Join(b.workingDirs.isoArtifactsDir, "boot")
+
+	imageContentList := []string{
+		squashMountDir,
+		b.artifacts.bootEfiPath,
+		b.artifacts.grubEfiPath,
+		artifactsBootDir}
 
 	// estimate the new disk size
-	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(squashMountDir, expansionSafetyFactor)
+	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
 	if err != nil {
 		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", squashMountDir, err)
 	}
@@ -2060,6 +1703,38 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromSquashfs(buildDir, rawImageFi
 		if err != nil {
 			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
 		}
+
+		// Note that before the LiveOS ISO is first created, the boot folder is
+		// removed from the squashfs since it is not needed. The boot artifacts
+		// are stored directly on the ISO media outside the squashfs image.
+		// Now that we are re-constructing the full file system, we need to
+		// pull the boot artifacts back into the full file system so that
+		// it is restored to its original state and subsequent customization
+		// or extraction can proceed transparently.
+
+		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
+		}
+
+		targetEfiDir := filepath.Join(imageChroot.RootDir(), "boot/efi/EFI/BOOT")
+		err = os.MkdirAll(targetEfiDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create destination efi directory (%s):\n%w", targetEfiDir, err)
+		}
+
+		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(b.artifacts.bootEfiPath))
+		err = file.Copy(b.artifacts.bootEfiPath, targetShimPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", b.artifacts.bootEfiPath, targetShimPath, err)
+		}
+
+		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(b.artifacts.grubEfiPath))
+		err = file.Copy(b.artifacts.grubEfiPath, targetGrubPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", b.artifacts.grubEfiPath, targetGrubPath, err)
+		}
+
 		return err
 	}
 
@@ -2071,7 +1746,7 @@ func (b *LiveOSIsoBuilder) createWriteableImageFromSquashfs(buildDir, rawImageFi
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
 	}
 
-	err = isoImageMount.CleanClose()
+	err = squashfsMount.CleanClose()
 	if err != nil {
 		return err
 	}

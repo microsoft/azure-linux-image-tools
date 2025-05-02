@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -24,6 +25,7 @@ func customizePartitions(buildDir string, baseConfigPath string, config *imagecu
 		partIdToPartUuid, err := customizePartitionsUsingFileCopy(buildDir, baseConfigPath, config,
 			buildImageFile, newBuildImageFile)
 		if err != nil {
+			os.Remove(newBuildImageFile)
 			return false, "", nil, err
 		}
 
