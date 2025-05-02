@@ -4,9 +4,9 @@
 
 set -eu
 
-LICENSE_SCAN_JSON="out/license-scan.json"
+LICENSE_SCAN_JSON="out/LICENSES-SCAN.json"
 LICENSE_SCAN_OUTPUT="$LICENSE_SCAN_JSON"
-LICENSES_DIR="out/licenses"
+LICENSES_DIR="out/LICENSES"
 
 # Scans go.mod for critical & high severity license violations which catches
 # Forbidden & Restricted licenses based on
