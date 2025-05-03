@@ -13,7 +13,7 @@ $(call create_folder,$(BUILD_DIR)/tools)
 # Scans and include licenses for all the go tools
 .PHONY: license-scan
 license-scan:
-	./scripts/check-and-collect-licenses.sh
+	./scripts/check-and-collect-licenses.py
 
 # The version as held in the go.mod file (a line like 'go 1.19'). Add "go" to the front of the version number
 # so that it matches the output of 'go version' (e.g. 'go1.19').
