@@ -69,6 +69,18 @@ jobs:
           exit 1
         fi
 
+    - name: Install Trivy
+      run: |
+        wget https://github.com/aquasecurity/trivy/releases/download/v0.61.1/trivy_0.61.1_Linux-64bit.tar.gz
+        # Checksum obtained from https://github.com/aquasecurity/trivy/releases/download/v0.61.1/trivy_0.61.1_checksums.txt
+        if [ "$(sha256sum trivy_0.61.1_Linux-64bit.tar.gz | awk '{print $1}')" != "dcc6f48c383833f3a8ee0380f7990a17c89e36553cdf34e1f2d3159f9d8270ec" ]; then
+          echo "SHA256 checksum does not match!"
+          exit 1
+        fi
+
+        tar zxvf trivy_0.61.1_Linux-64bit.tar.gz
+        sudo mv trivy /usr/local/bin/
+
     - name: build & test
       run: |
         pushd toolkit
