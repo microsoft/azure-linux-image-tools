@@ -39,10 +39,10 @@ sudo go test -C ./toolkit/tools ./...
 
 1. Build (or download) the vhdx/vhd image files for:
 
-   - [Azure Linux 2.0 core-efi](https://github.com/microsoft/CBL-Mariner/blob/2.0/toolkit/imageconfigs/core-efi.json)
-   - [Azure Linux 3.0 core-efi](https://github.com/microsoft/CBL-Mariner/blob/3.0/toolkit/imageconfigs/core-efi.json)
-   - [Azure Linux 2.0 core-legacy](https://github.com/microsoft/CBL-Mariner/blob/2.0/toolkit/imageconfigs/core-legacy.json)
-   - [Azure Linux 3.0 core-legacy](https://github.com/microsoft/CBL-Mariner/blob/3.0/toolkit/imageconfigs/core-legacy.json)
+   - [Azure Linux 2.0 core-efi](https://github.com/microsoft/azurelinux/blob/2.0/toolkit/imageconfigs/core-efi.json)
+   - [Azure Linux 3.0 core-efi](https://github.com/microsoft/azurelinux/blob/3.0/toolkit/imageconfigs/core-efi.json)
+   - [Azure Linux 2.0 core-legacy](https://github.com/microsoft/azurelinux/blob/2.0/toolkit/imageconfigs/core-legacy.json)
+   - [Azure Linux 3.0 core-legacy](https://github.com/microsoft/azurelinux/blob/3.0/toolkit/imageconfigs/core-legacy.json)
 
 2. Download the test RPM files:
 

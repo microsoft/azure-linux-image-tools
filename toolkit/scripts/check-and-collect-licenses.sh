@@ -43,10 +43,13 @@ collect_licenses() {
     modpath="$(go env GOMODCACHE)/${module}@${version}"
 
     if [ -d "$modpath" ]; then
+      safe_dir=$(echo "$module" | sed 's|/|_|g')
+      target_dir="$LICENSES_DIR/$safe_dir"
+      mkdir -p "$target_dir"
+
       find "$modpath" -maxdepth 1 -type f \( -iname "LICENSE*" -o -iname "COPYING*" -o -iname "NOTICE*" \) | \
       while IFS= read -r file; do
-        safe_name=$(echo "$module" | sed 's|/|_|g')
-        cp -- "$file" "$LICENSES_DIR/${safe_name}_$(basename "$file")"
+        cp -- "$file" "$target_dir/"
       done
     fi
   done

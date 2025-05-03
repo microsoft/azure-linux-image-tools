@@ -11,6 +11,7 @@ $(call create_folder,$(BUILD_DIR)/tools)
 ######## GO TOOLS ########
 
 # Scans and include licenses for all the go tools
+.PHONY: license-scan
 license-scan:
 	./scripts/check-and-collect-licenses.sh
 
@@ -76,8 +77,7 @@ go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.Too
 
 # Matching rules for the above targets
 # Tool specific pre-requisites are tracked via $(go-util): $(shell find...) dynamic variable defined above
-$(TOOL_BINS_DIR)/%: $(go_common_files)
-	$(MAKE) license-scan
+$(TOOL_BINS_DIR)/%: $(go_common_files) license-scan
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
 		CGO_ENABLED=0 go build \
