@@ -128,7 +128,7 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 
 		imageFileName := filepath.Base(header.Name)
 
-		zstFilePath := filepath.Join(outputDir, "cosiimages", imageFileName)
+		zstFilePath := filepath.Join(outputDir, imageFileName)
 		// remove the .zst extension to get the output file name
 		rawImageFile := imageFileName[:len(imageFileName)-len(filepath.Ext(imageFileName))]
 		outputFilePath := filepath.Join(outputDir, rawImageFile)
@@ -138,8 +138,8 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 			return nil, fmt.Errorf("failed to create output directory: %w", err)
 		}
 
-		// Open the .zst file
-		zstFile, err := os.Open(zstFilePath)
+		// Create the .zst file
+		zstFile, err := os.Create(zstFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open .zst file: %w", err)
 		}
@@ -152,8 +152,20 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 		}
 		defer outFile.Close()
 
+		// Extract .zst file from tarball.
+		_, err = io.Copy(zstFile, tarReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract file from tarball: %w", err)
+		}
+
+		// Prepare file to be read back.
+		_, err = zstFile.Seek(0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to seek to origin of zst file: %w", err)
+		}
+
 		// Create a new zstd reader
-		zstReader, err := zstd.NewReader(tarReader)
+		zstReader, err := zstd.NewReader(zstFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create zstd reader: %w", err)
 		}
@@ -243,10 +255,11 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 
 	configFile := filepath.Join(testDir, "consume-space.yaml")
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(testTempDir, configFile, baseImage, nil, outImageFilePath, "cosi", "" /*outputPXEArtifactsDir*/, true)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", "" /*outputPXEArtifactsDir*/, true)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -261,8 +274,8 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	espPartitionNumber := 1
 	rootfsPartitionNumber := 2
 
-	espPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw.zst", espPartitionNumber))
-	rootfsPartitionZstFilePath := filepath.Join(testTempDir, "cosiimages", fmt.Sprintf("image_%d.raw.zst", rootfsPartitionNumber))
+	espPartitionZstFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw.zst", espPartitionNumber))
+	rootfsPartitionZstFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw.zst", rootfsPartitionNumber))
 
 	espPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNumber))
 	rootfsPartitionFilePath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootfsPartitionNumber))
@@ -333,9 +346,10 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageExtractEmptyPartition")
+	buildDir := filepath.Join(testTempDir, "build")
 	configFile := filepath.Join(testDir, "partitions-unformatted-partition.yaml")
-	outImageFilePath := filepath.Join(buildDir, "image.raw")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", "", false /*useBaseImageRpmRepos*/)
