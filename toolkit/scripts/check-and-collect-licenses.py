@@ -5,11 +5,11 @@
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
-
 import tarfile
 import urllib
 
@@ -42,13 +42,12 @@ def download_trivy():
         print("SHA256 checksum does not match!")
         sys.exit(1)
 
-    # Extract
-    print("Extracting archive...")
     with tarfile.open(TRIVY_FILENAME, "r:gz") as tar:
         tar.extractall()
 
-    print("Moving Trivy binary to /usr/local/bin...")
     shutil.move("trivy", "/usr/local/bin/trivy")
+
+    os.remove(TRIVY_FILENAME)
 
     print("Trivy installed successfully.")
 
