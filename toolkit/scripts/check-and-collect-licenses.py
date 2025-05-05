@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -9,11 +10,47 @@ import shutil
 import subprocess
 import sys
 
+import tarfile
+import urllib
+
 REPO_ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
 OUTPUT_DIR = Path(REPO_ROOT) / "toolkit" / "out"
 LICENSE_SCAN_OUTPUT = OUTPUT_DIR / "LICENSES-SCAN.json"
 LICENSES_DIR = OUTPUT_DIR / "LICENSES"
 TOOLS_DIR = Path(REPO_ROOT) / "toolkit" / "tools"
+
+def download_trivy():
+    TRIVY_VERSION = "0.61.1"
+    TRIVY_FILENAME = f"trivy_{TRIVY_VERSION}_Linux-64bit.tar.gz"
+    TRIVY_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/{TRIVY_FILENAME}"
+    EXPECTED_SHA256 = "dcc6f48c383833f3a8ee0380f7990a17c89e36553cdf34e1f2d3159f9d8270ec"
+
+    print("Downloading Trivy...")
+
+    if shutil.which("trivy"):
+        print("Trivy is already installed. Skipping installation.")
+        return
+
+    urllib.request.urlretrieve(TRIVY_URL, TRIVY_FILENAME)
+
+    print("Verifying checksum...")
+    sha256 = hashlib.sha256()
+    with open(TRIVY_FILENAME, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha256.update(chunk)
+    if sha256.hexdigest() != EXPECTED_SHA256:
+        print("SHA256 checksum does not match!")
+        sys.exit(1)
+
+    # Extract
+    print("Extracting archive...")
+    with tarfile.open(TRIVY_FILENAME, "r:gz") as tar:
+        tar.extractall()
+
+    print("Moving Trivy binary to /usr/local/bin...")
+    shutil.move("trivy", "/usr/local/bin/trivy")
+
+    print("Trivy installed successfully.")
 
 def run_trivy_scan():
     print("Running Trivy license scan...")
@@ -104,5 +141,6 @@ def collect_licenses():
     print(f"✅ License files copied to {LICENSES_DIR}.")
 
 if __name__ == "__main__":
+    download_trivy()
     run_trivy_scan()
     collect_licenses()
