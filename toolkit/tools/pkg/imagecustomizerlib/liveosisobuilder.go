@@ -542,7 +542,6 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoArtifacts *Li
 	}
 
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
-	// isoArtifactsDir := filepath.Join(isoBuildDir, "artifacts")
 
 	isoBuilder := &LiveOSIsoBuilder{
 		//
