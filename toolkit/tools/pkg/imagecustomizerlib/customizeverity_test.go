@@ -125,6 +125,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, im
 	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
 
@@ -141,7 +142,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, im
 	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
-	err = CustomizeImage(testTempDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
+	err = CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 
 	if !assert.NoError(t, err) {
