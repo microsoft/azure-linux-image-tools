@@ -511,8 +511,12 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *Live
 		}
 	}()
 
-	err = isoBuilder.prepareArtifactsFromFullImage(inputIsoBuilder.artifacts,
-		rawImageFile, requestedSelinuxMode, extraCommandLine,
+	var inputArtifactsStore *IsoArtifactsStore
+	if inputIsoBuilder != nil {
+		inputArtifactsStore = inputIsoBuilder.artifacts
+	}
+
+	err = isoBuilder.prepareArtifactsFromFullImage(inputArtifactsStore, rawImageFile, requestedSelinuxMode, extraCommandLine,
 		pxeIsoImageBaseUrl, pxeIsoImageFileUrl, filepath.Base(outputImagePath))
 	if err != nil {
 		return err
