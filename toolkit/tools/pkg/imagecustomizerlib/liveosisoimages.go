@@ -4,7 +4,10 @@
 package imagecustomizerlib
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -14,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/initrdutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
@@ -24,6 +28,15 @@ import (
 )
 
 const (
+
+	// ToDo: this is not being invoked...
+	initScriptFileName = "init"
+	// Having #!/bin/bash header causes a kernel panic.
+	// Not having the init file at all, causes a kernel panic.
+	initContent = `mount -t proc proc /proc
+/lib/systemd/systemd
+`
+
 	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
 add_drivers+=" overlay "
 hostonly="no"
@@ -39,21 +52,56 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-func createInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
-	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
-
-	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
+func cleanFullOSFolderForLiveOS(fullOSDir string) error {
+	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
+
 	err := os.Remove(fstabFile)
 	if err != nil {
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
 	}
 
-	targetConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
-	err = file.Write(dracutConfig, targetConfigFile)
+	logger.Log.Debugf("Deleting /boot")
+	err = os.RemoveAll(filepath.Join(fullOSDir, "boot"))
 	if err != nil {
-		return fmt.Errorf("failed to create %s:\n%w", targetConfigFile, err)
+		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
 	}
+
+	return nil
+}
+
+func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
+	logger.Log.Infof("Creating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+
+	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
+	if err != nil {
+		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
+	}
+
+	// ToDo: Do we really need this?!
+	initScriptPath := filepath.Join(writeableRootfsDir, initScriptFileName)
+	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create (%s):\n%w", initScriptPath, err)
+	}
+
+	err = initrdutils.CreateInitrdImageFromFolder(writeableRootfsDir, outputInitrdPath)
+	if err != nil {
+		return fmt.Errorf("failed to create the initrd image:\n%w", err)
+	}
+
+	return nil
+}
+
+func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
+	logger.Log.Infof("Creating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+
+	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
+	err := file.Write(dracutConfig, dracutConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to create %s:\n%w", dracutConfigFile, err)
+	}
+	defer os.Remove(dracutConfigFile)
 
 	chroot := safechroot.NewChroot(writeableRootfsDir, true /*isExistingDir*/)
 	if chroot == nil {
@@ -98,11 +146,11 @@ func createInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath strin
 }
 
 func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
-	logger.Log.Debugf("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
+	logger.Log.Infof("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
 
-	err := os.RemoveAll(filepath.Join(writeableRootfsDir, "boot"))
+	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
 	if err != nil {
-		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
 
 	exists, err := file.PathExists(outputSquashfsPath)
@@ -154,11 +202,21 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 
 	// map of file full local path to location on iso media.
 	artifactsToIsoMap := map[string]string{
-		filesStore.isoBootImagePath:  "boot/grub2",
-		filesStore.isoGrubCfgPath:    "boot/grub2",
-		filesStore.vmlinuzPath:       "boot",
-		filesStore.initrdImagePath:   "boot",
-		filesStore.squashfsImagePath: "liveos",
+		filesStore.isoBootImagePath: "boot/grub2",
+		filesStore.isoGrubCfgPath:   "boot/grub2",
+		filesStore.vmlinuzPath:      "boot",
+		filesStore.initrdImagePath:  "boot",
+	}
+
+	// Add optional squashfs file if it exists.
+	if filesStore.squashfsImagePath != "" {
+		exists, err := file.PathExists(filesStore.squashfsImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.squashfsImagePath, err)
+		}
+		if exists {
+			artifactsToIsoMap[filesStore.squashfsImagePath] = "liveos"
+		}
 	}
 
 	// Add optional saved config file if it exists.
@@ -169,17 +227,6 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 		}
 		if exists {
 			artifactsToIsoMap[filesStore.savedConfigsFilePath] = "azl-image-customizer"
-		}
-	}
-
-	// Add optional grub-pxe.cfg file if it exists.
-	if filesStore.pxeGrubCfgPath != "" {
-		exists, err := file.PathExists(filesStore.pxeGrubCfgPath)
-		if err != nil {
-			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.pxeGrubCfgPath, err)
-		}
-		if exists {
-			artifactsToIsoMap[filesStore.pxeGrubCfgPath] = "boot/grub2"
 		}
 	}
 
@@ -231,7 +278,7 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 	return nil
 }
 
-func createIsoImage(buildDir string, filesStore *IsoFilesStore, baseConfigPath string,
+func createIsoImage(buildDir string, baseConfigPath string, filesStore *IsoFilesStore,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "staging")
 
@@ -290,43 +337,60 @@ func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size 
 	return estimatedSizeInMBs, nil
 }
 
-func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStore, rawImageFile string) error {
+func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtifactsStore, rawImageFile string) error {
+	logger.Log.Infof("Creating full OS writeable image from ISO artifacts")
 
-	logger.Log.Infof("Creating writeable image from squashfs (%s)", filesStore.squashfsImagePath)
-
-	// rootfs folder (mount squash fs)
-	squashMountDir, err := os.MkdirTemp(buildDir, "tmp-squashfs-mount-")
+	rootfsDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
 	}
-	defer os.RemoveAll(squashMountDir)
+	defer os.RemoveAll(rootfsDir)
 
-	squashfsLoopDevice, err := safeloopback.NewLoopback(filesStore.squashfsImagePath)
+	squashfsExists, err := file.PathExists(artifactsStore.files.squashfsImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
+		return fmt.Errorf("failed to check if the squash root file system image exists (%s):\n%w", artifactsStore.files.squashfsImagePath, err)
 	}
-	defer squashfsLoopDevice.Close()
 
-	squashfsMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), squashMountDir,
-		"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
-	if err != nil {
-		return err
+	var squashfsLoopDevice *safeloopback.Loopback
+	var squashfsMount *safemount.Mount
+
+	if squashfsExists {
+		logger.Log.Infof("Detected bootstrap OS initrd configuration")
+		squashfsLoopDevice, err = safeloopback.NewLoopback(artifactsStore.files.squashfsImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to create loop device for (%s):\n%w", artifactsStore.files.squashfsImagePath, err)
+		}
+		defer squashfsLoopDevice.Close()
+
+		squashfsMount, err = safemount.NewMount(squashfsLoopDevice.DevicePath(), rootfsDir,
+			"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
+		if err != nil {
+			return err
+		}
+		defer squashfsMount.Close()
+	} else {
+		logger.Log.Infof("Detected full OS initrd configuration")
+		err = initrdutils.CreateFolderFromInitrdImage(artifactsStore.files.initrdImagePath, rootfsDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", artifactsStore.files.initrdImagePath, err)
+		}
 	}
-	defer squashfsMount.Close()
+
+	logger.Log.Infof("Populated (%s) with full file system", rootfsDir)
 
 	// boot folder (from artifacts)
-	artifactsBootDir := filepath.Join(filesStore.artifactsDir, "boot")
+	artifactsBootDir := filepath.Join(artifactsStore.files.artifactsDir, "boot")
 
 	imageContentList := []string{
-		squashMountDir,
-		filesStore.bootEfiPath,
-		filesStore.grubEfiPath,
+		rootfsDir,
+		artifactsStore.files.bootEfiPath,
+		artifactsStore.files.grubEfiPath,
 		artifactsBootDir}
 
 	// estimate the new disk size
 	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
 	if err != nil {
-		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", squashMountDir, err)
+		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", rootfsDir, err)
 	}
 
 	logger.Log.Debugf("safeDiskSizeMB = %d", safeDiskSizeMB)
@@ -373,18 +437,19 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		},
 	}
 
-	targetOs, err := targetos.GetInstalledTargetOs(squashMountDir)
+	targetOs, err := targetos.GetInstalledTargetOs(rootfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
 	}
 
 	// populate the newly created disk image with content from the squash fs
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
+		logger.Log.Infof("Installing files to empty image")
 		// At the point when this copy will be executed, both the boot and the
 		// root partitions will be mounted, and the files of /boot/efi will
 		// land on the the boot partition, while the rest will be on the rootfs
 		// partition.
-		err := copyPartitionFiles(squashMountDir+"/.", imageChroot.RootDir())
+		err := copyPartitionFiles(rootfsDir+"/.", imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
 		}
@@ -396,10 +461,31 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		// pull the boot artifacts back into the full file system so that
 		// it is restored to its original state and subsequent customization
 		// or extraction can proceed transparently.
-
 		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
+		}
+
+		// The `initrd.img` must be on the form `initrd-*` so that `grub2-mkconfig`
+		// can find it. If it cannot find it, the generated grub.cfg will be missing
+		// all the boot entries.
+		initrdFileName := fmt.Sprintf("initrd-%s.img", artifactsStore.info.kernelVersion)
+		initrdOld := filepath.Join(imageChroot.RootDir(), "boot/initrd.img")
+		initrdNew := filepath.Join(imageChroot.RootDir(), "boot", initrdFileName)
+		err = os.Rename(initrdOld, initrdNew)
+		if err != nil {
+			return fmt.Errorf("failed to rename (%s) to (%s)", initrdOld, initrdNew)
+		}
+
+		// The `vmlinuz` must be on the form `vmlinuz-*` so that `grub2-mkconfig`
+		// can find it. If it cannot find it, the generated grub.cfg will be missing
+		// all the boot entries.
+		kernelFileName := fmt.Sprintf("vmlinuz-%s", artifactsStore.info.kernelVersion)
+		kernelOld := filepath.Join(imageChroot.RootDir(), "boot/vmlinuz")
+		kernelNew := filepath.Join(imageChroot.RootDir(), "boot", kernelFileName)
+		err = os.Rename(kernelOld, kernelNew)
+		if err != nil {
+			return fmt.Errorf("failed to rename (%s) to (%s)", kernelOld, kernelNew)
 		}
 
 		targetEfiDir := filepath.Join(imageChroot.RootDir(), "boot/efi/EFI/BOOT")
@@ -408,16 +494,16 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 			return fmt.Errorf("failed to create destination efi directory (%s):\n%w", targetEfiDir, err)
 		}
 
-		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(filesStore.bootEfiPath))
-		err = file.Copy(filesStore.bootEfiPath, targetShimPath)
+		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(artifactsStore.files.bootEfiPath))
+		err = file.Copy(artifactsStore.files.bootEfiPath, targetShimPath)
 		if err != nil {
-			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", filesStore.bootEfiPath, targetShimPath, err)
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", artifactsStore.files.bootEfiPath, targetShimPath, err)
 		}
 
-		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(filesStore.grubEfiPath))
-		err = file.Copy(filesStore.grubEfiPath, targetGrubPath)
+		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(artifactsStore.files.grubEfiPath))
+		err = file.Copy(artifactsStore.files.grubEfiPath, targetGrubPath)
 		if err != nil {
-			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", filesStore.grubEfiPath, targetGrubPath, err)
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", artifactsStore.files.grubEfiPath, targetGrubPath, err)
 		}
 
 		return err
@@ -431,15 +517,139 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
 	}
 
-	err = squashfsMount.CleanClose()
-	if err != nil {
-		return err
+	if squashfsMount != nil {
+		err = squashfsMount.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
-	err = squashfsLoopDevice.CleanClose()
-	if err != nil {
-		return err
+	if squashfsLoopDevice != nil {
+		err = squashfsLoopDevice.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func createTarGzArchive(sourceDir, outputArchivePath string) error {
+	logger.Log.Infof("Creating archive (%s) from (%s)", outputArchivePath, sourceDir)
+
+	outFile, err := os.Create(outputArchivePath)
+	if err != nil {
+		return fmt.Errorf("failed to create archive (%s):\n%w", outputArchivePath, err)
+	}
+	defer outFile.Close()
+
+	gw := gzip.NewWriter(outFile)
+	defer gw.Close()
+
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	err = filepath.Walk(sourceDir, func(file string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		header, err := tar.FileInfoHeader(info, info.Name())
+		if err != nil {
+			return err
+		}
+
+		// Adjust the header name to maintain folder structure
+		relPath, err := filepath.Rel(sourceDir, file)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(relPath) // Ensure forward slashes
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		// If it's a directory, nothing more to do
+		if info.IsDir() {
+			return nil
+		}
+
+		// Write file contents
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(tw, f)
+		return err
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create archive (%s):\n%w", outputArchivePath, err)
+	}
+
+	return nil
+}
+
+func expandTarGzArchive(sourceArchivePath, outputDir string) error {
+	logger.Log.Infof("Expanding archive (%s) to (%s)", sourceArchivePath, outputDir)
+
+	f, err := os.Open(sourceArchivePath)
+	if err != nil {
+		return fmt.Errorf("failed to archive (%s):\n%w", sourceArchivePath, err)
+	}
+	defer f.Close()
+
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader for (%s):\n%w", sourceArchivePath, err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read header from archive:\n%w", err)
+		}
+
+		target := filepath.Join(outputDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("failed to create folder (%s)\n%w", target, err)
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return fmt.Errorf("failed to create parent folder for (%s)\n%w", target, err)
+			}
+			outFile, err := os.Create(target)
+			if err != nil {
+				return fmt.Errorf("failed to create (%s):\n%w", target, err)
+			}
+			defer outFile.Close()
+			_, err = io.Copy(outFile, tr)
+			if err != nil {
+				return fmt.Errorf("failed to copy (%s) from archive:\n%w", target, err)
+			}
+			outFile.Close()
+
+			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
+				return fmt.Errorf("failed to set permissions (%d) on (%s):\n%w", os.FileMode(header.Mode), target, err)
+			}
+		case tar.TypeSymlink:
+			if err := os.Symlink(header.Linkname, target); err != nil {
+				return fmt.Errorf("failed to create symbolic link (%s):\n%w", target, err)
+			}
+		default:
+			return fmt.Errorf("failed to process unsupported file type in archive (%s): (%v)", target, header.Typeflag)
+		}
+	}
 	return nil
 }

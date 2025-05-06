@@ -69,12 +69,12 @@ type ImageCustomizerParameters struct {
 	rawImageFile string
 
 	// output image
-	outputImageFormat     imagecustomizerapi.ImageFormatType
-	outputIsIso           bool
-	outputImageFile       string
-	outputImageDir        string
-	outputImageBase       string
-	outputPXEArtifactsDir string
+	outputImageFormat imagecustomizerapi.ImageFormatType
+	outputIsIso       bool
+	outputIsPxe       bool
+	outputImageFile   string
+	outputImageDir    string
+	outputImageBase   string
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
@@ -100,7 +100,7 @@ func createImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
 	useBaseImageRpmRepos bool, rpmsSources []string,
-	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string, packageSnapshotTime string,
+	outputImageFormat string, outputImageFile string, packageSnapshotTime string,
 ) (*ImageCustomizerParameters, error) {
 	ic := &ImageCustomizerParameters{}
 
@@ -164,20 +164,15 @@ func createImageCustomizerParameters(buildDir string,
 
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
-	ic.outputPXEArtifactsDir = outputPXEArtifactsDir
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
-	ic.packageSnapshotTime = packageSnapshotTime
-
-	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
-		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
-	}
+	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxe
 
 	if ic.inputIsIso {
 
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
-		if !ic.outputIsIso {
-			return nil, fmt.Errorf("generating a non-iso image from an iso image is not supported")
+		if !ic.outputIsIso && !ic.outputIsPxe {
+			return nil, fmt.Errorf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat)
 		}
 
 		// While defining a storage configuration can work when the input image is
@@ -188,13 +183,19 @@ func createImageCustomizerParameters(buildDir string,
 		}
 	}
 
+	ic.packageSnapshotTime = packageSnapshotTime
+
 	return ic, nil
 }
 
 func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
+	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
+	logger.Log.Infof("-- Config File       : %s", configFile)
+	logger.Log.Infof("-- Input Image File  : %s", inputImageFile)
+	logger.Log.Infof("-- Output Image File : %s", outputImageFile)
+	logger.Log.Infof("-- Output Format     : %s", outputImageFormat)
 	var err error
 
 	var config imagecustomizerapi.Config
@@ -212,7 +213,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 	}
 
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
-		outputPXEArtifactsDir, useBaseImageRpmRepos, packageSnapshotTime)
+		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -231,7 +232,7 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
+	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "CustomizeImage")
 	span.SetAttributes(
@@ -246,7 +247,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
-		outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
+		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
 		return fmt.Errorf("invalid parameters:\n%w", err)
 	}
@@ -322,7 +323,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 }
 
 func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
-	logger.Log.Infof("Converting input image to a writeable format")
+	logger.Log.Infof("Converting input image to a writeable format image (%s)", ic.rawImageFile)
 
 	if ic.inputIsIso {
 
@@ -331,12 +332,22 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 			return inputIsoArtifacts, fmt.Errorf("failed to create artifacts store from (%s):\n%w", ic.inputImageFile, err)
 		}
 
+		rebuildFullOS := false
+		if ic.outputIsIso && ic.config.Iso != nil {
+			rebuildFullOS = (inputIsoArtifacts.files.squashfsImagePath == "" && ic.config.Iso.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
+				(inputIsoArtifacts.files.squashfsImagePath != "" && ic.config.Iso.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+		if ic.outputIsPxe && ic.config.Pxe != nil {
+			rebuildFullOS = (inputIsoArtifacts.files.squashfsImagePath == "" && ic.config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
+				(inputIsoArtifacts.files.squashfsImagePath != "" && ic.config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+
 		// If the input is a LiveOS iso and there are OS customizations
 		// defined, we create a writeable disk image so that mic can modify
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
-		if ic.customizeOSPartitions {
-			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts.files, ic.rawImageFile)
+		if ic.customizeOSPartitions || rebuildFullOS {
+			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}
@@ -432,6 +443,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if !ic.customizeOSPartitions && ic.inputIsIso {
 		return nil
 	}
+
+	logger.Log.Infof("Customizing OS Contents (%s)", ic.rawImageFile)
 
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is
@@ -533,20 +546,37 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			return err
 		}
 
-	case imagecustomizerapi.ImageFormatTypeIso:
+	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxe:
+		rebuildFullOsImage := false
+
+		// Decide whether we need to re-build the full OS image or not
 		if ic.customizeOSPartitions || inputIsoArtifacts == nil {
+			rebuildFullOsImage = true
+		} else if inputIsoArtifacts != nil {
+			// Let's check if use is converting from full os initramfs to bootstrap initramfs
+			liveosConfig, err := buildLiveOSConfig(ic.outputImageFormat, ic.config.Iso, ic.config.Pxe)
+			if err != nil {
+				return fmt.Errorf("failed to build Live OS configuration\n%w", err)
+			}
+
+			rebuildFullOsImage = (inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
+				(inputIsoArtifacts.files.squashfsImagePath != "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+
+		// Either re-build the full OS image, or just re-package the existing one
+		if rebuildFullOsImage {
 			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
 			if ic.config.OS != nil {
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
-			err := createLiveOSIsoImage(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
-				ic.rawImageFile, ic.outputImageFile, ic.outputPXEArtifactsDir)
+			err := createLiveOSFromRaw(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
+				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
 		} else {
-			err := createImageFromUnchangedOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
-				inputIsoArtifacts, ic.outputImageFile, ic.outputPXEArtifactsDir)
+			err := repackageLiveOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
+				inputIsoArtifacts, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
@@ -802,21 +832,6 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, outputImageFile, outputImageFormat string) error {
 	if outputImageFile == "" && output.Image.Path == "" {
 		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
-	}
-
-	if outputImageFile != "" {
-		if isDir, err := file.DirExists(outputImageFile); err != nil {
-			return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\n%w", outputImageFile, err)
-		} else if isDir {
-			return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\nis a directory", outputImageFile)
-		}
-	} else {
-		outputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
-		if isDir, err := file.DirExists(outputImageAbsPath); err != nil {
-			return fmt.Errorf("invalid config file property 'output.image.path': '%s'\n%w", output.Image.Path, err)
-		} else if isDir {
-			return fmt.Errorf("invalid config file property 'output.image.path': '%s'\nis a directory", output.Image.Path)
-		}
 	}
 
 	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {

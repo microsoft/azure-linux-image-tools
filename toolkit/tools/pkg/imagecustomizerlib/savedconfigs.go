@@ -10,6 +10,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
 // 'SavedConfigs' is a subset of the Image Customizer input configurations that
@@ -61,6 +62,7 @@ func (p *PxeSavedConfigs) IsValid() error {
 }
 
 type OSSavedConfigs struct {
+	KernelVersion            string                         `yaml:"kernelVersion"`
 	DracutPackageInfo        *PackageVersionInformation     `yaml:"dracutPackage"`
 	RequestedSELinuxMode     imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
 	SELinuxPolicyPackageInfo *PackageVersionInformation     `yaml:"selinuxPolicyPackage"`
@@ -128,14 +130,16 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	return savedConfigs, nil
 }
 
-func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
-	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
+func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
+	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newKernelVersion string, newDracutPackageInfo *PackageVersionInformation,
 	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
 ) (outputConfigs *SavedConfigs, err error) {
+	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
-	outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
+	outputConfigs.Iso.KernelCommandLine = newKernelCommandLine
 	outputConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
 	outputConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
+	outputConfigs.OS.KernelVersion = newKernelVersion
 	outputConfigs.OS.DracutPackageInfo = newDracutPackageInfo
 	outputConfigs.OS.RequestedSELinuxMode = newRequestedSelinuxMode
 	outputConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
@@ -150,7 +154,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 		if len(inputConfigs.Iso.KernelCommandLine.ExtraCommandLine) > 0 {
 			// If yes, add them before the new kernel arguments.
 			savedArgs := inputConfigs.Iso.KernelCommandLine.ExtraCommandLine
-			newArgs := newKernelArgs
+			newArgs := newKernelCommandLine.ExtraCommandLine
 
 			// Combine saved arguments with new ones
 			combinedArgs := append(savedArgs, newArgs...)
@@ -175,6 +179,10 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 
 		if newPxeIsoImageFileUrl != "" {
 			outputConfigs.Pxe.IsoImageBaseUrl = ""
+		}
+
+		if newKernelVersion == "" {
+			outputConfigs.OS.KernelVersion = inputConfigs.OS.KernelVersion
 		}
 
 		// newOSDracutVersion can be nil if the input is an ISO and the

@@ -80,7 +80,7 @@ func GenerateIso(config IsoGenConfig) error {
 }
 
 func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
-	logger.Log.Infof("Generating ISO image (%s) using (%s).", outputImagePath, stagingPath)
+	logger.Log.Infof("Creating ISO image (%s) using (%s).", outputImagePath, stagingPath)
 
 	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
 	// Mkisofs requires all argument paths to be relative to the input directory.
@@ -143,12 +143,12 @@ func copyInitrd(info isoGenInfo) error {
 }
 
 func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath string, outputImagePath string) (err error) {
+	logger.Log.Infof("Creating ISO bootloader image (%s)", outputImagePath)
+
 	const (
 		blockSizeInBytes     = 1024 * 1024
 		numberOfBlocksToCopy = 3
 	)
-
-	logger.Log.Info("Preparing ISO's bootloaders.")
 
 	ddArgs := []string{
 		"if=/dev/zero",                                // Zero device to read a stream of zeroed bytes from.
