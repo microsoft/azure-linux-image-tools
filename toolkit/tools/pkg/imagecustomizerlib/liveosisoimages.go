@@ -8,13 +8,19 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
 
 func createInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
@@ -223,6 +229,200 @@ func createIsoImage(buildDir string, filesStore *IsoFilesStore, baseConfigPath s
 	err = isogenerator.BuildIsoImage(stagingDir, biosBootEnabled, biosFilesDirPath, outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create (%s) using the (%s) folder:\n%w", outputImagePath, stagingDir, err)
+	}
+
+	return nil
+}
+
+func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
+	logger.Log.Debugf("Calculating total size for (%s)", fileOrDir)
+
+	duStdout, _, err := shell.Execute("du", "-s", fileOrDir)
+	if err != nil {
+		return 0, fmt.Errorf("failed to find the size of the specified file/dir using 'du' for (%s):\n%w", fileOrDir, err)
+	}
+
+	// parse and get count and unit
+	diskSizeRegex := regexp.MustCompile(`^(\d+)\s+`)
+	matches := diskSizeRegex.FindStringSubmatch(duStdout)
+	if matches == nil || len(matches) < 2 {
+		return 0, fmt.Errorf("failed to parse 'du -s' output (%s).", duStdout)
+	}
+
+	sizeInKbsString := matches[1]
+	sizeInKbs, err := strconv.ParseUint(sizeInKbsString, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse disk size (%d):\n%w", sizeInKbs, err)
+	}
+
+	return sizeInKbs * diskutils.KiB, nil
+}
+
+func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size uint64, err error) {
+
+	totalSizeInBytes := uint64(0)
+	for _, fileOrDir := range filesOrDirs {
+		sizeInBytes, err := getSizeOnDiskInBytes(fileOrDir)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get the size of (%s) on disk while estimating total disk size:\n%w", fileOrDir, err)
+		}
+		totalSizeInBytes += sizeInBytes
+	}
+
+	sizeInMBs := totalSizeInBytes/diskutils.MiB + 1
+	estimatedSizeInMBs := uint64(float64(sizeInMBs) * safetyFactor)
+	return estimatedSizeInMBs, nil
+}
+
+func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStore, rawImageFile string) error {
+
+	logger.Log.Infof("Creating writeable image from squashfs (%s)", filesStore.squashfsImagePath)
+
+	// rootfs folder (mount squash fs)
+	squashMountDir, err := os.MkdirTemp(buildDir, "tmp-squashfs-mount-")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
+	}
+	defer os.RemoveAll(squashMountDir)
+
+	squashfsLoopDevice, err := safeloopback.NewLoopback(filesStore.squashfsImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
+	}
+	defer squashfsLoopDevice.Close()
+
+	squashfsMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), squashMountDir,
+		"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
+	if err != nil {
+		return err
+	}
+	defer squashfsMount.Close()
+
+	// boot folder (from artifacts)
+	artifactsBootDir := filepath.Join(filesStore.artifactsDir, "boot")
+
+	imageContentList := []string{
+		squashMountDir,
+		filesStore.bootEfiPath,
+		filesStore.grubEfiPath,
+		artifactsBootDir}
+
+	// estimate the new disk size
+	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
+	if err != nil {
+		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", squashMountDir, err)
+	}
+
+	logger.Log.Debugf("safeDiskSizeMB = %d", safeDiskSizeMB)
+
+	// define a disk layout with a boot partition and a rootfs partition
+	maxDiskSizeMB := imagecustomizerapi.DiskSize(safeDiskSizeMB * diskutils.MiB)
+	bootPartitionStart := imagecustomizerapi.DiskSize(1 * diskutils.MiB)
+	bootPartitionEnd := imagecustomizerapi.DiskSize(9 * diskutils.MiB)
+
+	diskConfig := imagecustomizerapi.Disk{
+		PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
+		MaxSize:            &maxDiskSizeMB,
+		Partitions: []imagecustomizerapi.Partition{
+			{
+				Id:    "esp",
+				Start: &bootPartitionStart,
+				End:   &bootPartitionEnd,
+				Type:  imagecustomizerapi.PartitionTypeESP,
+			},
+			{
+				Id:    "rootfs",
+				Start: &bootPartitionEnd,
+			},
+		},
+	}
+
+	fileSystemConfigs := []imagecustomizerapi.FileSystem{
+		{
+			DeviceId:    "esp",
+			PartitionId: "esp",
+			Type:        imagecustomizerapi.FileSystemTypeFat32,
+			MountPoint: &imagecustomizerapi.MountPoint{
+				Path:    "/boot/efi",
+				Options: "umask=0077",
+			},
+		},
+		{
+			DeviceId:    "rootfs",
+			PartitionId: "rootfs",
+			Type:        imagecustomizerapi.FileSystemTypeExt4,
+			MountPoint: &imagecustomizerapi.MountPoint{
+				Path: "/",
+			},
+		},
+	}
+
+	targetOs, err := targetos.GetInstalledTargetOs(squashMountDir)
+	if err != nil {
+		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
+	}
+
+	// populate the newly created disk image with content from the squash fs
+	installOSFunc := func(imageChroot *safechroot.Chroot) error {
+		// At the point when this copy will be executed, both the boot and the
+		// root partitions will be mounted, and the files of /boot/efi will
+		// land on the the boot partition, while the rest will be on the rootfs
+		// partition.
+		err := copyPartitionFiles(squashMountDir+"/.", imageChroot.RootDir())
+		if err != nil {
+			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
+		}
+
+		// Note that before the LiveOS ISO is first created, the boot folder is
+		// removed from the squashfs since it is not needed. The boot artifacts
+		// are stored directly on the ISO media outside the squashfs image.
+		// Now that we are re-constructing the full file system, we need to
+		// pull the boot artifacts back into the full file system so that
+		// it is restored to its original state and subsequent customization
+		// or extraction can proceed transparently.
+
+		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
+		}
+
+		targetEfiDir := filepath.Join(imageChroot.RootDir(), "boot/efi/EFI/BOOT")
+		err = os.MkdirAll(targetEfiDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create destination efi directory (%s):\n%w", targetEfiDir, err)
+		}
+
+		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(filesStore.bootEfiPath))
+		err = file.Copy(filesStore.bootEfiPath, targetShimPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", filesStore.bootEfiPath, targetShimPath, err)
+		}
+
+		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(filesStore.grubEfiPath))
+		err = file.Copy(filesStore.grubEfiPath, targetGrubPath)
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", filesStore.grubEfiPath, targetGrubPath, err)
+		}
+
+		return err
+	}
+
+	// create the new raw disk image
+	writeableChrootDir := "writeable-raw-image"
+	_, err = createNewImage(targetOs, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
+		installOSFunc)
+	if err != nil {
+		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
+	}
+
+	err = squashfsMount.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	err = squashfsLoopDevice.CleanClose()
+	if err != nil {
+		return err
 	}
 
 	return nil

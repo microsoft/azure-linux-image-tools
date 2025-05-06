@@ -308,7 +308,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 	logger.Log.Infof("Converting input image to a writeable format")
 
 	if ic.inputIsIso {
-		inputIsoArtifacts, err := createIsoBuilderFromIsoImage(ic.buildDirAbs, ic.buildDirAbs, ic.inputImageFile)
+		inputIsoArtifacts, err := createIsoBuilderFromIsoImage(ic.buildDirAbs, ic.inputImageFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load input iso artifacts:\n%w", err)
 		}
@@ -318,7 +318,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
 		if ic.customizeOSPartitions {
-			err = inputIsoArtifacts.createWriteableImageFromArtifacts(ic.buildDirAbs, ic.rawImageFile)
+			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts.artifacts.files, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}
