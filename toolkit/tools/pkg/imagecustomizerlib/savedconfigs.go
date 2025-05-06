@@ -10,6 +10,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
 // 'SavedConfigs' is a subset of the Image Customizer input configurations that
@@ -41,19 +42,19 @@ func (i *IsoSavedConfigs) IsValid() error {
 }
 
 type PxeSavedConfigs struct {
-	IsoImageBaseUrl string `yaml:"isoImageBaseUrl"`
-	IsoImageFileUrl string `yaml:"isoImageFileUrl"`
+	bootstrapBaseUrl string `yaml:"bootstrapBaseUrl"`
+	bootstrapFileUrl string `yaml:"bootstrapFileUrl"`
 }
 
 func (p *PxeSavedConfigs) IsValid() error {
-	if p.IsoImageBaseUrl != "" && p.IsoImageFileUrl != "" {
-		return fmt.Errorf("cannot specify both 'isoImageBaseUrl' and 'isoImageFileUrl' at the same time.")
+	if p.bootstrapBaseUrl != "" && p.bootstrapFileUrl != "" {
+		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time.")
 	}
-	err := imagecustomizerapi.IsValidPxeUrl(p.IsoImageBaseUrl)
+	err := imagecustomizerapi.IsValidPxeUrl(p.bootstrapBaseUrl)
 	if err != nil {
 		return err
 	}
-	err = imagecustomizerapi.IsValidPxeUrl(p.IsoImageFileUrl)
+	err = imagecustomizerapi.IsValidPxeUrl(p.bootstrapFileUrl)
 	if err != nil {
 		return err
 	}
@@ -61,6 +62,7 @@ func (p *PxeSavedConfigs) IsValid() error {
 }
 
 type OSSavedConfigs struct {
+	KernelVersion            string                         `yaml:"kernelVersion"`
 	DracutPackageInfo        *PackageVersionInformation     `yaml:"dracutPackage"`
 	RequestedSELinuxMode     imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
 	SELinuxPolicyPackageInfo *PackageVersionInformation     `yaml:"selinuxPolicyPackage"`
@@ -128,14 +130,16 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	return savedConfigs, nil
 }
 
-func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
-	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
+func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
+	newBootstrapBaseUrl string, newBootstrapFileUrl string, newKernelVersion string, newDracutPackageInfo *PackageVersionInformation,
 	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
 ) (outputConfigs *SavedConfigs, err error) {
+	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
-	outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
-	outputConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
-	outputConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
+	outputConfigs.Iso.KernelCommandLine = newKernelCommandLine
+	outputConfigs.Pxe.bootstrapBaseUrl = newBootstrapBaseUrl
+	outputConfigs.Pxe.bootstrapFileUrl = newBootstrapFileUrl
+	outputConfigs.OS.KernelVersion = newKernelVersion
 	outputConfigs.OS.DracutPackageInfo = newDracutPackageInfo
 	outputConfigs.OS.RequestedSELinuxMode = newRequestedSelinuxMode
 	outputConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
@@ -150,7 +154,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 		if len(inputConfigs.Iso.KernelCommandLine.ExtraCommandLine) > 0 {
 			// If yes, add them before the new kernel arguments.
 			savedArgs := inputConfigs.Iso.KernelCommandLine.ExtraCommandLine
-			newArgs := newKernelArgs
+			newArgs := newKernelCommandLine.ExtraCommandLine
 
 			// Combine saved arguments with new ones
 			combinedArgs := append(savedArgs, newArgs...)
@@ -158,23 +162,27 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 		}
 
 		// if the PXE iso image url is not set, set it to the value from the previous run.
-		if newPxeIsoImageBaseUrl == "" && inputConfigs.Pxe.IsoImageBaseUrl != "" {
-			outputConfigs.Pxe.IsoImageBaseUrl = inputConfigs.Pxe.IsoImageBaseUrl
+		if newBootstrapBaseUrl == "" && inputConfigs.Pxe.bootstrapBaseUrl != "" {
+			outputConfigs.Pxe.bootstrapBaseUrl = inputConfigs.Pxe.bootstrapBaseUrl
 		}
 
-		if newPxeIsoImageFileUrl == "" && inputConfigs.Pxe.IsoImageFileUrl != "" {
-			outputConfigs.Pxe.IsoImageFileUrl = inputConfigs.Pxe.IsoImageFileUrl
+		if newBootstrapFileUrl == "" && inputConfigs.Pxe.bootstrapFileUrl != "" {
+			outputConfigs.Pxe.bootstrapFileUrl = inputConfigs.Pxe.bootstrapFileUrl
 		}
 
-		// if IsoImageBaseUrl is being set in this run (i.e. newPxeIsoImageBaseUrl != ""),
-		// then make sure IsoImageFileUrl is unset (since both fields must be mutually
+		// if bootstrapBaseUrl is being set in this run (i.e. newBootstrapBaseUrl != ""),
+		// then make sure bootstrapFileUrl is unset (since both fields must be mutually
 		// exclusive) - and vice versa.
-		if newPxeIsoImageBaseUrl != "" {
-			outputConfigs.Pxe.IsoImageFileUrl = ""
+		if newBootstrapBaseUrl != "" {
+			outputConfigs.Pxe.bootstrapFileUrl = ""
 		}
 
-		if newPxeIsoImageFileUrl != "" {
-			outputConfigs.Pxe.IsoImageBaseUrl = ""
+		if newBootstrapFileUrl != "" {
+			outputConfigs.Pxe.bootstrapBaseUrl = ""
+		}
+
+		if newKernelVersion == "" {
+			outputConfigs.OS.KernelVersion = inputConfigs.OS.KernelVersion
 		}
 
 		// newOSDracutVersion can be nil if the input is an ISO and the

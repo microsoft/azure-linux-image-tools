@@ -13,45 +13,226 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/initrdutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/tarutils"
+
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
 
-// Tests:
-// - vhdx to ISO, with OS changes, and PXE image base URL.
-// - ISO to ISO, with no OS changes.
-// - Kernel command-line arg append.
-// - .iso.additionalFiles
-func TestCustomizeImageLiveCd1(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+func createConfig(fileName, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType, bootstrapFileUrl string,
+	enableOsConfig, bootstrapPrereqs bool, selinuxMode imagecustomizerapi.SELinuxMode) *imagecustomizerapi.Config {
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCd1")
-	buildDir := filepath.Join(testTempDir, "build")
-	outImageFileName := "image.iso"
-	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
-	pxeArtifactsPathVhdxToIso := ""
-	pxeArtifactsPathIsoToIso := ""
-	if baseImageVersionDefault != baseImageVersionAzl2 {
-		pxeArtifactsPathVhdxToIso = filepath.Join(testTempDir, "pxe-artifacts-vhdx-to-iso")
-		pxeArtifactsPathIsoToIso = filepath.Join(testTempDir, "pxe-artifacts-iso-to-iso")
+	bootstrapRequiredPkgs := []string{}
+	if bootstrapPrereqs {
+		bootstrapRequiredPkgs = []string{
+			"squashfs-tools",
+			"tar",
+			"device-mapper",
+			"curl",
+		}
 	}
-	pxeKernelIpArg := "linux.* ip=dhcp "
-	pxeImageFileUrlV1, err := url.JoinPath("http://my-pxe-server-1/", outImageFileName)
-	assert.NoError(t, err)
 
-	pxeKernelRootArgV1 := "linux.* root=live:" + pxeImageFileUrlV1
-	pxeKernelRootArgV1 = strings.ReplaceAll(pxeKernelRootArgV1, "/", "\\/")
-	pxeKernelRootArgV1 = strings.ReplaceAll(pxeKernelRootArgV1, ":", "\\:")
-	configFile := filepath.Join(testDir, "iso-files-and-args-config.yaml")
+	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled {
+		bootstrapRequiredPkgs = append(bootstrapRequiredPkgs, "selinux-policy")
+	}
 
-	// Customize vhdx to ISO, with OS changes.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso",
-		pxeArtifactsPathVhdxToIso, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
+	perms0o644 := imagecustomizerapi.FilePermissions(0o644)
 
-	// Attach ISO.
+	config := imagecustomizerapi.Config{
+		Iso: &imagecustomizerapi.Iso{
+			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
+				{
+					Source:      filepath.Join("files/", fileName),
+					Destination: filepath.Join("/", fileName),
+					Permissions: &perms0o644,
+				},
+			},
+			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
+				ExtraCommandLine: []string{kernelParameter},
+			},
+			InitramfsType: initramfsType,
+		},
+		Pxe: &imagecustomizerapi.Pxe{
+			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
+				{
+					Source:      filepath.Join("files/", fileName),
+					Destination: filepath.Join("/", fileName),
+					Permissions: &perms0o644,
+				},
+			},
+			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
+				ExtraCommandLine: []string{kernelParameter},
+			},
+			InitramfsType:    initramfsType,
+			BootstrapFileUrl: bootstrapFileUrl,
+		},
+	}
+
+	if enableOsConfig {
+		config.OS = &imagecustomizerapi.OS{
+			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
+				{
+					Source:      filepath.Join("files/", fileName),
+					Destination: filepath.Join("/", fileName),
+					// Need to ensure the packaged full OS supports setuid, setgid, and sticky bits.
+					Permissions: &perms0o644,
+				},
+			},
+			SELinux: imagecustomizerapi.SELinux{
+				Mode: selinuxMode,
+			},
+			Packages: imagecustomizerapi.Packages{
+				Install: bootstrapRequiredPkgs,
+			},
+		}
+	}
+
+	return &config
+}
+
+func VerifyBootstrapPresence(t *testing.T, initramfsType imagecustomizerapi.InitramfsImageType, bootstrapImagePath string) {
+
+	bootstrapImageExists, err := file.PathExists(bootstrapImagePath)
+	assert.NoErrorf(t, err, "check if (%s) bootstrapImagePath exists", bootstrapImagePath)
+
+	switch initramfsType {
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		assert.Equal(t, bootstrapImageExists, true)
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		assert.Equal(t, bootstrapImageExists, false)
+	}
+}
+
+func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir, outputFormat string, artifactsPath, bootstrappedImage string) {
+
+	// Check for the copied a.txt file.
+	var additionalFiles imagecustomizerapi.AdditionalFileList
+	var extraCommandLineParameters []string
+	var initramfsType imagecustomizerapi.InitramfsImageType
+	var pxeUrlBase string
+
+	if outputFormat == "iso" {
+		additionalFiles = config.Iso.AdditionalFiles
+		extraCommandLineParameters = config.Iso.KernelCommandLine.ExtraCommandLine
+		initramfsType = config.Iso.InitramfsType
+	} else {
+		additionalFiles = config.Pxe.AdditionalFiles
+		extraCommandLineParameters = config.Pxe.KernelCommandLine.ExtraCommandLine
+		initramfsType = config.Pxe.InitramfsType
+		pxeUrlBase = config.Pxe.BootstrapFileUrl
+	}
+
+	for _, additionalFile := range additionalFiles {
+		origFilePath := filepath.Join(testDir, additionalFile.Source)
+		fullOSFilePath := filepath.Join(artifactsPath, additionalFile.Destination)
+		verifyFileContentsSame(t, origFilePath, fullOSFilePath)
+		verifyFilePermissions(t, os.FileMode(*additionalFile.Permissions), fullOSFilePath)
+	}
+
+	// Ensure grub.cfg file has the extra kernel command-line args.
+	grubCfgFilePath := filepath.Join(artifactsPath, grubCfgDir, isoGrubCfg)
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+	assert.NoError(t, err, "read grub.cfg file")
+	for _, extraCommandLineParameter := range extraCommandLineParameters {
+		assert.Regexp(t, "linux.* "+extraCommandLineParameter+" ", grubCfgContents)
+	}
+
+	// Check the saved-configs.yaml file.
+	savedConfigsFilePath := filepath.Join(artifactsPath, savedConfigsDir, savedConfigsFileName)
+	savedConfigs := &SavedConfigs{}
+	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
+	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
+	for _, extraCommandLineParameter := range extraCommandLineParameters {
+		assert.Contains(t, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine, extraCommandLineParameter)
+	}
+
+	bootstrapImagePath := ""
+	if outputFormat == "iso" {
+		// The bootstrap file is a squashfs image file
+		bootstrapImagePath = filepath.Join(artifactsPath, liveOSDir, liveOSImage)
+	} else {
+		// The bootstrap file is an iso that contains the squashfs file
+		bootstrapImagePath = filepath.Join(artifactsPath, defaultIsoImageName)
+	}
+
+	VerifyBootstrapPresence(t, initramfsType, bootstrapImagePath)
+	VerifyFullOSContents(t, testTempDir, artifactsPath, outputFormat, config.OS, bootstrapImagePath, initramfsType)
+
+	if outputFormat == "pxe" {
+		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(bootstrappedImage), artifactsPath, pxeUrlBase)
+		}
+	}
+}
+
+func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat string, osConfig *imagecustomizerapi.OS, bootstrapImagePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
+	if osConfig == nil {
+		return
+	}
+	fullOsDir := filepath.Join(testTempDir, "full-os")
+
+	switch initramfsType {
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		fullOSImagePath := ""
+		if outputFormat == "iso" {
+			// The full OS image is the bootstrap image
+			fullOSImagePath = bootstrapImagePath
+		} else {
+			// The bootstrap file is an iso that contains the squashfs file
+			isoImageLoopDevice, err := safeloopback.NewLoopback(bootstrapImagePath)
+			if !assert.NoError(t, err) {
+				return
+			}
+			defer isoImageLoopDevice.Close()
+
+			isoMountDir := filepath.Join(testTempDir, "bootstrap-iso-mount")
+			isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
+				"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
+			if !assert.NoError(t, err) {
+				return
+			}
+			defer isoImageMount.Close()
+
+			fullOSImagePath = filepath.Join(isoMountDir, liveOSDir, liveOSImage)
+		}
+
+		// Attach squashfs file.
+		squashfsLoopDevice, err := safeloopback.NewLoopback(fullOSImagePath)
+		if !assert.NoError(t, err) {
+			return
+		}
+		defer squashfsLoopDevice.Close()
+
+		squashfsMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), fullOsDir,
+			"squashfs" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
+		if !assert.NoError(t, err) {
+			return
+		}
+		defer squashfsMount.Close()
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		fullOSImagePath := filepath.Join(artifactsPath, "boot/initrd.img")
+		// Expand initrd to a folder
+		err := initrdutils.CreateFolderFromInitrdImage(fullOSImagePath, fullOsDir)
+		if !assert.NoError(t, err) {
+			return
+		}
+		defer os.RemoveAll(fullOsDir)
+	}
+
+	// Check that each file is in the root file system.
+	for _, additionalFile := range osConfig.AdditionalFiles {
+		origFilePath := filepath.Join(testDir, additionalFile.Source)
+		fullOSFilePath := filepath.Join(fullOsDir, additionalFile.Destination)
+		verifyFileContentsSame(t, origFilePath, fullOSFilePath)
+		verifyFilePermissions(t, os.FileMode(*additionalFile.Permissions), fullOSFilePath)
+	}
+}
+
+func ValidateIsoContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string) {
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
@@ -66,220 +247,238 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	}
 	defer isoImageMount.Close()
 
-	// Check for the copied a.txt file.
-	aOrigPath := filepath.Join(testDir, "files/a.txt")
-	aIsoPath := filepath.Join(isoMountDir, "a.txt")
-	verifyFileContentsSame(t, aOrigPath, aIsoPath)
-
-	// Ensure grub.cfg file has the extra kernel command-line args.
-	grubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, "linux.* rd.info ", grubCfgContents)
-
-	// Check the saved-configs.yaml file.
-	savedConfigsFilePath := filepath.Join(isoMountDir, savedConfigsDir, savedConfigsFileName)
-	savedConfigs := &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
-	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
-	expectedKernelArgs := []string{"rd.info"}
-	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
-
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, isoMountDir, pxeKernelIpArg, pxeKernelRootArgV1,
-		pxeArtifactsPathVhdxToIso)
-
-	err = isoImageMount.CleanClose()
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	err = isoImageLoopDevice.CleanClose()
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Customize ISO to ISO, with no OS changes.
-	pxeImageFileUrlV2, err := url.JoinPath("http://my-pxe-server-2/", outImageFileName)
-	assert.NoError(t, err)
-
-	pxeKernelRootArgV2 := "linux.* root=live:" + pxeImageFileUrlV2
-	pxeKernelRootArgV2 = strings.ReplaceAll(pxeKernelRootArgV2, "/", "\\/")
-	pxeKernelRootArgV2 = strings.ReplaceAll(pxeKernelRootArgV2, ":", "\\:")
-
-	b2FilePerms := imagecustomizerapi.FilePermissions(0o600)
-	config := imagecustomizerapi.Config{
-		Pxe: &imagecustomizerapi.Pxe{
-			IsoImageFileUrl: pxeImageFileUrlV2,
-		},
-		Iso: &imagecustomizerapi.Iso{
-			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
-				ExtraCommandLine: []string{"rd.debug"},
-			},
-			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
-				{
-					Source:      "files/b.txt",
-					Destination: "/b1.txt",
-				},
-				{
-					Source:      "files/b.txt",
-					Destination: "/b2.txt",
-					Permissions: &b2FilePerms,
-				},
-			},
-		},
-	}
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "iso",
-		pxeArtifactsPathIsoToIso, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
-
-	// Attach ISO.
-	isoImageLoopDevice, err = safeloopback.NewLoopback(outImageFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer isoImageLoopDevice.Close()
-
-	isoImageMount, err = safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
-		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer isoImageMount.Close()
-
-	// Check that the a.txt stayed around.
-	verifyFileContentsSame(t, aOrigPath, aIsoPath)
-
-	// Check for copied b.txt file.
-	bOrigPath := filepath.Join(testDir, "files/b.txt")
-	b1IsoPath := filepath.Join(isoMountDir, "b1.txt")
-	b2IsoPath := filepath.Join(isoMountDir, "b2.txt")
-	verifyFileContentsSame(t, bOrigPath, b1IsoPath)
-	verifyFileContentsSame(t, bOrigPath, b2IsoPath)
-	verifyFilePermissions(t, os.FileMode(b2FilePerms), b2IsoPath)
-
-	// Ensure grub.cfg file has the extra kernel command-line args from both runs.
-	grubCfgContents, err = file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, "linux.* rd.info ", grubCfgContents)
-	assert.Regexp(t, "linux.* rd.debug ", grubCfgContents)
-
-	// Check the iso-kernel-args.txt file.
-	savedConfigs = &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
-	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
-	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
-
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, isoMountDir, pxeKernelIpArg, pxeKernelRootArgV2,
-		pxeArtifactsPathIsoToIso)
+	ValidateLiveOSContent(t, config, testTempDir, "iso" /*outputFormat*/, isoMountDir, "" /*bootstrappedImage*/)
 }
 
-func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, isoMountDir string, pxeKernelIpArg string,
-	pxeKernelRootArgV2 string, pxeArtifactsPathIsoToIso string) {
+func ValidatePxeContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir, outImageFilePath string) {
+	pxeArtifactsPath := ""
+	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
+		pxeArtifactsPath = filepath.Join(testTempDir, "pxe-artifacts")
+		err := tarutils.ExpandTarGzArchive(outImageFilePath, pxeArtifactsPath)
+		if !assert.NoError(t, err) {
+			return
+		}
+	} else {
+		pxeArtifactsPath = outImageFilePath
+	}
+
+	bootstrappedImage := ""
+	if config.Pxe != nil && config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		bootstrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
+	}
+
+	ValidateLiveOSContent(t, config, testTempDir, "pxe" /*outputFormat*/, pxeArtifactsPath, bootstrappedImage)
+}
+
+func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir, pxeBaseUrl string) {
+	var err error
+	pxeKernelIpArg := "linux.* ip=dhcp "
+
+	pxeImageFileUrl := ""
+	if strings.HasSuffix(pxeBaseUrl, ".iso") {
+		pxeImageFileUrl = pxeBaseUrl
+	} else {
+		pxeImageFileUrl, err = url.JoinPath(pxeBaseUrl, outImageFileName)
+		assert.NoError(t, err)
+	}
+
+	pxeKernelRootArg := "linux.* root=live:" + pxeImageFileUrl
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
 
 	// Check if PXE support is present in the Dracut package version in use.
-	err := verifyDracutPXESupport(packageInfo)
+	err = verifyDracutPXESupport(packageInfo)
 	if err != nil {
-		// If there is no PXE support, return
+		// If there is not PXE support, return
+		logger.Log.Infof("PXE is not supported for this Dracut version - skipping validation")
 		return
 	}
 
 	// Ensure grub-pxe.cfg file exists and has the pxe-specific command-line args.
-	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub-pxe.cfg")
+	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
 	pxeGrubCfgContents, err := file.Read(pxeGrubCfgFilePath)
-	assert.NoError(t, err, "read grub-pxe.cfg file")
+	assert.NoError(t, err, "read grub.cfg file")
 	assert.Regexp(t, pxeKernelIpArg, pxeGrubCfgContents)
-	assert.Regexp(t, pxeKernelRootArgV2, pxeGrubCfgContents)
-
-	exportedPxeGrubCfgFilePath := filepath.Join(pxeArtifactsPathIsoToIso, "boot/grub2/grub.cfg")
-	exportedPxeGrubCfgContents, err := file.Read(exportedPxeGrubCfgFilePath)
-	assert.NoError(t, err, "read pxe grub.cfg file")
-	assert.Equal(t, pxeGrubCfgContents, exportedPxeGrubCfgContents)
+	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
 }
 
 // Tests:
-// - vhdx to ISO, with no OS changes.
-// - ISO to ISO, with OS changes.
-func TestCustomizeImageLiveCd2(t *testing.T) {
+// - raw -> iso {bootstrap} -> iso {bootstrap} -> iso {full-os}
+//
+// - vhdx {raw}        to ISO {bootstrap}    , with selinux enforcing + bootstrap prereqs
+// - ISO  {bootstrap}  to ISO {bootstrap}    , with no OS changes
+// - ISO  {bootstrap}  to ISO {full-os}      , with selinux disabled
+func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCd2")
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1")
 	buildDir := filepath.Join(testTempDir, "build")
-	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	outIsoFilePath := filepath.Join(testTempDir, "image.iso")
+	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
-	// Customize vhdx with ISO prereqs.
-	configFile := filepath.Join(testDir, "iso-os-prereqs-config.yaml")
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
+	configA := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
+		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
 
-	// Customize image to ISO, with no OS changes.
-	config := imagecustomizerapi.Config{
-		Iso: &imagecustomizerapi.Iso{},
-	}
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outIsoFilePath, "iso",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
-
-	// Customize ISO to ISO, with OS changes.
-	configFile = filepath.Join(testDir, "addfiles-config.yaml")
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outIsoFilePath, nil, outIsoFilePath, "iso",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
-
-	// Attach ISO.
-	isoImageLoopDevice, err := safeloopback.NewLoopback(outIsoFilePath)
+	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
+	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer isoImageLoopDevice.Close()
 
-	isoMountDir := filepath.Join(testTempDir, "iso-mount")
-	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
-		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
+	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+
+	// ISO  {bootstrap} to ISO {bootstrap}, with no OS changes
+	configB := createConfig("b.txt", "rd.debug", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
+		false /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDefault)
+
+	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, "iso",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer isoImageMount.Close()
 
-	// Attach squashfs file.
-	squashfsPath := filepath.Join(isoMountDir, liveOSDir, liveOSImage)
-	squashfsLoopDevice, err := safeloopback.NewLoopback(squashfsPath)
+	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+
+	// - ISO {bootstrap} to ISO {full-os}, with selinux disabled
+	configC := createConfig("c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
+		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
+
+	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath, "iso",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer squashfsLoopDevice.Close()
 
-	squashfsMountDir := filepath.Join(testTempDir, "iso-squashfs")
-	squashfsMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), squashfsMountDir,
-		"squashfs" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer squashfsMount.Close()
-
-	// Check that a.txt is in the squashfs file.
-	aOrigPath := filepath.Join(testDir, "files/a.txt")
-	aIsoPath := filepath.Join(squashfsMountDir, "/mnt/a/a.txt")
-	verifyFileContentsSame(t, aOrigPath, aIsoPath)
+	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 }
 
-func TestCustomizeImageLiveCdIsoNoShimEfi(t *testing.T) {
+// Tests:
+// - raw -> iso {full-os} -> iso {full-os} -> iso {bootstrap}
+//
+// - vhdx {raw}        to ISO {full-os}      , with selinux disabled
+// - ISO  {full-os}    to ISO {full-os}      , with selinux disabled
+// - ISO  {full-os}    to ISO {bootstrap}    , with selinux enforcing + bootstrap prereqs
+func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs2")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
+
+	// vhdx {raw} to ISO {full-os}, with selinux disabled
+	configA := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
+		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
+
+	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
+
+	// ISO  {full-os} to ISO {full-os}, with selinux disabled
+	configB := createConfig("b.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
+		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
+
+	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, "iso",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
+
+	// - ISO {full-os} to ISO {bootstrap}, with selinux enforcing
+	configC := createConfig("c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
+		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
+
+	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath, "iso",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+}
+
+// Tests:
+// - vhdx {raw} to ISO {full-os}, with selinux enabled -> error
+func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs3")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
+
+	// vhdx {raw} to ISO {full-os}, with selinux disabled
+	configA := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
+		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
+
+	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
+}
+
+// Tests:
+// - vhdx {raw} to PXE {bootstrap}, with selinux enforcing
+func TestCustomizeImageLiveOSPxe1(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe1")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
+	pxeBootstrapUrl := "http://my-pxe-server-1/" + defaultIsoImageName
+
+	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, pxeBootstrapUrl,
+		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
+
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ValidatePxeContent(t, config, testTempDir, outImageFilePath)
+}
+
+// Tests:
+// - vhdx {raw} to PXE {full-os}, with selinux disabled
+func TestCustomizeImageLiveOSPxe2(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe2")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
+
+	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
+		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
+
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ValidatePxeContent(t, config, testTempDir, outImageFilePath)
+}
+
+func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
 	for _, version := range supportedAzureLinuxVersions {
 
 		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageLiveCdIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+string(version),
+			testCustomizeImageLiveOSIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+string(version),
 				version)
 		})
 
 	}
 }
 
-func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, version baseImageVersion) {
+func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, version baseImageVersion) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, version)
 
 	buildDir := filepath.Join(tmpDir, testName)
-	outImageFilePath := filepath.Join(buildDir, "image.iso")
+	outImageFilePath := filepath.Join(buildDir, defaultIsoImageName)
 	shimPackage := "shim"
 
 	// For arm64 and baseImageVersionAzl2, the shim package is shim-unsigned.
@@ -299,16 +498,16 @@ func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, version
 
 	// Customize image.
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
 
-func TestCustomizeImageLiveCdIsoNoGrubEfi(t *testing.T) {
+func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCdIso")
-	outImageFilePath := filepath.Join(buildDir, "image.iso")
+	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
+	outImageFilePath := filepath.Join(buildDir, defaultIsoImageName)
 
 	config := &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
@@ -322,7 +521,7 @@ func TestCustomizeImageLiveCdIsoNoGrubEfi(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }
