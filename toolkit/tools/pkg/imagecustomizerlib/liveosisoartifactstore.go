@@ -457,6 +457,7 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	infoStore = &IsoInfoStore{
+		kernelVersion:            savedConfigs.OS.KernelVersion,
 		dracutPackageInfo:        savedConfigs.OS.DracutPackageInfo,
 		selinuxPolicyPackageInfo: savedConfigs.OS.SELinuxPolicyPackageInfo,
 	}
@@ -465,7 +466,7 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 }
 
 func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
-	logger.Log.Debugf("Creating ISO store (%s)", storeDir)
+	logger.Log.Infof("Creating ISO store (%s) from (%s)", storeDir, imageRootDir)
 
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
@@ -490,7 +491,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 }
 
 func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
-	logger.Log.Debugf("Creating ISO store (%s)", storeDir)
+	logger.Log.Infof("Creating ISO store (%s) from (%s)", storeDir, isoImageFile)
 
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
