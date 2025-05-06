@@ -207,7 +207,7 @@ func extractIsoImageContents(buildDir string, isoImageFile string, isoExpansionF
 
 	err = os.MkdirAll(isoExpansionFolder, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create folder %s:\n%w", isoExpansionFolder, err)
+		return fmt.Errorf("failed to create folder (%s):\n%w", isoExpansionFolder, err)
 	}
 
 	err = copyPartitionFiles(mountDir+"/.", isoExpansionFolder)

@@ -1,0 +1,24 @@
+pxe:
+  additionalFiles:
+  - source: files/a.txt
+    destination: /a.txt
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+  initramfsType: bootstrap
+  bootstrapFileUrl: http://my-pxe-server-1/image.iso
+iso:
+  additionalFiles:
+  - source: files/a.txt
+    destination: /a.txt
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+  initramfsType: bootstrap
+os:
+  packages:
+    install:
+    - squashfs-tools
+    - tar
+    - device-mapper
+    - curl
