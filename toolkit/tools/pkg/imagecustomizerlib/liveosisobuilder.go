@@ -115,7 +115,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 		}
 	}
 
-	// Update grug.cfg
+	// Update grub.cfg
 	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
 		updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
@@ -146,6 +146,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	}
 	artifactsStore.files.squashfsImagePath = outputSquashfsPath
 
+	// Generate the final iso image
 	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
@@ -194,11 +195,13 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	// selinux and not enable it either.
 	disableSELinux := false
 
+	// Update grub.cfg
 	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
+	// Generate the final iso image
 	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, inputArtifactsStore, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
