@@ -271,7 +271,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *Live
 
 	// Update grug.cfg
 	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
-		updatedSavedConfigs, outputImageBase)
+		updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
