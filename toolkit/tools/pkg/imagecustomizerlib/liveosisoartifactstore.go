@@ -121,8 +121,8 @@ func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxM
 	return imageSELinuxMode, nil
 }
 
-func createIsoFilesStoreFromMountedImage(buildDir, imageRootDir string) (filesStore *IsoFilesStore, err error) {
-	artifactsDir := filepath.Join(buildDir, "artifacts")
+func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (filesStore *IsoFilesStore, err error) {
+	artifactsDir := filepath.Join(storeDir, "artifacts")
 
 	filesStore = &IsoFilesStore{
 		artifactsDir:         artifactsDir,
@@ -247,6 +247,54 @@ func createIsoFilesStoreFromMountedImage(buildDir, imageRootDir string) (filesSt
 		}
 	}
 
+	if inputArtifactsStore != nil && inputArtifactsStore.files != nil {
+
+		// Copy the saved config files from the input iso store
+		inputSavedConfigsFilePath := inputArtifactsStore.files.savedConfigsFilePath
+		exists, err := file.PathExists(inputSavedConfigsFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if the saved config file (%s) exists in the input iso.\n%w", inputSavedConfigsFilePath, err)
+		}
+		if exists {
+			err = file.Copy(inputSavedConfigsFilePath, filesStore.savedConfigsFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to copy save configuration file from (%s) to (%s):\n%w",
+					inputSavedConfigsFilePath, filesStore.savedConfigsFilePath, err)
+			}
+		}
+
+		// If we started from an input iso (not an input vhd(x)/qcow), then there
+		// might be additional files that are not defined in the current user
+		// configuration. Below, we loop through the files we have captured so far
+		// and append any file that was in the input iso and is not included
+		// already. This also ensures that no file from the input iso overwrites
+		// a newer version that has just been created.
+
+		// Copy the addition files from the input iso store
+		for inputSourceFile, inputTargetFile := range inputArtifactsStore.files.additionalFiles {
+			found := false
+			for _, targetFile := range filesStore.additionalFiles {
+				if inputTargetFile == targetFile {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				// Copy the file from the 'input' store to the 'current' store.
+				relativeFilePath := strings.TrimPrefix(inputSourceFile, inputArtifactsStore.files.artifactsDir)
+				currentSourceFile := filepath.Join(filesStore.artifactsDir, relativeFilePath)
+				err = file.Copy(inputSourceFile, currentSourceFile)
+				if err != nil {
+					return nil, fmt.Errorf("failed to copy (%s) to (%s):\n%w", inputSourceFile, currentSourceFile, err)
+				}
+
+				// Update map
+				filesStore.additionalFiles[currentSourceFile] = inputTargetFile
+			}
+		}
+	}
+
 	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {
 		return nil, err
@@ -266,7 +314,7 @@ func createIsoFilesStoreFromMountedImage(buildDir, imageRootDir string) (filesSt
 	return filesStore, nil
 }
 
-func createIsoInfoStoreFromMountedImage(buildDir, imageRootDir string) (infoStore *IsoInfoStore, err error) {
+func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
 	kernelVersion, err := findKernelVersion(imageRootDir)
@@ -310,15 +358,15 @@ func createIsoInfoStoreFromMountedImage(buildDir, imageRootDir string) (infoStor
 	return infoStore, nil
 }
 
-func createIsoFilesStoreFromIsoImage(buildDir, isoImageFile string) (filesStore *IsoFilesStore, err error) {
-	artifactsDir := filepath.Join(buildDir, "artifacts")
+func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore *IsoFilesStore, err error) {
+	artifactsDir := filepath.Join(storeDir, "artifacts")
 
 	filesStore = &IsoFilesStore{
 		artifactsDir:         artifactsDir,
 		savedConfigsFilePath: filepath.Join(artifactsDir, savedConfigsDir, savedConfigsFileName),
 	}
 
-	err = extractIsoImageContents(buildDir, isoImageFile, filesStore.artifactsDir)
+	err = extractIsoImageContents(storeDir, isoImageFile, filesStore.artifactsDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract iso contents from input iso file (%s):\n%w", isoImageFile, err)
 	}
@@ -406,16 +454,23 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	return infoStore, nil
 }
 
-func createIsoArtifactStoreFromMountedImage(buildDir, imageRootDir string) (artifactStore *IsoArtifactsStore, err error) {
+func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
+	logger.Log.Debugf("Creating ISO store (%s)", storeDir)
+
+	err = os.MkdirAll(storeDir, os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create folder %s:\n%w", storeDir, err)
+	}
+
 	artifactStore = &IsoArtifactsStore{}
 
-	filesStore, err := createIsoFilesStoreFromMountedImage(buildDir, imageRootDir)
+	filesStore, err := createIsoFilesStoreFromMountedImage(inputArtifactsStore, imageRootDir, storeDir)
 	if err != nil {
 		return nil, err
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(buildDir, imageRootDir)
+	infoStore, err := createIsoInfoStoreFromMountedImage(imageRootDir)
 	if err != nil {
 		return nil, err
 	}
@@ -424,10 +479,17 @@ func createIsoArtifactStoreFromMountedImage(buildDir, imageRootDir string) (arti
 	return artifactStore, nil
 }
 
-func createIsoArtifactStoreFromIsoImage(buildDir, isoImageFile string) (artifactStore *IsoArtifactsStore, err error) {
+func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
+	logger.Log.Debugf("Creating ISO store (%s)", storeDir)
+
+	err = os.MkdirAll(storeDir, os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create folder %s:\n%w", storeDir, err)
+	}
+
 	artifactStore = &IsoArtifactsStore{}
 
-	filesStore, err := createIsoFilesStoreFromIsoImage(buildDir, isoImageFile)
+	filesStore, err := createIsoFilesStoreFromIsoImage(isoImageFile, storeDir)
 	if err != nil {
 		return nil, err
 	}
@@ -440,4 +502,67 @@ func createIsoArtifactStoreFromIsoImage(buildDir, isoImageFile string) (artifact
 	artifactStore.info = infoStore
 
 	return artifactStore, nil
+}
+
+func fileExistsToString(filePath string) string {
+	exists, err := file.PathExists(filePath)
+	if err != nil {
+		return fmt.Sprintf("%s (failed to check file):%s", filePath, err.Error())
+	}
+	if exists {
+		return " e " + filePath
+	}
+	return "!e " + filePath
+}
+
+func dumpFilesStore(filesStore *IsoFilesStore) {
+	logger.Log.Debugf("Files Store")
+	if filesStore == nil {
+		logger.Log.Debugf("-- not defined")
+		return
+	}
+	logger.Log.Debugf("-- artifactsDir             = %s", fileExistsToString(filesStore.artifactsDir))
+	logger.Log.Debugf("-- bootEfiPath              = %s", fileExistsToString(filesStore.bootEfiPath))
+	logger.Log.Debugf("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
+	logger.Log.Debugf("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
+	logger.Log.Debugf("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
+	logger.Log.Debugf("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
+	logger.Log.Debugf("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
+	logger.Log.Debugf("-- vmlinuzPath              = %s", fileExistsToString(filesStore.vmlinuzPath))
+	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
+	logger.Log.Debugf("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
+	logger.Log.Debugf("-- additionalFiles          =")
+	for key, value := range filesStore.additionalFiles {
+		logger.Log.Debugf("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
+	}
+}
+
+func dumpInfoStore(infoStore *IsoInfoStore) {
+	logger.Log.Debugf("Info Store")
+	if infoStore == nil {
+		logger.Log.Debugf("-- not defined")
+		return
+	}
+	logger.Log.Debugf("-- kernelVersion        = %s", infoStore.kernelVersion)
+	logger.Log.Debugf("-- seLinuxMode          = %s", infoStore.seLinuxMode)
+	if infoStore.dracutPackageInfo != nil {
+		logger.Log.Debugf("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
+	} else {
+		logger.Log.Debugf("-- dracut package info  = unavailable")
+	}
+	if infoStore.selinuxPolicyPackageInfo != nil {
+		logger.Log.Debugf("-- selinux package info = %s", infoStore.selinuxPolicyPackageInfo.getFullVersionString())
+	} else {
+		logger.Log.Debugf("-- selinux package info = unavailable")
+	}
+}
+
+func dumpArtifactsStore(artifactStore *IsoArtifactsStore, title string) {
+	logger.Log.Debugf("Artifacts Store - %s", title)
+	if artifactStore == nil {
+		logger.Log.Debugf("-- not defined")
+		return
+	}
+	dumpFilesStore(artifactStore.files)
+	dumpInfoStore(artifactStore.info)
 }
