@@ -35,35 +35,22 @@ def download_trivy():
 
     machine = platform.machine()
     arch = "64bit"
+    expected_sha256 = "dcc6f48c383833f3a8ee0380f7990a17c89e36553cdf34e1f2d3159f9d8270ec"
     if machine == "aarch64":
         arch = "ARM64"
+        expected_sha256 = "a2f28808626ae08877279e13a32d9cc8f845bdfdc762a692b2f32768326208a6"
 
     TRIVY_FILENAME = f"trivy_{TRIVY_VERSION}_Linux-{arch}.tar.gz"
     TRIVY_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/{TRIVY_FILENAME}"
-    CHECKSUMS_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/trivy_{TRIVY_VERSION}_checksums.txt"
     BIN_PATH = "/usr/local/bin/trivy"
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tar_path = os.path.join(tmpdir, TRIVY_FILENAME)
-        checksum_path = os.path.join(tmpdir, "checksums.txt")
 
         try:
             urllib.request.urlretrieve(TRIVY_URL, tar_path)
-            urllib.request.urlretrieve(CHECKSUMS_URL, checksum_path)
         except Exception as e:
             print(f"Download Trivy failed: {e}")
-            sys.exit(1)
-
-        print("Verifying checksum...")
-        expected_hash = None
-        with open(checksum_path) as f:
-            for line in f:
-                if TRIVY_FILENAME in line:
-                    expected_hash = line.split()[0]
-                    break
-
-        if not expected_hash:
-            print("Could not find expected checksum in checksums file.")
             sys.exit(1)
 
         sha256 = hashlib.sha256()
@@ -72,14 +59,13 @@ def download_trivy():
                 sha256.update(chunk)
 
         print("Verifying checksum...")
-        if sha256.hexdigest() != expected_hash:
+        if sha256.hexdigest() != expected_sha256:
             print("SHA256 checksum does not match!")
             sys.exit(1)
 
         with tarfile.open(tar_path, "r:gz") as tar:
             tar.extractall(path=tmpdir)
 
-        subprocess.run(["ls", tmpdir], check=True)
         subprocess.run(["sudo", "mv", os.path.join(tmpdir, "trivy"), BIN_PATH], check=True)
         os.remove(tar_path)
 
