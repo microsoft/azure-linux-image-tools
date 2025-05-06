@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -102,12 +103,14 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 				signedName := replaceSuffix(entry.Name(), ".unsigned.efi", ".signed.efi")
 				source := "./" + signedName
 				unsignedSource := "./" + entry.Name()
-				destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
+				// ToDo: use default unsigned name for UKI.
+				//
+				// destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
 
 				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 					Partition:      partition,
 					Source:         source,
-					Destination:    filepath.Join("/", UkiOutputDir, destinationName),
+					Destination:    filepath.Join("/", UkiOutputDir, entry.Name()),
 					UnsignedSource: unsignedSource,
 				})
 			}
@@ -282,6 +285,48 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
+	// ToDo: prepare COSI image converting.
+	//
+	rootfsPartition, err := findRootfsPartition(diskPartitions, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to find rootfs partition:\n%w", err)
+	}
+
+	fstabEntries, osRelease, err := readFstabEntriesFromRootfs(rootfsPartition, diskPartitions, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+	}
+
+	_, partUuidToFstabEntry, baseImageVerityMetadata, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
+	}
+
+	logger.Log.Debugf("Resolved partUuidToFstabEntry map:")
+	for partuuid, entry := range partUuidToFstabEntry {
+		logger.Log.Debugf("  %s → target=%s, source=%s, fsType=%s, options=%s, fsOptions=%s, vfsOptions=%d, freq=%d, passno=%d",
+			partuuid, entry.Target, entry.Source, entry.FsType, entry.Options, entry.FsOptions, entry.VfsOptions, entry.Freq, entry.PassNo)
+	}
+
+	logger.Log.Debugf("Resolved base image verity metadata:")
+	for _, v := range baseImageVerityMetadata {
+		logger.Log.Debugf("  name=%s, rootHash=%s", v.name, v.rootHash)
+		logger.Log.Debugf("    dataPartition: idType=%s, id=%s", v.dataDeviceMountIdType, v.dataPartUuid)
+		logger.Log.Debugf("    hashPartition: idType=%s, id=%s", v.hashDeviceMountIdType, v.hashPartUuid)
+		logger.Log.Debugf("    corruptionOption=%s, hashSignaturePath=%s", v.corruptionOption, v.hashSignaturePath)
+	}
+
+	logger.Log.Debugf("OSRelease=%s", osRelease)
+
+	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
+
+	imageUuid, imageUuidStr, err := createUuid()
+	if err != nil {
+		return err
+	}
+
+	// ToDo: ABOVE are preparing COSI image converting.
+	//
 	partitionsToMountpoints := make(map[imagecustomizerapi.InjectFilePartition]string)
 	var mountedPartitions []*safemount.Mount
 
@@ -323,12 +368,63 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
-	if err != nil {
-		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+		err := convertToCosiWhenInject(buildDirAbs, rawImageFile, outputImageBase, imageUuid, imageUuidStr, outputImageFile,
+			baseImageVerityMetadata, partUuidToFstabEntry, osRelease)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+		}
 	}
 
 	logger.Log.Infof("Success!")
+
+	return nil
+}
+
+func convertToCosiWhenInject(buildDirAbs string, rawImageFile string, outputImageBase string,
+	imageUuid [UuidSize]byte, imageUuidStr string, outputImageFile string, baseImageVerityMetadata []verityDeviceMetadata,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, osRelease string,
+) error {
+	logger.Log.Infof("Extracting partition files")
+	outputDir := filepath.Join(buildDirAbs, "cosiimages")
+	err := os.MkdirAll(outputDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
+	}
+	defer os.Remove(outputDir)
+
+	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
+	if err != nil {
+		return err
+	}
+	defer imageLoopback.Close()
+
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
+		"raw-zst", imageUuid)
+	if err != nil {
+		return err
+	}
+	for _, partition := range partitionMetadataOutput {
+		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
+	}
+
+	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, baseImageVerityMetadata,
+		partUuidToFstabEntry, imageUuidStr, osRelease)
+	if err != nil {
+		return fmt.Errorf("failed to build COSI file:\n%w", err)
+	}
+
+	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
+
+	err = imageLoopback.CleanClose()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
