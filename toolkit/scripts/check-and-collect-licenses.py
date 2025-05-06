@@ -7,11 +7,14 @@ import io
 import json
 import os
 from pathlib import Path
+import platform
 import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import urllib
+import urllib.request
 
 REPO_ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
 OUTPUT_DIR = Path(REPO_ROOT) / "toolkit" / "out"
@@ -23,7 +26,6 @@ def download_trivy():
     TRIVY_VERSION = "0.61.1"
     TRIVY_FILENAME = f"trivy_{TRIVY_VERSION}_Linux-64bit.tar.gz"
     TRIVY_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/{TRIVY_FILENAME}"
-    EXPECTED_SHA256 = "dcc6f48c383833f3a8ee0380f7990a17c89e36553cdf34e1f2d3159f9d8270ec"
 
     print("Downloading Trivy...")
 
@@ -31,23 +33,55 @@ def download_trivy():
         print("Trivy is already installed. Skipping installation.")
         return
 
-    urllib.request.urlretrieve(TRIVY_URL, TRIVY_FILENAME)
+    machine = platform.machine()
+    arch = "64bit"
+    if machine == "aarch64":
+        arch = "ARM64"
 
-    print("Verifying checksum...")
-    sha256 = hashlib.sha256()
-    with open(TRIVY_FILENAME, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            sha256.update(chunk)
-    if sha256.hexdigest() != EXPECTED_SHA256:
-        print("SHA256 checksum does not match!")
-        sys.exit(1)
+    TRIVY_FILENAME = f"trivy_{TRIVY_VERSION}_Linux-{arch}.tar.gz"
+    TRIVY_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/{TRIVY_FILENAME}"
+    CHECKSUMS_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/trivy_{TRIVY_VERSION}_checksums.txt"
+    BIN_PATH = "/usr/local/bin/trivy"
 
-    with tarfile.open(TRIVY_FILENAME, "r:gz") as tar:
-        tar.extractall()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tar_path = os.path.join(tmpdir, TRIVY_FILENAME)
+        checksum_path = os.path.join(tmpdir, "checksums.txt")
 
-    shutil.move("trivy", "/usr/local/bin/trivy")
+        try:
+            urllib.request.urlretrieve(TRIVY_URL, tar_path)
+            urllib.request.urlretrieve(CHECKSUMS_URL, checksum_path)
+        except Exception as e:
+            print(f"Download Trivy failed: {e}")
+            sys.exit(1)
 
-    os.remove(TRIVY_FILENAME)
+        print("Verifying checksum...")
+        expected_hash = None
+        with open(checksum_path) as f:
+            for line in f:
+                if TRIVY_FILENAME in line:
+                    expected_hash = line.split()[0]
+                    break
+
+        if not expected_hash:
+            print("Could not find expected checksum in checksums file.")
+            sys.exit(1)
+
+        sha256 = hashlib.sha256()
+        with open(tar_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+
+        print("Verifying checksum...")
+        if sha256.hexdigest() != expected_hash:
+            print("SHA256 checksum does not match!")
+            sys.exit(1)
+
+        with tarfile.open(tar_path, "r:gz") as tar:
+            tar.extractall(path=tmpdir)
+
+        subprocess.run(["ls", tmpdir], check=True)
+        subprocess.run(["sudo", "mv", os.path.join(tmpdir, "trivy"), BIN_PATH], check=True)
+        os.remove(tar_path)
 
     print("Trivy installed successfully.")
 
