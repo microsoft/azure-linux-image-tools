@@ -52,7 +52,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 		return nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
-	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, partitions, buildDir)
+	fstabEntries, _, err := readFstabEntriesFromRootfs(rootfsPartition, partitions, buildDir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
