@@ -5,11 +5,15 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
+
+	"github.com/cavaliercoder/go-cpio"
+	"github.com/klauspost/pgzip"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -29,6 +33,10 @@ add_drivers+=" overlay "
 hostonly="no"
 `
 
+	initScriptFileName = "init"
+	initContent        = `mount -t proc proc /proc
+/lib/systemd/systemd`
+
 	// the total size of a collection of files is multiplied by the
 	// expansionSafetyFactor to estimate a disk size sufficient to hold those
 	// files.
@@ -39,7 +47,116 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-func createInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
+func createInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
+	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+
+	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
+	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
+	err := os.Remove(fstabFile)
+	if err != nil {
+		return fmt.Errorf("failed to delete fstab:\n%w", err)
+	}
+
+	initScriptPath := filepath.Join(writeableRootfsDir, initScriptFileName)
+	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create (%s):\n%w", initScriptPath, err)
+	}
+
+	outputFile, err := os.Create(outputInitrdPath)
+	if err != nil {
+		return fmt.Errorf("failed to create file (%s):\n%w", outputInitrdPath, err)
+	}
+	defer outputFile.Close()
+
+	gzipWriter := pgzip.NewWriter(outputFile)
+	defer gzipWriter.Close()
+
+	cpioWriter := cpio.NewWriter(gzipWriter)
+	defer func() {
+		closeErr := cpioWriter.Close()
+		if err != nil {
+			err = closeErr
+		}
+	}()
+
+	err = filepath.Walk(writeableRootfsDir, func(path string, info os.FileInfo, fileErr error) (err error) {
+		if fileErr != nil {
+			logger.Log.Warnf("File walk error on path (%s), error: %s", path, fileErr)
+			return fileErr
+		}
+		err = addFileToArchive(writeableRootfsDir, path, info, cpioWriter)
+		if err != nil {
+			logger.Log.Warnf("Failed to add (%s), error: %s", path, err)
+		}
+		return nil
+	})
+
+	return nil
+}
+
+func addFileToArchive(inputDir, path string, info os.FileInfo, cpioWriter *cpio.Writer) (err error) {
+	// Get the relative path of the file compared to the input directory.
+	// The input directory should be considered the "root" of the cpio archive.
+	relPath, err := filepath.Rel(inputDir, path)
+	if err != nil {
+		return
+	}
+
+	// logger.Log.Debugf("Adding to initrd: %s", relPath)
+
+	// Symlinks need to be resolved to their target file to be added to the cpio archive.
+	var link string
+	if info.Mode()&os.ModeSymlink != 0 {
+		link, err = os.Readlink(path)
+		if err != nil {
+			return
+		}
+
+		// logger.Log.Debugf("--> Adding link: (%s) -> (%s)", relPath, link)
+	}
+
+	// Convert the OS header into a CPIO header
+	header, err := cpio.FileInfoHeader(info, link)
+	if err != nil {
+		return
+	}
+
+	// The default OS header will only have the filename as "Name".
+	// Manually set the CPIO header's Name field to the relative path so it
+	// is extracted to the correct directory.
+	header.Name = relPath
+
+	err = cpioWriter.WriteHeader(header)
+	if err != nil {
+		return
+	}
+
+	// Special files (unix sockets, directories, symlinks, ...) need to be handled differently
+	// since a simple byte transfer of the file's content into the CPIO archive can't be achieved.
+	if !info.Mode().IsRegular() {
+		// For a symlink the reported size will be the size (in bytes) of the link's target.
+		// Write this data into the archive.
+		if info.Mode()&os.ModeSymlink != 0 {
+			_, err = cpioWriter.Write([]byte(link))
+		}
+
+		// For all other special files, they will be of size 0 and only contain the header in the archive.
+		return
+	}
+
+	// For regular files, open the actual file and copy its content into the archive.
+	fileToAdd, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer fileToAdd.Close()
+
+	_, err = io.Copy(cpioWriter, fileToAdd)
+	return
+}
+
+func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
 	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
@@ -154,11 +271,21 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 
 	// map of file full local path to location on iso media.
 	artifactsToIsoMap := map[string]string{
-		filesStore.isoBootImagePath:  "boot/grub2",
-		filesStore.isoGrubCfgPath:    "boot/grub2",
-		filesStore.vmlinuzPath:       "boot",
-		filesStore.initrdImagePath:   "boot",
-		filesStore.squashfsImagePath: "liveos",
+		filesStore.isoBootImagePath: "boot/grub2",
+		filesStore.isoGrubCfgPath:   "boot/grub2",
+		filesStore.vmlinuzPath:      "boot",
+		filesStore.initrdImagePath:  "boot",
+	}
+
+	// Add optional squashfs file if it exists.
+	if filesStore.squashfsImagePath != "" {
+		exists, err := file.PathExists(filesStore.squashfsImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.squashfsImagePath, err)
+		}
+		if exists {
+			artifactsToIsoMap[filesStore.squashfsImagePath] = "liveos"
+		}
 	}
 
 	// Add optional saved config file if it exists.

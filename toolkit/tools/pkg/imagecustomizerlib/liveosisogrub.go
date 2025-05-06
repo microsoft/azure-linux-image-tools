@@ -29,7 +29,7 @@ const (
 	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
 )
 
-func updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
+func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string, pxeGrubCfgFileName string,
 	disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
 
 	inputContentString, err := file.Read(isoGrubCfgFileName)
@@ -78,10 +78,19 @@ func updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
 		}
 	}
 
-	rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
-	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
-	if err != nil {
-		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
+	liveosKernelArgs := ""
+	if outputIsoInitrdSelfContained {
+		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", "/dev/ram0")
+		if err != nil {
+			return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
+		}
+	} else {
+		rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
+		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
+		if err != nil {
+			return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
+		}
+		liveosKernelArgs = fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
 	}
 
 	if disableSELinux {
@@ -92,7 +101,6 @@ func updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
 		}
 	}
 
-	liveosKernelArgs := fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
 	savedArgs := GrubArgsToString(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
@@ -105,6 +113,8 @@ func updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
 	if err != nil {
 		return fmt.Errorf("failed to write %s:\n%w", isoGrubCfgFileName, err)
 	}
+
+	logger.Log.Debugf(inputContentString)
 
 	// Check if the dracut version in use meets our minimum requirements for
 	// PXE support.
