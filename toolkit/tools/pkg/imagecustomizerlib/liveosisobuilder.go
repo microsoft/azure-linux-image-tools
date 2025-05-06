@@ -14,121 +14,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
-const (
-	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
-	isoBootloaderDir   = "/efi/boot"
-
-	bootx64Binary  = "bootx64.efi"
-	bootAA64Binary = "bootaa64.efi"
-
-	grubx64Binary  = "grubx64.efi"
-	grubAA64Binary = "grubaa64.efi"
-
-	grubx64NoPrefixBinary  = "grubx64-noprefix.efi"
-	grubAA64NoPrefixBinary = "grubaa64-noprefix.efi"
-
-	systemdBootx64Binary  = "systemd-bootx64.efi"
-	systemdBootAA64Binary = "systemd-bootaa64.efi"
-
-	grubCfgDir     = "/boot/grub2"
-	isoGrubCfg     = "grub.cfg"
-	isoGrubCfgPath = grubCfgDir + "/" + isoGrubCfg
-
-	pxeGrubCfg                 = "grub-pxe.cfg"
-	pxeKernelsArgs             = "ip=dhcp rd.live.azldownloader=enable"
-	pxeImageBaseUrlPlaceHolder = "http://pxe-image-base-url-place-holder"
-
-	searchCommandTemplate   = "search --label %s --set root"
-	rootValueLiveOSTemplate = "live:LABEL=%s"
-	rootValuePxeTemplate    = "live:%s"
-
-	isoBootDir  = "boot"
-	initrdImage = "initrd.img"
-	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
-	// In the ISO image, the kernel is named 'vmlinuz'.
-	vmLinuzPrefix     = "vmlinuz"
-	isoInitrdPath     = "/boot/" + initrdImage
-	isoKernelPath     = "/boot/vmlinuz"
-	isoBootloadersDir = "/efi/boot"
-	isoBootImagePath  = "/boot/grub2/efiboot.img"
-
-	// This folder is necessary to include in the initrd image so that the
-	// emergency shell can work correctly with the keyboard.
-	usrLibLocaleDir = "/usr/lib/locale"
-
-	// kernel arguments template
-	kernelArgsLiveOSTemplate = " rd.shell rd.live.image rd.live.dir=%s rd.live.squashimg=%s rd.live.overlay=1 rd.live.overlay.overlayfs rd.live.overlay.nouserconfirmprompt "
-
-	liveOSDir       = "liveos"
-	liveOSImage     = "rootfs.img"
-	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
-
-	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
-add_drivers+=" overlay "
-hostonly="no"
-`
-	// the total size of a collection of files is multiplied by the
-	// expansionSafetyFactor to estimate a disk size sufficient to hold those
-	// files.
-	expansionSafetyFactor = 1.5
-)
-
-type BootFilesArchConfig struct {
-	bootBinary                  string
-	grubBinary                  string
-	grubNoPrefixBinary          string
-	systemdBootBinary           string
-	osEspBootBinaryPath         string
-	osEspGrubBinaryPath         string
-	osEspGrubNoPrefixBinaryPath string
-	isoBootBinaryPath           string
-	isoGrubBinaryPath           string
-}
-
-type IsoWorkingDirs struct {
-	// 'isoBuildDir' is where intermediate files will be placed during the
-	// build.
-	isoBuildDir string
-}
-
-type LiveOSIsoBuilder struct {
-	workingDirs IsoWorkingDirs
-	artifacts   *IsoArtifactsStore
-	cleanupDirs []string
-}
-
-func (b *LiveOSIsoBuilder) addCleanupDir(dirName string) {
-	b.cleanupDirs = append(b.cleanupDirs, dirName)
-}
-
-func (b *LiveOSIsoBuilder) cleanUp() error {
-	var err error
-	for i := len(b.cleanupDirs) - 1; i >= 0; i-- {
-		cleanupErr := os.RemoveAll(b.cleanupDirs[i])
-		if cleanupErr != nil {
-			if err != nil {
-				err = fmt.Errorf("%w:\nfailed to remove (%s): %w", err, b.cleanupDirs[i], cleanupErr)
-			} else {
-				err = fmt.Errorf("failed to clean-up (%s): %w", b.cleanupDirs[i], cleanupErr)
-			}
-		}
-	}
-	return err
-}
-
-// populateWriteableRootfsDir
-//
-//	copies the contents of the rootfs partition unto the build machine.
-//
-// input:
-//   - 'sourceDir'
-//     path to full image mount root.
-//   - 'writeableRootfsDir'
-//     path to the folder where the contents of the rootfsDevice will be
-//     copied to.
-//
-// output:
-//   - writeableRootfsDir will hold the contents of sourceDir.
 func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 	logger.Log.Debugf("Creating writeable rootfs")
@@ -146,41 +31,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 	return nil
 }
 
-// createLiveOSIsoImage
-//
-//	main function to create a LiveOS ISO image from a raw full disk image file.
-//
-// inputs:
-//
-//   - 'buildDir':
-//     path build directory (can be shared with other tools).
-//   - 'baseConfigPath'
-//     path to the folder where the mic configuration was loaded from.
-//     This path will be used to construct absolute paths for file references
-//     defined in the config.
-//   - 'inputIsoBuilder'
-//     an optional LiveOSIsoBuilder that holds the state of the original input
-//     iso if one was provided. If present, this function will copy all files
-//     from the inputIsoBuilder.artifacts.additionalFiles to the new iso
-//     if the destination is not already defined (for the new iso).
-//     This is used to carry over any files from a previously customized iso
-//     to the new one.
-//   - 'isoConfig'
-//     user provided configuration for the iso image.
-//   - 'pxeConfig'
-//     user provided configuration for the PXE flow.
-//   - 'rawImageFile':
-//     path to an existing raw full disk image (has boot + rootfs partitions).
-//   - 'outputImagePath':
-//     path to the output image.
-//   - 'outputPXEArtifactsDir'
-//     optional directory path where the PXE artifacts will be exported to if
-//     specified.
-//
-// outputs:
-//
-//	creates a LiveOS ISO image.
-func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *LiveOSIsoBuilder, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
 	outputPXEArtifactsDir string) (err error) {
 
@@ -212,11 +63,6 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *Live
 			}
 		}
 	}()
-
-	var inputArtifactsStore *IsoArtifactsStore
-	if inputIsoBuilder != nil {
-		inputArtifactsStore = inputIsoBuilder.artifacts
-	}
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
 	rawImageConnection, _, err := connectToExistingImage(rawImageFile, isoBuildDir, "readonly-rootfs-mount", false /*includeDefaultMounts*/)
@@ -308,94 +154,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *Live
 	return nil
 }
 
-// createIsoBuilderFromIsoImage
-//
-//   - given an iso image, this function extracts its contents, scans them, and
-//     constructs a LiveOSIsoBuilder object filling out as many of its fields as
-//     possible.
-//
-// inputs:
-//
-//   - 'buildDir':
-//     path build directory (can be shared with other tools).
-//   - 'buildDirAbs'
-//     the absolute path of 'buildDir'.
-//   - 'isoImageFile'
-//     the source iso image file to extract/scan.
-//
-// outputs:
-//
-//   - returns an instance of LiveOSIsoBuilder populated with all the paths of the
-//     extracted contents.
-func createIsoBuilderFromIsoImage(buildDir string, isoImageFile string) (isoBuilder *LiveOSIsoBuilder, err error) {
-
-	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
-
-	isoBuilder = &LiveOSIsoBuilder{
-		//
-		// buildDir (might be shared with other build tools)
-		//  |--tmp   (LiveOSIsoBuilder specific)
-		//     |--<various mount points>
-		//     |--artifacts        (extracted and generated artifacts)
-		//
-		workingDirs: IsoWorkingDirs{
-			isoBuildDir: isoBuildDir,
-		},
-	}
-	defer func() {
-		if err != nil {
-			cleanupErr := isoBuilder.cleanUp()
-			if cleanupErr != nil {
-				err = fmt.Errorf("%w:\nfailed to clean-up:\n%w", err, cleanupErr)
-			}
-		}
-	}()
-
-	// create iso build folder
-	err = os.MkdirAll(isoBuildDir, os.ModePerm)
-	if err != nil {
-		return isoBuilder, fmt.Errorf("failed to create folder %s:\n%w", isoBuildDir, err)
-	}
-	isoBuilder.addCleanupDir(isoBuildDir)
-
-	storeFolder := filepath.Join(isoBuildDir, "from-iso")
-	artifacts, err := createIsoArtifactStoreFromIsoImage(isoImageFile, storeFolder)
-	if err != nil {
-		return isoBuilder, fmt.Errorf("failed to create artifacts store from (%s):\n%w", isoImageFile, err)
-	}
-	isoBuilder.artifacts = artifacts
-
-	return isoBuilder, nil
-}
-
-// createImageFromUnchangedOS
-//
-//   - assuming the LiveOSIsoBuilder instance has all its artifacts populated,
-//     this function goes straight to updating grub and re-packaging the
-//     artifacts into an iso image. It does not re-create the initrd.img or
-//     the squashfs.img. This speeds-up customizing iso images when there are
-//     no customizations applicable to the OS (i.e. to the squashfs.img).
-//
-// inputs:
-//
-//   - 'baseConfigPath':
-//     path to where the configuration is loaded from. This is used to resolve
-//     relative paths.
-//   - 'isoConfig'
-//     user provided configuration for the iso image.
-//   - 'pxeConfig'
-//     user provided configuration for the PXE flow.
-//   - 'outputImagePath':
-//     path to a the output image.
-//   - 'outputPXEArtifactsDir'
-//     optional directory path where the PXE artifacts will be exported to if
-//     specified.
-//
-// outputs:
-//
-//   - creates an iso image.
-func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, outputImagePath string, outputPXEArtifactsDir string) error {
+func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
+	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string, outputPXEArtifactsDir string) error {
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 
@@ -421,7 +181,7 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	// and let any saved data override if present.
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
-	updatedSavedConfigs, err := updateSavedConfigs(b.artifacts.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
+	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
 		pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
@@ -434,12 +194,12 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	// selinux and not enable it either.
 	disableSELinux := false
 
-	err = updateGrubCfg(b.artifacts.files.isoGrubCfgPath, b.artifacts.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	err = createIsoImageAndPXEFolder(b.workingDirs.isoBuildDir, baseConfigPath, additionalIsoFiles, b.artifacts, outputImagePath, outputPXEArtifactsDir)
+	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, inputArtifactsStore, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -447,26 +207,6 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	return nil
 }
 
-// createIsoImageAndPXEFolder
-//
-//   - This function create the liveos iso image and also populates the PXE
-//     artifacts folder.
-//
-// inputs:
-//
-//   - additionalIsoFiles:
-//     map of addition files to copy to the iso media.
-//     sourcePath -> [ targetPath0, targetPath1, ...]
-//   - outputIsoImage:
-//     path to the iso image to be created upon successful copmletion of this
-//     function.
-//   - 'outputPXEArtifactsDir'
-//     path to the output directory where the extract artifacts will be saved to.
-//
-// outputs:
-//
-//   - create an iso image.
-//   - creates a folder with PXE artifacts.
 func createIsoImageAndPXEFolder(buildDir string, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, artifactsStore *IsoArtifactsStore, outputImagePath string,
 	outputPXEArtifactsDir string) error {
 
@@ -489,24 +229,6 @@ func createIsoImageAndPXEFolder(buildDir string, baseConfigPath string, addition
 	return nil
 }
 
-// populatePXEArtifactsDir
-//
-//   - This function takes in an liveos iso, and extracts its artifacts unto a
-//     folder for easier copying to a PXE server later by the user.
-//   - It also renames the liveos iso grub-pxe.cfg to grub.cfg.
-//
-// inputs:
-//
-//   - 'isoImagePath':
-//     path to a liveos iso image.
-//   - 'buildDir'
-//     path to a directory to hold intermediate files.
-//   - 'outputPXEArtifactsDir'
-//     path to the output directory where the extract artifacts will be saved to.
-//
-// outputs:
-//
-//   - creates a folder with PXE artifacts.
 func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArtifactsDir string) error {
 
 	logger.Log.Infof("Copying PXE artifacts to (%s)", outputPXEArtifactsDir)

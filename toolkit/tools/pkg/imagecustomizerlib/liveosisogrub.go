@@ -13,6 +13,18 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
+const (
+	searchCommandTemplate   = "search --label %s --set root"
+	rootValueLiveOSTemplate = "live:LABEL=%s"
+	rootValuePxeTemplate    = "live:%s"
+
+	// kernel arguments template
+	kernelArgsLiveOSTemplate = " rd.shell rd.live.image rd.live.dir=%s rd.live.squashimg=%s rd.live.overlay=1 rd.live.overlay.overlayfs rd.live.overlay.nouserconfirmprompt "
+
+	// PXE kernel arguments
+	pxeKernelsArgs = "ip=dhcp rd.live.azldownloader=enable"
+)
+
 func updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
 	disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
 

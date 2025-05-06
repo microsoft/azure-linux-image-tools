@@ -304,13 +304,14 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	return nil
 }
 
-func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSIsoBuilder, error) {
+func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
 	logger.Log.Infof("Converting input image to a writeable format")
 
 	if ic.inputIsIso {
-		inputIsoArtifacts, err := createIsoBuilderFromIsoImage(ic.buildDirAbs, ic.inputImageFile)
+
+		inputIsoArtifacts, err := createIsoArtifactStoreFromIsoImage(ic.inputImageFile, filepath.Join(ic.buildDirAbs, "from-iso"))
 		if err != nil {
-			return nil, fmt.Errorf("failed to load input iso artifacts:\n%w", err)
+			return inputIsoArtifacts, fmt.Errorf("failed to create artifacts store from (%s):\n%w", ic.inputImageFile, err)
 		}
 
 		// If the input is a LiveOS iso and there are OS customizations
@@ -318,7 +319,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*LiveOSI
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
 		if ic.customizeOSPartitions {
-			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts.artifacts.files, ic.rawImageFile)
+			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts.files, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}
@@ -496,7 +497,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *LiveOSIsoBuilder) error {
+func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *IsoArtifactsStore) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
 
 	// Create final output image file if requested.
@@ -529,8 +530,8 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
 		} else {
-			err := inputIsoArtifacts.createImageFromUnchangedOS(ic.configPath, ic.config.Iso, ic.config.Pxe,
-				ic.outputImageFile, ic.outputPXEArtifactsDir)
+			err := createImageFromUnchangedOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
+				inputIsoArtifacts, ic.outputImageFile, ic.outputPXEArtifactsDir)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}

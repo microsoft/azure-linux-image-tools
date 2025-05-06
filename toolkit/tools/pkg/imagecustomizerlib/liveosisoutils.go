@@ -33,6 +33,18 @@ const (
 	LiveOsSelinuxPolicyMinDistroVersion  = 3
 )
 
+type BootFilesArchConfig struct {
+	bootBinary                  string
+	grubBinary                  string
+	grubNoPrefixBinary          string
+	systemdBootBinary           string
+	osEspBootBinaryPath         string
+	osEspGrubBinaryPath         string
+	osEspGrubNoPrefixBinaryPath string
+	isoBootBinaryPath           string
+	isoGrubBinaryPath           string
+}
+
 var (
 	bootloaderFilesConfig = map[string]BootFilesArchConfig{
 		"amd64": {
