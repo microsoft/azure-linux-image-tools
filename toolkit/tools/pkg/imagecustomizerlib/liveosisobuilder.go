@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -130,7 +129,7 @@ func (b *LiveOSIsoBuilder) cleanUp() error {
 //
 // output:
 //   - writeableRootfsDir will hold the contents of sourceDir.
-func (b *LiveOSIsoBuilder) populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
+func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 	logger.Log.Debugf("Creating writeable rootfs")
 
@@ -143,291 +142,6 @@ func (b *LiveOSIsoBuilder) populateWriteableRootfsDir(sourceDir, writeableRootfs
 	if err != nil {
 		return fmt.Errorf("failed to copy rootfs contents to a writeable folder (%s):\n%w", writeableRootfsDir, err)
 	}
-
-	return nil
-}
-
-func (b *LiveOSIsoBuilder) updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
-	disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
-
-	inputContentString, err := file.Read(isoGrubCfgFileName)
-	if err != nil {
-		return err
-	}
-
-	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
-	inputContentString, err = replaceSearchCommandAll(inputContentString, searchCommand)
-	if err != nil {
-		return fmt.Errorf("failed to update the search command in the iso grub.cfg:\n%w", err)
-	}
-
-	grubMkconfigEnabled := isGrubMkconfigConfig(inputContentString)
-	if !grubMkconfigEnabled {
-		var oldLinuxPath string
-		inputContentString, oldLinuxPath, err = setLinuxPath(inputContentString, isoKernelPath)
-		if err != nil {
-			return fmt.Errorf("failed to update the kernel file path in the iso grub.cfg:\n%w", err)
-		}
-
-		inputContentString, err = replaceToken(inputContentString, oldLinuxPath, isoKernelPath)
-		if err != nil {
-			return fmt.Errorf("failed to update all the kernel file path occurances in the iso grub.cfg:\n%w", err)
-		}
-
-		var oldInitrdPath string
-		inputContentString, oldInitrdPath, err = setInitrdPath(inputContentString, isoInitrdPath)
-		if err != nil {
-			return fmt.Errorf("failed to update the initrd file path in the iso grub.cfg:\n%w", err)
-		}
-
-		inputContentString, err = replaceToken(inputContentString, oldInitrdPath, isoInitrdPath)
-		if err != nil {
-			return fmt.Errorf("failed to update all the initrd file path occurances in the iso grub.cfg:\n%w", err)
-		}
-	} else {
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelPath, true /*allowMultiple*/)
-		if err != nil {
-			return fmt.Errorf("failed to update the kernel file path in the iso grub.cfg:\n%w", err)
-		}
-
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
-		if err != nil {
-			return fmt.Errorf("failed to update the initrd file path in the iso grub.cfg:\n%w", err)
-		}
-	}
-
-	rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
-	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
-	if err != nil {
-		return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
-	}
-
-	if disableSELinux {
-		inputContentString, err = updateSELinuxCommandLineHelperAll(inputContentString,
-			imagecustomizerapi.SELinuxModeDisabled)
-		if err != nil {
-			return fmt.Errorf("failed to set SELinux mode:\n%w", err)
-		}
-	}
-
-	liveosKernelArgs := fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
-	savedArgs := GrubArgsToString(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
-	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
-
-	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline)
-	if err != nil {
-		return fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the iso grub.cfg:\n%w", err)
-	}
-
-	err = file.Write(inputContentString, isoGrubCfgFileName)
-	if err != nil {
-		return fmt.Errorf("failed to write %s:\n%w", isoGrubCfgFileName, err)
-	}
-
-	// Check if the dracut version in use meets our minimum requirements for
-	// PXE support.
-	err = verifyDracutPXESupport(savedConfigs.OS.DracutPackageInfo)
-	if err != nil {
-		// MIC does not provide a way for the user to explicitly indicate that a
-		// PXE bootable ISO is desired. Instead, MIC always tries to create one.
-		// In cases that the source image does not meet the minimum requirements
-		// for the PXE bootable ISO, MIC just reports that information to the user
-		// and does not terminate the ISO creation process. No error is reported
-		// because MIC does not know if the user is interested only in the ISO image,
-		// or also in the PXE artifacts.
-		logger.Log.Infof("cannot generate grub.cfg for PXE booting.\n%v", err)
-	} else {
-		err = generatePxeGrubCfg(inputContentString, savedConfigs.Pxe.IsoImageBaseUrl, savedConfigs.Pxe.IsoImageFileUrl,
-			outputImageBase, pxeGrubCfgFileName)
-		if err != nil {
-			return fmt.Errorf("failed to create grub configuration for PXE booting.\n%w", err)
-		}
-	}
-
-	return nil
-}
-
-// generatePxeGrubCfg
-//
-// given the content of the iso grub.cfg, this function derives the PXE
-// equivalent.
-//
-// inputs:
-//   - inputContentString:
-//     iso grub.cfg content.
-//   - pxeIsoImageBaseUrl:
-//     url to a folder containing the iso image to download at boot time.
-//     The function will append the outputImageBase to the url to form the full
-//     url to the image.
-//     For example, if pxeIsoImageBaseUrl is set to "http://192.168.0.1/liveos",
-//     the final url will be "http://192.168.0.1/liveos/<outputImageBase>".
-//     This parameter cannot be set if pxeIsoImageFileUrl is also set.
-//   - pxeIsoImageFileUrl:
-//     url to the iso image to download at boot time.
-//     This parameter cannot be set if pxeIsoImageBaseUrl is also set.
-//   - outputImageBase:
-//     the generated iso name. This value will be used only if the pxeIsoImageFileUrl
-//     is empty.
-//   - pxeGrubCfgFileName:
-//     path of file to hold the PXE grub configuration.
-//
-// returns:
-//   - error: nil if successful, otherwise an error object.
-//
-// generates:
-//   - grub configuration file for PXE booting.
-func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string,
-	outputImageBase string, pxeGrubCfgFileName string) error {
-	if pxeIsoImageBaseUrl != "" && pxeIsoImageFileUrl != "" {
-		return fmt.Errorf("cannot set both iso image base url and full image url at the same time")
-	}
-
-	// remove 'search' commands from PXE grub.cfg because it is not needed.
-	inputContentString, err := removeCommandAll(inputContentString, "search")
-	if err != nil {
-		return fmt.Errorf("failed to remove the 'search' commands from PXE grub.cfg:\n%w", err)
-	}
-
-	// If the specified URL is not a full path to an iso, append the generated
-	// iso file name to it.
-	if pxeIsoImageFileUrl == "" {
-		pxeIsoImageFileUrl, err = url.JoinPath(pxeIsoImageBaseUrl, outputImageBase)
-		if err != nil {
-			return fmt.Errorf("failed to concatenate URL (%s) and (%s)\n%w", pxeIsoImageBaseUrl, outputImageBase, err)
-		}
-	}
-	rootValue := fmt.Sprintf(rootValuePxeTemplate, pxeIsoImageFileUrl)
-	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
-	if err != nil {
-		return fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
-	}
-
-	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs)
-	if err != nil {
-		return fmt.Errorf("failed to append the kernel arguments (%s) in the PXE grub.cfg:\n%w", pxeKernelsArgs, err)
-	}
-
-	err = file.Write(inputContentString, pxeGrubCfgFileName)
-	if err != nil {
-		return fmt.Errorf("failed to write %s:\n%w", pxeGrubCfgFileName, err)
-	}
-
-	return nil
-}
-
-// prepareArtifactsFromFullImage
-//
-//	extracts and generates all LiveOS Iso artifacts from a given raw full disk
-//	image (has boot and rootfs partitions).
-//
-// inputs:
-//   - 'inputArtifactsStore'
-//     If input is an ISO image, this holds its artifacts.
-//   - 'rawImageFile':
-//     path to an existing raw full disk image (i.e. image with boot
-//     partition and a rootfs partition).
-//   - 'requestedSelinuxMode'
-//     requested selinux mode by the user (from os.selinux.mode).
-//   - 'extraCommandLine':
-//     extra kernel command line arguments to add to grub.
-//   - 'pxeIsoImageBaseUrl':
-//     url to the folder holding the iso to download at boot time.
-//     Cannot be specified if pxeIsoImageFileUrl is specified.
-//   - 'pxeIsoImageFileUrl':
-//     url to the iso image to download at boot time.
-//     Cannot be specified if pxeIsoImageBaseUrl is specified.
-//   - 'outputImageBase':
-//     output image iso name.
-//
-// outputs:
-//   - all the extracted/generated artifacts will be placed in the
-//     `LiveOSIsoBuilder.artifacts.files.artifactsDir` folder.
-//   - the paths to individual artifacts are found in the
-//     `LiveOSIsoBuilder.artifacts` data structure.
-func (b *LiveOSIsoBuilder) prepareArtifactsFromFullImage(inputArtifactsStore *IsoArtifactsStore, rawImageFile string, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
-	extraCommandLine []string, pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string, outputImageBase string) error {
-	logger.Log.Infof("Preparing iso artifacts")
-
-	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
-	rawImageConnection, _, err := connectToExistingImage(rawImageFile, b.workingDirs.isoBuildDir, "readonly-rootfs-mount", false /*includeDefaultMounts*/)
-	if err != nil {
-		return err
-	}
-	defer rawImageConnection.Close()
-
-	writeableRootfsDir := filepath.Join(b.workingDirs.isoBuildDir, "writeable-rootfs")
-	err = b.populateWriteableRootfsDir(rawImageConnection.Chroot().RootDir(), writeableRootfsDir)
-	if err != nil {
-		return fmt.Errorf("failed to copy the contents of rootfs from image (%s) to local folder (%s):\n%w", rawImageFile, writeableRootfsDir, err)
-	}
-
-	storeFolder := filepath.Join(b.workingDirs.isoBuildDir, "from-iso-and-raw")
-	artifacts, err := createIsoArtifactStoreFromMountedImage(inputArtifactsStore, writeableRootfsDir, storeFolder)
-	if err != nil {
-		return err
-	}
-	b.artifacts = artifacts
-
-	// Combine the current configuration with the saved configuration
-	updatedSavedConfigs, err := updateSavedConfigs(b.artifacts.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, b.artifacts.info.dracutPackageInfo, requestedSelinuxMode, b.artifacts.info.selinuxPolicyPackageInfo)
-	if err != nil {
-		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
-	}
-
-	// Figure out the selinux situation
-	// Note that by now, the user selinux config has been applied to the image,
-	// so checking only 'imageSELinuxMode' is sufficient to determine whether
-	// selinux is enabled or not for this image (regardless of the source of
-	// that configuration).
-	disableSELinux := false
-	if b.artifacts.info.seLinuxMode != imagecustomizerapi.SELinuxModeDisabled {
-		// SELinux is enabled (either in the base image, or requested by the user)
-		err = verifyNoLiveOsSelinuxBlockers(updatedSavedConfigs.OS.DracutPackageInfo, updatedSavedConfigs.OS.SELinuxPolicyPackageInfo)
-		if err != nil {
-			// We need to determine whether the source of enablment is user
-			// explicit configuration or the base image.
-			if updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDisabled &&
-				updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDefault {
-				return fmt.Errorf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%w", err)
-			} else {
-				logger.Log.Infof("SELinux disabled due to older dracut and selinux-policy package versions:\n%s", err)
-			}
-
-			disableSELinux = true
-		}
-	}
-
-	// Update grug.cfg
-	err = b.updateGrubCfg(b.artifacts.files.isoGrubCfgPath, b.artifacts.files.pxeGrubCfgPath, disableSELinux,
-		updatedSavedConfigs, outputImageBase)
-	if err != nil {
-		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
-	}
-
-	// Generate the ISO bootimage (/boot/grub2/efiboot.img)
-	b.artifacts.files.isoBootImagePath = filepath.Join(b.artifacts.files.artifactsDir, isoBootImagePath)
-	err = isogenerator.BuildIsoBootImage(b.workingDirs.isoBuildDir, b.artifacts.files.bootEfiPath,
-		b.artifacts.files.grubEfiPath, b.artifacts.files.isoBootImagePath)
-	if err != nil {
-		return fmt.Errorf("failed to build iso boot image:\n%w", err)
-	}
-
-	// Generate the initrd image
-	outputInitrdPath := filepath.Join(b.artifacts.files.artifactsDir, initrdImage)
-	err = createInitrdImage(writeableRootfsDir, b.artifacts.info.kernelVersion, outputInitrdPath)
-	if err != nil {
-		return fmt.Errorf("failed to create initrd image:\n%w", err)
-	}
-	b.artifacts.files.initrdImagePath = outputInitrdPath
-
-	// Generate the squashfs image
-	outputSquashfsPath := filepath.Join(b.artifacts.files.artifactsDir, liveOSImage)
-	err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
-	if err != nil {
-		return fmt.Errorf("failed to create squashfs image:\n%w", err)
-	}
-	b.artifacts.files.squashfsImagePath = outputSquashfsPath
 
 	return nil
 }
@@ -488,25 +202,13 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *Live
 	}
 
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
-
-	isoBuilder := &LiveOSIsoBuilder{
-		//
-		// buildDir (might be shared with other build tools)
-		//  |--tmp   (LiveOSIsoBuilder specific)
-		//     |--<various mount points>
-		//     |--artifacts        (extracted and generated artifacts)
-		//
-		workingDirs: IsoWorkingDirs{
-			isoBuildDir: isoBuildDir,
-		},
-	}
 	defer func() {
-		cleanupErr := os.RemoveAll(isoBuilder.workingDirs.isoBuildDir)
+		cleanupErr := os.RemoveAll(isoBuildDir)
 		if cleanupErr != nil {
 			if err != nil {
-				err = fmt.Errorf("%w:\nfailed to clean-up (%s): %w", err, isoBuilder.workingDirs.isoBuildDir, cleanupErr)
+				err = fmt.Errorf("%w:\nfailed to clean-up (%s): %w", err, isoBuildDir, cleanupErr)
 			} else {
-				err = fmt.Errorf("failed to clean-up (%s): %w", isoBuilder.workingDirs.isoBuildDir, cleanupErr)
+				err = fmt.Errorf("failed to clean-up (%s): %w", isoBuildDir, cleanupErr)
 			}
 		}
 	}()
@@ -516,13 +218,89 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputIsoBuilder *Live
 		inputArtifactsStore = inputIsoBuilder.artifacts
 	}
 
-	err = isoBuilder.prepareArtifactsFromFullImage(inputArtifactsStore, rawImageFile, requestedSelinuxMode, extraCommandLine,
-		pxeIsoImageBaseUrl, pxeIsoImageFileUrl, filepath.Base(outputImagePath))
+	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
+	rawImageConnection, _, err := connectToExistingImage(rawImageFile, isoBuildDir, "readonly-rootfs-mount", false /*includeDefaultMounts*/)
+	if err != nil {
+		return err
+	}
+	defer rawImageConnection.Close()
+
+	// From raw image to a writeable folder
+	writeableRootfsDir := filepath.Join(isoBuildDir, "writeable-rootfs")
+	err = populateWriteableRootfsDir(rawImageConnection.Chroot().RootDir(), writeableRootfsDir)
+	if err != nil {
+		return fmt.Errorf("failed to copy the contents of rootfs from image (%s) to local folder (%s):\n%w", rawImageFile, writeableRootfsDir, err)
+	}
+
+	// Create the ISO artifacts store
+	storeFolder := filepath.Join(isoBuildDir, "from-iso-and-raw")
+	artifactsStore, err := createIsoArtifactStoreFromMountedImage(inputArtifactsStore, writeableRootfsDir, storeFolder)
 	if err != nil {
 		return err
 	}
 
-	err = isoBuilder.createIsoImageAndPXEFolder(baseConfigPath, additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
+	// Combine the current configuration with the saved configuration
+	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
+		pxeIsoImageFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode, artifactsStore.info.selinuxPolicyPackageInfo)
+	if err != nil {
+		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
+	}
+
+	// Figure out the selinux situation
+	// Note that by now, the user selinux config has been applied to the image,
+	// so checking only 'imageSELinuxMode' is sufficient to determine whether
+	// selinux is enabled or not for this image (regardless of the source of
+	// that configuration).
+	disableSELinux := false
+	if artifactsStore.info.seLinuxMode != imagecustomizerapi.SELinuxModeDisabled {
+		// SELinux is enabled (either in the base image, or requested by the user)
+		err = verifyNoLiveOsSelinuxBlockers(updatedSavedConfigs.OS.DracutPackageInfo, updatedSavedConfigs.OS.SELinuxPolicyPackageInfo)
+		if err != nil {
+			// We need to determine whether the source of enablment is user
+			// explicit configuration or the base image.
+			if updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDisabled &&
+				updatedSavedConfigs.OS.RequestedSELinuxMode != imagecustomizerapi.SELinuxModeDefault {
+				return fmt.Errorf("SELinux cannot be enabled due to older dracut and selinux-policy package versions:\n%w", err)
+			} else {
+				logger.Log.Infof("SELinux disabled due to older dracut and selinux-policy package versions:\n%s", err)
+			}
+
+			disableSELinux = true
+		}
+	}
+
+	// Update grug.cfg
+	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
+		updatedSavedConfigs, outputImageBase)
+	if err != nil {
+		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
+	}
+
+	// Generate the ISO bootimage (/boot/grub2/efiboot.img)
+	artifactsStore.files.isoBootImagePath = filepath.Join(artifactsStore.files.artifactsDir, isoBootImagePath)
+	err = isogenerator.BuildIsoBootImage(isoBuildDir, artifactsStore.files.bootEfiPath,
+		artifactsStore.files.grubEfiPath, artifactsStore.files.isoBootImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to build iso boot image:\n%w", err)
+	}
+
+	// Generate the initrd image
+	outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
+	err = createInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
+	if err != nil {
+		return fmt.Errorf("failed to create initrd image:\n%w", err)
+	}
+	artifactsStore.files.initrdImagePath = outputInitrdPath
+
+	// Generate the squashfs image
+	outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
+	err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
+	if err != nil {
+		return fmt.Errorf("failed to create squashfs image:\n%w", err)
+	}
+	artifactsStore.files.squashfsImagePath = outputSquashfsPath
+
+	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -656,12 +434,12 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 	// selinux and not enable it either.
 	disableSELinux := false
 
-	err = b.updateGrubCfg(b.artifacts.files.isoGrubCfgPath, b.artifacts.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(b.artifacts.files.isoGrubCfgPath, b.artifacts.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	err = b.createIsoImageAndPXEFolder(baseConfigPath, additionalIsoFiles, outputImagePath, outputPXEArtifactsDir)
+	err = createIsoImageAndPXEFolder(b.workingDirs.isoBuildDir, baseConfigPath, additionalIsoFiles, b.artifacts, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -689,20 +467,20 @@ func (b *LiveOSIsoBuilder) createImageFromUnchangedOS(baseConfigPath string, iso
 //
 //   - create an iso image.
 //   - creates a folder with PXE artifacts.
-func (b *LiveOSIsoBuilder) createIsoImageAndPXEFolder(baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string,
+func createIsoImageAndPXEFolder(buildDir string, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, artifactsStore *IsoArtifactsStore, outputImagePath string,
 	outputPXEArtifactsDir string) error {
 
-	err := createIsoImage(b.workingDirs.isoBuildDir, b.artifacts.files, baseConfigPath, additionalIsoFiles, outputImagePath)
+	err := createIsoImage(buildDir, artifactsStore.files, baseConfigPath, additionalIsoFiles, outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create the Iso image.\n%w", err)
 	}
 
 	if outputPXEArtifactsDir != "" {
-		err = verifyDracutPXESupport(b.artifacts.info.dracutPackageInfo)
+		err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
 		if err != nil {
 			return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
 		}
-		err = populatePXEArtifactsDir(outputImagePath, b.workingDirs.isoBuildDir, outputPXEArtifactsDir)
+		err = populatePXEArtifactsDir(outputImagePath, buildDir, outputPXEArtifactsDir)
 		if err != nil {
 			return fmt.Errorf("failed to populate the PXE artifacts folder.\n%w", err)
 		}
