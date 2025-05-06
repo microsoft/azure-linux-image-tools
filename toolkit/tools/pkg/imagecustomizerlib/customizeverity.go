@@ -440,3 +440,30 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 	}
 	return partition, nil
 }
+
+func ParseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, error) {
+	corruptionOption := imagecustomizerapi.CorruptionOptionIoError
+
+	optionValues := strings.Split(options, ",")
+	for _, option := range optionValues {
+		switch option {
+		case "":
+			// Ignore empty string.
+
+		case "ignore-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionIgnore
+
+		case "panic-on-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionPanic
+
+		case "restart-on-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionRestart
+
+		default:
+			// ToDo: Ignore unknown options like "root-hash-signature=/boot/root.hash.sig"
+			logger.Log.Debugf("Ignoring unknown verity option: %s", option)
+		}
+	}
+
+	return corruptionOption, nil
+}

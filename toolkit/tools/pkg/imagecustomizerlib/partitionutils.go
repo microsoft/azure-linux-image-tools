@@ -58,7 +58,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
-	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, 0, "", true)
+	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount EFI system partition:\n%w", err)
 	}
@@ -130,7 +130,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		}
 
 		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, 0,
+		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
 			"", true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
@@ -167,16 +167,16 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
-) ([]diskutils.FstabEntry, error) {
+) ([]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "",
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
 		true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+		return nil, "", fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
@@ -186,16 +186,25 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
+	}
+
+	// ToDo: Work around to read os-release for injection API.
+	//
+	osReleasePath := filepath.Join(tmpDir, "/etc/os-release")
+	data, err := file.Read(osReleasePath)
+	if err != nil {
+		logger.Log.Warnf("Failed to read os-release file from base image (path=%s): %v", osReleasePath, err)
+		data = "" // fallback to empty string
 	}
 
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		return nil, "", fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
 	}
 
-	return fstabEntries, nil
+	return fstabEntries, string(data), nil
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
@@ -438,7 +447,11 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 
+<<<<<<< HEAD
 	corruptionOption, err := parseSystemdVerityOptions(options)
+=======
+	corruptionOption, err := ParseSystemdVerityOptions(options)
+>>>>>>> 10e6d5509 (COSI output image type support.)
 	if err != nil {
 		err = fmt.Errorf("failed parse verity options (%s) kernel argument:\n%w", optionsArgName, err)
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
