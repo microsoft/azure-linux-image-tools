@@ -476,8 +476,6 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.info = infoStore
 
-	dumpArtifactsStore(artifactStore, " from mounted image")
-
 	return artifactStore, nil
 }
 
@@ -502,8 +500,6 @@ func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string) (artifact
 		return nil, err
 	}
 	artifactStore.info = infoStore
-
-	dumpArtifactsStore(artifactStore, " from iso image")
 
 	return artifactStore, nil
 }
