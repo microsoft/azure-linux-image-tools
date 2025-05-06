@@ -31,7 +31,7 @@ const (
 
 	// Most features don't have version Azure Linux version specific behavior.
 	// So, there is only minimal value in duplicating the tests across versions for such features.
-	baseImageVersionDefault = baseImageVersionAzl2
+	baseImageVersionDefault = baseImageVersionAzl3
 )
 
 var (

@@ -207,6 +207,9 @@
         },
         "additionalFiles": {
           "$ref": "#/$defs/AdditionalFileList"
+        },
+        "initramfsType": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -443,10 +446,19 @@
     },
     "Pxe": {
       "properties": {
-        "isoImageBaseUrl": {
+        "kernelCommandLine": {
+          "$ref": "#/$defs/KernelCommandLine"
+        },
+        "additionalFiles": {
+          "$ref": "#/$defs/AdditionalFileList"
+        },
+        "initramfsType": {
           "type": "string"
         },
-        "isoImageFileUrl": {
+        "bootstrapBaseUrl": {
+          "type": "string"
+        },
+        "bootstrapFileUrl": {
           "type": "string"
         }
       },

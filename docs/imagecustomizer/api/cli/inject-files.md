@@ -60,6 +60,12 @@ is modified at `--image-file`.
 
 Added in v0.14.
 
+## --output-path=FILE-PATH
+
+An alias to `--output-image-file`
+
+Added in v0.15.
+
 ## --output-image-format=FORMAT
 
 Optional.
