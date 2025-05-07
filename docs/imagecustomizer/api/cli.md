@@ -31,6 +31,21 @@ But it can also be an Azure Linux image that has been customized.
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
 
+If verity is enabled in the base image, then:
+
+- If the partitions are recustomized using the
+  [disks](../api/configuration/storage.md#disks-disk) API, then the existing verity
+  settings are thrown away.
+  New verity settings can be configured with the
+  [verity](../api/configuration/verity.md) API.
+
+- Otherwise, the existing verity settings are reapplied to the image after OS
+  customization.
+
+  This feature is in preview and may be subject to breaking changes.
+  You may enable this feature by adding `reinitialize-verity` to the
+  [previewfeatures](./configuration/config.md#previewfeatures-string) API.
+
 Added in v0.3.
 
 ## --output-image-file=FILE-PATH

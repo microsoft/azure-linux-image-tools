@@ -99,6 +99,12 @@ Supported options:
 
   Added in v0.14.
 
+- `reinitialize-verity`: Enables support for customizing an image that has verity
+  enabled (without needing to recustomize the partitions). The verity settings are read
+  from the image and reapplied after OS customization.
+
+  Added in v0.15.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

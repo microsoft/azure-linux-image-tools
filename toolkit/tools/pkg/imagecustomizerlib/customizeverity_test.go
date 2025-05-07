@@ -47,7 +47,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 		return
 	}
 
-	verityRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+	verifyRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
 
 	// Recustomize the image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
@@ -56,10 +56,10 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 		return
 	}
 
-	verityRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+	verifyRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
 }
 
-func verityRootVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+func verifyRootVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
 	outImageFilePath string,
 ) {
 	// Connect to customized image.
@@ -448,4 +448,84 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, imag
 	}
 
 	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath, "panic-on-corruption")
+}
+
+func TestCustomizeImageVerityReinitRoot(t *testing.T) {
+	for _, version := range supportedAzureLinuxVersions {
+		t.Run(string(version), func(t *testing.T) {
+			testCustomizeImageVerityReinitRootHelper(t, "TestCustomizeImageVerityReinitRoot"+string(version),
+				baseImageTypeCoreEfi, version)
+		})
+	}
+}
+
+func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, imageType baseImageType,
+	imageVersion baseImageVersion,
+) {
+	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
+	stage1ConfigFile := filepath.Join(testDir, "verity-config.yaml")
+	stage2ConfigFile := filepath.Join(testDir, "verity-reinit.yaml")
+	stage1FilePath := filepath.Join(testTempDir, "image.raw")
+	stage2FilePath := filepath.Join(testTempDir, "image.raw")
+
+	// Stage 1: Initialize verity.
+	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyRootVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
+
+	// Stage 2: Reinitialize verity.
+	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyRootVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
+}
+
+func TestCustomizeImageVerityReinitUsr(t *testing.T) {
+	for _, version := range supportedAzureLinuxVersions {
+		t.Run(string(version), func(t *testing.T) {
+			testCustomizeImageVerityReinitUsrHelper(t, "TestCustomizeImageVerityReinitUsr"+string(version),
+				baseImageTypeCoreEfi, version)
+		})
+	}
+}
+
+func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, imageType baseImageType,
+	imageVersion baseImageVersion,
+) {
+	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
+	stage1ConfigFile := filepath.Join(testDir, "verity-usr-config.yaml")
+	stage2ConfigFile := filepath.Join(testDir, "verity-reinit.yaml")
+	stage1FilePath := filepath.Join(testTempDir, "image.raw")
+	stage2FilePath := filepath.Join(testTempDir, "image.raw")
+
+	// Stage 1: Initialize verity.
+	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityUsrVerity(t, imageType, imageVersion, buildDir, stage1FilePath, "")
+
+	// Stage 2: Reinitialize verity.
+	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath, "")
 }
