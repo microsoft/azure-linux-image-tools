@@ -57,6 +57,16 @@ type IsoArtifactsStore struct {
 	files *IsoFilesStore
 }
 
+func (b *IsoArtifactsStore) cleanUp() error {
+	if b.files != nil {
+		err := os.RemoveAll(b.files.artifactsDir)
+		if err != nil {
+			return fmt.Errorf("failed to clean-up (%s):\n%w", b.files.artifactsDir, err)
+		}
+	}
+	return nil
+}
+
 func containsGrubNoPrefix(filePaths []string) (bool, error) {
 	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {

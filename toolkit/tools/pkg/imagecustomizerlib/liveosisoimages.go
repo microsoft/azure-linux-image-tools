@@ -23,6 +23,22 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
 
+const (
+	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
+add_drivers+=" overlay "
+hostonly="no"
+`
+
+	// the total size of a collection of files is multiplied by the
+	// expansionSafetyFactor to estimate a disk size sufficient to hold those
+	// files.
+	expansionSafetyFactor = 1.5
+
+	// This folder is necessary to include in the initrd image so that the
+	// emergency shell can work correctly with the keyboard.
+	usrLibLocaleDir = "/usr/lib/locale"
+)
+
 func createInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
 	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
