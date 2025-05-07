@@ -298,7 +298,7 @@ func SystemdFormatCorruptionOption(corruptionOption imagecustomizerapi.Corruptio
 	}
 }
 
-func ParseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, error) {
+func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, error) {
 	corruptionOption := imagecustomizerapi.CorruptionOptionIoError
 
 	optionValues := strings.Split(options, ",")
