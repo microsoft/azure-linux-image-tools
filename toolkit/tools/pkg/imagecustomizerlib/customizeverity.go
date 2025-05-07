@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -105,11 +106,11 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 }
 
 func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, bootUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -163,9 +164,10 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 }
 
 func constructVerityKernelCmdlineArgs(verityMetadata []verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
+	hasSignatureInjection := false
 
 	for _, metadata := range verityMetadata {
 		var hashArg, dataArg, optionsArg, hashKey string
@@ -204,12 +206,22 @@ func constructVerityKernelCmdlineArgs(verityMetadata []verityDeviceMetadata,
 			return nil, err
 		}
 
+		options := formattedCorruptionOption
+		if metadata.hashSignaturePath != "" {
+			options += fmt.Sprintf(",root-hash-signature=%s", metadata.hashSignaturePath)
+			hasSignatureInjection = true
+		}
+
 		newArgs = append(newArgs,
 			fmt.Sprintf("%s=%s", hashArg, metadata.rootHash),
 			fmt.Sprintf("%s=%s", dataArg, formattedDataPartition),
 			fmt.Sprintf("%s=%s", hashKey, formattedHashPartition),
-			fmt.Sprintf("%s=%s", optionsArg, formattedCorruptionOption),
+			fmt.Sprintf("%s=%s", optionsArg, options),
 		)
+	}
+
+	if hasSignatureInjection {
+		newArgs = append(newArgs, fmt.Sprintf("pre.verity.mount=%s", bootUuid))
 	}
 
 	return newArgs, nil
@@ -312,9 +324,9 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, bootUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -401,4 +413,31 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 		return diskutils.PartitionInfo{}, fmt.Errorf("partition not found (%s=%s)", ref.IdType, ref.Id)
 	}
 	return partition, nil
+}
+
+func ParseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, error) {
+	corruptionOption := imagecustomizerapi.CorruptionOptionIoError
+
+	optionValues := strings.Split(options, ",")
+	for _, option := range optionValues {
+		switch option {
+		case "":
+			// Ignore empty string.
+
+		case "ignore-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionIgnore
+
+		case "panic-on-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionPanic
+
+		case "restart-on-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionRestart
+
+		default:
+			// ToDo: Ignore unknown options like "root-hash-signature=/boot/root.hash.sig"
+			logger.Log.Debugf("Ignoring unknown verity option: %s", option)
+		}
+	}
+
+	return corruptionOption, nil
 }
