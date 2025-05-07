@@ -58,19 +58,13 @@ type IsoArtifactsStore struct {
 }
 
 func (b *IsoArtifactsStore) cleanUp() error {
-	var err error
 	if b.files != nil {
-		cleanupErr := os.RemoveAll(b.files.artifactsDir)
-		if cleanupErr != nil {
-			if err != nil {
-				err = fmt.Errorf("%w:\nfailed to remove (%s): %w", err, b.files.artifactsDir, cleanupErr)
-			} else {
-				err = fmt.Errorf("failed to clean-up (%s): %w", b.files.artifactsDir, cleanupErr)
-			}
+		err := os.RemoveAll(b.files.artifactsDir)
+		if err != nil {
+			return fmt.Errorf("failed to clean-up (%s):\n%w", b.files.artifactsDir, err)
 		}
 	}
-
-	return err
+	return nil
 }
 
 func containsGrubNoPrefix(filePaths []string) (bool, error) {

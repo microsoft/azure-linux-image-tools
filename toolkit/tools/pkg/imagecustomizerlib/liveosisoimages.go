@@ -33,6 +33,10 @@ hostonly="no"
 	// expansionSafetyFactor to estimate a disk size sufficient to hold those
 	// files.
 	expansionSafetyFactor = 1.5
+
+	// This folder is necessary to include in the initrd image so that the
+	// emergency shell can work correctly with the keyboard.
+	usrLibLocaleDir = "/usr/lib/locale"
 )
 
 func createInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {

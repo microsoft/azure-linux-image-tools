@@ -23,6 +23,10 @@ const (
 
 	// PXE kernel arguments
 	pxeKernelsArgs = "ip=dhcp rd.live.azldownloader=enable"
+
+	liveOSDir       = "liveos"
+	liveOSImage     = "rootfs.img"
+	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
 )
 
 func updateGrubCfg(isoGrubCfgFileName string, pxeGrubCfgFileName string,
