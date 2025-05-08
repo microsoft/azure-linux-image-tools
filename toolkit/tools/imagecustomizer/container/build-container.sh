@@ -8,7 +8,8 @@ enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
 ORAS_VERSION="1.2.3"
-ORAS_EXPECTED_SHA256="b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827"
+ORAS_AMD64_SHA256="b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827"
+ORAS_ARM64_SHA256="90e24e234dc6dffe73365533db66fd14449d2c9ae77381081596bf92f40f6b82"
 
 function showUsage() {
     echo
@@ -81,6 +82,13 @@ if [ ! -d "$orasUnzipDir" ]; then
     -o "$ORAS_TAR"
 
   ORAS_TAR_SHA256="$(sha256sum "$ORAS_TAR" | cut -d " " -f 1)"
+
+  case $ARCH in
+    "amd64")
+      ORAS_EXPECTED_SHA256="${ORAS_AMD64_SHA256}";;
+    "arm64")
+      ORAS_EXPECTED_SHA256="${ORAS_ARM64_SHA256}";;
+  esac
   if [ "$ORAS_TAR_SHA256" != "$ORAS_EXPECTED_SHA256" ]; then
     echo "Incorrect oras tar SHA256: ${ORAS_TAR_SHA256} vs. ${ORAS_EXPECTED_SHA256}"
     exit 1
