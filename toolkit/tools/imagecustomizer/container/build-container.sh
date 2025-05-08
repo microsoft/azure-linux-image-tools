@@ -7,7 +7,8 @@ scriptDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
-ORAS_VERSION="1.1.0"
+ORAS_VERSION="1.2.3"
+ORAS_EXPECTED_SHA256="b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827"
 
 function showUsage() {
     echo
@@ -67,17 +68,23 @@ mkdir -p "${stagingLicensesDir}"
 
 cp "$exeFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
-cp -R "$licensesDir" "${stagingLicensesDir}"
+cp -R "$licensesDir" "${stagingLicensesDir}/imagecustomizer"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
 # download oras
-orasUnzipDir="${buildDir}/oras-install/"
+orasUnzipDir="${buildDir}/oras-install-${ORAS_VERSION}/"
 if [ ! -d "$orasUnzipDir" ]; then
   ORAS_TAR="${buildDir}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz"
 
   curl -L "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz" \
     -o "$ORAS_TAR"
+
+  ORAS_TAR_SHA256="$(sha256sum "$ORAS_TAR" | cut -d " " -f 1)"
+  if [ "$ORAS_TAR_SHA256" != "$ORAS_EXPECTED_SHA256" ]; then
+    echo "Incorrect oras tar SHA256: ${ORAS_TAR_SHA256} vs. ${ORAS_EXPECTED_SHA256}"
+    exit 1
+  fi
 
   mkdir "$orasUnzipDir"
   tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
@@ -85,6 +92,10 @@ fi
 
 # stage oras
 cp "$orasUnzipDir/oras" "${stagingBinDir}"
+
+ORAS_LICENSES_DIR="${stagingLicensesDir}/oras"
+mkdir -p "${ORAS_LICENSES_DIR}"
+cp "$orasUnzipDir/LICENSE" "${ORAS_LICENSES_DIR}"
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
