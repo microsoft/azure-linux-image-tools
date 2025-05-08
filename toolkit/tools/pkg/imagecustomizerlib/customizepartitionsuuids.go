@@ -124,6 +124,11 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		newUuid = strings.ToUpper(newUuid)
 		newUuid = newUuid[:4] + "-" + newUuid[4:]
 
+	case "DM_verity_hash":
+		// Resetting partition IDs on a disk with verity would require updating the kernel command-line args.
+		// This is probably doable, just not implemented yet.
+		return "", fmt.Errorf("resetting partition IDs on a verity-enabled image is not implemented")
+
 	default:
 		return "", fmt.Errorf("unsupported filesystem type (%s)", partition.FileSystemType)
 	}
@@ -174,7 +179,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Find the partition.
 		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
-		mountIdType, _, partitionIndex, err := findSourcePartition(fstabEntry.Source, partitions, buildDir)
+		mountIdType, _, partitionIndex, _, err := findSourcePartition(fstabEntry.Source, partitions, buildDir)
 		if err != nil {
 			return err
 		}

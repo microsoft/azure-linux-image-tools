@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -295,6 +296,32 @@ func SystemdFormatCorruptionOption(corruptionOption imagecustomizerapi.Corruptio
 	default:
 		return "", fmt.Errorf("invalid corruptionOption provided (%s)", string(corruptionOption))
 	}
+}
+
+func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, error) {
+	corruptionOption := imagecustomizerapi.CorruptionOptionIoError
+
+	optionValues := strings.Split(options, ",")
+	for _, option := range optionValues {
+		switch option {
+		case "":
+			// Ignore empty string.
+
+		case "ignore-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionIgnore
+
+		case "panic-on-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionPanic
+
+		case "restart-on-corruption":
+			corruptionOption = imagecustomizerapi.CorruptionOptionRestart
+
+		default:
+			return "", fmt.Errorf("unknown verity option (%s)", option)
+		}
+	}
+
+	return corruptionOption, nil
 }
 
 func validateVerityDependencies(imageChroot *safechroot.Chroot) error {

@@ -16,6 +16,9 @@ const (
 
 	// PreviewFeatureInjectFiles enables files injection into target partitions.
 	PreviewFeatureInjectFiles PreviewFeature = "inject-files"
+
+	// PreviewFeatureReinitializeVerity will reinitialize verity on verity partitions in the base image.
+	PreviewFeatureReinitializeVerity = "reinitialize-verity"
 )
 
 func (pf PreviewFeature) IsValid() error {
