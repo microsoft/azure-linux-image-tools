@@ -132,12 +132,22 @@ func copyRpms(sourceDir string, targetDir string, excludePrefixes []string) erro
 	return nil
 }
 
-func TestCustomizeImagePackagesAddOfflineLocalRepo(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddOfflineLocalRepo")
+func TestCustomizeImagePackagesAddOfflineLocalRepoWithGpgKey(t *testing.T) {
+	testCustomizeImagePackagesAddOfflineLocalRepoHelper(t, "TestCustomizeImagePackagesAddOfflineLocalRepoWithGpgKey",
+		true)
+}
+
+func TestCustomizeImagePackagesAddOfflineLocalRepoNoGpgKey(t *testing.T) {
+	testCustomizeImagePackagesAddOfflineLocalRepoHelper(t, "TestCustomizeImagePackagesAddOfflineLocalRepoNoGpgKey",
+		false)
+}
+
+func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName string, withGpgKey bool) {
+	testTmpDir := filepath.Join(tmpDir, testName)
 
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	downloadedRpmsRepoFile := getDownloadedRpmsRepoFile(t, "2.0")
+	downloadedRpmsRepoFile := getDownloadedRpmsRepoFile(t, "2.0", withGpgKey)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	buildDir := filepath.Join(testTmpDir, "build")

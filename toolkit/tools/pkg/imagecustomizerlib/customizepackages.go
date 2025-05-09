@@ -106,7 +106,7 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 
 func refreshTdnfMetadata(imageChroot *safechroot.Chroot) error {
 	tdnfArgs := []string{
-		"-v", "check-update", "--refresh", "--nogpgcheck", "--assumeyes",
+		"-v", "check-update", "--refresh", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
@@ -168,7 +168,7 @@ func updateAllPackages(imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Updating base image packages")
 
 	tdnfUpdateArgs := []string{
-		"-v", "update", "--nogpgcheck", "--assumeyes", "--cacheonly",
+		"-v", "update", "--assumeyes", "--cacheonly",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
@@ -189,7 +189,7 @@ func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChro
 	// Note: When using `--repofromdir`, tdnf will not use any default repos and will only use the last
 	// `--repofromdir` specified.
 	tdnfInstallArgs := []string{
-		"-v", action, "--nogpgcheck", "--assumeyes", "--cacheonly",
+		"-v", action, "--assumeyes", "--cacheonly",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 

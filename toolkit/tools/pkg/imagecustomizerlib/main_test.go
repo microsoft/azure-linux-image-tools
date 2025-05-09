@@ -140,8 +140,14 @@ func getDownloadedRpmsDir(t *testing.T, azureLinuxVersion string) string {
 	return downloadedRpmsDir
 }
 
-func getDownloadedRpmsRepoFile(t *testing.T, azureLinuxVersion string) string {
+func getDownloadedRpmsRepoFile(t *testing.T, azureLinuxVersion string, withGpgKey bool) string {
 	dir := getDownloadedRpmsDir(t, azureLinuxVersion)
-	repoFile := filepath.Join(dir, "../", fmt.Sprintf("rpms-%s.repo", azureLinuxVersion))
+
+	suffix := "nokey"
+	if withGpgKey {
+		suffix = "withkey"
+	}
+
+	repoFile := filepath.Join(dir, "../", fmt.Sprintf("rpms-%s-%s.repo", azureLinuxVersion, suffix))
 	return repoFile
 }

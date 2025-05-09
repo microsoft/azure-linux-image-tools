@@ -37,7 +37,8 @@ set -x
 
 DOWNLOADER_RPMS_DIRS="$SCRIPT_DIR/downloadedrpms"
 OUT_DIR="$DOWNLOADER_RPMS_DIRS/$IMAGE_VERSION"
-REPO_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION.repo"
+REPO_WITH_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION-withkey.repo"
+REPO_NO_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION-nokey.repo"
 
 mkdir -p "$OUT_DIR"
 
@@ -50,14 +51,32 @@ docker build \
 # Extract the RPM files.
 docker run \
   --rm \
-   -v $OUT_DIR:/outdir:z \
+   -v $OUT_DIR:/rpmsdir:z \
    "$CONTAINER_TAG" \
-   cp -r /downloadedrpms/. "/outdir"
+   cp -r /downloadedrpms/. "/rpmsdir"
 
-# Create repo file.
-cat << EOF > "$REPO_FILE"
+docker run \
+  --rm \
+   -v $OUT_DIR:/rpmsdir:z \
+   "$CONTAINER_TAG" \
+   cp -r /etc/pki/rpm-gpg/. "/rpmsdir"
+
+# Create repo files.
+cat << EOF > "$REPO_WITH_KEY_FILE"
 [localrpms]
 name=Local RPMs repo
 baseurl=file://$OUT_DIR
 enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=file://$OUT_DIR/MICROSOFT-RPM-GPG-KEY
+EOF
+
+cat << EOF > "$REPO_NO_KEY_FILE"
+[localrpms]
+name=Local RPMs repo
+baseurl=file://$OUT_DIR
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
 EOF
