@@ -14,6 +14,7 @@ import (
 func customizePartitions(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string,
 ) (bool, string, map[string]string, error) {
+	logger.Log.Infof("Customizing partitions")
 	switch {
 	case config.CustomizePartitions():
 		logger.Log.Infof("Customizing partitions")

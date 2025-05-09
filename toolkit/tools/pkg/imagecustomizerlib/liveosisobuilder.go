@@ -33,7 +33,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
-	outputPXEArtifactsDir string) (err error) {
+	outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string) (err error) {
 
 	var extraCommandLine []string
 	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
@@ -116,7 +116,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
+	err = updateGrubCfg(outputIsoInitrdSelfContained, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
 		updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
@@ -130,21 +130,31 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 		return fmt.Errorf("failed to build iso boot image:\n%w", err)
 	}
 
-	// Generate the initrd image
 	outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
-	err = createInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
-	if err != nil {
-		return fmt.Errorf("failed to create initrd image:\n%w", err)
-	}
-	artifactsStore.files.initrdImagePath = outputInitrdPath
 
-	// Generate the squashfs image
-	outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
-	err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
-	if err != nil {
-		return fmt.Errorf("failed to create squashfs image:\n%w", err)
+	if outputIsoInitrdSelfContained {
+		// Generate the initrd image
+		err = createInitrdImage(writeableRootfsDir, outputInitrdPath)
+		if err != nil {
+			return fmt.Errorf("failed to create initrd image:\n%w", err)
+		}
+		artifactsStore.files.initrdImagePath = outputInitrdPath
+	} else {
+		// Generate the initrd image
+		err = createMinimalInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
+		if err != nil {
+			return fmt.Errorf("failed to create initrd image:\n%w", err)
+		}
+		artifactsStore.files.initrdImagePath = outputInitrdPath
+
+		// Generate the squashfs image
+		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
+		err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
+		if err != nil {
+			return fmt.Errorf("failed to create squashfs image:\n%w", err)
+		}
+		artifactsStore.files.squashfsImagePath = outputSquashfsPath
 	}
-	artifactsStore.files.squashfsImagePath = outputSquashfsPath
 
 	// Generate the final iso image
 	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
@@ -156,7 +166,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 }
 
 func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string, outputPXEArtifactsDir string) error {
+	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string,
+	outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string) error {
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 
@@ -195,8 +206,10 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	// selinux and not enable it either.
 	disableSELinux := false
 
+	// george: if outputIsoInitrdSelfContained != previous value -> convert.
+
 	// Update grub.cfg
-	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(outputIsoInitrdSelfContained, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
