@@ -156,6 +156,62 @@ func addFileToArchive(inputDir, path string, info os.FileInfo, cpioWriter *cpio.
 	return
 }
 
+func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
+	f, err := os.Open(initrdImagePath)
+	if err != nil {
+		return fmt.Errorf("open archive: %w", err)
+	}
+	defer f.Close()
+
+	// Create pgzip reader
+	gzr, err := pgzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("create pgzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	// Create cpio reader
+	cr := cpio.NewReader(gzr)
+
+	for {
+		hdr, err := cr.Next()
+		if err == io.EOF {
+			break // end of archive
+		}
+		if err != nil {
+			return fmt.Errorf("read cpio header: %w", err)
+		}
+
+		path := filepath.Join(outputDir, hdr.Name)
+
+		switch hdr.Mode & cpio.ModeType {
+		case cpio.ModeDir:
+			err := os.MkdirAll(path, os.FileMode(hdr.Mode&0777))
+			if err != nil {
+				return fmt.Errorf("create directory %s: %w", path, err)
+			}
+		case cpio.ModeRegular:
+			err := os.MkdirAll(filepath.Dir(path), 0755)
+			if err != nil {
+				return fmt.Errorf("create parent dir for file %s: %w", path, err)
+			}
+			outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode&cpio.ModePerm))
+			if err != nil {
+				return fmt.Errorf("create file %s: %w", path, err)
+			}
+			_, err = io.Copy(outFile, cr)
+			outFile.Close()
+			if err != nil {
+				return fmt.Errorf("write file %s: %w", path, err)
+			}
+		default:
+			fmt.Printf("Skipping unsupported type: %s\n", hdr.Name)
+		}
+	}
+
+	return nil
+}
+
 func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
 	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
@@ -419,33 +475,48 @@ func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size 
 
 func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStore, rawImageFile string) error {
 
-	logger.Log.Infof("Creating writeable image from squashfs (%s)", filesStore.squashfsImagePath)
+	logger.Log.Infof("Creating full OS writeable image from ISO artifacts")
 
 	// rootfs folder (mount squash fs)
-	squashMountDir, err := os.MkdirTemp(buildDir, "tmp-squashfs-mount-")
+	fullOSDir, err := os.MkdirTemp(buildDir, "tmp-full-os-mount-")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
 	}
-	defer os.RemoveAll(squashMountDir)
+	defer os.RemoveAll(fullOSDir)
 
-	squashfsLoopDevice, err := safeloopback.NewLoopback(filesStore.squashfsImagePath)
+	squashfsExists, err := file.PathExists(filesStore.squashfsImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
+		return fmt.Errorf("failed to check if the squash root file system image exists (%s):\n%w", filesStore.squashfsImagePath, err)
 	}
-	defer squashfsLoopDevice.Close()
 
-	squashfsMount, err := safemount.NewMount(squashfsLoopDevice.DevicePath(), squashMountDir,
-		"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
-	if err != nil {
-		return err
+	var squashfsLoopDevice *safeloopback.Loopback
+	var squashfsMount *safemount.Mount
+
+	if squashfsExists {
+		squashfsLoopDevice, err = safeloopback.NewLoopback(filesStore.squashfsImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
+		}
+		defer squashfsLoopDevice.Close()
+
+		squashfsMount, err = safemount.NewMount(squashfsLoopDevice.DevicePath(), fullOSDir,
+			"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
+		if err != nil {
+			return err
+		}
+		defer squashfsMount.Close()
+	} else {
+		err = extractFilesFromInitrdImage(filesStore.initrdImagePath, fullOSDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", filesStore.initrdImagePath, err)
+		}
 	}
-	defer squashfsMount.Close()
 
 	// boot folder (from artifacts)
 	artifactsBootDir := filepath.Join(filesStore.artifactsDir, "boot")
 
 	imageContentList := []string{
-		squashMountDir,
+		fullOSDir,
 		filesStore.bootEfiPath,
 		filesStore.grubEfiPath,
 		artifactsBootDir}
@@ -453,7 +524,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 	// estimate the new disk size
 	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
 	if err != nil {
-		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", squashMountDir, err)
+		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", fullOSDir, err)
 	}
 
 	logger.Log.Debugf("safeDiskSizeMB = %d", safeDiskSizeMB)
@@ -500,7 +571,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		},
 	}
 
-	targetOs, err := targetos.GetInstalledTargetOs(squashMountDir)
+	targetOs, err := targetos.GetInstalledTargetOs(fullOSDir)
 	if err != nil {
 		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
 	}
@@ -511,7 +582,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		// root partitions will be mounted, and the files of /boot/efi will
 		// land on the the boot partition, while the rest will be on the rootfs
 		// partition.
-		err := copyPartitionFiles(squashMountDir+"/.", imageChroot.RootDir())
+		err := copyPartitionFiles(fullOSDir+"/.", imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
 		}
@@ -558,14 +629,18 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)
 	}
 
-	err = squashfsMount.CleanClose()
-	if err != nil {
-		return err
+	if squashfsMount != nil {
+		err = squashfsMount.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
-	err = squashfsLoopDevice.CleanClose()
-	if err != nil {
-		return err
+	if squashfsLoopDevice != nil {
+		err = squashfsLoopDevice.CleanClose()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
