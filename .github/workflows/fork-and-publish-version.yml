@@ -1,0 +1,20 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Fork, build, test, and publish new major/minor version.
+
+on:
+  # Allow pipeline to be run manually.
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    uses: ./.github/workflows/reuable/build-and-test.yml
+
+  publish-container:
+    uses: ./.github/workflows/reuable/publish-container.yml
+
+  fork-release:
+    uses: ./.github/workflows/reuable/fork-release.yml
+
+  # Publish GitHub release

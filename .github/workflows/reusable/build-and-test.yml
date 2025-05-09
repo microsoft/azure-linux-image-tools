@@ -1,0 +1,141 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: build & test
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      publishType:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+
+jobs:
+  build:
+    name: go build and validate
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+      id: go
+
+    - name: check active go version
+      run: |
+        go version && which go
+
+    - name: check go.mod
+      run: |
+        if grep -q "go $EXPECTED_GO_VERSION" ./repo/toolkit/tools/go.mod; then
+          echo "go.mod has correct version ($EXPECTED_GO_VERSION)"
+        else
+          actual_version="$(grep -E '^go [0-9]+\.[0-9]+' ./repo/toolkit/tools/go.mod)"
+          echo "go.mod has bad version expected:$EXPECTED_GO_VERSION, found: $actual_version"
+          echo "UPDATE ./github/workflows/go-test-coverage.yml AND prerequisite documentation if minimum go version changed"
+          exit 1
+        fi
+
+    - name: Check for bad go formatting
+      run: |
+        pushd repo/toolkit
+        sudo env "PATH=$PATH" make go-fmt-all
+        changes=$(git diff *.go)
+        if [ -n "$changes" ]; then
+          echo Unformatted go files!
+          git diff *.go
+          exit 1
+        fi
+
+    - name: check for out-of-date go modules
+      run: |
+        pushd repo/toolkit
+        sudo env "PATH=$PATH" make go-mod-tidy
+        modchanges=$(git diff tools/go.mod)
+        sumchanges=$(git diff tools/go.sum)
+        if [ -n "$modchanges$sumchanges" ]; then
+          echo Module files out of date!
+          git diff tools/go.mod
+          git diff tools/go.sum
+          exit 1
+        fi
+
+    - name: check schema.json is up-to-date
+      run: |
+        make -C repo/toolkit/tools/imagecustomizerschemacli/
+
+        # Use git diff to check if the schema has changed
+        schema_changes=$(git diff repo/toolkit/tools/imagecustomizerapi/schema.json)
+        if [ -n "$schema_changes" ]; then
+          echo "Schema has changed. Please update the schema using `make -C repo/toolkit/tools/imagecustomizerschemacli/` before committing."
+          exit 1
+        else
+          echo "Schema is up-to-date!"
+        fi
+
+    - name: Build binary
+      run: |
+        # Create version suffix.
+        case "${{ parameters.publishType }}" in
+          "prod")
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW="
+            ;;
+          "preview")
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-preview.${{github.run_number}}"
+            ;;
+          "main")
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-main.${{github.run_number}}"
+            ;;
+          *)
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-dev.${{github.run_number}}"
+            ;;
+        esac
+
+        # Build binary.
+        sudo env "PATH=$PATH" make -C "repo/toolkit" go-imager go-imagecustomizer go-osmodifier $PRERELEASE_PARAM
+
+        # Write version to file.
+        PACKAGE_VERSION="$(make --silent printvar-image_customizer_full_version $PRERELEASE_PARAM)"
+        echo "$PACKAGE_VERSION" > "version.txt"
+
+        # Print version.
+        echo "Version: $PACKAGE_VERSION"
+
+    - name: Build container
+      run: |
+        CONTAINER_TAG="imagecustomizer:build"
+        ./repo/toolkit/tools/imagecustomizer/container/build-container.sh -t "$CONTAINER_TAG"
+
+        docker image save "$CONTAINER_TAG" | gzip > "$imagecustomizer.tar.gz"
+
+    - name: Upload version artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: version
+        path: version.txt
+
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary
+        path: repo/toolkit/out/tools/imagecustomizer
+
+    - name: Upload container artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: container
+        path: imagecustomizer.tar.gz
+
+  build-docs:
+    uses: ./.github/workflows/reusable/docs-build.yml

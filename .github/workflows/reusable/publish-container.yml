@@ -1,0 +1,28 @@
+name: Publish container to GHCR
+
+on:
+  workflow_call: {}
+
+jobs:
+  publish-container:
+    name: Publish container
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: Publish container
+      run: |
+        VERSION=$(<"out/version/version.txt")
+
+        # Import the image from the tarball.
+        OUTPUT="$(docker image load -i "out/container/imagecustomizer.tar.gz" 2>&1)"
+        TARBALL_TAG="$(echo $OUTPUT | awk '{print $3}')"
+        
+        DOCKER_FULL_PATH="ghcr.io/${{ github.repository_owner }}/imagecustomizer:$VERSION-$HOST_ARCH"
+        echo "$DOCKER_FULL_PATH"
+
+        #docker tag "$TARBALL_TAG" "$DOCKER_FULL_PATH"
+        #docker push
