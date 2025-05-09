@@ -183,29 +183,54 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 		}
 
 		path := filepath.Join(outputDir, hdr.Name)
+		fileMode := os.FileMode(hdr.Mode & cpio.ModePerm)
+		fileType := hdr.Mode & cpio.ModeType
 
-		switch hdr.Mode & cpio.ModeType {
+		switch fileType {
 		case cpio.ModeDir:
-			err := os.MkdirAll(path, os.FileMode(hdr.Mode&0777))
+			err := os.MkdirAll(path, fileMode)
 			if err != nil {
-				return fmt.Errorf("create directory %s: %w", path, err)
+				return fmt.Errorf("failed to create directory %s: %w", path, err)
 			}
+			// logger.Log.Debugf("-- [dir     ] [%#o] (%s)", fileMode, path)
 		case cpio.ModeRegular:
-			err := os.MkdirAll(filepath.Dir(path), 0755)
+			// err := os.MkdirAll(filepath.Dir(path), 0755)
+			// if err != nil {
+			// 	return fmt.Errorf("create parent dir for file %s: %w", path, err)
+			// }
+			outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
 			if err != nil {
-				return fmt.Errorf("create parent dir for file %s: %w", path, err)
-			}
-			outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode&cpio.ModePerm))
-			if err != nil {
-				return fmt.Errorf("create file %s: %w", path, err)
+				return fmt.Errorf("failed to create file %s: %w", path, err)
 			}
 			_, err = io.Copy(outFile, cr)
 			outFile.Close()
 			if err != nil {
 				return fmt.Errorf("write file %s: %w", path, err)
 			}
+			// logger.Log.Debugf("-- [file    ] [%#o] (%s)", fileMode, path)
+		case cpio.ModeSymlink:
+			logger.Log.Debugf("-- [symlink ] [%#o] (%s)", fileMode, path)
+			logger.Log.Debugf("                 --> (%s) - (%d)", hdr.Linkname, hdr.Links)
+
+			targetAbsolutePath := hdr.Linkname
+			if !filepath.IsAbs(hdr.Linkname) {
+				targetAbsolutePath = filepath.Join(filepath.Dir(path), hdr.Linkname)
+			}
+
+			os.Symlink(targetAbsolutePath, path)
+			logger.Log.Debugf("                 --> (%s)", targetAbsolutePath)
+
+		case cpio.ModeDevice:
+			logger.Log.Debugf("-- [dev     ] [%#o] (%s)", fileMode, path)
+			return fmt.Errorf("unsupported file type 'Device' in CPIO archive.")
+		case cpio.ModeCharDevice:
+			logger.Log.Debugf("-- [char dev] [%#o] (%s)", fileMode, path)
+			return fmt.Errorf("unsupported file type 'Char Device' in CPIO archive.")
+		case cpio.ModeSocket:
+			logger.Log.Debugf("-- [socket  ] [%#o] (%s)", fileMode, path)
+			return fmt.Errorf("unsupported file type 'Socket' in CPIO archive.")
 		default:
-			fmt.Printf("Skipping unsupported type: %s\n", hdr.Name)
+			return fmt.Errorf("unsupported unknown type %#o in CPIO archive.", fileType)
 		}
 	}
 
@@ -477,12 +502,12 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 
 	logger.Log.Infof("Creating full OS writeable image from ISO artifacts")
 
-	// rootfs folder (mount squash fs)
-	fullOSDir, err := os.MkdirTemp(buildDir, "tmp-full-os-mount-")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
-	}
-	defer os.RemoveAll(fullOSDir)
+	// fullOSDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
+	// }
+	// defer os.RemoveAll(fullOSDir)
+	fullOSDir := "/home/george/temp/initrd-extracted"
 
 	squashfsExists, err := file.PathExists(filesStore.squashfsImagePath)
 	if err != nil {
@@ -511,6 +536,8 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", filesStore.initrdImagePath, err)
 		}
 	}
+
+	logger.Log.Infof("Populated (%s) with full file system", fullOSDir)
 
 	// boot folder (from artifacts)
 	artifactsBootDir := filepath.Join(filesStore.artifactsDir, "boot")
@@ -620,6 +647,8 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 
 		return err
 	}
+
+	logger.Log.Infof("Populating empty image (%s) with files from (%s)", rawImageFile, fullOSDir)
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"

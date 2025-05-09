@@ -308,7 +308,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 }
 
 func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
-	logger.Log.Infof("Converting input image to a writeable format")
+	logger.Log.Infof("Converting input image to a writeable format image (%s)", ic.rawImageFile)
 
 	if ic.inputIsIso {
 
@@ -407,6 +407,7 @@ func qemuImgEscapeOptionValue(value string) string {
 }
 
 func customizeOSContents(ic *ImageCustomizerParameters) error {
+	logger.Log.Infof("Customizing OS Contents (%s)", ic.rawImageFile)
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
