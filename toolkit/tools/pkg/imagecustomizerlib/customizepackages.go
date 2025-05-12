@@ -105,6 +105,21 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 }
 
 func refreshTdnfMetadata(imageChroot *safechroot.Chroot) error {
+
+	// findArgs := []string{
+	// 	"/",
+	// }
+
+	// err := imageChroot.UnsafeRun(func() error {
+	// 	return shell.NewExecBuilder("find", findArgs...).
+	// 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+	// 		ErrorStderrLines(1).
+	// 		Execute()
+	// })
+	// if err != nil {
+	// 	return fmt.Errorf("failed to find tdnf:\n%w", err)
+	// }
+
 	tdnfArgs := []string{
 		"-v", "check-update", "--refresh", "--nogpgcheck", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),

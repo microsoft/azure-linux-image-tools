@@ -212,14 +212,13 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 			logger.Log.Debugf("-- [symlink ] [%#o] (%s)", fileMode, path)
 			logger.Log.Debugf("                 --> (%s) - (%d)", hdr.Linkname, hdr.Links)
 
-			targetAbsolutePath := hdr.Linkname
-			if !filepath.IsAbs(hdr.Linkname) {
-				targetAbsolutePath = filepath.Join(filepath.Dir(path), hdr.Linkname)
+			// ToDo: why 755?
+			err := os.MkdirAll(filepath.Dir(path), 0755)
+			if err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", path, err)
 			}
 
-			os.Symlink(targetAbsolutePath, path)
-			logger.Log.Debugf("                 --> (%s)", targetAbsolutePath)
-
+			os.Symlink(hdr.Linkname, path)
 		case cpio.ModeDevice:
 			logger.Log.Debugf("-- [dev     ] [%#o] (%s)", fileMode, path)
 			return fmt.Errorf("unsupported file type 'Device' in CPIO archive.")
@@ -518,6 +517,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 	var squashfsMount *safemount.Mount
 
 	if squashfsExists {
+		logger.Log.Infof("---- Found minimal initrd configuration")
 		squashfsLoopDevice, err = safeloopback.NewLoopback(filesStore.squashfsImagePath)
 		if err != nil {
 			return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
@@ -531,6 +531,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		}
 		defer squashfsMount.Close()
 	} else {
+		logger.Log.Infof("---- Found self-contained initrd configuration")
 		err = extractFilesFromInitrdImage(filesStore.initrdImagePath, fullOSDir)
 		if err != nil {
 			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", filesStore.initrdImagePath, err)
@@ -605,6 +606,9 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 
 	// populate the newly created disk image with content from the squash fs
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
+
+		logger.Log.Infof("Install files to empty image")
+
 		// At the point when this copy will be executed, both the boot and the
 		// root partitions will be mounted, and the files of /boot/efi will
 		// land on the the boot partition, while the rest will be on the rootfs
@@ -671,6 +675,26 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 			return err
 		}
 	}
+
+	// findTdnfArgs1 := []string{
+	// 	fullOSDir, "-name", "tdnf",
+	// }
+
+	// err = shell.ExecuteLive(true /*squashErrors*/, "find", findTdnfArgs1...)
+	// if err != nil {
+	// 	logger.Log.Infof("cound not run find 2:\n%w", err)
+	// }
+
+	// findTdnfArgs2 := []string{
+	// 	"-la", "usr/bin",
+	// }
+
+	// err = imageChroot.UnsafeRun(func() error {
+	// 	return shell.ExecuteLive(true /*squashErrors*/, "ls", findTdnfArgs2...)
+	// })
+	// if err != nil {
+	// 	logger.Log.Infof("cound not run find 1:\n%s", err)
+	// }
 
 	return nil
 }

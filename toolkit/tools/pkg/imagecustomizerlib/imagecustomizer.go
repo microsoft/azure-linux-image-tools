@@ -326,6 +326,11 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}
+			logger.Log.Infof("-- Copying raw image out...")
+			err = file.Copy(ic.rawImageFile, "/home/george/temp/raw-image.raw")
+			if err != nil {
+				return nil, fmt.Errorf("failed to stage file from (%s) to (%s):\n%w", ic.rawImageFile, "/home/george/temp/raw-image.raw", err)
+			}
 		}
 
 		return inputIsoArtifacts, nil
