@@ -10,6 +10,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
 // 'SavedConfigs' is a subset of the Image Customizer input configurations that
@@ -132,6 +133,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
 	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
 ) (outputConfigs *SavedConfigs, err error) {
+	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
 	outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
 	outputConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl

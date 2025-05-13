@@ -16,7 +16,7 @@ import (
 
 func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
-	logger.Log.Debugf("Creating writeable rootfs")
+	logger.Log.Infof("Creating writeable rootfs (%s) from (%s)", writeableRootfsDir, sourceDir)
 
 	err := os.MkdirAll(writeableRootfsDir, os.ModePerm)
 	if err != nil {
@@ -247,7 +247,7 @@ func createIsoImageAndPXEFolder(buildDir string, baseConfigPath string, addition
 
 func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArtifactsDir string) error {
 
-	logger.Log.Infof("Copying PXE artifacts to (%s)", outputPXEArtifactsDir)
+	logger.Log.Infof("Extracting PXE artifacts from (%s) to (%s)", isoImagePath, outputPXEArtifactsDir)
 
 	// Extract all files from the iso image file.
 	err := extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)

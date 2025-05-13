@@ -48,7 +48,7 @@ hostonly="no"
 )
 
 func createInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
-	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+	logger.Log.Infof("Generating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
@@ -237,7 +237,7 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 }
 
 func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
-	logger.Log.Debugf("Generating initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+	logger.Log.Infof("Generating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
@@ -295,7 +295,7 @@ func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPat
 }
 
 func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
-	logger.Log.Debugf("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
+	logger.Log.Infof("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
 
 	err := os.RemoveAll(filepath.Join(writeableRootfsDir, "boot"))
 	if err != nil {
@@ -440,6 +440,7 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 
 func createIsoImage(buildDir string, filesStore *IsoFilesStore, baseConfigPath string,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
+	logger.Log.Infof("Creating final ISO at (%s)", outputImagePath)
 	stagingDir := filepath.Join(buildDir, "staging")
 
 	err := stageIsoFiles(filesStore, baseConfigPath, additionalIsoFiles, stagingDir)
@@ -501,12 +502,11 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 
 	logger.Log.Infof("Creating full OS writeable image from ISO artifacts")
 
-	// fullOSDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
-	// }
-	// defer os.RemoveAll(fullOSDir)
-	fullOSDir := "/home/george/temp/initrd-extracted"
+	fullOSDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
+	}
+	defer os.RemoveAll(fullOSDir)
 
 	squashfsExists, err := file.PathExists(filesStore.squashfsImagePath)
 	if err != nil {
@@ -517,7 +517,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 	var squashfsMount *safemount.Mount
 
 	if squashfsExists {
-		logger.Log.Infof("---- Found minimal initrd configuration")
+		logger.Log.Infof("Detected bootstrap initrd configuration")
 		squashfsLoopDevice, err = safeloopback.NewLoopback(filesStore.squashfsImagePath)
 		if err != nil {
 			return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
@@ -531,7 +531,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		}
 		defer squashfsMount.Close()
 	} else {
-		logger.Log.Infof("---- Found self-contained initrd configuration")
+		logger.Log.Infof("Detected non-bootstrap initrd configuration")
 		err = extractFilesFromInitrdImage(filesStore.initrdImagePath, fullOSDir)
 		if err != nil {
 			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", filesStore.initrdImagePath, err)
@@ -675,26 +675,6 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 			return err
 		}
 	}
-
-	// findTdnfArgs1 := []string{
-	// 	fullOSDir, "-name", "tdnf",
-	// }
-
-	// err = shell.ExecuteLive(true /*squashErrors*/, "find", findTdnfArgs1...)
-	// if err != nil {
-	// 	logger.Log.Infof("cound not run find 2:\n%w", err)
-	// }
-
-	// findTdnfArgs2 := []string{
-	// 	"-la", "usr/bin",
-	// }
-
-	// err = imageChroot.UnsafeRun(func() error {
-	// 	return shell.ExecuteLive(true /*squashErrors*/, "ls", findTdnfArgs2...)
-	// })
-	// if err != nil {
-	// 	logger.Log.Infof("cound not run find 1:\n%s", err)
-	// }
 
 	return nil
 }

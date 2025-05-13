@@ -31,6 +31,7 @@ const (
 
 func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string, pxeGrubCfgFileName string,
 	disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
+	logger.Log.Infof("Updating ISO grub.cfg")
 
 	inputContentString, err := file.Read(isoGrubCfgFileName)
 	if err != nil {
