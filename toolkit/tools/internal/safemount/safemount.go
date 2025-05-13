@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
@@ -16,9 +17,9 @@ import (
 )
 
 type Mount struct {
-	target     string
-	isMounted  bool
-	dirCreated bool
+	target           string
+	isMounted        bool
+	fileOrDirCreated bool
 }
 
 // Creates a new system mount.
@@ -47,13 +48,37 @@ func (m *Mount) newMountHelper(source, target, fstype string, flags uintptr, dat
 		source, target, fstype, flags, data)
 
 	if makeAndDeleteDir {
-		// Create the mount target directory.
-		err = os.MkdirAll(target, os.ModePerm)
+		sourceInfo, err := os.Stat(source)
 		if err != nil {
-			return fmt.Errorf("failed to create mount directory (%s):\n%w", target, err)
+			return fmt.Errorf("failed to stat mount source (%s):\n%w", source, err)
 		}
 
-		m.dirCreated = true
+		sourceIsFile := (sourceInfo.Mode() & os.ModeType) == 0
+		isBindMount := (flags & unix.MS_BIND) == unix.MS_BIND
+		if !sourceIsFile || !isBindMount {
+			// Create the mount target directory.
+			err = os.MkdirAll(target, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create mount directory (%s):\n%w", target, err)
+			}
+		} else {
+			// Mount is a file bind mount.
+			// So, create a placeholder file instead of a placeholder directory.
+
+			// Create parent directory.
+			err = os.MkdirAll(filepath.Dir(target), os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create mount target parent directory (%s):\n%w", target, err)
+			}
+
+			// Create placeholder file.
+			err = os.WriteFile(target, []byte(nil), os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create mount target file (%s):\n%w", target, err)
+			}
+		}
+
+		m.fileOrDirCreated = true
 	}
 
 	// Create the mount.
@@ -116,7 +141,7 @@ func (m *Mount) close(async bool) error {
 		m.isMounted = false
 	}
 
-	if m.dirCreated {
+	if m.fileOrDirCreated {
 		logger.Log.Debugf("Deleting directory (%s)", m.target)
 
 		// Note: Do not use `RemoveAll` here in case the unmount silently failed.
@@ -126,7 +151,7 @@ func (m *Mount) close(async bool) error {
 			return fmt.Errorf("failed to delete mount directory (%s):\n%w", m.target, err)
 		}
 
-		m.dirCreated = false
+		m.fileOrDirCreated = false
 	}
 
 	return nil
