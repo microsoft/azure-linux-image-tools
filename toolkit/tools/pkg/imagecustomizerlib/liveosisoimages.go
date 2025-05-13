@@ -57,6 +57,11 @@ func createInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
 	}
 
+	err = os.RemoveAll(filepath.Join(writeableRootfsDir, "boot"))
+	if err != nil {
+		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+	}
+
 	initScriptPath := filepath.Join(writeableRootfsDir, initScriptFileName)
 	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
 	if err != nil {
@@ -517,7 +522,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 	var squashfsMount *safemount.Mount
 
 	if squashfsExists {
-		logger.Log.Infof("Detected bootstrap initrd configuration")
+		logger.Log.Infof("Detected bootstrap OS initrd configuration")
 		squashfsLoopDevice, err = safeloopback.NewLoopback(filesStore.squashfsImagePath)
 		if err != nil {
 			return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
@@ -531,7 +536,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		}
 		defer squashfsMount.Close()
 	} else {
-		logger.Log.Infof("Detected non-bootstrap initrd configuration")
+		logger.Log.Infof("Detected full OS initrd configuration")
 		err = extractFilesFromInitrdImage(filesStore.initrdImagePath, fullOSDir)
 		if err != nil {
 			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", filesStore.initrdImagePath, err)
