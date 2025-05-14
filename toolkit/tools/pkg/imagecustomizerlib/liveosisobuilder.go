@@ -134,7 +134,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 
 	if outputIsoInitrdSelfContained {
 		// Generate the initrd image
-		err = createInitrdImage(writeableRootfsDir, outputInitrdPath)
+		err = createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}

@@ -33,9 +33,12 @@ add_drivers+=" overlay "
 hostonly="no"
 `
 
+	// ToDo: this is not being invoked...
 	initScriptFileName = "init"
 	initContent        = `mount -t proc proc /proc
-/lib/systemd/systemd`
+# /bin/bash
+/lib/systemd/systemd
+`
 
 	// the total size of a collection of files is multiplied by the
 	// expansionSafetyFactor to estimate a disk size sufficient to hold those
@@ -47,7 +50,7 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-func createInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
+func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
 	logger.Log.Infof("Generating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
@@ -57,6 +60,7 @@ func createInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
 	}
 
+	logger.Log.Debugf("Deleting /boot")
 	err = os.RemoveAll(filepath.Join(writeableRootfsDir, "boot"))
 	if err != nil {
 		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
@@ -66,6 +70,22 @@ func createInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
 	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create (%s):\n%w", initScriptPath, err)
+	}
+
+	info, err := os.Stat(writeableRootfsDir)
+	if err != nil {
+		return fmt.Errorf("failed to get the mode of (%s):\n%w", writeableRootfsDir, err)
+	}
+
+	if info.IsDir() {
+		logger.Log.Infof("---- Path is (%04o)", info.Mode().Perm())
+	} else {
+		logger.Log.Infof("---- Path (%s) is not a directory", writeableRootfsDir)
+	}
+
+	err = os.Chmod(writeableRootfsDir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to change directory mode of (%s):\n%w", writeableRootfsDir, err)
 	}
 
 	outputFile, err := os.Create(outputInitrdPath)
@@ -218,9 +238,22 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 			logger.Log.Debugf("                 --> (%s) - (%d)", hdr.Linkname, hdr.Links)
 
 			// ToDo: why 755?
-			err := os.MkdirAll(filepath.Dir(path), 0755)
+			pathDir := filepath.Dir(path)
+			info, err := os.Stat(pathDir)
 			if err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", path, err)
+				if os.IsNotExist(err) {
+					logger.Log.Debugf("                 --> Directory (%s) does not exists!", pathDir)
+					err := os.MkdirAll(pathDir, 0755)
+					if err != nil {
+						return fmt.Errorf("failed to create directory %s: %w", path, err)
+					}
+				} else {
+					return fmt.Errorf("failed to check directory %s: %w", pathDir, err)
+				}
+			} else {
+				if info.IsDir() {
+					logger.Log.Debugf("                 --> Directory (%s) exists!", pathDir)
+				}
 			}
 
 			os.Symlink(hdr.Linkname, path)
