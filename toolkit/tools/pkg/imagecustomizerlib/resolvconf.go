@@ -48,13 +48,11 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 
 	stat, err := os.Lstat(imageResolveConfPath)
 	if err != nil {
-		logger.Log.Infof("Overriding resolv.conf file - 1")
 		if !os.IsNotExist(err) {
 			return resolvConfInfo{}, fmt.Errorf("failed to stat resolv.conf file:\n%w", err)
 		}
 		existing.existingType = resolvConfTypeNone
 	} else if stat.Mode()&os.ModeSymlink != 0 {
-		logger.Log.Infof("Overriding resolv.conf file - 2")
 		symlinkPath, err := os.Readlink(imageResolveConfPath)
 		if err != nil {
 			return resolvConfInfo{}, fmt.Errorf("failed to read resolv.conf symlink's path:\n%w", err)
@@ -62,7 +60,6 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 		existing.existingType = resolvConfTypeSymlink
 		existing.symlinkPath = symlinkPath
 	} else {
-		logger.Log.Infof("Overriding resolv.conf file - 3")
 		fileContents, err := file.Read(imageResolveConfPath)
 		if err != nil {
 			return resolvConfInfo{}, fmt.Errorf("failed to read resolv.conf file:\n%w", err)
@@ -71,7 +68,6 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 		existing.fileContents = fileContents
 		existing.filePerms = stat.Mode().Perm()
 	}
-	logger.Log.Infof("Overriding resolv.conf file - 4")
 
 	// Remove the existing resolv.conf file, if it exists.
 	// Note: It is assumed that the image will have a process that runs on boot that will override the resolv.conf
@@ -80,8 +76,6 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 	if err != nil {
 		return resolvConfInfo{}, fmt.Errorf("failed to delete existing resolv.conf file:\n%w", err)
 	}
-
-	logger.Log.Infof("Overriding resolv.conf file - 5 (%s) to (%s)", resolvConfPath, imageResolveConfPath)
 
 	err = file.Copy(resolvConfPath, imageResolveConfPath)
 	if err != nil {
@@ -104,8 +98,6 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 
 	switch existing.existingType {
 	case resolvConfTypeNone:
-		logger.Log.Infof("Restoring resolv.conf - 1")
-
 		// Check if systemd-resolved is enabled.
 		resolvedEnabled, err := systemd.IsServiceEnabled("systemd-resolved.service", imageChroot)
 		if err != nil {
@@ -113,7 +105,6 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 		}
 
 		if resolvedEnabled {
-			logger.Log.Infof("Restoring resolv.conf - 2 - %s, %s", resolvSystemdStubPath, imageResolveConfPath)
 			logger.Log.Infof("Adding systemd-resolved resolv.conf symlink")
 
 			// The systemd-resolved.service is enabled.
@@ -125,10 +116,7 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 				return fmt.Errorf("failed to create resolv.conf symlink:\n%w", err)
 			}
 		}
-		logger.Log.Infof("Restoring resolv.conf - 3")
-
 	case resolvConfTypeFile:
-		logger.Log.Infof("Restoring resolv.conf - 4")
 		logger.Log.Debugf("Restoring resolv.conf file")
 
 		// Restore the resolv.conf file.
@@ -138,7 +126,6 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 		}
 
 	case resolvConfTypeSymlink:
-		logger.Log.Infof("Restoring resolv.conf - 5 - %s, %s", existing.symlinkPath, imageResolveConfPath)
 		_, err := systemd.IsServiceEnabled("systemd-resolved.service", imageChroot)
 		if err != nil {
 			return err
@@ -154,7 +141,5 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 	default:
 		return fmt.Errorf("unknown resolvConfType value (%v)", existing.existingType)
 	}
-	logger.Log.Infof("Restoring resolv.conf - 6")
-
 	return nil
 }

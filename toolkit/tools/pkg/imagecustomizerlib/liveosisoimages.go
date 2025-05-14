@@ -35,8 +35,9 @@ hostonly="no"
 
 	// ToDo: this is not being invoked...
 	initScriptFileName = "init"
-	initContent        = `mount -t proc proc /proc
-# /bin/bash
+	// Having #!/bin/bash header causes a kernel panic.
+	// Not having the init file at all, causes a kernel panic.
+	initContent = `mount -t proc proc /proc
 /lib/systemd/systemd
 `
 
@@ -66,23 +67,14 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
 	}
 
+	// ToDo: Do we really need this?!
 	initScriptPath := filepath.Join(writeableRootfsDir, initScriptFileName)
 	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create (%s):\n%w", initScriptPath, err)
 	}
 
-	info, err := os.Stat(writeableRootfsDir)
-	if err != nil {
-		return fmt.Errorf("failed to get the mode of (%s):\n%w", writeableRootfsDir, err)
-	}
-
-	if info.IsDir() {
-		logger.Log.Infof("---- Path is (%04o)", info.Mode().Perm())
-	} else {
-		logger.Log.Infof("---- Path (%s) is not a directory", writeableRootfsDir)
-	}
-
+	// Set root permissions
 	err = os.Chmod(writeableRootfsDir, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to change directory mode of (%s):\n%w", writeableRootfsDir, err)
@@ -208,8 +200,10 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 		}
 
 		path := filepath.Join(outputDir, hdr.Name)
-		fileMode := os.FileMode(hdr.Mode & cpio.ModePerm)
+		fileMode := os.FileMode(hdr.Mode & (cpio.ModePerm | cpio.ModeSetuid | cpio.ModeSetgid | cpio.ModeSticky))
 		fileType := hdr.Mode & cpio.ModeType
+
+		logger.Log.Debugf("-- [dir     ] [%#o] (%s)", fileMode, path)
 
 		switch fileType {
 		case cpio.ModeDir:
@@ -217,12 +211,7 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", path, err)
 			}
-			// logger.Log.Debugf("-- [dir     ] [%#o] (%s)", fileMode, path)
 		case cpio.ModeRegular:
-			// err := os.MkdirAll(filepath.Dir(path), 0755)
-			// if err != nil {
-			// 	return fmt.Errorf("create parent dir for file %s: %w", path, err)
-			// }
 			outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
 			if err != nil {
 				return fmt.Errorf("failed to create file %s: %w", path, err)
@@ -231,6 +220,22 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 			outFile.Close()
 			if err != nil {
 				return fmt.Errorf("write file %s: %w", path, err)
+			}
+
+			if fileMode > 0777 {
+				// For some reason, Chmod does not set the higher-order bits:
+				// setuid, setgid, and setsticky bits
+				// err = os.Chmod(path, fileMode)
+				fileModeString := fmt.Sprintf("%#o", fileMode)
+				logger.Log.Infof("---- ---- fileModeString = (%s)", fileModeString)
+				chmodParams := []string{
+					fileModeString,
+					path,
+				}
+				err = shell.ExecuteLive(true /*squashErrors*/, "chmod", chmodParams...)
+				if err != nil {
+					return fmt.Errorf("failed to change mode of file %s: %w", path, err)
+				}
 			}
 			// logger.Log.Debugf("-- [file    ] [%#o] (%s)", fileMode, path)
 		case cpio.ModeSymlink:
