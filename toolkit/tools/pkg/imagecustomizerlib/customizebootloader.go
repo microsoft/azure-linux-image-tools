@@ -14,8 +14,14 @@ import (
 
 func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
 ) error {
+	// print config
+	logger.Log.Infof("***************************config: %v", config)
+	logger.Log.Infof("***************************config.OS: %v", config.OS)
+	logger.Log.Infof("***************************BootLoader: %v", config.OS.BootLoader)
+	logger.Log.Infof("***************************BootLoader config: %v", config.OS.BootLoader.ResetType)
 
 	switch config.OS.BootLoader.ResetType {
+
 	case imagecustomizerapi.ResetBootLoaderTypeHard:
 		err := hardResetBootLoader(baseConfigPath, config, imageConnection)
 		if err != nil {
@@ -37,17 +43,17 @@ func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Confi
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
+	/*
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
+		if err != nil {
+			return err
+		}
 
-	bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
-	if err != nil {
-		return err
-	}
-
-	currentSelinuxMode, err := bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
-	if err != nil {
-		return fmt.Errorf("failed to get existing SELinux mode:\n%w", err)
-	}
-
+		currentSelinuxMode, err := bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
+		if err != nil {
+			return fmt.Errorf("failed to get existing SELinux mode:\n%w", err)
+		}
+	*/
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
 	if config.CustomizePartitions() {
@@ -76,8 +82,9 @@ func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Confi
 	}
 
 	// Hard-reset the grub config.
+	// swetting selinux mode to disabled
 	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, config.OS.SELinux,
-		config.OS.KernelCommandLine, currentSelinuxMode)
+		config.OS.KernelCommandLine, imagecustomizerapi.SELinuxModeDisabled)
 	if err != nil {
 		return fmt.Errorf("failed to configure bootloader:\n%w", err)
 	}

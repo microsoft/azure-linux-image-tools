@@ -100,11 +100,11 @@ const (
 	rpmManifestDirectory = "/var/lib/rpmmanifest"
 
 	// /boot directory should be only accesible by root. The directories need the execute bit as well.
-	bootDirectoryFileMode = 0400
-	bootDirectoryDirMode  = 0700
+	bootDirectoryFileMode = 0o400
+	bootDirectoryDirMode  = 0o700
 
 	// Configuration files related to boot behavior. Users should be able to read these files, and root should have RW access.
-	bootUsrConfigFileMode = 0644
+	bootUsrConfigFileMode = 0o644
 )
 
 // PackageList represents the list of packages to install into an image
@@ -210,11 +210,10 @@ func UpdatePartitionMapWithOverlays(partDevPathMap, partIDToFsTypeMap, mountPoin
 }
 
 func createOverlayPartition(partitionSetting configuration.PartitionSetting, mountPointDevPathMap, mountPointToMountArgsMap, mountPointToFsTypeMap map[string]string, mountPointToOverlayMap map[string]*Overlay) (err error) {
-	//Mount the base image
-	//Create a temp upper dir
-	//Add to the mount args
+	// Mount the base image
+	// Create a temp upper dir
+	// Add to the mount args
 	devicePath, err := diskutils.SetupLoopbackDevice(partitionSetting.OverlayBaseImage)
-
 	if err != nil {
 		err = fmt.Errorf("failed to setup loop back device for mount (%s):\n%w", partitionSetting.OverlayBaseImage, err)
 		return
@@ -320,7 +319,6 @@ func mountSingleMountPoint(installRoot, mountPoint, device, fsType, extraOptions
 }
 
 func unmountSingleMountPoint(installRoot, mountPoint string) (err error) {
-
 	mountPath := filepath.Join(installRoot, mountPoint)
 	err = umount(mountPath)
 	return
@@ -487,7 +485,7 @@ func PopulateInstallRoot(installChroot *safechroot.Chroot, packagesToInstall []s
 	// Initialize RPM Database so we can install RPMs into the installroot
 	err = initializeRpmDatabase(installRoot, diffDiskBuild)
 	if err != nil {
-		return
+		return err
 	}
 
 	if !config.RemoveRpmDb {
@@ -507,6 +505,7 @@ func PopulateInstallRoot(installChroot *safechroot.Chroot, packagesToInstall []s
 	// Change the ordering if needed (ie make sure initramfs is last)
 	packagesToInstall = orderPackageInstallList(packagesToInstall)
 
+	logger.Log.Debug("Populating install root with packages", packagesToInstall)
 	// Calculate how many packages need to be installed so an accurate percent complete can be reported
 	installedPackages, err := calculateTotalPackages(packagesToInstall, installRoot)
 	if err != nil {
@@ -514,11 +513,14 @@ func PopulateInstallRoot(installChroot *safechroot.Chroot, packagesToInstall []s
 	}
 	totalPackages := len(installedPackages.Repo)
 
+	logger.Log.Debugf("Total packages to install: %d", totalPackages)
+	// Sort the packages to install so we can report progress
+
 	// Write out JSON file with list of packages included in the image
 	packageManifestPath := filepath.Join("/", PackageManifestRelativePath)
 	err = jsonutils.WriteJSONFile(packageManifestPath, installedPackages)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Keep a running total of how many packages have been installed through all the `TdnfInstallWithProgress` and
@@ -530,7 +532,7 @@ func PopulateInstallRoot(installChroot *safechroot.Chroot, packagesToInstall []s
 	packagesInstalled, packagesToInstall, err = TdnfInstallPriorityPackage(filesystemPkg, installRoot, packagesToInstall, packagesInstalled, totalPackages, true)
 	if err != nil {
 		err = fmt.Errorf("failed to install (%s) package in preparation for image creation:\n%w", filesystemPkg, err)
-		return
+		return err
 	}
 
 	// imageconfigvalidator should have ensured that we intend to install shadow-utils, so we can go ahead and do that here.
@@ -703,9 +705,7 @@ func TdnfInstallPriorityPackage(priorityPackageName, installRoot string, package
 func TdnfInstallWithProgress(packageName, installRoot string, currentPackagesInstalled, totalPackages int, reportProgress bool) (packagesInstalled int, err error) {
 	timestamp.StartEvent("installing"+packageName, nil)
 	defer timestamp.StopEvent(nil)
-	var (
-		releaseverCliArg string
-	)
+	var releaseverCliArg string
 
 	packagesInstalled = currentPackagesInstalled
 
@@ -784,9 +784,7 @@ func configureSystemFiles(installChroot *safechroot.Chroot, hostname string, con
 // all packages that will be installed are returned in installedPackages, and a manifest with these packages
 // is generated under build/imagegen/$config_name/image_pkg_manifest.json
 func calculateTotalPackages(packages []string, installRoot string) (installedPackages *repocloner.RepoContents, err error) {
-	var (
-		releaseverCliArg string
-	)
+	var releaseverCliArg string
 	installedPackages = &repocloner.RepoContents{}
 	const tdnfAssumeNoStdErr = "Error(1032) : Operation aborted.\n"
 
@@ -805,8 +803,11 @@ func calculateTotalPackages(packages []string, installRoot string) (installedPac
 		)
 
 		// Issue an install request but stop right before actually performing the install (assumeno)
-		stdout, stderr, err = shell.Execute("tdnf", "install", releaseverCliArg, "--assumeno", "--nogpgcheck", pkg, "--installroot", installRoot)
+		stdout, stderr, err = shell.Execute("tdnf", "install", releaseverCliArg, "--assumeno", "--nogpgcheck", pkg)
 		if err != nil {
+
+			fmt.Println("Error: ", err)
+			logger.Log.Warnf("Failed to tdnf install: %v. Package name: %v", err, pkg)
 			// tdnf aborts the process when it detects an install with --assumeno.
 			if stderr == tdnfAssumeNoStdErr {
 				err = nil
@@ -821,6 +822,7 @@ func calculateTotalPackages(packages []string, installRoot string) (installedPac
 		// Search for the list of packages to be installed,
 		// it will be prefixed with a line "Installing:" and will
 		// end with an empty line.
+		fmt.Println("Stdout: ", stdout)
 		for _, line := range splitStdout {
 			matches := tdnf.InstallPackageRegex.FindStringSubmatch(line)
 			if len(matches) != tdnf.InstallPackageMaxMatchLen {
@@ -834,6 +836,7 @@ func calculateTotalPackages(packages []string, installRoot string) (installedPac
 				Architecture: matches[tdnf.InstallPackageArch],
 				Distribution: matches[tdnf.InstallPackageDist],
 			}
+			fmt.Println("Pkg: ", pkg)
 
 			pkgID := pkg.ID()
 			if checkedPackageSet[pkgID] {
@@ -863,12 +866,12 @@ func clearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot 
 		machineIDFile         = "/etc/machine-id"
 		machineIDFirstBootOn  = "uninitialized\n"
 		machineIDFirstbootOff = ""
-		machineIDFilePerms    = 0444
+		machineIDFilePerms    = 0o444
 	)
 
 	// These state files are very unlikely to be present, but we should be thorough and check for them.
 	// See https://systemd.io/BUILDING_IMAGES/ for more information.
-	var otherFilesToRemove = []string{
+	otherFilesToRemove := []string{
 		"/var/lib/systemd/random-seed",
 		"/boot/efi/loader/random-seed",
 		"/var/lib/systemd/credential.secret",
@@ -980,7 +983,7 @@ func AddImageIDFile(installChrootRootDir string, buildNumber string) (err error)
 
 	const (
 		imageIDFile      = "/etc/image-id"
-		imageIDFilePerms = 0444
+		imageIDFilePerms = 0o444
 	)
 
 	ReportAction("Creating image-id file")
@@ -1053,7 +1056,6 @@ func updateInitramfsForEncrypt(installChroot *safechroot.Chroot) (err error) {
 			initrdImage, kernel,
 		}
 		_, stderr, err := shell.Execute("dracut", dracutArgs...)
-
 		if err != nil {
 			logger.Log.Warnf("Unable to execute dracut: %v", stderr)
 			return
@@ -1252,6 +1254,9 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
+	fmt.Printf("--------------------------------------bootDevice: %s\n", bootDevice)
+
+	fmt.Printf("isBootPartitionSeparate: %t\n", isBootPartitionSeparate)
 	bootPrefix := ""
 	if !isBootPartitionSeparate {
 		bootDevice = mountPointMap[rootMountPoint]
@@ -1264,6 +1269,9 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 		return
 	}
 
+	// print mountpointmap
+	fmt.Printf("mountPointMap: %v\n", mountPointMap)
+	// If the boot device is not a block device, we need to use the mount point instead.
 	// Grub only accepts UUID, not PARTUUID or PARTLABEL
 	bootUUID, err := GetUUID(bootDevice)
 	if err != nil {
@@ -1508,7 +1516,7 @@ func addGroups(installChroot *safechroot.Chroot, groups []configuration.Group) (
 		logger.Log.Infof("Adding group (%s)", group.Name)
 		ReportActionf("Adding group: %s", group.Name)
 
-		var args = []string{group.Name}
+		args := []string{group.Name}
 		if group.GID != "" {
 			args = append(args, "-g", group.GID)
 		}
@@ -1531,9 +1539,7 @@ func addUsers(installChroot *safechroot.Chroot, users []configuration.User) (err
 		logger.Log.Infof("Adding user (%s)", user.Name)
 		ReportActionf("Adding user: %s", user.Name)
 
-		var (
-			isRoot bool
-		)
+		var isRoot bool
 
 		isRoot, err = createUserWithPassword(installChroot, user)
 		if err != nil {
@@ -1737,7 +1743,6 @@ func ConfigureUserPrimaryGroupMembership(installChroot safechroot.ChrootInterfac
 		err = installChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "usermod", "-g", primaryGroup, username)
 		})
-
 		if err != nil {
 			return fmt.Errorf("failed to set user's (%s) primary group (%s):\n%w", username, primaryGroup, err)
 		}
@@ -1792,7 +1797,7 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 		exists     bool
 	)
 	const squashErrors = false
-	const authorizedKeysTempFilePerms = 0644
+	const authorizedKeysTempFilePerms = 0o644
 	const authorizedKeysTempFile = "/tmp/authorized_keys"
 	const sshDirectoryPermission = "0700"
 
@@ -1918,7 +1923,6 @@ func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username st
 		err = shell.ExecuteLive(squashErrors, "chmod", "-R", sshDirectoryPermission, userSSHKeyDir)
 		return
 	})
-
 	if err != nil {
 		return
 	}
@@ -2394,7 +2398,6 @@ func runPostInstallScripts(installChroot *safechroot.Chroot, config configuratio
 		logger.Log.Infof("Running post-install script: %s", script.Path)
 		err = installChroot.UnsafeRun(func() error {
 			err := shell.ExecuteLive(squashErrors, shell.ShellProgram, "-c", fmt.Sprintf("%s %s", scriptPath, script.Args))
-
 			if err != nil {
 				return err
 			}
@@ -2406,7 +2409,6 @@ func runPostInstallScripts(installChroot *safechroot.Chroot, config configuratio
 
 			return err
 		})
-
 		if err != nil {
 			return
 		}
@@ -2436,7 +2438,6 @@ func cleanupTdnfCache(installChroot *safechroot.Chroot) error {
 		chrootErr = shell.ExecuteLive(squashErrors, "tdnf", "clean", "all")
 		return chrootErr
 	})
-
 	if err != nil {
 		err = fmt.Errorf("failed to cleanup tdnf cache:\n%w", err)
 		return err
@@ -2484,7 +2485,6 @@ func RunFinalizeImageScripts(installChroot *safechroot.Chroot, config configurat
 		logger.Log.Infof("Running finalize image script: %s", script.Path)
 		err = installChroot.UnsafeRun(func() error {
 			err := shell.ExecuteLive(squashErrors, shell.ShellProgram, "-c", fmt.Sprintf("%s %s", scriptPath, script.Args))
-
 			if err != nil {
 				return err
 			}
@@ -2496,7 +2496,6 @@ func RunFinalizeImageScripts(installChroot *safechroot.Chroot, config configurat
 
 			return err
 		})
-
 		if err != nil {
 			return
 		}
@@ -2820,10 +2819,12 @@ func createDiffArtifact(setupChrootDirPath, workDirPath, name string, overlay *O
 		fullPath,
 		"-C",
 		upperDir,
-		"."}
+		".",
+	}
 
 	return shell.ExecuteLive(squashErrors, "tar", tarArgs...)
 }
+
 func createRawArtifact(workDirPath, devPath, name string) (err error) {
 	const (
 		defaultBlockSize = 1024 * 1024 // 1MB

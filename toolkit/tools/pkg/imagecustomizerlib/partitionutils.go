@@ -218,15 +218,24 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
+
+			target := filepath.Join(fstabEntry.Target, "installroot")
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
-				partition.Path, fstabEntry.Target, fstabEntry.FsType,
+				partition.Path, target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 
 			foundRoot = true
 		} else {
-			mountPoint = safechroot.NewMountPoint(
-				partition.Path, fstabEntry.Target, fstabEntry.FsType,
-				uintptr(vfsOptions), fstabEntry.FsOptions)
+			if fstabEntry.Target == "/boot/efi" {
+				target := filepath.Join("installroot", fstabEntry.Target)
+				mountPoint = safechroot.NewMountPoint(
+					partition.Path, target, fstabEntry.FsType,
+					uintptr(vfsOptions), fstabEntry.FsOptions)
+			} else {
+				mountPoint = safechroot.NewMountPoint(
+					partition.Path, fstabEntry.Target, fstabEntry.FsType,
+					uintptr(vfsOptions), fstabEntry.FsOptions)
+			}
 		}
 
 		mountPoints = append(mountPoints, mountPoint)

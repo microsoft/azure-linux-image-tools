@@ -16,7 +16,7 @@ import (
 func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string, newBuildImageFile string,
 ) (map[string]string, error) {
-	existingImageConnection, _, err := connectToExistingImage(buildImageFile, buildDir, "imageroot", false)
+	existingImageConnection, _, err := connectToExistingImage(buildImageFile, buildDir, "imageroot", false, "")
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, co
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := createNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
+	partIdToPartUuid, _, err := CreateNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
 		return nil, err
@@ -59,8 +59,10 @@ func copyPartitionFiles(sourceRoot, targetRoot string) error {
 	// Notes:
 	// `-a` ensures unix permissions, extended attributes (including SELinux), and sub-directories (-r) are copied.
 	// `--no-dereference` ensures that symlinks are copied as symlinks.
-	copyArgs := []string{"--verbose", "--no-clobber", "-a", "--no-dereference", "--sparse", "always",
-		sourceRoot, targetRoot}
+	copyArgs := []string{
+		"--verbose", "--no-clobber", "-a", "--no-dereference", "--sparse", "always",
+		sourceRoot, targetRoot,
+	}
 
 	err := shell.NewExecBuilder("cp", copyArgs...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).

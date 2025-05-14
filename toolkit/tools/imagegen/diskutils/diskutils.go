@@ -397,7 +397,7 @@ func BlockOnDiskIOByIds(debugName string, maj string, min string) (err error) {
 
 // DetachLoopbackDevice detaches the specified disk
 func DetachLoopbackDevice(diskDevPath string) (err error) {
-	logger.Log.Debugf("Detaching Loopback Device Path: %v", diskDevPath)
+	logger.Log.Debugf("---------------------------Detaching Loopback Device Path: %v", diskDevPath)
 	_, stderr, err := shell.Execute("losetup", "-d", diskDevPath)
 	if err != nil {
 		logger.Log.Warnf("Failed to detach loopback device using losetup: %v", stderr)
@@ -828,7 +828,6 @@ func InitializeSinglePartition(diskDevPath string, partitionNumber int,
 		err = fmt.Errorf("could not find partition to initialize in /dev")
 		return err
 	}, totalAttempts, retryDuration)
-
 	if err != nil {
 		return
 	}
@@ -852,7 +851,7 @@ func InitializeSinglePartition(diskDevPath string, partitionNumber int,
 		case configuration.PartitionFlagBoot:
 			flagToSet = "boot"
 		case configuration.PartitionFlagDeviceMapperRoot:
-			//Ignore, only used for internal tooling
+			// Ignore, only used for internal tooling
 		default:
 			return partDevPath, fmt.Errorf("partition %v - Unknown partition flag: %v", partitionNumber, flag)
 		}
@@ -1174,7 +1173,7 @@ func GetSectorSize(diskDevPath string) (logicalSectorSize, physicalSectorSize ui
 		err = fmt.Errorf("input disk device path (%s) is of invalud format", diskDevPath)
 		return
 	}
-	diskName := diskDevPath[diskNameStartIndex:len(diskDevPath)]
+	diskName := diskDevPath[diskNameStartIndex:]
 
 	hw_sector_size_file := fmt.Sprintf("/sys/block/%s/queue/hw_sector_size", diskName)
 	physical_sector_size_file := fmt.Sprintf("/sys/block/%s/queue/physical_block_size", diskName)

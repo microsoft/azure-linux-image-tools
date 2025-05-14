@@ -87,7 +87,7 @@ func verityRootVerity(t *testing.T, imageType baseImageType, imageVersion baseIm
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -393,7 +393,7 @@ func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseIma
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints, "")
 	if !assert.NoError(t, err) {
 		return
 	}
