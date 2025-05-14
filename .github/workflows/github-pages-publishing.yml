@@ -1,14 +1,14 @@
 name: update GitHub pages
 
-on:
-  push:
-    branches: ["stable"]
-  workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
+
+on:
+  push:
+    branches:
+    - stable
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these in-progress deployments to complete.
@@ -21,6 +21,9 @@ jobs:
     uses: ./.github/workflows/docs-build.yml
 
   deploy:
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

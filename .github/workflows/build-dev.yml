@@ -1,0 +1,21 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Build (dev)
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+    - main
+    - release/*
+  # Allow pipeline to be run manually.
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      publishType: dev

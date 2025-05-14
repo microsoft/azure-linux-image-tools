@@ -1,0 +1,162 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Build binary and container for single arch
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      publishType:
+        required: true
+        type: string
+      arch:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+
+jobs:
+  build:
+    name: go build and validate
+    runs-on: ${{ inputs.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    permissions:
+      contents: read
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+      id: go
+
+    - name: check active go version
+      run: |
+        go version && which go
+
+    - name: check go.mod
+      run: |
+        set -x
+
+        if grep -q "go $EXPECTED_GO_VERSION" ./repo/toolkit/tools/go.mod; then
+          echo "go.mod has correct version ($EXPECTED_GO_VERSION)"
+        else
+          actual_version="$(grep -E '^go [0-9]+\.[0-9]+' ./repo/toolkit/tools/go.mod)"
+          echo "go.mod has bad version expected:$EXPECTED_GO_VERSION, found: $actual_version"
+          echo "UPDATE ./github/workflows/go-test-coverage.yml AND prerequisite documentation if minimum go version changed"
+          exit 1
+        fi
+
+    - name: Check for bad go formatting
+      run: |
+        set -x
+
+        pushd repo/toolkit
+        sudo env "PATH=$PATH" make go-fmt-all
+        changes=$(git diff *.go)
+        if [ -n "$changes" ]; then
+          echo Unformatted go files!
+          git diff *.go
+          exit 1
+        fi
+
+    - name: check for out-of-date go modules
+      run: |
+        set -x
+
+        pushd repo/toolkit
+        sudo env "PATH=$PATH" make go-mod-tidy
+        modchanges=$(git diff tools/go.mod)
+        sumchanges=$(git diff tools/go.sum)
+        if [ -n "$modchanges$sumchanges" ]; then
+          echo Module files out of date!
+          git diff tools/go.mod
+          git diff tools/go.sum
+          exit 1
+        fi
+
+    - name: check schema.json is up-to-date
+      run: |
+        set -x
+
+        pushd repo
+        make -C toolkit/tools/imagecustomizerschemacli/
+
+        # Use git diff to check if the schema has changed
+        schema_changes=$(git diff toolkit/tools/imagecustomizerapi/schema.json)
+        if [ -n "$schema_changes" ]; then
+          echo "Schema has changed. Please update the schema using `make -C toolkit/tools/imagecustomizerschemacli/` before committing."
+          exit 1
+        else
+          echo "Schema is up-to-date!"
+        fi
+
+    - name: Build binary
+      run: |
+        set -x
+
+        # Create version suffix.
+        case "${{ inputs.publishType }}" in
+          "official")
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW="
+            ;;
+          "preview")
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-preview.${{github.run_id}}"
+            ;;
+          "main")
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-main.${{github.run_id}}"
+            ;;
+          *)
+            PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-dev.${{github.run_id}}"
+            ;;
+        esac
+
+        pushd repo/toolkit
+
+        # Build binary.
+        sudo env "PATH=$PATH" make imagecustomizer-targz go-imager go-osmodifier $PRERELEASE_PARAM
+
+        # Write version to file.
+        PACKAGE_VERSION="$(make --silent printvar-image_customizer_full_version $PRERELEASE_PARAM)"
+
+        popd
+
+        echo "$PACKAGE_VERSION" > "version.txt"
+
+        # Print version.
+        echo "Version: $PACKAGE_VERSION"
+
+    - name: Build container
+      run: |
+        set -x
+
+        CONTAINER_TAG="imagecustomizer:build"
+        ./repo/toolkit/tools/imagecustomizer/container/build-container.sh -t "$CONTAINER_TAG" -a "${{ inputs.arch }}"
+
+        docker image save "$CONTAINER_TAG" | gzip > "imagecustomizer.tar.gz"
+
+    - name: Upload version artifact
+      if: inputs.arch == 'amd64'
+      uses: actions/upload-artifact@v4
+      with:
+        name: version
+        path: version.txt
+
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-${{ inputs.arch }}
+        path: repo/toolkit/out/imagecustomizer.tar.gz
+
+    - name: Upload container artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: container-${{ inputs.arch }}
+        path: imagecustomizer.tar.gz
