@@ -90,6 +90,14 @@ $(BUILD_DIR)/tools/internal.test_coverage: $(go_internal_files) $(go_imagegen_fi
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$@ ./...
 
+.PHONY: imagecustomizer-targz
+imagecustomizer-targz: go-imagecustomizer license-scan
+	rm -rf $(BUILD_DIR)/imagecustomizertar || true
+	mkdir -p $(BUILD_DIR)/imagecustomizertar
+	cp $(TOOL_BINS_DIR)/imagecustomizer $(BUILD_DIR)/imagecustomizertar
+	cp -r $(toolkit_root)/out/LICENSES $(BUILD_DIR)/imagecustomizertar
+	tar -C $(BUILD_DIR)/imagecustomizertar -cz --file $(toolkit_root)/out/imagecustomizer.tar.gz .
+
 # Downloads all the go dependencies without using sudo, so we don't break other go use cases for the user.
 # We can check if $SUDO_USER is set (the user who invoked sudo), and if so, use that user to run go get via sudo -u.
 # We allow the command to fail with || echo ..., since we don't want to fail the build if the user has already

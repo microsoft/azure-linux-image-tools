@@ -1,0 +1,32 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Build binary, container, and docs
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      publishType:
+        required: true
+        type: string
+
+jobs:
+  binary-build-amd64:
+    name: Build AMD64
+    uses: ./.github/workflows/binary-build.yml
+    with:
+      publishType: ${{ inputs.publishType }}
+      arch: amd64
+
+  binary-build-arm64:
+    name: Build ARM64
+    uses: ./.github/workflows/binary-build.yml
+    with:
+      publishType: ${{ inputs.publishType }}
+      arch: arm64
+
+  build-docs:
+    uses: ./.github/workflows/docs-build.yml

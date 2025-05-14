@@ -1,0 +1,18 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Build (preview)
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+    - release/*
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      publishType: preview
