@@ -271,6 +271,9 @@
         "packages": {
           "$ref": "#/$defs/Packages"
         },
+        "packageSnapshotTime": {
+          "type": "string"
+        },
         "selinux": {
           "$ref": "#/$defs/SELinux"
         },
