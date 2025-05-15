@@ -31,6 +31,21 @@ But it can also be an Azure Linux image that has been customized.
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
 
+If verity is enabled in the base image, then:
+
+- If the partitions are recustomized using the
+  [disks](../api/configuration/storage.md#disks-disk) API, then the existing verity
+  settings are thrown away.
+  New verity settings can be configured with the
+  [verity](../api/configuration/verity.md) API.
+
+- Otherwise, the existing verity settings are reapplied to the image after OS
+  customization.
+
+  This feature is in preview and may be subject to breaking changes.
+  You may enable this feature by adding `reinitialize-verity` to the
+  [previewfeatures](./configuration/config.md#previewfeatures-string) API.
+
 Added in v0.3.
 
 ## --output-image-file=FILE-PATH
@@ -86,13 +101,27 @@ Can be one of:
 
   The RPMs may either be in the directory itself or any subdirectories.
 
+  GPG signature checking is disabled for local directories.
+  If you wish to enable GPG signature checking, then use a repo file instead and set the
+  `gpgkey` field within the repo file.
+
 - `*.repo` file path: A path to a RPM repo definition file.
 
   The file name extension must be `.repo`.
 
-  Note: This file is not installed in the image during customization.
-  If that is also needed, then use `AdditionalFiles` to place the repo file within
+  If the repo file's `baseurl` or `gpgkey` fields contain a `file://` URL, then the
+  host's directories pointed to by the URL will be bind mounted into the chroot
+  environment and the URL will be replaced with the chroot equivalent URL.
+
+  GPG signature checking is enabled by default.
+  If you wish to disable GPG checking, then set both `gpgcheck` and `repo_gpgcheck` to
+  `0` in the repo file.
+
+  The repo file will only be used during image customization and will not be added to
   the image.
+  If you want to add the repo file to the image, then use use
+  [additionalFiles](../api/configuration/os.md#additionalfiles-additionalfile) to place
+  the repo file under the `/etc/yum.repos.d` directory.
 
 This option can be specified multiple times.
 

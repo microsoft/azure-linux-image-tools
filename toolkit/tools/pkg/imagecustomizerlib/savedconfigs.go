@@ -127,3 +127,77 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 
 	return savedConfigs, nil
 }
+
+func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
+	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
+	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
+) (outputConfigs *SavedConfigs, err error) {
+	outputConfigs = &SavedConfigs{}
+	outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
+	outputConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
+	outputConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
+	outputConfigs.OS.DracutPackageInfo = newDracutPackageInfo
+	outputConfigs.OS.RequestedSELinuxMode = newRequestedSelinuxMode
+	outputConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
+
+	inputConfigs, err := loadSavedConfigs(savedConfigsFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load saved configurations (%s):\n%w", savedConfigsFilePath, err)
+	}
+
+	if inputConfigs != nil {
+		// do we have kernel arguments from a previous run?
+		if len(inputConfigs.Iso.KernelCommandLine.ExtraCommandLine) > 0 {
+			// If yes, add them before the new kernel arguments.
+			savedArgs := inputConfigs.Iso.KernelCommandLine.ExtraCommandLine
+			newArgs := newKernelArgs
+
+			// Combine saved arguments with new ones
+			combinedArgs := append(savedArgs, newArgs...)
+			outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = combinedArgs
+		}
+
+		// if the PXE iso image url is not set, set it to the value from the previous run.
+		if newPxeIsoImageBaseUrl == "" && inputConfigs.Pxe.IsoImageBaseUrl != "" {
+			outputConfigs.Pxe.IsoImageBaseUrl = inputConfigs.Pxe.IsoImageBaseUrl
+		}
+
+		if newPxeIsoImageFileUrl == "" && inputConfigs.Pxe.IsoImageFileUrl != "" {
+			outputConfigs.Pxe.IsoImageFileUrl = inputConfigs.Pxe.IsoImageFileUrl
+		}
+
+		// if IsoImageBaseUrl is being set in this run (i.e. newPxeIsoImageBaseUrl != ""),
+		// then make sure IsoImageFileUrl is unset (since both fields must be mutually
+		// exclusive) - and vice versa.
+		if newPxeIsoImageBaseUrl != "" {
+			outputConfigs.Pxe.IsoImageFileUrl = ""
+		}
+
+		if newPxeIsoImageFileUrl != "" {
+			outputConfigs.Pxe.IsoImageBaseUrl = ""
+		}
+
+		// newOSDracutVersion can be nil if the input is an ISO and the
+		// configuration does not specify OS changes.
+		// In such cases, the rootfs is intentionally not expanded (to save
+		// time), and Dracut package information will not be retrieved from
+		// there. Instead, we use the saved configuration which already has the
+		// the dracut version.
+		if newDracutPackageInfo == nil {
+			outputConfigs.OS.DracutPackageInfo = inputConfigs.OS.DracutPackageInfo
+		}
+		if newRequestedSelinuxMode != imagecustomizerapi.SELinuxModeDefault {
+			outputConfigs.OS.RequestedSELinuxMode = inputConfigs.OS.RequestedSELinuxMode
+		}
+		if newSELinuxPackageInfo == nil {
+			outputConfigs.OS.SELinuxPolicyPackageInfo = inputConfigs.OS.SELinuxPolicyPackageInfo
+		}
+	}
+
+	err = outputConfigs.persistSavedConfigs(savedConfigsFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save iso configs:\n%w", err)
+	}
+
+	return outputConfigs, nil
+}

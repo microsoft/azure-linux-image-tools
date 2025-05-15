@@ -10,6 +10,8 @@ jobs:
   build-docs:
     name: jekyll github pages build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -33,6 +35,7 @@ jobs:
     - name: Check links
       run: |
         bundle exec htmlproofer \
+          --disable-external \
           --assume_extension '.html' \
           --swap-urls '^${{ steps.pages.outputs.base_path }}/:/' \
           ./_site

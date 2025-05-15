@@ -5,9 +5,46 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
+	"golang.org/x/sys/unix"
+	"os"
+	"runtime"
 )
 
 const (
+	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
+	isoBootloaderDir   = "/efi/boot"
+
+	bootx64Binary  = "bootx64.efi"
+	bootAA64Binary = "bootaa64.efi"
+
+	grubx64Binary  = "grubx64.efi"
+	grubAA64Binary = "grubaa64.efi"
+
+	grubx64NoPrefixBinary  = "grubx64-noprefix.efi"
+	grubAA64NoPrefixBinary = "grubaa64-noprefix.efi"
+
+	systemdBootx64Binary  = "systemd-bootx64.efi"
+	systemdBootAA64Binary = "systemd-bootaa64.efi"
+
+	grubCfgDir     = "/boot/grub2"
+	isoGrubCfg     = "grub.cfg"
+	isoGrubCfgPath = grubCfgDir + "/" + isoGrubCfg
+
+	pxeGrubCfg = "grub-pxe.cfg"
+
+	isoBootDir  = "boot"
+	initrdImage = "initrd.img"
+
+	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
+	// In the ISO image, the kernel is named 'vmlinuz'.
+	vmLinuzPrefix     = "vmlinuz"
+	isoInitrdPath     = "/boot/" + initrdImage
+	isoKernelPath     = "/boot/vmlinuz"
+	isoBootloadersDir = "/efi/boot"
+	isoBootImagePath  = "/boot/grub2/efiboot.img"
+
 	// Minimum dracut version required to enable PXE booting.
 	LiveOsPxeDracutMinVersion        = 102
 	LiveOsPxeDracutMinPackageRelease = 7
@@ -27,6 +64,53 @@ const (
 	LiveOsSelinuxPolicyDistroName        = "azl"
 	LiveOsSelinuxPolicyMinDistroVersion  = 3
 )
+
+type BootFilesArchConfig struct {
+	bootBinary                  string
+	grubBinary                  string
+	grubNoPrefixBinary          string
+	systemdBootBinary           string
+	osEspBootBinaryPath         string
+	osEspGrubBinaryPath         string
+	osEspGrubNoPrefixBinaryPath string
+	isoBootBinaryPath           string
+	isoGrubBinaryPath           string
+}
+
+var (
+	bootloaderFilesConfig = map[string]BootFilesArchConfig{
+		"amd64": {
+			bootBinary:                  bootx64Binary,
+			grubBinary:                  grubx64Binary,
+			grubNoPrefixBinary:          grubx64NoPrefixBinary,
+			systemdBootBinary:           systemdBootx64Binary,
+			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64Binary,
+			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
+			isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64Binary,
+			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
+		},
+		"arm64": {
+			bootBinary:                  bootAA64Binary,
+			grubBinary:                  grubAA64Binary,
+			grubNoPrefixBinary:          grubAA64NoPrefixBinary,
+			systemdBootBinary:           systemdBootAA64Binary,
+			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64Binary,
+			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
+			isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64Binary,
+			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
+		},
+	}
+)
+
+func getBootArchConfig() (string, BootFilesArchConfig, error) {
+	arch := runtime.GOARCH
+	if arch != "amd64" && arch != "arm64" {
+		return "", BootFilesArchConfig{}, fmt.Errorf("unsupported architecture: %s", arch)
+	}
+	return arch, bootloaderFilesConfig[arch], nil
+}
 
 // verifies that the dracut package supports PXE booting for LiveOS images.
 func verifyDracutPXESupport(dracutVersionInfo *PackageVersionInformation) error {
@@ -96,6 +180,49 @@ func verifyNoLiveOsSelinuxBlockers(dracutVersionInfo *PackageVersionInformation,
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func extractIsoImageContents(buildDir string, isoImageFile string, isoExpansionFolder string) (err error) {
+	mountDir, err := os.MkdirTemp(buildDir, "tmp-iso-mount-")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary mount folder for iso:\n%w", err)
+	}
+	defer os.RemoveAll(mountDir)
+
+	isoImageLoopDevice, err := safeloopback.NewLoopback(isoImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to create loop device for (%s):\n%w", isoImageFile, err)
+	}
+	defer isoImageLoopDevice.Close()
+
+	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), mountDir,
+		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, false /*makeAndDelete*/)
+	if err != nil {
+		return err
+	}
+	defer isoImageMount.Close()
+
+	err = os.MkdirAll(isoExpansionFolder, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create folder %s:\n%w", isoExpansionFolder, err)
+	}
+
+	err = copyPartitionFiles(mountDir+"/.", isoExpansionFolder)
+	if err != nil {
+		return fmt.Errorf("failed to copy iso image contents to a writeable folder (%s):\n%w", isoExpansionFolder, err)
+	}
+
+	err = isoImageMount.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	err = isoImageLoopDevice.CleanClose()
+	if err != nil {
+		return err
 	}
 
 	return nil

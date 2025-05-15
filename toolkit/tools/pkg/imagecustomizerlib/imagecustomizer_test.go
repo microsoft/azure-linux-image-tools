@@ -857,10 +857,11 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	outputImageFormat := "vhdx"
 	outputImageFile := "out/image.vhdx"
 	outputPXEArtifactsDir := ""
+	packageSnapshotTime := "2025:05:15"
 
 	// The input image file should be set to the value in the config.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileAsConfig)
 	assert.Equal(t, ic.inputImageFormat, "vhdx")
@@ -872,7 +873,7 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 
 	// The input image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
 	assert.Equal(t, ic.inputImageFormat, "vhdx")
@@ -883,7 +884,7 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 
 	// The input image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
 	assert.Equal(t, ic.inputImageFormat, "vhdx")
@@ -894,7 +895,7 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	outputImageFormat = "iso"
 	outputImageFile = "out/image.iso"
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileIsoAsArg)
 	assert.Equal(t, ic.inputImageFormat, "iso")
@@ -920,10 +921,11 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	outputImageFormat := "vhd"
 	outputImageFile := ""
 	outputPXEArtifactsDir := ""
+	packageSnapshotTime := "2025:05:15"
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, "")
 
@@ -932,7 +934,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value in the config.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
 	assert.Equal(t, ic.outputImageBase, "image-as-config")
@@ -944,7 +946,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value passed as an argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
@@ -956,7 +958,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	// The output image file should be set to the value passed as an
 	// argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
@@ -982,11 +984,12 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	outputImageFormat := ""
 	outputImageFile := filepath.Join(buildDir, "image.vhd")
 	outputPXEArtifactsDir := ""
+	packageSnapshotTime := "2025:05:15"
 
 	// The output image format is not specified in the config or as an
 	// argument, so the output image format will be empty.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatTypeNone)
 
@@ -995,7 +998,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 
 	// The output image file should be set to the value in the config.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig))
 
@@ -1006,7 +1009,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	// The output image file should be set to the value passed as an
 	// argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 
@@ -1016,7 +1019,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	// The output image file should be set to the value passed as an
 	// argument.
 	ic, err = createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		rpmsSources, outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 }
