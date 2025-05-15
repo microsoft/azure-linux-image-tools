@@ -80,7 +80,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	// Customize image to vhd.
 	err := CustomizeImageWithConfigFile(buildDir, partitionsConfigFile, baseImage, nil, vhdImageFilePath,
-		"vhd", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"vhd", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -96,7 +96,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	// Customize image to vhd-fixed.
 	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdImageFilePath, nil, vhdFixedImageFilePath,
-		"vhd-fixed", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"vhd-fixed", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -114,7 +114,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	// Customize image to vhdx.
 	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdFixedImageFilePath, nil, vhdxImageFilePath,
-		"vhdx", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"vhdx", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -857,7 +857,7 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	outputImageFormat := "vhdx"
 	outputImageFile := "out/image.vhdx"
 	outputPXEArtifactsDir := ""
-	packageSnapshotTime := "2025:05:15"
+	packageSnapshotTime := time.Now().Format("2006:01:02")
 
 	// The input image file should be set to the value in the config.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
@@ -921,7 +921,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	outputImageFormat := "vhd"
 	outputImageFile := ""
 	outputPXEArtifactsDir := ""
-	packageSnapshotTime := "2025:05:15"
+	packageSnapshotTime := time.Now().Format("2006:01:02")
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
 	ic, err := createImageCustomizerParameters(buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
@@ -984,7 +984,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	outputImageFormat := ""
 	outputImageFile := filepath.Join(buildDir, "image.vhd")
 	outputPXEArtifactsDir := ""
-	packageSnapshotTime := "2025:05:15"
+	packageSnapshotTime := time.Now().Format("2006:01:02")
 
 	// The output image format is not specified in the config or as an
 	// argument, so the output image format will be empty.

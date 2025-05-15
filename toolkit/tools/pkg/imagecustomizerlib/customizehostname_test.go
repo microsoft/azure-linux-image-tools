@@ -48,7 +48,7 @@ func TestCustomizeImageHostname(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}

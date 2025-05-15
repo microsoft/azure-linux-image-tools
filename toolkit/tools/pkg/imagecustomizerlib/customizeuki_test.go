@@ -30,7 +30,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
