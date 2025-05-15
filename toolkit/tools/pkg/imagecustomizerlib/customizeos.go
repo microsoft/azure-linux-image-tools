@@ -11,7 +11,7 @@ import (
 
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string) error {
+	imageUuid string, packageSnapshotTime string) error {
 	var err error
 
 	imageChroot := imageConnection.Chroot()
@@ -19,6 +19,25 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 	buildTime := time.Now().Format("2006-01-02T15:04:05Z")
 
 	resolvConf, err := overrideResolvConf(imageChroot)
+	if err != nil {
+		return err
+	}
+
+	var effectiveSnapshotTime imagecustomizerapi.PackageSnapshotTime
+	if packageSnapshotTime != "" {
+		effectiveSnapshotTime = imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime)
+	} else {
+		effectiveSnapshotTime = config.OS.PackageSnapshotTime
+	}
+
+	if effectiveSnapshotTime != "" {
+		err = setSnapshotTimeInTdnfConfig(imageChroot, effectiveSnapshotTime)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = setSnapshotTimeInTdnfConfig(imageChroot, config.OS.PackageSnapshotTime)
 	if err != nil {
 		return err
 	}
