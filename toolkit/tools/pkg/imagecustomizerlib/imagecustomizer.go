@@ -322,7 +322,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
 		if ic.customizeOSPartitions {
-			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts.files, ic.rawImageFile)
+			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
 			}

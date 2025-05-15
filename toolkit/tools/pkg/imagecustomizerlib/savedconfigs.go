@@ -62,6 +62,7 @@ func (p *PxeSavedConfigs) IsValid() error {
 }
 
 type OSSavedConfigs struct {
+	KernelVersion            string                         `yaml:"kernelVersion"`
 	DracutPackageInfo        *PackageVersionInformation     `yaml:"dracutPackage"`
 	RequestedSELinuxMode     imagecustomizerapi.SELinuxMode `yaml:"selinuxRequestedMode"`
 	SELinuxPolicyPackageInfo *PackageVersionInformation     `yaml:"selinuxPolicyPackage"`
@@ -130,7 +131,7 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 }
 
 func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
-	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newDracutPackageInfo *PackageVersionInformation,
+	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newKernelVersion string, newDracutPackageInfo *PackageVersionInformation,
 	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
 ) (outputConfigs *SavedConfigs, err error) {
 	logger.Log.Infof("Updating saved configurations")
@@ -138,6 +139,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 	outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
 	outputConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
 	outputConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
+	outputConfigs.OS.KernelVersion = newKernelVersion
 	outputConfigs.OS.DracutPackageInfo = newDracutPackageInfo
 	outputConfigs.OS.RequestedSELinuxMode = newRequestedSelinuxMode
 	outputConfigs.OS.SELinuxPolicyPackageInfo = newSELinuxPackageInfo
@@ -177,6 +179,10 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 
 		if newPxeIsoImageFileUrl != "" {
 			outputConfigs.Pxe.IsoImageBaseUrl = ""
+		}
+
+		if newKernelVersion == "" {
+			outputConfigs.OS.KernelVersion = inputConfigs.OS.KernelVersion
 		}
 
 		// newOSDracutVersion can be nil if the input is an ISO and the

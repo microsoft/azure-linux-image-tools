@@ -87,7 +87,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 
 	// Combine the current configuration with the saved configuration
 	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode, artifactsStore.info.selinuxPolicyPackageInfo)
+		pxeIsoImageFileUrl, artifactsStore.info.kernelVersion, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
+		artifactsStore.info.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -194,7 +195,7 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
 	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
+		inputArtifactsStore.info.kernelVersion, pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}

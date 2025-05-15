@@ -56,6 +56,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 
 	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
+
 	err := os.Remove(fstabFile)
 	if err != nil {
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
@@ -227,7 +228,6 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 				// setuid, setgid, and setsticky bits
 				// err = os.Chmod(path, fileMode)
 				fileModeString := fmt.Sprintf("%#o", fileMode)
-				logger.Log.Infof("---- ---- fileModeString = (%s)", fileModeString)
 				chmodParams := []string{
 					fileModeString,
 					path,
@@ -541,19 +541,19 @@ func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size 
 	return estimatedSizeInMBs, nil
 }
 
-func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStore, rawImageFile string) error {
+func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtifactsStore, rawImageFile string) error {
 
 	logger.Log.Infof("Creating full OS writeable image from ISO artifacts")
 
-	fullOSDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
+	rootfsDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
 	}
-	defer os.RemoveAll(fullOSDir)
+	defer os.RemoveAll(rootfsDir)
 
-	squashfsExists, err := file.PathExists(filesStore.squashfsImagePath)
+	squashfsExists, err := file.PathExists(artifactsStore.files.squashfsImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to check if the squash root file system image exists (%s):\n%w", filesStore.squashfsImagePath, err)
+		return fmt.Errorf("failed to check if the squash root file system image exists (%s):\n%w", artifactsStore.files.squashfsImagePath, err)
 	}
 
 	var squashfsLoopDevice *safeloopback.Loopback
@@ -561,13 +561,13 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 
 	if squashfsExists {
 		logger.Log.Infof("Detected bootstrap OS initrd configuration")
-		squashfsLoopDevice, err = safeloopback.NewLoopback(filesStore.squashfsImagePath)
+		squashfsLoopDevice, err = safeloopback.NewLoopback(artifactsStore.files.squashfsImagePath)
 		if err != nil {
-			return fmt.Errorf("failed to create loop device for (%s):\n%w", filesStore.squashfsImagePath, err)
+			return fmt.Errorf("failed to create loop device for (%s):\n%w", artifactsStore.files.squashfsImagePath, err)
 		}
 		defer squashfsLoopDevice.Close()
 
-		squashfsMount, err = safemount.NewMount(squashfsLoopDevice.DevicePath(), fullOSDir,
+		squashfsMount, err = safemount.NewMount(squashfsLoopDevice.DevicePath(), rootfsDir,
 			"squashfs" /*fstype*/, 0 /*flags*/, "" /*data*/, false /*makeAndDelete*/)
 		if err != nil {
 			return err
@@ -575,27 +575,27 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		defer squashfsMount.Close()
 	} else {
 		logger.Log.Infof("Detected full OS initrd configuration")
-		err = extractFilesFromInitrdImage(filesStore.initrdImagePath, fullOSDir)
+		err = extractFilesFromInitrdImage(artifactsStore.files.initrdImagePath, rootfsDir)
 		if err != nil {
-			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", filesStore.initrdImagePath, err)
+			return fmt.Errorf("failed to extract files from the initrd image (%s):\n%w", artifactsStore.files.initrdImagePath, err)
 		}
 	}
 
-	logger.Log.Infof("Populated (%s) with full file system", fullOSDir)
+	logger.Log.Infof("Populated (%s) with full file system", rootfsDir)
 
 	// boot folder (from artifacts)
-	artifactsBootDir := filepath.Join(filesStore.artifactsDir, "boot")
+	artifactsBootDir := filepath.Join(artifactsStore.files.artifactsDir, "boot")
 
 	imageContentList := []string{
-		fullOSDir,
-		filesStore.bootEfiPath,
-		filesStore.grubEfiPath,
+		rootfsDir,
+		artifactsStore.files.bootEfiPath,
+		artifactsStore.files.grubEfiPath,
 		artifactsBootDir}
 
 	// estimate the new disk size
 	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
 	if err != nil {
-		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", fullOSDir, err)
+		return fmt.Errorf("failed to calculate the disk size of %s:\n%w", rootfsDir, err)
 	}
 
 	logger.Log.Debugf("safeDiskSizeMB = %d", safeDiskSizeMB)
@@ -642,7 +642,7 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		},
 	}
 
-	targetOs, err := targetos.GetInstalledTargetOs(fullOSDir)
+	targetOs, err := targetos.GetInstalledTargetOs(rootfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
 	}
@@ -656,7 +656,8 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		// root partitions will be mounted, and the files of /boot/efi will
 		// land on the the boot partition, while the rest will be on the rootfs
 		// partition.
-		err := copyPartitionFiles(fullOSDir+"/.", imageChroot.RootDir())
+		logger.Log.Infof("---- ---- Installing (%s) to (%s)", rootfsDir+"/.", imageChroot.RootDir())
+		err := copyPartitionFiles(rootfsDir+"/.", imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
 		}
@@ -669,10 +670,32 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 		// it is restored to its original state and subsequent customization
 		// or extraction can proceed transparently.
 
+		logger.Log.Infof("---- ---- Installing (%s) to (%s)", artifactsBootDir, imageChroot.RootDir())
 		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
 		}
+
+		initrdFileName := fmt.Sprintf("initrd-%s.img", artifactsStore.info.kernelVersion)
+
+		initrdOld := filepath.Join(imageChroot.RootDir(), "boot/initrd.img")
+		initrdNew := filepath.Join(imageChroot.RootDir(), "boot", initrdFileName)
+		err = os.Rename(initrdOld, initrdNew)
+		if err != nil {
+			return fmt.Errorf("failed to rename (%s) to (%s)", initrdOld, initrdNew)
+		}
+		logger.Log.Infof("---- ---- renamed (%s) to (%s)", initrdOld, initrdNew)
+
+		kernelFileName := fmt.Sprintf("vmlinuz-%s", artifactsStore.info.kernelVersion)
+
+		kernelOld := filepath.Join(imageChroot.RootDir(), "boot/vmlinuz")
+		kernelNew := filepath.Join(imageChroot.RootDir(), "boot", kernelFileName)
+		err = os.Rename(kernelOld, kernelNew)
+		if err != nil {
+			return fmt.Errorf("failed to rename (%s) to (%s)", kernelOld, kernelNew)
+		}
+
+		logger.Log.Infof("---- ---- renamed (%s) to (%s)", kernelOld, kernelNew)
 
 		targetEfiDir := filepath.Join(imageChroot.RootDir(), "boot/efi/EFI/BOOT")
 		err = os.MkdirAll(targetEfiDir, os.ModePerm)
@@ -680,22 +703,24 @@ func createWriteableImageFromArtifacts(buildDir string, filesStore *IsoFilesStor
 			return fmt.Errorf("failed to create destination efi directory (%s):\n%w", targetEfiDir, err)
 		}
 
-		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(filesStore.bootEfiPath))
-		err = file.Copy(filesStore.bootEfiPath, targetShimPath)
+		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(artifactsStore.files.bootEfiPath))
+		logger.Log.Infof("---- ---- Installing (%s) to (%s)", artifactsStore.files.bootEfiPath, targetShimPath)
+		err = file.Copy(artifactsStore.files.bootEfiPath, targetShimPath)
 		if err != nil {
-			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", filesStore.bootEfiPath, targetShimPath, err)
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", artifactsStore.files.bootEfiPath, targetShimPath, err)
 		}
 
-		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(filesStore.grubEfiPath))
-		err = file.Copy(filesStore.grubEfiPath, targetGrubPath)
+		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(artifactsStore.files.grubEfiPath))
+		logger.Log.Infof("---- ---- Installing (%s) to (%s)", artifactsStore.files.grubEfiPath, targetGrubPath)
+		err = file.Copy(artifactsStore.files.grubEfiPath, targetGrubPath)
 		if err != nil {
-			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", filesStore.grubEfiPath, targetGrubPath, err)
+			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", artifactsStore.files.grubEfiPath, targetGrubPath, err)
 		}
 
 		return err
 	}
 
-	logger.Log.Infof("Populating empty image (%s) with files from (%s)", rawImageFile, fullOSDir)
+	logger.Log.Infof("Populating empty image (%s) with files from (%s)", rawImageFile, rootfsDir)
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
