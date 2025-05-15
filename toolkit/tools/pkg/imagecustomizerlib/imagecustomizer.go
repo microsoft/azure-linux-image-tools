@@ -57,6 +57,7 @@ type ImageCustomizerParameters struct {
 	customizeOSPartitions bool
 	useBaseImageRpmRepos  bool
 	rpmsSources           []string
+	packageSnapshotTime   string
 
 	// intermediate writeable image
 	rawImageFile string
@@ -93,7 +94,7 @@ func createImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
 	useBaseImageRpmRepos bool, rpmsSources []string,
-	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string,
+	outputImageFormat string, outputImageFile string, outputPXEArtifactsDir string, packageSnapshotTime string,
 ) (*ImageCustomizerParameters, error) {
 	ic := &ImageCustomizerParameters{}
 
@@ -159,6 +160,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputPXEArtifactsDir = outputPXEArtifactsDir
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
+	ic.packageSnapshotTime = packageSnapshotTime
 
 	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
 		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
@@ -185,7 +187,7 @@ func createImageCustomizerParameters(buildDir string,
 
 func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	var err error
 
@@ -203,7 +205,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 	}
 
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
-		outputPXEArtifactsDir, useBaseImageRpmRepos)
+		outputPXEArtifactsDir, useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -222,7 +224,7 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
+	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos)
 	if err != nil {
@@ -231,7 +233,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
-		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
+		outputImageFormat, outputImageFile, outputPXEArtifactsDir, packageSnapshotTime)
 	if err != nil {
 		return fmt.Errorf("invalid parameters:\n%w", err)
 	}
@@ -443,7 +445,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
-		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr)
+		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -809,7 +811,7 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string,
+	imageUuidStr string, packageSnapshotTime string,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -840,7 +842,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, packageSnapshotTime)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.

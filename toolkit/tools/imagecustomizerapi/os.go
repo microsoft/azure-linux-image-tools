@@ -12,19 +12,20 @@ import (
 
 // OS defines how each system present on the image is supposed to be configured.
 type OS struct {
-	Hostname          string             `yaml:"hostname" json:"hostname,omitempty"`
-	Packages          Packages           `yaml:"packages" json:"packages,omitempty"`
-	SELinux           SELinux            `yaml:"selinux" json:"selinux,omitempty"`
-	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
-	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
-	AdditionalDirs    DirConfigList      `yaml:"additionalDirs" json:"additionalDirs,omitempty"`
-	Users             []User             `yaml:"users" json:"users,omitempty"`
-	Services          Services           `yaml:"services" json:"services,omitempty"`
-	Modules           ModuleList         `yaml:"modules" json:"modules,omitempty"`
-	Overlays          *[]Overlay         `yaml:"overlays" json:"overlays,omitempty"`
-	BootLoader        BootLoader         `yaml:"bootloader" json:"bootloader,omitempty"`
-	Uki               *Uki               `yaml:"uki" json:"uki,omitempty"`
-	ImageHistory      ImageHistory       `yaml:"imageHistory" json:"imageHistory,omitempty"`
+	Hostname            string              `yaml:"hostname" json:"hostname,omitempty"`
+	Packages            Packages            `yaml:"packages" json:"packages,omitempty"`
+	PackageSnapshotTime PackageSnapshotTime `yaml:"packageSnapshotTime" json:"packageSnapshotTime,omitempty"`
+	SELinux             SELinux             `yaml:"selinux" json:"selinux,omitempty"`
+	KernelCommandLine   KernelCommandLine   `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles     AdditionalFileList  `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	AdditionalDirs      DirConfigList       `yaml:"additionalDirs" json:"additionalDirs,omitempty"`
+	Users               []User              `yaml:"users" json:"users,omitempty"`
+	Services            Services            `yaml:"services" json:"services,omitempty"`
+	Modules             ModuleList          `yaml:"modules" json:"modules,omitempty"`
+	Overlays            *[]Overlay          `yaml:"overlays" json:"overlays,omitempty"`
+	BootLoader          BootLoader          `yaml:"bootloader" json:"bootloader,omitempty"`
+	Uki                 *Uki                `yaml:"uki" json:"uki,omitempty"`
+	ImageHistory        ImageHistory        `yaml:"imageHistory" json:"imageHistory,omitempty"`
 }
 
 func (s *OS) IsValid() error {
@@ -116,6 +117,13 @@ func (s *OS) IsValid() error {
 		err = s.Uki.IsValid()
 		if err != nil {
 			return fmt.Errorf("invalid uki:\n%w", err)
+		}
+	}
+
+	if s.PackageSnapshotTime != "" {
+		err = s.PackageSnapshotTime.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid packageSnapshotTime:\n%w", err)
 		}
 	}
 
