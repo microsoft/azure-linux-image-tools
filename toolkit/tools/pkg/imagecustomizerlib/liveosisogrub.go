@@ -81,7 +81,9 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 
 	liveosKernelArgs := ""
 	if outputIsoInitrdSelfContained {
-		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", "/dev/ram0")
+		argsToRemove := []string{"root"}
+		newArgs := []string{}
+		inputContentString, err = updateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
 		if err != nil {
 			return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 		}
@@ -115,8 +117,6 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 		return fmt.Errorf("failed to write %s:\n%w", isoGrubCfgFileName, err)
 	}
 
-	logger.Log.Debugf(inputContentString)
-
 	// Check if the dracut version in use meets our minimum requirements for
 	// PXE support.
 	err = verifyDracutPXESupport(savedConfigs.OS.DracutPackageInfo)
@@ -130,8 +130,8 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 		// or also in the PXE artifacts.
 		logger.Log.Infof("cannot generate grub.cfg for PXE booting.\n%v", err)
 	} else {
-		err = generatePxeGrubCfg(inputContentString, savedConfigs.Pxe.IsoImageBaseUrl, savedConfigs.Pxe.IsoImageFileUrl,
-			outputImageBase, pxeGrubCfgFileName)
+		err = generatePxeGrubCfg(outputIsoInitrdSelfContained, inputContentString, savedConfigs.Pxe.IsoImageBaseUrl,
+			savedConfigs.Pxe.IsoImageFileUrl, outputImageBase, pxeGrubCfgFileName)
 		if err != nil {
 			return fmt.Errorf("failed to create grub configuration for PXE booting.\n%w", err)
 		}
@@ -140,8 +140,8 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 	return nil
 }
 
-func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, pxeIsoImageFileUrl string,
-	outputImageBase string, pxeGrubCfgFileName string) error {
+func generatePxeGrubCfg(outputIsoInitrdSelfContained bool, inputContentString string, pxeIsoImageBaseUrl string,
+	pxeIsoImageFileUrl string, outputImageBase string, pxeGrubCfgFileName string) error {
 	if pxeIsoImageBaseUrl != "" && pxeIsoImageFileUrl != "" {
 		return fmt.Errorf("cannot set both iso image base url and full image url at the same time")
 	}
@@ -152,18 +152,20 @@ func generatePxeGrubCfg(inputContentString string, pxeIsoImageBaseUrl string, px
 		return fmt.Errorf("failed to remove the 'search' commands from PXE grub.cfg:\n%w", err)
 	}
 
-	// If the specified URL is not a full path to an iso, append the generated
-	// iso file name to it.
-	if pxeIsoImageFileUrl == "" {
-		pxeIsoImageFileUrl, err = url.JoinPath(pxeIsoImageBaseUrl, outputImageBase)
-		if err != nil {
-			return fmt.Errorf("failed to concatenate URL (%s) and (%s)\n%w", pxeIsoImageBaseUrl, outputImageBase, err)
+	if !outputIsoInitrdSelfContained {
+		// If the specified URL is not a full path to an iso, append the generated
+		// iso file name to it.
+		if pxeIsoImageFileUrl == "" {
+			pxeIsoImageFileUrl, err = url.JoinPath(pxeIsoImageBaseUrl, outputImageBase)
+			if err != nil {
+				return fmt.Errorf("failed to concatenate URL (%s) and (%s)\n%w", pxeIsoImageBaseUrl, outputImageBase, err)
+			}
 		}
-	}
-	rootValue := fmt.Sprintf(rootValuePxeTemplate, pxeIsoImageFileUrl)
-	inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
-	if err != nil {
-		return fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
+		rootValue := fmt.Sprintf(rootValuePxeTemplate, pxeIsoImageFileUrl)
+		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
+		if err != nil {
+			return fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
+		}
 	}
 
 	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs)

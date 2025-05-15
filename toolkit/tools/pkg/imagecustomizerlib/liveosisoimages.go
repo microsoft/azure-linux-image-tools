@@ -204,8 +204,6 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 		fileMode := os.FileMode(hdr.Mode & (cpio.ModePerm | cpio.ModeSetuid | cpio.ModeSetgid | cpio.ModeSticky))
 		fileType := hdr.Mode & cpio.ModeType
 
-		logger.Log.Debugf("-- [dir     ] [%#o] (%s)", fileMode, path)
-
 		switch fileType {
 		case cpio.ModeDir:
 			err := os.MkdirAll(path, fileMode)
@@ -239,25 +237,18 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 			}
 			// logger.Log.Debugf("-- [file    ] [%#o] (%s)", fileMode, path)
 		case cpio.ModeSymlink:
-			logger.Log.Debugf("-- [symlink ] [%#o] (%s)", fileMode, path)
-			logger.Log.Debugf("                 --> (%s) - (%d)", hdr.Linkname, hdr.Links)
-
-			// ToDo: why 755?
 			pathDir := filepath.Dir(path)
-			info, err := os.Stat(pathDir)
+			_, err := os.Stat(pathDir)
 			if err != nil {
 				if os.IsNotExist(err) {
 					logger.Log.Debugf("                 --> Directory (%s) does not exists!", pathDir)
+					// ToDo: why 755?
 					err := os.MkdirAll(pathDir, 0755)
 					if err != nil {
 						return fmt.Errorf("failed to create directory %s: %w", path, err)
 					}
 				} else {
 					return fmt.Errorf("failed to check directory %s: %w", pathDir, err)
-				}
-			} else {
-				if info.IsDir() {
-					logger.Log.Debugf("                 --> Directory (%s) exists!", pathDir)
 				}
 			}
 
