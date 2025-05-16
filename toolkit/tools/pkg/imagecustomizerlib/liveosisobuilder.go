@@ -16,7 +16,7 @@ import (
 
 func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
-	logger.Log.Debugf("Creating writeable rootfs")
+	logger.Log.Infof("Creating writeable rootfs (%s) from (%s)", writeableRootfsDir, sourceDir)
 
 	err := os.MkdirAll(writeableRootfsDir, os.ModePerm)
 	if err != nil {
@@ -33,7 +33,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
-	outputPXEArtifactsDir string) (err error) {
+	outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string) (err error) {
 
 	var extraCommandLine []string
 	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
@@ -87,7 +87,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 
 	// Combine the current configuration with the saved configuration
 	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode, artifactsStore.info.selinuxPolicyPackageInfo)
+		pxeIsoImageFileUrl, artifactsStore.info.kernelVersion, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
+		artifactsStore.info.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -116,13 +117,13 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
+	err = updateGrubCfg(outputIsoInitrdSelfContained, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
 		updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	// Generate the ISO bootimage (/boot/grub2/efiboot.img)
+	// Generate the ISO boot image (/boot/grub2/efiboot.img)
 	artifactsStore.files.isoBootImagePath = filepath.Join(artifactsStore.files.artifactsDir, isoBootImagePath)
 	err = isogenerator.BuildIsoBootImage(isoBuildDir, artifactsStore.files.bootEfiPath,
 		artifactsStore.files.grubEfiPath, artifactsStore.files.isoBootImagePath)
@@ -130,21 +131,31 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 		return fmt.Errorf("failed to build iso boot image:\n%w", err)
 	}
 
-	// Generate the initrd image
 	outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
-	err = createInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
-	if err != nil {
-		return fmt.Errorf("failed to create initrd image:\n%w", err)
-	}
-	artifactsStore.files.initrdImagePath = outputInitrdPath
 
-	// Generate the squashfs image
-	outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
-	err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
-	if err != nil {
-		return fmt.Errorf("failed to create squashfs image:\n%w", err)
+	if outputIsoInitrdSelfContained {
+		// Generate the initrd image
+		err = createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath)
+		if err != nil {
+			return fmt.Errorf("failed to create initrd image:\n%w", err)
+		}
+		artifactsStore.files.initrdImagePath = outputInitrdPath
+	} else {
+		// Generate the initrd image
+		err = createMinimalInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
+		if err != nil {
+			return fmt.Errorf("failed to create initrd image:\n%w", err)
+		}
+		artifactsStore.files.initrdImagePath = outputInitrdPath
+
+		// Generate the squashfs image
+		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
+		err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
+		if err != nil {
+			return fmt.Errorf("failed to create squashfs image:\n%w", err)
+		}
+		artifactsStore.files.squashfsImagePath = outputSquashfsPath
 	}
-	artifactsStore.files.squashfsImagePath = outputSquashfsPath
 
 	// Generate the final iso image
 	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
@@ -156,7 +167,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 }
 
 func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string, outputPXEArtifactsDir string) error {
+	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string,
+	outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string) error {
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 
@@ -183,7 +195,7 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
 	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
+		inputArtifactsStore.info.kernelVersion, pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -195,8 +207,10 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	// selinux and not enable it either.
 	disableSELinux := false
 
+	// george: if outputIsoInitrdSelfContained != previous value -> convert.
+
 	// Update grub.cfg
-	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(outputIsoInitrdSelfContained, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -234,7 +248,7 @@ func createIsoImageAndPXEFolder(buildDir string, baseConfigPath string, addition
 
 func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArtifactsDir string) error {
 
-	logger.Log.Infof("Copying PXE artifacts to (%s)", outputPXEArtifactsDir)
+	logger.Log.Infof("Extracting PXE artifacts from (%s) to (%s)", isoImagePath, outputPXEArtifactsDir)
 
 	// Extract all files from the iso image file.
 	err := extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)

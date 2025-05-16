@@ -143,12 +143,12 @@ func copyInitrd(info isoGenInfo) error {
 }
 
 func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath string, outputImagePath string) (err error) {
+	logger.Log.Info("Generating ISO bootloader image (%s)", outputImagePath)
+
 	const (
 		blockSizeInBytes     = 1024 * 1024
 		numberOfBlocksToCopy = 3
 	)
-
-	logger.Log.Info("Preparing ISO's bootloaders.")
 
 	ddArgs := []string{
 		"if=/dev/zero",                                // Zero device to read a stream of zeroed bytes from.
