@@ -128,7 +128,7 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to copy (/dev/zero)")
-	assert.ErrorContains(t, err, "No space left on device")
+	assert.ErrorContains(t, err, "no space left on device")
 }
 
 func TestCopyAdditionalDirs(t *testing.T) {
@@ -261,7 +261,7 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to copy directory")
 	assert.ErrorContains(t, err, "failed to copy file")
-	assert.ErrorContains(t, err, "No space left on device")
+	assert.ErrorContains(t, err, "no space left on device")
 }
 
 func verifyFileContentsSame(t *testing.T, origPath string, newPath string) {

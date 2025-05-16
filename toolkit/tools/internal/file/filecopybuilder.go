@@ -5,11 +5,10 @@ package file
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
-	"github.com/sirupsen/logrus"
 )
 
 type FileCopyBuilder struct {
@@ -56,21 +55,54 @@ func (b FileCopyBuilder) Run() (err error) {
 	}
 
 	if b.NoDereference {
-		isSrcFileOrSymlink, err := IsFileOrSymlink(b.Src)
+		// Check if file is a symlink.
+		srcFileInfo, err := os.Lstat(b.Src)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read source file link info:\n%w", err)
 		}
-		if !isSrcFileOrSymlink {
-			return fmt.Errorf("source (%s) is not a file or a symlink", b.Src)
+
+		isSrcSymlink := srcFileInfo.Mode().Type() == os.ModeSymlink
+		if isSrcSymlink {
+			// Copy the symlink.
+			symlinkPath, err := os.Readlink(b.Src)
+			if err != nil {
+				return fmt.Errorf("failed to read source symlink:\n%w", err)
+			}
+
+			err = os.Symlink(symlinkPath, b.Dst)
+			if err != nil {
+				return fmt.Errorf("failed to copy symlink:\n%w", err)
+			}
+
+			return nil
 		}
-	} else {
-		isSrcFile, err := IsFile(b.Src)
-		if err != nil {
-			return err
+	}
+
+	srcFileInfo, err := os.Stat(b.Src)
+	if err != nil {
+		return fmt.Errorf("failed to read source file info:\n%w", err)
+	}
+
+	isSrcFile := !srcFileInfo.IsDir()
+	if !isSrcFile {
+		return fmt.Errorf("source (%s) is not a file", b.Src)
+	}
+
+	// Open source file.
+	srcFile, err := os.Open(b.Src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file:\n%w", err)
+	}
+	defer func() {
+		if srcFile != nil {
+			srcFile.Close()
 		}
-		if !isSrcFile {
-			return fmt.Errorf("source (%s) is not a file", b.Src)
-		}
+	}()
+
+	dstFileMode := b.FileMode
+	if !b.ChangeFileMode {
+		// Copy the source file's permissions.
+		dstFileMode = srcFileInfo.Mode()
 	}
 
 	err = CreateDestinationDir(b.Dst, b.DirFileMode)
@@ -78,27 +110,43 @@ func (b FileCopyBuilder) Run() (err error) {
 		return fmt.Errorf("failed to create destination directory (%s):\n%w", b.Dst, err)
 	}
 
-	args := []string(nil)
-	if b.NoDereference {
-		args = append(args, "--no-dereference")
-	}
-
-	args = append(args, "--preserve=mode", b.Src, b.Dst)
-
-	err = shell.NewExecBuilder("cp", args...).
-		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
-		ErrorStderrLines(1).
-		Execute()
+	// Open/create destination file.
+	dstFile, err := os.OpenFile(b.Dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, dstFileMode)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to create destination file:\n%w", err)
+	}
+	defer func() {
+		if dstFile != nil {
+			dstFile.Close()
+		}
+	}()
+
+	// The permissions given to OpenFile is subject to umask.
+	// So, apply the permissions to ensure they match exactly.
+	err = dstFile.Chmod(dstFileMode)
+	if err != nil {
+		return fmt.Errorf("failed to set destination file permissions:\n%w", err)
 	}
 
-	if b.ChangeFileMode {
-		logger.Log.Debugf("Calling chmod on (%s) with the mode (%v)", b.Dst, b.FileMode)
-		err = os.Chmod(b.Dst, b.FileMode)
-		if err != nil {
-			return fmt.Errorf("failed to set file mode (%s):\n%w", b.Dst, err)
-		}
+	// Copy the file.
+	// FYI: io.Copy uses the sendfile syscall where appropriate.
+	// So, this should be pretty fast.
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy file:\n%w", err)
+	}
+
+	// Close files.
+	err = dstFile.Close()
+	dstFile = nil
+	if err != nil {
+		return fmt.Errorf("failed to finalize destination file:\n%w", err)
+	}
+
+	err = srcFile.Close()
+	srcFile = nil
+	if err != nil {
+		return fmt.Errorf("failed to finalize source file:\n%w", err)
 	}
 
 	return nil
