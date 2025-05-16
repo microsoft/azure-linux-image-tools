@@ -49,10 +49,8 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
-	logger.Log.Infof("Generating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
-
-	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
+func cleanFullOSFolder(fullOSDir string) error {
+	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
 
 	err := os.Remove(fstabFile)
@@ -61,9 +59,20 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 	}
 
 	logger.Log.Debugf("Deleting /boot")
-	err = os.RemoveAll(filepath.Join(writeableRootfsDir, "boot"))
+	err = os.RemoveAll(filepath.Join(fullOSDir, "boot"))
 	if err != nil {
 		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+	}
+
+	return nil
+}
+
+func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
+	logger.Log.Infof("Generating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+
+	err := cleanFullOSFolder(writeableRootfsDir)
+	if err != nil {
+		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
 
 	// ToDo: Do we really need this?!
@@ -84,18 +93,12 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
 	logger.Log.Infof("Generating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
-	fstabFile := filepath.Join(writeableRootfsDir, "/etc/fstab")
-	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
-	err := os.Remove(fstabFile)
+	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
+	err := file.Write(dracutConfig, dracutConfigFile)
 	if err != nil {
-		return fmt.Errorf("failed to delete fstab:\n%w", err)
+		return fmt.Errorf("failed to create %s:\n%w", dracutConfigFile, err)
 	}
-
-	targetConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
-	err = file.Write(dracutConfig, targetConfigFile)
-	if err != nil {
-		return fmt.Errorf("failed to create %s:\n%w", targetConfigFile, err)
-	}
+	defer os.Remove(dracutConfigFile)
 
 	chroot := safechroot.NewChroot(writeableRootfsDir, true /*isExistingDir*/)
 	if chroot == nil {
@@ -142,9 +145,9 @@ func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPat
 func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
 	logger.Log.Infof("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
 
-	err := os.RemoveAll(filepath.Join(writeableRootfsDir, "boot"))
+	err := cleanFullOSFolder(writeableRootfsDir)
 	if err != nil {
-		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
 
 	exists, err := file.PathExists(outputSquashfsPath)

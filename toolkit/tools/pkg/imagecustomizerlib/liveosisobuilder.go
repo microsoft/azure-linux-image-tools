@@ -123,7 +123,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	// Generate the ISO bootimage (/boot/grub2/efiboot.img)
+	// Generate the ISO boot image (/boot/grub2/efiboot.img)
 	artifactsStore.files.isoBootImagePath = filepath.Join(artifactsStore.files.artifactsDir, isoBootImagePath)
 	err = isogenerator.BuildIsoBootImage(isoBuildDir, artifactsStore.files.bootEfiPath,
 		artifactsStore.files.grubEfiPath, artifactsStore.files.isoBootImagePath)
