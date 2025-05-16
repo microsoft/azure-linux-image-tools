@@ -1,0 +1,57 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Fork release branch
+
+permissions:
+  # Create release branch and publish release.
+  contents: write
+  # Publish PR.
+  #pull-requests: write
+
+on:
+  workflow_call: {}
+
+jobs:
+  fork-branch:
+    name: Open bump version PR
+    runs-on: ubuntu-latest
+    permissions:
+      # Create release branch and publish release.
+      contents: write
+      # Publish PR.
+      #pull-requests: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Open bump version PR
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -x
+
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+        pushd ./repo
+
+        # Switch to main branch.
+        git fetch --depth=1 --prune origin main
+        git checkout origin/main
+
+        # Bump version.
+        NEXT_MINOR_VERSION="$(python3 .github/workflows/scripts/bump_minor_version.py)"
+
+        # Commit and push.
+        BUMP_VERSION_BRANCH="workflows/bumpVersion${NEXT_MINOR_VERSION}"
+        git checkout -b "${BUMP_VERSION_BRANCH}"
+
+        git add -A
+        git commit -m "Bump version to v${NEXT_MINOR_VERSION}"
+        git push -u origin "${BUMP_VERSION_BRANCH}"
+
+        # Open PR.
+        #gh pr create -B main -H "${BUMP_VERSION_BRANCH}" --title "Bump version to v${NEXT_MINOR_VERSION}" --body ""

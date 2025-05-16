@@ -1,0 +1,57 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Fork release branch
+
+permissions:
+  # Create release branch and publish release.
+  contents: write
+
+on:
+  workflow_call: {}
+
+jobs:
+  fork-branch:
+    name: Fork release branch
+    runs-on: ubuntu-latest
+    permissions:
+      # Create release branch and publish release.
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: Fork release branch
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -x
+
+        VERSION=$(<"out/version/version.txt")
+        MINOR_VERSION="$(grep -oP '^[0-9]+\.[0-9]+' <<< "$VERSION")"
+
+        pushd ./repo
+
+        # Push new release branch.
+        MINOR_VERSION_BRANCH="release/v${MINOR_VERSION}"
+        git checkout -b "$MINOR_VERSION_BRANCH"
+        git push --set-upstream origin "$MINOR_VERSION_BRANCH"
+
+        # Push release tag.
+        TAG="v${VERSION}"
+        git tag "$TAG"
+        git push origin tag "$TAG"
+
+        # Create release.
+        mkdir -p ../release
+        mv ../out/binary-amd64/imagecustomizer.tar.gz ../release/imagecustomizer-amd64.tar.gz
+        mv ../out/binary-arm64/imagecustomizer.tar.gz ../release/imagecustomizer-arm64.tar.gz
+
+        gh release create "${TAG}" ../release/*
