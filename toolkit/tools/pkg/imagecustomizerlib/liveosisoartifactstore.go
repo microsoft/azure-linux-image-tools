@@ -457,6 +457,7 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	infoStore = &IsoInfoStore{
+		kernelVersion:            savedConfigs.OS.KernelVersion,
 		dracutPackageInfo:        savedConfigs.OS.DracutPackageInfo,
 		selinuxPolicyPackageInfo: savedConfigs.OS.SELinuxPolicyPackageInfo,
 	}
