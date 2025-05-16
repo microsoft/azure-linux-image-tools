@@ -116,6 +116,7 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 				return fmt.Errorf("failed to create resolv.conf symlink:\n%w", err)
 			}
 		}
+
 	case resolvConfTypeFile:
 		logger.Log.Debugf("Restoring resolv.conf file")
 
@@ -126,14 +127,10 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 		}
 
 	case resolvConfTypeSymlink:
-		_, err := systemd.IsServiceEnabled("systemd-resolved.service", imageChroot)
-		if err != nil {
-			return err
-		}
 		logger.Log.Debugf("Restoring resolv.conf symlink")
 
 		// Restore the resolv.conf symlink.
-		err = os.Symlink(existing.symlinkPath, imageResolveConfPath)
+		err := os.Symlink(existing.symlinkPath, imageResolveConfPath)
 		if err != nil {
 			return fmt.Errorf("failed to restore resolv.conf file:\n%w", err)
 		}
@@ -141,5 +138,6 @@ func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) 
 	default:
 		return fmt.Errorf("unknown resolvConfType value (%v)", existing.existingType)
 	}
+
 	return nil
 }
