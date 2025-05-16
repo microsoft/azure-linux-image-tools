@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"syscall"
 
 	"github.com/cavaliercoder/go-cpio"
 	"github.com/klauspost/pgzip"
@@ -140,6 +141,15 @@ func addFileToArchive(inputDir, path string, info os.FileInfo, cpioWriter *cpio.
 		return
 	}
 
+	// Get owners
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return fmt.Errorf("failed to change mode of file (0) %s: %w", path, err)
+	}
+
+	header.UID = int(stat.Uid)
+	header.GID = int(stat.Gid)
+
 	// The default OS header will only have the filename as "Name".
 	// Manually set the CPIO header's Name field to the relative path so it
 	// is extracted to the correct directory.
@@ -189,10 +199,10 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 	defer gzr.Close()
 
 	// Create cpio reader
-	cr := cpio.NewReader(gzr)
+	cpioReader := cpio.NewReader(gzr)
 
 	for {
-		hdr, err := cr.Next()
+		hdr, err := cpioReader.Next()
 		if err == io.EOF {
 			break // end of archive
 		}
@@ -210,15 +220,15 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create directory %s: %w", path, err)
 			}
-		case cpio.ModeRegular:
-			outFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
-			if err != nil {
-				return fmt.Errorf("failed to create file %s: %w", path, err)
+
+			if hdr.UID != 0 || hdr.GID != 0 {
+				logger.Log.Infof("---- unpacking ---- %d, %d, %s", hdr.UID, hdr.GID, path)
+				// time.Sleep(20 * time.Second)
 			}
-			_, err = io.Copy(outFile, cr)
-			outFile.Close()
+
+			err = os.Chown(path, hdr.UID, hdr.GID)
 			if err != nil {
-				return fmt.Errorf("write file %s: %w", path, err)
+				return fmt.Errorf("failed to set ownership on extracted file (%s) to (%d,%d):\n%w", path, hdr.UID, hdr.GID, err)
 			}
 
 			if fileMode > 0777 {
@@ -235,7 +245,38 @@ func extractFilesFromInitrdImage(initrdImagePath, outputDir string) error {
 					return fmt.Errorf("failed to change mode of file %s: %w", path, err)
 				}
 			}
-			// logger.Log.Debugf("-- [file    ] [%#o] (%s)", fileMode, path)
+
+		case cpio.ModeRegular:
+			destFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", path, err)
+			}
+			_, err = io.Copy(destFile, cpioReader)
+			destFile.Close()
+			if err != nil {
+				return fmt.Errorf("write file %s: %w", path, err)
+			}
+
+			err = os.Chown(path, hdr.UID, hdr.GID)
+			if err != nil {
+				return fmt.Errorf("failed to set ownership on extracted file (%s) to (%d,%d):\n%w", path, hdr.UID, hdr.GID, err)
+			}
+
+			if fileMode > 0777 {
+				// For some reason, Chmod does not set the higher-order bits:
+				// setuid, setgid, and setsticky bits
+				// err = os.Chmod(path, fileMode)
+				fileModeString := fmt.Sprintf("%#o", fileMode)
+				chmodParams := []string{
+					fileModeString,
+					path,
+				}
+				err = shell.ExecuteLive(true /*squashErrors*/, "chmod", chmodParams...)
+				if err != nil {
+					return fmt.Errorf("failed to change mode of file %s: %w", path, err)
+				}
+			}
+
 		case cpio.ModeSymlink:
 			pathDir := filepath.Dir(path)
 			_, err := os.Stat(pathDir)
