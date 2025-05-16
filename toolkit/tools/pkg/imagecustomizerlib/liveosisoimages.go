@@ -343,7 +343,6 @@ func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size 
 }
 
 func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtifactsStore, rawImageFile string) error {
-
 	logger.Log.Infof("Creating full OS writeable image from ISO artifacts")
 
 	rootfsDir, err := os.MkdirTemp(buildDir, "tmp-full-os-root-")
@@ -450,14 +449,11 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 
 	// populate the newly created disk image with content from the squash fs
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
-
-		logger.Log.Infof("Install files to empty image")
-
+		logger.Log.Infof("Installing files to empty image")
 		// At the point when this copy will be executed, both the boot and the
 		// root partitions will be mounted, and the files of /boot/efi will
 		// land on the the boot partition, while the rest will be on the rootfs
 		// partition.
-		logger.Log.Infof("---- ---- Installing (%s) to (%s)", rootfsDir+"/.", imageChroot.RootDir())
 		err := copyPartitionFiles(rootfsDir+"/.", imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
@@ -470,33 +466,26 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 		// pull the boot artifacts back into the full file system so that
 		// it is restored to its original state and subsequent customization
 		// or extraction can proceed transparently.
-
-		logger.Log.Infof("---- ---- Installing (%s) to (%s)", artifactsBootDir, imageChroot.RootDir())
 		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
 		}
 
 		initrdFileName := fmt.Sprintf("initrd-%s.img", artifactsStore.info.kernelVersion)
-
 		initrdOld := filepath.Join(imageChroot.RootDir(), "boot/initrd.img")
 		initrdNew := filepath.Join(imageChroot.RootDir(), "boot", initrdFileName)
 		err = os.Rename(initrdOld, initrdNew)
 		if err != nil {
 			return fmt.Errorf("failed to rename (%s) to (%s)", initrdOld, initrdNew)
 		}
-		logger.Log.Infof("---- ---- renamed (%s) to (%s)", initrdOld, initrdNew)
 
 		kernelFileName := fmt.Sprintf("vmlinuz-%s", artifactsStore.info.kernelVersion)
-
 		kernelOld := filepath.Join(imageChroot.RootDir(), "boot/vmlinuz")
 		kernelNew := filepath.Join(imageChroot.RootDir(), "boot", kernelFileName)
 		err = os.Rename(kernelOld, kernelNew)
 		if err != nil {
 			return fmt.Errorf("failed to rename (%s) to (%s)", kernelOld, kernelNew)
 		}
-
-		logger.Log.Infof("---- ---- renamed (%s) to (%s)", kernelOld, kernelNew)
 
 		targetEfiDir := filepath.Join(imageChroot.RootDir(), "boot/efi/EFI/BOOT")
 		err = os.MkdirAll(targetEfiDir, os.ModePerm)
@@ -505,14 +494,12 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 		}
 
 		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(artifactsStore.files.bootEfiPath))
-		logger.Log.Infof("---- ---- Installing (%s) to (%s)", artifactsStore.files.bootEfiPath, targetShimPath)
 		err = file.Copy(artifactsStore.files.bootEfiPath, targetShimPath)
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", artifactsStore.files.bootEfiPath, targetShimPath, err)
 		}
 
 		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(artifactsStore.files.grubEfiPath))
-		logger.Log.Infof("---- ---- Installing (%s) to (%s)", artifactsStore.files.grubEfiPath, targetGrubPath)
 		err = file.Copy(artifactsStore.files.grubEfiPath, targetGrubPath)
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", artifactsStore.files.grubEfiPath, targetGrubPath, err)
@@ -520,8 +507,6 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 
 		return err
 	}
-
-	logger.Log.Infof("Populating empty image (%s) with files from (%s)", rawImageFile, rootfsDir)
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
