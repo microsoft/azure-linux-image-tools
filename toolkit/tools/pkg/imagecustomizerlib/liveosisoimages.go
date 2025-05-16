@@ -471,6 +471,9 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
 		}
 
+		// The `initrd.img` must be on the form `initrd-*` so that `grub2-mkconfig`
+		// can find it. If it cannot find it, the generated grub.cfg will be missing
+		// all the boot entries.
 		initrdFileName := fmt.Sprintf("initrd-%s.img", artifactsStore.info.kernelVersion)
 		initrdOld := filepath.Join(imageChroot.RootDir(), "boot/initrd.img")
 		initrdNew := filepath.Join(imageChroot.RootDir(), "boot", initrdFileName)
@@ -479,6 +482,9 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 			return fmt.Errorf("failed to rename (%s) to (%s)", initrdOld, initrdNew)
 		}
 
+		// The `vmlinuz` must be on the form `vmlinuz-*` so that `grub2-mkconfig`
+		// can find it. If it cannot find it, the generated grub.cfg will be missing
+		// all the boot entries.
 		kernelFileName := fmt.Sprintf("vmlinuz-%s", artifactsStore.info.kernelVersion)
 		kernelOld := filepath.Join(imageChroot.RootDir(), "boot/vmlinuz")
 		kernelNew := filepath.Join(imageChroot.RootDir(), "boot", kernelFileName)
