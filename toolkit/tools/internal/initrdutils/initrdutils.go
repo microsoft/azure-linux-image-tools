@@ -17,15 +17,19 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
-func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) error {
-	err := os.Chmod(inputDir, 0755)
+func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err error) {
+	// The folder permissions will become the `/` permissions when the initrd is
+	// mounted. This needs to be 0755 or some processes will fail to function
+	// correctly.
+	err = os.Chmod(inputDir, 0755)
 	if err != nil {
-		return fmt.Errorf("failed to change directory mode of (%s):\n%w", inputDir, err)
+		return fmt.Errorf("failed to change folder permissions for (%s):\n%w", inputDir, err)
 	}
 
+	// Create the image, the compressor, and the cpio writers.
 	outputFile, err := os.Create(outputInitrdImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to create file (%s):\n%w", outputInitrdImagePath, err)
+		return fmt.Errorf("failed to create image file (%s):\n%w", outputInitrdImagePath, err)
 	}
 	defer outputFile.Close()
 
@@ -40,14 +44,14 @@ func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) error {
 		}
 	}()
 
+	// Traverse the directory structure and add all the files/directories/links to the archive.
 	err = filepath.Walk(inputDir, func(path string, info os.FileInfo, fileErr error) (err error) {
 		if fileErr != nil {
-			logger.Log.Warnf("File walk error on path (%s), error: %s", path, fileErr)
-			return fileErr
+			return fmt.Errorf("encountered a file walk error on path (%s):\n%w", path, fileErr)
 		}
 		err = addFileToArchive(inputDir, path, info, cpioWriter)
 		if err != nil {
-			logger.Log.Warnf("Failed to add (%s), error: %s", path, err)
+			return fmt.Errorf("failed to add (%s) to archive:\n%w", path, err)
 		}
 		return nil
 	})
@@ -55,74 +59,76 @@ func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) error {
 	return nil
 }
 
-func addFileToArchive(inputDir, path string, info os.FileInfo, cpioWriter *cpio.Writer) (err error) {
-	// Get the relative path of the file compared to the input directory.
-	// The input directory should be considered the "root" of the cpio archive.
-	relPath, err := filepath.Rel(inputDir, path)
+func buildCpioHeader(inputDir, path string, info os.FileInfo, link string) (cpioHeader *cpio.Header, err error) {
+	// Convert the OS header into a CPIO header
+	cpioHeader, err = cpio.FileInfoHeader(info, link)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("failed to convert OS file info into a cpio header for (%s)\n%w", path, err)
 	}
 
-	// logger.Log.Debugf("Adding to initrd: %s", relPath)
+	// Get owners (cpio.FileInfoHeader() does not fill out this part)
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil, fmt.Errorf("failed to get file stat of (%s)", path)
+	}
+	cpioHeader.UID = int(stat.Uid)
+	cpioHeader.GID = int(stat.Gid)
 
+	// Convert full path to relative path
+	relPath, err := filepath.Rel(inputDir, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relative path of (%s) using root (%s):\n%w", path, inputDir, err)
+	}
+	cpioHeader.Name = relPath
+
+	return cpioHeader, nil
+}
+
+func addFileToArchive(inputDir, path string, info os.FileInfo, cpioWriter *cpio.Writer) (err error) {
 	// Symlinks need to be resolved to their target file to be added to the cpio archive.
 	var link string
 	if info.Mode()&os.ModeSymlink != 0 {
 		link, err = os.Readlink(path)
 		if err != nil {
-			return
+			return fmt.Errorf("failed to read link information of (%s):\n%w", path, err)
 		}
-
-		// logger.Log.Debugf("--> Adding link: (%s) -> (%s)", relPath, link)
 	}
 
-	// Convert the OS header into a CPIO header
-	header, err := cpio.FileInfoHeader(info, link)
+	cpioHeader, err := buildCpioHeader(inputDir, path, info, link)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to construct cpio file header for (%s)\n%w", path, err)
 	}
 
-	// Get owners
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok {
-		return fmt.Errorf("failed to change mode of file (0) %s: %w", path, err)
-	}
-
-	header.UID = int(stat.Uid)
-	header.GID = int(stat.Gid)
-
-	// The default OS header will only have the filename as "Name".
-	// Manually set the CPIO header's Name field to the relative path so it
-	// is extracted to the correct directory.
-	header.Name = relPath
-
-	err = cpioWriter.WriteHeader(header)
+	err = cpioWriter.WriteHeader(cpioHeader)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to write cpio header for (%s)\n%w", path, err)
 	}
 
-	// Special files (unix sockets, directories, symlinks, ...) need to be handled differently
-	// since a simple byte transfer of the file's content into the CPIO archive can't be achieved.
-	if !info.Mode().IsRegular() {
-		// For a symlink the reported size will be the size (in bytes) of the link's target.
+	if info.Mode().IsRegular() {
+		fileToAdd, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open (%s)\n%w", path, err)
+		}
+		defer fileToAdd.Close()
+
+		_, err = io.Copy(cpioWriter, fileToAdd)
+		if err != nil {
+			return fmt.Errorf("failed to write (%s) to cpio archive\n%w", path, err)
+		}
+	} else {
+		// For a symlink, the reported size will be the size (in bytes) of the link's target.
 		// Write this data into the archive.
 		if info.Mode()&os.ModeSymlink != 0 {
 			_, err = cpioWriter.Write([]byte(link))
+			if err != nil {
+				return fmt.Errorf("failed to write link (%s)\n%w", path, err)
+			}
 		}
 
 		// For all other special files, they will be of size 0 and only contain the header in the archive.
-		return
 	}
 
-	// For regular files, open the actual file and copy its content into the archive.
-	fileToAdd, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer fileToAdd.Close()
-
-	_, err = io.Copy(cpioWriter, fileToAdd)
-	return
+	return nil
 }
 
 func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {

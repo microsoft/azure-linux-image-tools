@@ -285,7 +285,6 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 
 func createIsoImage(buildDir string, filesStore *IsoFilesStore, baseConfigPath string,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
-	logger.Log.Infof("Creating final ISO at (%s)", outputImagePath)
 	stagingDir := filepath.Join(buildDir, "staging")
 
 	err := stageIsoFiles(filesStore, baseConfigPath, additionalIsoFiles, stagingDir)
