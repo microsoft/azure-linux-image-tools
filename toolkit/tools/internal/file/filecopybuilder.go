@@ -102,7 +102,7 @@ func (b FileCopyBuilder) Run() (err error) {
 	dstFileMode := b.FileMode
 	if !b.ChangeFileMode {
 		// Copy the source file's permissions.
-		dstFileMode = srcFileInfo.Mode().Perm()
+		dstFileMode = srcFileInfo.Mode()
 	}
 
 	err = CreateDestinationDir(b.Dst, b.DirFileMode)
