@@ -17,7 +17,7 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      publishType: production
+      publishType: official
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
