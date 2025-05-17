@@ -1,0 +1,35 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Build, test, publish, and fork new major/minor version
+
+permissions:
+  contents: write
+  packages: write
+  # Publish PR.
+  #pull-requests: write
+
+on:
+  # Allow pipeline to be run manually.
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      publishType: official
+
+  publish-container:
+    uses: ./.github/workflows/publish-container.yml
+    needs:
+    - build
+
+  fork-release-branch:
+    uses: ./.github/workflows/fork-release-branch.yml
+    needs:
+    - build
+
+  open-bump-version-pr:
+    uses: ./.github/workflows/open-bump-version-pr.yml
+    needs:
+    - build
