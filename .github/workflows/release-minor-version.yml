@@ -6,6 +6,8 @@ name: Build, test, publish, and fork new major/minor version
 permissions:
   contents: write
   packages: write
+  # "Keyless" container signing
+  id-token: write
   # Publish PR.
   #pull-requests: write
 
