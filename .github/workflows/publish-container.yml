@@ -14,6 +14,8 @@ jobs:
     name: Publish container
     runs-on: ubuntu-latest
     permissions:
+      # "Keyless" container signing
+      id-token: write
       # Publish to GHCR.
       packages: write
     steps:
@@ -24,6 +26,11 @@ jobs:
 
     - name: Login to GHCR
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3.8.2
+      with:
+        cosign-release: 'v2.5.0'
 
     - name: Publish container
       run: |
@@ -42,11 +49,15 @@ jobs:
 
           # Push arch specific tag.
           docker tag "$TARBALL_TAG" "$DOCKER_ARCH_FULL_PATH"
-          docker push "$DOCKER_ARCH_FULL_PATH"
+          IMAGE_PUSH_OUT="$(docker image push "$DOCKER_ARCH_FULL_PATH")"
+
+          DIGEST="$(grep -E --only-matching 'digest: \S*' <<< "$IMAGE_PUSH_OUT" | cut -d ' ' -f 2)"
+          cosign sign --yes "${DOCKER_ARCH_FULL_PATH}@${DIGEST}"
 
           # Create multi-arch manifest.
           docker manifest create "$DOCKER_FULL_PATH" --amend "$DOCKER_ARCH_FULL_PATH"
         done
 
         # Push multi-arch manifest.
-        docker manifest push "$DOCKER_FULL_PATH"
+        DIGEST="$(docker manifest push "$DOCKER_FULL_PATH")"
+        cosign sign --yes "${DOCKER_FULL_PATH}@${DIGEST}"
