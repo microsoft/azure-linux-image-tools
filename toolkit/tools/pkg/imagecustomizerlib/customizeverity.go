@@ -327,9 +327,13 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 		case "restart-on-corruption":
 			corruptionOption = imagecustomizerapi.CorruptionOptionRestart
 
-		default:
-			return "", fmt.Errorf("unknown verity option (%s)", option)
+			// ToDo: Green light to LG for this non-corruption option `root-hash-signature=`
+			/*
+				default:
+					return "", fmt.Errorf("unknown verity option (%s)", option)
+			*/
 		}
+
 	}
 
 	return corruptionOption, nil
@@ -441,31 +445,4 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 		return diskutils.PartitionInfo{}, fmt.Errorf("partition not found (%s=%s)", ref.IdType, ref.Id)
 	}
 	return partition, nil
-}
-
-func ParseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, error) {
-	corruptionOption := imagecustomizerapi.CorruptionOptionIoError
-
-	optionValues := strings.Split(options, ",")
-	for _, option := range optionValues {
-		switch option {
-		case "":
-			// Ignore empty string.
-
-		case "ignore-corruption":
-			corruptionOption = imagecustomizerapi.CorruptionOptionIgnore
-
-		case "panic-on-corruption":
-			corruptionOption = imagecustomizerapi.CorruptionOptionPanic
-
-		case "restart-on-corruption":
-			corruptionOption = imagecustomizerapi.CorruptionOptionRestart
-
-		default:
-			// ToDo: Ignore unknown options like "root-hash-signature=/boot/root.hash.sig"
-			logger.Log.Debugf("Ignoring unknown verity option: %s", option)
-		}
-	}
-
-	return corruptionOption, nil
 }
