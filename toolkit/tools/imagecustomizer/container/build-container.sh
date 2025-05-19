@@ -8,6 +8,8 @@ enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
 ORAS_VERSION="1.1.0"
+BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
+BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 
 function showUsage() {
     echo
@@ -19,10 +21,11 @@ function showUsage() {
     echo
 }
 
-while getopts ":r:n:t:a:" OPTIONS; do
+while getopts "t:a:b" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     a ) ARCH=$OPTARG ;;
+    b ) VERIFY_BASE_IMAGE=true ;;
     \? ) echo "Invalid option: $OPTARG" 1>&2; showUsage; exit 1 ;;
   esac
 done
@@ -41,6 +44,19 @@ if [[ -z $containerTag ]]; then
 fi
 
 # ---- main ----
+
+baseImage="$BASE_IMAGE_TAG"
+
+if [ $VERIFY_BASE_IMAGE ]; then
+    dockerPullStdout="$(docker image pull "$BASE_IMAGE_TAG")"
+    baseImageDigest="$(grep -E 'Digest: sha256:[a-zA-Z0-9]+' <<< "$dockerPullStdout" | cut -d ' ' -f 2)"
+    baseImageByDigest="$BASE_IMAGE@$baseImageDigest"
+
+    # Verify the signature of the base image.
+    notation verify "$baseImageByDigest"
+
+    baseImage="$baseImageByDigest"
+fi
 
 buildDir="$scriptDir/build"
 containerStagingFolder="$buildDir/container"
@@ -93,7 +109,7 @@ if [ "$ARCH" == "arm64" ]; then
 fi
 
 # build the container
-docker build -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
+docker build --build-arg "BASE_IMAGE=$baseImage" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag" 
 
 # clean-up
 cleanUp
