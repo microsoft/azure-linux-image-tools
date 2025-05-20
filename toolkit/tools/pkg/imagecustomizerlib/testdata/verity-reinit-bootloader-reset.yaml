@@ -1,0 +1,21 @@
+previewFeatures:
+- reinitialize-verity
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+
+  additionalFiles:
+  - content: |
+      cat, dog, elephant, squirrel
+    destination: /usr/local/share/animals.txt
+
+  users:
+  - name: root
+    password:
+      type: plain-text
+      value: hello
