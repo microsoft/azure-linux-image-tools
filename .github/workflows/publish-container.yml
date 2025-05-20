@@ -1,0 +1,52 @@
+name: Publish container to GHCR
+
+permissions:
+  # Publish to GHCR.
+  packages: write
+  # Create release branch and publish release.
+  contents: write
+
+on:
+  workflow_call: {}
+
+jobs:
+  publish-container:
+    name: Publish container
+    runs-on: ubuntu-latest
+    permissions:
+      # Publish to GHCR.
+      packages: write
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: Login to GHCR
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Publish container
+      run: |
+        set -x
+        VERSION=$(<"out/version/version.txt")
+
+        DOCKER_FULL_PATH="ghcr.io/${{ github.repository_owner }}/imagecustomizer:$VERSION"
+
+        for HOST_ARCH in amd64 arm64
+        do
+          # Import the image from the tarball.
+          OUTPUT="$(docker image load -i "out/container-$HOST_ARCH/imagecustomizer.tar.gz" 2>&1)"
+          TARBALL_TAG="$(echo $OUTPUT | awk '{print $3}')"
+
+          DOCKER_ARCH_FULL_PATH="$DOCKER_FULL_PATH-$HOST_ARCH"
+
+          # Push arch specific tag.
+          docker tag "$TARBALL_TAG" "$DOCKER_ARCH_FULL_PATH"
+          docker push "$DOCKER_ARCH_FULL_PATH"
+
+          # Create multi-arch manifest.
+          docker manifest create "$DOCKER_FULL_PATH" --amend "$DOCKER_ARCH_FULL_PATH"
+        done
+
+        # Push multi-arch manifest.
+        docker manifest push "$DOCKER_FULL_PATH"
