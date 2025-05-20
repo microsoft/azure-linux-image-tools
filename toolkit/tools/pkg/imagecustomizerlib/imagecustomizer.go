@@ -840,7 +840,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.

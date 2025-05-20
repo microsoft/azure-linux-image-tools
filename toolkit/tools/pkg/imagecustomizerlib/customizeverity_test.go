@@ -467,9 +467,10 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, ima
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
 	stage1ConfigFile := filepath.Join(testDir, "verity-config.yaml")
-	stage2ConfigFile := filepath.Join(testDir, "verity-reinit.yaml")
-	stage1FilePath := filepath.Join(testTempDir, "image.raw")
-	stage2FilePath := filepath.Join(testTempDir, "image.raw")
+	stage2aConfigFile := filepath.Join(testDir, "verity-reinit.yaml")
+	stage2bConfigFile := filepath.Join(testDir, "verity-reinit-bootloader-reset.yaml")
+	stage1FilePath := filepath.Join(testTempDir, "image1.raw")
+	stage2FilePath := filepath.Join(testTempDir, "image2.raw")
 
 	// Stage 1: Initialize verity.
 	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
@@ -478,10 +479,19 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, ima
 		return
 	}
 
+	verifyRootVerity(t, imageType, imageVersion, buildDir, stage1FilePath)
+
+	// Stage 2a: Reinitialize verity.
+	err = CustomizeImageWithConfigFile(buildDir, stage2aConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	verifyRootVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
 
-	// Stage 2: Reinitialize verity.
-	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+	// Stage 2b: Reinitialize verity + hard-reset bootloader.
+	err = CustomizeImageWithConfigFile(buildDir, stage2bConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return

@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 )
 
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string) error {
+	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+) error {
 	var err error
 
 	imageChroot := imageConnection.Chroot()
@@ -71,7 +73,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection)
+	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
 	if err != nil {
 		return err
 	}
