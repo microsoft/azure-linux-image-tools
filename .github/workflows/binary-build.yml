@@ -133,12 +133,17 @@ jobs:
         # Print version.
         echo "Version: $PACKAGE_VERSION"
 
+    - name: setup Notation CLI
+      uses: notaryproject/notation-action/setup@v1
+
     - name: Build container
       run: |
         set -x
 
+        ./repo/toolkit/tools/imagecustomizer/container/notation/notation-setup.sh
+
         CONTAINER_TAG="imagecustomizer:build"
-        ./repo/toolkit/tools/imagecustomizer/container/build-container.sh -t "$CONTAINER_TAG" -a "${{ inputs.arch }}"
+        ./repo/toolkit/tools/imagecustomizer/container/build-container.sh -t "$CONTAINER_TAG" -a "${{ inputs.arch }}" -b
 
         docker image save "$CONTAINER_TAG" | gzip > "imagecustomizer.tar.gz"
 

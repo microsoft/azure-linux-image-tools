@@ -4,8 +4,12 @@
 name: Build, test, publish, and fork new major/minor version
 
 permissions:
+  # Push release branch and publish release.
   contents: write
+  # Publish to GHCR.
   packages: write
+  # "Keyless" container signing
+  id-token: write
   # Publish PR.
   #pull-requests: write
 
