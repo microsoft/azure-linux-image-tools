@@ -52,15 +52,13 @@ type RootCmd struct {
 
 func main() {
 	// initialize OpenTelemetry tracer
-	shutdown, err := imagecustomizerlib.InitTracer()
+	err := imagecustomizerlib.InitTracer()
 	if err != nil {
-		// log the error but don't exit
-		log.Printf("failed to initialize OpenTelemetry tracer: %v", err)
+		log.Printf("failed to initialize telemetry setup: %v", err)
 	}
 	defer func() {
-		ctx := context.Background()
-		if err := shutdown(ctx); err != nil {
-			log.Printf("error shutting down tracer provider: %v", err)
+		if err := imagecustomizerlib.ShutdownTelemetry(context.Background()); err != nil {
+			log.Printf("failed to shutdown telemetry: %v", err)
 		}
 	}()
 

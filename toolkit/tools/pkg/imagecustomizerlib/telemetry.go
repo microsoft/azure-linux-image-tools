@@ -12,20 +12,28 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
 )
 
-// InitTracer sets up OpenTelemetry tracing with stdout exporter.
-func InitTracer() (func(context.Context) error, error) {
+var (
+	// OTEL Tracer used across the tool for telemetry
+	Tracer trace.Tracer
+
+	// shutdownFn used to shutdown the tracer provider
+	shutdownFn func(ctx context.Context) error
+)
+
+func InitTracer() error {
 	exporter, err := stdouttrace.New(
 		stdouttrace.WithPrettyPrint(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout exporter: %w", err)
+		return fmt.Errorf("failed to create stdout exporter: %w", err)
 	}
 
 	osInfo, err := getOSInfo()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get OS info: %w", err)
+		return fmt.Errorf("failed to get OS info: %w", err)
 	}
 	// create tracer provider with batcher and resource attributes
 	tp := sdktrace.NewTracerProvider(
@@ -38,7 +46,17 @@ func InitTracer() (func(context.Context) error, error) {
 		)),
 	)
 	otel.SetTracerProvider(tp)
-	return tp.Shutdown, nil
+	Tracer = tp.Tracer("imagecustomizer")
+	shutdownFn = tp.Shutdown
+	return nil
+}
+
+// ShutdownTelemetry flushes any buffered spans and shuts down the tracing provider
+func ShutdownTelemetry(ctx context.Context) error {
+	if shutdownFn == nil {
+		return nil
+	}
+	return shutdownFn(ctx)
 }
 
 func parseOSRelease(content string) map[string]string {
