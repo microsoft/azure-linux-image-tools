@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 
@@ -106,7 +105,7 @@ func main() {
 func customizeImage(cmd CustomizeCmd) error {
 	// start a new trace span for the customize operation
 	ctx := context.Background()
-	_, span := otel.Tracer("imagecustomizer").Start(ctx, "customizeImage")
+	_, span := imagecustomizerlib.Tracer.Start(ctx, "customizeImage")
 	// add relevant attributes for this operation
 	span.SetAttributes(
 		attribute.String("outputImageFormat", cmd.OutputImageFormat),
