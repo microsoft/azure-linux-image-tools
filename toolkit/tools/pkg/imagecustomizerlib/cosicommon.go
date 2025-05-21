@@ -30,6 +30,7 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	if err != nil {
 		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
 	}
+	defer os.Remove(outputDir)
 
 	imageLoopback, err := safeloopback.NewLoopback(ic.rawImageFile)
 	if err != nil {
@@ -41,6 +42,9 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		"raw-zst", ic.imageUuid)
 	if err != nil {
 		return err
+	}
+	for _, partition := range partitionMetadataOutput {
+		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
 	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata,

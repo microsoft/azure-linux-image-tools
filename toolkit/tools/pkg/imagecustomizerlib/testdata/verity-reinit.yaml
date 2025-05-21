@@ -1,0 +1,8 @@
+previewFeatures:
+- reinitialize-verity
+
+os:
+  additionalFiles:
+  - content: |
+      cat, dog, elephant, squirrel
+    destination: /usr/local/share/animals.txt

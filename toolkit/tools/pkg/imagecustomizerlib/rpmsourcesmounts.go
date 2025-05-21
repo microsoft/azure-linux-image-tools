@@ -147,13 +147,13 @@ func (m *rpmSourcesMounts) createRepoFromDirectory(rpmSource string, allReposCon
 	rpmSourceName := path.Base(rpmSource)
 
 	// Mount the directory.
-	mountTargetDirectoryInChroot, err := m.mountRpmsDirectory(rpmSourceName, rpmSource, imageChroot)
+	mountTargetDirectoryInChroot, err := m.mountRpmsSource("baseurl", rpmSourceName, rpmSource, imageChroot)
 	if err != nil {
 		return err
 	}
 
 	// Add local repo config.
-	err = appendLocalRepo(allReposConfig, mountTargetDirectoryInChroot)
+	err = appendLocalRepo(allReposConfig, mountTargetDirectoryInChroot, rpmSource)
 	if err != nil {
 		return fmt.Errorf("failed to append local repo config:\n%w", err)
 	}
@@ -181,25 +181,52 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 		}
 
 		if isHostConfig {
-			baseUrlKey, err := repoConfig.GetKey("baseurl")
+			_, err = repoConfig.GetKey("baseurl")
 			if err != nil {
 				return fmt.Errorf("invalid repo config (%s):\n%w", rpmSource, err)
 			}
 
-			// Check if the repo points to a local directory.
-			baseurl := baseUrlKey.String()
-			filePath, hasFilePrefix := strings.CutPrefix(baseurl, "file://")
-			if hasFilePrefix {
-				// Mount the directory in the chroot.
-				rpmSourceName := path.Base(baseurl)
-				mountTargetDirectoryInChroot, err := m.mountRpmsDirectory(rpmSourceName, filePath, imageChroot)
+			gpgCheckKey, _ := repoConfig.GetKey("gpgcheck")
+			repoGpgCheckKey, _ := repoConfig.GetKey("repo_gpgcheck")
+			switch {
+			case gpgCheckKey != nil && gpgCheckKey.String() != "1":
+				logger.Log.Infof("GPG signature checking disabled for RPM repo (%s)", repoConfig.Name())
+
+			case repoGpgCheckKey != nil && repoGpgCheckKey.String() != "1":
+				logger.Log.Infof("GPG signature checking disabled for RPM repo metadata (%s)", repoConfig.Name())
+			}
+
+			for _, field := range []string{"baseurl", "gpgkey"} {
+				fieldKey, err := repoConfig.GetKey(field)
 				if err != nil {
-					return fmt.Errorf("failed mount repo config local directory (%s):\n%w", rpmSource, err)
+					// Field doesn't exist.
+					continue
 				}
 
-				// Change the baseurl to point to the bind mount directory.
-				newBaseurl := fmt.Sprintf("file://%s", mountTargetDirectoryInChroot)
-				repoConfig.Key("baseurl").SetValue(newBaseurl)
+				fieldValue := fieldKey.String()
+				values := strings.Fields(fieldValue)
+
+				newValues := []string(nil)
+				for _, value := range values {
+					// Check if the value points to a local file/directory.
+					filePath, hasFilePrefix := strings.CutPrefix(value, "file://")
+					if hasFilePrefix {
+						// Bind mount the file/directory in the chroot.
+						rpmSourceName := path.Base(value)
+						mountTargetDirectoryInChroot, err := m.mountRpmsSource(field, rpmSourceName, filePath,
+							imageChroot)
+						if err != nil {
+							return fmt.Errorf("failed mount repo config local file/directory (%s):\n%w", filePath, err)
+						}
+
+						// Change the value to point to the bind mount file/directory.
+						newValue := fmt.Sprintf("file://%s", mountTargetDirectoryInChroot)
+						newValues = append(newValues, newValue)
+					}
+				}
+
+				newFieldValue := strings.Join(newValues, " ")
+				repoConfig.Key(field).SetValue(newFieldValue)
 			}
 		}
 
@@ -213,18 +240,18 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 	return nil
 }
 
-func (m *rpmSourcesMounts) mountRpmsDirectory(rpmSourceName string, rpmsDirectory string,
+func (m *rpmSourcesMounts) mountRpmsSource(fieldName string, sourceName string, sourcePath string,
 	imageChroot *safechroot.Chroot,
 ) (string, error) {
 	i := len(m.mounts)
-	targetName := fmt.Sprintf("%02d%s", i, rpmSourceName)
+	targetName := fmt.Sprintf("%02d-%s-%s", i, fieldName, sourceName)
 	mountTargetDirectoryInChroot := path.Join(rpmsMountParentDirInChroot, targetName)
 	mountTargetDirectory := path.Join(imageChroot.RootDir(), mountTargetDirectoryInChroot)
 
 	// Create a read-only bind mount.
-	mount, err := safemount.NewMount(rpmsDirectory, mountTargetDirectory, "", unix.MS_BIND|unix.MS_RDONLY, "", true)
+	mount, err := safemount.NewMount(sourcePath, mountTargetDirectory, "", unix.MS_BIND|unix.MS_RDONLY, "", true)
 	if err != nil {
-		return "", fmt.Errorf("failed to mount RPM source directory from (%s) to (%s):\n%w", rpmsDirectory, mountTargetDirectory, err)
+		return "", fmt.Errorf("failed to mount RPM source from (%s) to (%s):\n%w", sourcePath, mountTargetDirectory, err)
 	}
 
 	m.mounts = append(m.mounts, mount)
@@ -310,7 +337,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 }
 
 // Add a local directory containing RPMs to the allrepos.repo file.
-func appendLocalRepo(iniFile *ini.File, mountTargetDirectoryInChroot string) error {
+func appendLocalRepo(iniFile *ini.File, mountTargetDirectoryInChroot string, rpmSource string) error {
 	repoName := filepath.Base(mountTargetDirectoryInChroot)
 	iniSection, err := iniFile.NewSection(repoName)
 	if err != nil {
@@ -334,6 +361,22 @@ func appendLocalRepo(iniFile *ini.File, mountTargetDirectoryInChroot string) err
 		return err
 	}
 
+	// Disable GPG checks for local directories.
+	// There is no API to specify the GPG public key to use to verify the packages in the local directories.
+	// Also, local directories are likely to contain a user's custom built packages, which are very unlikely to be
+	// signed. If a user does sign their own packages, then they can pass in a .repo file instead and set the 'gpgkey'
+	// field within the .repo file.
+	_, err = iniSection.NewKey("gpgcheck", "0")
+	if err != nil {
+		return err
+	}
+
+	_, err = iniSection.NewKey("repo_gpgcheck", "0")
+	if err != nil {
+		return err
+	}
+
+	logger.Log.Infof("GPG signature checking disabled for RPM repo (%s)", rpmSource)
 	return nil
 }
 

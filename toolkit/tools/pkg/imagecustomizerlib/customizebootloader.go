@@ -7,19 +7,21 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry,
 ) error {
 
 	switch config.OS.BootLoader.ResetType {
 	case imagecustomizerapi.ResetBootLoaderTypeHard:
-		err := hardResetBootLoader(baseConfigPath, config, imageConnection)
+		err := hardResetBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to hard reset bootloader:\n%w", err)
 		}
 
 	default:
@@ -34,6 +36,7 @@ func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, 
 }
 
 func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -64,7 +67,7 @@ func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Confi
 		rootMountIdType = rootFileSystem.MountPoint.IdType
 		bootType = config.Storage.BootType
 	} else {
-		rootMountIdType, err = findRootMountIdTypeFromFstabFile(imageConnection)
+		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
 		if err != nil {
 			return fmt.Errorf("failed to get image's root mount ID type:\n%w", err)
 		}
@@ -114,4 +117,54 @@ func AddKernelCommandLine(extraCommandLine []string,
 	}
 
 	return nil
+}
+
+func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
+) (imagecustomizerapi.MountIdentifierType, error) {
+	rootFound := false
+	rootFstabEntry := diskutils.FstabEntry{}
+	for _, fstabEntry := range partUuidToFstabEntry {
+		if fstabEntry.Target == "/" {
+			rootFound = true
+			rootFstabEntry = fstabEntry
+			break
+		}
+	}
+
+	if !rootFound {
+		return "", fmt.Errorf("failed to find root mount (/)")
+	}
+
+	mountIdType, mountId, err := parseExtendedSourcePartition(rootFstabEntry.Source)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse root (/) mount source:\n%w", err)
+	}
+
+	rootMountIdType := imagecustomizerapi.MountIdentifierTypeDefault
+	switch mountIdType {
+	case ExtendedMountIdentifierTypeUuid:
+		rootMountIdType = imagecustomizerapi.MountIdentifierTypeUuid
+
+	case ExtendedMountIdentifierTypePartUuid:
+		rootMountIdType = imagecustomizerapi.MountIdentifierTypePartUuid
+
+	case ExtendedMountIdentifierTypePartLabel:
+		rootMountIdType = imagecustomizerapi.MountIdentifierTypePartLabel
+
+	case ExtendedMountIdentifierTypeDev:
+		switch mountId {
+		case imagecustomizerapi.VerityRootDevicePath:
+			// The root partition is a verity partition.
+			// The verity settings will override this value when verity is applied. So, just use the default value.
+			rootMountIdType = imagecustomizerapi.MountIdentifierTypeDefault
+
+		default:
+			return "", fmt.Errorf("unsupported root mount identifier (%s)", rootFstabEntry.Source)
+		}
+
+	default:
+		return "", fmt.Errorf("unsupported root mount identifier (%s)", rootFstabEntry.Source)
+	}
+
+	return rootMountIdType, nil
 }
