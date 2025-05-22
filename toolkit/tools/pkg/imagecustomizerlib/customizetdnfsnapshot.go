@@ -38,18 +38,18 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg := ini.Empty()
 	if _, err := os.Stat(baseTdnfConfPath); err == nil {
 		if err := cfg.Append(baseTdnfConfPath); err != nil {
-			return fmt.Errorf("failed to parse existing tdnf.conf: %w", err)
+			return fmt.Errorf("failed to parse existing tdnf.conf:\n%w", err)
 		}
 	}
 
 	cfg.Section("").Key("snapshottime").SetValue(epoch)
 
 	if err := os.MkdirAll(filepath.Dir(tempTdnfConfPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory for custom tdnf.conf: %w", err)
+		return fmt.Errorf("failed to create directory for custom tdnf.conf:\n%w", err)
 	}
 
 	if err := cfg.SaveTo(tempTdnfConfPath); err != nil {
-		return fmt.Errorf("failed to write custom tdnf.conf: %w", err)
+		return fmt.Errorf("failed to write custom tdnf.conf:\n%w", err)
 	}
 
 	return nil
@@ -60,7 +60,7 @@ func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
 
 	err := os.Remove(configPath)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove custom tdnf.conf: %w", err)
+		return fmt.Errorf("failed to remove custom tdnf.conf:\n%w", err)
 	}
 
 	return nil
