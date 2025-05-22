@@ -949,12 +949,6 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			return nil, err
 		}
 
-		// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
-		diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
-		if err != nil {
-			return nil, err
-		}
-
 		metadata := verityDeviceMetadata{
 			name:                  verityConfig.Name,
 			rootHash:              rootHash,
@@ -967,6 +961,18 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		verityMetadata = append(verityMetadata, metadata)
 	}
 
+	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
+	err = diskutils.RefreshPartitions(loopback.DevicePath())
+	if err != nil {
+		return nil, err
+	}
+
+	diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
+	if err != nil {
+		return nil, err
+	}
+
+	// Update kernel args.
 	isUki := config.OS.Uki != nil
 	err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
 	if err != nil {
