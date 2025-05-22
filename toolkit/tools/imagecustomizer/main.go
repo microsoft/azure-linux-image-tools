@@ -4,9 +4,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"maps"
 	"strings"
+	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 
 	"github.com/alecthomas/kong"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -45,6 +50,17 @@ type RootCmd struct {
 }
 
 func main() {
+	// initialize OpenTelemetry tracer
+	err := imagecustomizerlib.InitTelemetry()
+	if err != nil {
+		log.Printf("failed to initialize telemetry setup: %v", err)
+	}
+	defer func() {
+		if err := imagecustomizerlib.ShutdownTelemetry(context.Background()); err != nil {
+			log.Printf("failed to shutdown telemetry: %v", err)
+		}
+	}()
+
 	cli := &RootCmd{}
 
 	vars := kong.Vars{
@@ -87,12 +103,30 @@ func main() {
 }
 
 func customizeImage(cmd CustomizeCmd) error {
+	// start a new trace span for the customize operation
+	ctx := context.Background()
+	_, span := imagecustomizerlib.Tracer.Start(ctx, "customizeImage")
+	// add relevant attributes for this operation
+	span.SetAttributes(
+		attribute.String("outputImageFormat", cmd.OutputImageFormat),
+	)
+	defer span.End()
+
+	// record the start time
+	startTime := time.Now()
+
 	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.OutputPXEArtifactsDir,
 		!cmd.DisableBaseImageRpmRepos)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+
+	// calculate and record the elapsed time
+	elapsedTime := time.Since(startTime)
+	span.SetAttributes(attribute.String("customizationTime", elapsedTime.String()))
 
 	return nil
 }
