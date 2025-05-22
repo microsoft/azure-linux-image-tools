@@ -235,7 +235,7 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "packages-add-oras.yaml")
 
-	repoFile := filepath.Join(testDir, "repos/cloud-native.repo")
+	repoFile := filepath.Join(testDir, "repos/cloud-native-azl3.repo")
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
@@ -254,6 +254,23 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 	ensureFilesExist(t, imageConnection,
 		"/usr/bin/oras",
 	)
+}
+
+func TestCustomizeImagePackagesBadRepo(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesBadRepo")
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-add-oras.yaml")
+
+	repoFile := filepath.Join(testDir, "repos/bad-repo.repo")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
 }
 
 func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirPath string) {
