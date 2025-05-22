@@ -80,7 +80,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -126,9 +126,9 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to copy (/dev/zero)")
-	assert.ErrorContains(t, err, "No space left on device")
+	assert.ErrorContains(t, err, "no space left on device")
 }
 
 func TestCopyAdditionalDirs(t *testing.T) {
@@ -202,7 +202,7 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, time.Now().Format("2006:01:02") /*packageSnapshotTime*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -258,10 +258,10 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImage(buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to copy directory")
 	assert.ErrorContains(t, err, "failed to copy file")
-	assert.ErrorContains(t, err, "No space left on device")
+	assert.ErrorContains(t, err, "no space left on device")
 }
 
 func verifyFileContentsSame(t *testing.T, origPath string, newPath string) {

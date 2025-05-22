@@ -226,7 +226,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos)
+	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -582,7 +582,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool,
+	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	err := config.IsValid()
 	if err != nil {
@@ -611,6 +611,10 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 
 	err = validateOutput(baseConfigPath, config.Output, outputImageFile, outputImageFormat)
 	if err != nil {
+		return err
+	}
+
+	if err := validateSnapshotTimeInput(packageSnapshotTime); err != nil {
 		return err
 	}
 
@@ -842,7 +846,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, packageSnapshotTime)
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -1177,6 +1181,18 @@ func checkEnvironmentVars() error {
 		return fmt.Errorf("tool should be run as root (e.g. by using sudo):\n"+
 			"HOME must be set to '%s' (is '%s') and USER must be set to '%s' or '' (is '%s')",
 			rootHome, envHome, rootUser, envUser)
+	}
+
+	return nil
+}
+
+func validateSnapshotTimeInput(snapshotTime string) error {
+	if snapshotTime == "" {
+		return nil
+	}
+
+	if err := imagecustomizerapi.PackageSnapshotTime(snapshotTime).IsValid(); err != nil {
+		return fmt.Errorf("invalid command-line option '--package-snapshot-time': '%s'\n%w", snapshotTime, err)
 	}
 
 	return nil

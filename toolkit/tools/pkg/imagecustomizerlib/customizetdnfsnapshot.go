@@ -15,57 +15,69 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
-func setSnapshotTimeInTdnfConfig(imageChroot *safechroot.Chroot, snapshotTime imagecustomizerapi.PackageSnapshotTime) error {
+func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTime imagecustomizerapi.PackageSnapshotTime) error {
 	if snapshotTime == "" {
 		return nil
 	}
 
-	// Parse to time.Time and convert to epoch
-	layout := "2006:01:02"
-	date, err := time.Parse(layout, string(snapshotTime))
+	str := string(snapshotTime)
+
+	var parsedTime time.Time
+	var err error
+
+	parsedTime, err = time.Parse(time.RFC3339, str)
 	if err != nil {
-		return fmt.Errorf("failed to parse snapshot time: %w", err)
-	}
-
-	// Use end of day to include all packages published on that date
-	date = date.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	epoch := strconv.FormatInt(date.Unix(), 10)
-
-	tdnfConfPath := filepath.Join(imageChroot.RootDir(), "etc/tdnf/tdnf.conf")
-	if _, err := os.Stat(tdnfConfPath); os.IsNotExist(err) {
-		tdnfConfDir := filepath.Dir(tdnfConfPath)
-		if err := os.MkdirAll(tdnfConfDir, 0755); err != nil {
-			return fmt.Errorf("failed to create directory for tdnf.conf:\n%w", err)
-		}
-	}
-
-	content := []byte{}
-	if _, err := os.Stat(tdnfConfPath); err == nil {
-		content, err = os.ReadFile(tdnfConfPath)
+		parsedTime, err = time.Parse("2006-01-02", str)
 		if err != nil {
-			return fmt.Errorf("failed to read tdnf config file:\n%w", err)
+			return fmt.Errorf("failed to parse snapshot time: %w", err)
 		}
 	}
 
+	epoch := strconv.FormatInt(parsedTime.Unix(), 10)
+
+	tempTdnfConfPath := filepath.Join(imageChroot.RootDir(), "tmp/custom-tdnf.conf")
+	baseTdnfConfPath := filepath.Join(imageChroot.RootDir(), "etc/tdnf/tdnf.conf")
+	content := []byte{}
+
+	if _, err := os.Stat(baseTdnfConfPath); err == nil {
+		content, err = os.ReadFile(baseTdnfConfPath)
+		if err != nil {
+			return fmt.Errorf("failed to read existing tdnf.conf:\n%w", err)
+		}
+	}
+
+	// Parse and modify/add snapshottime
 	lines := strings.Split(string(content), "\n")
 	found := false
-
 	for i, line := range lines {
-		trimmedLine := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmedLine, "snapshottime=") {
+		if strings.HasPrefix(strings.TrimSpace(line), "snapshottime=") {
 			lines[i] = fmt.Sprintf("snapshottime=%s", epoch)
 			found = true
 			break
 		}
 	}
-
 	if !found {
 		lines = append(lines, fmt.Sprintf("snapshottime=%s", epoch))
 	}
 
-	updated := strings.Join(lines, "\n")
-	if err := os.WriteFile(tdnfConfPath, []byte(updated), 0644); err != nil {
-		return fmt.Errorf("failed to write updated config: %w", err)
+	finalContent := strings.Join(lines, "\n")
+	tempDir := filepath.Dir(tempTdnfConfPath)
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory for custom tdnf.conf:\n%w", err)
+	}
+	if err := os.WriteFile(tempTdnfConfPath, []byte(finalContent), 0644); err != nil {
+		return fmt.Errorf("failed to write custom tdnf.conf:\n%w", err)
+	}
+
+	return nil
+}
+
+func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
+	configPath := filepath.Join(imageChroot.RootDir(), "tmp/custom-tdnf.conf")
+
+	err := os.Remove(configPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove custom tdnf.conf: %w", err)
 	}
 
 	return nil

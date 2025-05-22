@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 )
 
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string, packageSnapshotTime string) error {
+	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
+) error {
 	var err error
 
 	imageChroot := imageConnection.Chroot()
@@ -23,29 +25,34 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	var effectiveSnapshotTime imagecustomizerapi.PackageSnapshotTime
+	var snapshotTime imagecustomizerapi.PackageSnapshotTime
+	var useTdnfSnapshotConfig bool
+
 	if packageSnapshotTime != "" {
-		effectiveSnapshotTime = imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime)
+		snapshotTime = imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime)
 	} else {
-		effectiveSnapshotTime = config.OS.PackageSnapshotTime
+		snapshotTime = config.OS.Packages.SnapshotTime
 	}
 
-	if effectiveSnapshotTime != "" {
-		err = setSnapshotTimeInTdnfConfig(imageChroot, effectiveSnapshotTime)
+	if snapshotTime != "" {
+		useTdnfSnapshotConfig = true
+		err = createTempTdnfConfigWithSnapshot(imageChroot, snapshotTime)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = setSnapshotTimeInTdnfConfig(imageChroot, config.OS.PackageSnapshotTime)
+	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, rpmsSources,
+		useBaseImageRpmRepos, useTdnfSnapshotConfig)
 	if err != nil {
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, rpmsSources,
-		useBaseImageRpmRepos)
-	if err != nil {
-		return err
+	if useTdnfSnapshotConfig {
+		err = cleanupSnapshotTimeConfig(imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = UpdateHostname(config.OS.Hostname, imageChroot)
@@ -90,7 +97,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection)
+	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
 	if err != nil {
 		return err
 	}
