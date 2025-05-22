@@ -663,39 +663,6 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 	return ExtendedMountIdentifierTypeDefault, "", err
 }
 
-func findRootMountIdTypeFromFstabFile(imageConnection *ImageConnection,
-) (imagecustomizerapi.MountIdentifierType, error) {
-	fstabPath := filepath.Join(imageConnection.chroot.RootDir(), "etc/fstab")
-
-	// Read the fstab file.
-	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
-	if err != nil {
-		return imagecustomizerapi.MountIdentifierTypeDefault, err
-	}
-
-	rootMountMatches := sliceutils.FindMatches(fstabEntries, func(fstabEntry diskutils.FstabEntry) bool {
-		return fstabEntry.Target == "/"
-	})
-	if len(rootMountMatches) < 1 {
-		err := fmt.Errorf("failed to find root mount (/) in fstab file")
-		return imagecustomizerapi.MountIdentifierTypeDefault, err
-	}
-	if len(rootMountMatches) > 1 {
-		err := fmt.Errorf("too many root mounts (/) in fstab file")
-		return imagecustomizerapi.MountIdentifierTypeDefault, err
-	}
-
-	rootMount := rootMountMatches[0]
-
-	rootMountIdType, _, err := parseSourcePartition(rootMount.Source)
-	if err != nil {
-		err := fmt.Errorf("failed to get mount ID type of root (/) from fstab file:\n%w", err)
-		return imagecustomizerapi.MountIdentifierTypeDefault, err
-	}
-
-	return rootMountIdType, nil
-}
-
 func getImageBootType(imageConnection *ImageConnection) (imagecustomizerapi.BootType, error) {
 	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {

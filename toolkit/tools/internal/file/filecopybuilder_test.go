@@ -121,7 +121,7 @@ func TestFileCopyNotFile(t *testing.T) {
 	err = NewFileCopyBuilder(srcDir, dstDir).
 		SetNoDereference().
 		Run()
-	assert.ErrorContains(t, err, "is not a file or a symlink")
+	assert.ErrorContains(t, err, "is not a file")
 }
 
 // TestFileCopyInvalidOptions tests invalid combinations of file copy options.

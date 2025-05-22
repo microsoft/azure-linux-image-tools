@@ -12,7 +12,11 @@ import (
 
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
+<<<<<<< HEAD
 	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
+=======
+	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+>>>>>>> 3db1167c3b59aaf02ef9ba35647c2ef7b769607d
 ) error {
 	var err error
 
@@ -97,7 +101,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection)
+	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
 	if err != nil {
 		return err
 	}
