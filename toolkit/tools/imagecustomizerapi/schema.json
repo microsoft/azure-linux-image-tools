@@ -393,6 +393,9 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "snapshotTime": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
