@@ -51,7 +51,7 @@ type RootCmd struct {
 
 func main() {
 	// initialize OpenTelemetry tracer
-	err := imagecustomizerlib.InitTracer()
+	err := imagecustomizerlib.InitTelemetry()
 	if err != nil {
 		log.Printf("failed to initialize telemetry setup: %v", err)
 	}

@@ -23,12 +23,12 @@ var (
 	shutdownFn func(ctx context.Context) error
 )
 
-func InitTracer() error {
+func InitTelemetry() error {
 	exporter, err := stdouttrace.New(
 		stdouttrace.WithPrettyPrint(),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create stdout exporter: %w", err)
+		return fmt.Errorf("failed to create exporter: %w", err)
 	}
 
 	osInfo, err := getOSInfo()
@@ -59,6 +59,14 @@ func ShutdownTelemetry(ctx context.Context) error {
 	return shutdownFn(ctx)
 }
 
+func getOSInfo() (map[string]string, error) {
+	content, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read /etc/os-release: %w", err)
+	}
+	return parseOSRelease(string(content)), nil
+}
+
 func parseOSRelease(content string) map[string]string {
 	result := make(map[string]string)
 	for _, line := range strings.Split(content, "\n") {
@@ -71,13 +79,4 @@ func parseOSRelease(content string) map[string]string {
 		result[key] = val
 	}
 	return result
-}
-
-// getOSInfo retrieves the OS information from /etc/os-release
-func getOSInfo() (map[string]string, error) {
-	content, err := os.ReadFile("/etc/os-release")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read /etc/os-release: %w", err)
-	}
-	return parseOSRelease(string(content)), nil
 }
