@@ -24,6 +24,8 @@ storage:
     name: usr
     dataDeviceId: usr
     hashDeviceId: usrhash
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
     corruptionOption: io-error
 
   filesystems:

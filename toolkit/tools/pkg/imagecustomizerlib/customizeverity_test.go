@@ -408,8 +408,8 @@ func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseIma
 	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
 	usrDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
-	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "usr", "rd.info", imageVersion, corruptionOption)
+	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[3].Uuid,
+		"UUID="+partitions[4].Uuid, "usr", "rd.info", imageVersion, corruptionOption)
 }
 
 func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
