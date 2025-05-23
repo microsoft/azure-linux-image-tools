@@ -58,7 +58,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
-	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, 0, "", true)
+	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount EFI system partition:\n%w", err)
 	}
@@ -130,7 +130,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		}
 
 		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, 0,
+		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
 			"", true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
@@ -167,16 +167,16 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
-) ([]diskutils.FstabEntry, error) {
+) ([]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "",
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
 		true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+		return nil, "", fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
@@ -186,16 +186,25 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
+	}
+
+	// ToDo: Work around to read os-release for injection API.
+	//
+	osReleasePath := filepath.Join(tmpDir, "/etc/os-release")
+	data, err := file.Read(osReleasePath)
+	if err != nil {
+		logger.Log.Warnf("Failed to read os-release file from base image (path=%s): %v", osReleasePath, err)
+		data = "" // fallback to empty string
 	}
 
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		return nil, "", fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
 	}
 
-	return fstabEntries, nil
+	return fstabEntries, string(data), nil
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
@@ -209,9 +218,15 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	verityMetadataList := []verityDeviceMetadata(nil)
 	for _, fstabEntry := range filteredFstabEntries {
-		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+		partitionType, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
 			return nil, nil, nil, err
+		}
+
+		// ToDo: Ignore when overlay / diskpath enabled base image.
+		//
+		if partitionType == ExtendedMountIdentifierTypeOverlay || partitionType == ExtendedMountIdentifierTypeDiskPath {
+			continue
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
@@ -274,9 +289,16 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
 	}
 
-	partition, partitionIndex, verityMetadata, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
-	if err != nil {
-		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
+	// ToDo: Ignore when customize overlay / diskpath enabled base image.
+	//
+	var partition diskutils.PartitionInfo
+	var partitionIndex int
+	var verityMetadata *verityDeviceMetadata
+	if mountIdType != ExtendedMountIdentifierTypeOverlay && mountIdType != ExtendedMountIdentifierTypeDiskPath {
+		partition, partitionIndex, verityMetadata, err = findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+		if err != nil {
+			return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
+		}
 	}
 
 	return mountIdType, partition, partitionIndex, verityMetadata, nil
@@ -653,6 +675,16 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 	partLabel, isPartLabel := strings.CutPrefix(source, "PARTLABEL=")
 	if isPartLabel {
 		return ExtendedMountIdentifierTypePartLabel, partLabel, nil
+	}
+
+	// ToDo: Ignore when customize overlay / diskpath enabled base image.
+	//
+	if source == "overlay" {
+		return ExtendedMountIdentifierTypeOverlay, "", nil
+	}
+	_, isDeviceCustom := strings.CutPrefix(source, "/dev/disk")
+	if isDeviceCustom {
+		return ExtendedMountIdentifierTypeDiskPath, "", nil
 	}
 
 	if strings.HasPrefix(source, "/dev") {

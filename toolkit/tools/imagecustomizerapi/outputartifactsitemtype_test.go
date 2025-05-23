@@ -14,6 +14,7 @@ func TestItemIsValid_ValidItems(t *testing.T) {
 		OutputArtifactsItemUkis,
 		OutputArtifactsItemShim,
 		OutputArtifactsItemSystemdBoot,
+		OutputArtifactsItemVerityHash,
 		OutputArtifactsItemDefault,
 	}
 
