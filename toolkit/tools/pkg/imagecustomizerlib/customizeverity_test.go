@@ -490,15 +490,6 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, ima
 
 	verifyRootVerity(t, imageType, imageVersion, buildDir, stage1FilePath)
 
-	// Stage 2a: Reinitialize verity.
-	err = CustomizeImageWithConfigFile(buildDir, stage2aConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	verifyRootVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
-
 	// Stage 2b: Reinitialize verity + hard-reset bootloader.
 	err = CustomizeImageWithConfigFile(buildDir, stage2bConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
 		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)

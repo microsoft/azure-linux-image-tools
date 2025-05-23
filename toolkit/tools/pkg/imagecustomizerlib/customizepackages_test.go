@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -239,7 +240,7 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -269,7 +270,7 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
 }
 
@@ -301,4 +302,135 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirP
 
 	// Ensure the cache has been cleaned up
 	assert.Equal(t, 0, len(existingFiles), "Expected no file data in cache, but got %d files", len(existingFiles))
+}
+
+func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	downloadedRpmsDir := getDownloadedRpmsDir(t, "3.0")
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Set snapshot time to before jq-1.7.1-2 (2025-03-18)
+	snapshotTime := "2025-02-01T00:00:00Z"
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeaturePackageSnapshotTime,
+		},
+		OS: &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Install:      []string{"jq"},
+				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTime),
+			},
+		},
+	}
+
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, []string{downloadedRpmsDir}, outImageFilePath,
+		"raw", "", false, "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	var jqVersionOutput string
+
+	err = imageConnection.Chroot().UnsafeRun(func() error {
+		stdout, _, err := shell.Execute("rpm", "-q", "jq")
+		if err != nil {
+			return err
+		}
+		jqVersionOutput = stdout
+		return nil
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	t.Logf("Installed jq version: %s", strings.TrimSpace(jqVersionOutput))
+	assert.Contains(t, jqVersionOutput, "jq-1.7.1-1", "expected older jq version due to snapshotTime filter")
+	assert.NotContains(t, jqVersionOutput, "jq-1.7.1-2", "newer jq version should be excluded by snapshotTime")
+	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
+}
+
+func TestCustomizeImagePackagesEmptySnapshotTime(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesEmptySnapshotTime")
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	downloadedRpmsDir := getDownloadedRpmsDir(t, "3.0")
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeaturePackageSnapshotTime,
+		},
+		OS: &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Install:      []string{"jq"},
+				SnapshotTime: "",
+			},
+		},
+	}
+
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, []string{downloadedRpmsDir}, outImageFilePath,
+		"raw", "", false, "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	var jqVersionOutput string
+
+	err = imageConnection.Chroot().UnsafeRun(func() error {
+		stdout, _, err := shell.Execute("rpm", "-q", "jq")
+		if err != nil {
+			return err
+		}
+		jqVersionOutput = stdout
+		return nil
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	t.Logf("Installed jq version: %s", strings.TrimSpace(jqVersionOutput))
+	assert.Contains(t, jqVersionOutput, "jq-1.7.1-1", "expected latest jq version due to empty snapshotTime filter")
+	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
+}
+func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails")
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	downloadedRpmsDir := getDownloadedRpmsDir(t, "3.0")
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Install:      []string{"jq"},
+				SnapshotTime: "2025-05-22",
+			},
+		},
+	}
+
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, []string{downloadedRpmsDir}, outImageFilePath,
+		"raw", "", false, "")
+	assert.ErrorContains(t, err, "snapshotTime")
+	assert.ErrorContains(t, err, "preview feature")
 }
