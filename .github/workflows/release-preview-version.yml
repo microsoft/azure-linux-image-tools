@@ -5,6 +5,8 @@ name: Build and publish preview release
 
 permissions:
   contents: read
+  # "Keyless" container signing
+  id-token: write
   # Publish to GHCR.
   packages: write
 

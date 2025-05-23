@@ -222,6 +222,8 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 						// Change the value to point to the bind mount file/directory.
 						newValue := fmt.Sprintf("file://%s", mountTargetDirectoryInChroot)
 						newValues = append(newValues, newValue)
+					} else {
+						newValues = append(newValues, value)
 					}
 				}
 

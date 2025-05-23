@@ -1,0 +1,6 @@
+[badrepo]
+name=badrepo
+baseurl=https://packages.microsoft.com
+gpgcheck=0
+repo_gpgcheck=0
+enabled=1

@@ -226,6 +226,53 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }
 
+func TestCustomizeImagePackagesUrlSource(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUrlSource")
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-add-oras.yaml")
+
+	repoFile := filepath.Join(testDir, "repos/cloud-native-azl3.repo")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Ensure packages were installed.
+	ensureFilesExist(t, imageConnection,
+		"/usr/bin/oras",
+	)
+}
+
+func TestCustomizeImagePackagesBadRepo(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesBadRepo")
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-add-oras.yaml")
+
+	repoFile := filepath.Join(testDir, "repos/bad-repo.repo")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
+}
+
 func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirPath string) {
 	// Array to capture all the files of the provided root directory
 	var existingFiles []string

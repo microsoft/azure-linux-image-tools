@@ -1,0 +1,4 @@
+os:
+  packages:
+    install:
+    - oras
