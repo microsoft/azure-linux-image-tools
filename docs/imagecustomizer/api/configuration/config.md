@@ -105,6 +105,11 @@ Supported options:
 
   Added in v0.15.
 
+- `package-snapshot-time`: Enables snapshot-based package filtering during image customization.
+  Limits package selection to those published on or before the specified timestamp. When this option is specified, users can specify a RFC 3339 timestamp or ISO 8601 date
+  via the [--package-snapshot-time](../cli.md#--package-snapshot-time) CLI parameter or [os.packages.snapshotTime](./packages.md#snapshottime-string). If both are provided, then 
+  the value of `--package-snapshot-time` is used.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

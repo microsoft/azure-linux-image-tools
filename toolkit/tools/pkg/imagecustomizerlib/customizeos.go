@@ -12,7 +12,7 @@ import (
 
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
 ) error {
 	var err error
 
@@ -26,7 +26,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 	}
 
 	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, rpmsSources,
-		useBaseImageRpmRepos)
+		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
