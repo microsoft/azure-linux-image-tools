@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 import os
 from pathlib import Path
 import re
@@ -10,7 +13,7 @@ def main():
     with open(VERSION_MAKEFILE_PATH, "r") as file:
         version_makefile = file.read()
 
-    regex = re.compile(r"^image_customizer_version \?= ([0-9]+)\.([0-9]+)\.([0-9]+)$", re.MULTILINE)
+    regex = re.compile(r"^IMAGE_CUSTOMIZER_VERSION \?= ([0-9]+)\.([0-9]+)\.([0-9]+)$", re.MULTILINE)
 
     match = regex.search(version_makefile)
     if match is None:
@@ -24,7 +27,7 @@ def main():
     minor += 1
     patch = 0
 
-    version_makefile = regex.sub(f"image_customizer_version ?= {major}.{minor}.{patch}", version_makefile, count=1)
+    version_makefile = regex.sub(f"IMAGE_CUSTOMIZER_VERSION ?= {major}.{minor}.{patch}", version_makefile, count=1)
 
     with open(VERSION_MAKEFILE_PATH, "w") as file:
         file.write(version_makefile)
