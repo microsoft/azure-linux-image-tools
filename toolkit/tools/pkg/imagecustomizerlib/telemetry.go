@@ -9,7 +9,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
@@ -24,11 +24,19 @@ var (
 )
 
 func InitTelemetry() error {
-	exporter, err := stdouttrace.New(
-		stdouttrace.WithPrettyPrint(),
+	// exporter, err := stdouttrace.New(
+	// 	stdouttrace.WithPrettyPrint(),
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create exporter: %w", err)
+	// }
+
+	exporter, err := otlptracegrpc.New(context.Background(),
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint("localhost:4317"),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create exporter: %w", err)
+		return fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
 
 	osInfo, err := getOSInfo()
