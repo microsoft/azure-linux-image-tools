@@ -126,7 +126,7 @@ func customizeImage(cmd CustomizeCmd) error {
 
 	// calculate and record the elapsed time
 	elapsedTime := time.Since(startTime)
-	span.SetAttributes(attribute.String("customizationTime", elapsedTime.String()))
+	span.SetAttributes(attribute.Float64("customizationTime", elapsedTime.Seconds()))
 
 	return nil
 }

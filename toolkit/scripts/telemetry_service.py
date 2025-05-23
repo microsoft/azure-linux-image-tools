@@ -31,7 +31,7 @@ exporter = AzureMonitorTraceExporter(connection_string=AZURE_CONN_STR)
 
 class SpanData:
     """
-    Simplified SpanData class for Azure Monitor export.
+    SpanData class for Azure Monitor export.
     """
 
     def __init__(self, proto_span, resource_attrs, inst_scope):
@@ -40,12 +40,11 @@ class SpanData:
         self.end_time = proto_span.end_time_unix_nano
 
         # Azure Monitor requires span kind - use INTERNAL as default
-        self.kind = SpanKind.INTERNAL
+        self.kind = proto_span.kind
 
-        # Handle attributes - merge resource + span attributes
         self.attributes = {}
 
-        # Add resource attributes first
+        # Add resource attributes
         for key, value in resource_attrs.items():
             self.attributes[key] = value
 
@@ -60,19 +59,18 @@ class SpanData:
             elif value_case == "bool_value":
                 self.attributes[kv.key] = kv.value.bool_value
 
-        # Simple status handling
         if proto_span.HasField("status"):
             self.status = Status(
                 status_code=StatusCode(proto_span.status.code),
-                description=proto_span.status.message or None,
+                description=(
+                    proto_span.status.message if proto_span.status.message else None
+                ),
             )
         else:
-            self.status = Status(status_code=StatusCode.UNSET)
+            self.status = Status(StatusCode.UNSET)
+        self.events = proto_span.events
+        self.links = proto_span.links
 
-        self.events = []
-        self.links = []
-
-        # Simple context creation
         self.context = SpanContext(
             trace_id=int.from_bytes(proto_span.trace_id, "big"),
             span_id=int.from_bytes(proto_span.span_id, "big"),
@@ -90,8 +88,6 @@ class SpanData:
                 trace_flags=TraceFlags(0),
                 trace_state=TraceState(),
             )
-
-        # Simplified resource
         self.resource = Resource.create(resource_attrs)
         self.instrumentation_scope = inst_scope
 
@@ -99,18 +95,8 @@ class SpanData:
 class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):
     def Export(self, request, context):
         try:
-            total_spans = sum(
-                len(ss.spans) for rs in request.resource_spans for ss in rs.scope_spans
-            )
-            logger.info(
-                "Received %d spans across %d resource spans",
-                total_spans,
-                len(request.resource_spans),
-            )
-
             spans = []
             for rs in request.resource_spans:
-                # Extract resource-level attributes (strings only)
                 resource_attrs = {
                     kv.key: kv.value.string_value
                     for kv in rs.resource.attributes
@@ -118,14 +104,7 @@ class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):
                 }
 
                 for ss in rs.scope_spans:
-                    # Get instrumentation scope
-                    inst_scope = getattr(
-                        ss,
-                        "instrumentation_scope",
-                        getattr(ss, "instrumentation_library", None),
-                    )
-
-                    # Convert all spans in this scope
+                    inst_scope = ss.scope
                     for proto_span in ss.spans:
                         spans.append(SpanData(proto_span, resource_attrs, inst_scope))
 
@@ -137,9 +116,6 @@ class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):
                     len(spans),
                     result,
                 )
-            else:
-                logger.warning("No spans to export")
-
             return trace_service_pb2.ExportTraceServiceResponse()
 
         except Exception as e:
