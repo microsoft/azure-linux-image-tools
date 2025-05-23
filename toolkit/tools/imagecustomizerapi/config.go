@@ -70,10 +70,8 @@ func (c *Config) IsValid() (err error) {
 			}
 		}
 
-		if c.OS.Packages.SnapshotTime != "" {
-			if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageSnapshotTime) {
-				return fmt.Errorf("the 'package-snapshot-time' preview feature must be enabled to use 'os.packages.snapshotTime'")
-			}
+		if c.OS.Packages.SnapshotTime != "" && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageSnapshotTime) {
+			return fmt.Errorf("the 'package-snapshot-time' preview feature must be enabled to use 'os.packages.snapshotTime'")
 		}
 	}
 

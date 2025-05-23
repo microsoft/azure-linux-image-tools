@@ -5,6 +5,8 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -38,9 +40,17 @@ var (
 )
 
 func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool, useTdnfSnapshotConfig bool,
+	imageChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {
 	var err error
+
+	if snapshotTime != "" {
+		err = createTempTdnfConfigWithSnapshot(imageChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
+		if err != nil {
+			return err
+		}
+		defer cleanupSnapshotTimeConfig(imageChroot)
+	}
 
 	// Note: The 'validatePackageLists' function read the PackageLists files and merged them into the inline package lists.
 	needRpmsSources := len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 ||
@@ -68,20 +78,20 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	}
 
 	if config.Packages.UpdateExistingPackages {
-		err = updateAllPackages(useTdnfSnapshotConfig, imageChroot)
+		err = updateAllPackages(imageChroot)
 		if err != nil {
 			return err
 		}
 	}
 
 	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
-	err = installOrUpdatePackages("install", config.Packages.Install, useTdnfSnapshotConfig, imageChroot)
+	err = installOrUpdatePackages("install", config.Packages.Install, imageChroot)
 	if err != nil {
 		return err
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
-	err = installOrUpdatePackages("update", config.Packages.Update, useTdnfSnapshotConfig, imageChroot)
+	err = installOrUpdatePackages("update", config.Packages.Update, imageChroot)
 	if err != nil {
 		return err
 	}
@@ -156,7 +166,7 @@ func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot
 
 	tdnfRemoveArgs = append(tdnfRemoveArgs, allPackagesToRemove...)
 
-	err := callTdnf(tdnfRemoveArgs, false, imageChroot)
+	err := callTdnf(tdnfRemoveArgs, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
 	}
@@ -164,7 +174,7 @@ func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot
 	return nil
 }
 
-func updateAllPackages(useTdnfSnapshotConfig bool, imageChroot *safechroot.Chroot) error {
+func updateAllPackages(imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Updating base image packages")
 
 	tdnfUpdateArgs := []string{
@@ -172,7 +182,7 @@ func updateAllPackages(useTdnfSnapshotConfig bool, imageChroot *safechroot.Chroo
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
-	err := callTdnf(tdnfUpdateArgs, useTdnfSnapshotConfig, imageChroot)
+	err := callTdnf(tdnfUpdateArgs, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to update packages:\n%w", err)
 	}
@@ -180,7 +190,7 @@ func updateAllPackages(useTdnfSnapshotConfig bool, imageChroot *safechroot.Chroo
 	return nil
 }
 
-func installOrUpdatePackages(action string, allPackagesToAdd []string, useTdnfSnapshotConfig bool, imageChroot *safechroot.Chroot) error {
+func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot) error {
 	if len(allPackagesToAdd) <= 0 {
 		return nil
 	}
@@ -195,7 +205,7 @@ func installOrUpdatePackages(action string, allPackagesToAdd []string, useTdnfSn
 
 	tdnfInstallArgs = append(tdnfInstallArgs, allPackagesToAdd...)
 
-	err := callTdnf(tdnfInstallArgs, useTdnfSnapshotConfig, imageChroot)
+	err := callTdnf(tdnfInstallArgs, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
 	}
@@ -203,9 +213,9 @@ func installOrUpdatePackages(action string, allPackagesToAdd []string, useTdnfSn
 	return nil
 }
 
-func callTdnf(tdnfArgs []string, useTdnfSnapshotConfig bool, imageChroot *safechroot.Chroot) error {
-	if useTdnfSnapshotConfig {
-		tdnfArgs = append([]string{"--config", "/tmp/custom-tdnf.conf"}, tdnfArgs...)
+func callTdnf(tdnfArgs []string, imageChroot *safechroot.Chroot) error {
+	if _, err := os.Stat(filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath)); err == nil {
+		tdnfArgs = append([]string{"--config", "/" + customTdnfConfRelPath}, tdnfArgs...)
 	}
 
 	lastDownloadPackageSeen := ""

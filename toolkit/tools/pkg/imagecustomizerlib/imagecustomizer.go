@@ -614,7 +614,7 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	if err := validateSnapshotTimeInput(packageSnapshotTime); err != nil {
+	if err := validateSnapshotTimeInput(packageSnapshotTime, config.PreviewFeatures); err != nil {
 		return err
 	}
 
@@ -1186,9 +1186,10 @@ func checkEnvironmentVars() error {
 	return nil
 }
 
-func validateSnapshotTimeInput(snapshotTime string) error {
-	if snapshotTime == "" {
-		return nil
+func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature) error {
+	if snapshotTime != "" && !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
+		return fmt.Errorf("please enable the '%s' preview feature to specify '--package-snapshot-time'",
+			imagecustomizerapi.PreviewFeaturePackageSnapshotTime)
 	}
 
 	if err := imagecustomizerapi.PackageSnapshotTime(snapshotTime).IsValid(); err != nil {

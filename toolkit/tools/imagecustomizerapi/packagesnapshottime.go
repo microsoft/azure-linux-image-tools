@@ -11,20 +11,26 @@ import (
 type PackageSnapshotTime string
 
 func (p PackageSnapshotTime) IsValid() error {
+	_, err := p.Parse()
+	return err
+}
+
+func (p PackageSnapshotTime) Parse() (time.Time, error) {
 	str := string(p)
+
 	if str == "" {
-		return nil
+		return time.Time{}, nil
 	}
 
-	// Try full RFC 3339 first
-	if _, err := time.Parse(time.RFC3339, str); err == nil {
-		return nil
+	// Try RFC3339
+	if t, err := time.Parse(time.RFC3339, str); err == nil {
+		return t, nil
 	}
 
-	// Try date-only format
-	if _, err := time.Parse("2006-01-02", str); err == nil {
-		return nil
+	// Try ISO 8601 (date only)
+	if t, err := time.Parse("2006-01-02", str); err == nil {
+		return t, nil
 	}
 
-	return fmt.Errorf("invalid snapshot time format: must be YYYY-MM-DD or full RFC3339 (e.g., 2024-05-20T15:04:05Z)")
+	return time.Time{}, fmt.Errorf("invalid snapshot time format: must be YYYY-MM-DD or full RFC3339 (e.g., 2024-05-20T15:04:05Z)")
 }

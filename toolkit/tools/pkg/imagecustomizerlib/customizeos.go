@@ -25,34 +25,10 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	var snapshotTime imagecustomizerapi.PackageSnapshotTime
-	var useTdnfSnapshotConfig bool
-
-	if packageSnapshotTime != "" {
-		snapshotTime = imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime)
-	} else {
-		snapshotTime = config.OS.Packages.SnapshotTime
-	}
-
-	if snapshotTime != "" {
-		useTdnfSnapshotConfig = true
-		err = createTempTdnfConfigWithSnapshot(imageChroot, snapshotTime)
-		if err != nil {
-			return err
-		}
-	}
-
 	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, rpmsSources,
-		useBaseImageRpmRepos, useTdnfSnapshotConfig)
+		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
-	}
-
-	if useTdnfSnapshotConfig {
-		err = cleanupSnapshotTimeConfig(imageChroot)
-		if err != nil {
-			return err
-		}
 	}
 
 	err = UpdateHostname(config.OS.Hostname, imageChroot)

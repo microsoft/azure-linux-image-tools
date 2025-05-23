@@ -8,31 +8,28 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"gopkg.in/ini.v1"
 )
+
+const customTdnfConfRelPath = "tmp/custom-tdnf.conf"
 
 func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTime imagecustomizerapi.PackageSnapshotTime) error {
 	if snapshotTime == "" {
 		return nil
 	}
 
-	str := string(snapshotTime)
-
-	parsedTime, err := time.Parse(time.RFC3339, str)
+	parsedTime, err := snapshotTime.Parse()
 	if err != nil {
-		parsedTime, err = time.Parse("2006-01-02", str)
-		if err != nil {
-			return fmt.Errorf("failed to parse snapshot time: %w", err)
-		}
+		return fmt.Errorf("failed to parse snapshot time:\n%w", err)
 	}
 
 	epoch := strconv.FormatInt(parsedTime.Unix(), 10)
 
-	tempTdnfConfPath := filepath.Join(imageChroot.RootDir(), "tmp/custom-tdnf.conf")
+	tempTdnfConfPath := filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath)
 	baseTdnfConfPath := filepath.Join(imageChroot.RootDir(), "etc/tdnf/tdnf.conf")
 
 	cfg := ini.Empty()
@@ -55,13 +52,11 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	return nil
 }
 
-func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
-	configPath := filepath.Join(imageChroot.RootDir(), "tmp/custom-tdnf.conf")
+func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) {
+	configPath := filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath)
 
 	err := os.Remove(configPath)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove custom tdnf.conf:\n%w", err)
+		logger.Log.Warnf("failed to remove custom tdnf.conf: %v", err)
 	}
-
-	return nil
 }
