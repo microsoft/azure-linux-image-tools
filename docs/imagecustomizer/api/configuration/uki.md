@@ -4,6 +4,11 @@ parent: Configuration
 
 # uki type
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enabled this feature by specifying `uki` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
 Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot
 to add UKIs as boot entries. UKI combines the Linux kernel, initramfs, kernel
 command-line arguments, etc. into a single EFI executable, simplifying system
@@ -11,9 +16,6 @@ boot processes and improving security.
 
 If this type is specified, then [os.bootloader.resetType](./bootloader.md#resettype-string)
 must also be specified.
-
-If this value is specified, then a "uki" entry must be added to
-[previewFeatures](./config.md#previewfeatures-string)
 
 Example:
 
@@ -28,7 +30,6 @@ previewFeatures:
 ```
 
 Added in v0.8.
-(This feature is in preview.)
 
 ## kernels
 
@@ -67,4 +68,3 @@ os:
 ```
 
 Added in v0.8.
-(This feature is in preview.)
