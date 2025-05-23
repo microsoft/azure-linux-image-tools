@@ -1,9 +1,7 @@
 os:
   selinux:
-    mode: disabled
-  kernelCommandLine:
-    extraCommandLine:
-    - "selinux=0"
+    mode: enabled
+
   packages:
     install:
     # iso required packages
@@ -11,6 +9,9 @@ os:
     - tar
     - device-mapper
     - curl
+    # Required packages for SELinux.
+    - selinux-policy
+    - selinux-policy-modules
 
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
