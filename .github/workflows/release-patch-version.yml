@@ -1,14 +1,15 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: Release (preview)
+name: Release (patch)
 
 permissions:
-  contents: read
-  # "Keyless" container signing
-  id-token: write
+  # Push release branch and publish release.
+  contents: write
   # Publish to GHCR.
   packages: write
+  # "Keyless" container signing
+  id-token: write
 
 on:
   # Allow pipeline to be run manually.
@@ -18,9 +19,14 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      publishType: preview
+      publishType: patch
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
+    needs:
+    - build
+
+  publish-release:
+    uses: ./.github/workflows/publish-release.yml
     needs:
     - build

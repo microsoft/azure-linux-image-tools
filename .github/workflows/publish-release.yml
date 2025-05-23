@@ -1,0 +1,51 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Publish release
+
+permissions:
+  # Create release tag and publish release.
+  contents: write
+
+on:
+  workflow_call: {}
+
+jobs:
+  publish-release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    permissions:
+      # Create release tag and publish release.
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: Publish release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -x
+
+        VERSION=$(<"out/version/version.txt")
+
+        pushd ./repo
+
+        # Push release tag.
+        TAG="v${VERSION}"
+        git tag "$TAG"
+        git push origin tag "$TAG"
+
+        # Create release.
+        mkdir -p ../release
+        mv ../out/binary-amd64/imagecustomizer.tar.gz ../release/imagecustomizer-amd64.tar.gz
+        mv ../out/binary-arm64/imagecustomizer.tar.gz ../release/imagecustomizer-arm64.tar.gz
+
+        gh release create "${TAG}" ../release/*

@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: Build, test, publish, and fork new major/minor version
+name: Release (major/minor)
 
 permissions:
   # Push release branch and publish release.
@@ -25,6 +25,11 @@ jobs:
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
+    needs:
+    - build
+
+  publish-release:
+    uses: ./.github/workflows/publish-release.yml
     needs:
     - build
 
