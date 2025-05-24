@@ -33,7 +33,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
-	outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string) (err error) {
+) (err error) {
 
 	var extraCommandLine []string
 	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
@@ -168,7 +168,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 
 func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
 	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string,
-	outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string) error {
+) error {
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 

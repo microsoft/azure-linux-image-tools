@@ -9,12 +9,20 @@ import (
 	"strings"
 )
 
+const (
+	InitramfsTypeFullOS = "fullOs"
+	InitramfsTypeBootstrap = "bootstrap"
+)
+
 var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://", "tftp://"}
 
 // Iso defines how the generated iso media should be configured.
 type Pxe struct {
-	IsoImageBaseUrl string `yaml:"isoImageBaseUrl" json:"isoImageBaseUrl,omitempty"`
-	IsoImageFileUrl string `yaml:"isoImageFileUrl" json:"isoImageFileUrl,omitempty"`
+	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType     string `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	BootstrapBaseUrl string `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
+	BootstrapFileUrl string `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {
@@ -42,16 +50,26 @@ func IsValidPxeUrl(urlString string) error {
 }
 
 func (p *Pxe) IsValid() error {
-	if p.IsoImageBaseUrl != "" && p.IsoImageFileUrl != "" {
+	err := i.KernelCommandLine.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid kernelCommandLine: %w", err)
+	}
+
+	err = i.AdditionalFiles.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid additionalFiles:\n%w", err)
+	}
+
+	if p.BootstrapBaseUrl != "" && p.BootstrapFileUrl != "" {
 		return fmt.Errorf("cannot specify both 'isoImageBaseUrl' and 'isoImageFileUrl' at the same time.")
 	}
-	err := IsValidPxeUrl(p.IsoImageBaseUrl)
+	err := IsValidPxeUrl(p.BootstrapBaseUrl)
 	if err != nil {
-		return fmt.Errorf("invalid 'isoImageBaseUrl' field value (%s):\n%w", p.IsoImageBaseUrl, err)
+		return fmt.Errorf("invalid 'isoImageBaseUrl' field value (%s):\n%w", p.BootstrapBaseUrl, err)
 	}
-	err = IsValidPxeUrl(p.IsoImageFileUrl)
+	err = IsValidPxeUrl(p.BootstrapFileUrl)
 	if err != nil {
-		return fmt.Errorf("invalid 'isoImageFileUrl' field value (%s):\n%w", p.IsoImageFileUrl, err)
+		return fmt.Errorf("invalid 'isoImageFileUrl' field value (%s):\n%w", p.BootstrapFileUrl, err)
 	}
 	return nil
 }

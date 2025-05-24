@@ -67,8 +67,6 @@ type ImageCustomizerParameters struct {
 	outputImageFile              string
 	outputImageDir               string
 	outputImageBase              string
-	outputIsoInitrdSelfContained bool
-	outputPXEArtifactsDir        string
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
@@ -93,7 +91,7 @@ type verityDeviceMetadata struct {
 func createImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config, useBaseImageRpmRepos bool, rpmsSources []string,
-	outputImageFormat string, outputImageFile string, outputIsoInitrdSelfContained bool, outputPXEArtifactsDir string,
+	outputImageFormat string, outputImageFile string,
 ) (*ImageCustomizerParameters, error) {
 	ic := &ImageCustomizerParameters{}
 
@@ -157,8 +155,6 @@ func createImageCustomizerParameters(buildDir string,
 
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
-	ic.outputIsoInitrdSelfContained = outputIsoInitrdSelfContained
-	ic.outputPXEArtifactsDir = outputPXEArtifactsDir
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
 
 	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
@@ -185,8 +181,7 @@ func createImageCustomizerParameters(buildDir string,
 }
 
 func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
-	rpmsSources []string, outputImageFile string, outputImageFormat string, outputIsoInitrdSelfContained bool,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, useBaseImageRpmRepos bool,
 ) error {
 	var err error
 
@@ -204,7 +199,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 	}
 
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
-		outputIsoInitrdSelfContained, outputPXEArtifactsDir, useBaseImageRpmRepos)
+		useBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
@@ -222,8 +217,7 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 }
 
 func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
-	rpmsSources []string, outputImageFile string, outputImageFormat string, outputIsoInitrdSelfContained bool,
-	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, useBaseImageRpmRepos bool,
 ) error {
 	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos)
 	if err != nil {
@@ -232,7 +226,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
-		outputImageFormat, outputImageFile, outputIsoInitrdSelfContained, outputPXEArtifactsDir)
+		outputImageFormat, outputImageFile)
 	if err != nil {
 		return fmt.Errorf("invalid parameters:\n%w", err)
 	}
@@ -527,13 +521,13 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
 			err := createLiveOSIsoImage(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
-				ic.rawImageFile, ic.outputImageFile, ic.outputIsoInitrdSelfContained, ic.outputPXEArtifactsDir)
+				ic.rawImageFile, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
 		} else {
 			err := createImageFromUnchangedOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
-				inputIsoArtifacts, ic.outputImageFile, ic.outputIsoInitrdSelfContained, ic.outputPXEArtifactsDir)
+				inputIsoArtifacts, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}

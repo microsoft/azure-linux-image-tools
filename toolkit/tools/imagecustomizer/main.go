@@ -21,12 +21,10 @@ type CustomizeCmd struct {
 	BuildDir                     string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	InputImageFile               string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
 	OutputImageFile              string   `name:"output-image-file" help:"Path to write the customized image to."`
-	OutputImageFormat            string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+	OutputImageFormat            string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 	ConfigFile                   string   `name:"config-file" help:"Path of the image customization config file." required:""`
 	RpmSources                   []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
 	DisableBaseImageRpmRepos     bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
-	OutputIsoInitrdSelfContained bool     `name:"output-iso-initrd-self-contained" help:"Output a self-conftained initrd for the ISO/PXE scenarios."`
-	OutputPXEArtifactsDir        string   `name:"output-pxe-artifacts-dir" help:"Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'."`
 }
 
 type InjectFilesCmd struct {
@@ -89,8 +87,7 @@ func main() {
 
 func customizeImage(cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
-		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.OutputIsoInitrdSelfContained,
-		cmd.OutputPXEArtifactsDir, !cmd.DisableBaseImageRpmRepos)
+		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, !cmd.DisableBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
