@@ -12,6 +12,8 @@ storage:
       idType: part-label
       id: usrhash
     corruptionOption: panic
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
 
 os:
   users:
