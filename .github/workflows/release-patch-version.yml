@@ -28,5 +28,7 @@ jobs:
 
   publish-release:
     uses: ./.github/workflows/publish-release.yml
+    with:
+      isLatestRelease: ${{ needs.build.outputs.isLatestRelease }}
     needs:
     - build
