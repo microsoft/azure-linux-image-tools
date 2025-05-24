@@ -4,6 +4,11 @@ parent: Configuration
 
 # outputArtifacts type
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enabled this feature by specifying `output-artifacts` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
 Specifies the configuration for the output directory containing the generated
 artifacts, including UKI PE images, shim and systemd-boot.
 
@@ -27,11 +32,15 @@ previewFeatures:
 - output-artifacts
 ```
 
+Added in v0.14.
+
 ## path [string]
 
 Required.
 
 Specifies the directory path where Prism will output the selected artifacts.
+
+Added in v0.14.
 
 ## items [string[]]
 
@@ -52,4 +61,4 @@ These artifacts are generated in an unsigned format and must be signed externall
 Supported architectures for shim and systemd-boot include x64 and arm64,
 reflected in the `<arch>` portion of the filenames.
 
-Added in v0.14.0
+Added in v0.14.

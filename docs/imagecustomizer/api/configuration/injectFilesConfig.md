@@ -4,6 +4,11 @@ parent: Configuration
 
 # injectFilesConfig type
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enabled this feature by specifying `inject-files` in the
+[previewFeatures](#previewfeatures-string) API.
+
 Specifies the configuration for injecting files into specified partitions of
 an image.
 
@@ -41,6 +46,8 @@ previewFeatures:
 - inject-files
 ```
 
+Added in v0.14.
+
 ## injectFiles [`InjectArtifactMetadata`](./injectArtifactMetadata.md)[]
 
 Required.
@@ -50,12 +57,22 @@ Specifies a list of files to inject into specific partitions of the image.
 Each item in this list must follow the structure defined in the
 [`InjectArtifactMetadata`](./injectArtifactMetadata.md) type.
 
-Added in v0.14.0
+Added in v0.14.
 
 ## previewFeatures [string[]]
 
-Required.
+Enables preview features.
 
-Must include `"inject-files"` to enable this preview feature for now.
+Preview features are features that have not yet been stabilized.
+Their APIs and behavior are subject to change.
 
-Added in v0.14.0
+Supported options:
+
+- `inject-files`: Enables support for injecting files into specific partitions
+  using a configuration file.
+
+  When this option is specified, the `inject-files.yaml` configuration becomes
+  available. This file can be generated using the `output.artifacts` API and
+  later consumed via the `inject-files` CLI command.
+
+  Added in v0.14.

@@ -14,8 +14,10 @@ input:
     path: ./base.vhdx
 ```
 
+Added in v0.13.
+
 ## image [[inputImage](./inputImage.md)]
 
 Specifies the configuration for the input image.
 
-Added in v0.13.0.
+Added in v0.13.

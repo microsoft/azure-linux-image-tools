@@ -41,4 +41,4 @@ If verity is enabled in the base image, then:
   You may enable this feature by adding `reinitialize-verity` to the
   [previewfeatures](config.md#previewfeatures-string) API.
 
-Added in v0.13.0.
+Added in v0.13.

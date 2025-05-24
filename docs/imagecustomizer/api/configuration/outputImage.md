@@ -23,7 +23,7 @@ are provided, then the value of `--output-image-file` is used.
 
 The file path to write the final customized image to.
 
-Added in v0.13.0.
+Added in v0.13.
 
 ## format [string]
 
@@ -44,4 +44,4 @@ When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
 [Image Customizer ISO Support](../../concepts/iso.md).
 
-Added in v0.13.0.
+Added in v0.13.
