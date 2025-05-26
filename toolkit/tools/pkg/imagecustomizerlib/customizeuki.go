@@ -52,6 +52,22 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 		return fmt.Errorf("failed to create UKI directories:\n%w", err)
 	}
 
+	// Detect system architecture.
+	_, bootConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
+
+	// Define the path to the currently installed BOOTX64.EFI in the ESP.
+	shimSrcPath := filepath.Join(imageChroot.RootDir(), BootDir, "efi/EFI/BOOT", bootConfig.bootBinary)
+	// Define a temporary path to store the backed-up shim binary.
+	shimTmpPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.bootBinary)
+	// Backup the original shim binary before it gets overwritten by bootctl.
+	err = file.Copy(shimSrcPath, shimTmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", shimSrcPath, shimTmpPath, err)
+	}
+
 	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
 	// Note: When proper support for systemd-boot is implemented, the `bootctl install` command
 	// will likely be invoked as part of the `hardResetBootLoader()` function under BootLoader structure.
@@ -77,6 +93,14 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	})
 	if err != nil {
 		return fmt.Errorf("failed to install systemd-boot:\n%w", err)
+	}
+
+	// Restore the original signed shim binary to BOOTX64.EFI.
+	// This ensures that the Secure Boot chain is preserved,
+	// because shim (not systemd-boot) must be the entry point under EFI/BOOT.
+	err = file.Copy(shimTmpPath, shimSrcPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", shimTmpPath, shimSrcPath, err)
 	}
 
 	// The "--random-seed=no" flag is preferred to disable this behavior, but it requires systemd version 257 or later.
