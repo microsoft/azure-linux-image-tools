@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	InitramfsTypeFullOS = "fullOs"
+	InitramfsTypeFullOS    = "fullOs"
 	InitramfsTypeBootstrap = "bootstrap"
 )
 
@@ -20,9 +20,9 @@ var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://"
 type Pxe struct {
 	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
 	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
-	InitramfsType     string `yaml:"initramfsType" json:"initramfsType,omitempty"`
-	BootstrapBaseUrl string `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
-	BootstrapFileUrl string `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
+	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	BootstrapBaseUrl  string             `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
+	BootstrapFileUrl  string             `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {
@@ -50,12 +50,12 @@ func IsValidPxeUrl(urlString string) error {
 }
 
 func (p *Pxe) IsValid() error {
-	err := i.KernelCommandLine.IsValid()
+	err := p.KernelCommandLine.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid kernelCommandLine: %w", err)
 	}
 
-	err = i.AdditionalFiles.IsValid()
+	err = p.AdditionalFiles.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid additionalFiles:\n%w", err)
 	}
@@ -63,7 +63,7 @@ func (p *Pxe) IsValid() error {
 	if p.BootstrapBaseUrl != "" && p.BootstrapFileUrl != "" {
 		return fmt.Errorf("cannot specify both 'isoImageBaseUrl' and 'isoImageFileUrl' at the same time.")
 	}
-	err := IsValidPxeUrl(p.BootstrapBaseUrl)
+	err = IsValidPxeUrl(p.BootstrapBaseUrl)
 	if err != nil {
 		return fmt.Errorf("invalid 'isoImageBaseUrl' field value (%s):\n%w", p.BootstrapBaseUrl, err)
 	}

@@ -62,11 +62,11 @@ type ImageCustomizerParameters struct {
 	rawImageFile string
 
 	// output image
-	outputImageFormat            imagecustomizerapi.ImageFormatType
-	outputIsIso                  bool
-	outputImageFile              string
-	outputImageDir               string
-	outputImageBase              string
+	outputImageFormat imagecustomizerapi.ImageFormatType
+	outputIsIso       bool
+	outputImageFile   string
+	outputImageDir    string
+	outputImageBase   string
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
@@ -156,10 +156,6 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
-
-	if ic.outputPXEArtifactsDir != "" && !ic.outputIsIso {
-		return nil, fmt.Errorf("the output PXE artifacts directory ('--output-pxe-artifacts-dir') can be specified only if the output format is an iso image.")
-	}
 
 	if ic.inputIsIso {
 
@@ -514,20 +510,35 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			return err
 		}
 
-	case imagecustomizerapi.ImageFormatTypeIso:
+	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxe:
+		rebuildFullOsImage := false
+
 		if ic.customizeOSPartitions || inputIsoArtifacts == nil {
+			rebuildFullOsImage = true
+		} else if inputIsoArtifacts != nil {
+			// Let's check if use is converting from full os initramfs to bootstrap initramfs
+			liveosConfig, err := buildLiveOSConfig(ic.outputImageFormat, ic.config.Iso, ic.config.Pxe)
+			if err != nil {
+				return fmt.Errorf("failed to build Live OS configuration\n%w", err)
+			}
+
+			rebuildFullOsImage = (inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
+				(inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+
+		if rebuildFullOsImage {
 			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
 			if ic.config.OS != nil {
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
 			err := createLiveOSIsoImage(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
-				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFile)
+				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
 		} else {
 			err := createImageFromUnchangedOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
-				inputIsoArtifacts, ic.outputImageFile)
+				inputIsoArtifacts, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}

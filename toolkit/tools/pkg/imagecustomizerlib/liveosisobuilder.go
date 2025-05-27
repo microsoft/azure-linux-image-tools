@@ -14,6 +14,45 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
+type liveosConfig struct {
+	isPxe             bool
+	kernelCommandLine imagecustomizerapi.KernelCommandLine
+	additionalFiles   imagecustomizerapi.AdditionalFileList
+	initramfsType     imagecustomizerapi.InitramfsImageType
+	bootstrapBaseUrl  string
+	bootstrapFileUrl  string
+}
+
+func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe) (
+	config liveosConfig, err error) {
+
+	switch outputFormat {
+	case imagecustomizerapi.ImageFormatTypeIso:
+		config.isPxe = false
+		if isoConfig != nil {
+			config.kernelCommandLine = isoConfig.KernelCommandLine
+			config.additionalFiles = isoConfig.AdditionalFiles
+		}
+		config.initramfsType = imagecustomizerapi.InitramfsImageTypeBootstrap
+	case imagecustomizerapi.ImageFormatTypePxe:
+		config.isPxe = true
+		if pxeConfig != nil {
+			config.kernelCommandLine = pxeConfig.KernelCommandLine
+			config.additionalFiles = pxeConfig.AdditionalFiles
+			config.initramfsType = pxeConfig.InitramfsType
+			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
+			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
+		}
+		if config.initramfsType == imagecustomizerapi.InitramfsImageTypeUnspecified {
+			config.initramfsType = imagecustomizerapi.InitramfsImageTypeFullOS
+		}
+	default:
+		return config, fmt.Errorf("unsupported liveos output format (%s)", outputFormat)
+	}
+
+	return config, nil
+}
+
 func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 	logger.Log.Infof("Creating writeable rootfs (%s) from (%s)", writeableRootfsDir, sourceDir)
@@ -32,24 +71,12 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 }
 
 func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
-	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile, outputImagePath string,
+	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
+	outputImagePath string,
 ) (err error) {
-
-	var extraCommandLine []string
-	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
-	if isoConfig != nil {
-		extraCommandLine = isoConfig.KernelCommandLine.ExtraCommandLine
-		additionalIsoFiles = isoConfig.AdditionalFiles
-	}
-
-	pxeIsoImageBaseUrl := ""
-	if pxeConfig != nil {
-		pxeIsoImageBaseUrl = pxeConfig.IsoImageBaseUrl
-	}
-
-	pxeIsoImageFileUrl := ""
-	if pxeConfig != nil {
-		pxeIsoImageFileUrl = pxeConfig.IsoImageFileUrl
+	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to build live OS configuration from intpu configuration:\n%w", err)
 	}
 
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
@@ -86,8 +113,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	}
 
 	// Combine the current configuration with the saved configuration
-	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		pxeIsoImageFileUrl, artifactsStore.info.kernelVersion, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
+	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine, liveosConfig.bootstrapBaseUrl,
+		liveosConfig.bootstrapFileUrl, artifactsStore.info.kernelVersion, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
 		artifactsStore.info.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
@@ -117,7 +144,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(outputIsoInitrdSelfContained, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
+	err = updateGrubCfg(liveosConfig.initramfsType, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
 		updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
@@ -133,14 +160,15 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 
 	outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
 
-	if outputIsoInitrdSelfContained {
+	switch liveosConfig.initramfsType {
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		// Generate the initrd image
 		err = createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}
 		artifactsStore.files.initrdImagePath = outputInitrdPath
-	} else {
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		// Generate the initrd image
 		err = createMinimalInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
 		if err != nil {
@@ -155,10 +183,14 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 			return fmt.Errorf("failed to create squashfs image:\n%w", err)
 		}
 		artifactsStore.files.squashfsImagePath = outputSquashfsPath
+	default:
+		return fmt.Errorf("unsupported initramfs type (%s)", liveosConfig.initramfsType)
 	}
 
+	outputPXEArtifactsDir := "/home/george/temp/my-pxe"
+
 	// Generate the final iso image
-	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
+	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, liveosConfig.additionalFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}
@@ -167,26 +199,14 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 }
 
 func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputImagePath string,
+	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, outputImagePath string,
 ) error {
 
 	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
 
-	var extraCommandLine []string
-	var additionalIsoFiles imagecustomizerapi.AdditionalFileList
-	if isoConfig != nil {
-		extraCommandLine = isoConfig.KernelCommandLine.ExtraCommandLine
-		additionalIsoFiles = isoConfig.AdditionalFiles
-	}
-
-	pxeIsoImageBaseUrl := ""
-	if pxeConfig != nil {
-		pxeIsoImageBaseUrl = pxeConfig.IsoImageBaseUrl
-	}
-
-	pxeIsoImageFileUrl := ""
-	if pxeConfig != nil {
-		pxeIsoImageFileUrl = pxeConfig.IsoImageFileUrl
+	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to build live OS configuration from intpu configuration:\n%w", err)
 	}
 
 	// Note that in this ISO build flow, there is no os configuration, and hence
@@ -194,8 +214,9 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	// and let any saved data override if present.
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
-	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, extraCommandLine, pxeIsoImageBaseUrl,
-		inputArtifactsStore.info.kernelVersion, pxeIsoImageFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
+	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine,
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, inputArtifactsStore.info.kernelVersion,
+		nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -207,16 +228,17 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	// selinux and not enable it either.
 	disableSELinux := false
 
-	// george: if outputIsoInitrdSelfContained != previous value -> convert.
-
 	// Update grub.cfg
-	err = updateGrubCfg(outputIsoInitrdSelfContained, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath, disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(liveosConfig.initramfsType, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath,
+		disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
+	outputPXEArtifactsDir := "/home/george/temp/my-pxe"
+
 	// Generate the final iso image
-	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, additionalIsoFiles, inputArtifactsStore, outputImagePath, outputPXEArtifactsDir)
+	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, liveosConfig.additionalFiles, inputArtifactsStore, outputImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
 	}

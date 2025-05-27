@@ -29,7 +29,7 @@ const (
 	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
 )
 
-func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string, pxeGrubCfgFileName string,
+func updateGrubCfg(initramfsImageType imagecustomizerapi.InitramfsImageType, isoGrubCfgFileName string, pxeGrubCfgFileName string,
 	disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
 	logger.Log.Infof("Updating ISO grub.cfg")
 
@@ -80,20 +80,23 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 	}
 
 	liveosKernelArgs := ""
-	if outputIsoInitrdSelfContained {
+	switch initramfsImageType {
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		argsToRemove := []string{"root"}
 		newArgs := []string{}
 		inputContentString, err = updateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
 		if err != nil {
 			return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 		}
-	} else {
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
 		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 		if err != nil {
 			return fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 		}
 		liveosKernelArgs = fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
+	default:
+		return fmt.Errorf("unsupported initramfs image type (%s)", initramfsImageType)
 	}
 
 	if disableSELinux {
@@ -130,7 +133,7 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 		// or also in the PXE artifacts.
 		logger.Log.Infof("cannot generate grub.cfg for PXE booting.\n%v", err)
 	} else {
-		err = generatePxeGrubCfg(outputIsoInitrdSelfContained, inputContentString, savedConfigs.Pxe.IsoImageBaseUrl,
+		err = generatePxeGrubCfg(initramfsImageType, inputContentString, savedConfigs.Pxe.IsoImageBaseUrl,
 			savedConfigs.Pxe.IsoImageFileUrl, outputImageBase, pxeGrubCfgFileName)
 		if err != nil {
 			return fmt.Errorf("failed to create grub configuration for PXE booting.\n%w", err)
@@ -140,7 +143,7 @@ func updateGrubCfg(outputIsoInitrdSelfContained bool, isoGrubCfgFileName string,
 	return nil
 }
 
-func generatePxeGrubCfg(outputIsoInitrdSelfContained bool, inputContentString string, pxeIsoImageBaseUrl string,
+func generatePxeGrubCfg(initramfsImageType imagecustomizerapi.InitramfsImageType, inputContentString string, pxeIsoImageBaseUrl string,
 	pxeIsoImageFileUrl string, outputImageBase string, pxeGrubCfgFileName string) error {
 	if pxeIsoImageBaseUrl != "" && pxeIsoImageFileUrl != "" {
 		return fmt.Errorf("cannot set both iso image base url and full image url at the same time")
@@ -152,7 +155,7 @@ func generatePxeGrubCfg(outputIsoInitrdSelfContained bool, inputContentString st
 		return fmt.Errorf("failed to remove the 'search' commands from PXE grub.cfg:\n%w", err)
 	}
 
-	if !outputIsoInitrdSelfContained {
+	if initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap {
 		// If the specified URL is not a full path to an iso, append the generated
 		// iso file name to it.
 		if pxeIsoImageFileUrl == "" {

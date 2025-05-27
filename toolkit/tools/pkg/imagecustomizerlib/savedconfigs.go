@@ -130,13 +130,13 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	return savedConfigs, nil
 }
 
-func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
+func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
 	newPxeIsoImageBaseUrl string, newPxeIsoImageFileUrl string, newKernelVersion string, newDracutPackageInfo *PackageVersionInformation,
 	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
 ) (outputConfigs *SavedConfigs, err error) {
 	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
-	outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = newKernelArgs
+	outputConfigs.Iso.KernelCommandLine = newKernelCommandLine
 	outputConfigs.Pxe.IsoImageBaseUrl = newPxeIsoImageBaseUrl
 	outputConfigs.Pxe.IsoImageFileUrl = newPxeIsoImageFileUrl
 	outputConfigs.OS.KernelVersion = newKernelVersion
@@ -154,7 +154,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelArgs []string,
 		if len(inputConfigs.Iso.KernelCommandLine.ExtraCommandLine) > 0 {
 			// If yes, add them before the new kernel arguments.
 			savedArgs := inputConfigs.Iso.KernelCommandLine.ExtraCommandLine
-			newArgs := newKernelArgs
+			newArgs := newKernelCommandLine.ExtraCommandLine
 
 			// Combine saved arguments with new ones
 			combinedArgs := append(savedArgs, newArgs...)
