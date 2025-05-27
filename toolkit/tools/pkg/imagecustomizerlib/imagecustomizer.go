@@ -64,6 +64,7 @@ type ImageCustomizerParameters struct {
 	// output image
 	outputImageFormat imagecustomizerapi.ImageFormatType
 	outputIsIso       bool
+	outputIsPxe       bool
 	outputImageFile   string
 	outputImageDir    string
 	outputImageBase   string
@@ -156,13 +157,14 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
+	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxe
 
 	if ic.inputIsIso {
 
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
-		if !ic.outputIsIso {
-			return nil, fmt.Errorf("generating a non-iso image from an iso image is not supported")
+		if !ic.outputIsIso && !ic.outputIsPxe {
+			return nil, fmt.Errorf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat)
 		}
 
 		// While defining a storage configuration can work when the input image is

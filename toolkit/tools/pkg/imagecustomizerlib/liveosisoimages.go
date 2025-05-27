@@ -4,7 +4,10 @@
 package imagecustomizerlib
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -49,7 +52,7 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-func cleanFullOSFolder(fullOSDir string) error {
+func cleanFullOSFolderForLiveOS(fullOSDir string) error {
 	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
 
@@ -70,7 +73,7 @@ func cleanFullOSFolder(fullOSDir string) error {
 func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
 	logger.Log.Infof("Generating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
-	err := cleanFullOSFolder(writeableRootfsDir)
+	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
@@ -145,7 +148,7 @@ func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPat
 func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
 	logger.Log.Infof("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
 
-	err := cleanFullOSFolder(writeableRootfsDir)
+	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
@@ -227,17 +230,6 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 		}
 	}
 
-	// Add optional grub-pxe.cfg file if it exists.
-	if filesStore.pxeGrubCfgPath != "" {
-		exists, err := file.PathExists(filesStore.pxeGrubCfgPath)
-		if err != nil {
-			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.pxeGrubCfgPath, err)
-		}
-		if exists {
-			artifactsToIsoMap[filesStore.pxeGrubCfgPath] = "boot/grub2"
-		}
-	}
-
 	// Add additional files
 	// - This is typically populated if a previous run added additional files.
 	for source, isoRelativePath := range filesStore.additionalFiles {
@@ -286,7 +278,7 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 	return nil
 }
 
-func createIsoImage(buildDir string, filesStore *IsoFilesStore, baseConfigPath string,
+func createIsoImage(buildDir string, baseConfigPath string, filesStore *IsoFilesStore,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "staging")
 
@@ -537,6 +529,70 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func createTarGzArchive(sourceDir, outputArchivePath string) error {
+	logger.Log.Infof("Generating archive (%s) from (%s)", outputArchivePath, sourceDir)
+
+	// Create output file
+	outFile, err := os.Create(outputArchivePath)
+	if err != nil {
+		return fmt.Errorf("creating tar.gz file: %w", err)
+	}
+	defer outFile.Close()
+
+	// Set up gzip writer
+	gw := gzip.NewWriter(outFile)
+	defer gw.Close()
+
+	// Set up tar writer
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	// Walk the source directory
+	err = filepath.Walk(sourceDir, func(file string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Create the tar header
+		header, err := tar.FileInfoHeader(info, info.Name())
+		if err != nil {
+			return err
+		}
+
+		// Adjust the header name to maintain folder structure
+		relPath, err := filepath.Rel(sourceDir, file)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(relPath) // Ensure forward slashes
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		// If it's a directory, nothing more to do
+		if info.IsDir() {
+			return nil
+		}
+
+		// Write file contents
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(tw, f)
+		return err
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create achive (%s):\n%w", outputArchivePath, err)
 	}
 
 	return nil

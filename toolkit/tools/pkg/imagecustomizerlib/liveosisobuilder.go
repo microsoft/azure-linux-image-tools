@@ -7,11 +7,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+)
+
+const (
+	defaultIsoImageName = "image.iso"
 )
 
 type liveosConfig struct {
@@ -72,7 +77,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
-	outputImagePath string,
+	outputPath string,
 ) (err error) {
 	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
 	if err != nil {
@@ -144,8 +149,8 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(liveosConfig.initramfsType, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath, disableSELinux,
-		updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(outputFormat, liveosConfig.initramfsType, artifactsStore.files.isoGrubCfgPath, disableSELinux,
+		updatedSavedConfigs, filepath.Base(outputPath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -187,22 +192,28 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 		return fmt.Errorf("unsupported initramfs type (%s)", liveosConfig.initramfsType)
 	}
 
-	outputPXEArtifactsDir := "/home/george/temp/my-pxe"
-
-	// Generate the final iso image
-	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, liveosConfig.additionalFiles, artifactsStore, outputImagePath, outputPXEArtifactsDir)
-	if err != nil {
-		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
+	// Generate the final output artifacts
+	switch outputFormat {
+	case imagecustomizerapi.ImageFormatTypeIso:
+		err := createIsoImage(isoBuildDir, baseConfigPath, artifactsStore.files, liveosConfig.additionalFiles, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to create the Iso image.\n%w", err)
+		}
+	case imagecustomizerapi.ImageFormatTypePxe:
+		err = createPXEArtifacts(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, artifactsStore,
+			liveosConfig.additionalFiles, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
+		}
 	}
 
 	return nil
 }
 
 func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, outputImagePath string,
+	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, outputPath string,
 ) error {
-
-	logger.Log.Infof("Creating LiveOS iso image using unchanged OS partitions")
+	logger.Log.Infof("Creating Live OS artifacts using unchanged OS partitions")
 
 	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
 	if err != nil {
@@ -229,73 +240,83 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 	disableSELinux := false
 
 	// Update grub.cfg
-	err = updateGrubCfg(liveosConfig.initramfsType, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath,
-		disableSELinux, updatedSavedConfigs, filepath.Base(outputImagePath))
+	err = updateGrubCfg(outputFormat, liveosConfig.initramfsType, inputArtifactsStore.files.isoGrubCfgPath,
+		disableSELinux, updatedSavedConfigs, filepath.Base(outputPath))
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
 
-	outputPXEArtifactsDir := "/home/george/temp/my-pxe"
-
 	// Generate the final iso image
-	err = createIsoImageAndPXEFolder(isoBuildDir, baseConfigPath, liveosConfig.additionalFiles, inputArtifactsStore, outputImagePath, outputPXEArtifactsDir)
-	if err != nil {
-		return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
+	switch outputFormat {
+	case imagecustomizerapi.ImageFormatTypeIso:
+		err := createIsoImage(isoBuildDir, baseConfigPath, inputArtifactsStore.files, liveosConfig.additionalFiles, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to create the Iso image.\n%w", err)
+		}
+	case imagecustomizerapi.ImageFormatTypePxe:
+		err = createPXEArtifacts(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, inputArtifactsStore,
+			liveosConfig.additionalFiles, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
+		}
 	}
 
 	return nil
 }
 
-func createIsoImageAndPXEFolder(buildDir string, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, artifactsStore *IsoArtifactsStore, outputImagePath string,
-	outputPXEArtifactsDir string) error {
+func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType,
+	artifactsStore *IsoArtifactsStore, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputPath string) error {
+	logger.Log.Infof("Create PXE output at (%s)", outputPath)
 
-	err := createIsoImage(buildDir, artifactsStore.files, baseConfigPath, additionalIsoFiles, outputImagePath)
+	outputPXEArtifactsDir := ""
+	outputPXEImage := ""
+
+	if strings.HasSuffix(outputPath, ".tar.gz") {
+		// Output is a .tar.gz
+		outputPXEArtifactsDir, err := os.MkdirTemp(buildDir, "tmp-pxe-")
+		if err != nil {
+			return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
+		}
+		defer os.RemoveAll(outputPXEArtifactsDir)
+		outputPXEImage = outputPath
+	} else {
+		// Output is a folder
+		outputPXEArtifactsDir = outputPath
+		err := os.MkdirAll(outputPXEArtifactsDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create folder (%s):\n%w", outputPXEArtifactsDir, err)
+		}
+		outputPXEImage = ""
+	}
+
+	outputISODir, err := os.MkdirTemp(buildDir, "tmp-pxe-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp folder:\n%w", err)
+	}
+	defer os.RemoveAll(outputISODir)
+
+	isoImagePath := filepath.Join(outputISODir, defaultIsoImageName)
+	err = createIsoImage(buildDir, baseConfigPath, artifactsStore.files, additionalIsoFiles, isoImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create the Iso image.\n%w", err)
 	}
 
-	if outputPXEArtifactsDir != "" {
-		err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
-		if err != nil {
-			return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
-		}
-		err = populatePXEArtifactsDir(outputImagePath, buildDir, outputPXEArtifactsDir)
-		if err != nil {
-			return fmt.Errorf("failed to populate the PXE artifacts folder.\n%w", err)
-		}
+	err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
+	if err != nil {
+		return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
 	}
 
-	return nil
-}
-
-func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArtifactsDir string) error {
-
-	logger.Log.Infof("Extracting PXE artifacts from (%s) to (%s)", isoImagePath, outputPXEArtifactsDir)
-
 	// Extract all files from the iso image file.
-	err := extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)
+	err = extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)
 	if err != nil {
 		return err
 	}
 
-	// Replace the iso grub.cfg with the PXE grub.cfg
-	isoGrubCfgPath := filepath.Join(outputPXEArtifactsDir, grubCfgDir, isoGrubCfg)
-	pxeGrubCfgPath := filepath.Join(outputPXEArtifactsDir, grubCfgDir, pxeGrubCfg)
-	err = file.Copy(pxeGrubCfgPath, isoGrubCfgPath)
-	if err != nil {
-		return fmt.Errorf("failed to copy (%s) to (%s) while populating the PXE artifacts directory:\n%w", pxeGrubCfgPath, isoGrubCfgPath, err)
-	}
-
-	err = os.RemoveAll(pxeGrubCfgPath)
-	if err != nil {
-		return fmt.Errorf("failed to remove file (%s):\n%w", pxeGrubCfgPath, err)
-	}
-
+	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
 	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {
 		return err
 	}
-	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
 	bootloaderSrcDir := filepath.Join(outputPXEArtifactsDir, isoBootloadersDir)
 	bootloaderFiles := []string{bootFilesConfig.bootBinary, bootFilesConfig.grubBinary}
 
@@ -315,12 +336,31 @@ func populatePXEArtifactsDir(isoImagePath string, buildDir string, outputPXEArti
 		return fmt.Errorf("failed to remove folder (%s):\n%w", isoEFIDir, err)
 	}
 
-	// The iso image file itself must be placed in the PXE folder because
-	// dracut livenet module will download it.
-	artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, filepath.Base(isoImagePath))
-	err = file.Copy(isoImagePath, artifactsIsoImagePath)
-	if err != nil {
-		return fmt.Errorf("failed to copy (%s) while populating the PXE artifacts directory:\n%w", isoImagePath, err)
+	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		// The iso image file itself must be placed in the PXE folder because
+		// dracut livenet module will download it.
+		artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, filepath.Base(isoImagePath))
+		err = file.Move(isoImagePath, artifactsIsoImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to copy (%s) while populating the PXE artifacts directory:\n%w", isoImagePath, err)
+		}
+	} else {
+		err = os.Remove(isoImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", isoImagePath, err)
+		}
+	}
+
+	if outputPXEImage != "" {
+		err = createTarGzArchive(outputPXEArtifactsDir, outputPXEImage)
+		if err != nil {
+			return fmt.Errorf("failed to create archive (%s) from (%s):\n%w", outputPXEImage, outputPXEArtifactsDir, err)
+		}
+
+		err = os.RemoveAll(outputPXEArtifactsDir)
+		if err != nil {
+			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", outputPXEArtifactsDir, err)
+		}
 	}
 
 	return nil

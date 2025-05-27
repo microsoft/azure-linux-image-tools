@@ -42,7 +42,6 @@ type IsoFilesStore struct {
 	grubEfiPath          string
 	isoBootImagePath     string
 	isoGrubCfgPath       string
-	pxeGrubCfgPath       string
 	savedConfigsFilePath string
 	vmlinuzPath          string
 	initrdImagePath      string
@@ -234,8 +233,6 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 				targetPath = filepath.Join(filesStore.artifactsDir, "EFI/BOOT", isoGrubCfg)
 			}
 			filesStore.isoGrubCfgPath = targetPath
-			// We will place the pxe grub config next to the iso grub config.
-			filesStore.pxeGrubCfgPath = filepath.Join(filepath.Dir(filesStore.isoGrubCfgPath), pxeGrubCfg)
 			scheduleAdditionalFile = false
 		}
 
@@ -415,8 +412,6 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 			scheduleAdditionalFile = false
 		case isoGrubCfgPath:
 			filesStore.isoGrubCfgPath = isoFile
-			// We will place the pxe grub config next to the iso grub config.
-			filesStore.pxeGrubCfgPath = filepath.Join(filepath.Dir(filesStore.isoGrubCfgPath), pxeGrubCfg)
 			scheduleAdditionalFile = false
 		case liveOSImagePath:
 			filesStore.squashfsImagePath = isoFile
@@ -537,7 +532,6 @@ func dumpFilesStore(filesStore *IsoFilesStore) {
 	logger.Log.Debugf("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
 	logger.Log.Debugf("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
 	logger.Log.Debugf("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
-	logger.Log.Debugf("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
 	logger.Log.Debugf("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
 	logger.Log.Debugf("-- vmlinuzPath              = %s", fileExistsToString(filesStore.vmlinuzPath))
 	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
