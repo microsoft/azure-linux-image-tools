@@ -520,8 +520,8 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			if ic.config.OS != nil {
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
-			err := createLiveOSIsoImage(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode, ic.config.Iso, ic.config.Pxe,
-				ic.rawImageFile, ic.outputImageFile)
+			err := createLiveOSIsoImage(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
+				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
 			}
