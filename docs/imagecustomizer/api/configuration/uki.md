@@ -6,7 +6,7 @@ parent: Configuration
 
 This is a preview feature.
 Its API and behavior is subject to change.
-You must enabled this feature by specifying `uki` in the
+You must enable this feature by specifying `uki` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
 Enables the creation of Unified Kernel Images (UKIs) and configures systemd-boot

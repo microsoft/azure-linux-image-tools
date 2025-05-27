@@ -6,7 +6,7 @@ parent: Configuration
 
 This is a preview feature.
 Its API and behavior is subject to change.
-You must enabled this feature by specifying `inject-files` in the
+You must enable this feature by specifying `inject-files` in the
 [previewFeatures](#previewfeatures-string) API.
 
 Specifies the configuration for injecting files into specified partitions of

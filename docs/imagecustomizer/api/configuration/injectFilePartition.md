@@ -6,7 +6,7 @@ parent: Configuration
 
 This is a preview feature.
 Its API and behavior is subject to change.
-You must enabled this feature by specifying `inject-files` in the
+You must enable this feature by specifying `inject-files` in the
 [previewFeatures](./injectFilesConfig.md#previewfeatures-string) API.
 
 Defines how to locate the target partition where an artifact should be injected.

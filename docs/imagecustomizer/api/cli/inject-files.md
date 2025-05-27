@@ -8,7 +8,7 @@ nav_order: 1
 
 This is a preview feature.
 Its API and behavior is subject to change.
-You must enabled this feature by specifying `inject-files` in the
+You must enable this feature by specifying `inject-files` in the
 [previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API.
 
 This subcommand takes a base image and a config file (typically auto-generated

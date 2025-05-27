@@ -25,7 +25,7 @@ Added in v0.13.
 
 This is a preview feature.
 Its API and behavior is subject to change.
-You must enabled this feature by specifying `output-artifacts` in the
+You must enable this feature by specifying `output-artifacts` in the
 [previewFeatures](./injectFilesConfig.md#previewfeatures-string) API.
 
 Specifies the configuration for the output directory containing the generated artifacts.
