@@ -22,7 +22,7 @@ import (
 // Tests:
 // - vhdx to ISO, with OS changes, and PXE image base URL.
 // - ISO to ISO, with no OS changes.
-// - Kernel command-line arg append.
+// - .iso.Kernel command-line arg append.
 // - .iso.additionalFiles
 func TestCustomizeImageLiveCd1(t *testing.T) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
@@ -44,7 +44,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	pxeKernelRootArgV1 := "linux.* root=live:" + pxeImageFileUrlV1
 	pxeKernelRootArgV1 = strings.ReplaceAll(pxeKernelRootArgV1, "/", "\\/")
 	pxeKernelRootArgV1 = strings.ReplaceAll(pxeKernelRootArgV1, ":", "\\:")
-	configFile := filepath.Join(testDir, "iso-files-and-args-config.yaml")
+	configFile := filepath.Join(testDir, "iso-bootstrapped.yaml")
 
 	// Customize vhdx to ISO, with OS changes.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso",

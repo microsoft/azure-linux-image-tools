@@ -1,18 +1,12 @@
 pxe:
-  bootstrapBaseUrl: http://my-pxe-server-1
-iso:
   additionalFiles:
   - source: files/a.txt
     destination: /a.txt
-
   kernelCommandLine:
     extraCommandLine:
     - rd.info
-
+  bootstrapBaseUrl: http://my-pxe-server-1
 os:
   packages:
     install:
-    - squashfs-tools
-    - tar
-    - device-mapper
-    - curl
+    - vim
