@@ -44,7 +44,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 
 	err = CustomizeImage(buildDir, testDir, &config, baseImage, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"raw", false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -87,7 +87,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 
 	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"raw", false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -146,7 +146,7 @@ func TestCustomizeImagePackagesAddOfflineLocalRepo(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -175,7 +175,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -211,7 +211,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		true /*useBaseImageRpmRepos*/)
 	assert.ErrorContains(t, err, "failed to customize raw image")
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }

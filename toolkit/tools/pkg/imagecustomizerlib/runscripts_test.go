@@ -23,7 +23,7 @@ func TestCustomizeImageRunScripts(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

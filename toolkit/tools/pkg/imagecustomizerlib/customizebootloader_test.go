@@ -41,7 +41,7 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, imageType base
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		true /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

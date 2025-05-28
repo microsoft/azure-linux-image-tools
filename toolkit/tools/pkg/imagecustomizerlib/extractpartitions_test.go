@@ -259,7 +259,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", "" /*outputPXEArtifactsDir*/, true)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", true)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -352,7 +352,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", "", false /*useBaseImageRpmRepos*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", false /*useBaseImageRpmRepos*/)
 	if !assert.NoError(t, err) {
 		return
 	}

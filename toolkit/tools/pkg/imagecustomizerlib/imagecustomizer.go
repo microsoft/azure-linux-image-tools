@@ -223,8 +223,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	}
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
-		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
-		outputImageFormat, outputImageFile)
+		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources, outputImageFormat, outputImageFile)
 	if err != nil {
 		return fmt.Errorf("invalid parameters:\n%w", err)
 	}
@@ -515,6 +514,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxe:
 		rebuildFullOsImage := false
 
+		// Decide whether we need to re-build the full OS image or not
 		if ic.customizeOSPartitions || inputIsoArtifacts == nil {
 			rebuildFullOsImage = true
 		} else if inputIsoArtifacts != nil {
@@ -528,6 +528,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 				(inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
 		}
 
+		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
 			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
 			if ic.config.OS != nil {
