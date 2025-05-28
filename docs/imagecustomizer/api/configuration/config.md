@@ -95,6 +95,14 @@ Supported options:
 
   Added in v0.15.
 
+- `package-snapshot-time`: Enables snapshot-based package filtering during image
+  customization. This allows specifying a cutoff timestamp using the
+  [`--package-snapshot-time`](../cli.md#--package-snapshot-time) CLI option or
+  [`os.packages.snapshotTime`](./packages.md#snapshottime-string) API field.
+  If both are provided, the CLI value takes precedence.
+
+  Added in v0.15.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

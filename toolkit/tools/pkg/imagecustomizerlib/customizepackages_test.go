@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -44,7 +45,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 
 	err = CustomizeImage(buildDir, testDir, &config, baseImage, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"raw", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -87,7 +88,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 
 	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"raw", "" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -156,7 +157,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -185,7 +186,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -221,7 +222,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to customize raw image")
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }
@@ -239,7 +240,7 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -269,7 +270,7 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
 }
 
@@ -301,4 +302,140 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirP
 
 	// Ensure the cache has been cleaned up
 	assert.Equal(t, 0, len(existingFiles), "Expected no file data in cache, but got %d files", len(existingFiles))
+}
+
+func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Set the snapshot time to a date before jq-1.7.1-2 (2025-03-18) was published, so jq-1.7.1-1 is expected
+	snapshotTime := "2025-01-01"
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeaturePackageSnapshotTime,
+		},
+		OS: &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Install:      []string{"jq"},
+				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTime),
+			},
+		},
+	}
+
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath,
+		"raw", "", true, "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	ensureFilesExist(t, imageConnection,
+		"/usr/bin/jq",
+	)
+
+	jqVersionOutput, err := getPkgVersionFromChroot(imageConnection, "jq")
+	assert.NoError(t, err, "failed to retrieve jq version from chroot")
+
+	expectedVersion := "jq-1.7.1-1"
+	assert.Containsf(t, jqVersionOutput, expectedVersion,
+		"snapshotTime %s should install jq version %s, but got: %s", snapshotTime, expectedVersion, jqVersionOutput)
+
+	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
+}
+
+func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	snapshotTimeConfig := "2025-03-19"
+	snapshotTimeCLI := "2025-01-01"
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeaturePackageSnapshotTime,
+		},
+		OS: &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Install:      []string{"jq"},
+				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTimeConfig),
+			},
+		},
+	}
+
+	// Set the snapshot time in CLI to a date before jq-1.7.1-2 (2025-03-18) was published
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath,
+		"raw", "", true, snapshotTimeCLI)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	ensureFilesExist(t, imageConnection,
+		"/usr/bin/jq",
+	)
+
+	jqVersionOutput, err := getPkgVersionFromChroot(imageConnection, "jq")
+	assert.NoError(t, err, "failed to retrieve jq version from chroot")
+
+	expectedVersion := "jq-1.7.1-1"
+	assert.Containsf(t, jqVersionOutput, expectedVersion,
+		"snapshotTime %s should install jq version %s, but got: %s", snapshotTimeCLI, expectedVersion, jqVersionOutput)
+
+	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
+}
+
+func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails")
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Install:      []string{"jq"},
+				SnapshotTime: "2025-05-22",
+			},
+		},
+	}
+
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath,
+		"raw", "", true, "")
+	assert.ErrorContains(t, err, "snapshotTime")
+	assert.ErrorContains(t, err, "preview feature")
+}
+
+func getPkgVersionFromChroot(imageConnection *ImageConnection, pkgName string) (string, error) {
+	var versionOutput string
+	err := imageConnection.Chroot().UnsafeRun(func() error {
+		out, _, err := shell.Execute("rpm", "-q", pkgName)
+		if err != nil {
+			return fmt.Errorf("failed to query rpm: %w", err)
+		}
+		versionOutput = strings.TrimSpace(out)
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get version of %s in chroot: %w", pkgName, err)
+	}
+
+	return versionOutput, nil
 }
