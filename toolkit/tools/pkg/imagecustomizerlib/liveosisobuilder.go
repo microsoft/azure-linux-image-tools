@@ -64,7 +64,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 
 	err := os.MkdirAll(writeableRootfsDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create folder %s:\n%w", writeableRootfsDir, err)
+		return fmt.Errorf("failed to create folder (%s):\n%w", writeableRootfsDir, err)
 	}
 
 	err = copyPartitionFiles(sourceDir+"/.", writeableRootfsDir)
@@ -265,15 +265,15 @@ func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoCo
 }
 
 func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType,
-	artifactsStore *IsoArtifactsStore, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputPath string) error {
-	logger.Log.Infof("Create PXE output at (%s)", outputPath)
+	artifactsStore *IsoArtifactsStore, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputPath string) (err error) {
+	logger.Log.Infof("Creating PXE output at (%s)", outputPath)
 
 	outputPXEArtifactsDir := ""
 	outputPXEImage := ""
 
 	if strings.HasSuffix(outputPath, ".tar.gz") {
 		// Output is a .tar.gz
-		outputPXEArtifactsDir, err := os.MkdirTemp(buildDir, "tmp-pxe-")
+		outputPXEArtifactsDir, err = os.MkdirTemp(buildDir, "tmp-pxe-")
 		if err != nil {
 			return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
 		}

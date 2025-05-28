@@ -13,7 +13,7 @@ type InitramfsImageType string
 const (
 	InitramfsImageTypeUnspecified InitramfsImageType = ""
 	InitramfsImageTypeBootstrap   InitramfsImageType = "bootstrap"
-	InitramfsImageTypeFullOS      InitramfsImageType = "fullos"
+	InitramfsImageTypeFullOS      InitramfsImageType = "full-os"
 )
 
 // supportedInitramfsImageTypes is a list of all non-empty image format types

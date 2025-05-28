@@ -143,7 +143,7 @@ func copyInitrd(info isoGenInfo) error {
 }
 
 func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath string, outputImagePath string) (err error) {
-	logger.Log.Info("Generating ISO bootloader image (%s)", outputImagePath)
+	logger.Log.Infof("Generating ISO bootloader image (%s)", outputImagePath)
 
 	const (
 		blockSizeInBytes     = 1024 * 1024

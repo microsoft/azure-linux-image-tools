@@ -9,11 +9,6 @@ import (
 	"strings"
 )
 
-const (
-	InitramfsTypeFullOS    = "fullOs"
-	InitramfsTypeBootstrap = "bootstrap"
-)
-
 var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://", "tftp://"}
 
 // Iso defines how the generated iso media should be configured.
