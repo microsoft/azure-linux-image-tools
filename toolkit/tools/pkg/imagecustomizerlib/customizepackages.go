@@ -22,8 +22,11 @@ const (
 )
 
 var (
-	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
+	packagemanger = "tdnf"
+	releasever    = "--releasever=3.0"
 )
+
+var tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
 
 func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
@@ -92,21 +95,25 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	return nil
 }
 
+// You're running this in a custom or chroot environment that doesn’t yet have the distro release package installed.
+// That’s common during early steps of image customization (e.g., before you've installed azurelinux-release,or similar).
 func refreshTdnfMetadata(imageChroot *safechroot.Chroot) error {
 	tdnfArgs := []string{
 		"-v", "check-update", "--refresh", "--nogpgcheck", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
+		releasever,
 	}
 
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("tdnf", tdnfArgs...).
+		return shell.NewExecBuilder(packagemanger, tdnfArgs...).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err)
+		logger.Log.Debug("failed to refresh tdnf repo metadata:\n%w", err)
 	}
+
 	return nil
 }
 
@@ -171,16 +178,39 @@ func updateAllPackages(imageChroot *safechroot.Chroot) error {
 }
 
 func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot) error {
+	// clean cache
+	err := cleanTdnfCache(imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to clean tdnf cache:\n%w", err)
+	}
+
+	tdnfMakeCacheArgs := []string{
+		"-v", "makecache", "--nogpgcheck", "--assumeyes",
+		"--installroot", "/imageroot",
+		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
+		releasever,
+	}
+
+	err = callTdnf(tdnfMakeCacheArgs, tdnfInstallPrefix, imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to make cache for tdnf:\n%w", err)
+	}
+
 	// Create tdnf command args.
 	// Note: When using `--repofromdir`, tdnf will not use any default repos and will only use the last
 	// `--repofromdir` specified.
 	tdnfInstallArgs := []string{
-		"-v", action, "--nogpgcheck", "--assumeyes", "--cacheonly",
+		"-v", action, "--nogpgcheck", "--assumeyes",
+		//"--cacheonly",
+		//"--setopt", "reposdir=/etc/yum.repos.d/",
+		"--installroot", "/imageroot",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
+		releasever,
 		// Placeholder for package name.
 		"",
 	}
 
+	fmt.Printf("**********Installing packages: %v\n", allPackagesToAdd)
 	// Install packages.
 	// Do this one at a time, to avoid running out of memory.
 	for _, packageName := range allPackagesToAdd {
@@ -214,7 +244,7 @@ func callTdnf(tdnfArgs []string, tdnfMessagePrefix string, imageChroot *safechro
 	}
 
 	return imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("tdnf", tdnfArgs...).
+		return shell.NewExecBuilder(packagemanger, tdnfArgs...).
 			StdoutCallback(stdoutCallback).
 			LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -223,9 +253,8 @@ func callTdnf(tdnfArgs []string, tdnfMessagePrefix string, imageChroot *safechro
 }
 
 func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool {
-
 	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
+		_, _, err := shell.Execute(packagemanger, "info", packageName, "--repo", "@system")
 		return err
 	})
 	if err != nil {
@@ -240,14 +269,22 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot) error {
 	return imageChroot.UnsafeRun(func() error {
 		tdnfArgs := []string{
 			"-v", "clean", "all",
+			releasever,
+			"--installroot", "/imageroot",
 		}
-		err := shell.NewExecBuilder("tdnf", tdnfArgs...).
+		err := shell.NewExecBuilder(packagemanger, tdnfArgs...).
 			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("Failed to clean tdnf cache: %w", err)
+			return fmt.Errorf("failed to clean tdnf cache: %w", err)
 		}
 		return nil
 	})
+}
+
+// change the vaiables
+func Change_var_for_dnf() {
+	packagemanger = "dnf"
+	releasever = "--releasever=40"
 }

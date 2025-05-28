@@ -1,0 +1,19 @@
+packages:
+ - coreutils
+ - dosfstools
+ - e2fsprogs
+ - glibc
+ - policycoreutils
+ - python3
+ - rpm
+ - selinux-policy-targeted
+ - systemd
+ - xz
+ - '@core'
+ - dracut-config-generic
+ - efibootmgr
+ - grub2-efi-x64
+ - initial-setup
+ - libxkbcommon
+ - shim-x64
+ - kernel

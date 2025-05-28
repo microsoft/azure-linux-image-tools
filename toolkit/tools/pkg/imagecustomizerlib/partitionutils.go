@@ -218,6 +218,7 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
+
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
 				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
@@ -228,7 +229,6 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 				partition.Path, fstabEntry.Target, fstabEntry.FsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 		}
-
 		mountPoints = append(mountPoints, mountPoint)
 		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
 	}

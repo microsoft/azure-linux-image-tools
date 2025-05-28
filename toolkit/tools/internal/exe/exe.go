@@ -23,7 +23,7 @@ var DistroMajorVersion = "1"
 
 // InputFlag registers an input flag for k with documentation doc and returns the passed value
 func InputFlag(k *kingpin.Application, doc string) *string {
-	return k.Flag("input", doc).Required().ExistingFile()
+	return k.Flag("config-file", doc).Required().ExistingFile()
 }
 
 // InputStringFlag registers an input flag for k with documentation doc and returns the passed value

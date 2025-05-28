@@ -669,7 +669,6 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 			umountErr := unix.Unmount(fullPath, unmountFlags)
 			return umountErr
 		}, totalAttempts, retryDuration, 2.0)
-
 		if err != nil {
 			err = fmt.Errorf("failed to unmount (%s):\n%w", fullPath, err)
 			return
@@ -686,23 +685,23 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 // defaultMountPoints returns a new copy of the default mount points used by a functional chroot
 func defaultMountPoints() []*MountPoint {
 	return []*MountPoint{
-		&MountPoint{
+		{
 			target: "/dev",
 			fstype: "devtmpfs",
 		},
-		&MountPoint{
+		{
 			target: "/proc",
 			fstype: "proc",
 		},
-		&MountPoint{
+		{
 			target: "/sys",
 			fstype: "sysfs",
 		},
-		&MountPoint{
+		{
 			target: "/run",
 			fstype: "tmpfs",
 		},
-		&MountPoint{
+		{
 			target: "/dev/pts",
 			fstype: "devpts",
 			data:   "gid=5,mode=620",
@@ -756,16 +755,42 @@ func (c *Chroot) createMountPoints() (err error) {
 	return
 }
 
+/*
 // extractWorkerTar uses tar with gzip or pigz to setup a chroot directory using a rootfs tar
-func extractWorkerTar(chroot string, workerTar string) (err error) {
-	gzipTool, err := systemdependency.GzipTool()
-	if err != nil {
-		return err
+
+	func extractWorkerTar(chroot string, workerTar string) (err error) {
+		gzipTool, err := systemdependency.GzipTool()
+		if err != nil {
+			return err
+		}
+
+		logger.Log.Debugf("Using (%s) to extract tar", gzipTool)
+		_, _, err = shell.Execute("tar", "-I", gzipTool, "-xf", workerTar, "-C", chroot)
+		return
+	}
+*/
+func extractWorkerTar(chroot string, workerTar string) error {
+	var args []string
+	logger.Log.Debugf("updated------------Extracting worker tar: %s", workerTar)
+	switch {
+	case strings.HasSuffix(workerTar, ".tar.gz"), strings.HasSuffix(workerTar, ".tgz"):
+		gzipTool, err := systemdependency.GzipTool()
+		if err != nil {
+			return err
+		}
+		logger.Log.Debugf("Using (%s) to extract tar", gzipTool)
+		args = []string{"-I", gzipTool, "-xf", workerTar, "-C", chroot}
+
+	case strings.HasSuffix(workerTar, ".tar.xz"):
+		logger.Log.Debug("Using built-in xz support (-J) to extract tar")
+		args = []string{"-J", "-xf", workerTar, "-C", chroot}
+
+	default:
+		return fmt.Errorf("unsupported tar format: %s", workerTar)
 	}
 
-	logger.Log.Debugf("Using (%s) to extract tar", gzipTool)
-	_, _, err = shell.Execute("tar", "-I", gzipTool, "-xf", workerTar, "-C", chroot)
-	return
+	_, _, err := shell.Execute("tar", args...)
+	return err
 }
 
 // GetMountPoints gets a copy of the list of mounts the Chroot was initialized with.

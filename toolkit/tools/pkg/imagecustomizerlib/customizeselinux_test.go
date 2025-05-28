@@ -156,7 +156,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints, "")
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -96,7 +96,6 @@ func removeCommandAll(inputGrubCfgContent string, command string) (outputGrubCfg
 }
 
 func replaceToken(inputGrubCfgContent string, oldToken string, newToken string) (outputGrubCfgContent string, err error) {
-
 	// escape special characters that would interfer with defining the regular
 	// expression correctly.
 	tokenRegexpString := regexp.QuoteMeta(oldToken)
@@ -572,8 +571,10 @@ func getCommonSELinuxArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string,
 	case imagecustomizerapi.SELinuxModeDisabled:
 		return []string{installutils.CmdlineSELinuxDisabledArg}, nil
 	case imagecustomizerapi.SELinuxModeForceEnforcing:
-		return []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg,
-			installutils.CmdlineSELinuxEnforcingArg}, nil
+		return []string{
+			installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg,
+			installutils.CmdlineSELinuxEnforcingArg,
+		}, nil
 	case imagecustomizerapi.SELinuxModePermissive, imagecustomizerapi.SELinuxModeEnforcing:
 		return []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg}, nil
 	default:

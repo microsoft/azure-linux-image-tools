@@ -79,7 +79,7 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -163,7 +163,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -243,7 +243,7 @@ func testCustomizeImagePartitionsToLegacy(t *testing.T, testName string, imageTy
 	checkFileType(t, outImageFilePath, "raw")
 
 	imageConnection, err := connectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
-		coreLegacyMountPoints)
+		coreLegacyMountPoints, "")
 	if !assert.NoError(t, err) {
 		return
 	}

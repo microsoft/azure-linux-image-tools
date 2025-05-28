@@ -34,6 +34,30 @@ func (c *ImageConnection) ConnectLoopback(diskFilePath string) error {
 }
 
 func (c *ImageConnection) ConnectChroot(rootDir string, isExistingDir bool, extraDirectories []string,
+	extraMountPoints []*safechroot.MountPoint, includeDefaultMounts bool, tarPath string,
+) error {
+	if c.chroot != nil {
+		return fmt.Errorf("chroot already connected")
+	}
+
+	chroot := safechroot.NewChroot(rootDir, isExistingDir)
+	err := chroot.Initialize(tarPath, extraDirectories, extraMountPoints, includeDefaultMounts)
+	if err != nil {
+		return err
+	}
+	c.chroot = chroot
+	c.chrootIsExistingDir = isExistingDir
+
+	return nil
+}
+
+func (c *ImageConnection) ConnectLoopback1(ic ImageConnection) error {
+	c.loopback = ic.loopback
+	c.chroot = nil
+	return nil
+}
+
+func (c *ImageConnection) ConnectChroot1(rootDir string, isExistingDir bool, extraDirectories []string,
 	extraMountPoints []*safechroot.MountPoint, includeDefaultMounts bool,
 ) error {
 	if c.chroot != nil {
@@ -41,7 +65,8 @@ func (c *ImageConnection) ConnectChroot(rootDir string, isExistingDir bool, extr
 	}
 
 	chroot := safechroot.NewChroot(rootDir, isExistingDir)
-	err := chroot.Initialize("", extraDirectories, extraMountPoints, includeDefaultMounts)
+	tarfile := "/home/himaja/azurelinux/build/worker/worker_chroot.tar.gz"
+	err := chroot.Initialize(tarfile, extraDirectories, extraMountPoints, includeDefaultMounts)
 	if err != nil {
 		return err
 	}

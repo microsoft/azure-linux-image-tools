@@ -94,7 +94,7 @@ type verityDeviceMetadata struct {
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
 }
 
-func createImageCustomizerParameters(buildDir string,
+func CreateImageCustomizerParameters(buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
 	useBaseImageRpmRepos bool, rpmsSources []string,
@@ -118,7 +118,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputIsIso = ic.inputImageFormat == ImageFormatIso
 
 	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := createUuid()
+	imageUuid, imageUuidStr, err := CreateUuid()
 	if err != nil {
 		return nil, err
 	}
@@ -226,12 +226,12 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool,
 ) error {
-	err := validateConfig(baseConfigPath, config, rpmsSources, outputImageFile, useBaseImageRpmRepos)
+	err := ValidateConfig(baseConfigPath, config, rpmsSources, outputImageFile, useBaseImageRpmRepos)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, imageFile,
+	imageCustomizerParameters, err := CreateImageCustomizerParameters(buildDir, imageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, outputPXEArtifactsDir)
 	if err != nil {
@@ -553,7 +553,7 @@ func toQemuImageFormat(imageFormat string) (string, string) {
 	}
 }
 
-func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
+func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
 	outputImageFile string, useBaseImageRpmRepos bool,
 ) error {
 	err := config.IsValid()
@@ -740,7 +740,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 ) (map[string]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true)
+	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true, "")
 	if err != nil {
 		return nil, "", err
 	}
@@ -764,10 +764,13 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		return nil, "", fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
-	// Do the actual customizations.
-	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+	// print config
+	logger.Log.Infof("*********************************Config: %s", config)
 
+	/*// Do the actual customizations.
+	err = DoOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr)
+	*/
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
 	warnOnLowFreeSpace(buildDir, imageConnection)
@@ -782,6 +785,45 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 
 	return partUuidToFstabEntry, osRelease, nil
+}
+
+func CustomizeImageHelperImager(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
+	imageUuidStr string,
+	diskDevPath string, tarFile string,
+) (map[string]diskutils.FstabEntry, string, error) {
+	logger.Log.Debugf("Customizing OS")
+
+	imageConnection, partUuidToFstabEntry, err := connectToExistingImage(rawImageFile, buildDir, "imageroot", true, tarFile)
+	if err != nil {
+		return nil, "", err
+	}
+	defer imageConnection.Close()
+
+	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
+	if err != nil {
+		return nil, "", fmt.Errorf("verity validation failed:\n%w", err)
+	}
+
+	// debugutils.WaitForUser("CustomizeImageHelperImager")
+
+	// Do the actual customizations.
+	err = DoOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr,
+		diskDevPath)
+	// Out of disk space errors can be difficult to diagnose.
+	// So, warn about any partitions with low free space.
+	// warnOnLowFreeSpace(buildDir, imageConnection)
+	if err != nil {
+		return nil, "", err
+	}
+
+	err = imageConnection.CleanClose()
+	if err != nil {
+		return nil, "", err
+	}
+
+	return partUuidToFstabEntry, "", nil
 }
 
 func shrinkFilesystemsHelper(buildImageFile string) error {

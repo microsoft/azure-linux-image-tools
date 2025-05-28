@@ -1,0 +1,37 @@
+
+storage:
+  disks:
+  - partitionTableType: gpt
+
+    maxSize: 1500M
+    partitions:
+    - id: boot
+      type: esp
+      start: 1M
+      end: 15M
+
+    - id: rootfs
+      start: 15M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: boot
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    installLists:
+      - /home/himaja/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib/testdata/lists/fedora1.yaml
+      #- /home/himaja/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib/testdata/lists/azl.yaml

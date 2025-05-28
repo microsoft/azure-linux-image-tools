@@ -20,11 +20,11 @@ import (
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
-func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
+func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool, tarFile string,
 ) (*ImageConnection, map[string]diskutils.FstabEntry, error) {
 	imageConnection := NewImageConnection()
 
-	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts)
+	partUuidToMountPath, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir, chrootDirName, includeDefaultMounts, tarFile)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, err
@@ -33,7 +33,7 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
-	buildDir string, chrootDirName string, includeDefaultMounts bool,
+	buildDir string, chrootDirName string, includeDefaultMounts bool, tarFile string,
 ) (map[string]diskutils.FstabEntry, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -45,6 +45,8 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("**********Partitions: %v\n", partitions)
 
 	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
@@ -60,11 +62,15 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	if err != nil {
 		return nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
+	// print mount points
+	for _, mountPoint := range mountPoints {
+		fmt.Printf("Mount point: %s, Source: %s\n", mountPoint.GetTarget(), mountPoint.GetSource())
+	}
 
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
 
-	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
+	err = imageConnection.ConnectChroot(imageChrootDir, false, nil, mountPoints, includeDefaultMounts, "")
 	if err != nil {
 		return nil, err
 	}
@@ -72,33 +78,32 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	return partUuidToFstabEntry, nil
 }
 
-func createNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
+func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
-) (map[string]string, error) {
+) (map[string]string, string, error) {
 	imageConnection := NewImageConnection()
 	defer imageConnection.Close()
 
 	partIdToPartUuid, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
 		buildDir, chrootDirName, installOS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new image:\n%w", err)
+		return nil, "", fmt.Errorf("failed to create new image:\n%w", err)
 	}
 
-	// Close image.
-	err = imageConnection.CleanClose()
-	if err != nil {
-		return nil, err
-	}
+	// // Close image.
+	// err = imageConnection.CleanClose()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return partIdToPartUuid, nil
+	return partIdToPartUuid, imageConnection.loopback.DevicePath(), nil
 }
 
 func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConnection, filename string,
 	diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
 	chrootDirName string, installOS installOSFunc,
 ) (map[string]string, error) {
-
 	// Convert config to image config types, so that the imager's utils can be used.
 	imagerDiskConfig, err := diskConfigToImager(diskConfig, fileSystems)
 	if err != nil {
@@ -124,7 +129,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConn
 	}
 
 	// Move the fstab file into the image.
-	imageFstabFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
+	imageFstabFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 
 	err = file.Move(tmpFstabFile, imageFstabFilePath)
 	if err != nil {
@@ -152,17 +157,27 @@ func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType i
 	if err != nil {
 		return err
 	}
-
-	grubMkconfigEnabled, err := isGrubMkconfigEnabled(imageConnection.Chroot())
-	if err != nil {
-		return err
-	}
+	/*
+		grubMkconfigEnabled, err := isGrubMkconfigEnabled(imageConnection.Chroot())
+		if err != nil {
+			return err
+		}
+	*/
 
 	mountPointMap := make(map[string]string)
 	for _, mountPoint := range imageConnection.Chroot().GetMountPoints() {
 		mountPointMap[mountPoint.GetTarget()] = mountPoint.GetSource()
 	}
 
+	// Append /:/dev/loop12p2 /boot/efi:/dev/loop12p1 to the mount point map.
+	// This is a workaround for the issue where the mount point is not set correctly in the image.
+	diskdevPath := imageConnection.Loopback().DevicePath()
+
+	mountPointMap["/boot/efi"] = diskdevPath + "p1"
+	mountPointMap["/"] = diskdevPath + "p2"
+
+	fmt.Println("Mount point map: new %v\n", mountPointMap)
+	grubMkconfigEnabled := true
 	// Configure the boot loader.
 	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(imagerBootType, false, imagerRootMountIdType,
 		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(),
@@ -251,10 +266,13 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
 
+	// print mount points
+	for _, mountPoint := range mountPoints {
+		fmt.Printf("Mount point: %s, Source: %s\n", mountPoint.GetTarget(), mountPoint.GetSource())
+	}
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
-
-	err = imageConnection.ConnectChroot(imageChrootDir, false, nil, mountPoints, false)
+	err = imageConnection.ConnectChroot(imageChrootDir, false, nil, mountPoints, true, "")
 	if err != nil {
 		return nil, "", err
 	}
