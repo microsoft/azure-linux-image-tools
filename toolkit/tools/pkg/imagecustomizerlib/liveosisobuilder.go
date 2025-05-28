@@ -19,7 +19,7 @@ const (
 	defaultIsoImageName = "image.iso"
 )
 
-type liveosConfig struct {
+type LiveOSConfig struct {
 	isPxe             bool
 	kernelCommandLine imagecustomizerapi.KernelCommandLine
 	additionalFiles   imagecustomizerapi.AdditionalFileList
@@ -29,7 +29,7 @@ type liveosConfig struct {
 }
 
 func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe) (
-	config liveosConfig, err error) {
+	config LiveOSConfig, err error) {
 
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
@@ -75,15 +75,47 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 	return nil
 }
 
-func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+func createLiveOSFromRaw(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
 	outputPath string,
 ) (err error) {
+	logger.Log.Infof("Creating Live OS artifacts using customized full OS image")
+
 	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
 	if err != nil {
-		return fmt.Errorf("failed to build live OS configuration from intpu configuration:\n%w", err)
+		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
+	err = createLiveOSFromRawHelper(buildDir, baseConfigPath, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
+	}
+
+	return nil
+}
+
+func repackageLiveOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe,
+	inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, outputPath string,
+) error {
+	logger.Log.Infof("Creating Live OS artifacts using input ISO image")
+
+	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
+	}
+
+	err = repackageLiveOSHelper(isoBuildDir, baseConfigPath, liveosConfig, inputArtifactsStore, outputFormat, outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
+	}
+
+	return nil
+}
+
+func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
+	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
+	outputPath string,
+) (err error) {
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	defer func() {
 		cleanupErr := os.RemoveAll(isoBuildDir)
@@ -175,7 +207,7 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 		artifactsStore.files.initrdImagePath = outputInitrdPath
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		// Generate the initrd image
-		err = createMinimalInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
+		err = createBootstrapInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}
@@ -210,16 +242,9 @@ func createLiveOSIsoImage(buildDir, baseConfigPath string, inputArtifactsStore *
 	return nil
 }
 
-func createImageFromUnchangedOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso,
-	pxeConfig *imagecustomizerapi.Pxe, inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, outputPath string,
+func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConfig LiveOSConfig, inputArtifactsStore *IsoArtifactsStore,
+	outputFormat imagecustomizerapi.ImageFormatType, outputPath string,
 ) error {
-	logger.Log.Infof("Creating Live OS artifacts using unchanged OS partitions")
-
-	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
-	if err != nil {
-		return fmt.Errorf("failed to build live OS configuration from intpu configuration:\n%w", err)
-	}
-
 	// Note that in this ISO build flow, there is no os configuration, and hence
 	// no selinux configuration. So, we will set it to default (i.e. unspecified)
 	// and let any saved data override if present.

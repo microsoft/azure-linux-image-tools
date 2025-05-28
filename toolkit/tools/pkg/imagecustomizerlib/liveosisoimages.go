@@ -93,7 +93,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 	return nil
 }
 
-func createMinimalInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
+func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
 	logger.Log.Infof("Generating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
