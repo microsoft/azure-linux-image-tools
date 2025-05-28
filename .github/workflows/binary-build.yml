@@ -15,6 +15,9 @@ on:
       arch:
         required: true
         type: string
+    outputs:
+      isLatestRelease:
+        value: ${{ jobs.build.outputs.isLatestRelease }}
 
 env:
   EXPECTED_GO_VERSION: "1.24.1"
@@ -25,6 +28,8 @@ jobs:
     runs-on: ${{ inputs.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     permissions:
       contents: read
+    outputs:
+      isLatestRelease: ${{ steps.build.outputs.isLatestRelease }}
     steps:
     - name: checkout
       uses: actions/checkout@v4
@@ -101,17 +106,22 @@ jobs:
         fi
 
     - name: Build binary
+      id: build
       run: |
         set -x
+
+        IS_LATEST_RELEASE=false
 
         # Create version suffix.
         case "${{ inputs.publishType }}" in
           "official")
             PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW="
+            IS_LATEST_RELEASE="true"
             ;;
           "patch")
             PATCH_VERSION="$(python3 ./repo/.github/workflows/scripts/next_patch_version.py)"
             PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW= IMAGE_CUSTOMIZER_VERSION=$PATCH_VERSION"
+            IS_LATEST_RELEASE="$(python3 ./repo/.github/workflows/scripts/is_latest_release.py "v${PATCH_VERSION}")"
             ;;
           "preview")
             PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-preview.${{github.run_id}}"
@@ -123,6 +133,8 @@ jobs:
             PRERELEASE_PARAM="IMAGE_CUSTOMIZER_VERSION_PREVIEW=-dev.${{github.run_id}}"
             ;;
         esac
+
+        echo "isLatestRelease=$IS_LATEST_RELEASE" >> "$GITHUB_OUTPUT"
 
         pushd repo/toolkit
 

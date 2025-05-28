@@ -30,6 +30,8 @@ jobs:
 
   publish-release:
     uses: ./.github/workflows/publish-release.yml
+    with:
+      isLatestRelease: true
     needs:
     - build
 

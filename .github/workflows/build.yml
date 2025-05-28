@@ -12,6 +12,9 @@ on:
       publishType:
         required: true
         type: string
+    outputs:
+      isLatestRelease:
+        value: ${{ jobs.binary-build-amd64.outputs.isLatestRelease }}
 
 jobs:
   binary-build-amd64:
