@@ -35,7 +35,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, imageType ba
 	// This tests enabling SELinux on a non-SELinux image.
 	configFile := filepath.Join(testDir, "selinux-force-enforcing.yaml")
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -64,7 +64,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, imageType ba
 	// This tests disabling (but not removing) SELinux on an SELinux enabled image.
 	configFile = filepath.Join(testDir, "selinux-disabled.yaml")
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -93,7 +93,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, imageType ba
 	// This tests enabling SELinux on an image with SELinux installed but disabled.
 	configFile = filepath.Join(testDir, "selinux-permissive.yaml")
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -132,7 +132,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	// This tests enabling SELinux on a non-SELinux image.
 	configFile := filepath.Join(testDir, "partitions-selinux-enforcing.yaml")
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -181,7 +181,7 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/)
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "SELinux is enabled but the (/etc/selinux/config) file is missing")
 	assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
 	assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")

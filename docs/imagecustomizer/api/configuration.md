@@ -33,7 +33,7 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
    3. Install packages ([installLists](./configuration/packages.md#installlists-string),
    [install](./configuration/packages.md#install-string))
 
-   4. Update packages ([updateLists](./configuration/packages.md#removelists-string),
+   4. Update packages ([updateLists](./configuration/packages.md#updatelists-string),
    [update](./configuration/packages.md#update-string))
 
 4. Update hostname. ([hostname](./configuration/os.md#hostname-string))
@@ -183,6 +183,7 @@ os:
       - [remove](./configuration/packages.md#remove-string)
       - [updateLists](./configuration/packages.md#updatelists-string)
       - [update](./configuration/packages.md#update-string)
+      - [snapshotTime](./configuration/packages.md#snapshottime-string)
     - [additionalFiles](./configuration/os.md#additionalfiles-additionalfile) ([additionalFile type](./configuration/additionalfile.md))
       - [source](./configuration/additionalfile.md#source-string)
       - [content](./configuration/additionalfile.md#content-string)

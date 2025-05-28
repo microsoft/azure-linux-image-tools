@@ -19,11 +19,14 @@ const (
 
 	// PreviewFeatureReinitializeVerity will reinitialize verity on verity partitions in the base image.
 	PreviewFeatureReinitializeVerity = "reinitialize-verity"
+
+	// PreviewFeatureSnapshotTime enables support for snapshot-based package filtering.
+	PreviewFeaturePackageSnapshotTime PreviewFeature = "package-snapshot-time"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
-	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles:
+	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

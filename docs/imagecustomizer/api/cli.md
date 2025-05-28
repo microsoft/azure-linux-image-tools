@@ -172,3 +172,19 @@ Added in v0.3.
 Injects files into a disk image using an injection configuration.
 
 See [inject-files subcommand](./cli/inject-files.md) for full documentation.
+
+## --package-snapshot-time
+
+Limits package selection to those published before the specified timestamp.
+
+This flag enables snapshot-based package filtering during installation or update,
+ensuring only packages available at that point in time are considered.
+
+Supports:
+- A date in `YYYY-MM-DD` format (interpreted as UTC midnight)
+- A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
+
+You may enable this feature by adding `package-snapshot-time` to the [previewfeatures]
+(./configuration/config.md#previewfeatures-string) API.
+
+Added in v0.15.
