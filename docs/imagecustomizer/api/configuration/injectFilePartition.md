@@ -4,10 +4,17 @@ parent: Configuration
 
 # InjectFilePartition type
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `inject-files` in the
+[previewFeatures](./injectFilesConfig.md#previewfeatures-string) API.
+
 Defines how to locate the target partition where an artifact should be injected.
 
 This object is used as the `partition` field in each entry of the
 [`InjectArtifactMetadata`](./injectArtifactMetadata.md) list.
+
+Added in v0.14.
 
 ## Example
 
@@ -31,10 +38,12 @@ Accepted values:
 
 For most use cases, `part-uuid` is recommended.
 
+Added in v0.14.
+
 ## `id` [string]
 
 Required.
 
 The identifier value of the partition, interpreted according to `idType`.
 
-Added in v0.14.0
+Added in v0.14.
