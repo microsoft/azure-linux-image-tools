@@ -14,9 +14,9 @@ def main():
     if version is None:
         raise Exception(f"Failed to parse version ({args.version})")
 
-    versions = getVersionTags(merged=False)
+    publishedVersions = getVersionTags(merged=False)
 
-    isLatestVersion = all(version >= other for other in versions)
+    isLatestVersion = all(version >= publishedVersion for publishedVersion in publishedVersions)
 
     if isLatestVersion:
         print("true")
