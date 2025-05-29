@@ -31,24 +31,11 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFileName := "image.iso"
 	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
-	pxeArtifactsPathVhdxToIso := ""
-	pxeArtifactsPathIsoToIso := ""
-	if baseImageVersionDefault != baseImageVersionAzl2 {
-		pxeArtifactsPathVhdxToIso = filepath.Join(testTempDir, "pxe-artifacts-vhdx-to-iso")
-		pxeArtifactsPathIsoToIso = filepath.Join(testTempDir, "pxe-artifacts-iso-to-iso")
-	}
-	pxeKernelIpArg := "linux.* ip=dhcp "
-	pxeImageFileUrlV1, err := url.JoinPath("http://my-pxe-server-1/", outImageFileName)
-	assert.NoError(t, err)
 
-	pxeKernelRootArgV1 := "linux.* root=live:" + pxeImageFileUrlV1
-	pxeKernelRootArgV1 = strings.ReplaceAll(pxeKernelRootArgV1, "/", "\\/")
-	pxeKernelRootArgV1 = strings.ReplaceAll(pxeKernelRootArgV1, ":", "\\:")
-	configFile := filepath.Join(testDir, "iso-bootstrapped.yaml")
+	configFile := filepath.Join(testDir, "liveos-bootstrapped-os-changes.yaml")
 
 	// Customize vhdx to ISO, with OS changes.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Attach ISO.
@@ -85,8 +72,12 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	expectedKernelArgs := []string{"rd.info"}
 	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, isoMountDir, pxeKernelIpArg, pxeKernelRootArgV1,
-		pxeArtifactsPathVhdxToIso)
+	pxeArtifactsPathVhdxToIso := ""
+	if baseImageVersionDefault != baseImageVersionAzl2 {
+		pxeArtifactsPathVhdxToIso = filepath.Join(testTempDir, "pxe-artifacts-vhdx-to-iso")
+	}
+
+	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, outImageFileName, isoMountDir, "http://my-pxe-server-1/", pxeArtifactsPathVhdxToIso)
 
 	err = isoImageMount.CleanClose()
 	if !assert.NoError(t, err) {
@@ -99,37 +90,9 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	}
 
 	// Customize ISO to ISO, with no OS changes.
-	pxeImageFileUrlV2, err := url.JoinPath("http://my-pxe-server-2/", outImageFileName)
-	assert.NoError(t, err)
+	configFile = filepath.Join(testDir, "liveos-bootstrapped-no-os-changes.yaml")
 
-	pxeKernelRootArgV2 := "linux.* root=live:" + pxeImageFileUrlV2
-	pxeKernelRootArgV2 = strings.ReplaceAll(pxeKernelRootArgV2, "/", "\\/")
-	pxeKernelRootArgV2 = strings.ReplaceAll(pxeKernelRootArgV2, ":", "\\:")
-
-	b2FilePerms := imagecustomizerapi.FilePermissions(0o600)
-	config := imagecustomizerapi.Config{
-		Pxe: &imagecustomizerapi.Pxe{
-			BootstrapFileUrl: pxeImageFileUrlV2,
-		},
-		Iso: &imagecustomizerapi.Iso{
-			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
-				ExtraCommandLine: []string{"rd.debug"},
-			},
-			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
-				{
-					Source:      "files/b.txt",
-					Destination: "/b1.txt",
-				},
-				{
-					Source:      "files/b.txt",
-					Destination: "/b2.txt",
-					Permissions: &b2FilePerms,
-				},
-			},
-		},
-	}
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "iso",
-		false /*useBaseImageRpmRepos*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
 	// Attach ISO.
@@ -155,7 +118,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	b2IsoPath := filepath.Join(isoMountDir, "b2.txt")
 	verifyFileContentsSame(t, bOrigPath, b1IsoPath)
 	verifyFileContentsSame(t, bOrigPath, b2IsoPath)
-	verifyFilePermissions(t, os.FileMode(b2FilePerms), b2IsoPath)
+	verifyFilePermissions(t, os.FileMode(0600), b2IsoPath)
 
 	// Ensure grub.cfg file has the extra kernel command-line args from both runs.
 	grubCfgContents, err = file.Read(grubCfgFilePath)
@@ -169,15 +132,28 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, isoMountDir, pxeKernelIpArg, pxeKernelRootArgV2,
-		pxeArtifactsPathIsoToIso)
+	pxeArtifactsPathIsoToIso := ""
+	if baseImageVersionDefault != baseImageVersionAzl2 {
+		pxeArtifactsPathIsoToIso = filepath.Join(testTempDir, "pxe-artifacts-iso-to-iso")
+	}
+
+	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, outImageFileName, isoMountDir, "http://my-pxe-server-2/", pxeArtifactsPathIsoToIso)
 }
 
-func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, isoMountDir string, pxeKernelIpArg string,
-	pxeKernelRootArgV2 string, pxeArtifactsPathIsoToIso string) {
+func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
+	pxeBaseUrl string, pxeArtifactsPathIsoToIso string) {
+
+	pxeKernelIpArg := "linux.* ip=dhcp "
+
+	pxeImageFileUrl, err := url.JoinPath(pxeBaseUrl, outImageFileName)
+	assert.NoError(t, err)
+
+	pxeKernelRootArg := "linux.* root=live:" + pxeImageFileUrl
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
 
 	// Check if PXE support is present in the Dracut package version in use.
-	err := verifyDracutPXESupport(packageInfo)
+	err = verifyDracutPXESupport(packageInfo)
 	if err != nil {
 		// If there is no PXE support, return
 		return
@@ -188,7 +164,7 @@ func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, is
 	pxeGrubCfgContents, err := file.Read(pxeGrubCfgFilePath)
 	assert.NoError(t, err, "read grub-pxe.cfg file")
 	assert.Regexp(t, pxeKernelIpArg, pxeGrubCfgContents)
-	assert.Regexp(t, pxeKernelRootArgV2, pxeGrubCfgContents)
+	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
 
 	exportedPxeGrubCfgFilePath := filepath.Join(pxeArtifactsPathIsoToIso, "boot/grub2/grub.cfg")
 	exportedPxeGrubCfgContents, err := file.Read(exportedPxeGrubCfgFilePath)

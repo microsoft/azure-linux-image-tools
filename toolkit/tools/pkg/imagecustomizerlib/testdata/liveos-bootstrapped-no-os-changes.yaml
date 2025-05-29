@@ -1,0 +1,21 @@
+pxe:
+  additionalFiles:
+  - source: files/b.txt
+    destination: /b1.txt
+  - source: files/b.txt
+    destination: /b2.txt
+    permissions: "600"
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.debug
+  bootstrapFileUrl: http://my-pxe-server-2/image.iso
+iso:
+  additionalFiles:
+  - source: files/b.txt
+    destination: /b1.txt
+  - source: files/b.txt
+    destination: /b2.txt
+    permissions: "600"
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.debug

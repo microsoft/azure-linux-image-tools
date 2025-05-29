@@ -1,3 +1,11 @@
+pxe:
+  additionalFiles:
+  - source: files/a.txt
+    destination: /a.txt
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+  bootstrapFileUrl: http://my-pxe-server-1/image.iso
 iso:
   additionalFiles:
   - source: files/a.txt

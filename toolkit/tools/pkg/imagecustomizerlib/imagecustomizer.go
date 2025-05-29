@@ -181,6 +181,10 @@ func createImageCustomizerParameters(buildDir string,
 func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, useBaseImageRpmRepos bool,
 ) error {
+	logger.Log.Infof("-- Config File       : %s", configFile)
+	logger.Log.Infof("-- Input Image File  : %s", inputImageFile)
+	logger.Log.Infof("-- Output Image File : %s", outputImageFile)
+	logger.Log.Infof("-- Output Format     : %s", outputImageFormat)
 	var err error
 
 	var config imagecustomizerapi.Config
