@@ -20,7 +20,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func ValidateLiveOSPhase1(t *testing.T, testTempDir, artifactsPath, pxeUrlBase, outImageFilePath string) {
+func ValidateLiveOSPhase1(t *testing.T, testTempDir, outputFormat, artifactsPath, pxeUrlBase, outImageFilePath string) {
 	// Check for the copied a.txt file.
 	aOrigPath := filepath.Join(testDir, "files/a.txt")
 	aIsoPath := filepath.Join(artifactsPath, "a.txt")
@@ -40,7 +40,9 @@ func ValidateLiveOSPhase1(t *testing.T, testTempDir, artifactsPath, pxeUrlBase, 
 	expectedKernelArgs := []string{"rd.info"}
 	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, pxeUrlBase)
+	if outputFormat == "pxe" {
+		VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, pxeUrlBase)
+	}
 }
 
 func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
@@ -59,10 +61,10 @@ func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSPhase1(t, testTempDir, isoMountDir, pxeUrlBase, outImageFilePath)
+	ValidateLiveOSPhase1(t, testTempDir, "iso", isoMountDir, pxeUrlBase, outImageFilePath)
 }
 
-func ValidateLiveOSPhase2(t *testing.T, testTempDir, artifactsPath, pxeUrlBase, outImageFilePath string) {
+func ValidateLiveOSPhase2(t *testing.T, testTempDir, outputFormat, artifactsPath, pxeUrlBase, outImageFilePath string) {
 	// Check that the a.txt stayed around.
 	aOrigPath := filepath.Join(testDir, "files/a.txt")
 	aIsoPath := filepath.Join(artifactsPath, "a.txt")
@@ -92,7 +94,9 @@ func ValidateLiveOSPhase2(t *testing.T, testTempDir, artifactsPath, pxeUrlBase, 
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, "http://my-pxe-server-2/")
+	if outputFormat == "pxe" {
+		VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, "http://my-pxe-server-2/")
+	}
 }
 
 func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
@@ -111,9 +115,8 @@ func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSPhase2(t, testTempDir, isoMountDir, pxeUrlBase, outImageFilePath)
+	ValidateLiveOSPhase2(t, testTempDir, "iso", isoMountDir, pxeUrlBase, outImageFilePath)
 }
-
 
 // Tests:
 // - vhdx to ISO, with OS changes, and PXE image base URL.
