@@ -137,11 +137,10 @@ func updateGrubCfgForPxe(initramfsImageType imagecustomizerapi.InitramfsImageTyp
 		if err != nil {
 			return "", fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
 		}
-	}
-
-	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs)
-	if err != nil {
-		return "", fmt.Errorf("failed to append the kernel arguments (%s) in the PXE grub.cfg:\n%w", pxeKernelsArgs, err)
+		inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, pxeKernelsArgs)
+		if err != nil {
+			return "", fmt.Errorf("failed to append the kernel arguments (%s) in the PXE grub.cfg:\n%w", pxeKernelsArgs, err)
+		}
 	}
 
 	return inputContentString, nil
