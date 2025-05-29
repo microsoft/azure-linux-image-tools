@@ -13,31 +13,14 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
 
-// Tests:
-// - vhdx to ISO, with OS changes, and PXE image base URL.
-// - ISO to ISO, with no OS changes.
-// - .iso.Kernel command-line arg append.
-// - .iso.additionalFiles
-func TestCustomizeImageLiveCd1(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
-
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCd1")
-	buildDir := filepath.Join(testTempDir, "build")
-	outImageFileName := "image.iso"
-	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
-
-	configFile := filepath.Join(testDir, "liveos-bootstrapped-os-changes.yaml")
-
-	// Customize vhdx to ISO, with OS changes.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
-	assert.NoError(t, err)
-
+func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
 	// Attach ISO.
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
@@ -77,7 +60,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 		pxeArtifactsPathVhdxToIso = filepath.Join(testTempDir, "pxe-artifacts-vhdx-to-iso")
 	}
 
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, outImageFileName, isoMountDir, "http://my-pxe-server-1/", pxeArtifactsPathVhdxToIso)
+	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), isoMountDir, pxeUrlBase, pxeArtifactsPathVhdxToIso)
 
 	err = isoImageMount.CleanClose()
 	if !assert.NoError(t, err) {
@@ -88,21 +71,19 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+}
 
-	// Customize ISO to ISO, with no OS changes.
-	configFile = filepath.Join(testDir, "liveos-bootstrapped-no-os-changes.yaml")
-
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/)
-	assert.NoError(t, err)
-
+func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
 	// Attach ISO.
-	isoImageLoopDevice, err = safeloopback.NewLoopback(outImageFilePath)
+	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer isoImageLoopDevice.Close()
 
-	isoImageMount, err = safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
+	isoMountDir := filepath.Join(testTempDir, "iso-mount")
+
+	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
 		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
 	if !assert.NoError(t, err) {
 		return
@@ -110,6 +91,8 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	defer isoImageMount.Close()
 
 	// Check that the a.txt stayed around.
+	aOrigPath := filepath.Join(testDir, "files/a.txt")
+	aIsoPath := filepath.Join(isoMountDir, "a.txt")
 	verifyFileContentsSame(t, aOrigPath, aIsoPath)
 
 	// Check for copied b.txt file.
@@ -121,13 +104,17 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	verifyFilePermissions(t, os.FileMode(0600), b2IsoPath)
 
 	// Ensure grub.cfg file has the extra kernel command-line args from both runs.
+	grubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+
 	grubCfgContents, err = file.Read(grubCfgFilePath)
 	assert.NoError(t, err, "read grub.cfg file")
 	assert.Regexp(t, "linux.* rd.info ", grubCfgContents)
 	assert.Regexp(t, "linux.* rd.debug ", grubCfgContents)
 
 	// Check the iso-kernel-args.txt file.
-	savedConfigs = &SavedConfigs{}
+	savedConfigsFilePath := filepath.Join(isoMountDir, savedConfigsDir, savedConfigsFileName)
+	savedConfigs := &SavedConfigs{}
 	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
@@ -137,7 +124,38 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 		pxeArtifactsPathIsoToIso = filepath.Join(testTempDir, "pxe-artifacts-iso-to-iso")
 	}
 
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, outImageFileName, isoMountDir, "http://my-pxe-server-2/", pxeArtifactsPathIsoToIso)
+	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), isoMountDir, "http://my-pxe-server-2/", pxeArtifactsPathIsoToIso)
+}
+
+
+// Tests:
+// - vhdx to ISO, with OS changes, and PXE image base URL.
+// - ISO to ISO, with no OS changes.
+// - .iso.Kernel command-line arg append.
+// - .iso.additionalFiles
+func TestCustomizeImageLiveCd1(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCd1")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFileName := "image.iso"
+	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
+
+	configFile := filepath.Join(testDir, "liveos-bootstrapped-os-changes.yaml")
+
+	// Customize vhdx to ISO, with OS changes.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	assert.NoError(t, err)
+
+	ValidateIsoPhase1(t, testTempDir, "http://my-pxe-server-1/", outImageFilePath)
+
+	// Customize ISO to ISO, with no OS changes.
+	configFile = filepath.Join(testDir, "liveos-bootstrapped-no-os-changes.yaml")
+
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/)
+	assert.NoError(t, err)
+
+	ValidateIsoPhase2(t, testTempDir, "http://my-pxe-server-2/", outImageFilePath)
 }
 
 func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
@@ -155,7 +173,8 @@ func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, ou
 	// Check if PXE support is present in the Dracut package version in use.
 	err = verifyDracutPXESupport(packageInfo)
 	if err != nil {
-		// If there is no PXE support, return
+		// If there is not PXE support, return
+		logger.Log.Infof("PXE is not supported for this Dracut version - skipping validation")
 		return
 	}
 
