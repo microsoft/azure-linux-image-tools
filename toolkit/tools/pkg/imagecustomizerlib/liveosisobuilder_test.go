@@ -20,6 +20,29 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+func ValidateLiveOSPhase1(t *testing.T, testTempDir, artifactsPath, pxeUrlBase, outImageFilePath string) {
+	// Check for the copied a.txt file.
+	aOrigPath := filepath.Join(testDir, "files/a.txt")
+	aIsoPath := filepath.Join(artifactsPath, "a.txt")
+	verifyFileContentsSame(t, aOrigPath, aIsoPath)
+
+	// Ensure grub.cfg file has the extra kernel command-line args.
+	grubCfgFilePath := filepath.Join(artifactsPath, "/boot/grub2/grub.cfg")
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+	assert.NoError(t, err, "read grub.cfg file")
+	assert.Regexp(t, "linux.* rd.info ", grubCfgContents)
+
+	// Check the saved-configs.yaml file.
+	savedConfigsFilePath := filepath.Join(artifactsPath, savedConfigsDir, savedConfigsFileName)
+	savedConfigs := &SavedConfigs{}
+	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
+	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
+	expectedKernelArgs := []string{"rd.info"}
+	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
+
+	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, pxeUrlBase)
+}
+
 func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
 	// Attach ISO.
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
@@ -36,41 +59,40 @@ func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	}
 	defer isoImageMount.Close()
 
-	// Check for the copied a.txt file.
+	ValidateLiveOSPhase1(t, testTempDir, isoMountDir, pxeUrlBase, outImageFilePath)
+}
+
+func ValidateLiveOSPhase2(t *testing.T, testTempDir, artifactsPath, pxeUrlBase, outImageFilePath string) {
+	// Check that the a.txt stayed around.
 	aOrigPath := filepath.Join(testDir, "files/a.txt")
-	aIsoPath := filepath.Join(isoMountDir, "a.txt")
+	aIsoPath := filepath.Join(artifactsPath, "a.txt")
 	verifyFileContentsSame(t, aOrigPath, aIsoPath)
 
-	// Ensure grub.cfg file has the extra kernel command-line args.
-	grubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
+	// Check for copied b.txt file.
+	bOrigPath := filepath.Join(testDir, "files/b.txt")
+	b1IsoPath := filepath.Join(artifactsPath, "b1.txt")
+	b2IsoPath := filepath.Join(artifactsPath, "b2.txt")
+	verifyFileContentsSame(t, bOrigPath, b1IsoPath)
+	verifyFileContentsSame(t, bOrigPath, b2IsoPath)
+	verifyFilePermissions(t, os.FileMode(0600), b2IsoPath)
+
+	// Ensure grub.cfg file has the extra kernel command-line args from both runs.
+	grubCfgFilePath := filepath.Join(artifactsPath, "/boot/grub2/grub.cfg")
 	grubCfgContents, err := file.Read(grubCfgFilePath)
+
+	grubCfgContents, err = file.Read(grubCfgFilePath)
 	assert.NoError(t, err, "read grub.cfg file")
 	assert.Regexp(t, "linux.* rd.info ", grubCfgContents)
+	assert.Regexp(t, "linux.* rd.debug ", grubCfgContents)
 
-	// Check the saved-configs.yaml file.
-	savedConfigsFilePath := filepath.Join(isoMountDir, savedConfigsDir, savedConfigsFileName)
+	// Check the iso-kernel-args.txt file.
+	savedConfigsFilePath := filepath.Join(artifactsPath, savedConfigsDir, savedConfigsFileName)
 	savedConfigs := &SavedConfigs{}
 	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
-	expectedKernelArgs := []string{"rd.info"}
-	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
+	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
-	pxeArtifactsPathVhdxToIso := ""
-	if baseImageVersionDefault != baseImageVersionAzl2 {
-		pxeArtifactsPathVhdxToIso = filepath.Join(testTempDir, "pxe-artifacts-vhdx-to-iso")
-	}
-
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), isoMountDir, pxeUrlBase, pxeArtifactsPathVhdxToIso)
-
-	err = isoImageMount.CleanClose()
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	err = isoImageLoopDevice.CleanClose()
-	if !assert.NoError(t, err) {
-		return
-	}
+	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, "http://my-pxe-server-2/")
 }
 
 func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
@@ -82,7 +104,6 @@ func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	defer isoImageLoopDevice.Close()
 
 	isoMountDir := filepath.Join(testTempDir, "iso-mount")
-
 	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
 		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
 	if !assert.NoError(t, err) {
@@ -90,41 +111,7 @@ func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	}
 	defer isoImageMount.Close()
 
-	// Check that the a.txt stayed around.
-	aOrigPath := filepath.Join(testDir, "files/a.txt")
-	aIsoPath := filepath.Join(isoMountDir, "a.txt")
-	verifyFileContentsSame(t, aOrigPath, aIsoPath)
-
-	// Check for copied b.txt file.
-	bOrigPath := filepath.Join(testDir, "files/b.txt")
-	b1IsoPath := filepath.Join(isoMountDir, "b1.txt")
-	b2IsoPath := filepath.Join(isoMountDir, "b2.txt")
-	verifyFileContentsSame(t, bOrigPath, b1IsoPath)
-	verifyFileContentsSame(t, bOrigPath, b2IsoPath)
-	verifyFilePermissions(t, os.FileMode(0600), b2IsoPath)
-
-	// Ensure grub.cfg file has the extra kernel command-line args from both runs.
-	grubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-
-	grubCfgContents, err = file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, "linux.* rd.info ", grubCfgContents)
-	assert.Regexp(t, "linux.* rd.debug ", grubCfgContents)
-
-	// Check the iso-kernel-args.txt file.
-	savedConfigsFilePath := filepath.Join(isoMountDir, savedConfigsDir, savedConfigsFileName)
-	savedConfigs := &SavedConfigs{}
-	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
-	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
-	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
-
-	pxeArtifactsPathIsoToIso := ""
-	if baseImageVersionDefault != baseImageVersionAzl2 {
-		pxeArtifactsPathIsoToIso = filepath.Join(testTempDir, "pxe-artifacts-iso-to-iso")
-	}
-
-	VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), isoMountDir, "http://my-pxe-server-2/", pxeArtifactsPathIsoToIso)
+	ValidateLiveOSPhase2(t, testTempDir, isoMountDir, pxeUrlBase, outImageFilePath)
 }
 
 
@@ -159,7 +146,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 }
 
 func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
-	pxeBaseUrl string, pxeArtifactsPathIsoToIso string) {
+	pxeBaseUrl string) {
 
 	pxeKernelIpArg := "linux.* ip=dhcp "
 
@@ -179,16 +166,11 @@ func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, ou
 	}
 
 	// Ensure grub-pxe.cfg file exists and has the pxe-specific command-line args.
-	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub-pxe.cfg")
+	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
 	pxeGrubCfgContents, err := file.Read(pxeGrubCfgFilePath)
-	assert.NoError(t, err, "read grub-pxe.cfg file")
+	assert.NoError(t, err, "read grub.cfg file")
 	assert.Regexp(t, pxeKernelIpArg, pxeGrubCfgContents)
 	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
-
-	exportedPxeGrubCfgFilePath := filepath.Join(pxeArtifactsPathIsoToIso, "boot/grub2/grub.cfg")
-	exportedPxeGrubCfgContents, err := file.Read(exportedPxeGrubCfgFilePath)
-	assert.NoError(t, err, "read pxe grub.cfg file")
-	assert.Equal(t, pxeGrubCfgContents, exportedPxeGrubCfgContents)
 }
 
 // Tests:
