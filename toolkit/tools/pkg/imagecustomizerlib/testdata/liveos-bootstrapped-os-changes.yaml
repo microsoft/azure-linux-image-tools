@@ -5,6 +5,7 @@ pxe:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
+  initramfsType: bootstrap
   bootstrapFileUrl: http://my-pxe-server-1/image.iso
 iso:
   additionalFiles:

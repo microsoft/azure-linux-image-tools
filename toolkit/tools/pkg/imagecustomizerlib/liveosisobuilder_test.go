@@ -45,7 +45,7 @@ func ValidateLiveOSPhase1(t *testing.T, testTempDir, outputFormat, artifactsPath
 	}
 }
 
-func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
+func ValidateIsoPhase1(t *testing.T, testTempDir, outImageFilePath string) {
 	// Attach ISO.
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
@@ -61,7 +61,33 @@ func ValidateIsoPhase1(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSPhase1(t, testTempDir, "iso", isoMountDir, pxeUrlBase, outImageFilePath)
+	ValidateLiveOSPhase1(t, testTempDir, "iso" /*outputFormat*/, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+}
+
+func ValidatePxePhase1(t *testing.T, testTempDir, outImageFilePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
+
+	pxeArtifactsPath := ""
+	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
+		pxeArtifactsPath = filepath.Join(testTempDir, "pxe-artifacts")
+		logger.Log.Infof("-- debug -- unpacking (%s) to (%s)", outImageFilePath, pxeArtifactsPath)
+		err := expandTarGzArchive(outImageFilePath, pxeArtifactsPath)
+		if !assert.NoError(t, err) {
+			return
+		}
+	} else {
+		pxeArtifactsPath = outImageFilePath
+	}
+	logger.Log.Infof("-- debug -- pxe folder (%s)", pxeArtifactsPath)
+
+	boostrapBaseUrl := ""
+	boostrappedImage := ""
+	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		logger.Log.Infof("-- debug -- pxe bootstrap config")
+		boostrapBaseUrl = "http://my-pxe-server-1"
+		boostrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
+	}
+
+	ValidateLiveOSPhase1(t, testTempDir, "pxe" /*outputFormat*/, pxeArtifactsPath, boostrapBaseUrl, boostrappedImage)
 }
 
 func ValidateLiveOSPhase2(t *testing.T, testTempDir, outputFormat, artifactsPath, pxeUrlBase, outImageFilePath string) {
@@ -99,7 +125,7 @@ func ValidateLiveOSPhase2(t *testing.T, testTempDir, outputFormat, artifactsPath
 	}
 }
 
-func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath string) {
+func ValidateIsoPhase2(t *testing.T, testTempDir, outImageFilePath string) {
 	// Attach ISO.
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
@@ -115,11 +141,41 @@ func ValidateIsoPhase2(t *testing.T, testTempDir, pxeUrlBase, outImageFilePath s
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSPhase2(t, testTempDir, "iso", isoMountDir, pxeUrlBase, outImageFilePath)
+	ValidateLiveOSPhase2(t, testTempDir, "iso" /*outputFormat*/, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+}
+
+func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
+	pxeBaseUrl string) {
+
+	pxeKernelIpArg := "linux.* ip=dhcp "
+
+	pxeImageFileUrl, err := url.JoinPath(pxeBaseUrl, outImageFileName)
+	assert.NoError(t, err)
+
+	pxeKernelRootArg := "linux.* root=live:" + pxeImageFileUrl
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
+	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
+
+	logger.Log.Infof("-- debug -- looking for (%s)", pxeKernelRootArg)
+
+	// Check if PXE support is present in the Dracut package version in use.
+	err = verifyDracutPXESupport(packageInfo)
+	if err != nil {
+		// If there is not PXE support, return
+		logger.Log.Infof("PXE is not supported for this Dracut version - skipping validation")
+		return
+	}
+
+	// Ensure grub-pxe.cfg file exists and has the pxe-specific command-line args.
+	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
+	pxeGrubCfgContents, err := file.Read(pxeGrubCfgFilePath)
+	assert.NoError(t, err, "read grub.cfg file")
+	assert.Regexp(t, pxeKernelIpArg, pxeGrubCfgContents)
+	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
 }
 
 // Tests:
-// - vhdx to ISO, with OS changes, and PXE image base URL.
+// - vhdx to ISO, with OS changes
 // - ISO to ISO, with no OS changes.
 // - .iso.Kernel command-line arg append.
 // - .iso.additionalFiles
@@ -137,7 +193,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
-	ValidateIsoPhase1(t, testTempDir, "http://my-pxe-server-1/", outImageFilePath)
+	ValidateIsoPhase1(t, testTempDir, outImageFilePath)
 
 	// Customize ISO to ISO, with no OS changes.
 	configFile = filepath.Join(testDir, "liveos-bootstrapped-no-os-changes.yaml")
@@ -145,35 +201,28 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
-	ValidateIsoPhase2(t, testTempDir, "http://my-pxe-server-2/", outImageFilePath)
+	ValidateIsoPhase2(t, testTempDir, outImageFilePath)
 }
 
-func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
-	pxeBaseUrl string) {
+// Tests:
+// - vhdx to PXE, with OS changes, and PXE image base URL.
+// - .iso.Kernel command-line arg append.
+// - .iso.additionalFiles
+func TestCustomizeImagePxe1(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
-	pxeKernelIpArg := "linux.* ip=dhcp "
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImagePxe1")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFileName := "pxe-artifacts.tar.gz"
+	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
 
-	pxeImageFileUrl, err := url.JoinPath(pxeBaseUrl, outImageFileName)
+	configFile := filepath.Join(testDir, "liveos-bootstrapped-os-changes.yaml")
+
+	// Customize vhdx to ISO, with OS changes.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/)
 	assert.NoError(t, err)
 
-	pxeKernelRootArg := "linux.* root=live:" + pxeImageFileUrl
-	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
-	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
-
-	// Check if PXE support is present in the Dracut package version in use.
-	err = verifyDracutPXESupport(packageInfo)
-	if err != nil {
-		// If there is not PXE support, return
-		logger.Log.Infof("PXE is not supported for this Dracut version - skipping validation")
-		return
-	}
-
-	// Ensure grub-pxe.cfg file exists and has the pxe-specific command-line args.
-	pxeGrubCfgFilePath := filepath.Join(isoMountDir, "/boot/grub2/grub.cfg")
-	pxeGrubCfgContents, err := file.Read(pxeGrubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, pxeKernelIpArg, pxeGrubCfgContents)
-	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
+	ValidatePxePhase1(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeBootstrap)
 }
 
 // Tests:

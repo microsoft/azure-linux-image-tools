@@ -597,3 +597,67 @@ func createTarGzArchive(sourceDir, outputArchivePath string) error {
 
 	return nil
 }
+
+func expandTarGzArchive(sourceArchivePath, outputDir string) error {
+	// Open the tar.gz file
+	f, err := os.Open(sourceArchivePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	// Set up gzip reader
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	// Set up tar reader
+	tr := tar.NewReader(gzr)
+
+	// Extract each file
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break // end of archive
+		}
+		if err != nil {
+			return fmt.Errorf("error reading tar: %w", err)
+		}
+
+		target := filepath.Join(outputDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			// Ensure parent directory exists
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			outFile, err := os.Create(target)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
+				return err
+			}
+			outFile.Close()
+			// Set file permissions
+			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
+				return err
+			}
+		case tar.TypeSymlink:
+			if err := os.Symlink(header.Linkname, target); err != nil {
+				return err
+			}
+		default:
+			fmt.Printf("Skipping unsupported file type: %v\n", header.Typeflag)
+		}
+	}
+	return nil
+}
