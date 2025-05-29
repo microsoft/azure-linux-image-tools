@@ -20,7 +20,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func ValidateLiveOSPhase1(t *testing.T, testTempDir, outputFormat, artifactsPath, pxeUrlBase, outImageFilePath string) {
+func ValidateLiveOSPhase1(t *testing.T, testTempDir, outputFormat string, initramfsType imagecustomizerapi.InitramfsImageType,
+	artifactsPath, pxeUrlBase, outImageFilePath string) {
 	// Check for the copied a.txt file.
 	aOrigPath := filepath.Join(testDir, "files/a.txt")
 	aIsoPath := filepath.Join(artifactsPath, "a.txt")
@@ -41,7 +42,9 @@ func ValidateLiveOSPhase1(t *testing.T, testTempDir, outputFormat, artifactsPath
 	assert.Equal(t, expectedKernelArgs, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
 	if outputFormat == "pxe" {
-		VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, pxeUrlBase)
+		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, pxeUrlBase)
+		}
 	}
 }
 
@@ -61,7 +64,8 @@ func ValidateIsoPhase1(t *testing.T, testTempDir, outImageFilePath string) {
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSPhase1(t, testTempDir, "iso" /*outputFormat*/, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+	ValidateLiveOSPhase1(t, testTempDir, "iso" /*outputFormat*/, imagecustomizerapi.InitramfsImageTypeBootstrap,
+		isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
 }
 
 func ValidatePxePhase1(t *testing.T, testTempDir, outImageFilePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
@@ -87,10 +91,11 @@ func ValidatePxePhase1(t *testing.T, testTempDir, outImageFilePath string, initr
 		boostrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
 	}
 
-	ValidateLiveOSPhase1(t, testTempDir, "pxe" /*outputFormat*/, pxeArtifactsPath, boostrapBaseUrl, boostrappedImage)
+	ValidateLiveOSPhase1(t, testTempDir, "pxe" /*outputFormat*/, initramfsType, pxeArtifactsPath, boostrapBaseUrl, boostrappedImage)
 }
 
-func ValidateLiveOSPhase2(t *testing.T, testTempDir, outputFormat, artifactsPath, pxeUrlBase, outImageFilePath string) {
+func ValidateLiveOSPhase2(t *testing.T, testTempDir, outputFormat string, initramfsType imagecustomizerapi.InitramfsImageType,
+	artifactsPath, pxeUrlBase, outImageFilePath string) {
 	// Check that the a.txt stayed around.
 	aOrigPath := filepath.Join(testDir, "files/a.txt")
 	aIsoPath := filepath.Join(artifactsPath, "a.txt")
@@ -121,7 +126,9 @@ func ValidateLiveOSPhase2(t *testing.T, testTempDir, outputFormat, artifactsPath
 	assert.Equal(t, []string{"rd.info", "rd.debug"}, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
 
 	if outputFormat == "pxe" {
-		VerifyPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, "http://my-pxe-server-2/")
+		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, "http://my-pxe-server-2/")
+		}
 	}
 }
 
@@ -141,10 +148,11 @@ func ValidateIsoPhase2(t *testing.T, testTempDir, outImageFilePath string) {
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSPhase2(t, testTempDir, "iso" /*outputFormat*/, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+	ValidateLiveOSPhase2(t, testTempDir, "iso" /*outputFormat*/, imagecustomizerapi.InitramfsImageTypeBootstrap,
+		isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
 }
 
-func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
+func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
 	pxeBaseUrl string) {
 
 	pxeKernelIpArg := "linux.* ip=dhcp "
@@ -205,7 +213,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 }
 
 // Tests:
-// - vhdx to PXE, with OS changes, and PXE image base URL.
+// - vhdx to PXE, with OS changes, boostrap initramfs, and PXE image base URL.
 // - .iso.Kernel command-line arg append.
 // - .iso.additionalFiles
 func TestCustomizeImagePxe1(t *testing.T) {
@@ -223,6 +231,27 @@ func TestCustomizeImagePxe1(t *testing.T) {
 	assert.NoError(t, err)
 
 	ValidatePxePhase1(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeBootstrap)
+}
+
+// Tests:
+// - vhdx to PXE, with no OS changes, full OS initramfs, and PXE image base URL.
+// - .iso.Kernel command-line arg append.
+// - .iso.additionalFiles
+func TestCustomizeImagePxe2(t *testing.T) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImagePxe2")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFileName := "pxe-artifacts.tar.gz"
+	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
+
+	configFile := filepath.Join(testDir, "liveos-full-os-no-os-changes.yaml")
+
+	// Customize vhdx to ISO, with OS changes.
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/)
+	assert.NoError(t, err)
+
+	ValidatePxePhase1(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeFullOS)
 }
 
 // Tests:

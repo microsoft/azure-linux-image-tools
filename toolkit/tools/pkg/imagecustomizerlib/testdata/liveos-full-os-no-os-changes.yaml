@@ -5,8 +5,5 @@ pxe:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
-  bootstrapBaseUrl: http://my-pxe-server-1
-os:
-  packages:
-    install:
-    - vim
+  initramfsType: full-os
+
