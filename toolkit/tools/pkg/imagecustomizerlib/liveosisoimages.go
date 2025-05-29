@@ -71,7 +71,7 @@ func cleanFullOSFolderForLiveOS(fullOSDir string) error {
 }
 
 func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
-	logger.Log.Infof("Generating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+	logger.Log.Infof("Creating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
 	if err != nil {
@@ -94,7 +94,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 }
 
 func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
-	logger.Log.Infof("Generating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+	logger.Log.Infof("Creating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
 
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
 	err := file.Write(dracutConfig, dracutConfigFile)
@@ -535,30 +535,25 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 }
 
 func createTarGzArchive(sourceDir, outputArchivePath string) error {
-	logger.Log.Infof("Generating archive (%s) from (%s)", outputArchivePath, sourceDir)
+	logger.Log.Infof("Creating archive (%s) from (%s)", outputArchivePath, sourceDir)
 
-	// Create output file
 	outFile, err := os.Create(outputArchivePath)
 	if err != nil {
-		return fmt.Errorf("creating tar.gz file: %w", err)
+		return fmt.Errorf("failed to create archive (%s):\n%w", outputArchivePath, err)
 	}
 	defer outFile.Close()
 
-	// Set up gzip writer
 	gw := gzip.NewWriter(outFile)
 	defer gw.Close()
 
-	// Set up tar writer
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	// Walk the source directory
 	err = filepath.Walk(sourceDir, func(file string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Create the tar header
 		header, err := tar.FileInfoHeader(info, info.Name())
 		if err != nil {
 			return err
@@ -592,38 +587,35 @@ func createTarGzArchive(sourceDir, outputArchivePath string) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to create achive (%s):\n%w", outputArchivePath, err)
+		return fmt.Errorf("failed to create archive (%s):\n%w", outputArchivePath, err)
 	}
 
 	return nil
 }
 
 func expandTarGzArchive(sourceArchivePath, outputDir string) error {
-	// Open the tar.gz file
+	logger.Log.Infof("Expanding archive (%s) to (%s)", sourceArchivePath, outputDir)
+
 	f, err := os.Open(sourceArchivePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to archive (%s):\n%w", sourceArchivePath, err)
 	}
 	defer f.Close()
 
-	// Set up gzip reader
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return fmt.Errorf("failed to create gzip reader: %w", err)
+		return fmt.Errorf("failed to create gzip reader for (%s):\n%w", sourceArchivePath, err)
 	}
 	defer gzr.Close()
 
-	// Set up tar reader
 	tr := tar.NewReader(gzr)
-
-	// Extract each file
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
-			break // end of archive
+			break
 		}
 		if err != nil {
-			return fmt.Errorf("error reading tar: %w", err)
+			return fmt.Errorf("failed to read header from archive:\n%w", err)
 		}
 
 		target := filepath.Join(outputDir, header.Name)
@@ -631,32 +623,32 @@ func expandTarGzArchive(sourceArchivePath, outputDir string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
-				return err
+				return fmt.Errorf("failed to create folder (%s)\n%w", target, err)
 			}
 		case tar.TypeReg:
-			// Ensure parent directory exists
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return err
+				return fmt.Errorf("failed to create parent folder for (%s)\n%w", target, err)
 			}
 			outFile, err := os.Create(target)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create (%s):\n%w", target, err)
 			}
-			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
-				return err
+			defer outFile.Close()
+			_, err = io.Copy(outFile, tr)
+			if err != nil {
+				return fmt.Errorf("failed to copy (%s) from archive:\n%w", target, err)
 			}
 			outFile.Close()
-			// Set file permissions
+
 			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
-				return err
+				return fmt.Errorf("failed to set permissions (%d) on (%s):\n%w", os.FileMode(header.Mode), target, err)
 			}
 		case tar.TypeSymlink:
 			if err := os.Symlink(header.Linkname, target); err != nil {
-				return err
+				return fmt.Errorf("failed to create symbolic link (%s):\n%w", target, err)
 			}
 		default:
-			fmt.Printf("Skipping unsupported file type: %v\n", header.Typeflag)
+			return fmt.Errorf("failed to process unsupported file type in archive (%s): (%v)", target, header.Typeflag)
 		}
 	}
 	return nil
