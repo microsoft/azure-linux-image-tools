@@ -60,16 +60,22 @@ func (p *Pxe) IsValid() error {
 		return fmt.Errorf("invalid initramfs type:\n%w", err)
 	}
 
+	if p.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS {
+		if p.BootstrapBaseUrl != "" || p.BootstrapFileUrl != "" {
+			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' and 'bootstrapFileUrl' when the initramfs type is set to '%s'.", imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+	}
+
 	if p.BootstrapBaseUrl != "" && p.BootstrapFileUrl != "" {
-		return fmt.Errorf("cannot specify both 'isoImageBaseUrl' and 'isoImageFileUrl' at the same time.")
+		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time.")
 	}
 	err = IsValidPxeUrl(p.BootstrapBaseUrl)
 	if err != nil {
-		return fmt.Errorf("invalid 'isoImageBaseUrl' field value (%s):\n%w", p.BootstrapBaseUrl, err)
+		return fmt.Errorf("invalid 'bootstrapBaseUrl' field value (%s):\n%w", p.BootstrapBaseUrl, err)
 	}
 	err = IsValidPxeUrl(p.BootstrapFileUrl)
 	if err != nil {
-		return fmt.Errorf("invalid 'isoImageFileUrl' field value (%s):\n%w", p.BootstrapFileUrl, err)
+		return fmt.Errorf("invalid 'bootstrapFileUrl' field value (%s):\n%w", p.BootstrapFileUrl, err)
 	}
 	return nil
 }
