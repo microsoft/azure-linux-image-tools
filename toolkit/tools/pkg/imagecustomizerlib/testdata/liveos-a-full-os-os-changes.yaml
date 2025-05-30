@@ -5,8 +5,7 @@ pxe:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
-  initramfsType: bootstrap
-  bootstrapFileUrl: http://my-pxe-server-1/image.iso
+  initramfsType: full-os
 iso:
   additionalFiles:
   - source: files/a.txt
@@ -14,10 +13,8 @@ iso:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
+  initramfsType: full-os
 os:
   packages:
     install:
-    - squashfs-tools
-    - tar
-    - device-mapper
-    - curl
+    - vim

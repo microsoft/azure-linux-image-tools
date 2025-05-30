@@ -1,9 +1,0 @@
-pxe:
-  additionalFiles:
-  - source: files/a.txt
-    destination: /a.txt
-  kernelCommandLine:
-    extraCommandLine:
-    - rd.info
-  initramfsType: full-os
-

@@ -55,6 +55,11 @@ func (p *Pxe) IsValid() error {
 		return fmt.Errorf("invalid additionalFiles:\n%w", err)
 	}
 
+	err = p.InitramfsType.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid initramfs type:\n%w", err)
+	}
+
 	if p.BootstrapBaseUrl != "" && p.BootstrapFileUrl != "" {
 		return fmt.Errorf("cannot specify both 'isoImageBaseUrl' and 'isoImageFileUrl' at the same time.")
 	}

@@ -83,7 +83,9 @@ func updateGrubCfgForLiveOS(initramfsImageType imagecustomizerapi.InitramfsImage
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		rootValue := fmt.Sprintf(rootValueLiveOSTemplate, isogenerator.DefaultVolumeId)
-		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
+		argsToRemove := []string{"root"}
+		newArgs := []string{"root=" + rootValue}
+		inputContentString, err = updateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
 		}

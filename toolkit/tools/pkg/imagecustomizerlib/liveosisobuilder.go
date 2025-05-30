@@ -37,8 +37,12 @@ func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfi
 		if isoConfig != nil {
 			config.kernelCommandLine = isoConfig.KernelCommandLine
 			config.additionalFiles = isoConfig.AdditionalFiles
+			config.initramfsType = isoConfig.InitramfsType
 		}
-		config.initramfsType = imagecustomizerapi.InitramfsImageTypeBootstrap
+		// Set default initramfs type
+		if config.initramfsType == imagecustomizerapi.InitramfsImageTypeUnspecified {
+			config.initramfsType = imagecustomizerapi.InitramfsImageTypeBootstrap
+		}
 	case imagecustomizerapi.ImageFormatTypePxe:
 		config.isPxe = true
 		if pxeConfig != nil {
@@ -48,6 +52,7 @@ func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfi
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
 		}
+		// Set default initramfs type
 		if config.initramfsType == imagecustomizerapi.InitramfsImageTypeUnspecified {
 			config.initramfsType = imagecustomizerapi.InitramfsImageTypeFullOS
 		}

@@ -8,7 +8,7 @@ pxe:
   kernelCommandLine:
     extraCommandLine:
     - rd.debug
-  bootstrapFileUrl: http://my-pxe-server-2/image.iso
+  initramfsType: full-os
 iso:
   additionalFiles:
   - source: files/b.txt
@@ -19,3 +19,4 @@ iso:
   kernelCommandLine:
     extraCommandLine:
     - rd.debug
+  initramfsType: full-os

@@ -312,11 +312,21 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 			return inputIsoArtifacts, fmt.Errorf("failed to create artifacts store from (%s):\n%w", ic.inputImageFile, err)
 		}
 
+		rebuildFullOS := false
+		if ic.outputIsIso && ic.config.Iso != nil {
+			rebuildFullOS = (inputIsoArtifacts.files.squashfsImagePath == "" && ic.config.Iso.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
+				(inputIsoArtifacts.files.squashfsImagePath != "" && ic.config.Iso.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+		if ic.outputIsPxe && ic.config.Pxe != nil {
+			rebuildFullOS = (inputIsoArtifacts.files.squashfsImagePath == "" && ic.config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
+				(inputIsoArtifacts.files.squashfsImagePath != "" && ic.config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+		}
+
 		// If the input is a LiveOS iso and there are OS customizations
 		// defined, we create a writeable disk image so that mic can modify
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
-		if ic.customizeOSPartitions {
+		if ic.customizeOSPartitions || rebuildFullOS {
 			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
@@ -402,7 +412,6 @@ func qemuImgEscapeOptionValue(value string) string {
 }
 
 func customizeOSContents(ic *ImageCustomizerParameters) error {
-	logger.Log.Infof("Customizing OS Contents (%s)", ic.rawImageFile)
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -414,6 +423,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if !ic.customizeOSPartitions && ic.inputIsIso {
 		return nil
 	}
+
+	logger.Log.Infof("Customizing OS Contents (%s)", ic.rawImageFile)
 
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is

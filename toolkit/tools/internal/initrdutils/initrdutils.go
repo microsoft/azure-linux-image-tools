@@ -12,8 +12,13 @@ import (
 
 	"github.com/cavaliercoder/go-cpio"
 	"github.com/klauspost/pgzip"
+	// "github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+)
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+const (
+	FileModeSetuidMask    = uint32(04000)
+	FileModeSetgidMask    = uint32(02000)
+	FileModeStickyBitMask = uint32(01000)
 )
 
 func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err error) {
@@ -135,43 +140,60 @@ func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err e
 	}
 
 	if fileMode&cpio.ModePerm != 0 {
-		// os.Chmod() does not set the higher-order bits (setuid, setgid, and
-		// setsticky). So, we are calling the `chmod` command-line instead.
-		fileModeString := fmt.Sprintf("%#o", fileMode)
-		chmodParams := []string{
-			fileModeString,
-			path,
+
+		setuidActive := uint32(fileMode)&FileModeSetuidMask != 0
+		setgidActive := uint32(fileMode)&FileModeSetgidMask != 0
+		setStickyActive := uint32(fileMode)&FileModeStickyBitMask != 0
+
+		fileModeAdjusted := os.FileMode(fileMode).Perm()
+		if setuidActive {
+			fileModeAdjusted = fileModeAdjusted | os.ModeSetuid
 		}
-		err = shell.ExecuteLive(true /*squashErrors*/, "chmod", chmodParams...)
+		if setgidActive {
+			fileModeAdjusted = fileModeAdjusted | os.ModeSetgid
+		}
+		if setStickyActive {
+			fileModeAdjusted = fileModeAdjusted | os.ModeSticky
+		}
+
+		err = os.Chmod(path, fileModeAdjusted)
 		if err != nil {
-			return fmt.Errorf("failed to change mode of file (%s) to (%s): %w", fileModeString, path, err)
+			fileModeString := fmt.Sprintf("%#o", fileMode)
+			return fmt.Errorf("failed to change mode for file (%s) to (%s):\n%w", fileModeString, path, err)
 		}
+
+		// os.Chmod() does not set the higher-order bits (setuid, setgid, and
+		// setsticky). So, we are calling the `chmod` command instead.
+		// chmodParams := []string{
+		// 	fileModeString,
+		// 	path,
+		// }
+		// err = shell.ExecuteLive(true /*squashErrors*/, "chmod", chmodParams...)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to change mode of file (%s) to (%s): %w", fileModeString, path, err)
+		// }
 	}
 	return nil
 }
 
 func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err error) {
-	// Open the input archive
 	inputInitrdImageFile, err := os.Open(inputInitrdImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to open archive(%s):\n%w", inputInitrdImagePath, err)
 	}
 	defer inputInitrdImageFile.Close()
 
-	// Create pgzip reader
 	pgzipReader, err := pgzip.NewReader(inputInitrdImageFile)
 	if err != nil {
 		return fmt.Errorf("create pgzip reader: %w", err)
 	}
 	defer pgzipReader.Close()
 
-	// Create cpio reader
 	cpioReader := cpio.NewReader(pgzipReader)
-
 	for {
 		cpioHeader, err := cpioReader.Next()
 		if err == io.EOF {
-			break // end of archive
+			break
 		}
 		if err != nil {
 			return fmt.Errorf("failed to read cpio header from (%s):\n%w", inputInitrdImagePath, err)
