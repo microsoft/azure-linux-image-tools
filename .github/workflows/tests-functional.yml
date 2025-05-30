@@ -37,6 +37,7 @@ jobs:
         sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
           sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
           xfsprogs zstd veritysetup grub2 binutils lsof
+          golang
 
         # grub2-pc is only available on x86.
         if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
