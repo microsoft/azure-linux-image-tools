@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/tarutils"
 )
 
 const (
@@ -386,7 +387,7 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 	}
 
 	if outputPXEImage != "" {
-		err = createTarGzArchive(outputPXEArtifactsDir, outputPXEImage)
+		err = tarutils.CreateTarGzArchive(outputPXEArtifactsDir, outputPXEImage)
 		if err != nil {
 			return fmt.Errorf("failed to create archive (%s) from (%s):\n%w", outputPXEImage, outputPXEArtifactsDir, err)
 		}
