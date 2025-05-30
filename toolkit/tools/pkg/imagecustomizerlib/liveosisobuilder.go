@@ -333,27 +333,9 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		outputPXEImage = ""
 	}
 
-	outputISODir, err := os.MkdirTemp(buildDir, "tmp-pxe-")
+	err = stageIsoFiles(artifactsStore.files, baseConfigPath, additionalIsoFiles, outputPXEArtifactsDir)
 	if err != nil {
-		return fmt.Errorf("failed to create temp folder:\n%w", err)
-	}
-	defer os.RemoveAll(outputISODir)
-
-	isoImagePath := filepath.Join(outputISODir, defaultIsoImageName)
-	err = createIsoImage(buildDir, baseConfigPath, artifactsStore.files, additionalIsoFiles, isoImagePath)
-	if err != nil {
-		return fmt.Errorf("failed to create the Iso image.\n%w", err)
-	}
-
-	err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
-	if err != nil {
-		return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
-	}
-
-	// Extract all files from the iso image file.
-	err = extractIsoImageContents(buildDir, isoImagePath, outputPXEArtifactsDir)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to stage one or more live os files:\n%w", err)
 	}
 
 	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
@@ -381,17 +363,25 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 	}
 
 	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
+		if err != nil {
+			return fmt.Errorf("failed to verify Dracut's PXE support.\n%w", err)
+		}
+
 		// The iso image file itself must be placed in the PXE folder because
 		// dracut livenet module will download it.
-		artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, filepath.Base(isoImagePath))
-		err = file.Move(isoImagePath, artifactsIsoImagePath)
+		artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, defaultIsoImageName)
+		err = createIsoImage(buildDir, baseConfigPath, artifactsStore.files, additionalIsoFiles, artifactsIsoImagePath)
 		if err != nil {
-			return fmt.Errorf("failed to copy (%s) while populating the PXE artifacts directory:\n%w", isoImagePath, err)
+			return fmt.Errorf("failed to create the Iso image.\n%w", err)
 		}
-	} else {
-		err = os.Remove(isoImagePath)
+
+		// The current support in dracut expects only an iso - so, no need to leave
+		// the squash rootfs image.
+		artifactsRootfsPath := filepath.Join(outputPXEArtifactsDir, liveOSDir, liveOSImage)
+		err = os.Remove(artifactsRootfsPath)
 		if err != nil {
-			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", isoImagePath, err)
+			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
 		}
 	}
 

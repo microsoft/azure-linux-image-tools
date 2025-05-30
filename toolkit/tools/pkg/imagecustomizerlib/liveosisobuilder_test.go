@@ -207,7 +207,6 @@ func ValidatePxeContentA(t *testing.T, testTempDir, outImageFilePath string, ini
 	pxeArtifactsPath := ""
 	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
 		pxeArtifactsPath = filepath.Join(testTempDir, "pxe-artifacts")
-		logger.Log.Infof("-- debug -- unpacking (%s) to (%s)", outImageFilePath, pxeArtifactsPath)
 		err := expandTarGzArchive(outImageFilePath, pxeArtifactsPath)
 		if !assert.NoError(t, err) {
 			return
@@ -215,12 +214,10 @@ func ValidatePxeContentA(t *testing.T, testTempDir, outImageFilePath string, ini
 	} else {
 		pxeArtifactsPath = outImageFilePath
 	}
-	logger.Log.Infof("-- debug -- pxe folder (%s)", pxeArtifactsPath)
 
 	boostrapBaseUrl := ""
 	boostrappedImage := ""
 	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-		logger.Log.Infof("-- debug -- pxe bootstrap config")
 		boostrapBaseUrl = "http://my-pxe-server-1"
 		boostrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
 	}
@@ -239,8 +236,6 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 	pxeKernelRootArg := "linux.* root=live:" + pxeImageFileUrl
 	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, "/", "\\/")
 	pxeKernelRootArg = strings.ReplaceAll(pxeKernelRootArg, ":", "\\:")
-
-	logger.Log.Infof("-- debug -- looking for (%s)", pxeKernelRootArg)
 
 	// Check if PXE support is present in the Dracut package version in use.
 	err = verifyDracutPXESupport(packageInfo)
