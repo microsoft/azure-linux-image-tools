@@ -60,9 +60,9 @@ func (p *Pxe) IsValid() error {
 		return fmt.Errorf("invalid initramfs type:\n%w", err)
 	}
 
-	if p.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS {
+	if p.InitramfsType == InitramfsImageTypeFullOS {
 		if p.BootstrapBaseUrl != "" || p.BootstrapFileUrl != "" {
-			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' and 'bootstrapFileUrl' when the initramfs type is set to '%s'.", imagecustomizerapi.InitramfsImageTypeFullOS)
+			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' and 'bootstrapFileUrl' when the initramfs type is set to '%s'.", InitramfsImageTypeFullOS)
 		}
 	}
 
