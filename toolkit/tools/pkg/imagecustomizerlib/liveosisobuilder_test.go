@@ -267,7 +267,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	configFile := filepath.Join(testDir, "liveos-a-bootstrapped-os-changes.yaml")
 
 	// vhdx {raw}        to ISO {bootstrap}    , with OS changes
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
@@ -275,7 +275,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	// ISO  {bootstrap}  to ISO {bootstrap}    , with no OS changes
 	configFile = filepath.Join(testDir, "liveos-b-bootstrapped-no-os-changes.yaml")
 
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentB(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
@@ -294,14 +294,14 @@ func TestCustomizeImageInitramfsRFF(t *testing.T) {
 
 	// vhdx {raw}       to ISO {full-os} , with OS changes
 	configFile := filepath.Join(testDir, "liveos-a-full-os-os-changes.yaml")
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
 	// ISO  {full-os}   to ISO {full-os} , with OS changes
 	configFile = filepath.Join(testDir, "liveos-c-full-os-os-changes.yaml")
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentC(t, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
@@ -320,14 +320,14 @@ func TestCustomizeImageInitramfsRFB(t *testing.T) {
 
 	// vhdx {raw}       to ISO {full-os} , with OS changes
 	configFile := filepath.Join(testDir, "liveos-a-full-os-os-changes.yaml")
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
 	// - ISO  {full-os}    to ISO {boostrap}     , with no OS changes
 	configFile = filepath.Join(testDir, "liveos-c-bootstrapped-os-changes.yaml")
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentC(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
@@ -346,14 +346,14 @@ func TestCustomizeImageInitramfsRBF(t *testing.T) {
 
 	// vhdx {raw} to ISO {boostrap}, with OS changes
 	configFile := filepath.Join(testDir, "liveos-a-bootstrapped-os-changes.yaml")
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
 
 	// - ISO  {bootstrap} to ISO {full-os}, with no OS changes
 	configFile = filepath.Join(testDir, "liveos-b-full-os-no-os-changes.yaml")
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/)
+	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidateIsoContentB(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
@@ -372,7 +372,7 @@ func TestCustomizeImagePxe1(t *testing.T) {
 	configFile := filepath.Join(testDir, "liveos-a-bootstrapped-os-changes.yaml")
 
 	// Customize vhdx to ISO, with OS changes.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidatePxeContentA(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeBootstrap)
@@ -391,7 +391,7 @@ func TestCustomizeImagePxe2(t *testing.T) {
 	configFile := filepath.Join(testDir, "liveos-a-full-os-os-changes.yaml")
 
 	// Customize vhdx to ISO, with OS changes.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/)
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
 	ValidatePxeContentA(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeFullOS)
