@@ -37,7 +37,7 @@ jobs:
         sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
           sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
           xfsprogs zstd veritysetup grub2 binutils lsof \
-          golang
+          golang git
 
         # grub2-pc is only available on x86.
         if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
@@ -52,8 +52,8 @@ jobs:
         set -eux
 
         # Install Image Customizer prerequisities.
+        sudo apt list --installed
         sudo apt update -y
-        sudo apt -y remove golang-1.20-go golang-1.20-src
 
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
