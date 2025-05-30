@@ -103,7 +103,7 @@ func ExpandTarGzArchive(sourceArchivePath, outputDir string) error {
 		// an absolute path. We call filepath.Clean() to normalize it before
 		// checking.
 		cleanName := filepath.Clean(header.Name)
-		if strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
+		if strings.Contains(cleanName, "..") || filepath.IsAbs(cleanName) {
 			return fmt.Errorf("unallowed file reference in archive. (%s) may reference a file outside the expansion root (%s)", header.Name, outputDir)
 		}
 
@@ -131,22 +131,6 @@ func ExpandTarGzArchive(sourceArchivePath, outputDir string) error {
 
 			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
 				return fmt.Errorf("failed to set permissions (%d) on (%s):\n%w", os.FileMode(header.Mode), target, err)
-			}
-		case tar.TypeSymlink:
-			// Ensure the target path is within the output directory
-			resolvedTarget, err := filepath.EvalSymlinks(target)
-			if err != nil {
-				return fmt.Errorf("failed to resolve symlinks for (%s):\n%w", header.Name, err)
-			}
-			relPath, err := filepath.Rel(outputDir, resolvedTarget)
-			if err != nil {
-				return fmt.Errorf("failed to calculate relative path for (%s) with respect to (%s):\n%w", header.Name, outputDir, err)
-			}
-			if strings.HasPrefix(relPath, "..") {
-				return fmt.Errorf("unallowed file reference in archive. (%s) may reference a file outside the expansion root (%s)", header.Name, outputDir)
-			}
-			if err := os.Symlink(header.Linkname, target); err != nil {
-				return fmt.Errorf("failed to create symbolic link (%s):\n%w", target, err)
 			}
 		default:
 			return fmt.Errorf("failed to process unsupported file type in archive (%s): (%v)", target, header.Typeflag)
