@@ -351,10 +351,12 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
 	}
 
-	err = cleanupBootPartition(bootPartitionTmpDir)
-	if err != nil {
-		return fmt.Errorf("failed to clean up boot partition:\n%w", err)
-	}
+	// ToDo: temporarily disable boot clean-up to allow customizing previously ukified images.
+	//
+	// err = cleanupBootPartition(bootPartitionTmpDir)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to clean up boot partition:\n%w", err)
+	// }
 
 	err = systemBootPartitionMount.CleanClose()
 	if err != nil {
