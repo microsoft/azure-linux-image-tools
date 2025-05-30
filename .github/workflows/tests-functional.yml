@@ -24,7 +24,7 @@ jobs:
     name: Funtional test suite
     runs-on:
     - self-hosted
-    - 1ES.Pool=ecf-github-runner-amd64
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'ecf-github-runner-amd64' || 'ecf-github-runner-azl3-arm64') || 'ecf-github-runner-ubuntu2404-amd64'}}
     permissions:
       contents: read
     steps:
@@ -45,6 +45,24 @@ jobs:
         fi
 
         sudo tdnf list installed
+        
+    - name: Install prerequisites (Ubuntu 2404)
+      if: inputs.hostDistro == 'ubuntu2404'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo apt update -y
+        sudo apt -y remove golang-1.20-go golang-1.20-src
+
+        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+          golang-1.23
+
+        sudo rm /usr/bin/go /usr/bin/gofmt
+        sudo ln -s -T /usr/lib/go-1.23/bin/go /usr/bin/go
+        sudo ln -s -T /usr/lib/go-1.23/bin/gofmt /usr/bin/gofmt
 
     - name: checkout
       uses: actions/checkout@v4

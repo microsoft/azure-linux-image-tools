@@ -20,10 +20,26 @@ on:
         type: boolean
 
 jobs:
-  tests-functional-amd64:
+  tests-functional-azl3-amd64:
     name: Functional tests AZL3 AMD64
     if: ${{ inputs.runFunctionalTests }}
     uses: ./.github/workflows/tests-functional.yml
     with:
       hostArch: amd64
       hostDistro: azl3
+      
+  tests-functional-azl3-arm64:
+    name: Functional tests AZL3 ARM64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      hostArch: arm64
+      hostDistro: azl3
+
+  tests-functional-ubuntu2404-amd64:
+    name: Functional tests Ubuntu24.04 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      hostArch: amd64
+      hostDistro: ubuntu2404
