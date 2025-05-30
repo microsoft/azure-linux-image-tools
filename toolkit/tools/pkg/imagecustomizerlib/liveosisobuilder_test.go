@@ -16,6 +16,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/tarutils"
+
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
@@ -207,7 +209,7 @@ func ValidatePxeContentA(t *testing.T, testTempDir, outImageFilePath string, ini
 	pxeArtifactsPath := ""
 	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
 		pxeArtifactsPath = filepath.Join(testTempDir, "pxe-artifacts")
-		err := expandTarGzArchive(outImageFilePath, pxeArtifactsPath)
+		err := tarutils.ExpandTarGzArchive(outImageFilePath, pxeArtifactsPath)
 		if !assert.NoError(t, err) {
 			return
 		}
