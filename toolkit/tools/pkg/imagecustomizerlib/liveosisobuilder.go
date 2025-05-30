@@ -140,6 +140,20 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	}
 	defer rawImageConnection.Close()
 
+	// Find out if selinux is enabled
+	bootCustomizer, err := NewBootCustomizer(rawImageConnection.Chroot())
+	if err != nil {
+		return fmt.Errorf("failed to attach to raw image to inspect selinux status:\n%w", err)
+	}
+
+	selinuxMode, err := bootCustomizer.GetSELinuxMode(rawImageConnection.Chroot())
+	if err != nil {
+		return fmt.Errorf("failed to get selinux mode:\n%w", err)
+	}
+	if (selinuxMode != imagecustomizerapi.SELinuxModeDisabled) && (liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS) {
+		return fmt.Errorf("selinux is not supported for full OS initramfs image")
+	}
+
 	// From raw image to a writeable folder
 	writeableRootfsDir := filepath.Join(isoBuildDir, "writeable-rootfs")
 	err = populateWriteableRootfsDir(rawImageConnection.Chroot().RootDir(), writeableRootfsDir)
