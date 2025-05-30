@@ -15,7 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/sys v0.32.0
-	gonum.org/v1/gonum v0.15.0
+	gonum.org/v1/gonum v0.16.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
