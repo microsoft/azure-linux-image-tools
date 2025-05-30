@@ -55,6 +55,8 @@ jobs:
         set -eux
 
         pushd repo/toolkit/tools
+        mkdir -p out
+
         sudo go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi > out/testresults.json
 
     - uses: actions/upload-artifact@v4
