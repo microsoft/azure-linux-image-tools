@@ -1,12 +1,12 @@
 package imagecustomizerlib
 
 import (
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
 )
 
 func logVersionsOfToolDeps() {
@@ -32,7 +32,7 @@ func logVersionsOfToolDeps() {
 	}
 
 	// Get distro and version
-	distro, version := getDistroAndVersion()
+	distro, version := osinfo.GetDistroAndVersion()
 	logger.Log.Debugf("Host OS distro: %s", distro)
 	logger.Log.Debugf("Host OS version: %s", version)
 
@@ -48,28 +48,6 @@ func logVersionsOfToolDeps() {
 			}
 		}
 	}
-}
-
-// Function to get the distribution and version of the host machine
-func getDistroAndVersion() (string, string) {
-	output, err := os.ReadFile("/etc/os-release")
-	if err != nil {
-		return "Unknown Distro", "Unknown Version"
-	}
-
-	lines := strings.Split(string(output), "\n")
-	distro := "Unknown Distro"
-	version := "Unknown Version"
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, "NAME=") {
-			distro = strings.Trim(strings.TrimPrefix(line, "NAME="), "\"")
-		} else if strings.HasPrefix(line, "VERSION=") {
-			version = strings.Trim(strings.TrimPrefix(line, "VERSION="), "\"")
-		}
-	}
-
-	return distro, version
 }
 
 // Function to get the version of a package
