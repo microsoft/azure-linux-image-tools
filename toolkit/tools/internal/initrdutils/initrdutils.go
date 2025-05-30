@@ -12,7 +12,6 @@ import (
 
 	"github.com/cavaliercoder/go-cpio"
 	"github.com/klauspost/pgzip"
-	// "github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
 const (
@@ -140,7 +139,6 @@ func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err e
 	}
 
 	if fileMode&cpio.ModePerm != 0 {
-
 		setuidActive := uint32(fileMode)&FileModeSetuidMask != 0
 		setgidActive := uint32(fileMode)&FileModeSetgidMask != 0
 		setStickyActive := uint32(fileMode)&FileModeStickyBitMask != 0
@@ -161,17 +159,6 @@ func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err e
 			fileModeString := fmt.Sprintf("%#o", fileMode)
 			return fmt.Errorf("failed to change mode for file (%s) to (%s):\n%w", fileModeString, path, err)
 		}
-
-		// os.Chmod() does not set the higher-order bits (setuid, setgid, and
-		// setsticky). So, we are calling the `chmod` command instead.
-		// chmodParams := []string{
-		// 	fileModeString,
-		// 	path,
-		// }
-		// err = shell.ExecuteLive(true /*squashErrors*/, "chmod", chmodParams...)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to change mode of file (%s) to (%s): %w", fileModeString, path, err)
-		// }
 	}
 	return nil
 }

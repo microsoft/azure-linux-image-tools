@@ -540,7 +540,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			}
 
 			rebuildFullOsImage = (inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
-				(inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
+				(inputIsoArtifacts.files.squashfsImagePath != "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
 		}
 
 		// Either re-build the full OS image, or just re-package the existing one
