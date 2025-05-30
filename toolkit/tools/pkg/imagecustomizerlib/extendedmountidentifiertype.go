@@ -23,11 +23,6 @@ const (
 	// ExtendedMountIdentifierTypeDev mounts this partition via a device.
 	ExtendedMountIdentifierTypeDev ExtendedMountIdentifierType = "dev"
 
-	// ToDo: overlay, disk path mount id type for LG to customize overlay enabled base image.
-	//
-	ExtendedMountIdentifierTypeOverlay  ExtendedMountIdentifierType = "overlay"
-	ExtendedMountIdentifierTypeDiskPath ExtendedMountIdentifierType = "disk-path"
-
 	// ExtendedMountIdentifierTypeDefault uses the default type, which is PARTUUID.
 	ExtendedMountIdentifierTypeDefault ExtendedMountIdentifierType = ""
 )
