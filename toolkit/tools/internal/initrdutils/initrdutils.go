@@ -14,12 +14,6 @@ import (
 	"github.com/klauspost/pgzip"
 )
 
-const (
-	FileModeSetuidMask    = uint32(04000)
-	FileModeSetgidMask    = uint32(02000)
-	FileModeStickyBitMask = uint32(01000)
-)
-
 func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err error) {
 	// The `inputDir` permissions will become the `/` permissions when the initrd
 	// is mounted. This needs to be 0755 or some processes will fail to function
@@ -137,16 +131,21 @@ func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err e
 		return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, uid, gid, err)
 	}
 
+	// The golang implementation maps the setuid/setgid/sticky flags to bits
+	// different from those defined in native C implementation. As a result,
+	// we must convert between them.
+	// See https://github.com/golang/go/blob/release-branch.go1.24/src/os/stat_js.go
+
 	if fileMode&cpio.ModePerm != 0 {
 		fileModeAdjusted := os.FileMode(fileMode).Perm()
-		if uint32(fileMode)&FileModeSetuidMask != 0 {
-			fileModeAdjusted = fileModeAdjusted | os.ModeSetuid
+		if fileMode&syscall.S_ISUID != 0 {
+			fileModeAdjusted |= os.ModeSetuid
 		}
-		if uint32(fileMode)&FileModeSetgidMask != 0 {
-			fileModeAdjusted = fileModeAdjusted | os.ModeSetgid
+		if fileMode&syscall.S_ISGID != 0 {
+			fileModeAdjusted |= os.ModeSetgid
 		}
-		if uint32(fileMode)&FileModeStickyBitMask != 0 {
-			fileModeAdjusted = fileModeAdjusted | os.ModeSticky
+		if fileMode&syscall.S_ISVTX != 0 {
+			fileModeAdjusted |= os.ModeSticky
 		}
 
 		err = os.Chmod(path, fileModeAdjusted)
