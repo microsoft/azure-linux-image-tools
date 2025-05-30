@@ -21,15 +21,14 @@ const (
 )
 
 func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err error) {
-	// The folder permissions will become the `/` permissions when the initrd is
-	// mounted. This needs to be 0755 or some processes will fail to function
+	// The `inputDir` permissions will become the `/` permissions when the initrd
+	// is mounted. This needs to be 0755 or some processes will fail to function
 	// correctly.
 	err = os.Chmod(inputDir, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to change folder permissions for (%s):\n%w", inputDir, err)
 	}
 
-	// Create the image, the compressor, and the cpio writers.
 	outputFile, err := os.Create(outputInitrdImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create image file (%s):\n%w", outputInitrdImagePath, err)
@@ -54,7 +53,7 @@ func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err er
 		}
 		err = addFileToCpioArchive(inputDir, path, info, cpioWriter)
 		if err != nil {
-			return fmt.Errorf("failed to add (%s) to archive:\n%w", path, err)
+			return fmt.Errorf("failed to add (%s) to archive (%s):\n%w", path, outputInitrdImagePath, err)
 		}
 		return nil
 	})
@@ -139,25 +138,20 @@ func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err e
 	}
 
 	if fileMode&cpio.ModePerm != 0 {
-		setuidActive := uint32(fileMode)&FileModeSetuidMask != 0
-		setgidActive := uint32(fileMode)&FileModeSetgidMask != 0
-		setStickyActive := uint32(fileMode)&FileModeStickyBitMask != 0
-
 		fileModeAdjusted := os.FileMode(fileMode).Perm()
-		if setuidActive {
+		if uint32(fileMode)&FileModeSetuidMask != 0 {
 			fileModeAdjusted = fileModeAdjusted | os.ModeSetuid
 		}
-		if setgidActive {
+		if uint32(fileMode)&FileModeSetgidMask != 0 {
 			fileModeAdjusted = fileModeAdjusted | os.ModeSetgid
 		}
-		if setStickyActive {
+		if uint32(fileMode)&FileModeStickyBitMask != 0 {
 			fileModeAdjusted = fileModeAdjusted | os.ModeSticky
 		}
 
 		err = os.Chmod(path, fileModeAdjusted)
 		if err != nil {
-			fileModeString := fmt.Sprintf("%#o", fileMode)
-			return fmt.Errorf("failed to change mode for file (%s) to (%s):\n%w", fileModeString, path, err)
+			return fmt.Errorf("failed to change mode for file (%s) to (%#o):\n%w", path, fileMode, err)
 		}
 	}
 	return nil
@@ -166,13 +160,13 @@ func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err e
 func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err error) {
 	inputInitrdImageFile, err := os.Open(inputInitrdImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to open archive(%s):\n%w", inputInitrdImagePath, err)
+		return fmt.Errorf("failed to open file (%s):\n%w", inputInitrdImagePath, err)
 	}
 	defer inputInitrdImageFile.Close()
 
 	pgzipReader, err := pgzip.NewReader(inputInitrdImageFile)
 	if err != nil {
-		return fmt.Errorf("create pgzip reader: %w", err)
+		return fmt.Errorf("failed to create a pgzip reader for (%s):\n%w", inputInitrdImagePath, err)
 	}
 	defer pgzipReader.Close()
 
@@ -194,34 +188,33 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err er
 		case cpio.ModeDir:
 			err := os.MkdirAll(path, fileMode)
 			if err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", path, err)
+				return fmt.Errorf("failed to create directory (%s):\n%w", path, err)
 			}
-
 			err = updateFileOwnership(path, fileMode, cpioHeader.UID, cpioHeader.GID)
 			if err != nil {
-				return fmt.Errorf("failed to update ownership of (%s)\n%w", path, err)
+				return fmt.Errorf("failed to update ownership of directory (%s)\n%w", path, err)
 			}
-
 		case cpio.ModeRegular:
 			destFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
 			if err != nil {
-				return fmt.Errorf("failed to create file %s: %w", path, err)
+				return fmt.Errorf("failed to create file (%s):\n%w", path, err)
 			}
 			_, err = io.Copy(destFile, cpioReader)
 			destFile.Close()
 			if err != nil {
-				return fmt.Errorf("write file %s: %w", path, err)
+				return fmt.Errorf("failed to write file (%s):\n%w", path, err)
 			}
-
 			err = updateFileOwnership(path, fileMode, cpioHeader.UID, cpioHeader.GID)
 			if err != nil {
-				return fmt.Errorf("failed to update ownership of (%s)\n%w", path, err)
+				return fmt.Errorf("failed to update ownership of file (%s)\n%w", path, err)
 			}
-
 		case cpio.ModeSymlink:
-			os.Symlink(cpioHeader.Linkname, path)
+			err = os.Symlink(cpioHeader.Linkname, path)
+			if err != nil {
+				return fmt.Errorf("failed to create symbolic link (%s) to (%s)\n%w", cpioHeader.Linkname, path, err)
+			}
 		default:
-			return fmt.Errorf("unsupported unknown type %#o in CPIO archive.", fileType)
+			return fmt.Errorf("unsupported type (%s) in cpio archive (%s)", fileType, inputInitrdImagePath)
 		}
 	}
 
