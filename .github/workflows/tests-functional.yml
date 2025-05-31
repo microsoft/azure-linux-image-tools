@@ -60,7 +60,6 @@ jobs:
           xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
           golang-1.23
 
-        sudo rm /usr/bin/go /usr/bin/gofmt
         sudo ln -s -T /usr/lib/go-1.23/bin/go /usr/bin/go
         sudo ln -s -T /usr/lib/go-1.23/bin/gofmt /usr/bin/gofmt
 
@@ -87,6 +86,7 @@ jobs:
     - name: Test Report
       uses: dorny/test-reporter@v2
       if: ${{ !cancelled() }}
+      working-directory: repo
       with:
         name: Functional tests ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
         path: repo/toolkit/tools/out/testresults.json
