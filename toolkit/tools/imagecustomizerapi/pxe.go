@@ -13,8 +13,11 @@ var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://"
 
 // Iso defines how the generated iso media should be configured.
 type Pxe struct {
-	IsoImageBaseUrl string `yaml:"isoImageBaseUrl" json:"isoImageBaseUrl,omitempty"`
-	IsoImageFileUrl string `yaml:"isoImageFileUrl" json:"isoImageFileUrl,omitempty"`
+	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	BootstrapBaseUrl  string             `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
+	BootstrapFileUrl  string             `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {
@@ -42,16 +45,37 @@ func IsValidPxeUrl(urlString string) error {
 }
 
 func (p *Pxe) IsValid() error {
-	if p.IsoImageBaseUrl != "" && p.IsoImageFileUrl != "" {
-		return fmt.Errorf("cannot specify both 'isoImageBaseUrl' and 'isoImageFileUrl' at the same time.")
-	}
-	err := IsValidPxeUrl(p.IsoImageBaseUrl)
+	err := p.KernelCommandLine.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid 'isoImageBaseUrl' field value (%s):\n%w", p.IsoImageBaseUrl, err)
+		return fmt.Errorf("invalid kernelCommandLine: %w", err)
 	}
-	err = IsValidPxeUrl(p.IsoImageFileUrl)
+
+	err = p.AdditionalFiles.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid 'isoImageFileUrl' field value (%s):\n%w", p.IsoImageFileUrl, err)
+		return fmt.Errorf("invalid additionalFiles:\n%w", err)
+	}
+
+	err = p.InitramfsType.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid initramfs type:\n%w", err)
+	}
+
+	if p.InitramfsType == InitramfsImageTypeFullOS {
+		if p.BootstrapBaseUrl != "" || p.BootstrapFileUrl != "" {
+			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' and 'bootstrapFileUrl' when the initramfs type is set to '%s'.", InitramfsImageTypeFullOS)
+		}
+	}
+
+	if p.BootstrapBaseUrl != "" && p.BootstrapFileUrl != "" {
+		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time.")
+	}
+	err = IsValidPxeUrl(p.BootstrapBaseUrl)
+	if err != nil {
+		return fmt.Errorf("invalid 'bootstrapBaseUrl' field value (%s):\n%w", p.BootstrapBaseUrl, err)
+	}
+	err = IsValidPxeUrl(p.BootstrapFileUrl)
+	if err != nil {
+		return fmt.Errorf("invalid 'bootstrapFileUrl' field value (%s):\n%w", p.BootstrapFileUrl, err)
 	}
 	return nil
 }
