@@ -79,7 +79,7 @@ jobs:
         pushd repo/toolkit/tools
         mkdir -p out
 
-        sudo go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi > out/testresults.json
+        sudo env "PATH=$PATH" go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi > out/testresults.json
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
