@@ -19,6 +19,9 @@ on:
         required: true
         type: string
 
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+
 jobs:
   tests-functional:
     name: Funtional test suite
@@ -28,6 +31,11 @@ jobs:
     permissions:
       contents: read
     steps:
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
     - name: Install prerequisites (AZL3)
       if: inputs.hostDistro == 'azl3'
       run: |
@@ -37,7 +45,7 @@ jobs:
         sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
           sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
           xfsprogs zstd veritysetup grub2 binutils lsof \
-          golang git
+          git
 
         # grub2-pc is only available on x86.
         if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
@@ -58,10 +66,6 @@ jobs:
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
           xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
-          golang-1.23
-
-        sudo ln -s -T /usr/lib/go-1.23/bin/go /usr/bin/go
-        sudo ln -s -T /usr/lib/go-1.23/bin/gofmt /usr/bin/gofmt
 
     - name: checkout
       uses: actions/checkout@v4
