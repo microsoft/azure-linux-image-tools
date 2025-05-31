@@ -21,6 +21,7 @@ from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 DEFAULT_GRPC_PORT = 4317
 SHUTDOWN_GRACE_PERIOD_SEC = 5
 
+# TODO: Replace with PME resource string when available
 AZURE_CONN_STR = "InstrumentationKey=c0b360fa-422d-40e5-b8a9-d642578f9fce;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;ApplicationId=087d527c-b60e-4346-a679-f6abf367d0f0"
 
 
