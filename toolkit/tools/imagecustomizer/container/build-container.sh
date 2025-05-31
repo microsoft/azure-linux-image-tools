@@ -71,6 +71,10 @@ trap 'cleanUp' ERR
 exeFile="$enlistmentRoot/toolkit/out/tools/imagecustomizer"
 licensesDir="$enlistmentRoot/toolkit/out/LICENSES"
 
+telemetryScript="$enlistmentRoot/toolkit/scripts/telemetry_hopper/telemetry_hopper.py"
+telemetryRequirements="$enlistmentRoot/toolkit/scripts/telemetry_hopper/requirements.txt"
+entrypointScript="$scriptDir/entrypoint.sh"
+
 stagingBinDir="${containerStagingFolder}/usr/local/bin"
 stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
 
@@ -84,6 +88,9 @@ mkdir -p "${stagingLicensesDir}"
 cp "$exeFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
+cp "$telemetryScript" "${stagingBinDir}"
+cp "$telemetryRequirements" "${stagingBinDir}"
+cp "$entrypointScript" "${stagingBinDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
