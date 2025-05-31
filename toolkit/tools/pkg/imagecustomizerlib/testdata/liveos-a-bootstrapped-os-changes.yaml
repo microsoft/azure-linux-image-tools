@@ -16,6 +16,8 @@ iso:
     - rd.info
   initramfsType: bootstrap
 os:
+  selinux:
+    mode: disabled
   packages:
     install:
     - squashfs-tools

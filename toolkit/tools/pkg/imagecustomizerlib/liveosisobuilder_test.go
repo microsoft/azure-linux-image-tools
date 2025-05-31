@@ -93,7 +93,7 @@ func ValidateLiveOSContentB(t *testing.T, testTempDir, outputFormat string, init
 
 	if outputFormat == "pxe" {
 		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, "http://my-pxe-server-2/")
+			VerifyBootstrapPXEArtifacts(t, savedConfigs.OS.DracutPackageInfo, filepath.Base(outImageFilePath), artifactsPath, pxeUrlBase)
 		}
 	}
 }
@@ -147,8 +147,7 @@ func ValidateLiveOSContentC(t *testing.T, testTempDir, outputFormat string, init
 	}
 }
 
-func ValidateIsoContentA(t *testing.T, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string) {
-	// Attach ISO.
+func ValidateIsoContent(t *testing.T, content string, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string) {
 	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
@@ -163,48 +162,17 @@ func ValidateIsoContentA(t *testing.T, testTempDir string, initramfsType imagecu
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSContentA(t, testTempDir, "iso" /*outputFormat*/, initramfsType, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+	switch content {
+	case "a":
+		ValidateLiveOSContentA(t, testTempDir, "iso" /*outputFormat*/, initramfsType, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+	case "b":
+		ValidateLiveOSContentB(t, testTempDir, "iso" /*outputFormat*/, initramfsType, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+	case "c":
+		ValidateLiveOSContentC(t, testTempDir, "iso" /*outputFormat*/, initramfsType, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
+	}
 }
 
-func ValidateIsoContentB(t *testing.T, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string) {
-	// Attach ISO.
-	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer isoImageLoopDevice.Close()
-
-	isoMountDir := filepath.Join(testTempDir, "iso-mount")
-	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
-		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer isoImageMount.Close()
-
-	ValidateLiveOSContentB(t, testTempDir, "iso" /*outputFormat*/, initramfsType, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
-}
-
-func ValidateIsoContentC(t *testing.T, testTempDir string, initramfsType imagecustomizerapi.InitramfsImageType, outImageFilePath string) {
-	// Attach ISO.
-	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer isoImageLoopDevice.Close()
-
-	isoMountDir := filepath.Join(testTempDir, "iso-mount")
-	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
-		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer isoImageMount.Close()
-
-	ValidateLiveOSContentC(t, testTempDir, "iso" /*outputFormat*/, initramfsType, isoMountDir, "" /*pxeUrlBase*/, outImageFilePath)
-}
-
-func ValidatePxeContentA(t *testing.T, testTempDir, outImageFilePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
+func ValidatePxeContent(t *testing.T, content string, testTempDir, outImageFilePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
 
 	pxeArtifactsPath := ""
 	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
@@ -224,7 +192,10 @@ func ValidatePxeContentA(t *testing.T, testTempDir, outImageFilePath string, ini
 		boostrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
 	}
 
-	ValidateLiveOSContentA(t, testTempDir, "pxe" /*outputFormat*/, initramfsType, pxeArtifactsPath, boostrapBaseUrl, boostrappedImage)
+	switch content {
+	case "a":
+		ValidateLiveOSContentA(t, testTempDir, "pxe" /*outputFormat*/, initramfsType, pxeArtifactsPath, boostrapBaseUrl, boostrappedImage)
+	}
 }
 
 func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir string,
@@ -272,7 +243,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+	ValidateIsoContent(t, "a", testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
 
 	// ISO  {bootstrap}  to ISO {bootstrap}    , with no OS changes
 	configFile = filepath.Join(testDir, "liveos-b-bootstrapped-no-os-changes.yaml")
@@ -280,7 +251,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentB(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+	ValidateIsoContent(t, "b", testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
 }
 
 // Tests: raw -> initramfs full -> initramfs full (RFF)
@@ -299,14 +270,14 @@ func TestCustomizeImageInitramfsRFF(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
+	ValidateIsoContent(t, "a", testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
 	// ISO  {full-os}   to ISO {full-os} , with OS changes
 	configFile = filepath.Join(testDir, "liveos-c-full-os-os-changes.yaml")
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentC(t, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
+	ValidateIsoContent(t, "c", testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 }
 
 // Tests: raw -> initramfs full -> initramfs bootstrap (RFB)
@@ -325,14 +296,14 @@ func TestCustomizeImageInitramfsRFB(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
+	ValidateIsoContent(t, "a", testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
 	// - ISO  {full-os}    to ISO {boostrap}     , with no OS changes
 	configFile = filepath.Join(testDir, "liveos-c-bootstrapped-os-changes.yaml")
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentC(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+	ValidateIsoContent(t, "c", testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
 }
 
 // Tests: raw -> initramfs bootstrap -> initramfs full-os (RBF)
@@ -351,14 +322,14 @@ func TestCustomizeImageInitramfsRBF(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentA(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+	ValidateIsoContent(t, "a", testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
 
 	// - ISO  {bootstrap} to ISO {full-os}, with no OS changes
 	configFile = filepath.Join(testDir, "liveos-b-full-os-no-os-changes.yaml")
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "iso", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidateIsoContentB(t, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
+	ValidateIsoContent(t, "b", testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 }
 
 // Tests:
@@ -377,7 +348,7 @@ func TestCustomizeImagePxe1(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidatePxeContentA(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeBootstrap)
+	ValidatePxeContent(t, "a", testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeBootstrap)
 }
 
 // Tests:
@@ -396,7 +367,7 @@ func TestCustomizeImagePxe2(t *testing.T) {
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "pxe", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 
-	ValidatePxeContentA(t, testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeFullOS)
+	ValidatePxeContent(t, "a", testTempDir, outImageFilePath, imagecustomizerapi.InitramfsImageTypeFullOS)
 }
 
 // Tests:
