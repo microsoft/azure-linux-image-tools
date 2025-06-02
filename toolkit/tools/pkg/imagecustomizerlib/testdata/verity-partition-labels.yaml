@@ -69,7 +69,7 @@ os:
     - openssh-server
     - veritysetup
     - vim
-    - lvm2
+    - device-mapper
 
   additionalFiles:
     # Change the directory that the sshd-keygen service writes the SSH host keys to.

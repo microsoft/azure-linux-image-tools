@@ -90,8 +90,7 @@ the future.
        install:
        - veritysetup
        - systemd-boot
-       - efibootmgr
-       - lvm2
+       - device-mapper
     ```
 
 2. Run Image Customizer to create the image file.
