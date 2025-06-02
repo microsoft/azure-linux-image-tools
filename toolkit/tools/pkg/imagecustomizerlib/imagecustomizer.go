@@ -829,6 +829,24 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
 	}
 
+	// Pxe output format allows the output to be a path.
+	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxe {
+		if outputImageFile != "" {
+			if isDir, err := file.DirExists(outputImageFile); err != nil {
+				return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\n%w", outputImageFile, err)
+			} else if isDir {
+				return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\nis a directory", outputImageFile)
+			}
+		} else {
+			outputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
+			if isDir, err := file.DirExists(outputImageAbsPath); err != nil {
+				return fmt.Errorf("invalid config file property 'output.image.path': '%s'\n%w", output.Image.Path, err)
+			} else if isDir {
+				return fmt.Errorf("invalid config file property 'output.image.path': '%s'\nis a directory", output.Image.Path)
+			}
+		}
+	}
+
 	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
 		return fmt.Errorf("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
 	}
