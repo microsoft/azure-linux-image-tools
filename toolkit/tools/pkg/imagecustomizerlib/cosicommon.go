@@ -137,7 +137,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
 				}
 
-				metadataImage.Verity = &Verity{
+				metadataImage.Verity = &VerityConfig{
 					Roothash: verity.rootHash,
 					Image: ImageFile{
 						Path:             path.Join("images", hashPartition.PartitionFilename),
@@ -301,7 +301,7 @@ func populateMetadata(data *ImageBuildData) error {
 	return nil
 }
 
-func populateVerityMetadata(source string, verity *Verity) error {
+func populateVerityMetadata(source string, verity *VerityConfig) error {
 	if source == "" && verity == nil {
 		return nil
 	}

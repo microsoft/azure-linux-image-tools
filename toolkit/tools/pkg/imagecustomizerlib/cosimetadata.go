@@ -10,15 +10,15 @@ type MetadataJson struct {
 }
 
 type FileSystem struct {
-	Image      ImageFile `json:"image"`
-	MountPoint string    `json:"mountPoint"`
-	FsType     string    `json:"fsType"`
-	FsUuid     string    `json:"fsUuid"`
-	PartType   string    `json:"partType"`
-	Verity     *Verity   `json:"verity"`
+	Image      ImageFile     `json:"image"`
+	MountPoint string        `json:"mountPoint"`
+	FsType     string        `json:"fsType"`
+	FsUuid     string        `json:"fsUuid"`
+	PartType   string        `json:"partType"`
+	Verity     *VerityConfig `json:"verity"`
 }
 
-type Verity struct {
+type VerityConfig struct {
 	Image    ImageFile `json:"image"`
 	Roothash string    `json:"roothash"`
 }

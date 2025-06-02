@@ -5,6 +5,13 @@ nav_order: 3
 
 # Composable Operating System Image (COSI) Specification
 
+## Revision Summary
+
+| Revision | Spec Date   |
+|----------|-------------|
+| 1.1      | TBD         |
+| 1.0      | 2024-10-09  |
+
 ## COSI File Format
 
 The COSI file MUST be an uncompressed tarball. The file extension SHOULD be `.cosi`.
