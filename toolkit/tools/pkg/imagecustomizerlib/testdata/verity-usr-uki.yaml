@@ -68,5 +68,4 @@ os:
     install:
     - veritysetup
     - systemd-boot
-    - efibootmgr
-    - lvm2
+    - device-mapper
