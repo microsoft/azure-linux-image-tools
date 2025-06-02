@@ -13,8 +13,8 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/initrdutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/tarutils"
@@ -184,7 +184,7 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat
 				return
 			}
 			defer isoImageLoopDevice.Close()
-		
+
 			isoMountDir := filepath.Join(testTempDir, "bootstrap-iso-mount")
 			isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
 				"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
@@ -192,7 +192,7 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat
 				return
 			}
 			defer isoImageMount.Close()
-			
+
 			fullOSImagePath = filepath.Join(isoMountDir, liveOSDir, liveOSImage)
 		}
 
@@ -208,7 +208,7 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat
 		if !assert.NoError(t, err) {
 			return
 		}
-		defer squashfsMount.Close()		
+		defer squashfsMount.Close()
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		fullOSImagePath := filepath.Join(artifactsPath, "boot/initrd.img")
 		// Expand initrd to a folder
@@ -216,8 +216,8 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat
 		if !assert.NoError(t, err) {
 			return
 		}
-		defer os.RemoveAll(fullOsDir)		
-	}	
+		defer os.RemoveAll(fullOsDir)
+	}
 
 	// Check that each file is in the root file system.
 	for _, additionalFile := range osConfig.AdditionalFiles {
@@ -382,7 +382,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-		
+
 	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
 	// - ISO {full-os} to ISO {bootstrap}, with selinux enforcing
@@ -395,7 +395,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		return
 	}
 
-	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)	
+	ValidateIsoContent(t, configC, testTempDir, imagecustomizerapi.InitramfsImageTypeBootstrap, outImageFilePath)
 }
 
 // Tests:
