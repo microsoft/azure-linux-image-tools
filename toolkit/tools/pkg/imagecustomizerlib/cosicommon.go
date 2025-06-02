@@ -74,6 +74,11 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		return err
 	}
 
+	err = existingImageConnection.CleanClose()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -160,7 +165,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:    "1.0",
+		Version:    "1.1",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Images:     make([]FileSystem, len(imageData)),
@@ -323,7 +328,6 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 	var packages []OsPackage
 
 	err := imageConnection.Chroot().UnsafeRun(func() error {
-		// Run rpm query inside chroot
 		out, _, err := shell.Execute(
 			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
 		)
@@ -335,7 +339,7 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 		for _, line := range lines {
 			parts := strings.Fields(line)
 			if len(parts) != 4 {
-				logger.Log.Infof("Skipping malformed RPM line while parsing osPackages for COSI: %q", line)
+				logger.Log.Infof("Skipping malformed RPM line while parsing installed RPMs for COSI: %q", line)
 				continue
 			}
 			pkg := OsPackage{
