@@ -10,16 +10,18 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
 type ImageBuildData struct {
 	Source       string
 	KnownInfo    outputPartitionMetadata
-	Metadata     *Image
+	Metadata     *FileSystem
 	VeritySource string
 }
 
@@ -47,8 +49,20 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
+	buildDir := filepath.Join(outputDir, "build")
+	existingImageConnection, _, _, err := connectToExistingImage(ic.rawImageFile, buildDir, "imageroot", true)
+	if err != nil {
+		return err
+	}
+	defer existingImageConnection.Close()
+
+	osPackages, err := getAllPackagesFromChroot(existingImageConnection)
+	if err != nil {
+		return err
+	}
+
 	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata,
-		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease)
+		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease, osPackages)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
@@ -65,7 +79,7 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry,
-	imageUuidStr string, osRelease string,
+	imageUuidStr string, osRelease string, osPackages []OsPackage,
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
@@ -93,7 +107,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			continue
 		}
 
-		metadataImage := Image{
+		metadataImage := FileSystem{
 			Image: ImageFile{
 				Path:             path.Join("images", partition.PartitionFilename),
 				UncompressedSize: partition.UncompressedSize,
@@ -146,11 +160,12 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:   "1.0",
-		OsArch:    getArchitectureForCosi(),
-		Id:        imageUuidStr,
-		Images:    make([]Image, len(imageData)),
-		OsRelease: osRelease,
+		Version:    "1.0",
+		OsArch:     getArchitectureForCosi(),
+		Id:         imageUuidStr,
+		Images:     make([]FileSystem, len(imageData)),
+		OsRelease:  osRelease,
+		OsPackages: osPackages,
 	}
 
 	// Copy updated metadata
@@ -302,4 +317,41 @@ func getArchitectureForCosi() string {
 		return "x86_64"
 	}
 	return runtime.GOARCH
+}
+
+func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
+	var packages []OsPackage
+
+	err := imageConnection.Chroot().UnsafeRun(func() error {
+		// Run rpm query inside chroot
+		out, _, err := shell.Execute(
+			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to list installed RPMs:\n%w", err)
+		}
+
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		for _, line := range lines {
+			parts := strings.Fields(line)
+			if len(parts) != 4 {
+				logger.Log.Infof("Skipping malformed RPM line while parsing osPackages for COSI: %q", line)
+				continue
+			}
+			pkg := OsPackage{
+				Name:    parts[0],
+				Version: parts[1],
+				Release: parts[2],
+				Arch:    parts[3],
+			}
+			packages = append(packages, pkg)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get packages from chroot:\n%w", err)
+	}
+
+	return packages, nil
 }

@@ -1,14 +1,15 @@
 package imagecustomizerlib
 
 type MetadataJson struct {
-	Version   string  `json:"version"`
-	OsArch    string  `json:"osArch"`
-	Images    []Image `json:"images"`
-	OsRelease string  `json:"osRelease"`
-	Id        string  `json:"id"`
+	Version    string       `json:"version"`
+	OsArch     string       `json:"osArch"`
+	Images     []FileSystem `json:"images"`
+	OsRelease  string       `json:"osRelease"`
+	Id         string       `json:"id"`
+	OsPackages []OsPackage  `json:"osPackages,omitempty"`
 }
 
-type Image struct {
+type FileSystem struct {
 	Image      ImageFile `json:"image"`
 	MountPoint string    `json:"mountPoint"`
 	FsType     string    `json:"fsType"`
@@ -27,4 +28,11 @@ type ImageFile struct {
 	CompressedSize   uint64 `json:"compressedSize"`
 	UncompressedSize uint64 `json:"uncompressedSize"`
 	Sha384           string `json:"sha384"`
+}
+
+type OsPackage struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Release string `json:"release,omitempty"`
+	Arch    string `json:"arch,omitempty"`
 }
