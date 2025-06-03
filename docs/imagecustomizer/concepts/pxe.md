@@ -40,12 +40,13 @@ the way to installing another OS.
 
 ## Live OS PXE Support
 
-A Live OS is when a system is booted from an ISO or downloaded through something
-like the PXE boot process. In such flow, the OS is running, but nothing has been
-installed to the host.
+A Live OS is when a system is booted from removable media (like an ISO or a USB)
+or from the network (like using PXE).In such flows, the OS file system is not
+installed to persistent storage on the host prior to booting the system.
 
-The OS file system can be either embedded in the initrd image itself (`initramfsType=full-os`)
-or stored in a separate (bootstrap) image (`initramfsType=bootstrap`).
+The full OS file system can either be embedded in the initrd image itself
+(`initramfsType=full-os`) or be stored in a separate image that will be
+bootstrapped by the initrd image (`initramfsType=bootstrap`).
 
 The main difference is the size of the generated initrd image:
 - When embedded, the initrd image size is larger and may not meet the memory
@@ -57,11 +58,8 @@ The main difference is the size of the generated initrd image:
   is that extra PXE environment setup is necessary (like setting up a server to
   host the bootstrapped extra file and server it).
 
-It is worth noting that the bootstrap support is implemented using Dracut's
-`dmsquash-live` module.
-
-The **Image Customizer** produces such [LiveOS ISO](./iso.md) images. A typical
-image holds the following artifacts:
+The **Image Customizer** can produce the Live OS artifacts necessary to PXE boot
+a host. The artifacts include:
 
 - the boot loader (the shim and something like grub)
 - the boot loader configuration
@@ -70,34 +68,32 @@ image holds the following artifacts:
 - the rootfs image (required only if `initramfsType=bootstrap`)
 - other user defined artifacts (optional)
 
-Dracut enables that entire flow through the use of the `livenet` module - where
-it inspects the `root=live:liveos-iso-url` kernel parameter from the boot loader
-config file, and if it recognizes the `liveos-iso-url` protocol, it downloads
-the ISO, and then proceeds to pivot to the embedded rootfs image.
+Dracut enables the PXE bootstrap flow through the use of the `livenet` module -
+where it inspects the `root=live:liveos-iso-url` kernel parameter from the boot
+loader config file, and if it recognizes the `liveos-iso-url` protocol, it downloads
+the bootstrapped full OS image, and then proceeds to pivot to the embedded OS file system
+image.
 
-The user can customize the rootfs using the Image Customizer as
-usual. In case of additional artifacts that need downloading, the user can
-install a daemon on the rootfs which will run when control is transferred to
-the rootfs image and download any additional items.
+The user can customize the full OS image using the Image Customizer as
+usual.
+
+The bootstrapped full OS image is a bootable ISO containing the same
+configuration (same bootloader configuration, same kernel, same full OS file
+system, etc.). This can be very handy when testing the PXE configuration
+without having to setup a PXE environment.
+
+In case the user needs to download additional artifacts, the user can write
+a daemon on the full OS file system which will:
+- run when control is transferred to the full OS.
+- download any additional items.
 
 ## Creating and Deploying PXE Boot Artifacts
 
-The Image Customizer produces [LiveOS ISO](./iso.md) images that are also PXE
-bootable. So, the user can simply create an ISO image as usual, and the output
-can be taken and deployed to a PXE server.
+The Image Customizer can be told to create the PXE artifacts by simply setting
+the output format to `pxe` on the command-line. The user tell the Image Customizer
+to output the artifacts to a folder or as a tar.gz archive.
 
-To make the deployment of the generated artifacts easier for the user, the
-Image Customizer offers the following configurations:
-
-- In the input configuration, there is a `pxe` node under which the user can
-  configure PXE related properties - like the URL of the LiveOS ISO image to
-  download (note that this image is the same image being built).
-  See the [Image Customizer configuration](../api/configuration/pxe.md)
-  page for more information.
-- When invoking the Image Customizer, the user can also elect to
-  export the artifacts to a local folder.
-  See the [Image Customizer command line](../api/cli.md#--output-pxe-artifacts-dir)
-  page for more information.
+For additional details, see the [PXE Configuration](./configuration/pxe.md) page.
 
 Below is a list of required artifacts and where on the PXE server they should
 be deployed:
@@ -119,7 +115,7 @@ ISO media layout           artifacts local folder      target on PXE server
 
                                                         <yyyy-server-root>
 |- other-user-artifacts     |- other-user-artifacts       |- other-user-artifacts
-                            |- <liveos>.iso               |- <liveos>.iso
+                            |- image.iso               |- image.iso
 ```
 
 Notes:
@@ -129,13 +125,8 @@ Notes:
   and is used instead.
 - `yyyy` can be any protocol supported by Dracut's `livenet` module (i.e
   tftp, http, etc).
-- The ISO image file location under the server root is customizable -
+- `image.iso` is the bootstrapped image containing the full OS file system. It
+  is generated by the Image Customizer when the output format is set to `pxe`.
+- The bootstrapped ISO image file location under the server root is customizable -
   but it must be such that its URL matches what is specified in the grub.cfg
   `root=live:<URL>`.
-- While the core OS artifacts (the bootloader, its configuration, the kernel,
-  initrd image, and rootfs image) will be downloaded and used automatically,
-  the user will need to independently implement a way to download any
-  additional artifacts. For example, the user can implement a daemon (and place
-  it on the root file system) that will reach out and download the additional
-  artifacts when it is up and running. The daemon can be configured with where
-  to download the artifacts from, and what to do with them.

@@ -7,6 +7,11 @@ parent: Configuration
 Specifies the configuration for the generated PXE artifacts when the `--output-format`
 is set to `pxe`.
 
+Note that when the `--output-format` is set to `pxe`, `--output-image-file` can
+be set to either:
+- a directory where the customized PXE artifacts will be placed.
+- a `.tar.gz` file name where the PXE artifacts will be compressed and stored.
+
 Example:
 
 ```yaml
