@@ -28,11 +28,11 @@ import (
 // runs. SavedConfigs is the place where we can store such arguments so we can
 // re-apply them.
 
-type IsoSavedConfigs struct {
+type LiveOSSavedConfigs struct {
 	KernelCommandLine imagecustomizerapi.KernelCommandLine `yaml:"kernelCommandLine"`
 }
 
-func (i *IsoSavedConfigs) IsValid() error {
+func (i *LiveOSSavedConfigs) IsValid() error {
 	err := i.KernelCommandLine.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid kernelCommandLine: %w", err)
@@ -73,13 +73,13 @@ func (i *OSSavedConfigs) IsValid() error {
 }
 
 type SavedConfigs struct {
-	Iso IsoSavedConfigs `yaml:"iso"`
-	Pxe PxeSavedConfigs `yaml:"pxe"`
-	OS  OSSavedConfigs  `yaml:"os"`
+	LiveOS LiveOSSavedConfigs `yaml:"liveos"`
+	Pxe    PxeSavedConfigs    `yaml:"pxe"`
+	OS     OSSavedConfigs     `yaml:"os"`
 }
 
 func (c *SavedConfigs) IsValid() (err error) {
-	err = c.Iso.IsValid()
+	err = c.LiveOS.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid 'iso' field:\n%w", err)
 	}
@@ -136,7 +136,7 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagec
 ) (outputConfigs *SavedConfigs, err error) {
 	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
-	outputConfigs.Iso.KernelCommandLine = newKernelCommandLine
+	outputConfigs.LiveOS.KernelCommandLine = newKernelCommandLine
 	outputConfigs.Pxe.bootstrapBaseUrl = newBootstrapBaseUrl
 	outputConfigs.Pxe.bootstrapFileUrl = newBootstrapFileUrl
 	outputConfigs.OS.KernelVersion = newKernelVersion
@@ -151,14 +151,14 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagec
 
 	if inputConfigs != nil {
 		// do we have kernel arguments from a previous run?
-		if len(inputConfigs.Iso.KernelCommandLine.ExtraCommandLine) > 0 {
+		if len(inputConfigs.LiveOS.KernelCommandLine.ExtraCommandLine) > 0 {
 			// If yes, add them before the new kernel arguments.
-			savedArgs := inputConfigs.Iso.KernelCommandLine.ExtraCommandLine
+			savedArgs := inputConfigs.LiveOS.KernelCommandLine.ExtraCommandLine
 			newArgs := newKernelCommandLine.ExtraCommandLine
 
 			// Combine saved arguments with new ones
 			combinedArgs := append(savedArgs, newArgs...)
-			outputConfigs.Iso.KernelCommandLine.ExtraCommandLine = combinedArgs
+			outputConfigs.LiveOS.KernelCommandLine.ExtraCommandLine = combinedArgs
 		}
 
 		// if the PXE iso image url is not set, set it to the value from the previous run.

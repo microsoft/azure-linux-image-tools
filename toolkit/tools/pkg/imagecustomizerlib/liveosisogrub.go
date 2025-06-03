@@ -96,7 +96,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 		}
 	}
 
-	savedArgs := GrubArgsToString(savedConfigs.Iso.KernelCommandLine.ExtraCommandLine)
+	savedArgs := GrubArgsToString(savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine)
 	additionalKernelCommandline := liveosKernelArgs + " " + savedArgs
 
 	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline)
