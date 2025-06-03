@@ -70,7 +70,8 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		outputPXEImage = ""
 	}
 
-	err = stageIsoFiles(artifactsStore.files, baseConfigPath, additionalIsoFiles, outputPXEArtifactsDir)
+	err = stageLiveOSFiles(imagecustomizerapi.ImageFormatTypePxe, artifactsStore.files, baseConfigPath,
+		additionalIsoFiles, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more live os files:\n%w", err)
 	}

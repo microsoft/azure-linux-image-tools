@@ -198,8 +198,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(outputFormat, liveosConfig.initramfsType, artifactsStore.files.isoGrubCfgPath, disableSELinux,
-		updatedSavedConfigs)
+	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+		updatedSavedConfigs, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -282,8 +282,8 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	disableSELinux := false
 
 	// Update grub.cfg
-	err = updateGrubCfg(outputFormat, liveosConfig.initramfsType, inputArtifactsStore.files.isoGrubCfgPath,
-		disableSELinux, updatedSavedConfigs)
+	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+		updatedSavedConfigs, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}

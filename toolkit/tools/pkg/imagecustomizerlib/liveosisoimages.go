@@ -49,6 +49,12 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
+type StageFile struct {
+	sourcePath    string
+	targetRelPath string
+	targetName    string
+}
+
 func cleanFullOSFolderForLiveOS(fullOSDir string) error {
 	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
@@ -168,24 +174,29 @@ func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
 	return nil
 }
 
-func stageIsoFile(sourcePath, stageDirPath, isoRelativeDir string) error {
-	targetPath := filepath.Join(stageDirPath, isoRelativeDir, filepath.Base(sourcePath))
+func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
+	targetPath := ""
+	if stageFile.targetName == "" {
+		targetPath = filepath.Join(stageDirPath, stageFile.targetRelPath, filepath.Base(stageFile.sourcePath))
+	} else {
+		targetPath = filepath.Join(stageDirPath, stageFile.targetRelPath, stageFile.targetName)
+	}
 	targetDir := filepath.Dir(targetPath)
 	err := os.MkdirAll(targetDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create destination directory (%s):\n%w", targetDir, err)
 	}
 
-	err = file.Copy(sourcePath, targetPath)
+	err = file.Copy(stageFile.sourcePath, targetPath)
 	if err != nil {
-		return fmt.Errorf("failed to stage file from (%s) to (%s):\n%w", sourcePath, targetPath, err)
+		return fmt.Errorf("failed to stage file from (%s) to (%s):\n%w", stageFile.sourcePath, targetPath, err)
 	}
 
 	return nil
 }
 
-func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	stagingDir string,
+func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStore *IsoFilesStore, baseConfigPath string,
+	additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string,
 ) error {
 	err := os.RemoveAll(stagingDir)
 	if err != nil {
@@ -197,12 +208,38 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 		return err
 	}
 
-	// map of file full local path to location on iso media.
-	artifactsToIsoMap := map[string]string{
-		filesStore.isoBootImagePath: "boot/grub2",
-		filesStore.isoGrubCfgPath:   "boot/grub2",
-		filesStore.vmlinuzPath:      "boot",
-		filesStore.initrdImagePath:  "boot",
+	artifactsToLiveOSMap := []StageFile{
+		{
+			sourcePath:    filesStore.isoBootImagePath,
+			targetRelPath: "boot/grub2",
+		},
+		{
+			sourcePath:    filesStore.vmlinuzPath,
+			targetRelPath: "boot",
+		},
+		{
+			sourcePath:    filesStore.initrdImagePath,
+			targetRelPath: "boot",
+		},
+	}
+
+	switch outputFormat {
+	case imagecustomizerapi.ImageFormatTypeIso:
+		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+			StageFile{
+				sourcePath:    filesStore.isoGrubCfgPath,
+				targetRelPath: "boot/grub2",
+				targetName:    "grub.cfg",
+			})
+	case imagecustomizerapi.ImageFormatTypePxe:
+		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+			StageFile{
+				sourcePath:    filesStore.pxeGrubCfgPath,
+				targetRelPath: "boot/grub2",
+				targetName:    "grub.cfg",
+			})
+	default:
+		return fmt.Errorf("unsupported output format while staging file for Live OS output:\n%v", outputFormat)
 	}
 
 	// Add optional squashfs file if it exists.
@@ -212,7 +249,11 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.squashfsImagePath, err)
 		}
 		if exists {
-			artifactsToIsoMap[filesStore.squashfsImagePath] = "liveos"
+			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+				StageFile{
+					sourcePath:    filesStore.squashfsImagePath,
+					targetRelPath: liveOSDir,
+				})
 		}
 	}
 
@@ -223,7 +264,11 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 			return fmt.Errorf("failed to check if (%s) exists:\n%w", filesStore.savedConfigsFilePath, err)
 		}
 		if exists {
-			artifactsToIsoMap[filesStore.savedConfigsFilePath] = "azl-image-customizer"
+			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+				StageFile{
+					sourcePath:    filesStore.savedConfigsFilePath,
+					targetRelPath: savedConfigsDir,
+				})
 		}
 	}
 
@@ -231,14 +276,18 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 	// - This is typically populated if a previous run added additional files.
 	for source, isoRelativePath := range filesStore.additionalFiles {
 		isoRelativeDir := filepath.Dir(isoRelativePath)
-		artifactsToIsoMap[source] = isoRelativeDir
+		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+			StageFile{
+				sourcePath:    source,
+				targetRelPath: isoRelativeDir,
+			})
 	}
 
 	// Stage the files
-	for source, isoRelativeDir := range artifactsToIsoMap {
-		err = stageIsoFile(source, stagingDir, isoRelativeDir)
+	for _, stageFile := range artifactsToLiveOSMap {
+		err = stageLiveOSFile(stagingDir, stageFile)
 		if err != nil {
-			return fmt.Errorf("failed to stage (%s):\n%w", source, err)
+			return fmt.Errorf("failed to stage (%s):\n%w", stageFile.sourcePath, err)
 		}
 	}
 
@@ -277,9 +326,9 @@ func stageIsoFiles(filesStore *IsoFilesStore, baseConfigPath string, additionalI
 
 func createIsoImage(buildDir string, baseConfigPath string, filesStore *IsoFilesStore,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
-	stagingDir := filepath.Join(buildDir, "staging")
+	stagingDir := filepath.Join(buildDir, "iso-staging")
 
-	err := stageIsoFiles(filesStore, baseConfigPath, additionalIsoFiles, stagingDir)
+	err := stageLiveOSFiles(imagecustomizerapi.ImageFormatTypeIso, filesStore, baseConfigPath, additionalIsoFiles, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}

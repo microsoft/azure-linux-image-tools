@@ -32,6 +32,8 @@ const (
 	isoGrubCfg     = "grub.cfg"
 	isoGrubCfgPath = grubCfgDir + "/" + isoGrubCfg
 
+	pxeGrubCfg = "grub-pxe.cfg"
+
 	isoBootDir  = "boot"
 	initrdImage = "initrd.img"
 
