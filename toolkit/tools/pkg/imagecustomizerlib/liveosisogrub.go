@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -113,12 +112,8 @@ func updateGrubCfgForLiveOS(initramfsImageType imagecustomizerapi.InitramfsImage
 	return inputContentString, nil
 }
 
-func updateGrubCfgForPxe(initramfsImageType imagecustomizerapi.InitramfsImageType, inputContentString string, pxeIsoImageBaseUrl string,
-	pxeIsoImageFileUrl string, outputImageBase string) (string, error) {
-	if pxeIsoImageBaseUrl != "" && pxeIsoImageFileUrl != "" {
-		return "", fmt.Errorf("cannot set both iso image base url and full image url at the same time")
-	}
-
+func updateGrubCfgForPxe(initramfsImageType imagecustomizerapi.InitramfsImageType, inputContentString string, bootstrapBaseUrl string,
+	bootstrapFileUrl string) (string, error) {
 	// remove 'search' commands from PXE grub.cfg because it is not needed.
 	inputContentString, err := removeCommandAll(inputContentString, "search")
 	if err != nil {
@@ -126,15 +121,12 @@ func updateGrubCfgForPxe(initramfsImageType imagecustomizerapi.InitramfsImageTyp
 	}
 
 	if initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap {
-		// If the specified URL is not a full path to an iso, append the generated
-		// iso file name to it.
-		if pxeIsoImageFileUrl == "" {
-			pxeIsoImageFileUrl, err = url.JoinPath(pxeIsoImageBaseUrl, outputImageBase)
-			if err != nil {
-				return "", fmt.Errorf("failed to concatenate URL (%s) and (%s)\n%w", pxeIsoImageBaseUrl, outputImageBase, err)
-			}
+		bootstrapFileUrl, err = getPxeBootstrapFileUrl(bootstrapBaseUrl, bootstrapFileUrl)
+		if err != nil {
+			return "", err
 		}
-		rootValue := fmt.Sprintf(rootValuePxeTemplate, pxeIsoImageFileUrl)
+
+		rootValue := fmt.Sprintf(rootValuePxeTemplate, bootstrapFileUrl)
 		inputContentString, err = replaceKernelCommandLineArgValueAll(inputContentString, "root", rootValue)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the root kernel argument with the PXE iso image url in the PXE grub.cfg:\n%w", err)
@@ -149,7 +141,7 @@ func updateGrubCfgForPxe(initramfsImageType imagecustomizerapi.InitramfsImageTyp
 }
 
 func updateGrubCfg(outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	isoGrubCfgFileName string, disableSELinux bool, savedConfigs *SavedConfigs, outputImageBase string) error {
+	isoGrubCfgFileName string, disableSELinux bool, savedConfigs *SavedConfigs) error {
 	logger.Log.Infof("Updating ISO grub.cfg")
 
 	inputContentString, err := file.Read(isoGrubCfgFileName)
@@ -176,8 +168,8 @@ func updateGrubCfg(outputFormat imagecustomizerapi.ImageFormatType, initramfsIma
 			// or also in the PXE artifacts.
 			logger.Log.Infof("cannot generate grub.cfg for PXE booting.\n%v", err)
 		} else {
-			inputContentString, err = updateGrubCfgForPxe(initramfsImageType, inputContentString, savedConfigs.Pxe.IsoImageBaseUrl,
-				savedConfigs.Pxe.IsoImageFileUrl, outputImageBase)
+			inputContentString, err = updateGrubCfgForPxe(initramfsImageType, inputContentString, savedConfigs.Pxe.bootstrapBaseUrl,
+				savedConfigs.Pxe.bootstrapFileUrl)
 			if err != nil {
 				return fmt.Errorf("failed to create grub configuration for PXE booting.\n%w", err)
 			}
