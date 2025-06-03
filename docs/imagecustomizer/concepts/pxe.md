@@ -15,12 +15,12 @@ hosts and also centralizes the deployment configuration to a single server.
 One way of enabling such setup is using the PXE (Preboot eXecution Environment)
 Boot protocol. The user can setup a server with all the OS artifacts, a DHCP
 endpoint, and a tftp connection endpoint. When a client machine is powered on,
-and its firmware will look for a DHCP server on the same network and find the
+its firmware will look for a DHCP server on the same network and will find the
 one configured by the user.
 
 The DHCP server will serve information about the tftp endpoint to the client,
 and the client firmware can then proceed with retrieving the OS artifacts over
-tftp, then loading them into memory, and finally handing control over to the
+tftp, loading them into memory, and finally handing control over to the
 loaded OS.
 
 The tftp protocol expects certain artifacts to be present on the server:
@@ -38,18 +38,27 @@ The initrd image is customized to perform the next set of tasks now that an
 OS is running. The tasks can range from just running some local scripts all
 the way to installing another OS.
 
-## LiveOS ISOs and PXE Support
+## Live OS PXE Support
 
-A [LiveOS ISO](./iso.md) image is a bootable ISO image that runs all the necessary
-components from memory (i.e. does not need to install anything to the host
-persistent storage).
+A Live OS is when a system is booted from an ISO or downloaded through something
+like the PXE boot process. In such flow, the OS is running, but nothing has been
+installed to the host.
 
-The necessary components can be either embedded into the initrd image itself
-or embedded into a separate 'rootfs' image (to allow much smaller
-initrd images). If separate, then, the initrd image must be configured with an
-agent that will look for the rootfs image, and transition control over to the
-rootfs at boot time. Dracut provides the `dmsquash-live` module which managed this transition from
-the initrd image over to the rootfs image.
+The OS file system can be either embedded in the initrd image itself (`initramfsType=full-os`)
+or stored in a separate (bootstrap) image (`initramfsType=bootstrap`).
+
+The main difference is the size of the generated initrd image:
+- When embedded, the initrd image size is larger and may not meet the memory
+  restriction on certain hardware skus (leading to an "out of memory" grub
+  error). However, this is much simpler to deploy to a PXE server since the
+  full OS content will be served using the PXE protocol without any extra setup.
+- When bootstrapped, the initrd image size will be much smaller (~30MB) - which
+  solves the memory restriction issue on affected hardware models. The downside
+  is that extra PXE environment setup is necessary (like setting up a server to
+  host the bootstrapped extra file and server it).
+
+It is worth noting that the bootstrap support is implemented using Dracut's
+`dmsquash-live` module.
 
 The **Image Customizer** produces such [LiveOS ISO](./iso.md) images. A typical
 image holds the following artifacts:
@@ -58,13 +67,8 @@ image holds the following artifacts:
 - the boot loader configuration
 - the kernel image
 - the initrd image
-- the rootfs image
+- the rootfs image (required only if `initramfsType=bootstrap`)
 - other user defined artifacts (optional)
-
-Note that the first 4 artifacts are what is necessary to get an OS kernel up
-and running in a network boot scenario. What remains for a successful booting
-of a LiveOS over the network is to make the rootfs image available for the final
-transition (during the initrd phase).
 
 Dracut enables that entire flow through the use of the `livenet` module - where
 it inspects the `root=live:liveos-iso-url` kernel parameter from the boot loader
