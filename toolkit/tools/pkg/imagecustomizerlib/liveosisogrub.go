@@ -28,7 +28,7 @@ const (
 	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
 )
 
-func updateGrubCfgForLiveOS(initramfsImageType imagecustomizerapi.InitramfsImageType, inputContentString string,
+func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
 	disableSELinux bool, savedConfigs *SavedConfigs) (string, error) {
 	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
 	inputContentString, err := replaceSearchCommandAll(inputContentString, searchCommand)
@@ -112,7 +112,7 @@ func updateGrubCfgForLiveOS(initramfsImageType imagecustomizerapi.InitramfsImage
 	return inputContentString, nil
 }
 
-func updateGrubCfgForPxe(initramfsImageType imagecustomizerapi.InitramfsImageType, inputContentString string, bootstrapBaseUrl string,
+func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string,
 	bootstrapFileUrl string) (string, error) {
 	// remove 'search' commands from PXE grub.cfg because it is not needed.
 	inputContentString, err := removeCommandAll(inputContentString, "search")
@@ -149,7 +149,7 @@ func updateGrubCfg(outputFormat imagecustomizerapi.ImageFormatType, initramfsIma
 		return err
 	}
 
-	inputContentString, err = updateGrubCfgForLiveOS(initramfsImageType, inputContentString, disableSELinux, savedConfigs)
+	inputContentString, err = updateGrubCfgForLiveOS(inputContentString, initramfsImageType, disableSELinux, savedConfigs)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func updateGrubCfg(outputFormat imagecustomizerapi.ImageFormatType, initramfsIma
 			// or also in the PXE artifacts.
 			logger.Log.Infof("cannot generate grub.cfg for PXE booting.\n%v", err)
 		} else {
-			inputContentString, err = updateGrubCfgForPxe(initramfsImageType, inputContentString, savedConfigs.Pxe.bootstrapBaseUrl,
+			inputContentString, err = updateGrubCfgForPxe(inputContentString, initramfsImageType, savedConfigs.Pxe.bootstrapBaseUrl,
 				savedConfigs.Pxe.bootstrapFileUrl)
 			if err != nil {
 				return fmt.Errorf("failed to create grub configuration for PXE booting.\n%w", err)

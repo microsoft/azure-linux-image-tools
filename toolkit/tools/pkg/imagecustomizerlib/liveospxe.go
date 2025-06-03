@@ -133,10 +133,9 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 	}
 
 	// Remove boot image required for ISO images
-	isoBootImage := filepath.Join(outputPXEArtifactsDir, isoBootImagePath)
 	err = os.Remove(artifactsStore.files.isoBootImagePath)
 	if err != nil {
-		return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
+		return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsStore.files.isoBootImagePath, err)
 	}
 
 	// If a tar.gz is requested, create the archive
