@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/tdnf"
 	"github.com/sirupsen/logrus"
 )
 
@@ -90,7 +91,6 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 		}
 	}
 
-	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
 	err = installOrUpdatePackages("install", config.Packages.Install, imageChroot)
 	if err != nil {
 		return err
@@ -124,6 +124,13 @@ func refreshTdnfMetadata(imageChroot *safechroot.Chroot) error {
 	tdnfArgs := []string{
 		"-v", "check-update", "--refresh", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
+	}
+	if imageChroot.IsToolsChroot() {
+
+		err := appendTdnfArgsForToolsChroot(&tdnfArgs, "check-update")
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
 	}
 
 	err := imageChroot.UnsafeRun(func() error {
@@ -188,6 +195,14 @@ func updateAllPackages(imageChroot *safechroot.Chroot) error {
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
+	if imageChroot.IsToolsChroot() {
+
+		err := appendTdnfArgsForToolsChroot(&tdnfUpdateArgs, "update")
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
+	}
+
 	err := callTdnf(tdnfUpdateArgs, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to update packages:\n%w", err)
@@ -207,6 +222,14 @@ func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChro
 	tdnfInstallArgs := []string{
 		"-v", action, "--assumeyes", "--cacheonly",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
+	}
+
+	if imageChroot.IsToolsChroot() {
+
+		err := appendTdnfArgsForToolsChroot(&tdnfInstallArgs, action)
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
 	}
 
 	tdnfInstallArgs = append(tdnfInstallArgs, allPackagesToAdd...)
@@ -298,6 +321,13 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot) error {
 		tdnfArgs := []string{
 			"-v", "clean", "all",
 		}
+		if imageChroot.IsToolsChroot() {
+
+			err := appendTdnfArgsForToolsChroot(&tdnfArgs, "clean")
+			if err != nil {
+				return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+			}
+		}
 		err := shell.NewExecBuilder("tdnf", tdnfArgs...).
 			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -307,4 +337,22 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot) error {
 		}
 		return nil
 	})
+}
+
+// Update the string tdnfargs to include the releasever and installroot options for tools chroot.
+func appendTdnfArgsForToolsChroot(tdnfArgs *[]string, operation string) error {
+	// If this is a tools chroot, we need to set the releasever to 3.0.
+	releaseVerCliArg, err := tdnf.GetReleaseverCliArg()
+	if err != nil {
+		return fmt.Errorf("failed to get releasever cli arg:\n%w", err)
+	}
+	// Add the releasever cli arg to the tdnf install args.
+	*tdnfArgs = append(*tdnfArgs, releaseVerCliArg)
+
+	if operation == "install" || operation == "update" || operation == "remove" || operation == "check-update" || operation == "clean" {
+		// If this is an install or update operation, we need to set the installroot to /imageroot.
+		*tdnfArgs = append(*tdnfArgs, "--installroot", "/"+imageRoot)
+	}
+
+	return nil
 }

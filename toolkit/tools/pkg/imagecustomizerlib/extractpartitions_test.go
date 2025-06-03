@@ -24,7 +24,7 @@ import (
 
 func TestAddSkippableFrame(t *testing.T) {
 	// Create a skippable frame containing the metadata and prepend the frame to the partition file
-	skippableFrameMetadata, _, err := createUuid()
+	skippableFrameMetadata, _, err := CreateUuid()
 	assert.NoError(t, err)
 
 	// Create test raw partition file

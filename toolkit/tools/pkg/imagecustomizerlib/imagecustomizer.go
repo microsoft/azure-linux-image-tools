@@ -36,6 +36,8 @@ const (
 
 	diskFreeWarnThresholdBytes   = 500 * diskutils.MiB
 	diskFreeWarnThresholdPercent = 0.05
+	imageRoot                    = "imageroot"
+	toolsRoot                    = "toolsroot"
 )
 
 // Version specifies the version of the Azure Linux Image Customizer tool.
@@ -116,7 +118,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
 
 	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := createUuid()
+	imageUuid, imageUuidStr, err := CreateUuid()
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +228,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
+	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -581,7 +583,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 	}
 }
 
-func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
+func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
 	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	err := config.IsValid()
@@ -820,7 +822,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
-		buildDir, "imageroot", true)
+		buildDir, imageRoot, true)
 	if err != nil {
 		return nil, nil, "", err
 	}

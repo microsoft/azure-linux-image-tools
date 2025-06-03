@@ -73,7 +73,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
+	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}

@@ -75,6 +75,7 @@ type Chroot struct {
 
 	isExistingDir        bool
 	includeDefaultMounts bool
+	isToolsChroot        bool
 }
 
 // inChrootMutex guards against multiple Chroots entering their respective Chroots
@@ -198,6 +199,20 @@ func NewChroot(rootDir string, isExistingDir bool) *Chroot {
 		buildpipeline.CleanupDockerChroot(c.rootDir)
 	}
 	return c
+}
+
+func CreateToolsChroot(rootDir string, isExistingDir bool, extraDirectories []string,
+	extraMountPoints []*MountPoint, includeDefaultMounts bool, tarfile string,
+) (*Chroot, error) {
+	chroot := NewChroot(rootDir, isExistingDir)
+	chroot.isToolsChroot = true
+
+	err := chroot.Initialize(tarfile, extraDirectories, extraMountPoints, includeDefaultMounts)
+	if err != nil {
+		return nil, err
+	}
+
+	return chroot, nil
 }
 
 // Initialize initializes a Chroot, creating directories and mount points.
@@ -485,6 +500,10 @@ func (c *Chroot) RootDir() string {
 	return c.rootDir
 }
 
+func (c *Chroot) IsToolsChroot() bool {
+	return c.isToolsChroot
+}
+
 // Close will unmount the chroot and cleanup its files.
 // This call will block until the chroot cleanup runs.
 // Only one Chroot will close at a given time.
@@ -670,7 +689,6 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 			umountErr := unix.Unmount(fullPath, unmountFlags)
 			return umountErr
 		}, totalAttempts, retryDuration, 2.0)
-
 		if err != nil {
 			err = fmt.Errorf("failed to unmount (%s):\n%w", fullPath, err)
 			return
@@ -687,23 +705,23 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 // defaultMountPoints returns a new copy of the default mount points used by a functional chroot
 func defaultMountPoints() []*MountPoint {
 	return []*MountPoint{
-		&MountPoint{
+		{
 			target: "/dev",
 			fstype: "devtmpfs",
 		},
-		&MountPoint{
+		{
 			target: "/proc",
 			fstype: "proc",
 		},
-		&MountPoint{
+		{
 			target: "/sys",
 			fstype: "sysfs",
 		},
-		&MountPoint{
+		{
 			target: "/run",
 			fstype: "tmpfs",
 		},
-		&MountPoint{
+		{
 			target: "/dev/pts",
 			fstype: "devpts",
 			data:   "gid=5,mode=620",

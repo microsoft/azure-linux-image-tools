@@ -14,12 +14,11 @@ import (
 )
 
 func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, imager bool,
 ) error {
-
 	switch config.OS.BootLoader.ResetType {
 	case imagecustomizerapi.ResetBootLoaderTypeHard:
-		err := hardResetBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
+		err := hardResetBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, imager)
 		if err != nil {
 			return fmt.Errorf("failed to hard reset bootloader:\n%w", err)
 		}
@@ -36,21 +35,25 @@ func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, 
 }
 
 func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, imager bool,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
 
-	bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
-	if err != nil {
-		return err
-	}
+	// If the image is being customized by imager, we don't need to check the SELinux mode.
+	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
 
-	currentSelinuxMode, err := bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
-	if err != nil {
-		return fmt.Errorf("failed to get existing SELinux mode:\n%w", err)
-	}
+	if !imager {
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
+		if err != nil {
+			return err
+		}
 
+		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
+		if err != nil {
+			return fmt.Errorf("failed to get existing SELinux mode:\n%w", err)
+		}
+	}
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
 	if config.CustomizePartitions() {
@@ -80,7 +83,7 @@ func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Confi
 
 	// Hard-reset the grub config.
 	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, config.OS.SELinux,
-		config.OS.KernelCommandLine, currentSelinuxMode)
+		config.OS.KernelCommandLine, currentSelinuxMode, imager)
 	if err != nil {
 		return fmt.Errorf("failed to configure bootloader:\n%w", err)
 	}
