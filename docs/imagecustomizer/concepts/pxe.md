@@ -1,7 +1,7 @@
 ---
 parent: Concepts
 title: PXE Support
-nav_order: 3
+nav_order: 4
 ---
 
 # Image Customizer PXE Support
@@ -38,16 +38,16 @@ The initrd image is customized to perform the next set of tasks now that an
 OS is running. The tasks can range from just running some local scripts all
 the way to installing another OS.
 
-## PXE Support in The Image Customize
+## PXE Support in The Image Customizer
 
-The Image Customizer can take an input image, customize the operating system,
-and produce the artifacts necessary to power the PXE flow described above.
+The Image Customizer can take an input image, customize the OS, and produce
+the artifacts necessary to power the PXE flow described above.
 
-In addition to customizing the operating system contents, the user can also
-decide how it will be packaged. There are two supported options:
-- The initrd image is the full operating system.
+In addition to customizing the OS contents, the user can also decide how it
+will be packaged. There are two supported options:
+- The initrd image is the full OS.
 - The initrd image is a bootstrap image with minimal contents, and the full
-  operating system is stored in a separate image.
+  OS is stored in a separate image.
 
 There are pros and cons for each configuration - see the [Live OS](./liveos.md)
 page for details.
@@ -63,8 +63,8 @@ implement a user-space solution that will perform the download tasks.
 
 ## Creating and Deploying PXE Boot Artifacts
 
-The Image Customizer can create the PXE artifacts by simply setting the output
-format to `pxe` on the command-line. The output can be either a folder containing
+The Image Customizer can create the PXE artifacts by simply setting the `--output-image-format`
+parameter to `pxe` on the command-line. The output can be either a folder containing
 the artifacts, or a tar.gz with the same content.
 
 For additional details, see the [PXE Configuration](../api/configuration/pxe.md)
