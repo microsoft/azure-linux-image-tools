@@ -92,13 +92,6 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		}
 	}
 
-	// Remove the empty 'pxe-folder>/efi' folder.
-	isoEFIDir := filepath.Join(outputPXEArtifactsDir, "efi")
-	err = os.RemoveAll(isoEFIDir)
-	if err != nil {
-		return fmt.Errorf("failed to remove folder (%s):\n%w", isoEFIDir, err)
-	}
-
 	// If bootstrap is requested, create the bootstrapped image
 	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
 		err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
@@ -126,6 +119,24 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		if err != nil {
 			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
 		}
+	}
+
+	// Note that the removes must take place afer the bootstrapped ISO is
+	// created because some of these files are needed by the ISO so it is
+	// bootable.
+
+	// Remove the empty 'pxe-folder>/efi' folder.
+	isoEFIDir := filepath.Join(outputPXEArtifactsDir, "efi")
+	err = os.RemoveAll(isoEFIDir)
+	if err != nil {
+		return fmt.Errorf("failed to remove folder (%s):\n%w", isoEFIDir, err)
+	}
+
+	// Remove boot image required for ISO images
+	isoBootImage := filepath.Join(outputPXEArtifactsDir, isoBootImagePath)
+	err = os.Remove(artifactsStore.files.isoBootImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
 	}
 
 	// If a tar.gz is requested, create the archive
