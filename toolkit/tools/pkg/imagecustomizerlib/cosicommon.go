@@ -165,7 +165,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:    "1.1",
+		Version:    "1.0",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Images:     make([]FileSystem, len(imageData)),
@@ -339,7 +339,7 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 		for _, line := range lines {
 			parts := strings.Fields(line)
 			if len(parts) != 4 {
-				logger.Log.Infof("Skipping malformed RPM line while parsing installed RPMs for COSI: %q", line)
+				logger.Log.Warnf("Skipping malformed RPM line while parsing installed RPMs for COSI: %q", line)
 				continue
 			}
 			pkg := OsPackage{

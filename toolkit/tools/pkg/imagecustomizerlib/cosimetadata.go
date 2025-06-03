@@ -6,7 +6,7 @@ type MetadataJson struct {
 	Images     []FileSystem `json:"images"`
 	OsRelease  string       `json:"osRelease"`
 	Id         string       `json:"id"`
-	OsPackages []OsPackage  `json:"osPackages,omitempty"`
+	OsPackages []OsPackage  `json:"osPackages"`
 }
 
 type FileSystem struct {
@@ -33,6 +33,6 @@ type ImageFile struct {
 type OsPackage struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
-	Release string `json:"release,omitempty"`
-	Arch    string `json:"arch,omitempty"`
+	Release string `json:"release"`
+	Arch    string `json:"arch"`
 }
