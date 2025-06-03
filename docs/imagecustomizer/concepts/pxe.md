@@ -30,19 +30,27 @@ The tftp protocol expects certain artifacts to be present on the server:
 - the kernel image.
 - the initrd image.
 
-Once retrieved, the boot loader is run. Then the boot loader reads the
-boot loader configuration and then transfers control over to the kernel image
-with the retrieved initrd image as its file system.
+Once the PXE client retrieves those artifacts, the boot loader is run and it
+reads the boot loader configuration. It then transfers control over to the
+kernel image with the retrieved initrd image as its file system.
 
 The initrd image is customized to perform the next set of tasks now that an
 OS is running. The tasks can range from just running some local scripts all
 the way to installing another OS.
 
-## PXE Support
+## PXE Support in The Image Customize
 
-The  Image Customizer builds its PXE support on the [Live OS](./liveos.md) model.
+The Image Customizer can take an input image, customize the operating system,
+and produce the artifacts necessary to power the PXE flow described above.
 
-So, it supports both full OS initramfs and bootstrap initramfs.
+In addition to customizing the operating system contents, the user can also
+decide how it will be packaged. There are two supported options:
+- The initrd image is the full operating system.
+- The initrd image is a bootstrap image with minimal contents, and the full
+  operating system is stored in a separate image.
+
+There are pros and cons for each configuration - see the [Live OS](./liveos.md)
+page for details.
 
 When the bootstrap configuration is selected, The bootstrapped image is a 
 bootable ISO (`image.iso`) containing the same PXE configuration (same bootloader
@@ -50,10 +58,8 @@ configuration, same kernel, same full OS file system, etc.). This can be very
 handy when testing the PXE configuration without having to setup a PXE
 environment.
 
-In case the user needs to download additional artifacts, the user can write
-a daemon on the full OS file system which will:
-- run when control is transferred to the full OS.
-- download any additional items.
+If the user needs to download additional artifacts after booting, the user can
+implement a user-space solution that will perform the download tasks.
 
 ## Creating and Deploying PXE Boot Artifacts
 
@@ -61,7 +67,8 @@ The Image Customizer can create the PXE artifacts by simply setting the output
 format to `pxe` on the command-line. The output can be either a folder containing
 the artifacts, or a tar.gz with the same content.
 
-For additional details, see the [PXE Configuration](./configuration/pxe.md) page.
+For additional details, see the [PXE Configuration](../api/configuration/pxe.md)
+page.
 
 Below is a list of the core artifacts and where on the PXE server they should
 be deployed:
@@ -78,7 +85,8 @@ artifacts output folder     target on PXE server
       |- grubenv                    |- grubenv
 |- vmlinuz                    |- vmlinuz
 |- initrd.img                 |- initrd.img
-                             <yyyy-server-root>
+|
+|                           <yyyy-server-root>
 |- other-user-artifacts       |- other-user-artifacts
 |- image.iso                  |- image.iso
 ```
