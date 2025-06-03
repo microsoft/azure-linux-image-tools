@@ -302,7 +302,7 @@ def test_min_change_efi_azl2_iso_output(
     )
 
 
-def test_min_change_efi_azl3_iso_output(
+def test_min_change_efi_azl3_iso_bootstrap_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
     core_efi_azl3: Path,
@@ -332,7 +332,21 @@ def test_min_change_efi_azl3_iso_output(
         close_list,
     )
 
+
+def test_min_change_efi_azl3_iso_full_os_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 3
     config_path = TEST_CONFIGS_DIR.joinpath("iso-full-os-vm.yaml")
+    output_format = "iso"
 
     run_min_change_test(
         docker_client,

@@ -19,7 +19,7 @@ in memory is created so that processes can successfully write their state.
 The input image can be a full disk image (vhd/vhdx/qcow2/raw) or another LiveOS
 iso image.
 
-To generate a LiveOS ISO, set the `--output-image-format` parameter to `iso`.
+To generate a LiveOS iso, set the `--output-image-format` parameter to `iso`.
 More info can be found at 
 [Creating a LiveOS ISO how-to guide](../how-to/live-iso.md)
 
@@ -62,23 +62,23 @@ almost all the artifacts unchanged - some artifacts are changed as follows:
     `root` value is updated to the location of the bootstrap root file system
     image (for example: `root=live:/liveos/image.img`).
   - If the root file system is the same as the initramfs (`initramfsType=full-os`),
-    it is removed from the kernel parameters.
-  - The user-specified parameters are appended.
+    the `root` parameter is removed from the kernel parameters.
+  - The user-specified iso kernel parameters are appended.
 
-- `/etc/fstab` is dropped from the root file system as it typically conflicts
+- `/etc/fstab` is removed from the root file system as it typically conflicts
   with the overlay setup required by the LiveOS.
 
 - `initrd.img` is regenerated to serve the LiveOS boot flow.
   - If the initramfs type is `bootstrap`, Dracut will regenerate the `initrd.img`
     using the input root file system and the Dracut configurations already there.
     This allows the user to customize the initramfs by dropping Dracut
-    configurations on the root file system during the OS customization phase -
-    which is the standard way of customizing the initramfs when using Dracut to
-    generate it.
-  - If the initramfs type is `full-os`, the Image Customizer uses all the mounted
-    partitions (minus the boot folder) to generate the initramfs image. This
-    allows the user to customize the initramfs by using the OS section to install/
-    uninstall packages, copy files, etc.
+    configurations on the root file system during the OS customization phase 
+    (which is the standard way of customizing the initramfs when using Dracut to
+    generate it).
+  - If the initramfs type is `full-os`, the Image Customizer copies all the mounted
+    partitions (minus the `/boot` folder) to the initramfs image. This allows the
+    user to customize the initramfs by using the OS sections to install/uninstall
+    packages, copy files, etc as usual.
 
 ## Limitations
 
@@ -98,7 +98,7 @@ The current implementation for the LiveOS iso does not support the following:
 
 ## ISO Specific Customizations
 
-For a full list of capabilities, see Image Customizer's iso
+For a full list of capabilities, see the Image Customizer's iso
 configuration section, see the [Config.ISO](../api/configuration/iso.md) page.
 
 ## cloud-init Support
@@ -116,7 +116,7 @@ cloud-init data files).
 
 ### Examples
 
-#### Example 1 - Placing cloud-init data directly within the ISO file system
+#### Example 1 - Placing cloud-init data directly within the iso file system
 
 ```yaml
 scripts:
