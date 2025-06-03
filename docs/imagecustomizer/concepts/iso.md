@@ -99,7 +99,7 @@ The current implementation for the LiveOS iso does not support the following:
 ## ISO Specific Customizations
 
 For a full list of capabilities, see Image Customizer's iso
-configuration section: [Config.ISO](../api/configuration/iso.md).
+configuration section, see the [Config.ISO](../api/configuration/iso.md) page.
 
 ## cloud-init Support
 

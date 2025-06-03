@@ -60,6 +60,12 @@ The file path to write the final customized image to.
 
 Added in v0.3.
 
+## --output-path=FILE-PATH
+
+An alias to `--output-image-file`
+
+Added in v0.15.
+
 ## --output-image-format=FORMAT
 
 Required, unless
@@ -70,7 +76,7 @@ value is used.
 
 The image format of the final customized image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and [cosi](./cosi.md).
+Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, pxe, and [cosi](./cosi.md).
 
 The vhd-fixed option outputs a fixed size VHD image. This is the required format for
 VMs in Azure.
@@ -144,15 +150,6 @@ Disable the base image's installed RPM repos as a source of RPMs during package
 installation.
 
 Added in v0.3.
-
-## --output-pxe-artifacts-dir
-
-Create a folder containing the artifacts to be used for PXE booting.
-
-For an overview of Image Customizer support for PXE, see the
-[PXE support page](../concepts/pxe.md).
-
-Added in v0.8.
 
 ## --log-level=LEVEL
 
