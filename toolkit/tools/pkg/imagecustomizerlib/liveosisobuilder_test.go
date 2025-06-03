@@ -147,7 +147,7 @@ func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, test
 	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	assert.NoErrorf(t, err, "read (%s) file", savedConfigsFilePath)
 	for _, extraCommandLineParameter := range extraCommandLineParameters {
-		assert.Contains(t, savedConfigs.Iso.KernelCommandLine.ExtraCommandLine, extraCommandLineParameter)
+		assert.Contains(t, savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine, extraCommandLineParameter)
 	}
 
 	bootstrapImagePath := ""
