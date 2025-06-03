@@ -9,7 +9,7 @@ nav_order: 3
 ## Overview
 
 The Image Customizer can customize an input image and package the output as a
-[Live OS](./liveos.md) iso image. A LiveOS iso image is a bootable image that
+[Live OS](./liveos.md) iso image. A Live OS iso image is a bootable image that
 boots into a root file system included on the iso media without the need to
 have anything pre-installed on the target machine.
 
@@ -22,8 +22,8 @@ To generate a Live OS iso, set the `--output-image-format` parameter to `iso`.
 More info can be found at 
 [Creating a LiveOS ISO how-to guide](../how-to/live-iso.md)
 
-For a full list of capabilities, see the Image Customizer's iso
-configuration section, see the [Config.ISO](../api/configuration/iso.md) page.
+For a full list of capabilities, see [ISO configuration](../api/configuration/iso.md)
+page
 
 ## cloud-init Support
 
