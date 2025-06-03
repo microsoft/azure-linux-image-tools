@@ -9,14 +9,15 @@ nav_order: 2
 ## Overview
 
 The Image Customizer can customize an input image and package the output as a
-LiveOS iso image. The LiveOS iso image is a bootable image that boots into a
+LiveOS iso image. A LiveOS iso image is a bootable image that boots into a
 rootfs image included on the iso media without the need to have anything
 pre-installed on the target machine. The rootfs is kept read-only and an overlay
-in memory is created so that processes can successfully write state.
+in memory is created so that processes can successfully write their state.
 
 ## Creating a LiveOS ISO
 
-The input image can be a full disk image (vhd/vhdx/qcow2/raw) or another LiveOS iso image. 
+The input image can be a full disk image (vhd/vhdx/qcow2/raw) or another LiveOS
+iso image.
 
 To generate a LiveOS ISO, set the `--output-image-format` parameter to `iso`.
 More info can be found at 
@@ -32,7 +33,7 @@ the Azure Linux Image Cuztomizer to be able to generate an iso image out of it:
 - File layout (after all partitions have been mounted):
   - `/boot/grub2/grub.cfg` must exist and is the 'main' grub configuration (not
     a redirection grub configuration file for example).
-  - The bootloader and the shim must exist under the `/boot` folder or any of
+  - The bootloader and the shim must exist under the `/boot` folder or one of
     its subdirectories.
     - For x64, `bootx64.efi` and `grubx64.efi` (or `grubx64-noprefix.efi`).
     - For ARM64, `bootaa64.efi` and `grubaa64.efi` (or `grubaa64-noprefix.efi`).
@@ -56,20 +57,28 @@ actions.
 While converting the input full disk image into a LiveOS iso involves copying
 almost all the artifacts unchanged - some artifacts are changed as follows:
 
-- `grub.cfg` is modified by updating the kernel command-line arguments as
-  follows:
-  - the root is updated to the LiveOS root file system image.
-  - the LiveOS dracut parameters are appended.
-  - the user-specified new parameters are appended.
+- `grub.cfg` is modified by updating the kernel command-line arguments:
+  - If the root file system is bootstrapped (`initramfsType=boostrap`), the
+    `root` value is updated to the location of the bootstrap root file system
+    image (for example: `root=live:/liveos/image.img`).
+  - If the root file system is the same as the initramfs (`initramfsType=full-os`),
+    it is removed from the kernel parameters.
+  - The user-specified parameters are appended.
 
-- `/etc/fstab` is dropped from the rootfs as it typically conflicts with the
-  overlay setup required by the LiveOS.
+- `/etc/fstab` is dropped from the root file system as it typically conflicts
+  with the overlay setup required by the LiveOS.
 
-- `initrd.img` is regenerated to serve the LiveOS boot flow. This should have
-  no impact as long as the included rootfs is where the original `initrd.img`
-  was generated using `dracut`. The use of such rootfs guarantees that the same
-  dracut configuration that got used before will be re-used again when we are
-  re-generating the `initrd.img` and hence the original behavior is retained.
+- `initrd.img` is regenerated to serve the LiveOS boot flow.
+  - If the initramfs type is `bootstrap`, Dracut will regenerate the `initrd.img`
+    using the input root file system and the Dracut configurations already there.
+    This allows the user to customize the initramfs by dropping Dracut
+    configurations on the root file system during the OS customization phase -
+    which is the standard way of customizing the initramfs when using Dracut to
+    generate it.
+  - If the initramfs type is `full-os`, the Image Customizer uses all the mounted
+    partitions (minus the boot folder) to generate the initramfs image. This
+    allows the user to customize the initramfs by using the OS section to install/
+    uninstall packages, copy files, etc.
 
 ## Limitations
 
@@ -88,9 +97,6 @@ The current implementation for the LiveOS iso does not support the following:
   [Input Image Layout Assumptions](#input-image-layout-assumptions) for more details.
 
 ## ISO Specific Customizations
-
-- The user can specify one or more files to be copied to the iso media.
-- The user can add kernel parameters.
 
 For a full list of capabilities, see Image Customizer's iso
 configuration section: [Config.ISO](../api/configuration/iso.md).

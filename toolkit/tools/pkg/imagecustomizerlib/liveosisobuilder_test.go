@@ -36,6 +36,10 @@ func createConfig(fileName, kernelParameter string, initramfsType imagecustomize
 		}
 	}
 
+	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled {
+		bootstrapRequiredPkgs = append(bootstrapRequiredPkgs, "selinux-policy")
+	}
+
 	perms0o644 := imagecustomizerapi.FilePermissions(0o644)
 
 	config := imagecustomizerapi.Config{
@@ -431,7 +435,9 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	ValidatePxeContent(t, config, testTempDir, outImageFilePath)
 }
@@ -450,7 +456,9 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	ValidatePxeContent(t, config, testTempDir, outImageFilePath)
 }

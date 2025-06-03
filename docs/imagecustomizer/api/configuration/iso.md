@@ -17,6 +17,8 @@ iso:
   kernelCommandLine:
     extraCommandLine:
     - rd.info
+
+  initramfsType: bootstrap
 ```
 
 See also: [ISO Support](../../concepts/iso.md)
@@ -32,3 +34,29 @@ Added in v0.3.
 Adds files to the ISO.
 
 Added in v0.7.
+
+## initramfsType [string]
+
+Specifies the initramfs type to generate and include in the ISO image.
+
+Supported options:
+
+- `bootstrap`: Creates a minimal Dracut-based initramfs image that later
+  transitions to the full OS. The full OS is packaged in a separate image
+  and is included on the media for the initramfs to find it.
+  This option allows the generated ISO to boot on hardware that has
+  initramfs size restrictions.
+- `full-os`: Creates a full OS initramfs image.
+
+The default is `bootstrap`.
+
+Note that SELinux cannot be enabled if `initramfsType` is set to `full-os`.
+
+Example:
+
+```yaml
+iso:
+  initramfsType: full-os
+```
+
+Added in v0.15.
