@@ -9,7 +9,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
 )
 
-func logVersionsOfToolDeps() {
+func LogVersionsOfToolDeps() {
 	// Map of version flags with corresponding packages
 	versionFlags := map[string][]string{
 		"--version": {

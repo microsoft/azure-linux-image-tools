@@ -5,15 +5,12 @@ package imagecustomizerlib
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/stretchr/testify/assert"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 )
 
 const (
@@ -97,9 +94,10 @@ var (
 )
 
 var (
-	testDir    string
-	tmpDir     string
-	workingDir string
+	testDir      string
+	tmpDir       string
+	workingDir   string
+	testutilsDir string
 )
 
 func TestMain(m *testing.M) {
@@ -116,6 +114,7 @@ func TestMain(m *testing.M) {
 
 	testDir = filepath.Join(workingDir, "testdata")
 	tmpDir = filepath.Join(workingDir, "_tmp")
+	testutilsDir = filepath.Join(workingDir, "../../internal/testutils")
 
 	err = os.MkdirAll(tmpDir, os.ModePerm)
 	if err != nil {
@@ -132,19 +131,9 @@ func TestMain(m *testing.M) {
 	os.Exit(retVal)
 }
 
-func checkSkipForCustomizeImageRequirements(t *testing.T) {
-	if !buildpipeline.IsRegularBuild() {
-		t.Skip("loopback block device not available")
-	}
-
-	if os.Geteuid() != 0 {
-		t.Skip("Test must be run as root because it uses a chroot")
-	}
-}
-
 // Skip the test if requirements for testing CustomizeImage() are not met.
 func checkSkipForCustomizeImage(t *testing.T, baseImage testBaseImageInfo) string {
-	checkSkipForCustomizeImageRequirements(t)
+	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	if baseImage.Param == nil || *baseImage.Param == "" {
 		t.Skipf("--%s is required for this test", baseImage.ParamName)
@@ -154,7 +143,7 @@ func checkSkipForCustomizeImage(t *testing.T, baseImage testBaseImageInfo) strin
 }
 
 func checkSkipForCustomizeDefaultImage(t *testing.T) (string, testBaseImageInfo) {
-	checkSkipForCustomizeImageRequirements(t)
+	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	for _, imageInfo := range defaultBaseImagePriorityList {
 		if imageInfo.Param != nil && *imageInfo.Param != "" {
@@ -164,32 +153,4 @@ func checkSkipForCustomizeDefaultImage(t *testing.T) (string, testBaseImageInfo)
 
 	t.Skipf("--%s is required for this test", defaultBaseImagePriorityList[0].ParamName)
 	return "", testBaseImageInfo{}
-}
-
-func getDownloadedRpmsDir(t *testing.T, azureLinuxVersion string) string {
-	downloadedRpmsDir := filepath.Join(testDir, "testrpms/downloadedrpms", azureLinuxVersion)
-	dirExists, err := file.DirExists(downloadedRpmsDir)
-	if !assert.NoErrorf(t, err, "cannot access downloaded RPMs dir (%s)", downloadedRpmsDir) {
-		t.FailNow()
-	}
-	if !assert.True(t, dirExists) {
-		t.Logf("test requires offline RPMs")
-		t.Logf("please run toolkit/tools/pkg/imagecustomizerlib/testdata/testrpms/download-test-rpms.sh -t %s",
-			azureLinuxVersion)
-		t.FailNow()
-	}
-
-	return downloadedRpmsDir
-}
-
-func getDownloadedRpmsRepoFile(t *testing.T, azureLinuxVersion string, withGpgKey bool) string {
-	dir := getDownloadedRpmsDir(t, azureLinuxVersion)
-
-	suffix := "nokey"
-	if withGpgKey {
-		suffix = "withkey"
-	}
-
-	repoFile := filepath.Join(dir, "../", fmt.Sprintf("rpms-%s-%s.repo", azureLinuxVersion, suffix))
-	return repoFile
 }

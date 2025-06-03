@@ -62,7 +62,7 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 		return
 	}
 
-	err = convertImageFile(baseImage, outImageFilePath, "raw")
+	err = ConvertImageFile(baseImage, outImageFilePath, "raw")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -133,7 +133,7 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 		return
 	}
 
-	err = convertImageFile(baseImage, outImageFilePath, "raw")
+	err = ConvertImageFile(baseImage, outImageFilePath, "raw")
 	if !assert.NoError(t, err) {
 		return
 	}

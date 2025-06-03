@@ -14,6 +14,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
@@ -27,7 +28,7 @@ type ImageBuildData struct {
 
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, verityMetadata []verityDeviceMetadata,
-	osRelease string, osPackages []OsPackage, imageUuid [UuidSize]byte, imageUuidStr string,
+	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -339,5 +340,4 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 	}
 
 	return packages, nil
-
 }
