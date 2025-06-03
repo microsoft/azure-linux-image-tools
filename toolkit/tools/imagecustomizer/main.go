@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"maps"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/exekong"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/telemetry"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 )
@@ -38,14 +40,16 @@ type InjectFilesCmd struct {
 }
 
 type RootCmd struct {
-	Customize     CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
-	InjectFiles   InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
-	Version       kong.VersionFlag `name:"version" help:"Print version information and quit"`
-	TimeStampFile string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	Customize        CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
+	InjectFiles      InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
+	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
+	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
 	exekong.LogFlags
 }
 
 func main() {
+
 	cli := &RootCmd{}
 
 	vars := kong.Vars{
@@ -63,6 +67,17 @@ func main() {
 		kong.UsageOnError())
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
+
+	// initialize OpenTelemetry tracer
+	err := telemetry.InitTelemetry(cli.DisableTelemetry)
+	if err != nil {
+		logger.Log.Warnf("Failed to initialize telemetry setup: %v", err)
+	}
+	defer func() {
+		if err := telemetry.ShutdownTelemetry(context.Background()); err != nil {
+			logger.Log.Warnf("Failed to shutdown telemetry: %v", err)
+		}
+	}()
 
 	if cli.TimeStampFile != "" {
 		timestamp.BeginTiming("imagecustomizer", cli.TimeStampFile)
