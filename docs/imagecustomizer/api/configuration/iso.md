@@ -4,7 +4,8 @@ parent: Configuration
 
 # iso type
 
-Specifies the configuration for the generated ISO image.
+Specifies the configuration for the generated ISO image when the `--output-format`
+is set to `iso`.
 
 Example:
 
@@ -21,7 +22,7 @@ iso:
   initramfsType: bootstrap
 ```
 
-See also: [ISO Support](../../concepts/iso.md)
+See also the [ISO Support](../../concepts/iso.md) page.
 
 ## kernelCommandLine [[kernelCommandLine](./kernelcommandline.md)]
 
@@ -43,12 +44,11 @@ Supported options:
 
 - `bootstrap`: Creates a minimal Dracut-based initramfs image that later
   transitions to the full OS. The full OS is packaged in a separate image
-  and is included on the media for the initramfs to find it.
-  This option allows the generated ISO to boot on hardware that has
-  initramfs size restrictions.
+  and is included on the media. This option allows the generated ISO to boot
+  on hardware that has memory restrictions on the initramfs image size.
 - `full-os`: Creates a full OS initramfs image.
 
-The default is `bootstrap`.
+The default is `initramfsType` value is `bootstrap`.
 
 Note that SELinux cannot be enabled if `initramfsType` is set to `full-os`.
 

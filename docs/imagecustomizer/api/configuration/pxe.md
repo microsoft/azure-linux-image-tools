@@ -4,7 +4,8 @@ parent: Configuration
 
 # pxe type
 
-Specifies the configuration for the generated PXE artifacts.
+Specifies the configuration for the generated PXE artifacts when the `--output-format`
+is set to `pxe`.
 
 Example:
 
@@ -22,6 +23,8 @@ pxe:
 
   bootstrapBaseUrl: http://my-pxe-server
 ```
+
+See also the [PXE Support](../../concepts/pxe.md) page.
 
 ## kernelCommandLine [[kernelCommandLine](./kernelcommandline.md)]
 
@@ -45,10 +48,10 @@ Supported options:
   transitions to the full OS. The full OS is packaged in a separate image
   and is included on in the PXE artifacts folder for the initramfs to find it.
   This option allows the generated PXE artifacts to boot on hardware that has
-  initramfs size restrictions.
+  memory restrictions on the initramfs image size.
 - `full-os`: Creates a full OS initramfs image.
 
-The default is `full-os`.
+The default is `initramfsType` value is `full-os`.
 
 Note that SELinux cannot be enabled if `initramfsType` is set to `full-os`.
 
@@ -80,7 +83,7 @@ Then the download URL becomes `http://hostname-or-ip/iso-publish-path/image.iso`
 This field is mutually exclusive with `bootstrapFileUrl`.
 
 For an overview of Image Customizer support for PXE, see the 
-[PXE support page](../../concepts/pxe.md).
+[PXE support](../../concepts/pxe.md) page.
 
 Added in v0.15.
 
@@ -101,6 +104,6 @@ The supported download protocols are: nfs, http, https, ftp, torent, tftp.
 This field is mutually exclusive with `bootstrapBaseUrl`.
 
 For an overview of Image Customizer support for PXE, see the 
-[PXE support page](../../concepts/pxe.md).
+[PXE support](../../concepts/pxe.md) page.
 
 Added in v0.15.
