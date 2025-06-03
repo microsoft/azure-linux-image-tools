@@ -44,7 +44,7 @@ Live OS ISO) produces new ISO images and PXE artifacts. For details, see:
 - [ISO](./iso.md)
 - [PXE](./pxe.md)
 
-#### Limitations
+### Limitations
 
 The current implementation for the Live OS does not support the following:
 
@@ -60,7 +60,7 @@ The current implementation for the Live OS does not support the following:
   on the input image layout that may not be satisfied. See the section titled
   [Input Image Layout Assumptions](#input-image-layout-assumptions) for more details.
 
-#### Input Image Requirements
+### Input Image Requirements
 
 The input image can come in many formats:
 - an image with multiple partitions.
@@ -81,7 +81,7 @@ Then, it will proceed to customize it and then look for following:
   If it does, those referenced files will not be copied to the iso and may
   cause grub to fail booting the desired operating system.
 
-#### OS Modifications
+### OS Modifications
 
 The user can customize the full OS using the Image Customizer as usual (using
 the `os` section in the configuration). All those customizations will carry over
@@ -120,7 +120,7 @@ almost all the artifacts unchanged - some artifacts are changed as follows:
   expects the initrd image to be a CPIO archive, and that format does not
   support extended attributes - which are necessary to hold the SELinux labels.    
 
-#### Initramfs Contents
+### Initramfs Contents
 
 The user can decide whether the full OS file system will be embedded in the
 initrd image itself or stored in a separate image (in which case, a process
@@ -149,7 +149,7 @@ The main difference between the two configurations is:
 
 The user can specify either configuration using the `initramfsType` property.
 
-#### Bootstrap Implementation
+### Bootstrap Implementation
 
 - ISO support:
   - The bootstrap support is implemented using Dracut's `dmsquash` module. The
