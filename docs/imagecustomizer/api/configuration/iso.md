@@ -4,7 +4,7 @@ parent: Configuration
 
 # iso type
 
-Specifies the configuration for the generated ISO media.
+Specifies the configuration for the generated ISO image.
 
 Example:
 

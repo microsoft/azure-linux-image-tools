@@ -416,7 +416,7 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
 }
 
