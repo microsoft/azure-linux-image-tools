@@ -1,7 +1,11 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 import os
 import logging
 import grpc
 import signal
+import argparse
 from concurrent import futures
 from typing import Dict, Any, List, Optional
 
@@ -18,7 +22,6 @@ from opentelemetry.proto.collector.trace.v1 import (
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as ProtoSpan
 from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 
-DEFAULT_GRPC_PORT = 4317
 SHUTDOWN_GRACE_PERIOD_SEC = 5
 
 # TODO: Replace with PME resource string when available
@@ -166,7 +169,7 @@ def extract_attributes_from_proto(proto_attributes: List[KeyValue]) -> Dict[str,
 class TelemetryServer:
     """Telemetry hopper server that forwards OTLP traces to Azure Monitor."""
 
-    def __init__(self, port: int = DEFAULT_GRPC_PORT):
+    def __init__(self, port: int):
         self.port = port
         self.server: Optional[grpc.Server] = None
 
@@ -215,6 +218,21 @@ class TelemetryServer:
         signal.signal(signal.SIGTERM, shutdown_handler)
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Telemetry hopper server that forwards OTLP traces to Azure Monitor"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        required=True,
+        help=f"Port number for the gRPC server to listen on",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    server = TelemetryServer()
+    args = parse_args()
+    server = TelemetryServer(port=args.port)
     server.run()

@@ -20,7 +20,7 @@ var shutdownFn func(ctx context.Context) error
 
 func InitTelemetry(disableTelemetry bool) error {
 	if disableTelemetry || os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" {
-		logger.Log.Debug("Disabled telemetry collection")
+		logger.Log.Info("Disabled telemetry collection")
 		return nil
 	}
 

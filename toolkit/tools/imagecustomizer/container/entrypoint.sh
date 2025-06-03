@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 set -e
 
 ENABLE_TELEMETRY="${ENABLE_TELEMETRY:-true}"
@@ -13,7 +17,7 @@ done
 
 # Start telemetry service if enabled
 if [[ "$ENABLE_TELEMETRY" == "true" ]]; then
-    /opt/telemetry-venv/bin/python /usr/local/bin/telemetry_hopper.py > /dev/null 2>&1 || true &
+    /opt/telemetry-venv/bin/python /usr/local/bin/telemetry_hopper.py --port $OTEL_PORT > /dev/null 2>&1 || true &
     sleep 1
 fi
 
