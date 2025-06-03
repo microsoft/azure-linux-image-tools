@@ -20,7 +20,4 @@ ENV OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317" \
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
 
-RUN chmod +x /usr/local/bin/entrypoint.sh && \
-   chmod +x /usr/local/bin/telemetry_hopper.py
-
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
