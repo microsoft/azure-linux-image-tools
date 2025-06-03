@@ -428,7 +428,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe1")
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
-	pxeBootstrapUrl := "http://my-pxe-server-1" + defaultIsoImageName
+	pxeBootstrapUrl := "http://my-pxe-server-1/" + defaultIsoImageName
 
 	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, pxeBootstrapUrl,
 		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
