@@ -86,6 +86,11 @@ func main() {
 		defer timestamp.CompleteTiming()
 	}
 
+	err = preprocessCli(cli)
+	if err != nil {
+		log.Fatalf("invalid command-line arguments:\n%v", err)
+	}
+
 	switch parseContext.Command() {
 	case "customize":
 		err := customizeImage(cli.Customize)
@@ -104,13 +109,17 @@ func main() {
 	}
 }
 
-func customizeImage(cmd CustomizeCmd) error {
-	if cmd.OutputImageFile != "" && cmd.OutputPath != "" {
+func preprocessCli(cli *RootCmd) error {
+	if cli.Customize.OutputImageFile != "" && cli.Customize.OutputPath != "" {
 		return fmt.Errorf("cannot specify both --output-image-file and --output-path at the same time")
 	}
-	if cmd.OutputImageFile == "" {
-		cmd.OutputImageFile = cmd.OutputPath
+	if cli.Customize.OutputImageFile == "" {
+		cli.Customize.OutputImageFile = cli.Customize.OutputPath
 	}
+	return nil
+}
+
+func customizeImage(cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, !cmd.DisableBaseImageRpmRepos, cmd.PackageSnapshotTime)
 	if err != nil {
@@ -121,10 +130,6 @@ func customizeImage(cmd CustomizeCmd) error {
 }
 
 func injectFiles(cmd InjectFilesCmd) error {
-	// Todo: either outputimagefile or outpath
-	if cmd.OutputImageFile == "" {
-		cmd.OutputImageFile = cmd.OutputPath
-	}
 	err := imagecustomizerlib.InjectFilesWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.OutputImageFile, cmd.OutputImageFormat)
 	if err != nil {
