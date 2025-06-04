@@ -305,8 +305,14 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
+	// SELinux in Live OS is only supported with azl3
+	selinuxMode := imagecustomizerapi.SELinuxModeEnforcing
+	if baseImageVersionDefault == baseImageVersionAzl2 {
+		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
+	}
+
 	configA := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
-		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
+		true /*enable os config*/, true /*bootstrap prereqs*/, selinuxMode)
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
@@ -380,8 +386,15 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
 	// - ISO {full-os} to ISO {bootstrap}, with selinux enforcing
+
+	// SELinux in Live OS is only supported with azl3
+	selinuxMode := imagecustomizerapi.SELinuxModeEnforcing
+	if baseImageVersionDefault == baseImageVersionAzl2 {
+		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
+	}
+
 	configC := createConfig("c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
-		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
+		true /*enable os config*/, true /*bootstrap prereqs*/, selinuxMode)
 
 	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath, "iso",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -420,8 +433,14 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
 	pxeBootstrapUrl := "http://my-pxe-server-1/" + defaultIsoImageName
 
+	// SELinux in Live OS is only supported with azl3
+	selinuxMode := imagecustomizerapi.SELinuxModeEnforcing
+	if baseImageVersionDefault == baseImageVersionAzl2 {
+		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
+	}
+
 	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, pxeBootstrapUrl,
-		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
+		true /*enable os config*/, true /*bootstrap prereqs*/, selinuxMode)
 
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
