@@ -824,7 +824,7 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 	}
 
 	// Pxe output format allows the output to be a path.
-	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxe {
+	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxe && outputImageFormat != string(imagecustomizerapi.ImageFormatTypePxe) {
 		if outputImageFile != "" {
 			if isDir, err := file.DirExists(outputImageFile); err != nil {
 				return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\n%w", outputImageFile, err)
