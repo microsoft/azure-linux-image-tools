@@ -62,7 +62,7 @@ func (p *Pxe) IsValid() error {
 
 	if p.InitramfsType == InitramfsImageTypeFullOS {
 		if p.BootstrapBaseUrl != "" || p.BootstrapFileUrl != "" {
-			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' and 'bootstrapFileUrl' when the initramfs type is set to '%s'.", InitramfsImageTypeFullOS)
+			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' or 'bootstrapFileUrl' when the initramfs type is set to '%s'.", InitramfsImageTypeFullOS)
 		}
 	}
 

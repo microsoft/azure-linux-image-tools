@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"maps"
 	"strings"
@@ -104,7 +105,7 @@ func main() {
 }
 
 func customizeImage(cmd CustomizeCmd) error {
-	if cmd.OutputImageFile != "" && md.OutputPath != "" {
+	if cmd.OutputImageFile != "" && cmd.OutputPath != "" {
 		return fmt.Errorf("cannot specify both --output-image-file and --output-path at the same time")
 	}
 	if cmd.OutputImageFile == "" {
