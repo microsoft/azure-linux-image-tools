@@ -8,10 +8,10 @@ nav_order: 3
 
 ## Overview
 
-The Image Customizer can customize an input image and package the output as a
-[Live OS](./liveos.md) iso image. A Live OS iso image is a bootable image that
-boots into a root file system included on the iso media without the need to
-have anything pre-installed on the target machine.
+The Image Customizer tool can customize an input image and package the output
+as a [Live OS](./liveos.md) iso image. A Live OS iso image is a bootable image
+that boots into a root file system included on the iso media without the need
+to have anything pre-installed on the target machine.
 
 ## Creating a Live OS ISO
 
