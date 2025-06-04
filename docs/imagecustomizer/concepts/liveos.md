@@ -39,8 +39,9 @@ The flow is as follows:
 
 ## Support in Image Customizer
 
-The Image Customizer can take an input image (qcow, vhd(x), prerviously generated
-Live OS ISO), and produces new ISO images and PXE artifacts. For details, see:
+The Image Customizer tool can take an input image (qcow, vhd(x), prerviously
+generated Live OS ISO), and produces new ISO images and PXE artifacts. For
+details, see:
 - [ISO](./iso.md)
 - [PXE](./pxe.md)
 
@@ -66,7 +67,7 @@ The input image can come in many formats:
 - an image with multiple partitions.
 - an ISO image.
 
-The Image Customizer takes all supported input formats and normalize them
+The Image Customizer tool takes all supported input formats and normalize them
 into a full OS layout (mount partitions, extract squashfs contents, etc.).
 Then, it will proceed to customize it and then look for following:
 
@@ -83,7 +84,7 @@ Then, it will proceed to customize it and then look for following:
 
 ### OS Modifications
 
-The user can customize the full OS using the Image Customizer as usual (using
+The user can customize the full OS using the Image Customizer the as usual (using
 the `os` section in the configuration). All those customizations will carry over
 into the Live OS naturally. This includes customizations for kernel modules,
 dracut, and other early boot-time actions.
@@ -107,14 +108,14 @@ almost all the artifacts unchanged - some artifacts are changed as follows:
     `initrd.img` using the input root file system and the Dracut configurations
     already there. This allows the user to customize the initramfs by dropping
     Dracut configurations on the root file system during the OS customization
-    phase, and then when the Image Customizer runs Dracut to regenerate the
+    phase, and then when the Image Customizer tool runs Dracut to regenerate the
     initrd image, the newly placed/updated configuration will take effect (this
     is the typical way of customizing the initramfs when using Dracut to generate
     it).
-  - If the initramfs type is `full-os`, the Image Customizer copies all the mounted
-    partitions (minus the `/boot` folder) to the initramfs image. This allows the
-    user to customize the initramfs by using the `os` sections to install/uninstall
-    packages, copy files, etc as usual.
+  - If the initramfs type is `full-os`, the Image Customizer tool copies all the
+    mounted partitions (minus the `/boot` folder) to the initramfs image. This
+    allows the user to customize the initramfs by using the `os` sections to
+    install/uninstall packages, copy files, etc as usual.
 
 - SELinux must be disabled if the full OS is initrd. This is because the kernel
   expects the initrd image to be a CPIO archive, and that format does not
@@ -132,7 +133,7 @@ The main differences between the two configurations are:
     certain hardware skus (leading to an "out of memory" grub error). However,
     this is much simpler to deploy to a PXE server since the full OS content
     will be served using the PXE protocol without any extra setup.
-  - initrd is customized using the Image Customizer configuration constructs
+  - initrd is customized using the Image Customizer tool configuration constructs
     directly (install packages, copy files, etc).
   - SELinux is not supported (mainly because CPIO does not support extended file
     system attributes).
@@ -142,9 +143,9 @@ The main differences between the two configurations are:
   - The downside is that extra PXE environment setup is necessary (like setting up
     a server to host and serve the bootstrapped extra image file).
   - initrd is customized using Dracut configuration files. The user will need to
-    craft those files, use Image Customizers to place them in the right locations
-    on the root file system so that when Dracut is run to generate a new initrd,
-    it will take them into consideration.
+    craft those files, use the Image Customizer tool to place them in the right
+    locations on the root file system so that when Dracut is run to generate a
+    new initrd, it will take them into consideration.
   - SELinux can be enabled.
 
 The user can specify either configuration using the `initramfsType` property
