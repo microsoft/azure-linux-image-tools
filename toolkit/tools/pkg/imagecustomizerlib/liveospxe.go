@@ -17,7 +17,6 @@ import (
 )
 
 func getPxeBootstrapFileUrl(bootstrapBaseUrl, bootstrapFileUrl string) (fileUrl string, err error) {
-
 	if bootstrapBaseUrl != "" && bootstrapFileUrl != "" {
 		return "", fmt.Errorf("cannot set both iso image base url and full image url at the same time")
 	}
@@ -53,7 +52,7 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 	outputPXEImage := ""
 
 	if strings.HasSuffix(outputPath, ".tar.gz") {
-		// Output is a .tar.gz
+		// Output is a .tar.gz, create a temporary folder, and set the tar file name
 		outputPXEArtifactsDir, err = os.MkdirTemp(buildDir, "tmp-pxe-")
 		if err != nil {
 			return fmt.Errorf("failed to create temporary mount folder for squashfs:\n%w", err)
@@ -76,23 +75,6 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		return fmt.Errorf("failed to stage one or more live os files:\n%w", err)
 	}
 
-	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
-	_, bootFilesConfig, err := getBootArchConfig()
-	if err != nil {
-		return err
-	}
-	bootloaderSrcDir := filepath.Join(outputPXEArtifactsDir, isoBootloadersDir)
-	bootloaderFiles := []string{bootFilesConfig.bootBinary, bootFilesConfig.grubBinary}
-
-	for _, bootloaderFile := range bootloaderFiles {
-		sourcePath := filepath.Join(bootloaderSrcDir, bootloaderFile)
-		targetPath := filepath.Join(outputPXEArtifactsDir, bootloaderFile)
-		err = file.Move(sourcePath, targetPath)
-		if err != nil {
-			return fmt.Errorf("failed to move boot loader file from (%s) to (%s) while generated the PXE artifacts folder:\n%w", sourcePath, targetPath, err)
-		}
-	}
-
 	// If bootstrap is requested, create the bootstrapped image
 	if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
 		err = verifyDracutPXESupport(artifactsStore.info.dracutPackageInfo)
@@ -113,7 +95,7 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 			return fmt.Errorf("failed to create the Iso image.\n%w", err)
 		}
 
-		// The current support in dracut expects only an iso - so, no need to remove
+		// The current support in dracut expects only an iso - so, no need to remkeepove
 		// the squash rootfs image.
 		artifactsRootfsPath := filepath.Join(outputPXEArtifactsDir, liveOSDir, liveOSImage)
 		err = os.Remove(artifactsRootfsPath)
@@ -122,9 +104,26 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		}
 	}
 
-	// Note that the removes must take place afer the bootstrapped ISO is
+	// Note that the moves/removes must take place afer the bootstrapped ISO is
 	// created because some of these files are needed by the ISO so it is
 	// bootable.
+
+	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
+	_, bootFilesConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
+	bootloaderSrcDir := filepath.Join(outputPXEArtifactsDir, isoBootloadersDir)
+	bootloaderFiles := []string{bootFilesConfig.bootBinary, bootFilesConfig.grubBinary}
+
+	for _, bootloaderFile := range bootloaderFiles {
+		sourcePath := filepath.Join(bootloaderSrcDir, bootloaderFile)
+		targetPath := filepath.Join(outputPXEArtifactsDir, bootloaderFile)
+		err = file.Move(sourcePath, targetPath)
+		if err != nil {
+			return fmt.Errorf("failed to move boot loader file from (%s) to (%s) while generated the PXE artifacts folder:\n%w", sourcePath, targetPath, err)
+		}
+	}
 
 	// Remove the empty 'pxe-folder>/efi' folder.
 	isoEFIDir := filepath.Join(outputPXEArtifactsDir, "efi")
