@@ -95,12 +95,18 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 			return fmt.Errorf("failed to create the Iso image.\n%w", err)
 		}
 
-		// The current support in dracut expects only an iso - so, no need to remkeepove
-		// the squash rootfs image.
-		artifactsRootfsPath := filepath.Join(outputPXEArtifactsDir, liveOSDir, liveOSImage)
+		// The current support in dracut expects only an iso - so, no need to
+		// keep the squash rootfs image.
+		artifactsRootfsDir := filepath.Join(outputPXEArtifactsDir, liveOSDir)
+		artifactsRootfsPath := filepath.Join(artifactsRootfsDir, liveOSImage)
 		err = os.Remove(artifactsRootfsPath)
 		if err != nil {
 			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
+		}
+
+		err = os.RemoveAll(artifactsRootfsDir)
+		if err != nil {
+			return fmt.Errorf("failed to remove folder (%s):\n%w", artifactsRootfsDir, err)
 		}
 	}
 
