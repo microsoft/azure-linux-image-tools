@@ -1,5 +1,5 @@
 iso:
-  initramfsType: bootstrap
+  initramfsType: full-os
 os:
   selinux:
     mode: disabled

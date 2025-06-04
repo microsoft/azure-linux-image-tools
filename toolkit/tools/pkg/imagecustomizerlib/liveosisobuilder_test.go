@@ -25,17 +25,10 @@ import (
 
 func createConfig(fileName, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType, bootstrapFileUrl string,
 	enableOsConfig, bootstrapPrereqs bool, selinuxMode imagecustomizerapi.SELinuxMode) *imagecustomizerapi.Config {
-
 	bootstrapRequiredPkgs := []string{}
 	if bootstrapPrereqs {
-		bootstrapRequiredPkgs = []string{
-			"squashfs-tools",
-			"tar",
-			"device-mapper",
-			"curl",
-		}
+		bootstrapRequiredPkgs = append(bootstrapRequiredPkgs, "squashfs-tools", "tar", "device-mapper", "curl")
 	}
-
 	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled {
 		bootstrapRequiredPkgs = append(bootstrapRequiredPkgs, "selinux-policy")
 	}
@@ -94,10 +87,9 @@ func createConfig(fileName, kernelParameter string, initramfsType imagecustomize
 	return &config
 }
 
-func VerifyBootstrapPresence(t *testing.T, initramfsType imagecustomizerapi.InitramfsImageType, bootstrapImagePath string) {
-
-	bootstrapImageExists, err := file.PathExists(bootstrapImagePath)
-	assert.NoErrorf(t, err, "check if (%s) bootstrapImagePath exists", bootstrapImagePath)
+func VerifyBootstrappedImageExists(t *testing.T, initramfsType imagecustomizerapi.InitramfsImageType, bootstrappedImagePath string) {
+	bootstrapImageExists, err := file.PathExists(bootstrappedImagePath)
+	assert.NoErrorf(t, err, "check if (%s) bootstrappedImagePath exists", bootstrappedImagePath)
 
 	switch initramfsType {
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
@@ -108,8 +100,6 @@ func VerifyBootstrapPresence(t *testing.T, initramfsType imagecustomizerapi.Init
 }
 
 func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir, outputFormat string, artifactsPath, bootstrappedImage string) {
-
-	// Check for the copied a.txt file.
 	var additionalFiles imagecustomizerapi.AdditionalFileList
 	var extraCommandLineParameters []string
 	var initramfsType imagecustomizerapi.InitramfsImageType
@@ -150,17 +140,17 @@ func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, test
 		assert.Contains(t, savedConfigs.LiveOS.KernelCommandLine.ExtraCommandLine, extraCommandLineParameter)
 	}
 
-	bootstrapImagePath := ""
+	bootstrappedImagePath := ""
 	if outputFormat == "iso" {
 		// The bootstrap file is a squashfs image file
-		bootstrapImagePath = filepath.Join(artifactsPath, liveOSDir, liveOSImage)
+		bootstrappedImagePath = filepath.Join(artifactsPath, liveOSDir, liveOSImage)
 	} else {
 		// The bootstrap file is an iso that contains the squashfs file
-		bootstrapImagePath = filepath.Join(artifactsPath, defaultIsoImageName)
+		bootstrappedImagePath = filepath.Join(artifactsPath, defaultIsoImageName)
 	}
 
-	VerifyBootstrapPresence(t, initramfsType, bootstrapImagePath)
-	VerifyFullOSContents(t, testTempDir, artifactsPath, outputFormat, config.OS, bootstrapImagePath, initramfsType)
+	VerifyBootstrappedImageExists(t, initramfsType, bootstrappedImagePath)
+	VerifyFullOSContents(t, testTempDir, artifactsPath, outputFormat, config.OS, bootstrappedImagePath, initramfsType)
 
 	if outputFormat == "pxe" {
 		if initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
@@ -169,7 +159,7 @@ func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, test
 	}
 }
 
-func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat string, osConfig *imagecustomizerapi.OS, bootstrapImagePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
+func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat string, osConfig *imagecustomizerapi.OS, bootstrappedImagePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
 	if osConfig == nil {
 		return
 	}
@@ -180,10 +170,10 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat
 		fullOSImagePath := ""
 		if outputFormat == "iso" {
 			// The full OS image is the bootstrap image
-			fullOSImagePath = bootstrapImagePath
+			fullOSImagePath = bootstrappedImagePath
 		} else {
 			// The bootstrap file is an iso that contains the squashfs file
-			isoImageLoopDevice, err := safeloopback.NewLoopback(bootstrapImagePath)
+			isoImageLoopDevice, err := safeloopback.NewLoopback(bootstrappedImagePath)
 			if !assert.NoError(t, err) {
 				return
 			}
