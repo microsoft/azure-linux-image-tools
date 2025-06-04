@@ -29,7 +29,6 @@ type LiveOSConfig struct {
 func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramfsType imagecustomizerapi.InitramfsImageType,
 	defaultInitramfsType imagecustomizerapi.InitramfsImageType) (
 	resolvedInitramfsType imagecustomizerapi.InitramfsImageType, convertingInitramfsType bool) {
-
 	// if user does not specify initramfs type, and there is an input image
 	// , then we should follow the input image.
 	var inputInitramfsType imagecustomizerapi.InitramfsImageType
@@ -79,7 +78,6 @@ func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramf
 func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagecustomizerapi.Iso,
 	pxeConfig *imagecustomizerapi.Pxe, outputFormat imagecustomizerapi.ImageFormatType) (
 	config LiveOSConfig, convertingInitramfsType bool, err error) {
-
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		config.isPxe = false

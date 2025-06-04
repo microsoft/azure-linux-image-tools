@@ -81,7 +81,6 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
 
-	// ToDo: Do we really need this?!
 	initScriptPath := filepath.Join(writeableRootfsDir, initScriptFileName)
 	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
 	if err != nil {
