@@ -58,15 +58,15 @@ is used.
 
 The file path to write the final customized image to.
 
-Added in v0.3.
-
 If the `--output-format` is set to `pxe`, this can be set to either:
-- a directory where the customized PXE artifacts will be placed.
-- a `.tar.gz` file name where the PXE artifacts will be compressed and stored.
+- the name of a directory where the customized PXE artifacts will be placed.
+- the name of a a `.tar.gz` where the customized PXE artifacts will be archived.
+
+Added in v0.3.
 
 ## --output-path=FILE-PATH
 
-An alias to `--output-image-file`
+An alias to `--output-image-file`.
 
 Added in v0.15.
 

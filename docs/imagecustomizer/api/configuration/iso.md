@@ -22,7 +22,7 @@ iso:
   initramfsType: bootstrap
 ```
 
-See also the [ISO Support](../../concepts/iso.md) page.
+See also: [ISO Support](../../concepts/iso.md)
 
 ## kernelCommandLine [[kernelCommandLine](./kernelcommandline.md)]
 
@@ -48,7 +48,7 @@ Supported options:
   on hardware that has memory restrictions on the initramfs image size.
 - `full-os`: Creates a full OS initramfs image.
 
-The default is `initramfsType` value is `bootstrap`.
+The default value for `initramfsType` is `bootstrap`.
 
 Note that SELinux cannot be enabled if `initramfsType` is set to `full-os`.
 

@@ -8,16 +8,16 @@ nav_order: 2
 
 ## What is a Live OS?
 
-A Live OS is when a system is booted from removable media (for example, an ISO
-or a USB) or from the network (for example, using PXE). In such flows, the OS
-file system is not installed to persistent storage on the host prior to fully
-booting the system.
+A Live OS refers to a system that is booted from removable media (for example,
+an ISO or a USB) or from the network (for example, using PXE). In such flows,
+the OS file system is not installed to persistent storage on the host prior to
+fully booting the system.
 
-While the Live OS itself is not a concrete image format, it is a composition
-and a flow that is typically used when producing an ISO image or PXE artifacts
-(folder or tar.gz).
+While the Live OS itself is not a concrete image format, there is a typical
+composition and a flow that are used when producing a Live OS ISO image or Live
+OS PXE artifacts (folder or tar.gz).
 
-The Live OS is typically composed of the following core artifacts:
+The Live OS is composed of the following core artifacts:
 - the boot loader (the shim and something like grub)
 - the boot loader configuration
 - the kernel image
@@ -27,20 +27,20 @@ The Live OS is typically composed of the following core artifacts:
 The flow is as follows:
 - The firmware starts the bootloader.
 - The bootloader reads its configuration and determines where the kernel/initrd
-  are.
+  files are.
 - The bootloader loads the kernel and initrd in memory.
 - The bootloader transfers control to the kernel and the initrd is attached.
 - The kernel initializes itself and then runs the initrd initialization entry
   point.
 - The initrd initialization entry point starts systemd (or other processes
-  depending on the configuration)
-- One of the initrd processes can optionally locate another root file system and
-  pivots to it if desired.
+  depending on the configuration).
+- Optionally, an initrd processes can locate another root file system and pivots
+  to it if desired.
 
-## Support  in Image Customizer
+## Support in Image Customizer
 
 The Image Customizer can take an input image (qcow, vhd(x), prerviously generated
-Live OS ISO) produces new ISO images and PXE artifacts. For details, see:
+Live OS ISO), and produces new ISO images and PXE artifacts. For details, see:
 - [ISO](./iso.md)
 - [PXE](./pxe.md)
 
@@ -126,38 +126,39 @@ The user can decide whether the full OS file system will be embedded in the
 initrd image itself or stored in a separate image (in which case, a process
 on the initrd image will need to find it, and pivot to it).
 
-The main difference between the two configurations is:
+The main differences between the two configurations are:
 - When the initrd image is the full OS:
-  - the initrd image size is larger and may not meet the memory restriction on
+  - The initrd image size is larger and may not meet the memory restrictions on
     certain hardware skus (leading to an "out of memory" grub error). However,
     this is much simpler to deploy to a PXE server since the full OS content
     will be served using the PXE protocol without any extra setup.
   - initrd is customized using the Image Customizer configuration constructs
     directly (install packages, copy files, etc).
-  - selinux is not supported (mainly because CPIO does not support extended file
+  - SELinux is not supported (mainly because CPIO does not support extended file
     system attributes).
 - When the initrd image is a bootstrap image:
-  - the initrd image size will be much smaller (~30MB) - which solves the memory
+  - The initrd image size will be much smaller (~30MB) - which avoids the memory
     restriction issue on affected hardware models.
   - The downside is that extra PXE environment setup is necessary (like setting up
-    a server to host the bootstrapped extra file and server it).
+    a server to host and serve the bootstrapped extra image file).
   - initrd is customized using Dracut configuration files. The user will need to
     craft those files, use Image Customizers to place them in the right locations
     on the root file system so that when Dracut is run to generate a new initrd,
     it will take them into consideration.
-  - selinux can be enabled.
+  - SELinux can be enabled.
 
-The user can specify either configuration using the `initramfsType` property.
+The user can specify either configuration using the `initramfsType` property
+defined under both the `iso` and the `pxe` sections.
 
 ### Bootstrap Implementation
 
 - ISO support:
   - The bootstrap support is implemented using Dracut's `dmsquash` module. The
     module expects the full OS image to be a squashfs image placed under
-    `/liveos/rootfs.img`. Once it is found, it will be mounted, an overlay will
-    be created, and then the kernel will pivot to it.
+    `/liveos/rootfs.img`. Once it is found, it will be mounted, an overlay file
+    system will be created, and then the kernel will pivot to it.
 - PXE Support:
   - To support the Live OS bootstrap PXE scenario, Dracut's `livenet` module
-    downloads the bootstrapped image (expects an .ISO), and then passes it to the
-    `dmsquash` module. To enable this Dracut flow, the kernel command-line must
-    contain a `root` parameter on the form `root=live:liveos-iso-url`.
+    downloads the bootstrapped image (expects an ISO image with an embedded
+    `/liveos/rootfs.img`), and then passes it to the `dmsquash` module as in
+    the ISO scenario describe above.

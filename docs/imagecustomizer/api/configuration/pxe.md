@@ -7,10 +7,9 @@ parent: Configuration
 Specifies the configuration for the generated PXE artifacts when the `--output-format`
 is set to `pxe`.
 
-Note that when the `--output-format` is set to `pxe`, `--output-image-file` can
-be set to either:
-- a directory where the customized PXE artifacts will be placed.
-- a `.tar.gz` file name where the PXE artifacts will be compressed and stored.
+If the `--output-format` is set to `pxe`, `--output-path` can be set to either:
+- the name of a directory where the customized PXE artifacts will be placed.
+- the name of a a `.tar.gz` where the customized PXE artifacts will be archived.
 
 Example:
 
@@ -56,7 +55,7 @@ Supported options:
   memory restrictions on the initramfs image size.
 - `full-os`: Creates a full OS initramfs image.
 
-The default is `initramfsType` value is `full-os`.
+The default value for `initramfsType` is `full-os`.
 
 Note that SELinux cannot be enabled if `initramfsType` is set to `full-os`.
 
@@ -66,6 +65,9 @@ Example:
 pxe:
   initramfsType: bootstrap
 ```
+
+For an overview of Image Customizer support for PXE, see the 
+[PXE support](../../concepts/pxe.md) page.
 
 Added in v0.15.
 
