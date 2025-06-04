@@ -1,0 +1,45 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Build binary, container, and docs
+
+permissions:
+  contents: read
+  # Report test results.
+  actions: read
+  checks: write
+
+on:
+  workflow_call:
+    inputs:
+      runFunctionalTests:
+        required: true
+        type: boolean
+      runVMTests:
+        required: true
+        type: boolean
+
+jobs:
+  tests-functional-azl3-amd64:
+    name: Functional tests AZL3 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      hostArch: amd64
+      hostDistro: azl3
+      
+  tests-functional-azl3-arm64:
+    name: Functional tests AZL3 ARM64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      hostArch: arm64
+      hostDistro: azl3
+
+  tests-functional-ubuntu2404-amd64:
+    name: Functional tests Ubuntu24.04 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      hostArch: amd64
+      hostDistro: ubuntu2404

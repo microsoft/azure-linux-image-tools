@@ -1,0 +1,97 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Tests functional
+
+permissions:
+  contents: read
+  # Report test results.
+  actions: read
+  checks: write
+
+on:
+  workflow_call:
+    inputs:
+      hostArch:
+        required: true
+        type: string
+      hostDistro:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+
+jobs:
+  tests-functional:
+    name: Funtional test suite
+    runs-on:
+    - self-hosted
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'ecf-github-runner-amd64' || 'ecf-github-runner-azl3-arm64') || 'ecf-github-runner-ubuntu2404-amd64'}}
+    permissions:
+      contents: read
+    steps:
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
+    - name: Install prerequisites (AZL3)
+      if: inputs.hostDistro == 'azl3'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
+          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+          xfsprogs zstd veritysetup grub2 binutils lsof \
+          git
+
+        # grub2-pc is only available on x86.
+        if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
+          sudo tdnf install -y grub2-pc
+        fi
+
+        sudo tdnf list installed
+        
+    - name: Install prerequisites (Ubuntu 2404)
+      if: inputs.hostDistro == 'ubuntu2404'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo apt list --installed
+        sudo apt update -y
+
+        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Run tests
+      run: |
+        set -eux
+
+        pushd repo/toolkit/tools
+        mkdir -p out
+
+        sudo env "PATH=$PATH" go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi > out/testresults.json
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: tests-functional-results-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        path: repo/toolkit/tools/out/testresults.json
+
+    - name: Test Report
+      uses: dorny/test-reporter@v2
+      if: ${{ !cancelled() }}
+      with:
+        name: Functional tests ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
+        path: repo/toolkit/tools/out/testresults.json
+        reporter: golang-json
+        max-annotations: 0
