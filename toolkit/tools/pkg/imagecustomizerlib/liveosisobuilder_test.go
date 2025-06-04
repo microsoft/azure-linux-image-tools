@@ -426,6 +426,9 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 // Tests:
 // - vhdx {raw} to PXE {bootstrap}, with selinux enforcing
 func TestCustomizeImageLiveOSPxe1(t *testing.T) {
+	if baseImageVersionDefault == baseImageVersionAzl2 {
+		t.Skip("Skipping - PXE bootstrap is not supported for Azure Linux 2")
+	}
 	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe1")
@@ -433,14 +436,8 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
 	pxeBootstrapUrl := "http://my-pxe-server-1/" + defaultIsoImageName
 
-	// SELinux in Live OS is only supported with azl3
-	selinuxMode := imagecustomizerapi.SELinuxModeEnforcing
-	if baseImageVersionDefault == baseImageVersionAzl2 {
-		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
-	}
-
 	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, pxeBootstrapUrl,
-		true /*enable os config*/, true /*bootstrap prereqs*/, selinuxMode)
+		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
