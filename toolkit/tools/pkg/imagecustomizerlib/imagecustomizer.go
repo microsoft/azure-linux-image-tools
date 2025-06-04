@@ -328,20 +328,16 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 			return inputIsoArtifacts, fmt.Errorf("failed to create artifacts store from (%s):\n%w", ic.inputImageFile, err)
 		}
 
-		rebuildFullOS := false
-		if ic.outputIsIso && ic.config.Iso != nil {
-			rebuildFullOS = (inputIsoArtifacts.files.squashfsImagePath == "" && ic.config.Iso.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
-				(inputIsoArtifacts.files.squashfsImagePath != "" && ic.config.Iso.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
-		} else if ic.outputIsPxe && ic.config.Pxe != nil {
-			rebuildFullOS = (inputIsoArtifacts.files.squashfsImagePath == "" && ic.config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
-				(inputIsoArtifacts.files.squashfsImagePath != "" && ic.config.Pxe.InitramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
-		}
+		_, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso,
+			ic.config.Pxe, ic.outputImageFormat)
 
 		// If the input is a LiveOS iso and there are OS customizations
 		// defined, we create a writeable disk image so that mic can modify
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
-		if ic.customizeOSPartitions || rebuildFullOS {
+		rebuildFullOsImage := ic.customizeOSPartitions || convertInitramfsType
+
+		if rebuildFullOsImage {
 			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
@@ -542,21 +538,19 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 		}
 
 	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxe:
-		rebuildFullOsImage := false
-
 		// Decide whether we need to re-build the full OS image or not
-		if ic.customizeOSPartitions || inputIsoArtifacts == nil {
-			rebuildFullOsImage = true
-		} else if inputIsoArtifacts != nil {
+		convertInitramfsType := false
+		if inputIsoArtifacts != nil {
 			// Let's check if use is converting from full os initramfs to bootstrap initramfs
-			liveosConfig, err := buildLiveOSConfig(ic.outputImageFormat, ic.config.Iso, ic.config.Pxe)
+			var err error
+			_, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso, ic.config.Pxe,
+				ic.outputImageFormat)
 			if err != nil {
 				return fmt.Errorf("failed to build Live OS configuration\n%w", err)
 			}
-
-			rebuildFullOsImage = (inputIsoArtifacts.files.squashfsImagePath == "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap) ||
-				(inputIsoArtifacts.files.squashfsImagePath != "" && liveosConfig.initramfsType == imagecustomizerapi.InitramfsImageTypeFullOS)
 		}
+
+		rebuildFullOsImage := ic.customizeOSPartitions || inputIsoArtifacts == nil || convertInitramfsType
 
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {

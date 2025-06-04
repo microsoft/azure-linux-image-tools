@@ -26,8 +26,59 @@ type LiveOSConfig struct {
 	bootstrapFileUrl  string
 }
 
-func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe) (
-	config LiveOSConfig, err error) {
+func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramfsType imagecustomizerapi.InitramfsImageType,
+	defaultInitramfsType imagecustomizerapi.InitramfsImageType) (
+	resolvedInitramfsType imagecustomizerapi.InitramfsImageType, convertingInitramfsType bool) {
+
+	// if user does not specify initramfs type, and there is an input image
+	// , then we should follow the input image.
+	var inputInitramfsType imagecustomizerapi.InitramfsImageType
+	if inputArtifactsStore != nil {
+		if inputArtifactsStore.files.squashfsImagePath != "" {
+			inputInitramfsType = imagecustomizerapi.InitramfsImageTypeBootstrap
+		} else {
+			inputInitramfsType = imagecustomizerapi.InitramfsImageTypeFullOS
+		}
+	}
+
+	resolvedInitramfsType = outputInitramfsType
+
+	if outputInitramfsType == imagecustomizerapi.InitramfsImageTypeUnspecified {
+		// User did not specify initramfsType
+		if inputArtifactsStore != nil {
+			// Just use the input initramfsType
+			resolvedInitramfsType = inputInitramfsType
+			// We keep the previous type
+			convertingInitramfsType = false
+		} else {
+			// Just use default
+			resolvedInitramfsType = defaultInitramfsType
+			// If input is nil, it means the input is not an ISO
+			convertingInitramfsType = true
+		}
+	} else {
+		// User did specify initramfsType
+		if inputArtifactsStore != nil {
+			// Check if it is different from the input
+			if inputInitramfsType == outputInitramfsType {
+				// We keep the previous type
+				convertingInitramfsType = false
+			} else {
+				// We keep the previous type
+				convertingInitramfsType = true
+			}
+		} else {
+			// If input is nil, it means the input is not an ISO
+			convertingInitramfsType = true
+		}
+	}
+
+	return resolvedInitramfsType, convertingInitramfsType
+}
+
+func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagecustomizerapi.Iso,
+	pxeConfig *imagecustomizerapi.Pxe, outputFormat imagecustomizerapi.ImageFormatType) (
+	config LiveOSConfig, convertingInitramfsType bool, err error) {
 
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
@@ -37,10 +88,10 @@ func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfi
 			config.additionalFiles = isoConfig.AdditionalFiles
 			config.initramfsType = isoConfig.InitramfsType
 		}
-		// Set default initramfs type
-		if config.initramfsType == imagecustomizerapi.InitramfsImageTypeUnspecified {
-			config.initramfsType = imagecustomizerapi.InitramfsImageTypeBootstrap
-		}
+
+		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
+			imagecustomizerapi.InitramfsImageTypeBootstrap)
+
 	case imagecustomizerapi.ImageFormatTypePxe:
 		config.isPxe = true
 		if pxeConfig != nil {
@@ -50,15 +101,15 @@ func buildLiveOSConfig(outputFormat imagecustomizerapi.ImageFormatType, isoConfi
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
 		}
-		// Set default initramfs type
-		if config.initramfsType == imagecustomizerapi.InitramfsImageTypeUnspecified {
-			config.initramfsType = imagecustomizerapi.InitramfsImageTypeFullOS
-		}
+
+		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
+			imagecustomizerapi.InitramfsImageTypeFullOS)
+
 	default:
-		return config, fmt.Errorf("unsupported liveos output format (%s)", outputFormat)
+		return config, false, fmt.Errorf("unsupported liveos output format (%s)", outputFormat)
 	}
 
-	return config, nil
+	return config, convertingInitramfsType, nil
 }
 
 func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
@@ -84,7 +135,7 @@ func createLiveOSFromRaw(buildDir, baseConfigPath string, inputArtifactsStore *I
 ) (err error) {
 	logger.Log.Infof("Creating Live OS artifacts using customized full OS image")
 
-	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
+	liveosConfig, _, err := buildLiveOSConfig(inputArtifactsStore, isoConfig, pxeConfig, outputFormat)
 	if err != nil {
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
@@ -102,7 +153,7 @@ func repackageLiveOS(isoBuildDir string, baseConfigPath string, isoConfig *image
 ) error {
 	logger.Log.Infof("Creating Live OS artifacts using input ISO image")
 
-	liveosConfig, err := buildLiveOSConfig(outputFormat, isoConfig, pxeConfig)
+	liveosConfig, _, err := buildLiveOSConfig(inputArtifactsStore, isoConfig, pxeConfig, outputFormat)
 	if err != nil {
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
