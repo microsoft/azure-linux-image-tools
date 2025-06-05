@@ -18,13 +18,15 @@ composition and a flow that are used when producing a Live OS ISO image or Live
 OS PXE artifacts (folder or tar.gz).
 
 The Live OS is composed of the following core artifacts:
-- the boot loader (the shim and something like grub)
+
+- the boot loader (the shim and grub (or something similar))
 - the boot loader configuration
 - the kernel image
 - the initrd image
 - additional files (optional)
 
 The flow is as follows:
+
 - The firmware starts the bootloader.
 - The bootloader reads its configuration and determines where the kernel/initrd
   files are.
@@ -39,9 +41,10 @@ The flow is as follows:
 
 ## Support in Image Customizer
 
-The Image Customizer tool can take an input image (qcow, vhd(x), prerviously
+The Image Customizer tool can take an input image (qcow, vhd(x), previously
 generated Live OS ISO), and produces new ISO images and PXE artifacts. For
 details, see:
+
 - [ISO](./iso.md)
 - [PXE](./pxe.md)
 
@@ -64,6 +67,7 @@ The current implementation for the Live OS does not support the following:
 ### Input Image Requirements
 
 The input image can come in many formats:
+
 - an image with multiple partitions.
 - an ISO image.
 
@@ -119,7 +123,7 @@ almost all the artifacts unchanged - some artifacts are changed as follows:
 
 - SELinux must be disabled if the full OS is initrd. This is because the kernel
   expects the initrd image to be a CPIO archive, and that format does not
-  support extended attributes - which are necessary to hold the SELinux labels.    
+  support extended attributes - which are necessary to hold the SELinux labels.
 
 ### Initramfs Contents
 
@@ -128,9 +132,10 @@ initrd image itself or stored in a separate image (in which case, a process
 on the initrd image will need to find it, and pivot to it).
 
 The main differences between the two configurations are:
+
 - When the initrd image is the full OS:
   - The initrd image size is larger and may not meet the memory restrictions on
-    certain hardware skus (leading to an "out of memory" grub error). However,
+    certain hardware SKUs (leading to an "out of memory" grub error). However,
     this is much simpler to deploy to a PXE server since the full OS content
     will be served using the PXE protocol without any extra setup.
   - initrd is customized using the Image Customizer tool configuration constructs

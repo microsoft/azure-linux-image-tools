@@ -45,6 +45,7 @@ the artifacts necessary to power the PXE flow described above.
 
 In addition to customizing the OS contents, the user can also decide how it
 will be packaged. There are two supported options:
+
 - The initrd image is the full OS.
 - The initrd image is a bootstrap image with minimal contents, and the full
   OS is stored in a separate image.
@@ -52,7 +53,7 @@ will be packaged. There are two supported options:
 There are pros and cons for each configuration - see the [Live OS](./liveos.md)
 page for details.
 
-When the bootstrap configuration is selected, The bootstrapped image is a 
+When the bootstrap configuration is selected, The bootstrapped image is a
 bootable ISO (`image.iso`) containing the same PXE configuration (same bootloader
 configuration, same kernel, same full OS file system, etc.). This can be very
 handy when testing the PXE configuration without having to setup a PXE

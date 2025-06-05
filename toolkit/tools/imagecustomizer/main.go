@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"maps"
 	"strings"
@@ -23,8 +22,7 @@ import (
 type CustomizeCmd struct {
 	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
-	OutputImageFile          string   `name:"output-image-file" help:"Path to write the customized image artifacts to."`
-	OutputPath               string   `name:"output-path" help: "Path to write the customized image artifacts to (alias for --output-image-file)."`
+	OutputImageFile          string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
 	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
 	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
@@ -36,8 +34,7 @@ type InjectFilesCmd struct {
 	BuildDir          string `name:"build-dir" help:"Directory to run build out of." required:""`
 	ConfigFile        string `name:"config-file" help:"Path to the inject-files.yaml config file." required:""`
 	InputImageFile    string `name:"image-file" help:"Path of the base image to inject files into." required:""`
-	OutputImageFile   string `name:"output-image-file" help:"Path to write the injected image to."`
-	OutputPath        string `name:"output-path" help: "Path to write the injected image to (alias for --output-image-file)."`
+	OutputImageFile   string `name:"output-image-file" aliases:"output-path" help:"Path to write the injected image to."`
 	OutputImageFormat string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 }
 
@@ -86,11 +83,6 @@ func main() {
 		defer timestamp.CompleteTiming()
 	}
 
-	err = preprocessCli(cli)
-	if err != nil {
-		log.Fatalf("invalid command-line arguments:\n%v", err)
-	}
-
 	switch parseContext.Command() {
 	case "customize":
 		err := customizeImage(cli.Customize)
@@ -107,16 +99,6 @@ func main() {
 	default:
 		panic(parseContext.Command())
 	}
-}
-
-func preprocessCli(cli *RootCmd) error {
-	if cli.Customize.OutputImageFile != "" && cli.Customize.OutputPath != "" {
-		return fmt.Errorf("cannot specify both --output-image-file and --output-path at the same time")
-	}
-	if cli.Customize.OutputImageFile == "" {
-		cli.Customize.OutputImageFile = cli.Customize.OutputPath
-	}
-	return nil
 }
 
 func customizeImage(cmd CustomizeCmd) error {

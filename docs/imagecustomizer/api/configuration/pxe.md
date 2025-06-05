@@ -8,6 +8,7 @@ Specifies the configuration for the generated PXE artifacts when the `--output-f
 is set to `pxe`.
 
 If the `--output-format` is set to `pxe`, `--output-path` can be set to either:
+
 - the name of a directory where the customized PXE artifacts will be placed.
 - the name of a a `.tar.gz` where the customized PXE artifacts will be archived.
 
@@ -80,6 +81,7 @@ default image name (`image.iso`) to the specified base URL to form the full URL
 for downloading the image.
 
 For example, if the user has the following content in the configuration file:
+
 ```yaml
 pxe:
   bootstrapBaseUrl: http://hostname-or-ip/iso-publish-path
@@ -103,6 +105,7 @@ of the PXE artifacts folder (archive) and will be have the same name as the file
 name specified by `bootstrapFileUrl`.
 
 For example,
+
 ```yaml
 pxe:
   bootstrapFileUrl: http://hostname-or-ip/iso-publish-path/my-bootstrap.iso
