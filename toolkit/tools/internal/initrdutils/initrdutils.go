@@ -14,15 +14,14 @@ import (
 	"github.com/klauspost/pgzip"
 )
 
-func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err error) {
-	// The `inputDir` permissions will become the `/` permissions when the initrd
-	// is mounted. This needs to be 0755 or some processes will fail to function
-	// correctly.
-	err = os.Chmod(inputDir, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to change folder permissions for (%s):\n%w", inputDir, err)
-	}
+const (
+	// The cpio archive root will become the OS root when the OS boots.
+	// The root needs to be 0755 of else many processes fail to start because
+	// of incorrect permissions.
+	initrdRootDirPermissions = 0755
+)
 
+func CreateInitrdImageFromFolder(inputRootDir, outputInitrdImagePath string) (err error) {
 	outputFile, err := os.Create(outputInitrdImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create image file (%s):\n%w", outputInitrdImagePath, err)
@@ -51,11 +50,21 @@ func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err er
 	}()
 
 	// Traverse the directory structure and add all the files/directories/links to the archive.
-	err = filepath.Walk(inputDir, func(path string, info os.FileInfo, fileErr error) (err error) {
+	processedRoot := false
+	err = filepath.Walk(inputRootDir, func(path string, info os.FileInfo, fileErr error) (err error) {
 		if fileErr != nil {
 			return fmt.Errorf("encountered a file walk error on path (%s):\n%w", path, fileErr)
 		}
-		err = addFileToCpioArchive(inputDir, path, info, cpioWriter)
+
+		isRoot := false
+		if !processedRoot {
+			if inputRootDir == path {
+				processedRoot = true
+				isRoot = true
+			}
+		}
+
+		err = addFileToCpioArchive(inputRootDir, path, info, isRoot, cpioWriter)
 		if err != nil {
 			return fmt.Errorf("failed to add (%s) to archive (%s):\n%w", path, outputInitrdImagePath, err)
 		}
@@ -65,17 +74,22 @@ func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err er
 	return nil
 }
 
-func buildCpioHeader(inputDir, path string, info os.FileInfo, link string) (cpioHeader *cpio.Header, err error) {
+func buildCpioHeader(inputRootDir, path string, info os.FileInfo, isRoot bool, link string) (cpioHeader *cpio.Header, err error) {
+	// logger.Log.Infof("-- buildCpioHeader -- path: (%s)", path)
 	// Convert the OS header into a CPIO header
 	cpioHeader, err = cpio.FileInfoHeader(info, link)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert OS file info into a cpio header for (%s)\n%w", path, err)
 	}
 
+	if isRoot {
+		cpioHeader.Mode = cpio.FileMode(initrdRootDirPermissions)
+	}
+
 	// Convert full path to relative path
-	relPath, err := filepath.Rel(inputDir, path)
+	relPath, err := filepath.Rel(inputRootDir, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get relative path of (%s) using root (%s):\n%w", path, inputDir, err)
+		return nil, fmt.Errorf("failed to get relative path of (%s) using root (%s):\n%w", path, inputRootDir, err)
 	}
 	cpioHeader.Name = relPath
 
@@ -90,7 +104,7 @@ func buildCpioHeader(inputDir, path string, info os.FileInfo, link string) (cpio
 	return cpioHeader, nil
 }
 
-func addFileToCpioArchive(inputDir, path string, info os.FileInfo, cpioWriter *cpio.Writer) (err error) {
+func addFileToCpioArchive(inputRootDir, path string, info os.FileInfo, isRoot bool, cpioWriter *cpio.Writer) (err error) {
 	var link string
 	if info.Mode()&os.ModeSymlink != 0 {
 		link, err = os.Readlink(path)
@@ -99,7 +113,7 @@ func addFileToCpioArchive(inputDir, path string, info os.FileInfo, cpioWriter *c
 		}
 	}
 
-	cpioHeader, err := buildCpioHeader(inputDir, path, info, link)
+	cpioHeader, err := buildCpioHeader(inputRootDir, path, info, isRoot, link)
 	if err != nil {
 		return fmt.Errorf("failed to construct cpio file header for (%s)\n%w", path, err)
 	}
