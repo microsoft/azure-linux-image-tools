@@ -58,6 +58,11 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
 		},
+		{
+			PartitionNum:   6,
+			Path:           "/var",
+			FileSystemType: "ext4",
+		},
 	}
 
 	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
