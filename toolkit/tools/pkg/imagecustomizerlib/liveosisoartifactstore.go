@@ -466,8 +466,6 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 }
 
 func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
-	logger.Log.Infof("Creating ISO store (%s) from (%s)", storeDir, imageRootDir)
-
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create folder %s:\n%w", storeDir, err)

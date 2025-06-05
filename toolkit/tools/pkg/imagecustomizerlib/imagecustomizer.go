@@ -320,7 +320,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 }
 
 func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
-	logger.Log.Infof("Converting input image to a writeable format image (%s)", ic.rawImageFile)
+	logger.Log.Infof("Converting input image to a writeable format")
 
 	if ic.inputIsIso {
 
@@ -331,6 +331,9 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 
 		_, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso,
 			ic.config.Pxe, ic.outputImageFormat)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build Live OS configuration:\n%w", err)
+		}
 
 		// If the input is a LiveOS iso and there are OS customizations
 		// defined, we create a writeable disk image so that mic can modify
@@ -435,8 +438,6 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if !ic.customizeOSPartitions && ic.inputIsIso {
 		return nil
 	}
-
-	logger.Log.Infof("Customizing OS Contents (%s)", ic.rawImageFile)
 
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is
