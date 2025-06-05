@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -43,15 +42,16 @@ func getPxeBootstrapFileName(bootstrapBaseUrl, bootstrapFileUrl string) (string,
 	return filepath.Base(bootstrapFileUrl), nil
 }
 
-func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType,
-	artifactsStore *IsoArtifactsStore, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	bootstrapBaseUrl, bootstrapFileUrl, outputPath string) (err error) {
+func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFormatType, baseConfigPath string,
+	initramfsType imagecustomizerapi.InitramfsImageType, artifactsStore *IsoArtifactsStore,
+	additionalIsoFiles imagecustomizerapi.AdditionalFileList, bootstrapBaseUrl, bootstrapFileUrl, outputPath string) (err error) {
 	logger.Log.Infof("Creating PXE output at (%s)", outputPath)
 
 	outputPXEArtifactsDir := ""
 	outputPXEImage := ""
 
-	if strings.HasSuffix(outputPath, ".tar.gz") {
+	switch outputFormat {
+	case imagecustomizerapi.ImageFormatTypePxeTar:
 		// Output is a .tar.gz, create a temporary folder, and set the tar file name
 		outputPXEArtifactsDir, err = os.MkdirTemp(buildDir, "tmp-pxe-")
 		if err != nil {
@@ -59,7 +59,7 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		}
 		defer os.RemoveAll(outputPXEArtifactsDir)
 		outputPXEImage = outputPath
-	} else {
+	case imagecustomizerapi.ImageFormatTypePxeDir:
 		// Output is a folder
 		outputPXEArtifactsDir = outputPath
 		err := os.MkdirAll(outputPXEArtifactsDir, os.ModePerm)
@@ -69,7 +69,7 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 		outputPXEImage = ""
 	}
 
-	err = stageLiveOSFiles(imagecustomizerapi.ImageFormatTypePxe, artifactsStore.files, baseConfigPath,
+	err = stageLiveOSFiles(outputFormat, artifactsStore.files, baseConfigPath,
 		additionalIsoFiles, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more live os files:\n%w", err)
@@ -145,7 +145,7 @@ func createPXEArtifacts(buildDir string, baseConfigPath string, initramfsType im
 	}
 
 	// If a tar.gz is requested, create the archive
-	if outputPXEImage != "" {
+	if outputFormat == imagecustomizerapi.ImageFormatTypePxeTar {
 		err = tarutils.CreateTarGzArchive(outputPXEArtifactsDir, outputPXEImage)
 		if err != nil {
 			return fmt.Errorf("failed to create archive (%s) from (%s):\n%w", outputPXEImage, outputPXEArtifactsDir, err)

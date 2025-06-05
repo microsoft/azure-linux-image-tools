@@ -165,7 +165,8 @@ func createImageCustomizerParameters(buildDir string,
 	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
-	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxe
+	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxeDir ||
+		ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxeTar
 
 	if ic.inputIsIso {
 
@@ -537,7 +538,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			return err
 		}
 
-	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxe:
+	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		// Decide whether we need to re-build the full OS image or not
 		convertInitramfsType := false
 		if inputIsoArtifacts != nil {
@@ -824,7 +825,7 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 	}
 
 	// Pxe output format allows the output to be a path.
-	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxe && outputImageFormat != string(imagecustomizerapi.ImageFormatTypePxe) {
+	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxeDir && outputImageFormat != string(imagecustomizerapi.ImageFormatTypePxeDir) {
 		if outputImageFile != "" {
 			if isDir, err := file.DirExists(outputImageFile); err != nil {
 				return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\n%w", outputImageFile, err)

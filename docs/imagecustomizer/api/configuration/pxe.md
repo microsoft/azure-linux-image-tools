@@ -5,12 +5,13 @@ parent: Configuration
 # pxe type
 
 Specifies the configuration for the generated PXE artifacts when the `--output-format`
-is set to `pxe`.
+is set to `pxe-dir` or `pxe-tar`.
 
-If the `--output-format` is set to `pxe`, `--output-path` can be set to either:
+If the `--output-format` is set to `pxe-dir`, `--output-path` will point to a
+directory where the customized PXE artifacts will be placed.
 
-- the name of a directory where the customized PXE artifacts will be placed.
-- the name of a a `.tar.gz` where the customized PXE artifacts will be archived.
+If the `--output-format` is set to `pxe-tar`, `--output-path` will point to a
+`.tar.gz` file where the customized PXE artifacts will be archived in.
 
 Example:
 

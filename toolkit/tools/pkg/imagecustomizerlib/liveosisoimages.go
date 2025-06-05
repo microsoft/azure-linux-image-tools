@@ -230,7 +230,7 @@ func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStor
 				targetRelPath: "boot/grub2",
 				targetName:    "grub.cfg",
 			})
-	case imagecustomizerapi.ImageFormatTypePxe:
+	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 			StageFile{
 				sourcePath:    filesStore.pxeGrubCfgPath,

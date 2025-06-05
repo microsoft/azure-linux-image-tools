@@ -58,11 +58,6 @@ is used.
 
 The file path to write the final customized image to.
 
-If the `--output-format` is set to `pxe`, this can be set to either:
-
-- the name of a directory where the customized PXE artifacts will be placed.
-- the name of a a `.tar.gz` where the customized PXE artifacts will be archived.
-
 Added in v0.3.
 
 ## --output-path=FILE-PATH
@@ -81,7 +76,7 @@ value is used.
 
 The image format of the final customized image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, pxe, and [cosi](./cosi.md).
+Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, pxe-dir, pxe-tar, and [cosi](./cosi.md).
 
 The vhd-fixed option outputs a fixed size VHD image. This is the required format for
 VMs in Azure.
