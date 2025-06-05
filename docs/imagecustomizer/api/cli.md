@@ -59,6 +59,7 @@ is used.
 The file path to write the final customized image to.
 
 If the `--output-format` is set to `pxe`, this can be set to either:
+
 - the name of a directory where the customized PXE artifacts will be placed.
 - the name of a a `.tar.gz` where the customized PXE artifacts will be archived.
 
@@ -182,6 +183,7 @@ This flag enables snapshot-based package filtering during installation or update
 ensuring only packages available at that point in time are considered.
 
 Supports:
+
 - A date in `YYYY-MM-DD` format (interpreted as UTC midnight)
 - A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
 
