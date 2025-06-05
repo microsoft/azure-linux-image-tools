@@ -13,10 +13,6 @@ RUN tdnf update -y && \
 
 COPY . /
 
-ENV OTEL_PORT=4317
-ENV OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:${OTEL_PORT}" \
-   OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
-
 # Create virtual environment and install Python dependencies for telemetry
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
