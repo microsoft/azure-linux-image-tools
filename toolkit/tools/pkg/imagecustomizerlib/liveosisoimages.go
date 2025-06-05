@@ -74,7 +74,7 @@ func cleanFullOSFolderForLiveOS(fullOSDir string) error {
 }
 
 func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error {
-	logger.Log.Infof("Creating full OS initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+	logger.Log.Infof("Creating full OS initrd")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
 	if err != nil {
@@ -96,7 +96,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 }
 
 func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
-	logger.Log.Infof("Creating bootstrap initrd (%s) from (%s)", outputInitrdPath, writeableRootfsDir)
+	logger.Log.Infof("Creating bootstrap initrd")
 
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
 	err := file.Write(dracutConfig, dracutConfigFile)
@@ -148,7 +148,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 }
 
 func createSquashfsImage(writeableRootfsDir, outputSquashfsPath string) error {
-	logger.Log.Infof("Creating squashfs (%s) from (%s)", outputSquashfsPath, writeableRootfsDir)
+	logger.Log.Infof("Creating squashfs")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir)
 	if err != nil {

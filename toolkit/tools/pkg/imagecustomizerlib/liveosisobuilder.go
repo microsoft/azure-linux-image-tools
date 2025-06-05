@@ -111,9 +111,6 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 }
 
 func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
-
-	logger.Log.Infof("Creating writeable rootfs (%s) from (%s)", writeableRootfsDir, sourceDir)
-
 	err := os.MkdirAll(writeableRootfsDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create folder (%s):\n%w", writeableRootfsDir, err)
