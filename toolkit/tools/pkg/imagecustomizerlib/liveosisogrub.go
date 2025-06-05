@@ -175,9 +175,10 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 		return err
 	}
 
-	// Update grub.cfg content to be 'iso compatible'.
-	if outputFormat == imagecustomizerapi.ImageFormatTypeIso ||
-		(outputFormat == imagecustomizerapi.ImageFormatTypePxe && initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap) {
+	// Update grub.cfg content to be used for iso booting.
+	if (outputFormat == imagecustomizerapi.ImageFormatTypeIso) ||
+		((outputFormat == imagecustomizerapi.ImageFormatTypePxeDir || outputFormat == imagecustomizerapi.ImageFormatTypePxeTar) &&
+			initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap) {
 		isoContentString, err := updateGrubCfgForIso(liveosContentString, initramfsImageType)
 		if err != nil {
 			return fmt.Errorf("failed to update %s:\n%w", inputGrubCfgPath, err)
@@ -188,8 +189,9 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 		}
 	}
 
-	// Update grub.cfg content to be 'pxe compatible'.
-	if outputFormat == imagecustomizerapi.ImageFormatTypePxe {
+	// Update grub.cfg content to be used for pxe booting.
+	if (outputFormat == imagecustomizerapi.ImageFormatTypePxeDir) ||
+		(outputFormat == imagecustomizerapi.ImageFormatTypePxeTar) {
 		if initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap {
 			// Check if the dracut version in use meets our minimum requirements for
 			// PXE support.

@@ -18,7 +18,8 @@ const (
 	ImageFormatTypeQcow2    ImageFormatType = "qcow2"
 	ImageFormatTypeRaw      ImageFormatType = "raw"
 	ImageFormatTypeIso      ImageFormatType = "iso"
-	ImageFormatTypePxe      ImageFormatType = "pxe"
+	ImageFormatTypePxeDir   ImageFormatType = "pxe-dir"
+	ImageFormatTypePxeTar   ImageFormatType = "pxe-tar"
 	ImageFormatTypeCosi     ImageFormatType = "cosi"
 )
 
@@ -31,7 +32,8 @@ var supportedImageFormatTypes = []string{
 	string(ImageFormatTypeQcow2),
 	string(ImageFormatTypeRaw),
 	string(ImageFormatTypeIso),
-	string(ImageFormatTypePxe),
+	string(ImageFormatTypePxeDir),
+	string(ImageFormatTypePxeTar),
 	string(ImageFormatTypeCosi),
 }
 

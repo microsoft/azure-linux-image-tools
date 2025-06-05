@@ -99,13 +99,13 @@ func VerifyBootstrappedImageExists(t *testing.T, initramfsType imagecustomizerap
 	}
 }
 
-func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir, outputFormat string, artifactsPath, bootstrappedImage string) {
+func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config, testTempDir string, artifactsPath, bootstrappedImage string) {
 	var additionalFiles imagecustomizerapi.AdditionalFileList
 	var extraCommandLineParameters []string
 	var initramfsType imagecustomizerapi.InitramfsImageType
 	var pxeUrlBase string
 
-	if outputFormat == "iso" {
+	if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
 		additionalFiles = config.Iso.AdditionalFiles
 		extraCommandLineParameters = config.Iso.KernelCommandLine.ExtraCommandLine
 		initramfsType = config.Iso.InitramfsType
@@ -141,7 +141,7 @@ func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, test
 	}
 
 	bootstrappedImagePath := ""
-	if outputFormat == "iso" {
+	if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
 		// The bootstrap file is a squashfs image file
 		bootstrappedImagePath = filepath.Join(artifactsPath, liveOSDir, liveOSImage)
 	} else {
@@ -159,7 +159,8 @@ func ValidateLiveOSContent(t *testing.T, config *imagecustomizerapi.Config, test
 	}
 }
 
-func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat string, osConfig *imagecustomizerapi.OS, bootstrappedImagePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
+func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath string, outputFormat imagecustomizerapi.ImageFormatType,
+	osConfig *imagecustomizerapi.OS, bootstrappedImagePath string, initramfsType imagecustomizerapi.InitramfsImageType) {
 	if osConfig == nil {
 		return
 	}
@@ -168,7 +169,7 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath, outputFormat
 	switch initramfsType {
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		fullOSImagePath := ""
-		if outputFormat == "iso" {
+		if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
 			// The full OS image is the bootstrap image
 			fullOSImagePath = bootstrappedImagePath
 		} else {
@@ -237,10 +238,10 @@ func ValidateIsoContent(t *testing.T, config *imagecustomizerapi.Config, testTem
 	}
 	defer isoImageMount.Close()
 
-	ValidateLiveOSContent(t, config, testTempDir, "iso" /*outputFormat*/, isoMountDir, "" /*bootstrappedImage*/)
+	ValidateLiveOSContent(t, imagecustomizerapi.ImageFormatTypeIso, config, testTempDir, isoMountDir, "" /*bootstrappedImage*/)
 }
 
-func ValidatePxeContent(t *testing.T, config *imagecustomizerapi.Config, testTempDir, outImageFilePath string) {
+func ValidatePxeContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config, testTempDir, outImageFilePath string) {
 	pxeArtifactsPath := ""
 	if strings.HasSuffix(outImageFilePath, ".tar.gz") {
 		pxeArtifactsPath = filepath.Join(testTempDir, "pxe-artifacts")
@@ -257,7 +258,7 @@ func ValidatePxeContent(t *testing.T, config *imagecustomizerapi.Config, testTem
 		bootstrappedImage = filepath.Join(pxeArtifactsPath, defaultIsoImageName)
 	}
 
-	ValidateLiveOSContent(t, config, testTempDir, "pxe" /*outputFormat*/, pxeArtifactsPath, bootstrappedImage)
+	ValidateLiveOSContent(t, outputFormat, config, testTempDir, pxeArtifactsPath, bootstrappedImage)
 }
 
 func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, outImageFileName, isoMountDir, pxeBaseUrl string) {
@@ -315,8 +316,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 		true /*enable os config*/, true /*bootstrap prereqs*/, selinuxMode)
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
-	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -327,8 +328,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	configB := createConfig("b.txt", "rd.debug", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
 		false /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDefault)
 
-	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, "iso",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -339,8 +340,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	configC := createConfig("c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
 		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -365,8 +366,8 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	configA := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
 		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -377,7 +378,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	configB := createConfig("b.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
 		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, "iso",
+	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -396,8 +397,8 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	configC := createConfig("c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeBootstrap, "", /*pxe url*/
 		true /*enable os config*/, true /*bootstrap prereqs*/, selinuxMode)
 
-	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -418,8 +419,8 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 	configA := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
 		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
 
-	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
 }
 
@@ -439,13 +440,13 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap, pxeBootstrapUrl,
 		true /*enable os config*/, true /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeEnforcing)
 
-	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	ValidatePxeContent(t, config, testTempDir, outImageFilePath)
+	ValidatePxeContent(t, imagecustomizerapi.ImageFormatTypePxeTar, config, testTempDir, outImageFilePath)
 }
 
 // Tests:
@@ -460,13 +461,13 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 	config := createConfig("a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS, "", /*pxe url*/
 		true /*enable os config*/, false /*bootstrap prereqs*/, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "pxe",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	ValidatePxeContent(t, config, testTempDir, outImageFilePath)
+	ValidatePxeContent(t, imagecustomizerapi.ImageFormatTypePxeTar, config, testTempDir, outImageFilePath)
 }
 
 func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
@@ -503,8 +504,8 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, version
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
@@ -526,8 +527,8 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath, "iso",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }
