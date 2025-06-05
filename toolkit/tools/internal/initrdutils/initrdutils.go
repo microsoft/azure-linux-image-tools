@@ -27,10 +27,20 @@ func CreateInitrdImageFromFolder(inputDir, outputInitrdImagePath string) (err er
 	if err != nil {
 		return fmt.Errorf("failed to create image file (%s):\n%w", outputInitrdImagePath, err)
 	}
-	defer outputFile.Close()
+	defer func() {
+		closeErr := outputFile.Close()
+		if err != nil {
+			err = closeErr
+		}
+	}()
 
 	gzipWriter := pgzip.NewWriter(outputFile)
-	defer gzipWriter.Close()
+	defer func() {
+		closeErr := gzipWriter.Close()
+		if err != nil {
+			err = closeErr
+		}
+	}()
 
 	cpioWriter := cpio.NewWriter(gzipWriter)
 	defer func() {
@@ -99,25 +109,29 @@ func addFileToCpioArchive(inputDir, path string, info os.FileInfo, cpioWriter *c
 		return fmt.Errorf("failed to write cpio header for (%s)\n%w", path, err)
 	}
 
-	if info.Mode().IsRegular() {
+	switch {
+	case info.Mode().IsRegular():
 		fileToAdd, err := os.Open(path)
 		if err != nil {
 			return fmt.Errorf("failed to open (%s)\n%w", path, err)
 		}
-		defer fileToAdd.Close()
+		defer func() {
+			closeErr := fileToAdd.Close()
+			if err != nil {
+				err = closeErr
+			}
+		}()
 
 		_, err = io.Copy(cpioWriter, fileToAdd)
 		if err != nil {
 			return fmt.Errorf("failed to write (%s) to cpio archive\n%w", path, err)
 		}
-	} else {
-		if info.Mode()&os.ModeSymlink != 0 {
-			_, err = cpioWriter.Write([]byte(link))
-			if err != nil {
-				return fmt.Errorf("failed to write link (%s)\n%w", path, err)
-			}
+	case info.Mode()&os.ModeSymlink != 0:
+		_, err = cpioWriter.Write([]byte(link))
+		if err != nil {
+			return fmt.Errorf("failed to write link (%s)\n%w", path, err)
 		}
-
+	default:
 		// For all other special files, they will be of size 0 and only contain
 		// the header in the archive.
 	}
@@ -125,35 +139,22 @@ func addFileToCpioArchive(inputDir, path string, info os.FileInfo, cpioWriter *c
 	return nil
 }
 
-func updateFileOwnership(path string, fileMode os.FileMode, uid, gid int) (err error) {
-	err = os.Chown(path, uid, gid)
-	if err != nil {
-		return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, uid, gid, err)
+// The golang implementation maps the setuid/setgid/sticky flags to bits
+// different from those defined in native C implementation. As a result,
+// we must convert between them.
+// See https://github.com/golang/go/blob/release-branch.go1.24/src/os/stat_js.go
+func osFileModeToGolangFileMode(osFileMode uint32) os.FileMode {
+	golangFileMode := os.FileMode(osFileMode).Perm()
+	if osFileMode&syscall.S_ISUID != 0 {
+		golangFileMode |= os.ModeSetuid
 	}
-
-	// The golang implementation maps the setuid/setgid/sticky flags to bits
-	// different from those defined in native C implementation. As a result,
-	// we must convert between them.
-	// See https://github.com/golang/go/blob/release-branch.go1.24/src/os/stat_js.go
-
-	if fileMode&cpio.ModePerm != 0 {
-		fileModeAdjusted := os.FileMode(fileMode).Perm()
-		if fileMode&syscall.S_ISUID != 0 {
-			fileModeAdjusted |= os.ModeSetuid
-		}
-		if fileMode&syscall.S_ISGID != 0 {
-			fileModeAdjusted |= os.ModeSetgid
-		}
-		if fileMode&syscall.S_ISVTX != 0 {
-			fileModeAdjusted |= os.ModeSticky
-		}
-
-		err = os.Chmod(path, fileModeAdjusted)
-		if err != nil {
-			return fmt.Errorf("failed to change mode for file (%s) to (%#o):\n%w", path, fileMode, err)
-		}
+	if osFileMode&syscall.S_ISGID != 0 {
+		golangFileMode |= os.ModeSetgid
 	}
-	return nil
+	if osFileMode&syscall.S_ISVTX != 0 {
+		golangFileMode |= os.ModeSticky
+	}
+	return golangFileMode
 }
 
 func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err error) {
@@ -161,13 +162,23 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err er
 	if err != nil {
 		return fmt.Errorf("failed to open file (%s):\n%w", inputInitrdImagePath, err)
 	}
-	defer inputInitrdImageFile.Close()
+	defer func() {
+		closeErr := inputInitrdImageFile.Close()
+		if err != nil {
+			err = closeErr
+		}
+	}()
 
 	pgzipReader, err := pgzip.NewReader(inputInitrdImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to create a pgzip reader for (%s):\n%w", inputInitrdImagePath, err)
 	}
-	defer pgzipReader.Close()
+	defer func() {
+		closeErr := pgzipReader.Close()
+		if err != nil {
+			err = closeErr
+		}
+	}()
 
 	cpioReader := cpio.NewReader(pgzipReader)
 	for {
@@ -180,32 +191,41 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err er
 		}
 
 		path := filepath.Join(outputDir, cpioHeader.Name)
-		fileMode := os.FileMode(cpioHeader.Mode & (cpio.ModePerm | cpio.ModeSetuid | cpio.ModeSetgid | cpio.ModeSticky))
+		cpioFileMode := cpioHeader.Mode & (cpio.ModePerm | cpio.ModeSetuid | cpio.ModeSetgid | cpio.ModeSticky)
+		golangFileMode := osFileModeToGolangFileMode(uint32(cpioFileMode))
 		fileType := cpioHeader.Mode & cpio.ModeType
 
 		switch fileType {
 		case cpio.ModeDir:
-			err := os.MkdirAll(path, fileMode)
+			err := os.MkdirAll(path, golangFileMode)
 			if err != nil {
 				return fmt.Errorf("failed to create directory (%s):\n%w", path, err)
 			}
-			err = updateFileOwnership(path, fileMode, cpioHeader.UID, cpioHeader.GID)
+
+			err = os.Chown(path, cpioHeader.UID, cpioHeader.GID)
 			if err != nil {
-				return fmt.Errorf("failed to update ownership of directory (%s)\n%w", path, err)
+				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.UID, cpioHeader.GID, err)
 			}
 		case cpio.ModeRegular:
-			destFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, fileMode)
+			destFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, golangFileMode)
 			if err != nil {
 				return fmt.Errorf("failed to create file (%s):\n%w", path, err)
 			}
 			_, err = io.Copy(destFile, cpioReader)
-			destFile.Close()
 			if err != nil {
+				// If destFile.Close() fails, we will still report the original
+				// error from the io.Copy()
+				destFile.Close()
 				return fmt.Errorf("failed to write file (%s):\n%w", path, err)
 			}
-			err = updateFileOwnership(path, fileMode, cpioHeader.UID, cpioHeader.GID)
+			err = destFile.Close()
 			if err != nil {
-				return fmt.Errorf("failed to update ownership of file (%s)\n%w", path, err)
+				return fmt.Errorf("failed to close (%s):\n%w", path, err)
+			}
+
+			err = os.Chown(path, cpioHeader.UID, cpioHeader.GID)
+			if err != nil {
+				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.UID, cpioHeader.GID, err)
 			}
 		case cpio.ModeSymlink:
 			err = os.Symlink(cpioHeader.Linkname, path)
