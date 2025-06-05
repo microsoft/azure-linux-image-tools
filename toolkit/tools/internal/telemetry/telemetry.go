@@ -23,7 +23,7 @@ func InitTelemetry(disableTelemetry bool) error {
 		logger.Log.Info("Disabled telemetry collection")
 		return nil
 	} else if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" {
-		logger.Log.Trace("No OTLP endpoint set, telemetry will not be collected")
+		logger.Log.Debug("No OTLP endpoint set, telemetry will not be collected")
 		return nil
 	}
 
