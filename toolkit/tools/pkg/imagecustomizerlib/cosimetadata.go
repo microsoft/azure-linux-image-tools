@@ -1,23 +1,24 @@
 package imagecustomizerlib
 
 type MetadataJson struct {
-	Version   string  `json:"version"`
-	OsArch    string  `json:"osArch"`
-	Images    []Image `json:"images"`
-	OsRelease string  `json:"osRelease"`
-	Id        string  `json:"id"`
+	Version    string       `json:"version"`
+	OsArch     string       `json:"osArch"`
+	Images     []FileSystem `json:"images"`
+	OsRelease  string       `json:"osRelease"`
+	Id         string       `json:"id"`
+	OsPackages []OsPackage  `json:"osPackages"`
 }
 
-type Image struct {
-	Image      ImageFile `json:"image"`
-	MountPoint string    `json:"mountPoint"`
-	FsType     string    `json:"fsType"`
-	FsUuid     string    `json:"fsUuid"`
-	PartType   string    `json:"partType"`
-	Verity     *Verity   `json:"verity"`
+type FileSystem struct {
+	Image      ImageFile     `json:"image"`
+	MountPoint string        `json:"mountPoint"`
+	FsType     string        `json:"fsType"`
+	FsUuid     string        `json:"fsUuid"`
+	PartType   string        `json:"partType"`
+	Verity     *VerityConfig `json:"verity"`
 }
 
-type Verity struct {
+type VerityConfig struct {
 	Image    ImageFile `json:"image"`
 	Roothash string    `json:"roothash"`
 }
@@ -27,4 +28,11 @@ type ImageFile struct {
 	CompressedSize   uint64 `json:"compressedSize"`
 	UncompressedSize uint64 `json:"uncompressedSize"`
 	Sha384           string `json:"sha384"`
+}
+
+type OsPackage struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Release string `json:"release"`
+	Arch    string `json:"arch"`
 }

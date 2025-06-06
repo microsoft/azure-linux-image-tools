@@ -21,16 +21,22 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
-) (*ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
+) (*ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []OsPackage, error) {
 	imageConnection := NewImageConnection()
 
 	partUuidToMountPath, verityMetadata, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir,
 		chrootDirName, includeDefaultMounts)
 	if err != nil {
 		imageConnection.Close()
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return imageConnection, partUuidToMountPath, verityMetadata, nil
+
+	packages, err := getAllPackagesFromChroot(imageConnection)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	return imageConnection, partUuidToMountPath, verityMetadata, packages, nil
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
