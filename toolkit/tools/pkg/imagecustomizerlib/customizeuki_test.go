@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -80,4 +81,59 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	usrHashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
+
+	expectedFstabEntries := []diskutils.FstabEntry{
+		{
+			Source:     "PARTUUID=" + partitions[5].PartUuid,
+			Target:     "/",
+			FsType:     "ext4",
+			Options:    "noexec",
+			VfsOptions: 0x8,
+			FsOptions:  "",
+			Freq:       0,
+			PassNo:     1,
+		},
+		{
+			Source:     "PARTUUID=" + partitions[2].PartUuid,
+			Target:     "/boot",
+			FsType:     "ext4",
+			Options:    "defaults",
+			VfsOptions: 0x0,
+			FsOptions:  "",
+			Freq:       0,
+			PassNo:     2,
+		},
+		{
+			Source:     "PARTUUID=" + partitions[1].PartUuid,
+			Target:     "/boot/efi",
+			FsType:     "vfat",
+			Options:    "umask=0077",
+			VfsOptions: 0x0,
+			FsOptions:  "umask=0077",
+			Freq:       0,
+			PassNo:     2,
+		},
+		{
+			Source:     "/dev/mapper/usr",
+			Target:     "/usr",
+			FsType:     "ext4",
+			Options:    "ro",
+			VfsOptions: 0x1,
+			FsOptions:  "",
+			Freq:       0,
+			PassNo:     2,
+		},
+		{
+			Source:     "PARTUUID=" + partitions[6].PartUuid,
+			Target:     "/var",
+			FsType:     "ext4",
+			Options:    "defaults",
+			VfsOptions: 0x0,
+			FsOptions:  "",
+			Freq:       0,
+			PassNo:     2,
+		},
+	}
+	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
+	assert.Equal(t, expectedFstabEntries, filteredFstabEntries)
 }
