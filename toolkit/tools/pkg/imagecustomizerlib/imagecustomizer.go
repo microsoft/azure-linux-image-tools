@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -17,10 +18,13 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sys/unix"
 )
 
@@ -39,6 +43,8 @@ const (
 	diskFreeWarnThresholdPercent = 0.05
 	imageRoot                    = "imageroot"
 	toolsRoot                    = "toolsroot"
+
+	OtelTracerName = "imagecustomizerlib"
 )
 
 // Version specifies the version of the Azure Linux Image Customizer tool.
@@ -195,6 +201,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 	var err error
 
 	var config imagecustomizerapi.Config
+
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
 		return err
@@ -230,6 +237,12 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "CustomizeImage")
+	span.SetAttributes(
+		attribute.String("outputImageFormat", string(outputImageFormat)),
+	)
+	defer span.End()
+
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -836,7 +849,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
-		distro, version := getDistroAndVersion()
+		distro, version := osinfo.GetDistroAndVersion()
 		logger.Log.Infof("Base OS distro: %s", distro)
 		logger.Log.Infof("Base OS version: %s", version)
 		return nil

@@ -144,8 +144,7 @@ func validateUkiDependencies(imageChroot *safechroot.Chroot) error {
 	// The following packages are required for the UKI feature:
 	// - "systemd-boot": Checked as a package dependency here to ensure installation,
 	//    but additional configuration is handled elsewhere in the UKI workflow.
-	// - "efibootmgr": Used for managing EFI boot entries.
-	requiredRpms := []string{"systemd-boot", "efibootmgr"}
+	requiredRpms := []string{"systemd-boot"}
 
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {

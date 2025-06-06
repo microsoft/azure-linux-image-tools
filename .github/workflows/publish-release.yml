@@ -52,7 +52,7 @@ jobs:
         mv ../out/binary-amd64/imagecustomizer.tar.gz ../release/imagecustomizer-amd64.tar.gz
         mv ../out/binary-arm64/imagecustomizer.tar.gz ../release/imagecustomizer-arm64.tar.gz
 
-        gh release create --latest="${{ inputs.isLatestRelease }}" "${TAG}" ../release/*
+        gh release create --latest="${{ inputs.isLatestRelease }}" --title "${TAG}" --notes "" "${TAG}" ../release/*
 
         # Push to stable branch.
         if [ "${{ inputs.isLatestRelease }}" == "true" ]; then

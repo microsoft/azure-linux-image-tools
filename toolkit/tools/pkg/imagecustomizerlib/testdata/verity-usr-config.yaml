@@ -67,7 +67,7 @@ os:
     - openssh-server
     - veritysetup
     - vim
-    - lvm2
+    - device-mapper
 
   services:
     enable:

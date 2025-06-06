@@ -19,8 +19,7 @@ import (
 type baseImageType string
 
 const (
-	baseImageTypeCoreEfi    baseImageType = "core-efi"
-	baseImageTypeCoreLegacy baseImageType = "core-legacy"
+	baseImageTypeCoreEfi baseImageType = "core-efi"
 )
 
 type baseImageVersion string
@@ -35,10 +34,8 @@ const (
 )
 
 var (
-	baseImageCoreEfiAzl2    = flag.String("base-image-core-efi-azl2", "", "A core-efi 2.0 image to use as a base image.")
-	baseImageCoreEfiAzl3    = flag.String("base-image-core-efi-azl3", "", "A core-efi 3.0 image to use as a base image.")
-	baseImageCoreLegacyAzl2 = flag.String("base-image-core-legacy-azl2", "", "A core-legacy 2.0 image to use as a base image.")
-	baseImageCoreLegacyAzl3 = flag.String("base-image-core-legacy-azl3", "", "A core-legacy 3.0 image to use as a base image.")
+	baseImageCoreEfiAzl2 = flag.String("base-image-core-efi-azl2", "", "A core-efi 2.0 image to use as a base image.")
+	baseImageCoreEfiAzl3 = flag.String("base-image-core-efi-azl3", "", "A core-efi 3.0 image to use as a base image.")
 )
 
 var (
@@ -109,15 +106,6 @@ func getImageParamAndName(baseImageType baseImageType, baseImageVersion baseImag
 
 		case baseImageVersionAzl3:
 			return baseImageCoreEfiAzl3, "base-image-core-efi-azl3"
-		}
-
-	case baseImageTypeCoreLegacy:
-		switch baseImageVersion {
-		case baseImageVersionAzl2:
-			return baseImageCoreLegacyAzl2, "base-image-core-legacy-azl2"
-
-		case baseImageVersionAzl3:
-			return baseImageCoreLegacyAzl3, "base-image-core-legacy-azl3"
 		}
 	}
 

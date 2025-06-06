@@ -215,7 +215,9 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		}
 
 		// Unset read-only flag so that read-only partitions can be customized.
-		vfsOptions := fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY)
+		// Unset noexec flag so that if rootfs is set as noexec, image can still be customized. For example, allowing
+		// grub2-mkconfig to be called.
+		vfsOptions := fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
 
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {

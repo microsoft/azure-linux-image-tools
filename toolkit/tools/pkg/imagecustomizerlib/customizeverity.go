@@ -325,7 +325,9 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 }
 
 func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
-	requiredRpms := []string{"lvm2"}
+	// "device-mapper" is required for dm-verity support because it provides "dmsetup",
+	// which Dracut needs to install the "dm" module (a dependency of "systemd-veritysetup").
+	requiredRpms := []string{"device-mapper"}
 
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {

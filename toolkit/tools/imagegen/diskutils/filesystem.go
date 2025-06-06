@@ -111,10 +111,14 @@ var (
 		"crc":        {3, 2, 0},
 		"finobt":     {3, 2, 1},
 		"inobtcount": {5, 10},
+		"metadir":    {6, 13},
 		"reflink":    {4, 10},
 		"rmapbt":     {4, 10},
+		"autofsck":   {6, 10},
 		"sparse":     {4, 10},
 		"nrext64":    {5, 19},
+		"exchange":   {6, 10},
+		"parent":     {6, 10},
 	}
 
 	// The mkfs.xfs flag each feature sits under.
@@ -123,15 +127,19 @@ var (
 		"crc":        "metadata",
 		"finobt":     "metadata",
 		"inobtcount": "metadata",
+		"metadir":    "metadata",
 		"reflink":    "metadata",
 		"rmapbt":     "metadata",
+		"autofsck":   "metadata",
 		"sparse":     "inode",
 		"nrext64":    "inode",
+		"exchange":   "inode",
+		"parent":     "naming",
 	}
 
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
-	maxMkfsXfsVersion = version.Version{6, 9}
+	maxMkfsXfsVersion = version.Version{6, 14}
 
 	// The minimum supported kernel version. This helps avoid versions complexity for features that are old and therefore
 	// basically universal.
@@ -234,6 +242,7 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 
 	metadataArgs := []string(nil)
 	inodeArgs := []string(nil)
+	namingArgs := []string(nil)
 
 	// Unlike mkfs.ext4, mkfs.xfs doesn't have a mechanism to disable all features.
 	// So, explictly set every feature flag.
@@ -271,13 +280,17 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 
 		case "inode":
 			inodeArgs = append(inodeArgs, featureArg)
+
+		case "naming":
+			namingArgs = append(namingArgs, featureArg)
 		}
 	}
 
 	metadataArgValue := strings.Join(metadataArgs, ",")
 	inodeArgValue := strings.Join(inodeArgs, ",")
+	namingArgValue := strings.Join(namingArgs, ",")
 
-	args := []string{"-m", metadataArgValue, "-i", inodeArgValue}
+	args := []string{"-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
 	return args, nil
 }
 

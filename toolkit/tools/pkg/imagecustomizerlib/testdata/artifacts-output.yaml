@@ -58,7 +58,6 @@ os:
     - grub2-efi-binary
     install:
     - systemd-boot
-    - efibootmgr
     - openssh-server
 
   services:
