@@ -401,16 +401,24 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, imageType b
 		imageVersion)
 }
 
-func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
-	partitions map[int]diskutils.PartitionInfo,
-) {
+func getFilteredFstabEntries(t *testing.T, imageConnection *ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if !assert.NoError(t, err, "read /etc/fstab") {
-		return
+		return nil
 	}
 
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
+	return filteredFstabEntries
+}
+
+func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
+	partitions map[int]diskutils.PartitionInfo,
+) {
+	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
+	if filteredFstabEntries == nil {
+		return
+	}
 
 	if !assert.Equalf(t, len(mountPoints), len(filteredFstabEntries), "/etc/fstab entries count: %v", filteredFstabEntries) {
 		return
