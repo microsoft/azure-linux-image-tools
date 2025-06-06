@@ -49,20 +49,8 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
-	buildDir := filepath.Join(outputDir, "build")
-	existingImageConnection, _, _, err := connectToExistingImage(ic.rawImageFile, buildDir, "imageroot", true)
-	if err != nil {
-		return err
-	}
-	defer existingImageConnection.Close()
-
-	osPackages, err := getAllPackagesFromChroot(existingImageConnection)
-	if err != nil {
-		return err
-	}
-
 	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata,
-		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease, osPackages)
+		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease, ic.osPackages)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
@@ -70,11 +58,6 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	logger.Log.Infof("Successfully converted to COSI: %s", ic.outputImageFile)
 
 	err = imageLoopback.CleanClose()
-	if err != nil {
-		return err
-	}
-
-	err = existingImageConnection.CleanClose()
 	if err != nil {
 		return err
 	}
@@ -325,37 +308,36 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
-	var packages []OsPackage
-
+	var out string
 	err := imageConnection.Chroot().UnsafeRun(func() error {
-		out, _, err := shell.Execute(
+		var err error
+		out, _, err = shell.Execute(
 			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to list installed RPMs:\n%w", err)
 		}
-
-		lines := strings.Split(strings.TrimSpace(out), "\n")
-		for _, line := range lines {
-			parts := strings.Fields(line)
-			if len(parts) != 4 {
-				logger.Log.Warnf("Skipping malformed RPM line while parsing installed RPMs for COSI: %q", line)
-				continue
-			}
-			pkg := OsPackage{
-				Name:    parts[0],
-				Version: parts[1],
-				Release: parts[2],
-				Arch:    parts[3],
-			}
-			packages = append(packages, pkg)
-		}
 		return nil
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("failed to get packages from chroot:\n%w", err)
+		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var packages []OsPackage
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) != 4 {
+			return nil, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs for COSI: %q", line)
+		}
+		packages = append(packages, OsPackage{
+			Name:    parts[0],
+			Version: parts[1],
+			Release: parts[2],
+			Arch:    parts[3],
+		})
 	}
 
 	return packages, nil
+
 }

@@ -22,11 +22,7 @@ The tarball MUST contain the following files:
 
 - `metadata.json`: A JSON file that contains the metadata of the COSI file.
 - Filesystem image files in the folder `images/`: The actual filesystem images
-  that Trident will use to install the OS.
-
-To allow for future extensions, the tarball MAY contain other files, but Trident
-MUST ignore them. The tarball SHOULD NOT contain any extra files that will not
-be used by Trident.
+  that will be used to install the OS.
 
 ### Layout
 
@@ -34,22 +30,19 @@ The tarball MUST NOT have a common root directory. The metadata file MUST be at
 the root of the tarball. If it were extracted with a standard `tar` invocation,
 the metadata file would be placed in the current directory.
 
-The metadata file SHOULD, be placed at the beginning of the tarball to allow for
+The metadata file SHOULD be placed at the beginning of the tarball to allow for
 quick access to the metadata without having to traverse the entire tarball.
 
 ### Partition Image Files
 
-The partition image files are the actual images that Trident will use to install
+The partition image files are the actual images that reader will use to install
 the OS. These MUST be raw partition images.
 
-The image files SHOULD be compressed. They SHOULD use ZSTD compression. Trident
-only supports ZSTD-compressed images at the time of writing (2024-09-25), but
-that could change in the future. Not using ZSTD-compressed images will result in
-Trident failing to install the OS.
+The partition image files MUST be raw partition images that are compressed using ZSTD
+compression.
 
-They MUST be located in a directory called `images/` inside the tarball. They
-MAY be placed in subdirectories of `images/` to organize them. Trident MUST be
-able to handle images in subdirectories.
+All partition image files MUST be in the `images` directory or one of its
+subdirectories.
 
 ### Metadata JSON File
 
@@ -90,7 +83,7 @@ from in a virtual disk.
 
 _Notes:_
 
-- **[1]** It MUST use the name recognized by the kernel. For example, `ext4` for
+- **[1]** It MUST use the name recognized by the Linux kernel. For example, `ext4` for
     ext4 filesystems, `vfat` for FAT32 filesystems, etc.
 - **[2]** It MUST be unique across all filesystems in the COSI tarball.
   Additionally, volumes in an A/B volume pair MUST have unique filesystem UUIDs.
@@ -265,10 +258,9 @@ objects. Each object represents a package installed in the OS.
 
 **Why an uncompressed tarball?**
 
-- The images SHOULD be compressed, and other than that the file should be pretty
-  light-weight. Compressing the entire tarball does not yield a significant size
-  reduction, if at all. This also allows us to read the metadata without having
-  to extract the entire tarball.
+- This allows the metadata file to be easily read without needing to decompress and
+  extract the entire tarball. Also, compressing the tarball doesn't provide any
+  meaningful size reductions since the partition images are all compressed individually.
 
 **Why not ZIP?**
 
