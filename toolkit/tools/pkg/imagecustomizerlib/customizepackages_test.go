@@ -21,7 +21,7 @@ import (
 func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddOfflineDir")
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 	downloadedRpmsDir := getDownloadedRpmsDir(t, "2.0")
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -146,7 +146,7 @@ func TestCustomizeImagePackagesAddOfflineLocalRepoNoGpgKey(t *testing.T) {
 func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName string, withGpgKey bool) {
 	testTmpDir := filepath.Join(tmpDir, testName)
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	downloadedRpmsRepoFile := getDownloadedRpmsRepoFile(t, "2.0", withGpgKey)
 	rpmSources := []string{downloadedRpmsRepoFile}
@@ -176,7 +176,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 }
 
 func TestCustomizeImagePackagesUpdate(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUpdate")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -198,7 +198,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 	defer imageConnection.Close()
 
 	// Ensure tdnf cache was cleaned.
-	ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf")
+	ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
@@ -212,7 +212,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesDiskSpace")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -228,7 +228,8 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesUrlSource(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUrlSource")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -258,7 +259,8 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesBadRepo(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesBadRepo")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -274,7 +276,9 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
 }
 
-func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirPath string) {
+func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirPath string,
+	baseImageInfo testBaseImageInfo,
+) {
 	// Array to capture all the files of the provided root directory
 	var existingFiles []string
 
@@ -285,7 +289,7 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirP
 			return fmt.Errorf("Failed to access path (%s): %w", path, err)
 		}
 		// Ignore files in the local-repo folder if the base image version is 2.0
-		if !(strings.Contains(path, "local-repo") && baseImageVersionDefault == "2.0") {
+		if !(strings.Contains(path, "local-repo") && baseImageInfo.Version == baseImageVersionAzl2) {
 			fileInfo, err := os.Stat(path)
 			if err != nil {
 				return fmt.Errorf("failed to get file info for %s: %w", path, err)
@@ -307,7 +311,8 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirP
 func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -355,7 +360,8 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	snapshotTimeConfig := "2025-03-19"
@@ -403,7 +409,8 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails")
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")

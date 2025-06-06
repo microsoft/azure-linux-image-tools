@@ -14,9 +14,8 @@ import (
 )
 
 func TestCustomizeImageVerityUsrUki(t *testing.T) {
-	imageType := baseImageTypeCoreEfi
-	imageVersion := baseImageVersionAzl3
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)

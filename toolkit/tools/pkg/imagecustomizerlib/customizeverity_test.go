@@ -22,18 +22,15 @@ import (
 )
 
 func TestCustomizeImageVerity(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityHelper(t, "TestCustomizeImageVerity"+string(version), baseImageTypeCoreEfi,
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityHelper(t, "TestCustomizeImageVerity"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
@@ -47,7 +44,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 		return
 	}
 
-	verifyRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath)
 
 	// Recustomize the image.
 	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
@@ -56,10 +53,10 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, imageType bas
 		return
 	}
 
-	verifyRootVerity(t, imageType, imageVersion, buildDir, outImageFilePath)
+	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath)
 }
 
-func verifyRootVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
 	outImageFilePath string,
 ) {
 	// Connect to customized image.
@@ -102,7 +99,7 @@ func verifyRootVerity(t *testing.T, imageType baseImageType, imageVersion baseIm
 	rootDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", imageVersion, "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption")
 
 	err = imageConnection.CleanClose()
 	if !assert.NoError(t, err) {
@@ -111,18 +108,15 @@ func verifyRootVerity(t *testing.T, imageType baseImageType, imageVersion baseIm
 }
 
 func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityCosiExtractHelper(t, "TestCustomizeImageVerityShrinkExtract"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityCosiExtractHelper(t, "TestCustomizeImageVerityShrinkExtract"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
@@ -214,11 +208,11 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, im
 
 	// Verify that verity is configured correctly.
 	verifyVerityGrub(t, bootMountPath, rootDevice.DevicePath(), hashDevice.DevicePath(), "PARTLABEL=root",
-		"PARTLABEL=roothash", "root", "rd.info", imageVersion, "panic-on-corruption")
+		"PARTLABEL=roothash", "root", "rd.info", baseImageInfo, "panic-on-corruption")
 }
 
 func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevice string, dataId string, hashId string,
-	verityType string, extraCommandLine string, imageVersion baseImageVersion, corruptionOption string,
+	verityType string, extraCommandLine string, baseImageInfo testBaseImageInfo, corruptionOption string,
 ) {
 	// Extract kernel command line args.
 	grubCfgPath := filepath.Join(bootPath, "/grub2/grub.cfg")
@@ -240,7 +234,7 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 
 	// Verity extra command line args.
 	recoveryCount := 0
-	if imageVersion == baseImageVersionAzl3 {
+	if baseImageInfo.Version == baseImageVersionAzl3 {
 		// Count the number of recovery menu items there are.
 		// These menu items won't contain the extra command line args.
 		recoveryCount = strings.Count(grubCfgContents, "(recovery mode)")
@@ -335,18 +329,15 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 }
 
 func TestCustomizeImageVerityUsr(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityUsrHelper(t, "TestCustomizeImageVerityUsr"+string(version), baseImageTypeCoreEfi,
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrHelper(t, "TestCustomizeImageVerityUsr"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
@@ -360,7 +351,7 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath, "")
+	verityUsrVerity(t, baseImageInfo, buildDir, outImageFilePath, "")
 
 	// Recustomize image.
 	// This helps verify that verity-enabled images can be recustomized.
@@ -370,10 +361,10 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, imageType 
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, outImageFilePath, "")
+	verityUsrVerity(t, baseImageInfo, buildDir, outImageFilePath, "")
 }
 
-func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseImageVersion, buildDir string,
+func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
 	outImageFilePath string, corruptionOption string,
 ) {
 	// Connect to usr verity image.
@@ -415,22 +406,19 @@ func verityUsrVerity(t *testing.T, imageType baseImageType, imageVersion baseIma
 	usrDevice := partitionDevPath(imageConnection, 3)
 	hashDevice := partitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[3].Uuid,
-		"UUID="+partitions[4].Uuid, "usr", "rd.info", imageVersion, corruptionOption)
+		"UUID="+partitions[4].Uuid, "usr", "rd.info", baseImageInfo, corruptionOption)
 }
 
 func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityUsr2StageHelper(t, "testCustomizeImageVerityUsr2Stage"+string(version), baseImageTypeCoreEfi,
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsr2StageHelper(t, "testCustomizeImageVerityUsr2Stage"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
@@ -453,22 +441,19 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, imag
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath, "panic-on-corruption")
+	verityUsrVerity(t, baseImageInfo, buildDir, stage2FilePath, "panic-on-corruption")
 }
 
 func TestCustomizeImageVerityReinitRoot(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityReinitRootHelper(t, "TestCustomizeImageVerityReinitRoot"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityReinitRootHelper(t, "TestCustomizeImageVerityReinitRoot"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
@@ -485,7 +470,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, ima
 		return
 	}
 
-	verifyRootVerity(t, imageType, imageVersion, buildDir, stage1FilePath)
+	verifyRootVerity(t, baseImageInfo, buildDir, stage1FilePath)
 
 	// Stage 2a: Reinitialize verity.
 	err = CustomizeImageWithConfigFile(buildDir, stage2aConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
@@ -494,7 +479,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, ima
 		return
 	}
 
-	verifyRootVerity(t, imageType, imageVersion, buildDir, stage1FilePath)
+	verifyRootVerity(t, baseImageInfo, buildDir, stage1FilePath)
 
 	// Stage 2b: Reinitialize verity + hard-reset bootloader.
 	err = CustomizeImageWithConfigFile(buildDir, stage2bConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
@@ -503,22 +488,19 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, ima
 		return
 	}
 
-	verifyRootVerity(t, imageType, imageVersion, buildDir, stage2FilePath)
+	verifyRootVerity(t, baseImageInfo, buildDir, stage2FilePath)
 }
 
 func TestCustomizeImageVerityReinitUsr(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageVerityReinitUsrHelper(t, "TestCustomizeImageVerityReinitUsr"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityReinitUsrHelper(t, "TestCustomizeImageVerityReinitUsr"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
@@ -534,7 +516,7 @@ func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, imag
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, stage1FilePath, "")
+	verityUsrVerity(t, baseImageInfo, buildDir, stage1FilePath, "")
 
 	// Stage 2: Reinitialize verity.
 	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
@@ -543,5 +525,5 @@ func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, imag
 		return
 	}
 
-	verityUsrVerity(t, imageType, imageVersion, buildDir, stage2FilePath, "")
+	verityUsrVerity(t, baseImageInfo, buildDir, stage2FilePath, "")
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func TestOutputAndInjectArtifacts(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionAzl3)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
