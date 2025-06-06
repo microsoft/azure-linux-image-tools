@@ -251,7 +251,7 @@ func verifySkippableFrameMetadataFromFile(partitionFilepath string, magicNumber 
 func TestCustomizeImageNopShrink(t *testing.T) {
 	var err error
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	configFile := filepath.Join(testDir, "consume-space.yaml")
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
@@ -344,7 +344,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	var err error
 
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageExtractEmptyPartition")
 	buildDir := filepath.Join(testTempDir, "build")

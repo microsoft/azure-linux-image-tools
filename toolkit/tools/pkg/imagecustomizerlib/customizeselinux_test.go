@@ -14,18 +14,15 @@ import (
 )
 
 func TestCustomizeImageSELinux(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageSELinuxHelper(t, "TestCustomizeImageSELinux"+string(version), baseImageTypeCoreEfi,
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageSELinuxHelper(t, "TestCustomizeImageSELinux"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageSELinuxHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -111,18 +108,15 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, imageType ba
 }
 
 func TestCustomizeImageSELinuxAndPartitions(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageSELinuxAndPartitionsHelper(t, "TestCustomizeImageSELinuxAndPartitions"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageSELinuxAndPartitionsHelper(t, "TestCustomizeImageSELinuxAndPartitions"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -172,7 +166,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 }
 
 func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageSELinuxNoPolicy")
 	buildDir := filepath.Join(testTmpDir, "build")

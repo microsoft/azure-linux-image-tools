@@ -15,7 +15,7 @@ import (
 )
 
 func TestCustomizeImageOverlays(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageOverlays")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -79,7 +79,7 @@ func TestCustomizeImageOverlays(t *testing.T) {
 }
 
 func TestCustomizeImageOverlaysSELinux(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageOverlaysSELinux")
 	buildDir := filepath.Join(testTempDir, "build")

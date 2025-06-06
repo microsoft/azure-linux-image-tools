@@ -16,37 +16,65 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type baseImageType string
-
 const (
-	baseImageTypeCoreEfi baseImageType = "core-efi"
+	baseImageDistroAzureLinux = "azurelinux"
+
+	// Azure Linux versions
+	baseImageVersionAzl2 = "2.0"
+	baseImageVersionAzl3 = "3.0"
+
+	// Azure Linux variants
+	baseImageVariantCoreEfi = "core-efi"
 )
 
-type baseImageVersion string
+type testBaseImageInfo struct {
+	Name      string
+	Distro    string
+	Version   string
+	Variant   string
+	ParamName string
+	Param     *string
+}
 
-const (
-	baseImageVersionAzl2 baseImageVersion = "2.0"
-	baseImageVersionAzl3 baseImageVersion = "3.0"
+var (
+	testBaseImageAzl2CoreEfi = testBaseImageInfo{
+		Name:      "AzureLinux2CoreEfi",
+		Distro:    baseImageDistroAzureLinux,
+		Version:   baseImageVersionAzl2,
+		Variant:   baseImageVariantCoreEfi,
+		ParamName: "base-image-core-efi-azl2",
+		Param:     baseImageCoreEfiAzl2,
+	}
 
-	// Most features don't have version Azure Linux version specific behavior.
-	// So, there is only minimal value in duplicating the tests across versions for such features.
-	baseImageVersionDefault = baseImageVersionAzl2
+	testBaseImageAzl3CoreEfi = testBaseImageInfo{
+		Name:      "AzureLinux3CoreEfi",
+		Distro:    baseImageDistroAzureLinux,
+		Version:   baseImageVersionAzl3,
+		Variant:   baseImageVariantCoreEfi,
+		ParamName: "base-image-core-efi-azl3",
+		Param:     baseImageCoreEfiAzl3,
+	}
+
+	baseImageAll = []testBaseImageInfo{
+		testBaseImageAzl2CoreEfi,
+		testBaseImageAzl3CoreEfi,
+	}
+
+	defaultBaseImagePriorityList = []testBaseImageInfo{
+		testBaseImageAzl2CoreEfi,
+		testBaseImageAzl3CoreEfi,
+	}
 )
 
 var (
-	baseImageCoreEfiAzl2 = flag.String("base-image-core-efi-azl2", "", "A core-efi 2.0 image to use as a base image.")
-	baseImageCoreEfiAzl3 = flag.String("base-image-core-efi-azl3", "", "A core-efi 3.0 image to use as a base image.")
+	baseImageCoreEfiAzl2 = flag.String("base-image-core-efi-azl2", "", "An Azure Linux 2.0 core-efi image to use as a base image.")
+	baseImageCoreEfiAzl3 = flag.String("base-image-core-efi-azl3", "", "An Azure Linux 3.0 core-efi image to use as a base image.")
 )
 
 var (
 	testDir    string
 	tmpDir     string
 	workingDir string
-
-	supportedAzureLinuxVersions = []baseImageVersion{
-		baseImageVersionAzl2,
-		baseImageVersionAzl3,
-	}
 )
 
 func TestMain(m *testing.M) {
@@ -79,8 +107,7 @@ func TestMain(m *testing.M) {
 	os.Exit(retVal)
 }
 
-// Skip the test if requirements for testing CustomizeImage() are not met.
-func checkSkipForCustomizeImage(t *testing.T, baseImageType baseImageType, baseImageVersion baseImageVersion) string {
+func checkSkipForCustomizeImageRequirements(t *testing.T) {
 	if !buildpipeline.IsRegularBuild() {
 		t.Skip("loopback block device not available")
 	}
@@ -88,28 +115,30 @@ func checkSkipForCustomizeImage(t *testing.T, baseImageType baseImageType, baseI
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
-
-	param, paramName := getImageParamAndName(baseImageType, baseImageVersion)
-	if param == nil || *param == "" {
-		t.Skipf("--%s is required for this test", paramName)
-	}
-
-	return *param
 }
 
-func getImageParamAndName(baseImageType baseImageType, baseImageVersion baseImageVersion) (*string, string) {
-	switch baseImageType {
-	case baseImageTypeCoreEfi:
-		switch baseImageVersion {
-		case baseImageVersionAzl2:
-			return baseImageCoreEfiAzl2, "base-image-core-efi-azl2"
+// Skip the test if requirements for testing CustomizeImage() are not met.
+func checkSkipForCustomizeImage(t *testing.T, baseImage testBaseImageInfo) string {
+	checkSkipForCustomizeImageRequirements(t)
 
-		case baseImageVersionAzl3:
-			return baseImageCoreEfiAzl3, "base-image-core-efi-azl3"
+	if baseImage.Param == nil || *baseImage.Param == "" {
+		t.Skipf("--%s is required for this test", baseImage.ParamName)
+	}
+
+	return *baseImage.Param
+}
+
+func checkSkipForCustomizeDefaultImage(t *testing.T) (string, testBaseImageInfo) {
+	checkSkipForCustomizeImageRequirements(t)
+
+	for _, imageInfo := range defaultBaseImagePriorityList {
+		if imageInfo.Param != nil && *imageInfo.Param != "" {
+			return *imageInfo.Param, imageInfo
 		}
 	}
 
-	return nil, ""
+	t.Skipf("--%s is required for this test", defaultBaseImagePriorityList[0].ParamName)
+	return "", testBaseImageInfo{}
 }
 
 func getDownloadedRpmsDir(t *testing.T, azureLinuxVersion string) string {
