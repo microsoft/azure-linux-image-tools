@@ -15,8 +15,15 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
+)
+
+// TODO: Remove this constant to support 4.0 and later releases.
+const (
+	releaseVerCliArg = "--releasever=3.0"
 )
 
 var (
@@ -40,7 +47,8 @@ var (
 )
 
 func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {
 	var err error
 
@@ -48,12 +56,26 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 		snapshotTime = string(config.Packages.SnapshotTime)
 	}
 
-	err = createTempTdnfConfigWithSnapshot(imageChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
+	chroot := imageChroot
+	if toolsChroot != nil {
+		// Setup bind mounts to tools chroot
+		toolsChrootDir := filepath.Join(buildDir, toolsRoot)
+		source := imageChroot.RootDir()
+		target := filepath.Join(toolsChrootDir, imageRoot)
+		bindMount, err := safemount.NewMount(source, target, "", unix.MS_BIND, "", true)
+		if err != nil {
+			return fmt.Errorf("failed to bind mount image root to tools chroot:\n%w", err)
+		}
+		defer bindMount.Close()
+		chroot = toolsChroot
+	}
+
+	err = createTempTdnfConfigWithSnapshot(chroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if cleanupErr := cleanupSnapshotTimeConfig(imageChroot); cleanupErr != nil && err == nil {
+		if cleanupErr := cleanupSnapshotTimeConfig(chroot); cleanupErr != nil && err == nil {
 			err = cleanupErr
 		}
 	}()
@@ -65,39 +87,38 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	var mounts *rpmSourcesMounts
 	if needRpmsSources {
 		// Mount RPM sources.
-		mounts, err = mountRpmSources(buildDir, imageChroot, rpmsSources, useBaseImageRpmRepos)
+		mounts, err = mountRpmSources(buildDir, chroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
 			return err
 		}
 		defer mounts.close()
 
 		// Refresh metadata.
-		err = refreshTdnfMetadata(imageChroot)
+		err = refreshTdnfMetadata(imageChroot, toolsChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = removePackages(config.Packages.Remove, imageChroot)
+	err = removePackages(config.Packages.Remove, imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
 
 	if config.Packages.UpdateExistingPackages {
-		err = updateAllPackages(imageChroot)
+		err = updateAllPackages(imageChroot, toolsChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
-	err = installOrUpdatePackages("install", config.Packages.Install, imageChroot)
+	err = installOrUpdatePackages("install", config.Packages.Install, imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
-	err = installOrUpdatePackages("update", config.Packages.Update, imageChroot)
+	err = installOrUpdatePackages("update", config.Packages.Update, imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
@@ -111,7 +132,7 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	}
 
 	if needRpmsSources {
-		err = cleanTdnfCache(imageChroot)
+		err = cleanTdnfCache(imageChroot, toolsChroot)
 		if err != nil {
 			return err
 		}
@@ -120,13 +141,23 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	return nil
 }
 
-func refreshTdnfMetadata(imageChroot *safechroot.Chroot) error {
+func refreshTdnfMetadata(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	tdnfArgs := []string{
 		"-v", "check-update", "--refresh", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
-	err := imageChroot.UnsafeRun(func() error {
+	chroot := imageChroot
+	if toolsChroot != nil {
+
+		err := appendTdnfArgsForToolsChroot(&tdnfArgs, "check-update")
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
+		chroot = toolsChroot
+	}
+
+	err := chroot.UnsafeRun(func() error {
 		return shell.NewExecBuilder("tdnf", tdnfArgs...).
 			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -159,7 +190,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 	return allPackages, nil
 }
 
-func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot) error {
+func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Removing packages: %v", allPackagesToRemove)
 
 	if len(allPackagesToRemove) <= 0 {
@@ -172,7 +203,16 @@ func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot
 
 	tdnfRemoveArgs = append(tdnfRemoveArgs, allPackagesToRemove...)
 
-	err := callTdnf(tdnfRemoveArgs, imageChroot)
+	chroot := imageChroot
+	if toolsChroot != nil {
+		err := appendTdnfArgsForToolsChroot(&tdnfRemoveArgs, "remove")
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
+		chroot = toolsChroot
+	}
+
+	err := callTdnf(tdnfRemoveArgs, chroot)
 	if err != nil {
 		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
 	}
@@ -180,7 +220,7 @@ func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot
 	return nil
 }
 
-func updateAllPackages(imageChroot *safechroot.Chroot) error {
+func updateAllPackages(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Updating base image packages")
 
 	tdnfUpdateArgs := []string{
@@ -188,7 +228,17 @@ func updateAllPackages(imageChroot *safechroot.Chroot) error {
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
-	err := callTdnf(tdnfUpdateArgs, imageChroot)
+	chroot := imageChroot
+	if toolsChroot != nil {
+
+		err := appendTdnfArgsForToolsChroot(&tdnfUpdateArgs, "update")
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
+		chroot = toolsChroot
+	}
+
+	err := callTdnf(tdnfUpdateArgs, chroot)
 	if err != nil {
 		return fmt.Errorf("failed to update packages:\n%w", err)
 	}
@@ -196,7 +246,7 @@ func updateAllPackages(imageChroot *safechroot.Chroot) error {
 	return nil
 }
 
-func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot) error {
+func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	if len(allPackagesToAdd) <= 0 {
 		return nil
 	}
@@ -209,9 +259,19 @@ func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChro
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
 	}
 
+	chroot := imageChroot
+	if toolsChroot != nil {
+
+		err := appendTdnfArgsForToolsChroot(&tdnfInstallArgs, action)
+		if err != nil {
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
+		}
+		chroot = toolsChroot
+	}
+
 	tdnfInstallArgs = append(tdnfInstallArgs, allPackagesToAdd...)
 
-	err := callTdnf(tdnfInstallArgs, imageChroot)
+	err := callTdnf(tdnfInstallArgs, chroot)
 	if err != nil {
 		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
 	}
@@ -291,20 +351,39 @@ func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool
 	return true
 }
 
-func cleanTdnfCache(imageChroot *safechroot.Chroot) error {
+func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Cleaning up RPM cache")
 	// Run all cleanup tasks inside the chroot environment
-	return imageChroot.UnsafeRun(func() error {
-		tdnfArgs := []string{
-			"-v", "clean", "all",
-		}
-		err := shell.NewExecBuilder("tdnf", tdnfArgs...).
-			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
+
+	tdnfArgs := []string{
+		"-v", "clean", "all",
+	}
+
+	chroot := imageChroot
+	if toolsChroot != nil {
+		err := appendTdnfArgsForToolsChroot(&tdnfArgs, "clean")
 		if err != nil {
-			return fmt.Errorf("Failed to clean tdnf cache: %w", err)
+			return fmt.Errorf("failed to append tdnf args for tools chroot:\n%w", err)
 		}
-		return nil
-	})
+		chroot = toolsChroot
+	}
+
+	err := callTdnf(tdnfArgs, chroot)
+	if err != nil {
+		return fmt.Errorf("failed to clean tdnf cache:\n%w", err)
+	}
+	return nil
+}
+
+// Update the string tdnfargs to include the releasever and installroot options for tools chroot.
+func appendTdnfArgsForToolsChroot(tdnfArgs *[]string, operation string) error {
+	// Add the releasever cli arg to the tdnf install args.
+	*tdnfArgs = append(*tdnfArgs, releaseVerCliArg)
+
+	if operation == "install" || operation == "update" || operation == "remove" || operation == "check-update" || operation == "clean" {
+		// If this is an install or update operation, we need to set the installroot to /imageroot.
+		*tdnfArgs = append(*tdnfArgs, "--installroot", "/"+imageRoot)
+	}
+
+	return nil
 }

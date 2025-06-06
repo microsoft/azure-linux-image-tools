@@ -25,7 +25,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, rpmsSources,
+	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
+	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}
