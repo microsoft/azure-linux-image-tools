@@ -25,14 +25,8 @@ import (
 )
 
 const (
-
-	// ToDo: this is not being invoked...
-	initScriptFileName = "init"
-	// Having #!/bin/bash header causes a kernel panic.
-	// Not having the init file at all, causes a kernel panic.
-	initContent = `mount -t proc proc /proc
-/lib/systemd/systemd
-`
+	initKernelInitrdPath = "/init"
+	initBinaryInitrdPath = "/lib/systemd/systemd"
 
 	dracutConfig = `add_dracutmodules+=" dmsquash-live livenet selinux "
 add_drivers+=" overlay "
@@ -81,10 +75,10 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
 
-	initScriptPath := filepath.Join(writeableRootfsDir, initScriptFileName)
-	err = os.WriteFile(initScriptPath, []byte(initContent), 0755)
+	initKernelLocalPath := filepath.Join(writeableRootfsDir, initKernelInitrdPath)
+	err = os.Symlink(initBinaryInitrdPath, initKernelLocalPath)
 	if err != nil {
-		return fmt.Errorf("failed to create (%s):\n%w", initScriptPath, err)
+		return fmt.Errorf("failed to create  symlink (%s):\n%w", initKernelLocalPath, err)
 	}
 
 	err = initrdutils.CreateInitrdImageFromFolder(writeableRootfsDir, outputInitrdPath)
@@ -107,7 +101,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 
 	chroot := safechroot.NewChroot(writeableRootfsDir, true /*isExistingDir*/)
 	if chroot == nil {
-		return fmt.Errorf("failed to create a new chroot object for %s.", writeableRootfsDir)
+		return fmt.Errorf("failed to create a new chroot object for (%s)", writeableRootfsDir)
 	}
 	defer chroot.Close(true /*leaveOnDisk*/)
 
@@ -354,7 +348,7 @@ func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
 	diskSizeRegex := regexp.MustCompile(`^(\d+)\s+`)
 	matches := diskSizeRegex.FindStringSubmatch(duStdout)
 	if matches == nil || len(matches) < 2 {
-		return 0, fmt.Errorf("failed to parse 'du -s' output (%s).", duStdout)
+		return 0, fmt.Errorf("failed to parse 'du -s' output (%s)", duStdout)
 	}
 
 	sizeInKbsString := matches[1]
