@@ -78,7 +78,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 	initKernelLocalPath := filepath.Join(writeableRootfsDir, initKernelInitrdPath)
 	err = os.Symlink(initBinaryInitrdPath, initKernelLocalPath)
 	if err != nil {
-		return fmt.Errorf("failed to create  symlink (%s):\n%w", initKernelLocalPath, err)
+		return fmt.Errorf("failed to create symlink (%s):\n%w", initKernelLocalPath, err)
 	}
 
 	err = initrdutils.CreateInitrdImageFromFolder(writeableRootfsDir, outputInitrdPath)
