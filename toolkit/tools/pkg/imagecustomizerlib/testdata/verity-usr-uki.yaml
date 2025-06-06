@@ -20,7 +20,10 @@ storage:
       size: 100M
 
     - id: root
-      size: 2G
+      size: 500M
+
+    - id: var
+      size: 1G
 
   verity:
   - id: verityusr
@@ -42,13 +45,19 @@ storage:
 
   - deviceId: root
     type: ext4
-    mountPoint: /
+    mountPoint:
+      path: /
+      options: noexec
 
   - deviceId: verityusr
     type: ext4
     mountPoint:
       path: /usr
       options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint: /var
 
 os:
   bootloader:
@@ -66,6 +75,23 @@ os:
     - grub2-efi-binary
 
     install:
+    - openssh-server
     - veritysetup
     - systemd-boot
     - device-mapper
+
+  users:
+  - name: root
+    password:
+      type: plain-text
+      value: hello
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Move iptables script off of the / partition, so that the iptables service can run even though / has the noexec
+      # mount flag.
+      mv /etc/systemd/scripts /usr/bin/
+      ln -sr /usr/bin/scripts /etc/systemd/scripts
