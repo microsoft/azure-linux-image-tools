@@ -157,7 +157,7 @@ func addFileToCpioArchive(inputRootDir, path string, info os.FileInfo, isRoot bo
 // different from those defined in native C implementation. As a result,
 // we must convert between them.
 // See https://github.com/golang/go/blob/release-branch.go1.24/src/os/stat_js.go
-func osFileModeToGolangFileMode(osFileMode uint32) os.FileMode {
+func sysFileModeToGoFileMode(osFileMode uint32) os.FileMode {
 	golangFileMode := os.FileMode(osFileMode).Perm()
 	if osFileMode&syscall.S_ISUID != 0 {
 		golangFileMode |= os.ModeSetuid
@@ -206,7 +206,7 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err er
 
 		path := filepath.Join(outputDir, cpioHeader.Name)
 		cpioFileMode := cpioHeader.Mode & (cpio.ModePerm | cpio.ModeSetuid | cpio.ModeSetgid | cpio.ModeSticky)
-		golangFileMode := osFileModeToGolangFileMode(uint32(cpioFileMode))
+		golangFileMode := sysFileModeToGoFileMode(uint32(cpioFileMode))
 		fileType := cpioHeader.Mode & cpio.ModeType
 
 		switch fileType {
