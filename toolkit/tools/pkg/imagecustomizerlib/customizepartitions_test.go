@@ -27,15 +27,6 @@ func TestCustomizeImagePartitions(t *testing.T) {
 	}
 }
 
-func TestCustomizeImagePartitionsLegacyToEfi(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImagePartitionsToEfi(t, "TestCustomizeImagePartitionsLegacyToEfi"+string(version),
-				baseImageTypeCoreLegacy, version)
-		})
-	}
-}
-
 func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType baseImageType,
 	imageVersion baseImageVersion,
 ) {
@@ -53,6 +44,10 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		return
 	}
 
+	verifyEfiPartitionsImage(t, outImageFilePath, imageVersion, buildDir)
+}
+
+func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, imageVersion baseImageVersion, buildDir string) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
@@ -196,7 +191,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].SizeInBytes)
 }
 
-func TestCustomizeImagePartitionsEfiToLegacy(t *testing.T) {
+func TestCustomizeImagePartitionsLegacy(t *testing.T) {
 	// Skip this test on arm64 because the legacy bootloader is not supported.
 	if runtime.GOARCH == "arm64" {
 		t.Skip("Skipping legacy test for arm64")
@@ -204,38 +199,52 @@ func TestCustomizeImagePartitionsEfiToLegacy(t *testing.T) {
 
 	for _, version := range supportedAzureLinuxVersions {
 		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImagePartitionsToLegacy(t, "TestCustomizeImagePartitionsEfiToLegacy"+string(version),
+			testCustomizeImagePartitionsLegacy(t, "TestCustomizeImagePartitionsLegacy"+string(version),
 				baseImageTypeCoreEfi, version)
 		})
 	}
 }
 
-func TestCustomizeImagePartitionsLegacy(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImagePartitionsToLegacy(t, "TestCustomizeImagePartitionsLegacy"+string(version),
-				baseImageTypeCoreLegacy, version)
-		})
-	}
-}
-
-func testCustomizeImagePartitionsToLegacy(t *testing.T, testName string, imageType baseImageType,
+func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, imageType baseImageType,
 	imageVersion baseImageVersion,
 ) {
 	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
-	configFile := filepath.Join(testDir, "legacyboot-config.yaml")
-	outImageFilePath := filepath.Join(buildDir, "image.raw")
+	legacybootConfigFile := filepath.Join(testDir, "legacyboot-config.yaml")
+	efiConfigFile := filepath.Join(testDir, "partitions-config.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	// Convert to legacy image.
+	err := CustomizeImageWithConfigFile(buildDir, legacybootConfigFile, baseImage, nil, outImageFilePath, "raw",
 		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
+	verifyLegacyBootImage(t, outImageFilePath, imageVersion, buildDir)
+
+	// Recustomize legacy image.
+	err = CustomizeImageWithConfigFile(buildDir, legacybootConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyLegacyBootImage(t, outImageFilePath, imageVersion, buildDir)
+
+	// Convert back to EFI image.
+	err = CustomizeImageWithConfigFile(buildDir, efiConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
+		"" /*outputPXEArtifactsDir*/, false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyEfiPartitionsImage(t, outImageFilePath, imageVersion, buildDir)
+}
+
+func verifyLegacyBootImage(t *testing.T, outImageFilePath string, imageVersion baseImageVersion, buildDir string) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
@@ -392,16 +401,24 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, imageType b
 		imageVersion)
 }
 
-func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
-	partitions map[int]diskutils.PartitionInfo,
-) {
+func getFilteredFstabEntries(t *testing.T, imageConnection *ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if !assert.NoError(t, err, "read /etc/fstab") {
-		return
+		return nil
 	}
 
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
+	return filteredFstabEntries
+}
+
+func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
+	partitions map[int]diskutils.PartitionInfo,
+) {
+	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
+	if filteredFstabEntries == nil {
+		return
+	}
 
 	if !assert.Equalf(t, len(mountPoints), len(filteredFstabEntries), "/etc/fstab entries count: %v", filteredFstabEntries) {
 		return
