@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
@@ -30,13 +31,12 @@ type outputPartitionMetadata struct {
 
 const (
 	SkippableFrameMagicNumber uint32 = 0x184D2A50
-	SkippableFramePayloadSize uint32 = UuidSize
+	SkippableFramePayloadSize uint32 = randomization.UuidSize
 	SkippableFrameHeaderSize  int    = 8
 )
 
 // Extract all partitions of connected image into separate files with specified format.
-func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [UuidSize]byte) ([]outputPartitionMetadata, error) {
-
+func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [randomization.UuidSize]byte) ([]outputPartitionMetadata, error) {
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
 	if err != nil {

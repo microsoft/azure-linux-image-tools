@@ -77,24 +77,23 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
-) (map[string]string, string, error) {
+) (map[string]string, error) {
 	imageConnection := NewImageConnection()
 	defer imageConnection.Close()
 
 	partIdToPartUuid, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
 		buildDir, chrootDirName, installOS)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create new image:\n%w", err)
+		return nil, fmt.Errorf("failed to create new image:\n%w", err)
 	}
 
-	devicePath := imageConnection.Loopback().DevicePath()
 	// Close image.
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return partIdToPartUuid, devicePath, nil
+	return partIdToPartUuid, nil
 }
 
 func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConnection, filename string,
@@ -138,7 +137,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConn
 
 func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
-	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, imager bool,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -157,7 +156,7 @@ func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType i
 
 	// TODO: Remove this once we have a way to determine if grub-mkconfig is enabled.
 	grubMkconfigEnabled := true
-	if !imager {
+	if !newImage {
 		grubMkconfigEnabled, err = isGrubMkconfigEnabled(imageConnection.Chroot())
 		if err != nil {
 			return err

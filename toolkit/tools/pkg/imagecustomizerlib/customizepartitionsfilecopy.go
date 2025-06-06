@@ -33,7 +33,7 @@ func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, co
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, _, err := CreateNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
+	partIdToPartUuid, err := CreateNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
 		return nil, err

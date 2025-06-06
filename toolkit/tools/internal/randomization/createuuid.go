@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-package imagecustomizerlib
+package randomization
 
 import (
 	"crypto/rand"

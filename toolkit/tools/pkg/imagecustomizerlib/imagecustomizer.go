@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -72,7 +73,7 @@ type ImageCustomizerParameters struct {
 	outputImageBase       string
 	outputPXEArtifactsDir string
 
-	imageUuid    [UuidSize]byte
+	imageUuid    [randomization.UuidSize]byte
 	imageUuidStr string
 
 	baseImageVerityMetadata []verityDeviceMetadata
@@ -118,7 +119,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
 
 	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := CreateUuid()
+	imageUuid, imageUuidStr, err := randomization.CreateUuid()
 	if err != nil {
 		return nil, err
 	}

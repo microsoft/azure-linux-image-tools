@@ -34,6 +34,7 @@ go_tool_list = \
 	imager \
 	isomaker \
 	osmodifier \
+	imagecreator \
 
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"
 go_tool_targets = $(foreach target,$(go_tool_list),$(TOOL_BINS_DIR)/$(target))
@@ -72,6 +73,7 @@ clean-go-tools:
 
 go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.ToolkitVersion=$(RELEASE_VERSION) \
 				-X github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib.ToolVersion=$(image_customizer_full_version) \
+				-X github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecreatorlib.ToolVersion=$(image_creator_full_version) \
 				-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.DistroNameAbbreviation=$(DIST_NAME_ABRV) \
 				-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.DistroMajorVersion=$(dist_major_version_number)
 

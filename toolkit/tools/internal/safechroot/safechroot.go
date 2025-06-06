@@ -75,7 +75,6 @@ type Chroot struct {
 
 	isExistingDir        bool
 	includeDefaultMounts bool
-	isToolsChroot        bool
 }
 
 // inChrootMutex guards against multiple Chroots entering their respective Chroots
@@ -205,8 +204,6 @@ func CreateToolsChroot(rootDir string, isExistingDir bool, extraDirectories []st
 	extraMountPoints []*MountPoint, includeDefaultMounts bool, tarfile string,
 ) (*Chroot, error) {
 	chroot := NewChroot(rootDir, isExistingDir)
-	chroot.isToolsChroot = true
-
 	err := chroot.Initialize(tarfile, extraDirectories, extraMountPoints, includeDefaultMounts)
 	if err != nil {
 		return nil, err
@@ -498,10 +495,6 @@ func (c *Chroot) UnsafeRun(toRun func() error) (err error) {
 // RootDir returns the Chroot's root directory.
 func (c *Chroot) RootDir() string {
 	return c.rootDir
-}
-
-func (c *Chroot) IsToolsChroot() bool {
-	return c.isToolsChroot
 }
 
 // Close will unmount the chroot and cleanup its files.
