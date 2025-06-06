@@ -26,10 +26,13 @@ const (
 	liveOSDir       = "liveos"
 	liveOSImage     = "rootfs.img"
 	liveOSImagePath = "/" + liveOSDir + "/" + liveOSImage
+
+	vmLinuxPathAzl2Template = "/boot/vmlinuz-%s"
+	initrdPathAzl2Template  = "/boot/initrd.img-%s"
 )
 
 func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs) (string, error) {
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string) (string, error) {
 	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
 	inputContentString, err := replaceSearchCommandAll(inputContentString, searchCommand)
 	if err != nil {
@@ -38,42 +41,56 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 
 	grubMkconfigEnabled := isGrubMkconfigConfig(inputContentString)
 	if !grubMkconfigEnabled {
+		kernelCount := len(kernelVersions)
+		if kernelCount != 1 {
+			return "", fmt.Errorf("unsupported number of kernels (%d) installed", kernelCount)
+		}
+
+		vmLinuzPath := fmt.Sprintf(vmLinuxPathAzl2Template, kernelVersions[0])
+
 		var oldLinuxPath string
-		inputContentString, oldLinuxPath, err = setLinuxPath(inputContentString, isoKernelPath)
+		inputContentString, oldLinuxPath, err = setLinuxPath(inputContentString, vmLinuzPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
 		}
 
-		inputContentString, err = replaceToken(inputContentString, oldLinuxPath, isoKernelPath)
+		inputContentString, err = replaceToken(inputContentString, oldLinuxPath, vmLinuzPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to update all the kernel file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 
+		initrdPath := isoInitrdPath
+		if initramfsImageType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+			initrdPath = fmt.Sprintf(initrdPathAzl2Template, kernelVersions[0])
+		}
+
 		var oldInitrdPath string
-		inputContentString, oldInitrdPath, err = setInitrdPath(inputContentString, isoInitrdPath)
+		inputContentString, oldInitrdPath, err = setInitrdPath(inputContentString, initrdPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
 		}
 
-		inputContentString, err = replaceToken(inputContentString, oldInitrdPath, isoInitrdPath)
+		inputContentString, err = replaceToken(inputContentString, oldInitrdPath, initrdPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to update all the initrd file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 	} else {
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelPath, true /*allowMultiple*/)
+		// update the initrd path from /vmlinux-<version> to /boot/vmlinux-<version>
+		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
-		}
-
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
-		if err != nil {
-			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
 		}
 	}
 
 	liveosKernelArgs := ""
 	switch initramfsImageType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		// update the initrd path from /initrd-<version>.img to /boot/initrd.img
+		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
+		}
+
 		// Remove 'root' so that no pivoting takes place.
 		argsToRemove := []string{"root"}
 		newArgs := []string{}
@@ -82,6 +99,12 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		// update the initrd path from /initrd-<version>.img to /boot/initrd-<version>.img
+		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoKernelDir, true /*allowMultiple*/)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
+		}
+
 		// Add Dracut live os parameters
 		liveosKernelArgs = fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
 	default:
@@ -161,7 +184,7 @@ func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecust
 // This function generates both the iso and the pxe versions of the grub so
 // that the call does not need to call it multiple times.
 func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, outputIsoGrubCfgPath, outputPxeGrubCfgPath string) error {
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string) error {
 	logger.Log.Infof("Updating grub.cfg")
 
 	inputContentString, err := file.Read(inputGrubCfgPath)
@@ -170,7 +193,7 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 	}
 
 	// Update grub.cfg content to be 'live-os compatible'.
-	liveosContentString, err := updateGrubCfgForLiveOS(inputContentString, initramfsImageType, disableSELinux, savedConfigs)
+	liveosContentString, err := updateGrubCfgForLiveOS(inputContentString, initramfsImageType, disableSELinux, savedConfigs, kernelVersions)
 	if err != nil {
 		return err
 	}
@@ -183,6 +206,7 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 		if err != nil {
 			return fmt.Errorf("failed to update %s:\n%w", inputGrubCfgPath, err)
 		}
+
 		err = file.Write(isoContentString, outputIsoGrubCfgPath)
 		if err != nil {
 			return fmt.Errorf("failed to write %s:\n%w", outputIsoGrubCfgPath, err)

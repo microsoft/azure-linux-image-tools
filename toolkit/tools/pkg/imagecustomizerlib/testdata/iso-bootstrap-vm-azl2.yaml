@@ -8,8 +8,6 @@ os:
     - "selinux=0"
   packages:
     install:
-    # multi-kernel test
-    - kernel-6.6.57.1-6.azl3
     # iso required packages
     - squashfs-tools
     - tar
