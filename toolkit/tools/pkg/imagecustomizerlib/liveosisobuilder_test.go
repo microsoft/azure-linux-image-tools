@@ -25,7 +25,7 @@ import (
 // - Kernel command-line arg append.
 // - .iso.additionalFiles
 func TestCustomizeImageLiveCd1(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCd1")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -33,7 +33,7 @@ func TestCustomizeImageLiveCd1(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, outImageFileName)
 	pxeArtifactsPathVhdxToIso := ""
 	pxeArtifactsPathIsoToIso := ""
-	if baseImageVersionDefault != baseImageVersionAzl2 {
+	if baseImageInfo.Version != baseImageVersionAzl2 {
 		pxeArtifactsPathVhdxToIso = filepath.Join(testTempDir, "pxe-artifacts-vhdx-to-iso")
 		pxeArtifactsPathIsoToIso = filepath.Join(testTempDir, "pxe-artifacts-iso-to-iso")
 	}
@@ -200,7 +200,7 @@ func VerifyPXEArtifacts(t *testing.T, packageInfo *PackageVersionInformation, is
 // - vhdx to ISO, with no OS changes.
 // - ISO to ISO, with OS changes.
 func TestCustomizeImageLiveCd2(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCd2")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -265,25 +265,24 @@ func TestCustomizeImageLiveCd2(t *testing.T) {
 }
 
 func TestCustomizeImageLiveCdIsoNoShimEfi(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageLiveCdIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+string(version),
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageLiveCdIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+baseImageInfo.Name,
+				baseImageInfo)
 		})
 
 	}
 }
 
-func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, version baseImageVersion) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, version)
+func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	buildDir := filepath.Join(tmpDir, testName)
 	outImageFilePath := filepath.Join(buildDir, "image.iso")
 	shimPackage := "shim"
 
 	// For arm64 and baseImageVersionAzl2, the shim package is shim-unsigned.
-	if runtime.GOARCH == "arm64" && version == baseImageVersionAzl2 {
+	if runtime.GOARCH == "arm64" && baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
 		shimPackage = "shim-unsigned"
 	}
 
@@ -305,7 +304,7 @@ func testCustomizeImageLiveCdIsoNoShimEfi(t *testing.T, testName string, version
 }
 
 func TestCustomizeImageLiveCdIsoNoGrubEfi(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveCdIso")
 	outImageFilePath := filepath.Join(buildDir, "image.iso")

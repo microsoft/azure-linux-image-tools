@@ -19,18 +19,15 @@ import (
 )
 
 func TestCustomizeImagePartitions(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImagePartitionsToEfi(t, "TestCustomizeImagePartitions"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsToEfi(t, "TestCustomizeImagePartitions"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -44,10 +41,10 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, imageType 
 		return
 	}
 
-	verifyEfiPartitionsImage(t, outImageFilePath, imageVersion, buildDir)
+	verifyEfiPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir)
 }
 
-func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, imageVersion baseImageVersion, buildDir string) {
+func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageInfo testBaseImageInfo, buildDir string) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
@@ -100,7 +97,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, imageVersio
 	verifyBootloaderConfig(t, imageConnection, "console=tty0 console=ttyS0",
 		partitions[mountPoints[1].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
-		imageVersion)
+		baseImageInfo)
 
 	// Check the partition types.
 	assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartitionTypeUuid) // esp
@@ -122,7 +119,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, imageVersio
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePartitionsSizeOnly")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -178,7 +175,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	verifyBootloaderConfig(t, imageConnection, "",
 		partitions[mountPoints[0].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
-		baseImageVersionDefault)
+		baseImageInfo)
 
 	// Check the partition types.
 	assert.Equal(t, "c12a7328-f81f-11d2-ba4b-00a0c93ec93b", partitions[1].PartitionTypeUuid) // esp
@@ -197,18 +194,15 @@ func TestCustomizeImagePartitionsLegacy(t *testing.T) {
 		t.Skip("Skipping legacy test for arm64")
 	}
 
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImagePartitionsLegacy(t, "TestCustomizeImagePartitionsLegacy"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsLegacy(t, "TestCustomizeImagePartitionsLegacy"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -223,7 +217,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, imageType
 		return
 	}
 
-	verifyLegacyBootImage(t, outImageFilePath, imageVersion, buildDir)
+	verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
 
 	// Recustomize legacy image.
 	err = CustomizeImageWithConfigFile(buildDir, legacybootConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
@@ -232,7 +226,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, imageType
 		return
 	}
 
-	verifyLegacyBootImage(t, outImageFilePath, imageVersion, buildDir)
+	verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
 
 	// Convert back to EFI image.
 	err = CustomizeImageWithConfigFile(buildDir, efiConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
@@ -241,10 +235,10 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, imageType
 		return
 	}
 
-	verifyEfiPartitionsImage(t, outImageFilePath, imageVersion, buildDir)
+	verifyEfiPartitionsImage(t, outImageFilePath, baseImageInfo, buildDir)
 }
 
-func verifyLegacyBootImage(t *testing.T, outImageFilePath string, imageVersion baseImageVersion, buildDir string) {
+func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo testBaseImageInfo, buildDir string) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
@@ -263,7 +257,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, imageVersion b
 	verifyBootGrubCfg(t, imageConnection, "",
 		partitions[coreLegacyMountPoints[0].PartitionNum],
 		partitions[coreLegacyMountPoints[0].PartitionNum],
-		imageVersion)
+		baseImageInfo)
 
 	// Check the partition types.
 	assert.Equal(t, "21686148-6449-6e6f-744e-656564454649", partitions[1].PartitionTypeUuid) // BIOS boot
@@ -275,16 +269,17 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, imageVersion b
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, version)
-			testCustomizeImageKernelCommandLineHelper(t, "TestCustomizeImageKernelCommandLine"+string(version), baseImage)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageKernelCommandLineHelper(t, "TestCustomizeImageKernelCommandLine"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, baseImage string) {
+func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	buildDir := filepath.Join(tmpDir, testName)
 	configFile := filepath.Join(testDir, "extracommandline-config.yaml")
@@ -311,18 +306,15 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 }
 
 func TestCustomizeImageNewUUIDs(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageNewUUIDsHelper(t, "TestCustomizeImageNewUUIDs"+string(version), baseImageTypeCoreEfi,
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageNewUUIDsHelper(t, "TestCustomizeImageNewUUIDs"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -398,7 +390,7 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, imageType b
 	verifyBootloaderConfig(t, imageConnection, "",
 		newImagePartitions[coreEfiMountPoints[0].PartitionNum],
 		newImagePartitions[coreEfiMountPoints[0].PartitionNum],
-		imageVersion)
+		baseImageInfo)
 }
 
 func getFilteredFstabEntries(t *testing.T, imageConnection *ImageConnection) []diskutils.FstabEntry {
@@ -438,10 +430,10 @@ func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoi
 }
 
 func verifyBootloaderConfig(t *testing.T, imageConnection *ImageConnection, extraCommandLineArgs string,
-	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, imageVersion baseImageVersion,
+	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, baseImageInfo testBaseImageInfo,
 ) {
 	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid)
-	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, imageVersion)
+	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
 }
 
 func verifyEspGrubCfg(t *testing.T, imageConnection *ImageConnection, bootUuid string) {
@@ -456,7 +448,7 @@ func verifyEspGrubCfg(t *testing.T, imageConnection *ImageConnection, bootUuid s
 
 func verifyBootGrubCfg(t *testing.T, imageConnection *ImageConnection, extraCommandLineArgs string,
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
-	imageVersion baseImageVersion,
+	baseImageInfo testBaseImageInfo,
 ) {
 	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
 	grubCfgContents, err := file.Read(grubCfgFilePath)
@@ -464,7 +456,7 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *ImageConnection, extraComm
 		return
 	}
 
-	switch imageVersion {
+	switch baseImageInfo.Version {
 	case baseImageVersionAzl2:
 		assert.Regexp(t, fmt.Sprintf(`(?m)^search -n -u %s -s$`, regexp.QuoteMeta(bootInfo.Uuid)),
 			grubCfgContents)
