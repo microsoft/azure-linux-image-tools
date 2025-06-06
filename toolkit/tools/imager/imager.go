@@ -611,7 +611,7 @@ func buildImage(mountPointMap, mountPointToFsTypeMap, mountPointToMountArgsMap, 
 		return
 	}
 
-	// add snapshot to installchroot tdnf.conf if both a present, warning if only snapshot time present
+	//add snapshot to installchroot tdnf.conf if both a present, warning if only snapshot time present
 	if *repoSnapshotTime != "" {
 		err = tdnf.AddSnapshotToConfig(path.Join(installChroot.RootDir(), "etc", "tdnf", "tdnf.conf"), *repoSnapshotTime)
 		if err != nil {
