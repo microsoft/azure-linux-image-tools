@@ -58,11 +58,11 @@ func cleanFullOSFolderForLiveOS(fullOSDir string) error {
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
 	}
 
-	logger.Log.Debugf("Deleting /boot")
-	err = os.RemoveAll(filepath.Join(fullOSDir, "boot"))
-	if err != nil {
-		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
-	}
+	// logger.Log.Debugf("Deleting /boot")
+	// err = os.RemoveAll(filepath.Join(fullOSDir, "boot"))
+	// if err != nil {
+	// 	return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+	// }
 
 	return nil
 }
