@@ -83,7 +83,7 @@ func buildCpioHeader(inputRootDir, path string, info os.FileInfo, isRoot bool, l
 	}
 
 	if isRoot {
-		cpioHeader.Mode = cpio.FileMode(initrdRootDirPermissions)
+		cpioHeader.Mode = (cpioHeader.Mode & ^cpio.ModePerm) | cpio.FileMode(initrdRootDirPermissions)
 	}
 
 	// Convert full path to relative path
@@ -171,7 +171,7 @@ func sysFileModeToGoFileMode(osFileMode uint32) os.FileMode {
 	return golangFileMode
 }
 
-func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) (err error) {
+func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 	inputInitrdImageFile, err := os.Open(inputInitrdImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file (%s):\n%w", inputInitrdImagePath, err)
