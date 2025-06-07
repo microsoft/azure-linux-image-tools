@@ -83,11 +83,8 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 22. If a ([verity](./configuration/storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
 
-23. If the output format is set to `iso`, copy additional iso media files.
-    ([iso](./configuration/iso.md))
-
-24. If [--output-pxe-artifacts-dir](./cli.md#--output-pxe-artifacts-dir) is specified,
-    then export the ISO image contents to the specified folder.
+23. If the output format is set to `iso` or `pxe`, copy additional iso media files.
+    ([iso](./configuration/iso.md) or [pxe](./configuration/pxe.md))
 
 ## /etc/resolv.conf
 
@@ -166,9 +163,19 @@ os:
         - [permissions](./configuration/additionalfile.md#permissions-string)
     - [kernelCommandLine](./configuration/iso.md#kernelcommandline-kernelcommandline) ([kernelCommandLine type](./configuration/kernelcommandline.md))
       - [extraCommandLine](./configuration/kernelcommandline.md#extracommandline-string)
+    - [initramfsType](./configuration/iso.md#initramfstype-string)
   - [pxe](./configuration/config.md#pxe-pxe) ([pxe type](./configuration/pxe.md))
-    - [isoImageBaseUrl](./configuration/pxe.md#isoimagebaseurl-string)
-    - [isoImageFileUrl](./configuration/pxe.md#isoimagefileurl-string)
+    - [additionalFiles](./configuration/pxe.md#additionalfiles-additionalfile)
+      - [additionalFile type](./configuration/additionalfile.md)
+        - [source](./configuration/additionalfile.md#source-string)
+        - [content](./configuration/additionalfile.md#content-string)
+        - [destination](./configuration/additionalfile.md#destination-string)
+        - [permissions](./configuration/additionalfile.md#permissions-string)
+    - [kernelCommandLine](./configuration/pxe.md#kernelcommandline-kernelcommandline) ([kernelCommandLine type](./configuration/kernelcommandline.md))
+      - [extraCommandLine](./configuration/kernelcommandline.md#extracommandline-string)
+    - [initramfsType](./configuration/pxe.md#initramfstype-string)
+    - [bootstrapBaseUrl](./configuration/pxe.md#bootstrapbaseurl-string)
+    - [bootstrapFileUrl](./configuration/pxe.md#bootstrapfileurl-string)
   - [os](./configuration/config.md#os-os) ([os type](./configuration/os.md))
     - [bootloader](./configuration/os.md#bootloader-bootloader) ([bootloader type](./configuration/bootloader.md))
       - [resetType](./configuration/bootloader.md#resettype-string)

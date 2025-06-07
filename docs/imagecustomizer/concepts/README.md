@@ -12,6 +12,7 @@ provides basic functionality, more comprehensive documentation is provided for t
 following scenarios:
 
 * Image History: Record the customization history of images. See [Image History](./imagehistory.md) for more info
+* Live OS: What is a Live OS? More details in [Live OS](./liveos.md)
 * ISO: Live-ISO creation. More details in [ISO Support](./iso.md)
 * PXE: Creating a PXE bootable image. More details in [PXE Support](./pxe.md)
 * Verity protected images: [Guidelines for creating a verity-protected root filesystem](./verity.md)
