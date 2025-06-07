@@ -76,9 +76,16 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 	}
 
 	initKernelLocalPath := filepath.Join(writeableRootfsDir, initKernelInitrdPath)
-	err = os.Symlink(initBinaryInitrdPath, initKernelLocalPath)
+
+	exists, err := file.PathExists(initKernelLocalPath)
 	if err != nil {
-		return fmt.Errorf("failed to create symlink (%s):\n%w", initKernelLocalPath, err)
+		return fmt.Errorf("failed to check if (%s) exists:\n%w", initKernelLocalPath, err)
+	}
+	if !exists {
+		err = os.Symlink(initBinaryInitrdPath, initKernelLocalPath)
+		if err != nil {
+			return fmt.Errorf("failed to create symlink (%s):\n%w", initKernelLocalPath, err)
+		}
 	}
 
 	err = initrdutils.CreateInitrdImageFromFolder(writeableRootfsDir, outputInitrdPath)
@@ -415,7 +422,7 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 		}
 	}
 
-	logger.Log.Infof("Populated (%s) with full file system", rootfsDir)
+	logger.Log.Debugf("Populated (%s) with full file system", rootfsDir)
 
 	// boot folder (from artifacts)
 	artifactsBootDir := filepath.Join(artifactsStore.files.artifactsDir, "boot")
