@@ -24,6 +24,7 @@ import (
 
 const (
 	BootDir               = "boot"
+	EspDir                = "boot/efi"
 	DefaultGrubCfgPath    = "grub2/grub.cfg"
 	KernelCmdlineArgsJson = "kernel-cmdline-args.json"
 	KernelPrefix          = "vmlinuz-"
@@ -123,9 +124,9 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 		return fmt.Errorf("failed to copy UKI files:\n%w", err)
 	}
 
-	// Extract kernel command line arguments from grub.cfg.
-	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
-	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
+	// Extract kernel command line arguments from either grub.cfg or UKI.
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err)
 	}
@@ -350,11 +351,6 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
 	}
 
-	err = cleanupBootPartition(bootPartitionTmpDir)
-	if err != nil {
-		return fmt.Errorf("failed to clean up boot partition:\n%w", err)
-	}
-
 	err = systemBootPartitionMount.CleanClose()
 	if err != nil {
 		return err
@@ -373,10 +369,29 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	return nil
 }
 
+func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[string]string, error) {
+	// Try extracting from UKI first
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
+	}
+
+	if len(kernelToArgs) == 0 {
+		// Fallback to grub.cfg if UKI not present or empty
+		grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
+		kernelToArgs, err = extractKernelToArgsFromGrub(grubCfgPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
+		}
+	}
+
+	return kernelToArgs, nil
+}
+
 // Note: This function will be optimized by leveraging the internal functions
 // under grubcfgutils.go when implementing bootloader customization.
 func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) {
-	kernelToArgs, err := extracKernelCmdlineFromGrubFile(grubCfgPath)
+	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -562,4 +577,21 @@ func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string)
 	}
 
 	return nil
+}
+
+func getKernelNameFromUki(ukiPath string) (string, error) {
+	fileName := filepath.Base(ukiPath)
+
+	if !strings.HasPrefix(fileName, "vmlinuz-") || !strings.HasSuffix(fileName, ".efi") {
+		return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
+	}
+
+	name := strings.TrimSuffix(fileName, ".efi")
+
+	if strings.HasSuffix(name, ".unsigned") {
+		name = strings.TrimSuffix(name, ".unsigned")
+	}
+
+	// e.g., vmlinuz-6.6.51.1-5.azl3
+	return name, nil
 }
