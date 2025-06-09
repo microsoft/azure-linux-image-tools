@@ -314,10 +314,7 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 		out, _, err = shell.Execute(
 			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
 		)
-		if err != nil {
-			return fmt.Errorf("failed to list installed RPMs:\n%w", err)
-		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
