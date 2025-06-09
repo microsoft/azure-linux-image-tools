@@ -264,9 +264,15 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	corruptionOption string,
 ) {
 	// Extract kernel command line args.
-	kernelArgsList, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
 	if !assert.NoError(t, err) {
 		return
+	}
+
+	// Convert map[string]string → []string
+	kernelArgsList := make([]string, 0, len(kernelToArgs))
+	for _, args := range kernelToArgs {
+		kernelArgsList = append(kernelArgsList, args)
 	}
 
 	// Verify verity
