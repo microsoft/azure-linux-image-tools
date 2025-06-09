@@ -200,18 +200,6 @@ func NewChroot(rootDir string, isExistingDir bool) *Chroot {
 	return c
 }
 
-func CreateToolsChroot(rootDir string, isExistingDir bool, extraDirectories []string,
-	extraMountPoints []*MountPoint, includeDefaultMounts bool, tarfile string,
-) (*Chroot, error) {
-	chroot := NewChroot(rootDir, isExistingDir)
-	err := chroot.Initialize(tarfile, extraDirectories, extraMountPoints, includeDefaultMounts)
-	if err != nil {
-		return nil, err
-	}
-
-	return chroot, nil
-}
-
 // Initialize initializes a Chroot, creating directories and mount points.
 //   - tarPath is an optional path to a tar file that will be extracted at the root of the chroot.
 //   - extraDirectories is an optional slice of additional directories that should be created before attempting to

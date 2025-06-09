@@ -1,11 +1,10 @@
 package imagecreatorlib
 
 import (
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
@@ -13,18 +12,14 @@ import (
 )
 
 const (
-	setupRoot           = "/setuproot"
-	defaultTempDiskName = "disk.raw"
-	outputImageFormat   = "raw"
+	setupRoot         = "/setuproot"
+	outputImageFormat = "raw"
 )
-
-// Version specifies the version of the Azure Linux Image Creator tool.
-// The value of this string is inserted during compilation via a linker flag.
-var ToolVersion = ""
 
 func CreateImageWithConfigFile(buildDir string, configFile string,
 	rpmsSources []string,
 	toolsTar string,
+	outputImageFile string,
 ) error {
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
@@ -33,29 +28,9 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	}
 
 	baseConfigPath, _ := filepath.Split(configFile)
-
-	// Create image customizer parameters
-	buildDirAbs, err := filepath.Abs(buildDir)
-	if err != nil {
-		return err
-	}
-	outputImageFile := filepath.Join(buildDirAbs, defaultTempDiskName)
 	useBaseImageRpmRepos := false
 
-	// Delete the output image file if it exists
-	err = os.RemoveAll(outputImageFile)
-	if err != nil {
-		return err
-	}
-
-	// Create the output image file
-	file, err := os.Create(outputImageFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	createImage(buildDir, baseConfigPath, config, outputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, toolsTar)
+	err = createNewImage(buildDir, baseConfigPath, config, outputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, toolsTar)
 	if err != nil {
 		return err
 	}
@@ -63,12 +38,12 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	return nil
 }
 
-func createImage(buildDir string, baseConfigPath string, config imagecustomizerapi.Config, inputImageFile string,
+func createNewImage(buildDir string, baseConfigPath string, config imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, toolsTar string,
 ) error {
 	// TODO: Add validation for the config file wrt the imager config
-	err := imagecustomizerlib.ValidateConfig(baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "")
+	err := imagecustomizerlib.ValidateConfig(baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "", true)
 	if err != nil {
 		return err
 	}
@@ -86,15 +61,14 @@ func createImage(buildDir string, baseConfigPath string, config imagecustomizera
 		return err
 	}
 
-	fmt.Printf("part id to part uuid map %v\n", partIdToPartUuid)
+	logger.Log.Debugf("part id to part uuid map %v\n", partIdToPartUuid)
 
 	// Create a uuid for the image
 	imageUuid, imageUuidStr, err := randomization.CreateUuid()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Created imageUuid: %v\n %v", imageUuid, imageUuidStr)
-	fmt.Println("Customizing the image")
+	logger.Log.Debugf("Created imageUuid: %v\n %v", imageUuid, imageUuidStr)
 
 	buildDirAbs, err := filepath.Abs(buildDir)
 	if err != nil {
@@ -105,8 +79,8 @@ func createImage(buildDir string, baseConfigPath string, config imagecustomizera
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Part uuid to fstab entry: %v\n", partUuidToFstabEntry)
-	fmt.Printf("osRelease: %v\n", osRelease)
+	logger.Log.Debugf("Part uuid to fstab entry: %v\n", partUuidToFstabEntry)
+	logger.Log.Debugf("osRelease: %v\n", osRelease)
 
 	return nil
 }

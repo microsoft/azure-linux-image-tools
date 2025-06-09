@@ -27,7 +27,8 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 
 	toolsChrootDir := filepath.Join(buildDir, toolsRoot)
 
-	toolsChroot, err := safechroot.CreateToolsChroot(toolsChrootDir, false, nil, nil, true, tarFile)
+	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
+	err = toolsChroot.Initialize(tarFile, nil, nil, true)
 	if err != nil {
 		return nil, "", err
 	}
@@ -46,7 +47,10 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 	}
 
 	// Close the tools chroot and image connection.
-	toolsChroot.Close(false)
+	err = toolsChroot.Close(false)
+	if err != nil {
+		return nil, "", err
+	}
 	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, "", err
@@ -67,40 +71,46 @@ func doOsCustomizationsImageCreator(
 	packageSnapshotTime string,
 ) error {
 	imageChroot := imageConnection.Chroot()
-	buildTime := time.Now().Format("2006-01-02T15:04:05Z")
+	buildTime := time.Now().Format(buildTimeFormat)
 
 	resolvConf, err := overrideResolvConf(toolsChroot)
 	if err != nil {
 		return err
 	}
 
-	if err := addRemoveAndUpdatePackages(
+	if err = addRemoveAndUpdatePackages(
 		buildDir, baseConfigPath, config.OS, imageChroot, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime); err != nil {
 		return err
 	}
 
-	if err := UpdateHostname(config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(config.OS.Hostname, imageChroot); err != nil {
 		return err
 	}
 
-	if err := addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
+	if err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
 		return err
 	}
 
-	if err := handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
+	if err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
 		return err
 	}
 
-	if err := prepareUki(buildDir, config.OS.Uki, imageChroot); err != nil {
+	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	if err != nil {
 		return err
 	}
 
-	if err := restoreResolvConf(resolvConf, imageChroot); err != nil {
+	if err = restoreResolvConf(resolvConf, imageChroot); err != nil {
 		return err
 	}
 
-	if err := checkForInstalledKernel(imageChroot); err != nil {
+	if err = checkForInstalledKernel(imageChroot); err != nil {
+		return err
+	}
+
+	err = runUserScripts(baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	if err != nil {
 		return err
 	}
 

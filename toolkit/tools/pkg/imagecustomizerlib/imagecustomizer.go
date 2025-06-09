@@ -17,8 +17,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -236,13 +236,13 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	outputPXEArtifactsDir string, useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
-	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "CustomizeImage")
 	span.SetAttributes(
 		attribute.String("outputImageFormat", string(outputImageFormat)),
 	)
 	defer span.End()
 
+	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -598,16 +598,18 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string,
+	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
 ) error {
 	err := config.IsValid()
 	if err != nil {
 		return err
 	}
 
-	err = validateInput(baseConfigPath, config.Input, inputImageFile)
-	if err != nil {
-		return err
+	if !newImage {
+		err = validateInput(baseConfigPath, config.Input, inputImageFile)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = validateIsoConfig(baseConfigPath, config.Iso)

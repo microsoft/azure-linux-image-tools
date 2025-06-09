@@ -13,16 +13,16 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/exekong"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecreatorlib"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 )
 
 type ImageCreatorCmd struct {
-	BuildDir      string   `name:"build-dir" help:"Directory to run build out of." required:""`
-	ConfigFile    string   `name:"config-file" help:"Path of the image customization config file." required:""`
-	RpmSources    []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
-	ToolsTar      string   `name:"tools-file" help:"Path to tdnf worker tarball"`
-	TimeStampFile string   `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	BuildDir        string   `name:"build-dir" help:"Directory to run build out of." required:""`
+	ConfigFile      string   `name:"config-file" help:"Path of the image customization config file." required:""`
+	RpmSources      []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
+	ToolsTar        string   `name:"tools-file" help:"Path to tdnf worker tarball"`
+	OutputImageFile string   `name:"output-image-file" help:"Path to write the customized image to."`
 	exekong.LogFlags
 }
 
@@ -30,7 +30,7 @@ func main() {
 	cli := &ImageCreatorCmd{}
 
 	vars := kong.Vars{
-		"version": imagecreatorlib.ToolVersion,
+		"version": imagecustomizerlib.ToolVersion,
 	}
 	maps.Copy(vars, exekong.KongVars)
 
@@ -44,11 +44,7 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
-	if cli.TimeStampFile != "" {
-		timestamp.BeginTiming("imagecreator", cli.TimeStampFile)
-		defer timestamp.CompleteTiming()
-	}
-	err := imagecreatorlib.CreateImageWithConfigFile(cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar)
+	err := imagecreatorlib.CreateImageWithConfigFile(cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
 	}

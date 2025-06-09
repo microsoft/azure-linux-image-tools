@@ -60,6 +60,7 @@ func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Confi
 			return fmt.Errorf("failed to get existing SELinux mode:\n%w", err)
 		}
 	}
+
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
 	if config.CustomizePartitions() {
