@@ -1127,10 +1127,12 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 
 		// ToDo: temporarily make UKI also update GRUB for Verity to allow customizing previously ukified images.
 		//
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
-		if err != nil {
-			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
-		}
+		/*
+			err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+			if err != nil {
+				return fmt.Errorf("failed to update grub config for verity:\n%w", err)
+			}
+		*/
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
 		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)

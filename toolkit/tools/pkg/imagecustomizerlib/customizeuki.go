@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/ini.v1"
@@ -24,12 +25,17 @@ import (
 
 const (
 	BootDir               = "boot"
+	EspDir                = "boot/efi"
 	DefaultGrubCfgPath    = "grub2/grub.cfg"
 	KernelCmdlineArgsJson = "kernel-cmdline-args.json"
 	KernelPrefix          = "vmlinuz-"
 	UkiBuildDir           = "UkiBuildDir"
 	UkiOutputDir          = "EFI/Linux"
 )
+
+// Matches UKI filenames like "vmlinuz-<version>.efi" or "vmlinuz-<version>.unsigned.efi".
+// The ".unsigned" suffix is temporary and will be removed from the UKI filename in a future task.
+var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+?)(?:\.unsigned)?\.efi$`)
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
 	var err error
@@ -123,9 +129,9 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 		return fmt.Errorf("failed to copy UKI files:\n%w", err)
 	}
 
-	// Extract kernel command line arguments from grub.cfg.
-	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
-	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
+	// Extract kernel command line arguments from either grub.cfg or UKI.
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
 		return fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err)
 	}
@@ -350,13 +356,6 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
 	}
 
-	// ToDo: temporarily disable boot clean-up to allow customizing previously ukified images.
-	//
-	// err = cleanupBootPartition(bootPartitionTmpDir)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to clean up boot partition:\n%w", err)
-	// }
-
 	err = systemBootPartitionMount.CleanClose()
 	if err != nil {
 		return err
@@ -375,10 +374,29 @@ func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile stri
 	return nil
 }
 
+func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[string]string, error) {
+	// Try extracting from UKI first
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
+	}
+
+	if len(kernelToArgs) == 0 {
+		// Fallback to grub.cfg if UKI not present or empty
+		grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
+		kernelToArgs, err = extractKernelToArgsFromGrub(grubCfgPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
+		}
+	}
+
+	return kernelToArgs, nil
+}
+
 // Note: This function will be optimized by leveraging the internal functions
 // under grubcfgutils.go when implementing bootloader customization.
 func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) {
-	kernelToArgs, err := extracKernelCmdlineFromGrubFile(grubCfgPath)
+	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -486,25 +504,6 @@ func cleanupUkiBuildDir(buildDir string) error {
 	return nil
 }
 
-func cleanupBootPartition(bootPartitionTmpDir string) error {
-	dirEntries, err := os.ReadDir(bootPartitionTmpDir)
-	if err != nil {
-		return fmt.Errorf("failed to read boot partition directory (%s):\n%w", bootPartitionTmpDir, err)
-	}
-
-	for _, entry := range dirEntries {
-		entryPath := filepath.Join(bootPartitionTmpDir, entry.Name())
-
-		err := os.RemoveAll(entryPath)
-		if err != nil {
-			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
-		}
-	}
-
-	logger.Log.Infof("Successfully cleaned up boot partition: (%s)", bootPartitionTmpDir)
-	return nil
-}
-
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
@@ -564,4 +563,17 @@ func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string)
 	}
 
 	return nil
+}
+
+func getKernelNameFromUki(ukiPath string) (string, error) {
+	fileName := filepath.Base(ukiPath)
+
+	matches := ukiNamePattern.FindStringSubmatch(fileName)
+	if len(matches) != 2 {
+		return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
+	}
+
+	// Reconstruct kernel name (vmlinuz-<version>, e.g., vmlinuz-6.6.51.1-5.azl3)
+	kernelName := "vmlinuz-" + matches[1]
+	return kernelName, nil
 }

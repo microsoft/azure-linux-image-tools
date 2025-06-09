@@ -491,16 +491,23 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	}
 	defer espPartitionMount.Close()
 
-	cmdlineContents, err := extractKernelCmdlineFromUkiEfis(tmpDirEsp, buildDir)
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(tmpDirEsp, buildDir)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(cmdlineContents) == 0 {
+	if len(kernelToArgs) == 0 {
 		return nil, os.ErrNotExist
 	}
 
-	tokens, err := grub.TokenizeConfig(string(cmdlineContents[0]))
+	// Assumes only one UKI is needed, uses the first entry in the map.
+	var firstCmdline string
+	for _, cmdline := range kernelToArgs {
+		firstCmdline = cmdline
+		break
+	}
+
+	tokens, err := grub.TokenizeConfig(firstCmdline)
 	if err != nil {
 		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI: %w", err)
 	}
@@ -518,7 +525,7 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	return args, nil
 }
 
-func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) ([]string, error) {
+func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[string]string, error) {
 	cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
 
 	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
@@ -527,8 +534,13 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) ([]string,
 		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
 	}
 
-	cmdlineContents := []string(nil)
+	kernelToArgsString := make(map[string]string)
 	for _, ukiFile := range ukiFiles {
+		kernelName, err := getKernelNameFromUki(ukiFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
+		}
+
 		_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to dump kernel cmdline args from UKI (%s):\n%w", ukiFile, err)
@@ -539,10 +551,10 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) ([]string,
 			return nil, fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", ukiFile, err)
 		}
 
-		cmdlineContents = append(cmdlineContents, string(cmdlineContent))
+		kernelToArgsString[kernelName] = string(cmdlineContent)
 	}
 
-	return cmdlineContents, nil
+	return kernelToArgsString, nil
 }
 
 func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
@@ -556,7 +568,7 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 	defer bootPartitionMount.Close()
 
 	grubCfgPath := filepath.Join(tmpDirBoot, DefaultGrubCfgPath)
-	kernelToArgs, err := extracKernelCmdlineFromGrubFile(grubCfgPath)
+	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
@@ -577,7 +589,7 @@ func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
 
 // Extracts the kernel args for each kernel from the grub.cfg file.
 // Returns a mapping from kernel version to list of kernel args.
-func extracKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
+func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
