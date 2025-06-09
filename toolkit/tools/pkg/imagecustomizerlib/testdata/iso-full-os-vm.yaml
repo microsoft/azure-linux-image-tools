@@ -1,0 +1,20 @@
+iso:
+  initramfsType: full-os
+os:
+  selinux:
+    mode: disabled
+  kernelCommandLine:
+    extraCommandLine:
+    - "selinux=0"
+  packages:
+    install:
+    # iso required packages
+    - squashfs-tools
+    - tar
+    - device-mapper
+    - curl
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
