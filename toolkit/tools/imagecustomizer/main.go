@@ -22,12 +22,11 @@ import (
 type CustomizeCmd struct {
 	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
-	OutputImageFile          string   `name:"output-image-file" help:"Path to write the customized image to."`
-	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+	OutputImageFile          string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
+	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
 	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
 	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
-	OutputPXEArtifactsDir    string   `name:"output-pxe-artifacts-dir" help:"Create a directory with customized image PXE booting artifacts. '--output-image-format' must be set to 'iso'."`
 	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 }
 
@@ -35,8 +34,8 @@ type InjectFilesCmd struct {
 	BuildDir          string `name:"build-dir" help:"Directory to run build out of." required:""`
 	ConfigFile        string `name:"config-file" help:"Path to the inject-files.yaml config file." required:""`
 	InputImageFile    string `name:"image-file" help:"Path of the base image to inject files into." required:""`
-	OutputImageFile   string `name:"output-image-file" help:"Path to write the injected image to."`
-	OutputImageFormat string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+	OutputImageFile   string `name:"output-image-file" aliases:"output-path" help:"Path to write the injected image to."`
+	OutputImageFormat string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 }
 
 type RootCmd struct {
@@ -104,8 +103,7 @@ func main() {
 
 func customizeImage(cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
-		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.OutputPXEArtifactsDir,
-		!cmd.DisableBaseImageRpmRepos, cmd.PackageSnapshotTime)
+		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, !cmd.DisableBaseImageRpmRepos, cmd.PackageSnapshotTime)
 	if err != nil {
 		return err
 	}

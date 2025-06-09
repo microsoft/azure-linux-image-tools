@@ -60,6 +60,12 @@ The file path to write the final customized image to.
 
 Added in v0.3.
 
+## --output-path=FILE-PATH
+
+An alias to `--output-image-file`.
+
+Added in v0.15.
+
 ## --output-image-format=FORMAT
 
 Required, unless
@@ -70,7 +76,7 @@ value is used.
 
 The image format of the final customized image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and [cosi](./cosi.md).
+Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, pxe-dir, pxe-tar, and [cosi](./cosi.md).
 
 The vhd-fixed option outputs a fixed size VHD image. This is the required format for
 VMs in Azure.
@@ -145,15 +151,6 @@ installation.
 
 Added in v0.3.
 
-## --output-pxe-artifacts-dir
-
-Create a folder containing the artifacts to be used for PXE booting.
-
-For an overview of Image Customizer support for PXE, see the
-[PXE support page](../concepts/pxe.md).
-
-Added in v0.8.
-
 ## --log-level=LEVEL
 
 Default: `info`
@@ -181,6 +178,7 @@ This flag enables snapshot-based package filtering during installation or update
 ensuring only packages available at that point in time are considered.
 
 Supports:
+
 - A date in `YYYY-MM-DD` format (interpreted as UTC midnight)
 - A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
 
