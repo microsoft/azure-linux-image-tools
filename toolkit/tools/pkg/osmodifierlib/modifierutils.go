@@ -179,6 +179,11 @@ func handleSELinux(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *i
 		return err
 	}
 
+	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
+	if err != nil {
+		return fmt.Errorf("failed to update /etc/selinux/config:\n%w", err)
+	}
+
 	// No need to set SELinux labels here as in trident there is reset labels at the end
 	return nil
 }
