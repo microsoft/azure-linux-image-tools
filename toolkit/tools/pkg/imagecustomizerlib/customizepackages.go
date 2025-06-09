@@ -15,10 +15,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 // TODO: Remove this constant to support 4.0 and later releases.
@@ -56,17 +54,8 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 		snapshotTime = string(config.Packages.SnapshotTime)
 	}
 
-	var bindMount *safemount.Mount
 	tdnfChroot := imageChroot
 	if toolsChroot != nil {
-		// Setup bind mounts to tools chroot
-		source := imageChroot.RootDir()
-		target := filepath.Join(toolsChroot.RootDir(), imageRoot)
-		bindMount, err = safemount.NewMount(source, target, "", unix.MS_BIND, "", true)
-		if err != nil {
-			return fmt.Errorf("failed to bind mount image root to tools chroot:\n%w", err)
-		}
-		defer bindMount.Close()
 		tdnfChroot = toolsChroot
 	}
 
@@ -139,12 +128,6 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 		}
 	}
 
-	if toolsChroot != nil {
-		err = bindMount.CleanClose()
-		if err != nil {
-			return fmt.Errorf("failed to unmount tools chroot bind mount:\n%w", err)
-		}
-	}
 	return nil
 }
 
@@ -381,7 +364,7 @@ func appendTdnfArgsForToolsChroot(tdnfArgs *[]string) error {
 	}
 
 	// Add the install root argument for install or update operations.
-	installRootArg := "--installroot=/" + imageRoot
+	installRootArg := "--installroot=/" + toolsRootImageDir
 	if !slices.Contains(*tdnfArgs, installRootArg) {
 		*tdnfArgs = append(*tdnfArgs, installRootArg)
 	}

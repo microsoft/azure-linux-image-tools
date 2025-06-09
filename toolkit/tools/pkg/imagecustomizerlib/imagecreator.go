@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -17,31 +18,41 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool,
 	imageUuidStr string, packageSnapshotTime string, tarFile string,
 ) (map[string]diskutils.FstabEntry, string, error) {
-	logger.Log.Debugf("Customizing OS with imager")
-
-	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(rawImageFile, buildDir, imageRoot, true)
-	if err != nil {
-		return nil, "", err
-	}
-	defer imageConnection.Close()
+	logger.Log.Debugf("Customizing OS image with config file %s", baseConfigPath)
 
 	toolsChrootDir := filepath.Join(buildDir, toolsRoot)
-
 	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
-	err = toolsChroot.Initialize(tarFile, nil, nil, true)
+	err := toolsChroot.Initialize(tarFile, nil, nil, true)
 	if err != nil {
 		return nil, "", err
 	}
 	defer toolsChroot.Close(false)
 
+	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(rawImageFile, toolsChrootDir, toolsRootImageDir, true)
+	if err != nil {
+		return nil, "", err
+	}
+	defer imageConnection.Close()
+
 	// Do the actual customizations.
 	err = doOsCustomizationsImageCreator(buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, imageUuidStr,
 		partUuidToFstabEntry, packageSnapshotTime)
+
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
-
 	warnOnLowFreeSpace(buildDir, imageConnection)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Extract OS release info from rootfs for COSI
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+	}
+
+	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, "", err
 	}
@@ -51,12 +62,8 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 	if err != nil {
 		return nil, "", err
 	}
-	err = imageConnection.CleanClose()
-	if err != nil {
-		return nil, "", err
-	}
 
-	return partUuidToFstabEntry, "", nil
+	return partUuidToFstabEntry, osRelease, nil
 }
 
 func doOsCustomizationsImageCreator(

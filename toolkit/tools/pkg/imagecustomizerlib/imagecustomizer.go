@@ -41,6 +41,8 @@ const (
 
 	diskFreeWarnThresholdBytes   = 500 * diskutils.MiB
 	diskFreeWarnThresholdPercent = 0.05
+	toolsRootImageDir            = "_imageroot"
+	toolsRoot                    = "toolsroot"
 	imageRoot                    = "imageroot"
 	toolsRoot                    = "toolsroot"
 
