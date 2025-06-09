@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/ini.v1"
@@ -31,6 +32,10 @@ const (
 	UkiBuildDir           = "UkiBuildDir"
 	UkiOutputDir          = "EFI/Linux"
 )
+
+// Matches UKI filenames like "vmlinuz-<version>.efi" or "vmlinuz-<version>.unsigned.efi".
+// The ".unsigned" suffix is temporary and will be removed from the UKI filename in a future task.
+var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+?)(?:\.unsigned)?\.efi$`)
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
 	var err error
@@ -499,25 +504,6 @@ func cleanupUkiBuildDir(buildDir string) error {
 	return nil
 }
 
-func cleanupBootPartition(bootPartitionTmpDir string) error {
-	dirEntries, err := os.ReadDir(bootPartitionTmpDir)
-	if err != nil {
-		return fmt.Errorf("failed to read boot partition directory (%s):\n%w", bootPartitionTmpDir, err)
-	}
-
-	for _, entry := range dirEntries {
-		entryPath := filepath.Join(bootPartitionTmpDir, entry.Name())
-
-		err := os.RemoveAll(entryPath)
-		if err != nil {
-			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
-		}
-	}
-
-	logger.Log.Infof("Successfully cleaned up boot partition: (%s)", bootPartitionTmpDir)
-	return nil
-}
-
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
@@ -582,16 +568,12 @@ func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string)
 func getKernelNameFromUki(ukiPath string) (string, error) {
 	fileName := filepath.Base(ukiPath)
 
-	if !strings.HasPrefix(fileName, "vmlinuz-") || !strings.HasSuffix(fileName, ".efi") {
+	matches := ukiNamePattern.FindStringSubmatch(fileName)
+	if len(matches) != 2 {
 		return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
 	}
 
-	name := strings.TrimSuffix(fileName, ".efi")
-
-	if strings.HasSuffix(name, ".unsigned") {
-		name = strings.TrimSuffix(name, ".unsigned")
-	}
-
-	// e.g., vmlinuz-6.6.51.1-5.azl3
-	return name, nil
+	// Reconstruct kernel name (vmlinuz-<version>, e.g., vmlinuz-6.6.51.1-5.azl3)
+	kernelName := "vmlinuz-" + matches[1]
+	return kernelName, nil
 }
