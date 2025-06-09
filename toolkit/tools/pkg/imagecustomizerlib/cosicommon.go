@@ -71,6 +71,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
+
 	for _, partition := range partitions {
 		partUuidToMetadata[partition.PartUuid] = partition
 	}
