@@ -858,12 +858,17 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, osPackages, err := connectToExistingImage(rawImageFile,
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
 		buildDir, "imageroot", true)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
 	defer imageConnection.Close()
+
+	osPackages, err := getAllPackagesFromChroot(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, err
+	}
 
 	// Extract OS release info from rootfs for COSI
 	osRelease, err := extractOSRelease(imageConnection)
