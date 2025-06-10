@@ -5,12 +5,14 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -290,12 +292,91 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
-	if err != nil {
-		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+		imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
+			buildDir, "imageroot", true)
+		if err != nil {
+			return nil
+		}
+		defer imageConnection.Close()
+
+		osRelease, err := extractOSRelease(imageConnection)
+		if err != nil {
+			return nil
+		}
+
+		osPackages, err := getAllPackagesFromChroot(imageConnection)
+		if err != nil {
+			return nil
+		}
+
+		err = imageConnection.CleanClose()
+		if err != nil {
+			return nil
+		}
+
+		err = convertToCosiWhenInject(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
+			baseImageVerityMetadata, osRelease, osPackages)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to cosi output format:\n%w", err)
+		}
+	} else {
+		err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+		}
 	}
 
 	logger.Log.Infof("Success!")
+
+	return nil
+}
+
+func convertToCosiWhenInject(buildDirAbs string, rawImageFile string, outputImageFile string,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, baseImageVerityMetadata []verityDeviceMetadata,
+	osRelease string, osPackages []OsPackage,
+) error {
+	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
+
+	imageUuid, imageUuidStr, err := createUuid()
+	if err != nil {
+		return err
+	}
+
+	outputDir := filepath.Join(buildDirAbs, "cosiimages")
+	err = os.MkdirAll(outputDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
+	}
+	defer os.Remove(outputDir)
+
+	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
+	if err != nil {
+		return err
+	}
+	defer imageLoopback.Close()
+
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
+		"raw-zst", imageUuid)
+	if err != nil {
+		return err
+	}
+	for _, partition := range partitionMetadataOutput {
+		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
+	}
+
+	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, baseImageVerityMetadata,
+		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages)
+	if err != nil {
+		return fmt.Errorf("failed to build COSI file:\n%w", err)
+	}
+
+	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
+
+	err = imageLoopback.CleanClose()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
