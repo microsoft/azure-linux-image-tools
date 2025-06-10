@@ -60,13 +60,19 @@ is modified at `--image-file`.
 
 Added in v0.14.
 
+## --output-path=FILE-PATH
+
+An alias to `--output-image-file`
+
+Added in v0.15.
+
 ## --output-image-format=FORMAT
 
 Optional.
 
 The image format of the final image written to `--output-image-file`.
 
-Options: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, `iso`, and `cosi`.
+Options: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, `pxe-dir`, `pxe-tar`, `iso`, and `cosi`.
 
 If this option is not provided, the format of the input image is preserved.
 

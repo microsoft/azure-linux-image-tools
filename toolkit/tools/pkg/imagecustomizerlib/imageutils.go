@@ -30,6 +30,7 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 		imageConnection.Close()
 		return nil, nil, nil, err
 	}
+
 	return imageConnection, partUuidToMountPath, verityMetadata, nil
 }
 

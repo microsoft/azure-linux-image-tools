@@ -11,6 +11,7 @@ import (
 type Iso struct {
 	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
 	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
 }
 
 func (i *Iso) IsValid() error {
@@ -22,6 +23,11 @@ func (i *Iso) IsValid() error {
 	err = i.AdditionalFiles.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid additionalFiles:\n%w", err)
+	}
+
+	err = i.InitramfsType.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid initramfs type:\n%w", err)
 	}
 
 	return nil
