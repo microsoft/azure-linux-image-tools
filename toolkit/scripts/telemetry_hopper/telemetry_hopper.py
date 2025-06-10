@@ -108,8 +108,7 @@ class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):
     def Export(self, request, context) -> trace_service_pb2.ExportTraceServiceResponse:
         """Export traces to Azure Monitor."""
         try:
-            spans = self._process_trace_request(request)
-
+            spans = self._create_spans(request)
             if spans:
                 result = self.exporter.export(spans)
                 logger.info(
@@ -121,11 +120,11 @@ class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):
 
         except Exception as e:
             logger.error("Error processing spans: %s", e, exc_info=True)
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"Failed to process spans: {str(e)}")
-            return trace_service_pb2.ExportTraceServiceResponse()
+            context.abort(
+                grpc.StatusCode.INTERNAL, f"Failed to process spans: {str(e)}"
+            )
 
-    def _process_trace_request(self, request) -> List[SpanData]:
+    def _create_spans(self, request) -> List[SpanData]:
         """Process trace request and convert to SpanData objects."""
         spans = []
 
