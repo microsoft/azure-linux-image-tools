@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/osmodifierapi"
@@ -174,14 +175,18 @@ func handleSELinux(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *i
 
 	logger.Log.Infof("Configuring SELinux mode")
 
-	err = bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode)
-	if err != nil {
+	bootType := configuration.SystemBootType()
+
+	if bootType == "efi" {
+		return imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
+	}
+
+	if err := bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode); err != nil {
 		return err
 	}
 
-	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
-	if err != nil {
-		return fmt.Errorf("failed to update /etc/selinux/config:\n%w", err)
+	if err := imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot); err != nil {
+		return err
 	}
 
 	// No need to set SELinux labels here as in trident there is reset labels at the end
