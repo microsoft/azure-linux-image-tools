@@ -198,36 +198,6 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	return fstabEntries, nil
 }
 
-func readOsReleaseFromRootfs(rootfsPartition *diskutils.PartitionInfo, buildDir string) (string, error) {
-	logger.Log.Debugf("Reading os release")
-
-	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
-
-	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
-		true)
-	if err != nil {
-		return "", fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
-	}
-	defer rootfsPartitionMount.Close()
-
-	osReleasePath := filepath.Join(tmpDir, "/etc/os-release")
-	data, err := file.Read(osReleasePath)
-	if err != nil {
-		logger.Log.Warnf("Failed to read os-release file from base image (path=%s): %v", osReleasePath, err)
-		// fallback to empty string
-		data = ""
-	}
-
-	// Close the rootfs partition mount.
-	err = rootfsPartitionMount.CleanClose()
-	if err != nil {
-		return "", fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
-	}
-
-	return string(data), nil
-}
-
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
 	buildDir string,
 ) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
