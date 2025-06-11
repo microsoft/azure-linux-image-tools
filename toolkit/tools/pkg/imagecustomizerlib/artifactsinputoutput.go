@@ -5,12 +5,13 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -29,7 +30,7 @@ const (
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
-	outputDir string, buildDir string, buildImage string, baseConfigPath string,
+	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -51,6 +52,11 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		return err
 	}
 
+	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	if err != nil {
+		return err
+	}
+
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
 		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
@@ -65,9 +71,14 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		return err
 	}
 
-	partition := imagecustomizerapi.InjectFilePartition{
+	espInjectFilePartition := imagecustomizerapi.InjectFilePartition{
 		MountIdType: imagecustomizerapi.MountIdentifierTypePartUuid,
 		Id:          systemBootPartition.PartUuid,
+	}
+
+	bootInjectFilePartition := imagecustomizerapi.InjectFilePartition{
+		MountIdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+		Id:          bootPartition.PartUuid,
 	}
 
 	// Output UKIs
@@ -93,7 +104,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 				destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
 
 				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-					Partition:      partition,
+					Partition:      espInjectFilePartition,
 					Source:         source,
 					Destination:    filepath.Join("/", UkiOutputDir, destinationName),
 					UnsignedSource: unsignedSource,
@@ -114,7 +125,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:      partition,
+			Partition:      espInjectFilePartition,
 			Source:         signedPath,
 			Destination:    filepath.Join("/", ShimDir, bootConfig.bootBinary),
 			UnsignedSource: "./" + bootConfig.bootBinary,
@@ -133,11 +144,36 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:      partition,
+			Partition:      espInjectFilePartition,
 			Source:         signedPath,
 			Destination:    filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
 			UnsignedSource: "./" + bootConfig.systemdBootBinary,
 		})
+	}
+
+	// Output verity hash
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemVerityHash) {
+		for _, verity := range verityMetadata {
+			if verity.hashSignaturePath == "" {
+				continue
+			}
+
+			unsignedHashFile := verity.name + ".hash"
+			destPath := filepath.Join(outputDir, unsignedHashFile)
+			err = file.Write(verity.rootHash, destPath)
+			if err != nil {
+				return fmt.Errorf("failed to dump root hash for (%s) to (%s):\n%w", verity.name, destPath, err)
+			}
+
+			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
+			destination := strings.TrimPrefix(verity.hashSignaturePath, "/boot")
+			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+				Partition:      bootInjectFilePartition,
+				Source:         "./" + signedHashFile,
+				Destination:    filepath.Join("/", destination),
+				UnsignedSource: "./" + unsignedHashFile,
+			})
+		}
 	}
 
 	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
