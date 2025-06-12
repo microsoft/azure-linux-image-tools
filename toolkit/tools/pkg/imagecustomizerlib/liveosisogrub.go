@@ -33,7 +33,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
 	inputContentString, err := replaceSearchCommandAll(inputContentString, searchCommand)
 	if err != nil {
-		return "", fmt.Errorf("failed to update the search command in the iso grub.cfg:\n%w", err)
+		return "", fmt.Errorf("failed to update the search command in the live OS grub.cfg:\n%w", err)
 	}
 
 	grubMkconfigEnabled := isGrubMkconfigConfig(inputContentString)
@@ -41,33 +41,33 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 		var oldLinuxPath string
 		inputContentString, oldLinuxPath, err = setLinuxPath(inputContentString, isoKernelPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to update the kernel file path in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
 		}
 
 		inputContentString, err = replaceToken(inputContentString, oldLinuxPath, isoKernelPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to update all the kernel file path occurances in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update all the kernel file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 
 		var oldInitrdPath string
 		inputContentString, oldInitrdPath, err = setInitrdPath(inputContentString, isoInitrdPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to update the initrd file path in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
 		}
 
 		inputContentString, err = replaceToken(inputContentString, oldInitrdPath, isoInitrdPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to update all the initrd file path occurances in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update all the initrd file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 	} else {
 		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelPath, true /*allowMultiple*/)
 		if err != nil {
-			return "", fmt.Errorf("failed to update the kernel file path in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
 		}
 
 		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
 		if err != nil {
-			return "", fmt.Errorf("failed to update the initrd file path in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
 		}
 	}
 
@@ -79,7 +79,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 		newArgs := []string{}
 		inputContentString, err = updateKernelCommandLineArgsAll(inputContentString, argsToRemove, newArgs)
 		if err != nil {
-			return "", fmt.Errorf("failed to update the root kernel argument in the iso grub.cfg:\n%w", err)
+			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		// Add Dracut live os parameters
@@ -101,7 +101,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 
 	inputContentString, err = appendKernelCommandLineArgsAll(inputContentString, additionalKernelCommandline)
 	if err != nil {
-		return "", fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the iso grub.cfg:\n%w", err)
+		return "", fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the live OS grub.cfg:\n%w", err)
 	}
 
 	return inputContentString, nil
@@ -162,7 +162,7 @@ func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecust
 // that the call does not need to call it multiple times.
 func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
 	disableSELinux bool, savedConfigs *SavedConfigs, outputIsoGrubCfgPath, outputPxeGrubCfgPath string) error {
-	logger.Log.Infof("Updating ISO grub.cfg")
+	logger.Log.Infof("Updating grub.cfg")
 
 	inputContentString, err := file.Read(inputGrubCfgPath)
 	if err != nil {

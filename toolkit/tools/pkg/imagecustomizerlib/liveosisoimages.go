@@ -210,10 +210,6 @@ func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStor
 
 	artifactsToLiveOSMap := []StageFile{
 		{
-			sourcePath:    filesStore.isoBootImagePath,
-			targetRelPath: "boot/grub2",
-		},
-		{
 			sourcePath:    filesStore.vmlinuzPath,
 			targetRelPath: "boot",
 		},
@@ -225,6 +221,11 @@ func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStor
 
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
+		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+			StageFile{
+				sourcePath:    filesStore.isoBootImagePath,
+				targetRelPath: "boot/grub2",
+			})
 		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 			StageFile{
 				sourcePath:    filesStore.isoGrubCfgPath,
