@@ -199,7 +199,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, overrideReadonly bool,
+	buildDir string, readonly bool,
 ) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -215,15 +215,15 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		}
 
 		var vfsOptions diskutils.MountFlags
-		if overrideReadonly {
+		if readonly {
+			// In scenarios where the image has completed customization (e.g. when the image is re-mounted for injection),
+			// force read-only mount. Since we're only reading data, execution and write permissions aren't needed.
+			vfsOptions = fstabEntry.VfsOptions | diskutils.MountFlags(unix.MS_RDONLY)
+		} else {
 			// Unset read-only flag so that read-only partitions can be customized.
 			// Unset noexec flag so that if rootfs is set as noexec, image can still be customized. For example, allowing
 			// grub2-mkconfig to be called.
 			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
-		} else {
-			// In post-customization scenarios (e.g. when the image is re-mounted for injection),
-			// we may want to respect the original fstab flags, so the override is disabled.
-			vfsOptions = fstabEntry.VfsOptions
 		}
 
 		var mountPoint *safechroot.MountPoint

@@ -860,7 +860,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
-		buildDir, "imageroot", true, true)
+		buildDir, "imageroot", true, false)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}

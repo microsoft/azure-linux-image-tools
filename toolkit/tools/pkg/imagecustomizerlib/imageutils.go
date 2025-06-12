@@ -21,12 +21,12 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string,
-	includeDefaultMounts bool, overrideReadonly bool,
+	includeDefaultMounts bool, readonly bool,
 ) (*ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	imageConnection := NewImageConnection()
 
 	partUuidToMountPath, verityMetadata, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir,
-		chrootDirName, includeDefaultMounts, overrideReadonly)
+		chrootDirName, includeDefaultMounts, readonly)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, nil, err
@@ -36,7 +36,7 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
-	buildDir string, chrootDirName string, includeDefaultMounts bool, overrideReadonly bool,
+	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -60,7 +60,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	}
 
 	mountPoints, partUuidToFstabEntry, verityMetadata, err := fstabEntriesToMountPoints(fstabEntries, partitions,
-		buildDir, overrideReadonly)
+		buildDir, readonly)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
