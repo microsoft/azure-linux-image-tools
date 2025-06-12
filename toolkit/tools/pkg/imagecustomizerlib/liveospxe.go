@@ -101,7 +101,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		artifactsRootfsPath := filepath.Join(artifactsRootfsDir, liveOSImage)
 		err = os.Remove(artifactsRootfsPath)
 		if err != nil {
-			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
+			return fmt.Errorf("failed to remove root file system image (%s) while cleaning up intermediate files:\n%w", artifactsRootfsPath, err)
 		}
 
 		err = os.RemoveAll(artifactsRootfsDir)
@@ -138,12 +138,6 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		return fmt.Errorf("failed to remove folder (%s):\n%w", isoEFIDir, err)
 	}
 
-	// Remove boot image required for ISO images
-	err = os.Remove(artifactsStore.files.isoBootImagePath)
-	if err != nil {
-		return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", artifactsStore.files.isoBootImagePath, err)
-	}
-
 	// If a tar.gz is requested, create the archive
 	if outputFormat == imagecustomizerapi.ImageFormatTypePxeTar {
 		err = tarutils.CreateTarGzArchive(outputPXEArtifactsDir, outputPXEImage)
@@ -153,7 +147,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 
 		err = os.RemoveAll(outputPXEArtifactsDir)
 		if err != nil {
-			return fmt.Errorf("failed to remove (%s) while cleaning up intermediate files:\n%w", outputPXEArtifactsDir, err)
+			return fmt.Errorf("failed to remove pxe artifacts staging folder (%s) while cleaning up intermediate files:\n%w", outputPXEArtifactsDir, err)
 		}
 	}
 
