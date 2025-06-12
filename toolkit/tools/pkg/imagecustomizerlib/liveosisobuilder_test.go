@@ -487,7 +487,7 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 	shimPackage := "shim"
 
 	// For arm64 and baseImageVersionAzl2, the shim package is shim-unsigned.
-	if runtime.GOARCH == "arm64" && baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
+	if runtime.GOARCH == "arm64" && baseImageInfo.Version == baseImageVersionAzl2 {
 		shimPackage = "shim-unsigned"
 	}
 

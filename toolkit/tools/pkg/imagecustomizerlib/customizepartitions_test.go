@@ -277,8 +277,6 @@ func TestCustomizeImageKernelCommandLine(t *testing.T) {
 }
 
 func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
-	var err error
-
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	buildDir := filepath.Join(tmpDir, testName)
@@ -286,7 +284,7 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
