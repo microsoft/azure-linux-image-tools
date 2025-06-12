@@ -161,6 +161,21 @@ func repackageLiveOS(isoBuildDir string, baseConfigPath string, isoConfig *image
 	return nil
 }
 
+func isIsoBootImageNeeded(outputFormat imagecustomizerapi.ImageFormatType, initramfsType imagecustomizerapi.InitramfsImageType) bool {
+	if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
+		return true
+	}
+	if (outputFormat == imagecustomizerapi.ImageFormatTypePxeDir || outputFormat == imagecustomizerapi.ImageFormatTypePxeTar) &&
+		initramfsType == imagecustomizerapi.InitramfsImageTypeBootstrap {
+		// Currently, if pxe with bootstrapped image is specified, then the
+		// bootstrapped image is an iso. If we support bootstrapped images of
+		// other types (like squash file system image), we need to do further
+		// checks here before returning true.
+		return true
+	}
+	return false
+}
+
 func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
 	outputPath string,
@@ -251,11 +266,13 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	}
 
 	// Generate the ISO boot image (/boot/grub2/efiboot.img)
-	artifactsStore.files.isoBootImagePath = filepath.Join(artifactsStore.files.artifactsDir, isoBootImagePath)
-	err = isogenerator.BuildIsoBootImage(isoBuildDir, artifactsStore.files.bootEfiPath,
-		artifactsStore.files.grubEfiPath, artifactsStore.files.isoBootImagePath)
-	if err != nil {
-		return fmt.Errorf("failed to build iso boot image:\n%w", err)
+	if isIsoBootImageNeeded(outputFormat, liveosConfig.initramfsType) {
+		artifactsStore.files.isoBootImagePath = filepath.Join(artifactsStore.files.artifactsDir, isoBootImagePath)
+		err = isogenerator.BuildIsoBootImage(isoBuildDir, artifactsStore.files.bootEfiPath,
+			artifactsStore.files.grubEfiPath, artifactsStore.files.isoBootImagePath)
+		if err != nil {
+			return fmt.Errorf("failed to build iso boot image:\n%w", err)
+		}
 	}
 
 	outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
@@ -292,13 +309,13 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, baseConfigPath, artifactsStore.files, liveosConfig.additionalFiles, outputPath)
 		if err != nil {
-			return fmt.Errorf("failed to create the Iso image.\n%w", err)
+			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		err = createPXEArtifacts(isoBuildDir, outputFormat, baseConfigPath, liveosConfig.initramfsType, artifactsStore,
 			liveosConfig.additionalFiles, liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
 		if err != nil {
-			return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
+			return fmt.Errorf("failed to generate PXE artifacts\n%w", err)
 		}
 	}
 
@@ -339,13 +356,13 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, baseConfigPath, inputArtifactsStore.files, liveosConfig.additionalFiles, outputPath)
 		if err != nil {
-			return fmt.Errorf("failed to create the Iso image.\n%w", err)
+			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		err = createPXEArtifacts(isoBuildDir, outputFormat, baseConfigPath, liveosConfig.initramfsType, inputArtifactsStore,
 			liveosConfig.additionalFiles, liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
 		if err != nil {
-			return fmt.Errorf("failed to generate iso image and/or PXE artifacts folder\n%w", err)
+			return fmt.Errorf("failed to generate PXE artifacts folder\n%w", err)
 		}
 	}
 

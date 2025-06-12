@@ -565,13 +565,13 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			err := createLiveOSFromRaw(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
 				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
-				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
+				return fmt.Errorf("failed to create Live OS artifacts:\n%w", err)
 			}
 		} else {
 			err := repackageLiveOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
 				inputIsoArtifacts, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
-				return fmt.Errorf("failed to create LiveOS iso image:\n%w", err)
+				return fmt.Errorf("failed to create Live OS artifacts:\n%w", err)
 			}
 		}
 	}
