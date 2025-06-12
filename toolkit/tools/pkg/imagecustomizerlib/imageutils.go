@@ -20,12 +20,13 @@ import (
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
-func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string, includeDefaultMounts bool,
+func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string,
+	includeDefaultMounts bool, overrideReadonly bool,
 ) (*ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	imageConnection := NewImageConnection()
 
 	partUuidToMountPath, verityMetadata, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir,
-		chrootDirName, includeDefaultMounts)
+		chrootDirName, includeDefaultMounts, overrideReadonly)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, nil, err
@@ -35,7 +36,7 @@ func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName
 }
 
 func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
-	buildDir string, chrootDirName string, includeDefaultMounts bool,
+	buildDir string, chrootDirName string, includeDefaultMounts bool, overrideReadonly bool,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -59,7 +60,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	}
 
 	mountPoints, partUuidToFstabEntry, verityMetadata, err := fstabEntriesToMountPoints(fstabEntries, partitions,
-		buildDir)
+		buildDir, overrideReadonly)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
@@ -248,7 +249,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		return nil, "", err
 	}
 
-	mountPoints, _, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir)
+	mountPoints, _, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir, true)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}

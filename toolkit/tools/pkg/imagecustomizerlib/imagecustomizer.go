@@ -536,7 +536,8 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 		}
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
-		err := convertToCosi(ic)
+		err := convertToCosi(ic.buildDirAbs, ic.rawImageFile, ic.outputImageFile, ic.partUuidToFstabEntry,
+			ic.baseImageVerityMetadata, ic.osRelease, ic.osPackages, ic.imageUuid, ic.imageUuidStr)
 		if err != nil {
 			return err
 		}
@@ -859,21 +860,15 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
-		buildDir, "imageroot", true)
+		buildDir, "imageroot", true, true)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
 	defer imageConnection.Close()
 
-	osPackages, err := getAllPackagesFromChroot(imageConnection)
+	osRelease, osPackages, err := collectOSInfo(imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, err
-	}
-
-	// Extract OS release info from rootfs for COSI
-	osRelease, err := extractOSRelease(imageConnection)
-	if err != nil {
-		return nil, nil, "", nil, fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
@@ -906,6 +901,20 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, nil
+}
+
+func collectOSInfo(imageConnection *ImageConnection) (string, []OsPackage, error) {
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to extract OS release:\n%w", err)
+	}
+
+	osPackages, err := getAllPackagesFromChroot(imageConnection)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
+	}
+
+	return osRelease, osPackages, nil
 }
 
 func shrinkFilesystemsHelper(buildImageFile string) error {
