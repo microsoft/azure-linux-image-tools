@@ -293,7 +293,7 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
-			buildDir, "imageroot", true, false)
+			buildDir, "imageroot", true, true)
 		if err != nil {
 			return nil
 		}

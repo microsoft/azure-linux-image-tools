@@ -12,10 +12,12 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 const (
-	UuidSize uint32 = 16
+	UuidSize                   uint32 = 16
+	ImageCustomizerReleasePath        = "etc/image-customizer-release"
 )
 
 // Create the uuid and return byte array and string representation
@@ -55,28 +57,25 @@ func convertUuidToString(uuid [UuidSize]byte) string {
 func extractImageUUID(imageConnection *ImageConnection) ([UuidSize]byte, string, error) {
 	var emptyUuid [UuidSize]byte
 
-	releasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/image-customizer-release")
+	releasePath := filepath.Join(imageConnection.Chroot().RootDir(), ImageCustomizerReleasePath)
 	data, err := file.Read(releasePath)
 	if err != nil {
 		return emptyUuid, "", fmt.Errorf("failed to read %s:\n%w", releasePath, err)
 	}
 
 	lines := strings.Split(string(data), "\n")
-	var uuidStr string
-	for _, line := range lines {
-		if strings.HasPrefix(line, "IMAGE_UUID=") {
-			uuidStr = strings.Trim(strings.TrimPrefix(line, "IMAGE_UUID="), `"`)
-			break
-		}
-	}
-
-	if uuidStr == "" {
+	line, found := sliceutils.FindValueFunc(lines, func(line string) bool {
+		return strings.HasPrefix(line, "IMAGE_UUID=")
+	})
+	if !found {
 		return emptyUuid, "", fmt.Errorf("IMAGE_UUID not found in %s", releasePath)
 	}
 
+	uuidStr := strings.Trim(strings.TrimPrefix(line, "IMAGE_UUID="), `"`)
+
 	parsed, err := parseUuidString(uuidStr)
 	if err != nil {
-		return emptyUuid, "", fmt.Errorf("failed to parse IMAGE_UUID from string %s:\n%w", uuidStr, err)
+		return emptyUuid, "", fmt.Errorf("failed to parse IMAGE_UUID (%s):\n%w", uuidStr, err)
 	}
 
 	return parsed, uuidStr, nil
@@ -84,28 +83,20 @@ func extractImageUUID(imageConnection *ImageConnection) ([UuidSize]byte, string,
 
 func parseUuidString(s string) ([UuidSize]byte, error) {
 	var uuid [UuidSize]byte
-	n, err := fmt.Sscanf(s,
-		"%08x-%04x-%04x-%04x-%012x",
-		new(uint32),
-		new(uint16),
-		new(uint16),
-		new(uint16),
-		new(uint64),
-	)
-	if err != nil || n != 5 {
-		return uuid, fmt.Errorf("invalid UUID format")
-	}
 
-	// Parse directly into a byte array for safety
 	parts := strings.Split(s, "-")
 	if len(parts) != 5 {
-		return uuid, fmt.Errorf("invalid UUID format")
+		return uuid, fmt.Errorf("invalid UUID format: expected 5 parts, got (%d)", len(parts))
 	}
 	raw := strings.Join(parts, "")
 	bytes, err := hex.DecodeString(raw)
-	if err != nil || len(bytes) != 16 {
-		return uuid, fmt.Errorf("failed to decode UUID")
+	if err != nil {
+		return uuid, fmt.Errorf("failed to decode UUID hex string:\n%w", err)
 	}
+	if len(bytes) != 16 {
+		return uuid, fmt.Errorf("decoded UUID has incorrect length: expected 16, got (%d)", len(bytes))
+	}
+
 	copy(uuid[:], bytes)
 	return uuid, nil
 }
