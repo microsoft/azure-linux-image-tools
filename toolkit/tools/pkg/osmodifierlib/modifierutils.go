@@ -55,14 +55,11 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 			return err
 		}
 
-		updateGrubRequired := false
-
 		if osConfig.KernelCommandLine.ExtraCommandLine != nil {
 			err = bootCustomizer.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine)
 			if err != nil {
 				return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
 			}
-			updateGrubRequired = true
 		}
 
 		if osConfig.Overlays != nil {
@@ -70,7 +67,6 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 			if err != nil {
 				return err
 			}
-			updateGrubRequired = true
 		}
 
 		if osConfig.Verity != nil {
@@ -78,7 +74,6 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 			if err != nil {
 				return err
 			}
-			updateGrubRequired = true
 		}
 
 		if osConfig.RootDevice != "" {
@@ -86,23 +81,18 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 			if err != nil {
 				return err
 			}
-			updateGrubRequired = true
 		}
 
 		if osConfig.SELinux.Mode != "" {
-			err = updateSELinuxForLegacyBoot(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
+			err = updateSELinuxForGrubBoot(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
 			if err != nil {
 				return err
 			}
-			updateGrubRequired = true
 		}
 
-		// Write changes to file only if GRUB needs updating
-		if updateGrubRequired {
-			err = bootCustomizer.WriteToFile(dummyChroot)
-			if err != nil {
-				return err
-			}
+		err = bootCustomizer.WriteToFile(dummyChroot)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -178,7 +168,7 @@ func updateSELinuxForEfiBoot(selinuxMode imagecustomizerapi.SELinuxMode, dummyCh
 	return imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
 }
 
-func updateSELinuxForLegacyBoot(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, dummyChroot safechroot.ChrootInterface) error {
+func updateSELinuxForGrubBoot(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, dummyChroot safechroot.ChrootInterface) error {
 	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(dummyChroot)
 	if err != nil {
 		return fmt.Errorf("failed to get current SELinux mode:\n%w", err)
