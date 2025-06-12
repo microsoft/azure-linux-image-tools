@@ -5,10 +5,12 @@ package osmodifierlib
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/osmodifierapi"
@@ -38,11 +40,10 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		return err
 	}
 
-	bootType := configuration.SystemBootType()
-	usesGrub := bootType != configuration.EFIPartitionType
+	// Add a check to make sure BootCustomizer can be initialized
+	grubExists := grubConfigSupportExists(dummyChroot)
 
-	// Only initialize BootCustomizer if any GRUB-related settings are present
-	needsBootCustomizer := usesGrub && (osConfig.KernelCommandLine.ExtraCommandLine != nil ||
+	needsBootCustomizer := grubExists && (osConfig.KernelCommandLine.ExtraCommandLine != nil ||
 		osConfig.Overlays != nil ||
 		osConfig.SELinux.Mode != "" ||
 		osConfig.Verity != nil ||
@@ -84,7 +85,7 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		}
 
 		if osConfig.SELinux.Mode != "" {
-			err = updateSELinuxForGrubBoot(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
+			err = updateSELinuxForGrubBasedBoot(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
 			if err != nil {
 				return err
 			}
@@ -96,12 +97,13 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		}
 	}
 
-	if osConfig.SELinux.Mode != "" && !usesGrub {
-		err = updateSELinuxForEfiBoot(osConfig.SELinux.Mode, dummyChroot)
+	if osConfig.SELinux.Mode != "" && !grubExists {
+		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -160,26 +162,59 @@ func updateGrubConfigForOverlay(overlays []osmodifierapi.Overlay, bootCustomizer
 	return nil
 }
 
-func updateSELinuxForEfiBoot(selinuxMode imagecustomizerapi.SELinuxMode, dummyChroot safechroot.ChrootInterface) error {
+func updateSELinuxForUkiBoot(selinuxMode imagecustomizerapi.SELinuxMode, installChroot safechroot.ChrootInterface) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDefault {
 		return nil
 	}
-	logger.Log.Infof("Configuring SELinux mode")
-	return imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
+
+	logger.Log.Infof("Applying SELinux mode ('%s') for UKI-based system", selinuxMode)
+
+	err := imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot)
+	if err != nil {
+		return fmt.Errorf("failed to update SELinux mode in config file: %w", err)
+	}
+
+	return nil
 }
 
-func updateSELinuxForGrubBoot(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, dummyChroot safechroot.ChrootInterface) error {
-	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(dummyChroot)
+func updateSELinuxForGrubBasedBoot(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, installChroot safechroot.ChrootInterface) error {
+	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(installChroot)
 	if err != nil {
-		return fmt.Errorf("failed to get current SELinux mode:\n%w", err)
+		return fmt.Errorf("failed to get current SELinux mode: %w", err)
 	}
+
 	if selinuxMode == imagecustomizerapi.SELinuxModeDefault || selinuxMode == currentSELinuxMode {
 		return nil
 	}
 
-	logger.Log.Infof("Configuring SELinux mode")
-	if err := bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode); err != nil {
-		return err
+	logger.Log.Infof("Updating SELinux mode from ('%s') to ('%s') for GRUB-based system", currentSELinuxMode, selinuxMode)
+
+	err = bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode)
+	if err != nil {
+		return fmt.Errorf("failed to update SELinux kernel cmdline: %w", err)
 	}
-	return imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
+
+	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot)
+	if err != nil {
+		return fmt.Errorf("failed to update SELinux mode in config file: %w", err)
+	}
+
+	return nil
+}
+
+func grubConfigSupportExists(installChroot safechroot.ChrootInterface) bool {
+	cfgPath := filepath.Join(installChroot.RootDir(), installutils.GrubCfgFile)
+	defPath := filepath.Join(installChroot.RootDir(), installutils.GrubDefFile)
+
+	cfgExists := false
+	if _, err := os.Stat(cfgPath); err == nil {
+		cfgExists = true
+	}
+
+	defExists := false
+	if _, err := os.Stat(defPath); err == nil {
+		defExists = true
+	}
+
+	return cfgExists && defExists
 }
