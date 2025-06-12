@@ -71,7 +71,7 @@ func TestCopyAdditionalFiles(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalFiles(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFiles")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -117,7 +117,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFilesInfiniteFile")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -193,7 +193,7 @@ func TestCopyAdditionalDirs(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalDirs(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirs")
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -222,7 +222,7 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsInfiniteFile")
 	buildDir := filepath.Join(testTmpDir, "build")
