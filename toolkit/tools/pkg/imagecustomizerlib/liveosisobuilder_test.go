@@ -300,7 +300,7 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 // - ISO  {bootstrap}  to ISO {bootstrap}    , with no OS changes
 // - ISO  {bootstrap}  to ISO {full-os}      , with selinux disabled
 func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -308,7 +308,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 
 	// SELinux in Live OS is only supported with azl3
 	selinuxMode := imagecustomizerapi.SELinuxModeEnforcing
-	if baseImageVersionDefault == baseImageVersionAzl2 {
+	if baseImageInfo.Version == baseImageVersionAzl2 {
 		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
 	}
 
@@ -356,7 +356,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 // - ISO  {full-os}    to ISO {full-os}      , with selinux disabled
 // - ISO  {full-os}    to ISO {bootstrap}    , with selinux enforcing + bootstrap prereqs
 func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs2")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -390,7 +390,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	// SELinux in Live OS is only supported with azl3
 	selinuxMode := imagecustomizerapi.SELinuxModeEnforcing
-	if baseImageVersionDefault == baseImageVersionAzl2 {
+	if baseImageInfo.Version == baseImageVersionAzl2 {
 		selinuxMode = imagecustomizerapi.SELinuxModeDisabled
 	}
 
@@ -409,7 +409,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 // Tests:
 // - vhdx {raw} to ISO {full-os}, with selinux enabled -> error
 func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs3")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -427,10 +427,11 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 // Tests:
 // - vhdx {raw} to PXE {bootstrap}, with selinux enforcing
 func TestCustomizeImageLiveOSPxe1(t *testing.T) {
-	if baseImageVersionDefault == baseImageVersionAzl2 {
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+
+	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("Skipping - PXE bootstrap is not supported for Azure Linux 2")
 	}
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe1")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -452,7 +453,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 // Tests:
 // - vhdx {raw} to PXE {full-os}, with selinux disabled
 func TestCustomizeImageLiveOSPxe2(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe2")
 	buildDir := filepath.Join(testTempDir, "build")
@@ -471,25 +472,22 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 }
 
 func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageLiveOSIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+string(version),
-				version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageLiveOSIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+baseImageInfo.Name, baseImageInfo)
 		})
-
 	}
 }
 
-func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, version baseImageVersion) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, version)
+func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	buildDir := filepath.Join(tmpDir, testName)
 	outImageFilePath := filepath.Join(buildDir, defaultIsoImageName)
 	shimPackage := "shim"
 
 	// For arm64 and baseImageVersionAzl2, the shim package is shim-unsigned.
-	if runtime.GOARCH == "arm64" && version == baseImageVersionAzl2 {
+	if runtime.GOARCH == "arm64" && baseImageInfo.Version == baseImageVersionAzl2 {
 		shimPackage = "shim-unsigned"
 	}
 
@@ -511,7 +509,7 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, version
 }
 
 func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
 	outImageFilePath := filepath.Join(buildDir, defaultIsoImageName)

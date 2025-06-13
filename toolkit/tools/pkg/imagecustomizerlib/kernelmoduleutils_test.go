@@ -219,7 +219,7 @@ func TestRemoveModuleFromDisableList(t *testing.T) {
 }
 
 func TestCustomizeImageKernelModules(t *testing.T) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageTypeCoreEfi, baseImageVersionDefault)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageKernelModules")
 	buildDir := filepath.Join(testTmpDir, "build")

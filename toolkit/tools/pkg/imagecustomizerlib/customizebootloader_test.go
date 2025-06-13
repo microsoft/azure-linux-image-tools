@@ -13,25 +13,22 @@ import (
 )
 
 func TestCustomizeImageMultiKernel(t *testing.T) {
-	for _, version := range supportedAzureLinuxVersions {
-		t.Run(string(version), func(t *testing.T) {
-			testCustomizeImageMultiKernel(t, "TestCustomizeImageMultiKernel"+string(version),
-				baseImageTypeCoreEfi, version)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageMultiKernel(t, "TestCustomizeImageMultiKernel"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageMultiKernel(t *testing.T, testName string, imageType baseImageType,
-	imageVersion baseImageVersion,
-) {
-	baseImage := checkSkipForCustomizeImage(t, imageType, imageVersion)
+func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	configFile := ""
-	switch imageVersion {
+	switch baseImageInfo.Version {
 	case baseImageVersionAzl2:
 		configFile = filepath.Join(testDir, "multikernel-azl2.yaml")
 
@@ -60,7 +57,7 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, imageType base
 	linuxCommandRegex := regexp.MustCompile(`linux.* console=tty0 console=ttyS0 `)
 	matches := linuxCommandRegex.FindAllString(grubCfgContents, -1)
 
-	switch imageVersion {
+	switch baseImageInfo.Version {
 	case baseImageVersionAzl2:
 		// AZL2's default grub.cfg file doesn't support multiple kernels.
 		assert.GreaterOrEqual(t, len(matches), 1, "grub.cfg:\n%s", grubCfgContents)
