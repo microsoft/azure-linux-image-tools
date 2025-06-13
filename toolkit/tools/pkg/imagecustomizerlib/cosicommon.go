@@ -25,23 +25,25 @@ type ImageBuildData struct {
 	VeritySource string
 }
 
-func convertToCosi(ic *ImageCustomizerParameters) error {
-	logger.Log.Infof("Extracting partition files")
-	outputDir := filepath.Join(ic.buildDirAbs, "cosiimages")
+func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, verityMetadata []verityDeviceMetadata,
+	osRelease string, osPackages []OsPackage, imageUuid [UuidSize]byte, imageUuidStr string,
+) error {
+	outputDir := filepath.Join(buildDirAbs, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
 	}
 	defer os.Remove(outputDir)
 
-	imageLoopback, err := safeloopback.NewLoopback(ic.rawImageFile)
+	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
 		return err
 	}
 	defer imageLoopback.Close()
 
-	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase,
-		"raw-zst", ic.imageUuid)
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, "partition",
+		"raw-zst", imageUuid)
 	if err != nil {
 		return err
 	}
@@ -49,13 +51,13 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
-	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata,
-		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease, ic.osPackages)
+	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
+		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
 
-	logger.Log.Infof("Successfully converted to COSI: %s", ic.outputImageFile)
+	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
 
 	err = imageLoopback.CleanClose()
 	if err != nil {

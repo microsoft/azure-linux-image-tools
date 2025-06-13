@@ -5,12 +5,13 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -290,12 +291,55 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
-	if err != nil {
-		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, err :=
+			prepareImageConversionData(rawImageFile, buildDir, "imageroot")
+		if err != nil {
+			return err
+		}
+
+		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
+			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to cosi output format:\n%w", err)
+		}
+	} else {
+		err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+		}
 	}
 
 	logger.Log.Infof("Success!")
 
 	return nil
+}
+
+func prepareImageConversionData(rawImageFile string, buildDir string,
+	chrootDir string,
+) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
+	[]OsPackage, [UuidSize]byte, string, error,
+) {
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(
+		rawImageFile, buildDir, chrootDir, true, true)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", fmt.Errorf("failed to connect to image:\n%w", err)
+	}
+	defer imageConnection.Close()
+
+	osRelease, osPackages, err := collectOSInfo(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", err
+	}
+
+	imageUuid, imageUuidStr, err := extractImageUUID(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", err
+	}
+
+	if err := imageConnection.CleanClose(); err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", fmt.Errorf("failed to cleanly close image connection:\n%w", err)
+	}
+
+	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, nil
 }

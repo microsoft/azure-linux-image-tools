@@ -5,13 +5,19 @@ package imagecustomizerlib
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"path/filepath"
+	"strings"
 
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 const (
-	UuidSize uint32 = 16
+	UuidSize                   uint32 = 16
+	ImageCustomizerReleasePath        = "etc/image-customizer-release"
 )
 
 // Create the uuid and return byte array and string representation
@@ -46,4 +52,51 @@ func convertUuidToString(uuid [UuidSize]byte) string {
 	)
 
 	return uuidStr
+}
+
+func extractImageUUID(imageConnection *ImageConnection) ([UuidSize]byte, string, error) {
+	var emptyUuid [UuidSize]byte
+
+	releasePath := filepath.Join(imageConnection.Chroot().RootDir(), ImageCustomizerReleasePath)
+	data, err := file.Read(releasePath)
+	if err != nil {
+		return emptyUuid, "", fmt.Errorf("failed to read %s:\n%w", releasePath, err)
+	}
+
+	lines := strings.Split(string(data), "\n")
+	line, found := sliceutils.FindValueFunc(lines, func(line string) bool {
+		return strings.HasPrefix(line, "IMAGE_UUID=")
+	})
+	if !found {
+		return emptyUuid, "", fmt.Errorf("IMAGE_UUID not found in %s", releasePath)
+	}
+
+	uuidStr := strings.Trim(strings.TrimPrefix(line, "IMAGE_UUID="), `"`)
+
+	parsed, err := parseUuidString(uuidStr)
+	if err != nil {
+		return emptyUuid, "", fmt.Errorf("failed to parse IMAGE_UUID (%s):\n%w", uuidStr, err)
+	}
+
+	return parsed, uuidStr, nil
+}
+
+func parseUuidString(s string) ([UuidSize]byte, error) {
+	var uuid [UuidSize]byte
+
+	parts := strings.Split(s, "-")
+	if len(parts) != 5 {
+		return uuid, fmt.Errorf("invalid UUID format: expected 5 parts, got (%d)", len(parts))
+	}
+	raw := strings.Join(parts, "")
+	bytes, err := hex.DecodeString(raw)
+	if err != nil {
+		return uuid, fmt.Errorf("failed to decode UUID hex string:\n%w", err)
+	}
+	if len(bytes) != 16 {
+		return uuid, fmt.Errorf("decoded UUID has incorrect length: expected 16, got (%d)", len(bytes))
+	}
+
+	copy(uuid[:], bytes)
+	return uuid, nil
 }

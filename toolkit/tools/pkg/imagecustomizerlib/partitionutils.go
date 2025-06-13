@@ -58,7 +58,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
-	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, 0, "", true)
+	efiSystemPartitionMount, err := safemount.NewMount(efiSystemPartition.Path, tmpDir, efiSystemPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount EFI system partition:\n%w", err)
 	}
@@ -130,7 +130,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		}
 
 		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, 0,
+		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
 			"", true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
@@ -173,7 +173,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, 0, "",
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
 		true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
@@ -199,7 +199,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+	buildDir string, readonly bool,
 ) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -214,10 +214,17 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 			return nil, nil, nil, err
 		}
 
-		// Unset read-only flag so that read-only partitions can be customized.
-		// Unset noexec flag so that if rootfs is set as noexec, image can still be customized. For example, allowing
-		// grub2-mkconfig to be called.
-		vfsOptions := fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
+		var vfsOptions diskutils.MountFlags
+		if readonly {
+			// In scenarios where the image has completed customization (e.g. when the image is re-mounted for injection),
+			// force read-only mount. Since we're only reading data, execution and write permissions aren't needed.
+			vfsOptions = fstabEntry.VfsOptions | diskutils.MountFlags(unix.MS_RDONLY)
+		} else {
+			// Unset read-only flag so that read-only partitions can be customized.Add commentMore actions
+			// Unset noexec flag so that if rootfs is set as noexec, image can still be customized. For example, allowing
+			// grub2-mkconfig to be called.
+			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
+		}
 
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
