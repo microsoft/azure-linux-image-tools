@@ -82,13 +82,13 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 	return false, nil
 }
 
-func findKernelVersion(imageRootDir string) (kernelVersion string, err error) {
+func findKernelVersions(imageRootDir string) (kernelVersions []string, err error) {
 	const kernelModulesDir = "/usr/lib/modules"
 
 	kernelParentPath := filepath.Join(imageRootDir, kernelModulesDir)
 	kernelDirs, err := os.ReadDir(kernelParentPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to enumerate kernels under (%s):\n%w", kernelParentPath, err)
+		return nil, fmt.Errorf("failed to enumerate kernels under (%s):\n%w", kernelParentPath, err)
 	}
 
 	// Filter out directories that are empty.
@@ -98,7 +98,7 @@ func findKernelVersion(imageRootDir string) (kernelVersion string, err error) {
 		kernelPath := filepath.Join(kernelParentPath, kernelDir.Name())
 		empty, err := file.IsDirEmpty(kernelPath)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if !empty {
@@ -107,14 +107,15 @@ func findKernelVersion(imageRootDir string) (kernelVersion string, err error) {
 	}
 
 	if len(filteredKernelDirs) == 0 {
-		return "", fmt.Errorf("did not find any kernels installed under (%s)", kernelModulesDir)
+		return nil, fmt.Errorf("did not find any kernels installed under (%s)", kernelModulesDir)
 	}
-	if len(filteredKernelDirs) > 1 {
-		return "", fmt.Errorf("unsupported scenario: found more than one kernel under (%s)", kernelModulesDir)
+	for _, filteredKernelDir := range filteredKernelDirs {
+		kernelVersion := filteredKernelDir.Name()
+		logger.Log.Debugf("Found installed kernel version (%s)", kernelVersion)
+		kernelVersions = append(kernelVersions, kernelVersion)
 	}
-	kernelVersion = filteredKernelDirs[0].Name()
-	logger.Log.Debugf("Found installed kernel version (%s)", kernelVersion)
-	return kernelVersion, nil
+	// ToDo: ensure the list is sorted
+	return kernelVersions, nil
 }
 
 func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
@@ -240,6 +241,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		}
 
 		if strings.HasPrefix(filepath.Base(targetPath), vmLinuzPrefix) {
+			logger.Log.Infof("-- debug -- store found (%s)", targetPath)
 			targetPath = filepath.Join(filepath.Dir(targetPath), "vmlinuz")
 			filesStore.vmlinuzPath = targetPath
 			scheduleAdditionalFile = false
@@ -327,15 +329,16 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
-	kernelVersion, err := findKernelVersion(imageRootDir)
+	kernelVersions, err := findKernelVersions(imageRootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine kernel version from (%s):\n%w", imageRootDir, err)
 	}
-	infoStore.kernelVersion = kernelVersion
+	infoStore.kernelVersion = kernelVersions[len(kernelVersions)-1]
+	logger.Log.Infof("Selecting kernel version (%s)", infoStore.kernelVersion)
 
 	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
 	if chroot == nil {
-		return nil, fmt.Errorf("failed to create a new chroot object for (%s).", imageRootDir)
+		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", imageRootDir)
 	}
 	defer chroot.Close(true /*leaveOnDisk*/)
 
