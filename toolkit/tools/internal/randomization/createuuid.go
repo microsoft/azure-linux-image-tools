@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-package imagecustomizerlib
+package randomization
 
 import (
 	"crypto/rand"
@@ -15,7 +15,7 @@ const (
 )
 
 // Create the uuid and return byte array and string representation
-func createUuid() ([UuidSize]byte, string, error) {
+func CreateUuid() ([UuidSize]byte, string, error) {
 	uuid, err := generateRandom128BitNumber()
 	if err != nil {
 		return uuid, "", err

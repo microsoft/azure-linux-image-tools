@@ -10,6 +10,10 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 )
 
+const (
+	buildTimeFormat = "2006-01-02T15:04:05Z"
+)
+
 func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
@@ -18,14 +22,14 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 
 	imageChroot := imageConnection.Chroot()
 
-	buildTime := time.Now().Format("2006-01-02T15:04:05Z")
+	buildTime := time.Now().Format(buildTimeFormat)
 
 	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, rpmsSources,
+	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
@@ -73,7 +77,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry)
+	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}

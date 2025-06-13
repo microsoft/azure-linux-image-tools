@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +27,7 @@ func TestAddCustomizerRelease(t *testing.T) {
 
 	expectedVersion := "0.1.0"
 	expectedDate := time.Now().Format("2006-01-02T15:04:05Z")
-	_, expectedUuid, err := createUuid()
+	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
 	err = addCustomizerRelease(proposedDir, expectedVersion, expectedDate, expectedUuid)

@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -40,6 +41,10 @@ const (
 
 	diskFreeWarnThresholdBytes   = 500 * diskutils.MiB
 	diskFreeWarnThresholdPercent = 0.05
+	toolsRootImageDir            = "_imageroot"
+	toolsRoot                    = "toolsroot"
+	imageRoot                    = "imageroot"
+	toolsRoot                    = "toolsroot"
 
 	OtelTracerName = "imagecustomizerlib"
 )
@@ -76,7 +81,7 @@ type ImageCustomizerParameters struct {
 	outputImageDir    string
 	outputImageBase   string
 
-	imageUuid    [UuidSize]byte
+	imageUuid    [randomization.UuidSize]byte
 	imageUuidStr string
 
 	baseImageVerityMetadata []verityDeviceMetadata
@@ -123,7 +128,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
 
 	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := createUuid()
+	imageUuid, imageUuidStr, err := randomization.CreateUuid()
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +243,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	)
 	defer span.End()
 
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
+	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -617,17 +622,19 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 	}
 }
 
-func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string,
+func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
+	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
 ) error {
 	err := config.IsValid()
 	if err != nil {
 		return err
 	}
 
-	err = validateInput(baseConfigPath, config.Input, inputImageFile)
-	if err != nil {
-		return err
+	if !newImage {
+		err = validateInput(baseConfigPath, config.Input, inputImageFile)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = validateIsoConfig(baseConfigPath, config.Iso)
@@ -859,7 +866,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
-		buildDir, "imageroot", true)
+		buildDir, imageRoot, true)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}

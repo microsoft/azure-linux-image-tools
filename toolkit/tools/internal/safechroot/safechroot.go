@@ -670,7 +670,6 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 			umountErr := unix.Unmount(fullPath, unmountFlags)
 			return umountErr
 		}, totalAttempts, retryDuration, 2.0)
-
 		if err != nil {
 			err = fmt.Errorf("failed to unmount (%s):\n%w", fullPath, err)
 			return
@@ -687,23 +686,23 @@ func (c *Chroot) unmountAndRemove(leaveOnDisk, lazyUnmount bool) (err error) {
 // defaultMountPoints returns a new copy of the default mount points used by a functional chroot
 func defaultMountPoints() []*MountPoint {
 	return []*MountPoint{
-		&MountPoint{
+		{
 			target: "/dev",
 			fstype: "devtmpfs",
 		},
-		&MountPoint{
+		{
 			target: "/proc",
 			fstype: "proc",
 		},
-		&MountPoint{
+		{
 			target: "/sys",
 			fstype: "sysfs",
 		},
-		&MountPoint{
+		{
 			target: "/run",
 			fstype: "tmpfs",
 		},
-		&MountPoint{
+		{
 			target: "/dev/pts",
 			fstype: "devpts",
 			data:   "gid=5,mode=620",
