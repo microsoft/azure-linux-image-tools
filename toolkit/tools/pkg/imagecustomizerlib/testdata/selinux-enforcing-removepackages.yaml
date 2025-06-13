@@ -1,0 +1,7 @@
+os:
+  selinux:
+    mode: enforcing
+
+  packages:
+    remove:
+    - selinux-policy
