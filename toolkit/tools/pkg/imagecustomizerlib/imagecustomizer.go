@@ -74,7 +74,6 @@ type ImageCustomizerParameters struct {
 	outputIsPxe       bool
 	outputImageFile   string
 	outputImageDir    string
-	outputImageBase   string
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
@@ -163,7 +162,6 @@ func createImageCustomizerParameters(buildDir string,
 		ic.outputImageFile = file.GetAbsPathWithBase(configPath, config.Output.Image.Path)
 	}
 
-	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
 	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxeDir ||
