@@ -5,9 +5,12 @@ package osmodifierlib
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/osmodifierapi"
@@ -37,12 +40,14 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		return err
 	}
 
-	// Only initialize BootCustomizer if any GRUB-related settings are present
-	needsBootCustomizer := osConfig.KernelCommandLine.ExtraCommandLine != nil ||
+	// Add a check to make sure BootCustomizer can be initialized
+	grubExists := grubConfigSupportExists(dummyChroot)
+
+	needsBootCustomizer := grubExists && (osConfig.KernelCommandLine.ExtraCommandLine != nil ||
 		osConfig.Overlays != nil ||
 		osConfig.SELinux.Mode != "" ||
 		osConfig.Verity != nil ||
-		osConfig.RootDevice != ""
+		osConfig.RootDevice != "")
 
 	var bootCustomizer *imagecustomizerlib.BootCustomizer
 	if needsBootCustomizer {
@@ -50,53 +55,50 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		if err != nil {
 			return err
 		}
-	}
 
-	updateGrubRequired := false
-
-	if osConfig.KernelCommandLine.ExtraCommandLine != nil {
-		err = bootCustomizer.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine)
-		if err != nil {
-			return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
+		if osConfig.KernelCommandLine.ExtraCommandLine != nil {
+			err = bootCustomizer.AddKernelCommandLine(osConfig.KernelCommandLine.ExtraCommandLine)
+			if err != nil {
+				return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
+			}
 		}
-		updateGrubRequired = true
-	}
 
-	if osConfig.Overlays != nil {
-		err = updateGrubConfigForOverlay(*osConfig.Overlays, bootCustomizer)
-		if err != nil {
-			return err
+		if osConfig.Overlays != nil {
+			err = updateGrubConfigForOverlay(*osConfig.Overlays, bootCustomizer)
+			if err != nil {
+				return err
+			}
 		}
-		updateGrubRequired = true
-	}
 
-	if osConfig.SELinux.Mode != "" {
-		err = handleSELinux(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
-		if err != nil {
-			return err
+		if osConfig.Verity != nil {
+			err = updateDefaultGrubForVerity(osConfig.Verity, bootCustomizer)
+			if err != nil {
+				return err
+			}
 		}
-		updateGrubRequired = true
-	}
 
-	if osConfig.Verity != nil {
-		err = updateDefaultGrubForVerity(osConfig.Verity, bootCustomizer)
-		if err != nil {
-			return err
+		if osConfig.RootDevice != "" {
+			err = bootCustomizer.SetRootDevice(osConfig.RootDevice)
+			if err != nil {
+				return err
+			}
 		}
-		updateGrubRequired = true
-	}
 
-	if osConfig.RootDevice != "" {
-		err = bootCustomizer.SetRootDevice(osConfig.RootDevice)
-		if err != nil {
-			return err
+		if osConfig.SELinux.Mode != "" {
+			err = updateSELinuxForGrubBasedBoot(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
+			if err != nil {
+				return err
+			}
 		}
-		updateGrubRequired = true
-	}
 
-	// Write changes to file only if GRUB needs updating
-	if updateGrubRequired {
 		err = bootCustomizer.WriteToFile(dummyChroot)
+		if err != nil {
+			return err
+		}
+	}
+
+	if osConfig.SELinux.Mode != "" && !grubExists {
+		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
 		if err != nil {
 			return err
 		}
@@ -160,30 +162,59 @@ func updateGrubConfigForOverlay(overlays []osmodifierapi.Overlay, bootCustomizer
 	return nil
 }
 
-func handleSELinux(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, dummyChroot safechroot.ChrootInterface) error {
-	var err error
-	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(dummyChroot)
-	if err != nil {
-		return fmt.Errorf("failed to get current SELinux mode:\n%w", err)
-	}
-
-	if selinuxMode == imagecustomizerapi.SELinuxModeDefault || selinuxMode == currentSELinuxMode {
-		// Don't need to change the configured SELinux mode.
+func updateSELinuxForUkiBoot(selinuxMode imagecustomizerapi.SELinuxMode, installChroot safechroot.ChrootInterface) error {
+	if selinuxMode == imagecustomizerapi.SELinuxModeDefault {
 		return nil
 	}
 
-	logger.Log.Infof("Configuring SELinux mode")
+	logger.Log.Infof("Applying SELinux mode ('%s') for UKI-based system", selinuxMode)
+
+	err := imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot)
+	if err != nil {
+		return fmt.Errorf("failed to update SELinux mode in config file: %w", err)
+	}
+
+	return nil
+}
+
+func updateSELinuxForGrubBasedBoot(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, installChroot safechroot.ChrootInterface) error {
+	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(installChroot)
+	if err != nil {
+		return fmt.Errorf("failed to get current SELinux mode: %w", err)
+	}
+
+	if selinuxMode == imagecustomizerapi.SELinuxModeDefault || selinuxMode == currentSELinuxMode {
+		return nil
+	}
+
+	logger.Log.Infof("Updating SELinux mode from ('%s') to ('%s') for GRUB-based system", currentSELinuxMode, selinuxMode)
 
 	err = bootCustomizer.UpdateSELinuxCommandLineForEMU(selinuxMode)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update SELinux kernel cmdline: %w", err)
 	}
 
-	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, dummyChroot)
+	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot)
 	if err != nil {
-		return fmt.Errorf("failed to update /etc/selinux/config:\n%w", err)
+		return fmt.Errorf("failed to update SELinux mode in config file: %w", err)
 	}
 
-	// No need to set SELinux labels here as in trident there is reset labels at the end
 	return nil
+}
+
+func grubConfigSupportExists(installChroot safechroot.ChrootInterface) bool {
+	cfgPath := filepath.Join(installChroot.RootDir(), installutils.GrubCfgFile)
+	defPath := filepath.Join(installChroot.RootDir(), installutils.GrubDefFile)
+
+	cfgExists := false
+	if _, err := os.Stat(cfgPath); err == nil {
+		cfgExists = true
+	}
+
+	defExists := false
+	if _, err := os.Stat(defPath); err == nil {
+		defExists = true
+	}
+
+	return cfgExists && defExists
 }
