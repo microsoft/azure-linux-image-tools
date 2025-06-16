@@ -5,11 +5,14 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 const (
 	DeviceMapperPath = "/dev/mapper"
+	bootMountPoint   = "/boot"
 
 	VerityRootDeviceName = "root"
 	VerityUsrDeviceName  = "usr"
@@ -95,6 +98,14 @@ func (v *Verity) IsValid() error {
 	if v.HashSignaturePath != "" {
 		if err := validatePath(v.HashSignaturePath); err != nil {
 			return fmt.Errorf("invalid hashSignaturePath:\n%w", err)
+		}
+
+		sigPath := filepath.Clean(v.HashSignaturePath)
+		if !strings.HasPrefix(sigPath, bootMountPoint+"/") {
+			return fmt.Errorf(
+				"verity.hashSignaturePath (%s) must be located under /boot mount point (%s)",
+				sigPath, bootMountPoint,
+			)
 		}
 	}
 

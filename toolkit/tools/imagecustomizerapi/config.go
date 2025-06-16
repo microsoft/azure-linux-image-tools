@@ -101,9 +101,12 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
-	if slices.ContainsFunc(c.Storage.Verity, func(v Verity) bool {
+	// Check if any verity entry has a non-empty hash signature path.
+	hasVerityHashSignature := slices.ContainsFunc(c.Storage.Verity, func(v Verity) bool {
 		return v.HashSignaturePath != ""
-	}) {
+	})
+
+	if hasVerityHashSignature {
 		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputArtifacts) {
 			return fmt.Errorf("the 'output-artifacts' preview feature must be enabled to use 'verity.hashSignaturePath'")
 		}
