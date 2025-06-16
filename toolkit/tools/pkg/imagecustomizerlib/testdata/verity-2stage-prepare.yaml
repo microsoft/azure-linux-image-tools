@@ -62,6 +62,7 @@ os:
     install:
     - openssh-server
     - veritysetup
+    - device-mapper
     - vim
 
   services:

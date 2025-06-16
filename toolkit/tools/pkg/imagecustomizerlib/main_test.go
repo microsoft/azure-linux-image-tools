@@ -24,7 +24,8 @@ const (
 	baseImageVersionAzl3 = "3.0"
 
 	// Azure Linux variants
-	baseImageVariantCoreEfi = "core-efi"
+	baseImageVariantCoreEfi   = "core-efi"
+	baseImageVariantBareMetal = "bare-metal"
 )
 
 type testBaseImageInfo struct {
@@ -55,20 +56,44 @@ var (
 		Param:     baseImageCoreEfiAzl3,
 	}
 
+	testBaseImageAzl2BareMetal = testBaseImageInfo{
+		Name:      "AzureLinux2BareMetal",
+		Distro:    baseImageDistroAzureLinux,
+		Version:   baseImageVersionAzl2,
+		Variant:   baseImageVariantBareMetal,
+		ParamName: "base-image-bare-metal-azl2",
+		Param:     baseImageBareMetalAzl2,
+	}
+
+	testBaseImageAzl3BareMetal = testBaseImageInfo{
+		Name:      "AzureLinux3BareMetal",
+		Distro:    baseImageDistroAzureLinux,
+		Version:   baseImageVersionAzl3,
+		Variant:   baseImageVariantBareMetal,
+		ParamName: "base-image-bare-metal-azl3",
+		Param:     baseImageBateMetalAzl3,
+	}
+
 	baseImageAll = []testBaseImageInfo{
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl3CoreEfi,
+		testBaseImageAzl2BareMetal,
+		testBaseImageAzl3BareMetal,
 	}
 
 	defaultBaseImagePriorityList = []testBaseImageInfo{
 		testBaseImageAzl2CoreEfi,
+		testBaseImageAzl2BareMetal,
 		testBaseImageAzl3CoreEfi,
+		testBaseImageAzl3BareMetal,
 	}
 )
 
 var (
-	baseImageCoreEfiAzl2 = flag.String("base-image-core-efi-azl2", "", "An Azure Linux 2.0 core-efi image to use as a base image.")
-	baseImageCoreEfiAzl3 = flag.String("base-image-core-efi-azl3", "", "An Azure Linux 3.0 core-efi image to use as a base image.")
+	baseImageCoreEfiAzl2   = flag.String("base-image-core-efi-azl2", "", "An Azure Linux 2.0 core-efi image to use as a base image.")
+	baseImageCoreEfiAzl3   = flag.String("base-image-core-efi-azl3", "", "An Azure Linux 3.0 core-efi image to use as a base image.")
+	baseImageBareMetalAzl2 = flag.String("base-image-bare-metal-azl2", "", "An Azure Linux 2.0 bare-metal image to use as a base image.")
+	baseImageBateMetalAzl3 = flag.String("base-image-bare-metal-azl3", "", "An Azure Linux 3.0 bare-metal image to use as a base image.")
 )
 
 var (
