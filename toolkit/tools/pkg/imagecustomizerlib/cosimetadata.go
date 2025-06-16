@@ -1,12 +1,48 @@
 package imagecustomizerlib
 
+type BootloaderType string
+
+const (
+	BootloaderGrub        BootloaderType = "grub"
+	BootloaderSystemdBoot BootloaderType = "systemd-boot"
+)
+
+type SystemDBootEntryType string
+
+const (
+	EntryTypeUKIStandalone SystemDBootEntryType = "uki-standalone"
+	EntryTypeUKIConfig     SystemDBootEntryType = "uki-config"
+	EntryTypeConfig        SystemDBootEntryType = "config"
+)
+
+type SystemDBootEntry struct {
+	Type    SystemDBootEntryType `json:"type"`
+	Path    string               `json:"path"`
+	Cmdline string               `json:"cmdline"`
+	Kernel  string               `json:"kernel"`
+}
+
+type SystemDBoot struct {
+	Entries []SystemDBootEntry `json:"entries"`
+}
+
+type CosiBootloader struct {
+	Type        BootloaderType `json:"type"`
+	SystemdBoot *SystemDBoot   `json:"systemdBoot,omitempty"`
+}
+
+type Metadata struct {
+	Bootloader CosiBootloader `json:"bootloader"`
+}
+
 type MetadataJson struct {
-	Version    string       `json:"version"`
-	OsArch     string       `json:"osArch"`
-	Images     []FileSystem `json:"images"`
-	OsRelease  string       `json:"osRelease"`
-	Id         string       `json:"id"`
-	OsPackages []OsPackage  `json:"osPackages"`
+	Version    string          `json:"version"`
+	OsArch     string          `json:"osArch"`
+	Images     []FileSystem    `json:"images"`
+	OsRelease  string          `json:"osRelease"`
+	Id         string          `json:"id"`
+	OsPackages []OsPackage     `json:"osPackages"`
+	Bootloader *CosiBootloader `json:"bootloader"`
 }
 
 type FileSystem struct {

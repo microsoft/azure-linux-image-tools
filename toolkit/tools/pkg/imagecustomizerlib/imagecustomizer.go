@@ -85,6 +85,7 @@ type ImageCustomizerParameters struct {
 	partUuidToFstabEntry map[string]diskutils.FstabEntry
 	osRelease            string
 	osPackages           []OsPackage
+	cosiBootMetadata     *CosiBootloader
 }
 
 type verityDeviceMetadata struct {
@@ -464,7 +465,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
+	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
 		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime)
 	if err != nil {
 		return err
@@ -483,6 +484,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	ic.baseImageVerityMetadata = baseImageVerityMetadata
 	ic.osRelease = osRelease
 	ic.osPackages = osPackages
+	ic.cosiBootMetadata = cosiBootMetadata
 
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
@@ -855,25 +857,25 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, packageSnapshotTime string,
-) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, error) {
+) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, *CosiBootloader, error) {
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
 		buildDir, "imageroot", true)
 	if err != nil {
-		return nil, nil, "", nil, err
+		return nil, nil, "", nil, nil, err
 	}
 	defer imageConnection.Close()
 
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, err
+		return nil, nil, "", nil, nil, err
 	}
 
 	// Extract OS release info from rootfs for COSI
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+		return nil, nil, "", nil, nil, fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
@@ -885,27 +887,32 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
 	if err != nil {
-		return nil, nil, "", nil, fmt.Errorf("verity validation failed:\n%w", err)
+		return nil, nil, "", nil, nil, fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
 	// Do the actual customizations.
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
 		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
 
+	cosiBootMetadata, err := extractCosiBootMetadata(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, nil, fmt.Errorf("failed to extract bootloader metadata:\n%w", err)
+	}
+
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
 	warnOnLowFreeSpace(buildDir, imageConnection)
 
 	if err != nil {
-		return nil, nil, "", nil, err
+		return nil, nil, "", nil, nil, err
 	}
 
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, nil, "", nil, err
+		return nil, nil, "", nil, nil, err
 	}
 
-	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, nil
+	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, nil
 }
 
 func shrinkFilesystemsHelper(buildImageFile string) error {

@@ -5,12 +5,9 @@ package osmodifierlib
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/osmodifierapi"
@@ -41,7 +38,7 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 	}
 
 	// Add a check to make sure BootCustomizer can be initialized
-	grubExists := grubConfigSupportExists(dummyChroot)
+	grubExists := imagecustomizerlib.GrubConfigSupportExists(dummyChroot)
 
 	needsBootCustomizer := grubExists && (osConfig.KernelCommandLine.ExtraCommandLine != nil ||
 		osConfig.Overlays != nil ||
@@ -200,21 +197,4 @@ func updateSELinuxForGrubBasedBoot(selinuxMode imagecustomizerapi.SELinuxMode, b
 	}
 
 	return nil
-}
-
-func grubConfigSupportExists(installChroot safechroot.ChrootInterface) bool {
-	cfgPath := filepath.Join(installChroot.RootDir(), installutils.GrubCfgFile)
-	defPath := filepath.Join(installChroot.RootDir(), installutils.GrubDefFile)
-
-	cfgExists := false
-	if _, err := os.Stat(cfgPath); err == nil {
-		cfgExists = true
-	}
-
-	defExists := false
-	if _, err := os.Stat(defPath); err == nil {
-		defExists = true
-	}
-
-	return cfgExists && defExists
 }
