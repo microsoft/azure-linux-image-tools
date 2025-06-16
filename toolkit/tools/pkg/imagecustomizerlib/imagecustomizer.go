@@ -535,7 +535,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
 		err := convertToCosi(ic.buildDirAbs, ic.rawImageFile, ic.outputImageFile, ic.partUuidToFstabEntry,
-			ic.baseImageVerityMetadata, ic.osRelease, ic.osPackages, ic.imageUuid, ic.imageUuidStr)
+			ic.verityMetadata, ic.osRelease, ic.osPackages, ic.imageUuid, ic.imageUuidStr)
 		if err != nil {
 			return err
 		}
