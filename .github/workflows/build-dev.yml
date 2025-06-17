@@ -5,6 +5,9 @@ name: Build (dev)
 
 permissions:
   contents: read
+  # Report test results.
+  actions: read
+  checks: write
 
 on:
   pull_request:
@@ -15,7 +18,13 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  build:
-    uses: ./.github/workflows/build.yml
+  # build:
+  #  uses: ./.github/workflows/build.yml
+  #  with:
+  #    publishType: dev
+
+  tests:
+    uses: ./.github/workflows/tests.yml
     with:
-      publishType: dev
+      runFunctionalTests: true
+      runVMTests: true
