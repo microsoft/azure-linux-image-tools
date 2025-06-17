@@ -37,6 +37,7 @@ jobs:
         set -eux
 
         df -h
+        lsblk
 
     - name: setup go 1.x
       uses: actions/setup-go@v5
