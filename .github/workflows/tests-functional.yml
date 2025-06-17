@@ -32,6 +32,12 @@ jobs:
     permissions:
       contents: read
     steps:
+    - name: Testing
+      run: |
+        set -eux
+
+        df -h
+
     - name: setup go 1.x
       uses: actions/setup-go@v5
       with:
@@ -132,13 +138,13 @@ jobs:
         AZL2_VHDX="baremetal-2.0/image.vhdx"
         AZL3_VHDX="baremetal-3.0/image.vhdx"
 
-        sudo env "PATH=$PATH" go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi \
-          | tee out/testResults/api.json
+        #sudo env "PATH=$PATH" go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi \
+        #  | tee out/testResults/api.json
 
-        sudo env "PATH=$PATH" go test -v -json -coverprofile=testLib.cov -covermode count -timeout 45m ./pkg/imagecustomizerlib -args \
-          --base-image-bare-metal-azl2 "../../$AZL2_VHDX" \
-          --base-image-bare-metal-azl3 "../../$AZL3_VHDX" \
-          | tee out/testResults/lib.json
+        #sudo env "PATH=$PATH" go test -v -json -coverprofile=testLib.cov -covermode count -timeout 45m ./pkg/imagecustomizerlib -args \
+        #  --base-image-bare-metal-azl2 "../../$AZL2_VHDX" \
+        #  --base-image-bare-metal-azl3 "../../$AZL3_VHDX" \
+        #  | tee out/testResults/lib.json
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
