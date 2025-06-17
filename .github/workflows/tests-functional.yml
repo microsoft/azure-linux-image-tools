@@ -129,20 +129,16 @@ jobs:
 
         pushd repo/toolkit/tools
 
-        AZL2_VHDX="./baremetal-2.0/image.vhdx"
-        AZL3_VHDX="./baremetal-3.0/image.vhdx"
-
-        ERR=0
+        AZL2_VHDX="baremetal-2.0/image.vhdx"
+        AZL3_VHDX="baremetal-3.0/image.vhdx"
 
         sudo env "PATH=$PATH" go test -v -json -coverprofile=testApi.cov -covermode count ./imagecustomizerapi \
-          > out/testResults/api.json || ERR=$(($ERR | 1))
+          | tee out/testResults/api.json
 
         sudo env "PATH=$PATH" go test -v -json -coverprofile=testLib.cov -covermode count -timeout 45m ./pkg/imagecustomizerlib -args \
-          --base-image-bare-metal-azl2 "$AZL2_VHDX" \
-          --base-image-bare-metal-azl3 "$AZL3_VHDX" \
-          > out/testResults/lib.json || ERR=$(($ERR | 2))
-
-        exit $ERR
+          --base-image-bare-metal-azl2 "../../$AZL2_VHDX" \
+          --base-image-bare-metal-azl3 "../../$AZL3_VHDX" \
+          | tee out/testResults/lib.json
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
