@@ -99,7 +99,7 @@ jobs:
         mkdir ./oras
         tar -C ./oras -xf oras.tar.gz
 
-        mv ./oras/oras /usr/local/bin
+        sudo mv ./oras/oras /usr/local/bin
 
     - name: Download base images
       run: |
