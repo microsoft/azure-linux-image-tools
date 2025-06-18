@@ -133,7 +133,7 @@ func supportVerityHashSignature(verityList []imagecustomizerapi.Verity, imageChr
 			return fmt.Errorf("failed to add dracut modules for verity hash signature support:\n%w", err)
 		}
 
-		err = InstallVerityMountBootPartitionDracutModule(imageChroot.RootDir())
+		err = installVerityMountBootPartitionDracutModule(imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to install verity dracut scripts:\n%w", err)
 		}
@@ -144,7 +144,7 @@ func supportVerityHashSignature(verityList []imagecustomizerapi.Verity, imageChr
 	return nil
 }
 
-func InstallVerityMountBootPartitionDracutModule(installRoot string) error {
+func installVerityMountBootPartitionDracutModule(installRoot string) error {
 	targetDir := filepath.Join(installRoot, VerityMountBootPartitionModuleDir)
 
 	filesToInstall := map[string]string{
