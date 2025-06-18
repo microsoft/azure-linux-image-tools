@@ -5,11 +5,14 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 const (
 	DeviceMapperPath = "/dev/mapper"
+	bootMountPoint   = "/boot"
 
 	VerityRootDeviceName = "root"
 	VerityUsrDeviceName  = "usr"
@@ -50,6 +53,9 @@ type Verity struct {
 	// How to handle corruption.
 	CorruptionOption CorruptionOption `yaml:"corruptionOption" json:"corruptionOption,omitempty"`
 
+	// Path to the root hash signature to inject into the image.
+	HashSignaturePath string `yaml:"hashSignaturePath" json:"hashSignaturePath,omitempty"`
+
 	// The mount point of the verity device.
 	// Value is filled in by ValidateVerityMounts() (via Storage.IsValid() or validateVerityMountPaths()).
 	MountPath string `json:"-"`
@@ -87,6 +93,27 @@ func (v *Verity) IsValid() error {
 
 	if err := v.CorruptionOption.IsValid(); err != nil {
 		return fmt.Errorf("invalid corruptionOption:\n%w", err)
+	}
+
+	if v.HashSignaturePath != "" {
+		if err := validatePath(v.HashSignaturePath); err != nil {
+			return fmt.Errorf("invalid hashSignaturePath:\n%w", err)
+		}
+
+		sigPath := filepath.Clean(v.HashSignaturePath)
+		if sigPath != v.HashSignaturePath {
+			return fmt.Errorf(
+				"verity.hashSignaturePath (%s) is not normalized (cleaned path: %s). Please provide a canonical path",
+				v.HashSignaturePath, sigPath,
+			)
+		}
+
+		if !strings.HasPrefix(sigPath, bootMountPoint+"/") {
+			return fmt.Errorf(
+				"verity.hashSignaturePath (%s) must be located under /boot mount point (%s)",
+				sigPath, bootMountPoint,
+			)
+		}
 	}
 
 	return nil

@@ -94,6 +94,7 @@ type verityDeviceMetadata struct {
 	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	corruptionOption      imagecustomizerapi.CorruptionOption
+	hashSignaturePath     string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -301,8 +302,8 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	if config.Output.Artifacts != nil {
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
-			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile, baseConfigPath)
+		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
+			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata)
 		if err != nil {
 			return err
 		}
@@ -1014,6 +1015,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
 			corruptionOption:      verityConfig.CorruptionOption,
+			hashSignaturePath:     verityConfig.HashSignaturePath,
 		}
 		verityMetadata = append(verityMetadata, metadata)
 	}
@@ -1130,13 +1132,13 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 
 	if isUki {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}
