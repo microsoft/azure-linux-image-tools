@@ -105,6 +105,13 @@ const (
 
 	// Configuration files related to boot behavior. Users should be able to read these files, and root should have RW access.
 	bootUsrConfigFileMode = 0644
+
+	// Dracut module directory path for verity boot partition support.
+	VerityMountBootPartitionModuleDir = "/usr/lib/dracut/modules.d/90mountbootpartition"
+	// Standard permission mode for dracut module directories.
+	DracutModuleDirMode = 0755
+	// Standard permission mode for executable scripts in dracut modules.
+	DracutModuleScriptFileMode = 0755
 )
 
 // PackageList represents the list of packages to install into an image
@@ -2890,4 +2897,24 @@ func KernelPackages(config configuration.Config) []*pkgjson.PackageVer {
 		}
 	}
 	return packageList
+}
+
+func InstallVerityMountBootPartitionDracutModule(installRoot string) error {
+	targetDir := filepath.Join(installRoot, VerityMountBootPartitionModuleDir)
+
+	filesToInstall := map[string]string{
+		resources.VerityMountBootPartitionSetupFile:     filepath.Join(targetDir, "module-setup.sh"),
+		resources.VerityMountBootPartitionGeneratorFile: filepath.Join(targetDir, "mountbootpartition-generator.sh"),
+		resources.VerityMountBootPartitionGenRulesFile:  filepath.Join(targetDir, "mountbootpartition-genrules.sh"),
+		resources.VerityMountBootPartitionScriptFile:    filepath.Join(targetDir, "mountbootpartition.sh"),
+	}
+
+	for src, dst := range filesToInstall {
+		err := file.CopyResourceFile(resources.ResourcesFS, src, dst, DracutModuleDirMode, DracutModuleScriptFileMode)
+		if err != nil {
+			return fmt.Errorf("failed to install verity dracut file (%s): %w", dst, err)
+		}
+	}
+
+	return nil
 }

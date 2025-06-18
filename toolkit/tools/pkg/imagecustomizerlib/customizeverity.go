@@ -11,10 +11,17 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+)
+
+const (
+	systemdVerityDracutModule = "systemd-veritysetup"
+	dmVerityDracutDriver      = "dm-verity"
+	mountBootPartModule       = "mountbootpartition"
 )
 
 func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
@@ -33,8 +40,6 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 	}
 
 	// Integrate systemd veritysetup dracut module into initramfs img.
-	systemdVerityDracutModule := "systemd-veritysetup"
-	dmVerityDracutDriver := "dm-verity"
 	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
 	if err != nil {
 		return false, fmt.Errorf("failed to add dracut modules for verity:\n%w", err)
@@ -48,6 +53,11 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 	err = prepareGrubConfigForVerity(verity, imageChroot)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare grub config files for verity:\n%w", err)
+	}
+
+	err = supportVerityHashSignature(verity, imageChroot)
+	if err != nil {
+		return false, fmt.Errorf("failed to support hash signature for verity:\n%w", err)
 	}
 
 	return true, nil
@@ -100,6 +110,28 @@ func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChr
 
 	if err := bootCustomizer.WriteToFile(imageChroot); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func supportVerityHashSignature(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
+	for _, verity := range verityList {
+		if verity.HashSignaturePath == "" {
+			continue
+		}
+
+		err := addDracutModule(mountBootPartModule, imageChroot)
+		if err != nil {
+			return fmt.Errorf("failed to add dracut modules for verity hash signature support:\n%w", err)
+		}
+
+		err = installutils.InstallVerityMountBootPartitionDracutModule(imageChroot.RootDir())
+		if err != nil {
+			return fmt.Errorf("failed to install verity dracut scripts:\n%w", err)
+		}
+
+		break
 	}
 
 	return nil
