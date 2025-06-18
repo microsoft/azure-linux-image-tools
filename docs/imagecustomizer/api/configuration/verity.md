@@ -250,3 +250,30 @@ Supported values:
 Default value: `io-error`.
 
 Added in v0.7.
+
+## hashSignaturePath [string]
+
+Optional.
+
+Specifies the path where the signed verity hash file should be injected into the
+image. This path is typically used by the `systemd-veritysetup` module to verify
+the verity hash against a signature at boot time.
+
+- This path **must be located under the boot partition** for the current
+  version. For example, if the boot partition is mounted at `/boot`, then
+  `hashSignaturePath: /boot/root.hash.sig` will result in a destination of
+  `/root.hash.sig` relative to the boot partition during injection.
+
+- When this field is specified, Prism will output the corresponding unsigned
+  hash file (`verity-hash`) as an artifact if the
+  [`output.artifacts`](./outputArtifacts.md) API is configured.
+
+- The generated `inject-files.yaml` will include an entry to inject the signed
+  hash file to the specified path inside the boot partition.
+
+If `hashSignaturePath` is not configured for a given Verity entry, the verity
+hash file will not be output even if `verity-hash` is listed in the
+`output.artifacts.items`. Only Verity entries with `hashSignaturePath` defined
+will produce a `verity-hash` artifact.
+
+Added in v0.16.

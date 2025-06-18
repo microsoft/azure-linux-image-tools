@@ -42,6 +42,12 @@ injectFiles:
   destination: /EFI/systemd/systemd-bootx64.efi
   source: ./systemd-bootx64.signed.efi
   unsignedSource: ./systemd-bootx64.efi
+- partition:
+    idType: part-uuid
+    id: 5c0a7f80-0f9f-48f6-8bb1-d622022aaf24
+  destination: /root.hash.sig
+  source: ./root.hash.sig
+  unsignedSource: ./root.hash
 previewFeatures:
 - inject-files
 ```
