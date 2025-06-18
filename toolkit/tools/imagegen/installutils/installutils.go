@@ -2029,22 +2029,21 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 		err = installChroot.UnsafeRun(func() error {
 			// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
 			files := 0
-			lastFile := ""
 			onStdout := func(line string) {
 				files++
-				lastFile = line
 				if (files % 1000) == 0 {
-					ReportActionf("SELinux: labelled %d files", files)
+					logger.Log.Debugf("SELinux: labelled %d files", files)
 				}
 			}
 			err := shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
 				StdoutCallback(onStdout).
 				LogLevel(logrus.TraceLevel, logrus.WarnLevel).
+				ErrorStderrLines(1).
 				Execute()
 			if err != nil {
-				return fmt.Errorf("failed while labeling files (last file: %s) %w", lastFile, err)
+				return fmt.Errorf("setfiles failed:\n%w", err)
 			}
-			ReportActionf("SELinux: labelled %d files", files)
+			logger.Log.Debugf("SELinux: labelled %d files", files)
 			return err
 		})
 		if err != nil {
