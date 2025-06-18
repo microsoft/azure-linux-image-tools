@@ -98,15 +98,14 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 					return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 				}
 
-				signedName := replaceSuffix(entry.Name(), ".unsigned.efi", ".signed.efi")
+				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
 				source := "./" + signedName
 				unsignedSource := "./" + entry.Name()
-				destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
 
 				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 					Partition:      espInjectFilePartition,
 					Source:         source,
-					Destination:    filepath.Join("/", UkiOutputDir, destinationName),
+					Destination:    filepath.Join("/", UkiOutputDir, entry.Name()),
 					UnsignedSource: unsignedSource,
 				})
 			}

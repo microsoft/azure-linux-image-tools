@@ -474,7 +474,7 @@ func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubrele
 		return fmt.Errorf("failed to save INI file for kernel (%s):\n%w", kernelVersion, err)
 	}
 
-	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.unsigned.efi", kernel))
+	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.efi", kernel))
 
 	// Build the UKI using ukify.
 	ukifyCmd := []string{
