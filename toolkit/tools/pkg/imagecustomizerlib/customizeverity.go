@@ -11,9 +11,9 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/resources"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
@@ -22,6 +22,13 @@ const (
 	systemdVerityDracutModule = "systemd-veritysetup"
 	dmVerityDracutDriver      = "dm-verity"
 	mountBootPartModule       = "mountbootpartition"
+
+	// Dracut module directory path for verity boot partition support.
+	VerityMountBootPartitionModuleDir = "/usr/lib/dracut/modules.d/90mountbootpartition"
+	// Standard permission mode for dracut module directories.
+	DracutModuleDirMode = 0755
+	// Standard permission mode for executable scripts in dracut modules.
+	DracutModuleScriptFileMode = 0755
 )
 
 func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
@@ -126,12 +133,32 @@ func supportVerityHashSignature(verityList []imagecustomizerapi.Verity, imageChr
 			return fmt.Errorf("failed to add dracut modules for verity hash signature support:\n%w", err)
 		}
 
-		err = installutils.InstallVerityMountBootPartitionDracutModule(imageChroot.RootDir())
+		err = InstallVerityMountBootPartitionDracutModule(imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to install verity dracut scripts:\n%w", err)
 		}
 
 		break
+	}
+
+	return nil
+}
+
+func InstallVerityMountBootPartitionDracutModule(installRoot string) error {
+	targetDir := filepath.Join(installRoot, VerityMountBootPartitionModuleDir)
+
+	filesToInstall := map[string]string{
+		resources.VerityMountBootPartitionSetupFile:     filepath.Join(targetDir, "module-setup.sh"),
+		resources.VerityMountBootPartitionGeneratorFile: filepath.Join(targetDir, "mountbootpartition-generator.sh"),
+		resources.VerityMountBootPartitionGenRulesFile:  filepath.Join(targetDir, "mountbootpartition-genrules.sh"),
+		resources.VerityMountBootPartitionScriptFile:    filepath.Join(targetDir, "mountbootpartition.sh"),
+	}
+
+	for src, dst := range filesToInstall {
+		err := file.CopyResourceFile(resources.ResourcesFS, src, dst, DracutModuleDirMode, DracutModuleScriptFileMode)
+		if err != nil {
+			return fmt.Errorf("failed to install verity dracut file (%s): %w", dst, err)
+		}
 	}
 
 	return nil

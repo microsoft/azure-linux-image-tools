@@ -55,6 +55,7 @@ Supported values:
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
 - `systemd-boot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
 - `verity-hash` – Verity hash files associated with dm-verity protected partitions.
+  *Added in v0.16.*
 
 The `output.artifacts` field must be used with the `output-artifacts` enabled in `previewFeatures`.
 
@@ -64,9 +65,9 @@ Supported architectures for shim and systemd-boot include x64 and arm64,
 reflected in the `<arch>` portion of the filenames.
 
 The `verity-hash` artifact will only be output if the corresponding Verity entry
-defines a `hashSignaturePath`. If the `hashSignaturePath` is not configured,
-Image Customizer will skip generating the hash file for that Verity device. For
-more details, see the [`verity`](./verity.md) documentation.
+defines a [`hashSignaturePath`](./verity.md#hashsignaturepath-string). If the
+`hashSignaturePath` is not configured, Image Customizer will skip generating the
+hash file for that Verity device. For more details, see the
+[`verity`](./verity.md) documentation.
 
 Added in v0.14.
-`verity-hash` added in v0.16.

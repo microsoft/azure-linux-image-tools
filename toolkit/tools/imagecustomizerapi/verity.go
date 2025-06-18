@@ -101,6 +101,13 @@ func (v *Verity) IsValid() error {
 		}
 
 		sigPath := filepath.Clean(v.HashSignaturePath)
+		if sigPath != v.HashSignaturePath {
+			return fmt.Errorf(
+				"verity.hashSignaturePath (%s) is not normalized (cleaned path: %s). Please provide a canonical path",
+				v.HashSignaturePath, sigPath,
+			)
+		}
+
 		if !strings.HasPrefix(sigPath, bootMountPoint+"/") {
 			return fmt.Errorf(
 				"verity.hashSignaturePath (%s) must be located under /boot mount point (%s)",
