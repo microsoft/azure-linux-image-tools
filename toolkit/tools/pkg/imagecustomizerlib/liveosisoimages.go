@@ -97,7 +97,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 }
 
 func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
-	logger.Log.Infof("Creating bootstrap initrd")
+	logger.Log.Infof("Creating bootstrap initrd for %s", kernelVersion)
 
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
 	err := file.Write(dracutConfig, dracutConfigFile)
@@ -195,8 +195,8 @@ func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
 	return nil
 }
 
-func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStore *IsoFilesStore, baseConfigPath string,
-	additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string,
+func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outputFormat imagecustomizerapi.ImageFormatType,
+	filesStore *IsoFilesStore, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string,
 ) error {
 	err := os.RemoveAll(stagingDir)
 	if err != nil {
@@ -208,15 +208,44 @@ func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStor
 		return err
 	}
 
-	artifactsToLiveOSMap := []StageFile{
-		{
-			sourcePath:    filesStore.vmlinuzPath,
-			targetRelPath: "boot",
-		},
-		{
-			sourcePath:    filesStore.initrdImagePath,
-			targetRelPath: "boot",
-		},
+	artifactsToLiveOSMap := []StageFile{}
+
+	for kernelVersion, kernelFiles := range filesStore.kernelBootFiles {
+		logger.Log.Infof("-- staging (%s)", kernelVersion)
+		logger.Log.Infof("-- staging (%s)", kernelFiles.vmlinuzPath)
+		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+			StageFile{
+				sourcePath:    kernelFiles.vmlinuzPath,
+				targetRelPath: "boot",
+			})
+
+		for _, otherKernelFile := range kernelFiles.otherFiles {
+			logger.Log.Infof("-- staging (%s)", otherKernelFile)
+			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+				StageFile{
+					sourcePath:    otherKernelFile,
+					targetRelPath: "boot",
+				})
+		}
+	}
+
+	switch initramfsType {
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		logger.Log.Infof("-- staging (%s)", filesStore.initrdImagePath)
+		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+			StageFile{
+				sourcePath:    filesStore.initrdImagePath,
+				targetRelPath: "boot",
+			})
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		for _, kernelBootFiles := range filesStore.kernelBootFiles {
+			logger.Log.Infof("-- staging (%s)", kernelBootFiles.initrdImagePath)
+			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+				StageFile{
+					sourcePath:    kernelBootFiles.initrdImagePath,
+					targetRelPath: "boot",
+				})
+		}
 	}
 
 	switch outputFormat {
@@ -325,11 +354,12 @@ func stageLiveOSFiles(outputFormat imagecustomizerapi.ImageFormatType, filesStor
 	return nil
 }
 
-func createIsoImage(buildDir string, baseConfigPath string, filesStore *IsoFilesStore,
-	additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
+func createIsoImage(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType,
+	filesStore *IsoFilesStore, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "iso-staging")
 
-	err := stageLiveOSFiles(imagecustomizerapi.ImageFormatTypeIso, filesStore, baseConfigPath, additionalIsoFiles, stagingDir)
+	err := stageLiveOSFiles(initramfsType, imagecustomizerapi.ImageFormatTypeIso, filesStore,
+		baseConfigPath, additionalIsoFiles, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}

@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -60,20 +61,22 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update all the initrd file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 	} else {
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelPath, true /*allowMultiple*/)
+		logger.Log.Infof("-- debug -- isoKernelDir: %s", isoKernelDir)
+		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
-		}
-
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
-		if err != nil {
-			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
 		}
 	}
 
 	liveosKernelArgs := ""
 	switch initramfsImageType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		logger.Log.Infof("-- debug -- isoInitrdPath: %s", isoInitrdPath)
+		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
+		}
+
 		// Remove 'root' so that no pivoting takes place.
 		argsToRemove := []string{"root"}
 		newArgs := []string{}
@@ -82,6 +85,12 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		logger.Log.Infof("-- debug -- isoInitrdPath: %s", isoInitrdPath)
+		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoKernelDir, true /*allowMultiple*/)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
+		}
+
 		// Add Dracut live os parameters
 		liveosKernelArgs = fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
 	default:
@@ -103,6 +112,8 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	if err != nil {
 		return "", fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the live OS grub.cfg:\n%w", err)
 	}
+
+	inputContentString = strings.ReplaceAll(inputContentString, "timeout=0", "timeout=10")
 
 	return inputContentString, nil
 }
@@ -183,6 +194,7 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 		if err != nil {
 			return fmt.Errorf("failed to update %s:\n%w", inputGrubCfgPath, err)
 		}
+
 		err = file.Write(isoContentString, outputIsoGrubCfgPath)
 		if err != nil {
 			return fmt.Errorf("failed to write %s:\n%w", outputIsoGrubCfgPath, err)
