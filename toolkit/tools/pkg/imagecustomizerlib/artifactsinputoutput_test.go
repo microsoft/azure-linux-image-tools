@@ -164,8 +164,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// UKI(s)
 	for _, src := range ukiFiles {
-		signedName := filepath.Base(replaceSuffix(src, ".efi", ".signed.efi"))
-		expectedInjectedUKI := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "Linux", signedName)
+		expectedInjectedUKI := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "Linux", filepath.Base(src))
 
 		exists, err = file.PathExists(expectedInjectedUKI)
 		assert.NoError(t, err)
