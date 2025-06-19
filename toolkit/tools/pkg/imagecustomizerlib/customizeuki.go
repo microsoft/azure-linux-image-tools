@@ -33,9 +33,8 @@ const (
 	UkiOutputDir          = "EFI/Linux"
 )
 
-// Matches UKI filenames like "vmlinuz-<version>.efi" or "vmlinuz-<version>.unsigned.efi".
-// The ".unsigned" suffix is temporary and will be removed from the UKI filename in a future task.
-var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+?)(?:\.unsigned)?\.efi$`)
+// Matches UKI filenames like "vmlinuz-<version>.efi"
+var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
 	var err error
