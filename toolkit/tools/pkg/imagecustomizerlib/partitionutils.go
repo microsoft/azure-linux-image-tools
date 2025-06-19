@@ -434,7 +434,7 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 
-	corruptionOption, err := parseSystemdVerityOptions(options)
+	corruptionOption, hashSigPath, err := parseSystemdVerityOptions(options)
 	if err != nil {
 		err = fmt.Errorf("failed parse verity options (%s) kernel argument:\n%w", optionsArgName, err)
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
@@ -448,6 +448,7 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		dataDeviceMountIdType: dataIdType,
 		hashDeviceMountIdType: hashIdType,
 		corruptionOption:      corruptionOption,
+		hashSignaturePath:     hashSigPath,
 	}
 
 	return dataPartition, dataPartitionIndex, verityMetadata, nil

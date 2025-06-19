@@ -166,19 +166,35 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 }
 
 func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageSELinuxNoPolicy")
 	buildDir := filepath.Join(testTmpDir, "build")
-	configFile := filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
-	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
+	outImageFilePath := filepath.Join(testTmpDir, "image.qcow2")
+
+	configFile := ""
+	switch baseImageInfo.Variant {
+	case baseImageVariantCoreEfi:
+		configFile = filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
+	case baseImageVariantBareMetal:
+		configFile = filepath.Join(testDir, "selinux-enforcing-removepackages.yaml")
+	}
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "SELinux is enabled but the (/etc/selinux/config) file is missing")
-	assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
-	assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
+
+	switch baseImageInfo.Variant {
+	case baseImageVariantCoreEfi:
+		assert.ErrorContains(t, err, "SELinux is enabled but the (/etc/selinux/config) file is missing")
+		assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
+		assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
+
+	case baseImageVariantBareMetal:
+		// The /etc/selinux/config file survives the removal of the selinux-policy package.
+		// So, the error is different.
+		assert.ErrorContains(t, err, "etc/selinux/targeted/contexts/files/file_contexts: No such file or directory")
+	}
 }
 
 func verifyKernelCommandLine(t *testing.T, imageConnection *ImageConnection, existsArgs []string,
