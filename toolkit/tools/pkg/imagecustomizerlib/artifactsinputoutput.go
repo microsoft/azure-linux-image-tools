@@ -100,15 +100,14 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 					return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 				}
 
-				signedName := replaceSuffix(entry.Name(), ".unsigned.efi", ".signed.efi")
+				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
 				source := "./" + signedName
 				unsignedSource := "./" + entry.Name()
-				destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
 
 				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 					Partition:      espInjectFilePartition,
 					Source:         source,
-					Destination:    filepath.Join("/", UkiOutputDir, destinationName),
+					Destination:    filepath.Join("/", UkiOutputDir, entry.Name()),
 					UnsignedSource: unsignedSource,
 				})
 			}
@@ -364,7 +363,12 @@ func prepareImageConversionData(rawImageFile string, buildDir string,
 	}
 	defer imageConnection.Close()
 
-	osRelease, osPackages, err := collectOSInfo(imageConnection)
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", err
+	}
+
+	osPackages, err := collectOSInfo(imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", err
 	}

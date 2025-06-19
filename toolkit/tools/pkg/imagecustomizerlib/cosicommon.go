@@ -312,6 +312,10 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
+	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
+		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
+	}
+
 	var out string
 	err := imageConnection.Chroot().UnsafeRun(func() error {
 		var err error
