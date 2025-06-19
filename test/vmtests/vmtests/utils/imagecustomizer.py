@@ -14,6 +14,9 @@ from .closeable import Closeable
 from .docker_utils import container_run
 from .file_utils import RemoveFileOnClose
 
+# App Insights Staging Connection String.
+AZURE_CONN_STR = "InstrumentationKey=e0c67213-5e25-4ef2-8f93-c283e8b93629;IngestionEndpoint=https://eastus2-3.in.applicationinsights.azure.com/;ApplicationId=f215fd6d-af24-4bd3-acfa-212cb0c916dc"
+
 
 # Run the containerized version of the imagecustomizer tool.
 def run_image_customizer(
@@ -68,7 +71,23 @@ def run_image_customizer(
         "/dev:/dev",
     ]
 
-    container_run(docker_client, image_customizer_container_url, args, detach=True, privileged=True, volumes=volumes)
+    environment = {
+        "ENABLE_TELEMETRY": "true",
+        "AZURE_MONITOR_CONNECTION_STRING": AZURE_CONN_STR,
+    }
+
+    entrypoint = "/usr/local/bin/entrypoint.sh"
+
+    container_run(
+        docker_client,
+        image_customizer_container_url,
+        args,
+        detach=True,
+        privileged=True,
+        volumes=volumes,
+        environment=environment,
+        entrypoint=entrypoint,
+    )
 
 
 # Modify an image customizer config file:
