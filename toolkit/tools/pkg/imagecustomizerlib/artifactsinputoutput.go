@@ -361,7 +361,12 @@ func prepareImageConversionData(rawImageFile string, buildDir string,
 	}
 	defer imageConnection.Close()
 
-	osRelease, osPackages, err := collectOSInfo(imageConnection)
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", err
+	}
+
+	osPackages, err := collectOSInfo(imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, [UuidSize]byte{}, "", err
 	}
