@@ -464,7 +464,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
-		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime)
+		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime,
+		ic.outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -854,7 +855,7 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string, packageSnapshotTime string,
+	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -865,7 +866,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 	defer imageConnection.Close()
 
-	osRelease, osPackages, err := collectOSInfo(imageConnection)
+	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, err
 	}
@@ -886,6 +887,15 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
 		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
 
+	// collect OS info if generating a COSI image
+	var osPackages []OsPackage
+	if config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || outputImageFormatType == imagecustomizerapi.ImageFormatTypeCosi {
+		osPackages, err = collectOSInfo(imageConnection)
+		if err != nil {
+			return nil, nil, "", nil, err
+		}
+	}
+
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
 	warnOnLowFreeSpace(buildDir, imageConnection)
@@ -902,18 +912,13 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, nil
 }
 
-func collectOSInfo(imageConnection *ImageConnection) (string, []OsPackage, error) {
-	osRelease, err := extractOSRelease(imageConnection)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to extract OS release:\n%w", err)
-	}
-
+func collectOSInfo(imageConnection *ImageConnection) ([]OsPackage, error) {
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
+		return nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
 	}
 
-	return osRelease, osPackages, nil
+	return osPackages, nil
 }
 
 func shrinkFilesystemsHelper(buildImageFile string) error {
