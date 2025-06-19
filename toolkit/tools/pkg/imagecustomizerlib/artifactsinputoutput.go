@@ -329,7 +329,8 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	}
 
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, err := prepareImageConversionData(rawImageFile, buildDir, "imageroot")
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, err :=
+			prepareImageConversionData(rawImageFile, buildDir, "imageroot")
 		if err != nil {
 			return err
 		}
