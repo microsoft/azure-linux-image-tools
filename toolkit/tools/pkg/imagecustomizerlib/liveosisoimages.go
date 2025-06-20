@@ -100,6 +100,7 @@ func createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath string) error 
 
 func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
 	logger.Log.Infof("Creating bootstrap initrd for %s", kernelVersion)
+	logger.Log.Infof("-- debug -- creating initrd at %s", outputInitrdPath)
 
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
 	err := file.Write(dracutConfig, dracutConfigFile)
@@ -545,26 +546,33 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
 		}
 
-		// The `initrd.img` must be on the form `initrd-*` so that `grub2-mkconfig`
-		// can find it. If it cannot find it, the generated grub.cfg will be missing
-		// all the boot entries.
-		initrdFileName := fmt.Sprintf("initrd-%s.img", artifactsStore.info.kernelVersion)
-		initrdOld := filepath.Join(imageChroot.RootDir(), "boot/initrd.img")
-		initrdNew := filepath.Join(imageChroot.RootDir(), "boot", initrdFileName)
-		err = os.Rename(initrdOld, initrdNew)
-		if err != nil {
-			return fmt.Errorf("failed to rename (%s) to (%s)", initrdOld, initrdNew)
-		}
+		initrdDir := filepath.Join(imageChroot.RootDir(), "boot")
+		for kernelVersion, kernelBootFiles := range artifactsStore.files.kernelBootFiles {
+			// The `initrd.img` must be on the form `initrd-*` so that `grub2-mkconfig`
+			// can find it. If it cannot find it, the generated grub.cfg will be missing
+			// all the boot entries.
+			logger.Log.Infof("-- debug -- checking for initrd t (%s)", kernelBootFiles.initrdImagePath)
+			if kernelBootFiles.initrdImagePath == "" {
+				kernelBootFiles.initrdImagePath = filepath.Join(initrdDir, "initramfs-"+kernelVersion+".img")
+				logger.Log.Infof("-- debug -- now checking for initrd t (%s)", kernelBootFiles.initrdImagePath)
+			}
+			exists, err := file.PathExists(kernelBootFiles.initrdImagePath)
+			if err != nil {
+				return fmt.Errorf("failed to check if (%s) exists:\n%w", kernelBootFiles.initrdImagePath, err)
+			}
+			if !exists {
+				logger.Log.Infof("-- debug -- -- creating dummy initrd t (%s)", kernelBootFiles.initrdImagePath)
+				dummyFile, err := os.Create(kernelBootFiles.initrdImagePath)
+				if err != nil {
+					return fmt.Errorf("failed to create (%s):\n%w", kernelBootFiles.initrdImagePath, err)
+				}
+				defer dummyFile.Close()
 
-		// The `vmlinuz` must be on the form `vmlinuz-*` so that `grub2-mkconfig`
-		// can find it. If it cannot find it, the generated grub.cfg will be missing
-		// all the boot entries.
-		kernelFileName := fmt.Sprintf("vmlinuz-%s", artifactsStore.info.kernelVersion)
-		kernelOld := filepath.Join(imageChroot.RootDir(), "boot/vmlinuz")
-		kernelNew := filepath.Join(imageChroot.RootDir(), "boot", kernelFileName)
-		err = os.Rename(kernelOld, kernelNew)
-		if err != nil {
-			return fmt.Errorf("failed to rename (%s) to (%s)", kernelOld, kernelNew)
+				_, err = dummyFile.WriteString(kernelBootFiles.initrdImagePath)
+				if err != nil {
+					return fmt.Errorf("failed to write to (%s):\n%w", kernelBootFiles.initrdImagePath, err)
+				}
+			}
 		}
 
 		targetEfiDir := filepath.Join(imageChroot.RootDir(), "boot/efi/EFI/BOOT")

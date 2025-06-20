@@ -431,8 +431,11 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	isoBootBinaryPath := bootFilesConfig.isoBootBinaryPath
 	isoGrubBinaryPath := bootFilesConfig.isoGrubBinaryPath
 
+	kernelVersionRegEx := regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.azl\d)\b`)
+
 	for _, isoFile := range isoFiles {
 		relativeFilePath := strings.TrimPrefix(isoFile, artifactsDir)
+		baseFileName := filepath.Base(isoFile)
 
 		scheduleAdditionalFile := true
 
@@ -465,12 +468,36 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		case savedConfigsFileNamePath:
 			filesStore.savedConfigsFilePath = isoFile
 			scheduleAdditionalFile = false
-		// case isoKernelPath:
-		// 	filesStore.vmlinuzPath = isoFile
-		// 	scheduleAdditionalFile = false
 		case isoBootImagePath:
 			filesStore.isoBootImagePath = isoFile
 			scheduleAdditionalFile = false
+		}
+
+		kernelVersion := ""
+		matches := kernelVersionRegEx.FindStringSubmatch(baseFileName)
+		if len(matches) > 1 {
+			kernelVersion = matches[1]
+		}
+
+		// Let's check if it is a kernel specific file
+		if kernelVersion != "" {
+			// Ensure we have an entry in the map for it
+			kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
+			if !exists {
+				kernelBootFiles = &KernelBootFiles{}
+				filesStore.kernelBootFiles[kernelVersion] = kernelBootFiles
+			}
+
+			if strings.HasPrefix(baseFileName, vmLinuzPrefix) {
+				kernelBootFiles.vmlinuzPath = isoFile
+				scheduleAdditionalFile = false
+			} else if strings.HasPrefix(baseFileName, initramfsPrefix) {
+				kernelBootFiles.initrdImagePath = isoFile
+				scheduleAdditionalFile = false
+			} else {
+				kernelBootFiles.otherFiles = append(kernelBootFiles.otherFiles, isoFile)
+				scheduleAdditionalFile = false
+			}
 		}
 
 		if scheduleAdditionalFile {

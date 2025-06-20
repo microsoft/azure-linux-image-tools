@@ -237,8 +237,11 @@ func prependLinuxOrInitrdPathAll(inputGrubCfgContent string, commandName string,
 		start := linuxFilePathToken.Loc.Start.Index
 		end := linuxFilePathToken.Loc.End.Index
 
-		oldFilePaths = append(oldFilePaths, inputGrubCfgContent[start:end])
-		outputGrubCfgContent = outputGrubCfgContent[:start] + prefix + outputGrubCfgContent[start:]
+		oldFilePath := inputGrubCfgContent[start:end]
+		oldFilePaths = append(oldFilePaths, oldFilePath)
+		if !strings.HasPrefix(oldFilePath, prefix) {
+			outputGrubCfgContent = outputGrubCfgContent[:start] + prefix + outputGrubCfgContent[start:]
+		}
 	}
 
 	return outputGrubCfgContent, oldFilePaths, nil
