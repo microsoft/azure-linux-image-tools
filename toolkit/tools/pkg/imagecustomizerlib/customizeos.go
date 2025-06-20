@@ -52,7 +52,7 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 
 	err = AddOrUpdateUsers(config.OS.Users, baseConfigPath, imageChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add or update users during OS customization")
 	}
 
 	err = EnableOrDisableServices(config.OS.Services, imageChroot)
