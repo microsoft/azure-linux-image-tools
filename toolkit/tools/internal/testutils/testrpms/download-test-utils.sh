@@ -55,5 +55,5 @@ fi
 
 # call the script to download the rpms
 echo "Downloading test rpms for Azure Linux version: $IMAGE_VERSION"
-$SCRIPT_DIR/download-test-rpms.sh "$CONTAINER_IMAGE" "$IMAGE_CREATOR" 
+$SCRIPT_DIR/download-test-rpms.sh "$CONTAINER_IMAGE"  "$IMAGE_VERSION" "$IMAGE_CREATOR" 
 echo "Test rpms downloaded successfully."

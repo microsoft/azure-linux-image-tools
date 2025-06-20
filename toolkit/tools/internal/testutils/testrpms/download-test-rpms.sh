@@ -2,13 +2,13 @@
 
 set -e
 CONTAINER_IMAGE="$1"
-IMAGE_CREATOR="$2"
-
+IMAGE_VERSION="$2"
+IMAGE_CREATOR="$3"
 
 # Check if the required arguments are provided
-if [[ -z "$CONTAINER_IMAGE" || -z "$IMAGE_CREATOR" ]]; then
-  echo "Usage: $0 <container_image> <image_creator>"
-  echo "Example: $0 mcr.microsoft.com/azurelinux/base/core:3.0 true"
+if [[ -z "$CONTAINER_IMAGE" || -z "$IMAGE_VERSION" || -z "$IMAGE_CREATOR" ]]; then
+  echo "Usage: $0 <container_image> <image_version> <image_creator>"
+  echo "Example: $0 mcr.microsoft.com/azurelinux/base/core:3.0 3.0 true"
   exit 1
 fi
 
