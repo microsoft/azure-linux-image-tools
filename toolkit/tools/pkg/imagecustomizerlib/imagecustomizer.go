@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -40,6 +41,8 @@ const (
 
 	diskFreeWarnThresholdBytes   = 500 * diskutils.MiB
 	diskFreeWarnThresholdPercent = 0.05
+	toolsRootImageDir            = "_imageroot"
+	toolsRoot                    = "toolsroot"
 
 	OtelTracerName = "imagecustomizerlib"
 )
@@ -75,7 +78,7 @@ type ImageCustomizerParameters struct {
 	outputImageFile   string
 	outputImageDir    string
 
-	imageUuid    [UuidSize]byte
+	imageUuid    [randomization.UuidSize]byte
 	imageUuidStr string
 
 	baseImageVerityMetadata []verityDeviceMetadata
@@ -123,7 +126,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
 
 	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := createUuid()
+	imageUuid, imageUuidStr, err := randomization.CreateUuid()
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +143,7 @@ func createImageCustomizerParameters(buildDir string,
 	ic.useBaseImageRpmRepos = useBaseImageRpmRepos
 	ic.rpmsSources = rpmsSources
 
-	err = validateRpmSources(rpmsSources)
+	err = ValidateRpmSources(rpmsSources)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +240,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	)
 	defer span.End()
 
-	err := validateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
+	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -259,12 +262,12 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		}
 	}()
 
-	err = checkEnvironmentVars()
+	err = CheckEnvironmentVars()
 	if err != nil {
 		return err
 	}
 
-	logVersionsOfToolDeps()
+	LogVersionsOfToolDeps()
 
 	// ensure build and output folders are created up front
 	err = os.MkdirAll(imageCustomizerParameters.buildDirAbs, os.ModePerm)
@@ -364,7 +367,7 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 func convertImageToRaw(inputImageFile string, inputImageFormat string,
 	rawImageFile string,
 ) (imagecustomizerapi.ImageFormatType, error) {
-	imageInfo, err := getImageFileInfo(inputImageFile)
+	imageInfo, err := GetImageFileInfo(inputImageFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
 	}
@@ -530,7 +533,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 		imagecustomizerapi.ImageFormatTypeRaw:
 		logger.Log.Infof("Writing: %s", ic.outputImageFile)
 
-		err := convertImageFile(ic.rawImageFile, ic.outputImageFile, ic.outputImageFormat)
+		err := ConvertImageFile(ic.rawImageFile, ic.outputImageFile, ic.outputImageFormat)
 		if err != nil {
 			return err
 		}
@@ -580,7 +583,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 	return nil
 }
 
-func convertImageFile(inputPath string, outputPath string, format imagecustomizerapi.ImageFormatType) error {
+func ConvertImageFile(inputPath string, outputPath string, format imagecustomizerapi.ImageFormatType) error {
 	qemuImageFormat, qemuOptions := toQemuImageFormat(format)
 
 	qemuImgArgs := []string{"convert", "-O", qemuImageFormat}
@@ -618,17 +621,19 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 	}
 }
 
-func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string,
+func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
+	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
 ) error {
 	err := config.IsValid()
 	if err != nil {
 		return err
 	}
 
-	err = validateInput(baseConfigPath, config.Input, inputImageFile)
-	if err != nil {
-		return err
+	if !newImage {
+		err = validateInput(baseConfigPath, config.Input, inputImageFile)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = validateIsoConfig(baseConfigPath, config.Iso)
@@ -1224,7 +1229,7 @@ func humanReadableUnitSizeAndName(size int64) (int64, string) {
 	}
 }
 
-func checkEnvironmentVars() error {
+func CheckEnvironmentVars() error {
 	// Some commands, like tdnf (and gpg), require the USER and HOME environment variables to make sense in the OS they
 	// are running under. Since the image customization tool is pretty much always run under root/sudo, this will
 	// generally always be the case since root is always a valid user. However, this might not be true if the user

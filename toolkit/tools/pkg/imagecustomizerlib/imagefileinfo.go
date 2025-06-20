@@ -15,7 +15,7 @@ type ImageFileInfo struct {
 	VirtualSize int64  `json:"virtual-size"`
 }
 
-func getImageFileInfo(inputImageFile string) (ImageFileInfo, error) {
+func GetImageFileInfo(inputImageFile string) (ImageFileInfo, error) {
 	stdout, _, err := shell.Execute("qemu-img", "info", "--output", "json", inputImageFile)
 	if err != nil {
 		return ImageFileInfo{}, fmt.Errorf("failed to check image file's disk format:\n%w", err)

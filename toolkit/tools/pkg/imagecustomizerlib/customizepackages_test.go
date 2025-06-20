@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,8 +23,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddOfflineDir")
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
-	downloadedRpmsDir := getDownloadedRpmsDir(t, "2.0")
-
+	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, "2.0", false)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -148,7 +148,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	downloadedRpmsRepoFile := getDownloadedRpmsRepoFile(t, "2.0", withGpgKey)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "2.0", withGpgKey, false)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	buildDir := filepath.Join(testTmpDir, "build")

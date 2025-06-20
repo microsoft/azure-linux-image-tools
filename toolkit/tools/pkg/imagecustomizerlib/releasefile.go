@@ -11,6 +11,10 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
+const (
+	ImageCustomizerReleasePath = "etc/image-customizer-release"
+)
+
 func addCustomizerRelease(rootDir string, toolVersion string, buildTime string, imageUuid string) error {
 	var err error
 

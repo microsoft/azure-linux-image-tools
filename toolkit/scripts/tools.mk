@@ -34,6 +34,7 @@ go_tool_list = \
 	imager \
 	isomaker \
 	osmodifier \
+	imagecreator \
 
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"
 go_tool_targets = $(foreach target,$(go_tool_list),$(TOOL_BINS_DIR)/$(target))
