@@ -229,7 +229,7 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 
 	// Combine the current configuration with the saved configuration
 	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine, liveosConfig.bootstrapBaseUrl,
-		liveosConfig.bootstrapFileUrl, artifactsStore.info.kernelVersion, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
+		liveosConfig.bootstrapFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
 		artifactsStore.info.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
@@ -334,8 +334,8 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
 	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine,
-		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, inputArtifactsStore.info.kernelVersion,
-		nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode,
+		nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}

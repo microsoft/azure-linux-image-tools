@@ -30,7 +30,6 @@ const (
 )
 
 type IsoInfoStore struct {
-	kernelVersion            string
 	seLinuxMode              imagecustomizerapi.SELinuxMode
 	dracutPackageInfo        *PackageVersionInformation
 	selinuxPolicyPackageInfo *PackageVersionInformation
@@ -361,13 +360,6 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
-	kernelVersions, err := findKernelVersions(imageRootDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine kernel version from (%s):\n%w", imageRootDir, err)
-	}
-	infoStore.kernelVersion = kernelVersions[len(kernelVersions)-1]
-	logger.Log.Infof("Selecting kernel version (%s)", infoStore.kernelVersion)
-
 	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
 	if chroot == nil {
 		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", imageRootDir)
@@ -520,7 +512,6 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	infoStore = &IsoInfoStore{
-		kernelVersion:            savedConfigs.OS.KernelVersion,
 		dracutPackageInfo:        savedConfigs.OS.DracutPackageInfo,
 		selinuxPolicyPackageInfo: savedConfigs.OS.SELinuxPolicyPackageInfo,
 	}
@@ -637,7 +628,6 @@ func dumpInfoStore(infoStore *IsoInfoStore) {
 		logger.Log.Infof("-- not defined")
 		return
 	}
-	logger.Log.Infof("-- kernelVersion        = %s", infoStore.kernelVersion)
 	logger.Log.Infof("-- seLinuxMode          = %s", infoStore.seLinuxMode)
 	if infoStore.dracutPackageInfo != nil {
 		logger.Log.Infof("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
