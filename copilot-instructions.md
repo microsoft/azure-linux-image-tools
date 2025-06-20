@@ -3,12 +3,14 @@ This is a Go based repository with tools for os image creation and customization
 ## Code Standards
 
 ### Required Before Each Commit
-- Run `sudo make -C ./toolkit` before committing any changes to ensure proper build with no errors.
-- Run `go mod tidy` to ensure go mod files are updated.
+- Run `make go-fmt-all` from `toolkit` to fix any formatting.
+- Run `make go-mod-tidy` from `toolkit` folder to ensure go mod files are updated.
+- Run `make -C toolkit/tools/imagecustomizerschemacli/` to ensure schema is probably updated if an API is changed.
+- Run `make imagecustomizer-targz go-imager go-osmodifier` from `toolkit` before committing any changes to ensure proper build with no errors.
 
 ### Development Flow
-- Build: `make build`
-- Test: `make test`
+- Build: `make imagecustomizer-targz go-imager go-osmodifier`
+- Test: Tests are run as part of the build command
 
 ## Repository Structure
 - `toolkit/tools/imagecustomizer`: imagecustomizer executable
