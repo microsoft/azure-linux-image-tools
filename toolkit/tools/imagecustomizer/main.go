@@ -47,6 +47,14 @@ type RootCmd struct {
 	exekong.LogFlags
 }
 
+func sanitizeError(err error) error {
+	// Replace sensitive data with a placeholder
+	if strings.Contains(err.Error(), "password expiration") {
+		return fmt.Errorf("an error occurred related to password expiration")
+	}
+	return err
+}
+
 func main() {
 
 	cli := &RootCmd{}
@@ -87,7 +95,7 @@ func main() {
 	case "customize":
 		err := customizeImage(cli.Customize)
 		if err != nil {
-			log.Fatalf("image customization failed:\n%v", err)
+			log.Fatalf("image customization failed: %v", sanitizeError(err))
 		}
 
 	case "inject-files":

@@ -103,7 +103,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	if user.PasswordExpiresDays != nil {
 		err = installutils.Chage(imageChroot, *user.PasswordExpiresDays, user.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to set password expiration for user (%s)", user.Name)
 		}
 	}
 
