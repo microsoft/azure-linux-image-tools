@@ -636,7 +636,7 @@ func validateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	err = validateSystemConfig(baseConfigPath, config.OS, rpmsSources, useBaseImageRpmRepos)
+	err = validateOsConfig(baseConfigPath, config.OS, rpmsSources, useBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
@@ -715,7 +715,7 @@ func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso) er
 	return nil
 }
 
-func validateSystemConfig(baseConfigPath string, config *imagecustomizerapi.OS,
+func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS,
 	rpmsSources []string, useBaseImageRpmRepos bool,
 ) error {
 	if config == nil {
@@ -730,6 +730,11 @@ func validateSystemConfig(baseConfigPath string, config *imagecustomizerapi.OS,
 	}
 
 	err = validateAdditionalFiles(baseConfigPath, config.AdditionalFiles)
+	if err != nil {
+		return err
+	}
+
+	err = validateUsers(baseConfigPath, config.Users)
 	if err != nil {
 		return err
 	}
@@ -848,6 +853,32 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 
 	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
 		return fmt.Errorf("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
+	}
+
+	return nil
+}
+
+func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error {
+	for _, user := range users {
+		err := validateUser(baseConfigPath, user)
+		if err != nil {
+			return fmt.Errorf("invalid user (%s):\n%w", user.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
+	for _, path := range user.SSHPublicKeyPaths {
+		absPath := file.GetAbsPathWithBase(baseConfigPath, path)
+		isFile, err := file.IsFile(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to find SSH public key file (%s):\n%w", path, err)
+		}
+		if !isFile {
+			return fmt.Errorf("SSH public key path is not a file (%s)", path)
+		}
 	}
 
 	return nil

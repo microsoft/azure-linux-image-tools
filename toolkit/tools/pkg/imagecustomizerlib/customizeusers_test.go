@@ -146,7 +146,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsers")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserHomeDir")
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -170,7 +170,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsers")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserUid")
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -189,6 +189,32 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set UID (1) on a user (root) that already exists")
+}
+
+func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersMissingSshPublicKeyFile")
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Users: []imagecustomizerapi.User{
+				{
+					Name: "test",
+					SSHPublicKeyPaths: []string{
+						"does-not-exist",
+					},
+				},
+			},
+		},
+	}
+
+	// Customize image.
+	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "failed to find SSH public key file (does-not-exist)")
 }
 
 func verifySshAuthorizedKeys(t *testing.T, rootDir string, homeDirectory string, sshPublicKeys []string) bool {
