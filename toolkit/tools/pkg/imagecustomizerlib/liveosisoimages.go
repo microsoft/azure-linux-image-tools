@@ -213,9 +213,7 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 
 	artifactsToLiveOSMap := []StageFile{}
 
-	for kernelVersion, kernelFiles := range filesStore.kernelBootFiles {
-		logger.Log.Infof("-- staging (%s)", kernelVersion)
-		logger.Log.Infof("-- staging (%s)", kernelFiles.vmlinuzPath)
+	for _, kernelFiles := range filesStore.kernelBootFiles {
 		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 			StageFile{
 				sourcePath:    kernelFiles.vmlinuzPath,
@@ -223,7 +221,6 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 			})
 
 		for _, otherKernelFile := range kernelFiles.otherFiles {
-			logger.Log.Infof("-- staging (%s)", otherKernelFile)
 			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 				StageFile{
 					sourcePath:    otherKernelFile,
@@ -234,7 +231,6 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 
 	switch initramfsType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
-		logger.Log.Infof("-- staging (%s)", filesStore.initrdImagePath)
 		artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 			StageFile{
 				sourcePath:    filesStore.initrdImagePath,
@@ -242,7 +238,6 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 			})
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		for _, kernelBootFiles := range filesStore.kernelBootFiles {
-			logger.Log.Infof("-- staging (%s)", kernelBootFiles.initrdImagePath)
 			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 				StageFile{
 					sourcePath:    kernelBootFiles.initrdImagePath,
@@ -551,17 +546,17 @@ func createWriteableImageFromArtifacts(buildDir string, artifactsStore *IsoArtif
 			// The `initrd.img` must be on the form `initrd-*` so that `grub2-mkconfig`
 			// can find it. If it cannot find it, the generated grub.cfg will be missing
 			// all the boot entries.
-			logger.Log.Infof("-- debug -- checking for initrd t (%s)", kernelBootFiles.initrdImagePath)
+			logger.Log.Infof("-- debug -- checking for initrd (%s)", kernelBootFiles.initrdImagePath)
 			if kernelBootFiles.initrdImagePath == "" {
 				kernelBootFiles.initrdImagePath = filepath.Join(initrdDir, "initramfs-"+kernelVersion+".img")
-				logger.Log.Infof("-- debug -- now checking for initrd t (%s)", kernelBootFiles.initrdImagePath)
+				logger.Log.Infof("-- debug -- now checking for initrd (%s)", kernelBootFiles.initrdImagePath)
 			}
 			exists, err := file.PathExists(kernelBootFiles.initrdImagePath)
 			if err != nil {
 				return fmt.Errorf("failed to check if (%s) exists:\n%w", kernelBootFiles.initrdImagePath, err)
 			}
 			if !exists {
-				logger.Log.Infof("-- debug -- -- creating dummy initrd t (%s)", kernelBootFiles.initrdImagePath)
+				logger.Log.Infof("-- debug -- -- creating dummy initrd (%s)", kernelBootFiles.initrdImagePath)
 				dummyFile, err := os.Create(kernelBootFiles.initrdImagePath)
 				if err != nil {
 					return fmt.Errorf("failed to create (%s):\n%w", kernelBootFiles.initrdImagePath, err)
