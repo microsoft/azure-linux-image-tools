@@ -114,6 +114,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	}
 
 	inputContentString = strings.ReplaceAll(inputContentString, "timeout=0", "timeout=10")
+	inputContentString = strings.ReplaceAll(inputContentString, "lockdown=integrity", "lockdown=none")
 
 	return inputContentString, nil
 }
