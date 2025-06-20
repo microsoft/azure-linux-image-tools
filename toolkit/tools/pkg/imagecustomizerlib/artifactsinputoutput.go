@@ -365,7 +365,7 @@ func prepareImageConversionData(rawImageFile string, buildDir string,
 
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, [UuidSize]byte{}, "", err
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", err
 	}
 
 	osPackages, err := collectOSInfo(imageConnection)
