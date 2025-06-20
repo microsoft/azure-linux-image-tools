@@ -61,7 +61,6 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update all the initrd file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 	} else {
-		logger.Log.Infof("-- debug -- isoKernelDir: %s", isoKernelDir)
 		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
@@ -71,7 +70,6 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	liveosKernelArgs := ""
 	switch initramfsImageType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
-		logger.Log.Infof("-- debug -- isoInitrdPath: %s", isoInitrdPath)
 		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
@@ -85,7 +83,6 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
-		logger.Log.Infof("-- debug -- isoInitrdPath: %s", isoInitrdPath)
 		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
