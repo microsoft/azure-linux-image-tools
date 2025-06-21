@@ -60,20 +60,22 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update all the initrd file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 	} else {
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelPath, true /*allowMultiple*/)
+		// update the initrd path from /vmlinux-<version> to /boot/vmlinux-<version>
+		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
-		}
-
-		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
-		if err != nil {
-			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
 		}
 	}
 
 	liveosKernelArgs := ""
 	switch initramfsImageType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		// update the initrd path from /initrd-<version>.img to /boot/initrd.img
+		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
+		}
+
 		// Remove 'root' so that no pivoting takes place.
 		argsToRemove := []string{"root"}
 		newArgs := []string{}
@@ -82,6 +84,12 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		// update the initrd path from /initrd-<version>.img to /boot/initrd-<version>.img
+		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoKernelDir, true /*allowMultiple*/)
+		if err != nil {
+			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
+		}
+
 		// Add Dracut live os parameters
 		liveosKernelArgs = fmt.Sprintf(kernelArgsLiveOSTemplate, liveOSDir, liveOSImage)
 	default:
@@ -183,6 +191,7 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 		if err != nil {
 			return fmt.Errorf("failed to update %s:\n%w", inputGrubCfgPath, err)
 		}
+
 		err = file.Write(isoContentString, outputIsoGrubCfgPath)
 		if err != nil {
 			return fmt.Errorf("failed to write %s:\n%w", outputIsoGrubCfgPath, err)
