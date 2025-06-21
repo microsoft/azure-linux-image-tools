@@ -14,32 +14,32 @@ SPECIFIC_TAG=$(echo $VERSION_TAG | cut -d'.' -f3-)
 
 # Check if the specific tag is 'latest'. If not, prepend the MAJOR_VERSION to
 # it.
-if [ "$SPECIFIC_TAG" != "latest" ]; then
+if [[ "$SPECIFIC_TAG" != "latest" ]]; then
     SPECIFIC_TAG="${MAJOR_VERSION}.${SPECIFIC_TAG}"
 fi
 
 # Construct the OCI Artifact full path.
-OCI_ARTIFACT_PATH="mcr.microsoft.com/azurelinux/${MAJOR_VERSION}/image/minimal-os:${SPECIFIC_TAG}"
+OCI_ARTIFACT_PATH="acrafoimages.azurecr.io/public/azurelinux/${MAJOR_VERSION}/image/linuxguard:${SPECIFIC_TAG}"
 
-ARTIFACT_DIR="/oci/artifact"
-mkdir -p $ARTIFACT_DIR
+ARTIFACT_DIR="/container/base"
 
-# Pull the OCI artifact, and check if the pull was successful.
-oras pull $OCI_ARTIFACT_PATH -o $ARTIFACT_DIR
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to fetch image with the provided version $version"
-    exit 1
-fi
+VHD_PATH=$ARTIFACT_DIR/image.vhd
+if [[ ! -f $VHD_PATH ]]; then
+    mkdir -p $ARTIFACT_DIR
 
-# Find the VHDX file matching the pattern 'image.vhdx'.
-VHDX_PATH=$(find $ARTIFACT_DIR -type f -name 'image.vhdx' -print -quit)
+    # Pull the OCI artifact, and check if the pull was successful.
+    oras pull $OCI_ARTIFACT_PATH -o $ARTIFACT_DIR
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to fetch the OCI artifact $OCI_ARTIFACT_PATH"
+        exit 1
+    fi
 
-# Check if the VHDX base image file exists.
-if [ ! -f $VHDX_PATH ]; then
-    echo "Error: VHDX file not found at $VHDX_PATH"
-    exit 1
+    if [[ ! -f $VHD_PATH ]]; then
+        echo "Error: VHD file not found at $VHD_PATH after pulling the artifact"
+        exit 1
+    fi
 fi
 
 # Remove the first argument (VERSION_TAG) and pass the rest to the binary.
 shift
-imagecustomizer --image-file $VHDX_PATH "$@"
+imagecustomizer --image-file $VHD_PATH "$@"
