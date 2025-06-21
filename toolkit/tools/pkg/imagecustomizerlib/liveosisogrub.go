@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -61,6 +60,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update all the initrd file path occurances in the live OS grub.cfg:\n%w", err)
 		}
 	} else {
+		// update the initrd path from /vmlinux-<version> to /boot/vmlinux-<version>
 		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, linuxCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the kernel file path in the live OS grub.cfg:\n%w", err)
@@ -70,6 +70,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	liveosKernelArgs := ""
 	switch initramfsImageType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		// update the initrd path from /initrd-<version>.img to /boot/initrd.img
 		inputContentString, _, err = setLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoInitrdPath, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
@@ -83,6 +84,7 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 			return "", fmt.Errorf("failed to update the root kernel argument in the live OS grub.cfg:\n%w", err)
 		}
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		// update the initrd path from /initrd-<version>.img to /boot/initrd-<version>.img
 		inputContentString, _, err = prependLinuxOrInitrdPathAll(inputContentString, initrdCommand, isoKernelDir, true /*allowMultiple*/)
 		if err != nil {
 			return "", fmt.Errorf("failed to update the initrd file path in the live OS grub.cfg:\n%w", err)
@@ -109,9 +111,6 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	if err != nil {
 		return "", fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the live OS grub.cfg:\n%w", err)
 	}
-
-	inputContentString = strings.ReplaceAll(inputContentString, "timeout=0", "timeout=10")
-	inputContentString = strings.ReplaceAll(inputContentString, "lockdown=integrity", "lockdown=none")
 
 	return inputContentString, nil
 }

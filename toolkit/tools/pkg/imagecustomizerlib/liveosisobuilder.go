@@ -292,8 +292,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 			if err != nil {
 				return fmt.Errorf("failed to create initrd image:\n%w", err)
 			}
-			artifactsStore.files.initrdImagePath = "[no-longer-being-set]"
 		}
+		artifactsStore.files.initrdImagePath = ""
 
 		// Generate the squashfs image
 		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)

@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -89,41 +88,6 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 
 	}
 	return false, nil
-}
-
-func findKernelVersions(imageRootDir string) (kernelVersions []string, err error) {
-	const kernelModulesDir = "/usr/lib/modules"
-
-	kernelParentPath := filepath.Join(imageRootDir, kernelModulesDir)
-	kernelDirs, err := os.ReadDir(kernelParentPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to enumerate kernels under (%s):\n%w", kernelParentPath, err)
-	}
-
-	// Filter out directories that are empty.
-	// Some versions of Azure Linux 2.0 don't cleanup properly when the kernel package is uninstalled.
-	filteredKernelDirs := []fs.DirEntry(nil)
-	for _, kernelDir := range kernelDirs {
-		kernelPath := filepath.Join(kernelParentPath, kernelDir.Name())
-		empty, err := file.IsDirEmpty(kernelPath)
-		if err != nil {
-			return nil, err
-		}
-
-		if !empty {
-			filteredKernelDirs = append(filteredKernelDirs, kernelDir)
-		}
-	}
-
-	if len(filteredKernelDirs) == 0 {
-		return nil, fmt.Errorf("did not find any kernels installed under (%s)", kernelModulesDir)
-	}
-
-	for _, filteredKernelDir := range filteredKernelDirs {
-		kernelVersions = append(kernelVersions, filteredKernelDir.Name())
-	}
-
-	return kernelVersions, nil
 }
 
 func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
