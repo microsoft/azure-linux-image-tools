@@ -671,6 +671,9 @@
         },
         "corruptionOption": {
           "type": "string"
+        },
+        "hashSignaturePath": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

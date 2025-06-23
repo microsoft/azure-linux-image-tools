@@ -74,7 +74,6 @@ type ImageCustomizerParameters struct {
 	outputIsPxe       bool
 	outputImageFile   string
 	outputImageDir    string
-	outputImageBase   string
 
 	imageUuid    [UuidSize]byte
 	imageUuidStr string
@@ -96,6 +95,7 @@ type verityDeviceMetadata struct {
 	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	corruptionOption      imagecustomizerapi.CorruptionOption
+	hashSignaturePath     string
 }
 
 func createImageCustomizerParameters(buildDir string,
@@ -164,7 +164,6 @@ func createImageCustomizerParameters(buildDir string,
 		ic.outputImageFile = file.GetAbsPathWithBase(configPath, config.Output.Image.Path)
 	}
 
-	ic.outputImageBase = strings.TrimSuffix(filepath.Base(ic.outputImageFile), filepath.Ext(ic.outputImageFile))
 	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
 	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
 	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxeDir ||
@@ -304,8 +303,8 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	if config.Output.Artifacts != nil {
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir,
-			imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.rawImageFile, baseConfigPath)
+		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
+			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata)
 		if err != nil {
 			return err
 		}
@@ -466,7 +465,8 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
-		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime)
+		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime,
+		ic.outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -538,7 +538,8 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 		}
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
-		err := convertToCosi(ic)
+		err := convertToCosi(ic.buildDirAbs, ic.rawImageFile, ic.outputImageFile, ic.partUuidToFstabEntry,
+			ic.verityMetadata, ic.osRelease, ic.osPackages, ic.imageUuid, ic.imageUuidStr, ic.cosiBootMetadata)
 		if err != nil {
 			return err
 		}
@@ -856,26 +857,20 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 
 func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string, packageSnapshotTime string,
+	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, *CosiBootloader, error) {
 	logger.Log.Debugf("Customizing OS")
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
-		buildDir, "imageroot", true)
+		buildDir, "imageroot", true, false)
 	if err != nil {
 		return nil, nil, "", nil, nil, err
 	}
 	defer imageConnection.Close()
 
-	osPackages, err := getAllPackagesFromChroot(imageConnection)
-	if err != nil {
-		return nil, nil, "", nil, nil, err
-	}
-
-	// Extract OS release info from rootfs for COSI
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, nil, fmt.Errorf("failed to extract OS release from rootfs partition:\n%w", err)
+		return nil, nil, "", nil, nil, err
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
@@ -894,9 +889,14 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
 		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
 
-	cosiBootMetadata, err := extractCosiBootMetadata(imageConnection)
-	if err != nil {
-		return nil, nil, "", nil, nil, fmt.Errorf("failed to extract bootloader metadata:\n%w", err)
+	// collect OS info if generating a COSI image
+	var osPackages []OsPackage
+	var cosiBootMetadata *CosiBootloader
+	if config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || outputImageFormatType == imagecustomizerapi.ImageFormatTypeCosi {
+		osPackages, cosiBootMetadata, err = collectOSInfo(buildDir, imageConnection)
+		if err != nil {
+			return nil, nil, "", nil, nil, err
+		}
 	}
 
 	// Out of disk space errors can be difficult to diagnose.
@@ -913,6 +913,19 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, nil
+}
+
+func collectOSInfo(buildDir string, imageConnection *ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+	osPackages, err := getAllPackagesFromChroot(imageConnection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
+	}
+
+	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract bootloader metadata:\n%w", err)
+	}
+	return osPackages, cosiBootMetadata, nil
 }
 
 func shrinkFilesystemsHelper(buildImageFile string) error {
@@ -1014,6 +1027,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
 			corruptionOption:      verityConfig.CorruptionOption,
+			hashSignaturePath:     verityConfig.HashSignaturePath,
 		}
 		verityMetadata = append(verityMetadata, metadata)
 	}
@@ -1130,13 +1144,13 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 
 	if isUki {
 		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir)
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
 		}

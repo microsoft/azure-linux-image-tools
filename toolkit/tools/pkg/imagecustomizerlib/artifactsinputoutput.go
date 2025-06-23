@@ -5,12 +5,13 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
@@ -29,7 +30,7 @@ const (
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
-	outputDir string, buildDir string, buildImage string, baseConfigPath string,
+	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -51,6 +52,11 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		return err
 	}
 
+	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	if err != nil {
+		return err
+	}
+
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
 		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
@@ -65,9 +71,14 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		return err
 	}
 
-	partition := imagecustomizerapi.InjectFilePartition{
+	espInjectFilePartition := imagecustomizerapi.InjectFilePartition{
 		MountIdType: imagecustomizerapi.MountIdentifierTypePartUuid,
 		Id:          systemBootPartition.PartUuid,
+	}
+
+	bootInjectFilePartition := imagecustomizerapi.InjectFilePartition{
+		MountIdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+		Id:          bootPartition.PartUuid,
 	}
 
 	// Output UKIs
@@ -87,15 +98,14 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 					return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 				}
 
-				signedName := replaceSuffix(entry.Name(), ".unsigned.efi", ".signed.efi")
+				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
 				source := "./" + signedName
 				unsignedSource := "./" + entry.Name()
-				destinationName := replaceSuffix(entry.Name(), ".unsigned.efi", ".efi")
 
 				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-					Partition:      partition,
+					Partition:      espInjectFilePartition,
 					Source:         source,
-					Destination:    filepath.Join("/", UkiOutputDir, destinationName),
+					Destination:    filepath.Join("/", UkiOutputDir, entry.Name()),
 					UnsignedSource: unsignedSource,
 				})
 			}
@@ -114,7 +124,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:      partition,
+			Partition:      espInjectFilePartition,
 			Source:         signedPath,
 			Destination:    filepath.Join("/", ShimDir, bootConfig.bootBinary),
 			UnsignedSource: "./" + bootConfig.bootBinary,
@@ -133,11 +143,36 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:      partition,
+			Partition:      espInjectFilePartition,
 			Source:         signedPath,
 			Destination:    filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
 			UnsignedSource: "./" + bootConfig.systemdBootBinary,
 		})
+	}
+
+	// Output verity hash
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemVerityHash) {
+		for _, verity := range verityMetadata {
+			if verity.hashSignaturePath == "" {
+				continue
+			}
+
+			unsignedHashFile := verity.name + ".hash"
+			destPath := filepath.Join(outputDir, unsignedHashFile)
+			err = file.Write(verity.rootHash, destPath)
+			if err != nil {
+				return fmt.Errorf("failed to dump root hash for (%s) to (%s):\n%w", verity.name, destPath, err)
+			}
+
+			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
+			destination := strings.TrimPrefix(verity.hashSignaturePath, "/boot")
+			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+				Partition:      bootInjectFilePartition,
+				Source:         "./" + signedHashFile,
+				Destination:    filepath.Join("/", destination),
+				UnsignedSource: "./" + unsignedHashFile,
+			})
+		}
 	}
 
 	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
@@ -290,12 +325,60 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 		return err
 	}
 
-	err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
-	if err != nil {
-		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, err :=
+			prepareImageConversionData(rawImageFile, buildDir, "imageroot")
+		if err != nil {
+			return err
+		}
+
+		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
+			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to cosi output format:\n%w", err)
+		}
+	} else {
+		err = convertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
+		if err != nil {
+			return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+		}
 	}
 
 	logger.Log.Infof("Success!")
 
 	return nil
+}
+
+func prepareImageConversionData(rawImageFile string, buildDir string,
+	chrootDir string,
+) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
+	[]OsPackage, [UuidSize]byte, string, *CosiBootloader, error,
+) {
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(
+		rawImageFile, buildDir, chrootDir, true, true)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", nil, fmt.Errorf("failed to connect to image:\n%w", err)
+	}
+	defer imageConnection.Close()
+
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", nil, err
+	}
+
+	osPackages, cosiBootMetadata, err := collectOSInfo(buildDir, imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", nil, err
+	}
+
+	imageUuid, imageUuidStr, err := extractImageUUID(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", nil, err
+	}
+
+	if err := imageConnection.CleanClose(); err != nil {
+		return nil, nil, "", nil, [UuidSize]byte{}, "", nil, fmt.Errorf("failed to cleanly close image connection:\n%w", err)
+	}
+
+	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, nil
 }

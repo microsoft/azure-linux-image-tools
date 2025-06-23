@@ -48,15 +48,15 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 		snapshotTime = string(config.Packages.SnapshotTime)
 	}
 
-	err = createTempTdnfConfigWithSnapshot(imageChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cleanupErr := cleanupSnapshotTimeConfig(imageChroot); cleanupErr != nil && err == nil {
-			err = cleanupErr
-		}
-	}()
+	// err = createTempTdnfConfigWithSnapshot(imageChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
+	// if err != nil {
+	// 	return err
+	// }
+	// defer func() {
+	// 	if cleanupErr := cleanupSnapshotTimeConfig(imageChroot); cleanupErr != nil && err == nil {
+	// 		err = cleanupErr
+	// 	}
+	// }()
 
 	// Note: The 'validatePackageLists' function read the PackageLists files and merged them into the inline package lists.
 	needRpmsSources := len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 ||

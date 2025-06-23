@@ -13,7 +13,10 @@ import (
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
@@ -25,23 +28,26 @@ type ImageBuildData struct {
 	VeritySource string
 }
 
-func convertToCosi(ic *ImageCustomizerParameters) error {
-	logger.Log.Infof("Extracting partition files")
-	outputDir := filepath.Join(ic.buildDirAbs, "cosiimages")
+func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, verityMetadata []verityDeviceMetadata,
+	osRelease string, osPackages []OsPackage, imageUuid [UuidSize]byte, imageUuidStr string, cosiBootMetadata *CosiBootloader,
+) error {
+	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
+	outputDir := filepath.Join(buildDirAbs, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
 	}
 	defer os.Remove(outputDir)
 
-	imageLoopback, err := safeloopback.NewLoopback(ic.rawImageFile)
+	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
 		return err
 	}
 	defer imageLoopback.Close()
 
-	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, ic.outputImageBase,
-		"raw-zst", ic.imageUuid)
+	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
+		"raw-zst", imageUuid)
 	if err != nil {
 		return err
 	}
@@ -49,13 +55,13 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
-	err = buildCosiFile(outputDir, ic.outputImageFile, partitionMetadataOutput, ic.verityMetadata,
-		ic.partUuidToFstabEntry, ic.imageUuidStr, ic.osRelease, ic.osPackages, ic.cosiBootMetadata)
+	err = buildCosiFile(buildDirAbs, outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
+		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
 
-	logger.Log.Infof("Successfully converted to COSI: %s", ic.outputImageFile)
+	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
 
 	err = imageLoopback.CleanClose()
 	if err != nil {
@@ -65,7 +71,7 @@ func convertToCosi(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
+func buildCosiFile(buildDirAbs string, sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
 ) error {
@@ -309,6 +315,10 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
+	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
+		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
+	}
+
 	var out string
 	err := imageConnection.Chroot().UnsafeRun(func() error {
 		var err error
@@ -338,4 +348,154 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 
 	return packages, nil
 
+}
+
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnection) (*CosiBootloader, error) {
+	chrootDir := imageConnection.Chroot().RootDir()
+
+	// First check for systemd-boot loader entries
+	loaderEntryDir := filepath.Join(chrootDir, "boot", "loader", "entries")
+	if exists, err := file.DirExists(loaderEntryDir); err != nil {
+		return nil, fmt.Errorf("failed while checking if systemd-boot entry dir '%s' exists:\n%w", loaderEntryDir, err)
+	} else if exists {
+		entries, err := extractSystemdBootEntries(loaderEntryDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract systemd-boot entries:\n%w", err)
+		}
+		return &CosiBootloader{
+			Type:        BootloaderSystemdBoot,
+			SystemdBoot: &SystemDBoot{Entries: entries},
+		}, nil
+	}
+
+	// Next check for UKI files under EFI/Linux
+	efiDir := filepath.Join(chrootDir, "boot", "efi", "EFI", "Linux")
+	efiFiles, err := filepath.Glob(filepath.Join(efiDir, "*.efi"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan UKI EFI files:\n%w", err)
+	}
+	if len(efiFiles) > 0 {
+		var entries []SystemDBootEntry
+		for _, efiPath := range efiFiles {
+			kernelVer, err := getKernelName(efiPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get kernel version from UKI file %s:\n%w", efiPath, err)
+			}
+
+			cmdline, err := extractUkiCmdline(buildDirAbs, efiPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get cmdline from UKI file %s:\n%w", efiPath, err)
+			}
+
+			entries = append(entries, SystemDBootEntry{
+				Type:    EntryTypeUKIStandalone,
+				Path:    strings.TrimPrefix(efiPath, chrootDir),
+				Kernel:  kernelVer,
+				Cmdline: cmdline,
+			})
+		}
+		return &CosiBootloader{
+			Type:        BootloaderSystemdBoot,
+			SystemdBoot: &SystemDBoot{Entries: entries},
+		}, nil
+	}
+
+	// Fall back to GRUB detection
+	if GrubConfigSupportExists(imageConnection.Chroot()) {
+		return &CosiBootloader{
+			Type:        BootloaderGrub,
+			SystemdBoot: nil,
+		}, nil
+	}
+
+	return nil, nil
+}
+
+func extractUkiCmdline(buildDirAbs string, ukiPath string) (string, error) {
+	cmdlinePath := filepath.Join(buildDirAbs, "tmp-cmdline.txt")
+	args := []string{
+		fmt.Sprintf("--dump-section=.cmdline=%s", cmdlinePath),
+		ukiPath,
+	}
+
+	stdout, stderr, err := shell.Execute("objcopy", args...)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract .cmdline section from %s:\nstdout: %s\nstderr: %s\n%w", ukiPath, stdout, stderr, err)
+	}
+
+	cmdlineBytes, err := os.ReadFile(cmdlinePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read extracted .cmdline section from %s: %w", cmdlinePath, err)
+	}
+	cmdline := strings.TrimSpace(string(cmdlineBytes))
+	return cmdline, nil
+}
+
+func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
+	files, err := os.ReadDir(entryDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory %s: %w", entryDir, err)
+	}
+
+	var entries []SystemDBootEntry
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".conf") {
+			continue
+		}
+
+		path := filepath.Join(entryDir, file.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", path, err)
+		}
+
+		entry := SystemDBootEntry{Path: path}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			switch {
+			case strings.HasPrefix(line, "options"):
+				entry.Cmdline = strings.TrimSpace(strings.TrimPrefix(line, "options"))
+			case strings.HasPrefix(line, "linux"):
+				entry.Kernel = strings.TrimSpace(strings.TrimPrefix(line, "linux"))
+			case strings.HasPrefix(line, "uki"):
+				entry.Kernel = strings.TrimSpace(strings.TrimPrefix(line, "uki"))
+				entry.Type = EntryTypeUKIConfig
+			}
+		}
+
+		// Fallback for type if not set explicitly by "uki"
+		if entry.Type == "" {
+			if entry.Kernel != "" && strings.HasSuffix(entry.Kernel, ".efi") {
+				entry.Type = EntryTypeUKIConfig
+			} else if entry.Kernel != "" {
+				entry.Type = EntryTypeConfig
+			} else {
+				entry.Type = EntryTypeConfig // default fallback
+			}
+		}
+
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
+func GrubConfigSupportExists(installChroot safechroot.ChrootInterface) bool {
+	cfgPath := filepath.Join(installChroot.RootDir(), installutils.GrubCfgFile)
+	defPath := filepath.Join(installChroot.RootDir(), installutils.GrubDefFile)
+
+	cfgExists := false
+	if _, err := os.Stat(cfgPath); err == nil {
+		cfgExists = true
+	}
+
+	defExists := false
+	if _, err := os.Stat(defPath); err == nil {
+		defExists = true
+	}
+
+	return cfgExists && defExists
 }

@@ -16,7 +16,7 @@ func addCustomizerRelease(rootDir string, toolVersion string, buildTime string, 
 
 	logger.Log.Infof("Creating image customizer release file")
 
-	customizerReleaseFilePath := filepath.Join(rootDir, "/etc/image-customizer-release")
+	customizerReleaseFilePath := filepath.Join(rootDir, ImageCustomizerReleasePath)
 	lines := []string{
 		fmt.Sprintf("%s=\"%s\"", "TOOL_VERSION", toolVersion),
 		fmt.Sprintf("%s=\"%s\"", "BUILD_DATE", buildTime),

@@ -10,9 +10,9 @@ You must enable this feature by specifying `output-artifacts` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
 Specifies the configuration for the output directory containing the generated
-artifacts, including UKI PE images, shim and systemd-boot.
+artifacts, including UKI PE images, shim, systemd-boot, and Verity hash files.
 
-After Prism outputs the selected artifacts, it will also generate a helper
+After Image Customizer outputs the selected artifacts, it will also generate a helper
 configuration file named `inject-files.yaml` under the same directory of output
 artifacts. This file can later be used to inject signed artifacts back into an
 image. For more details, see the [`injectFilesConfig`](./injectFilesConfig.md)
@@ -27,6 +27,7 @@ output:
     - ukis
     - shim
     - systemd-boot
+    - verity-hash
     path: ./output
 previewFeatures:
 - output-artifacts
@@ -38,7 +39,7 @@ Added in v0.14.
 
 Required.
 
-Specifies the directory path where Prism will output the selected artifacts.
+Specifies the directory path where Image Customizer will output the selected artifacts.
 
 Added in v0.14.
 
@@ -53,6 +54,8 @@ Supported values:
 - `ukis` – UKI PE images (`vmlinuz-<version>.efi`).
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
 - `systemd-boot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
+- `verity-hash` – Verity hash files associated with dm-verity protected partitions.
+  *Added in v0.16.*
 
 The `output.artifacts` field must be used with the `output-artifacts` enabled in `previewFeatures`.
 
@@ -60,5 +63,11 @@ These artifacts are generated in an unsigned format and must be signed externall
 
 Supported architectures for shim and systemd-boot include x64 and arm64,
 reflected in the `<arch>` portion of the filenames.
+
+The `verity-hash` artifact will only be output if the corresponding Verity entry
+defines a [`hashSignaturePath`](./verity.md#hashsignaturepath-string). If the
+`hashSignaturePath` is not configured, Image Customizer will skip generating the
+hash file for that Verity device. For more details, see the
+[`verity`](./verity.md) documentation.
 
 Added in v0.14.

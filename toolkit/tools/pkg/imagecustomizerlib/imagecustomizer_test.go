@@ -938,7 +938,6 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
-	assert.Equal(t, ic.outputImageBase, "image-as-config")
 	assert.Equal(t, ic.outputImageDir, buildDir)
 
 	// Pass the output image file only as an argument.
@@ -950,7 +949,6 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
-	assert.Equal(t, ic.outputImageBase, "image-as-arg")
 	assert.Equal(t, ic.outputImageDir, buildDir)
 
 	// Pass the output image file in both the config and as an argument.
@@ -962,7 +960,6 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
-	assert.Equal(t, ic.outputImageBase, "image-as-arg")
 	assert.Equal(t, ic.outputImageDir, buildDir)
 }
 

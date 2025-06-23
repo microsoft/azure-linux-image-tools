@@ -1,7 +1,6 @@
 # Azure Linux Image Tools
 
-[![build &
-test](https://github.com/microsoft/azure-linux-image-tools/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/microsoft/azure-linux-image-tools/actions/workflows/build-and-test.yml)
+[![Build](https://github.com/microsoft/azure-linux-image-tools/actions/workflows/build-main.yml/badge.svg)](https://github.com/microsoft/azure-linux-image-tools/actions/workflows/build-main.yml)
 ![GitHub release (latest
 SemVer)](https://img.shields.io/github/v/release/microsoft/azure-linux-image-tools?sort=semver)
 
