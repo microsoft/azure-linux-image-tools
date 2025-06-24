@@ -1041,6 +1041,17 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 			return nil, fmt.Errorf("failed to find verity (%s) hash partition:\n%w", verityConfig.Id, err)
 		}
 
+		// Convert data partition to erofs.
+		err = convertPartitionToErofs(&dataPartition, buildDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert verity (%s) data partition to erofs:\n%w", verityConfig.Name, err)
+		}
+		dataPartition, err = verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
+			diskPartitions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", verityConfig.Id, err)
+		}
+
 		// Format hash partition.
 		rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
 			shrinkHashPartition, sectorSize)
@@ -1296,5 +1307,64 @@ func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecusto
 		return fmt.Errorf("invalid command-line option '--package-snapshot-time': '%s'\n%w", snapshotTime, err)
 	}
 
+	return nil
+}
+
+func convertPartitionToErofs(partition *diskutils.PartitionInfo, buildDir string) error {
+	logger.Log.Infof("Converting partition (%s) to erofs", partition.Path)
+
+	// Mount data partition
+	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
+	logger.Log.Debugf("Mounting partition (%s) to (%s)", partition.Path, tmpDir)
+	partitionMount, err := safemount.NewMount(partition.Path, tmpDir, partition.FileSystemType, unix.MS_RDONLY,
+		"", true)
+	if err != nil {
+		return fmt.Errorf("failed to mount partition (%s):\n%w", partition.Path, err)
+	}
+	defer partitionMount.Close()
+
+	// Generate erofs from the data partition.
+	erofsImagePath := filepath.Join(buildDir, "erofs.img")
+	logger.Log.Debugf("Creating erofs image (%s) from mounted partition", erofsImagePath)
+	err = shell.NewExecBuilder("mkfs.erofs", erofsImagePath, tmpDir).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to create erofs image for partition (%s):\n%w", partition.Path, err)
+	}
+
+	// Close data partition mount.
+	logger.Log.Debugf("Closing partition mount (%s)", partition.Path)
+	err = partitionMount.CleanClose()
+	if err != nil {
+		return fmt.Errorf("failed to close partition mount (%s):\n%w", partition.Path, err)
+	}
+
+	// // Zero out the entire data partition.
+	// logger.Log.Debugf("Zeroing out data partition (%s)", partition.Path)
+	// err = shell.NewExecBuilder("dd", "if=/dev/zero", fmt.Sprintf("of=%s", partition.Path), "bs=1M", "status=progress").
+	// 	LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+	// 	Execute()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to zero out data partition (%s):\n%w", partition.Path, err)
+	// }
+
+	// Overwrite the data partition with the erofs image.
+	logger.Log.Debugf("Writing erofs image (%s) to data partition (%s)", erofsImagePath, partition.Path)
+	err = shell.NewExecBuilder("dd", fmt.Sprintf("if=%s", erofsImagePath), fmt.Sprintf("of=%s", partition.Path), "bs=1M", "status=progress").
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to write erofs image to data partition (%s):\n%w", partition.Path, err)
+	}
+
+	// Remove the temporary erofs image file.
+	logger.Log.Debugf("Removing temporary erofs image (%s)", erofsImagePath)
+	err = os.Remove(erofsImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to remove temporary erofs image (%s):\n%w", erofsImagePath, err)
+	}
+
+	logger.Log.Infof("Successfully converted partition (%s) to erofs", partition.Path)
 	return nil
 }

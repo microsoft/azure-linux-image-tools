@@ -114,6 +114,9 @@ func checkFileSystem(fileSystemType string, path string) error {
 			return fmt.Errorf("failed to check (%s) with xfs_repair:\n%w", path, err)
 		}
 
+	case "erofs":
+		return nil
+
 	default:
 		err := shell.ExecuteLive(true /*squashErrors*/, "fsck", "-n", path)
 		if err != nil {
