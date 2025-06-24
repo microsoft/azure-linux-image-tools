@@ -40,9 +40,9 @@ type MetadataJson struct {
 	OsArch     string          `json:"osArch"`
 	Images     []FileSystem    `json:"images"`
 	OsRelease  string          `json:"osRelease"`
-	Id         string          `json:"id"`
-	OsPackages []OsPackage     `json:"osPackages"`
+	Id         string          `json:"id,omitempty"`
 	Bootloader *CosiBootloader `json:"bootloader"`
+	OsPackages []OsPackage     `json:"osPackages"`
 }
 
 type FileSystem struct {

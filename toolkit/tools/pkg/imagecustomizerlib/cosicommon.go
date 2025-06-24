@@ -353,7 +353,7 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnection) (*CosiBootloader, error) {
 	chrootDir := imageConnection.Chroot().RootDir()
 
-	// First check for systemd-boot loader entries
+	// Check for systemd-boot with .conf entries (UKI with config)
 	loaderEntryDir := filepath.Join(chrootDir, "boot", "loader", "entries")
 	if exists, err := file.DirExists(loaderEntryDir); err != nil {
 		return nil, fmt.Errorf("failed while checking if systemd-boot entry dir '%s' exists:\n%w", loaderEntryDir, err)
@@ -368,30 +368,27 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnectio
 		}, nil
 	}
 
-	// Next check for UKI files under EFI/Linux
-	efiDir := filepath.Join(chrootDir, "boot", "efi", "EFI", "Linux")
-	efiFiles, err := filepath.Glob(filepath.Join(efiDir, "*.efi"))
+	// Check for standalone UKI .efi files under /boot/efi/EFI/Linux (UKI without config)
+	espDir := filepath.Join(chrootDir, "boot", "efi")
+	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDirAbs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan UKI EFI files:\n%w", err)
+		return nil, fmt.Errorf("failed to extract kernel cmdline from UKI .efi files:\n%w", err)
 	}
-	if len(efiFiles) > 0 {
+
+	if len(cmdlines) > 0 {
 		var entries []SystemDBootEntry
-		for _, efiPath := range efiFiles {
-			kernelVer, err := getKernelName(efiPath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get kernel version from UKI file %s:\n%w", efiPath, err)
-			}
+		for kernelName, cmdline := range cmdlines {
+			efiPath := filepath.Join("/boot/efi/EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
 
-			cmdline, err := extractUkiCmdline(buildDirAbs, efiPath)
+			kernelVersion, err := getKernelVersion(kernelName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get cmdline from UKI file %s:\n%w", efiPath, err)
+				return nil, fmt.Errorf("invalid kernel name in UKI file (%s):\n%w", kernelName, err)
 			}
-
 			entries = append(entries, SystemDBootEntry{
 				Type:    EntryTypeUKIStandalone,
-				Path:    strings.TrimPrefix(efiPath, chrootDir),
-				Kernel:  kernelVer,
-				Cmdline: cmdline,
+				Path:    efiPath,
+				Kernel:  kernelVersion,
+				Cmdline: strings.TrimSpace(cmdline),
 			})
 		}
 		return &CosiBootloader{
@@ -400,7 +397,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnectio
 		}, nil
 	}
 
-	// Fall back to GRUB detection
+	// Fall back to EFI-based GRUB config
 	if GrubConfigSupportExists(imageConnection.Chroot()) {
 		return &CosiBootloader{
 			Type:        BootloaderGrub,
@@ -411,30 +408,10 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnectio
 	return nil, nil
 }
 
-func extractUkiCmdline(buildDirAbs string, ukiPath string) (string, error) {
-	cmdlinePath := filepath.Join(buildDirAbs, "tmp-cmdline.txt")
-	args := []string{
-		fmt.Sprintf("--dump-section=.cmdline=%s", cmdlinePath),
-		ukiPath,
-	}
-
-	stdout, stderr, err := shell.Execute("objcopy", args...)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract .cmdline section from %s:\nstdout: %s\nstderr: %s\n%w", ukiPath, stdout, stderr, err)
-	}
-
-	cmdlineBytes, err := os.ReadFile(cmdlinePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read extracted .cmdline section from %s: %w", cmdlinePath, err)
-	}
-	cmdline := strings.TrimSpace(string(cmdlineBytes))
-	return cmdline, nil
-}
-
 func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 	files, err := os.ReadDir(entryDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read directory %s: %w", entryDir, err)
+		return nil, fmt.Errorf("failed to read directory %s:\n%w", entryDir, err)
 	}
 
 	var entries []SystemDBootEntry
@@ -444,13 +421,15 @@ func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 			continue
 		}
 
-		path := filepath.Join(entryDir, file.Name())
-		content, err := os.ReadFile(path)
+		absPath := filepath.Join(entryDir, file.Name())
+		content, err := os.ReadFile(absPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", path, err)
+			return nil, fmt.Errorf("failed to read %s: %w", absPath, err)
 		}
 
-		entry := SystemDBootEntry{Path: path}
+		entry := SystemDBootEntry{
+			Path: filepath.Join("boot", "loader", "entries", file.Name()),
+		}
 
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
@@ -459,21 +438,24 @@ func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 			case strings.HasPrefix(line, "options"):
 				entry.Cmdline = strings.TrimSpace(strings.TrimPrefix(line, "options"))
 			case strings.HasPrefix(line, "linux"):
-				entry.Kernel = strings.TrimSpace(strings.TrimPrefix(line, "linux"))
+				linuxPath := strings.TrimSpace(strings.TrimPrefix(line, "linux"))
+				if kernelVer, err := getKernelVersion(filepath.Base(linuxPath)); err == nil {
+					entry.Kernel = kernelVer
+				}
 			case strings.HasPrefix(line, "uki"):
-				entry.Kernel = strings.TrimSpace(strings.TrimPrefix(line, "uki"))
+				ukiPath := strings.TrimSpace(strings.TrimPrefix(line, "uki"))
+				if kernelVer, err := getKernelVersion(filepath.Base(ukiPath)); err == nil {
+					entry.Kernel = kernelVer
+				}
 				entry.Type = EntryTypeUKIConfig
 			}
 		}
 
-		// Fallback for type if not set explicitly by "uki"
 		if entry.Type == "" {
-			if entry.Kernel != "" && strings.HasSuffix(entry.Kernel, ".efi") {
+			if strings.HasSuffix(entry.Kernel, ".efi") {
 				entry.Type = EntryTypeUKIConfig
-			} else if entry.Kernel != "" {
-				entry.Type = EntryTypeConfig
 			} else {
-				entry.Type = EntryTypeConfig // default fallback
+				entry.Type = EntryTypeConfig
 			}
 		}
 

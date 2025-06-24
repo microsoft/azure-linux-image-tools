@@ -564,7 +564,7 @@ func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string)
 	return nil
 }
 
-func getUkiKernelName(ukiPath string) (string, error) {
+func getKernelNameFromUki(ukiPath string) (string, error) {
 	fileName := filepath.Base(ukiPath)
 
 	matches := ukiNamePattern.FindStringSubmatch(fileName)
