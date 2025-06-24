@@ -125,7 +125,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		user.SSHPublicKeyPaths[i] = file.GetAbsPathWithBase(baseConfigPath, user.SSHPublicKeyPaths[i])
 	}
 
-	err = installutils.ProvisionUserSSHCerts(imageChroot, user.Name, user.SSHPublicKeyPaths, user.SSHPublicKeys,
+	err = userutils.ProvisionUserSSHCerts(imageChroot, user.Name, user.SSHPublicKeyPaths, user.SSHPublicKeys,
 		userExists)
 	if err != nil {
 		return err
