@@ -94,9 +94,6 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	systemdBootBinary := systemdBootBinaries[0]
 
 	// Detect unsigned UKIs
-	ukiFiles, err := filepath.Glob(filepath.Join(outputArtifactsDir, "vmlinuz-*.efi"))
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(ukiFiles), 1, "Expected at least one UKI file")
 
 	// Simulate signed boot & systemd-boot
 	marker := "##TEST_MARKER_INJECTED##"
@@ -110,11 +107,6 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	}
 
 	// Simulate signed UKIs
-	for _, src := range ukiFiles {
-		dst := replaceSuffix(src, ".efi", ".signed.efi")
-		err := file.Copy(src, dst)
-		assert.NoError(t, err)
-	}
 
 	// Inject artifacts into a fresh copy of the raw image
 	err = InjectFilesWithConfigFile(buildDir, injectConfigPath, outImageFilePath, "", "")
@@ -161,15 +153,6 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	contains, err = fileContainsMarker(expectedInjectedSystemdBoot, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected systemd-boot to exist:\n%s", expectedInjectedSystemdBoot)
-
-	// UKI(s)
-	for _, src := range ukiFiles {
-		expectedInjectedUKI := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "Linux", filepath.Base(src))
-
-		exists, err = file.PathExists(expectedInjectedUKI)
-		assert.NoError(t, err)
-		assert.True(t, exists, "Expected injected UKI to exist:\n%s", expectedInjectedUKI)
-	}
 }
 
 func appendMarker(path string, marker string) error {

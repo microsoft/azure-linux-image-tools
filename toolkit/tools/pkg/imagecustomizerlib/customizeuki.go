@@ -34,7 +34,7 @@ const (
 )
 
 // Matches UKI filenames like "vmlinuz-<version>.efi"
-var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
+var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+?)(?:\.unsigned)?\.efi$`)
 
 func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
 	var err error
@@ -473,7 +473,7 @@ func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubrele
 		return fmt.Errorf("failed to save INI file for kernel (%s):\n%w", kernelVersion, err)
 	}
 
-	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.efi", kernel))
+	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.unsigned.efi", kernel))
 
 	// Build the UKI using ukify.
 	ukifyCmd := []string{
