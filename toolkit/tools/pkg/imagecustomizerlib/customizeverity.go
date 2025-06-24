@@ -431,7 +431,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 }
 
 func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecustomizerapi.Config,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, baseImageVerityMetadata []verityDeviceMetadata,
 ) error {
 	if config.Storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
 		// Either:
@@ -460,6 +460,16 @@ func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecus
 			return fmt.Errorf("verity (%s) hash partition not found:\n%w", verity.Id, err)
 		}
 
+		err = ensurePartitionNotAlreadyInUse(dataPartition.PartUuid, baseImageVerityMetadata)
+		if err != nil {
+			return fmt.Errorf("verity (%s) data partition is invalid:\n%w", verity.Id, err)
+		}
+
+		err = ensurePartitionNotAlreadyInUse(hashPartition.PartUuid, baseImageVerityMetadata)
+		if err != nil {
+			return fmt.Errorf("verity (%s) hash partition is invalid:\n%w", verity.Id, err)
+		}
+
 		dataFstabEntry, found := partUuidToFstabEntry[dataPartition.PartUuid]
 		if !found {
 			return fmt.Errorf("verity's (%s) data partition's fstab entry not found", verity.Id)
@@ -484,6 +494,21 @@ func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecus
 	err = imagecustomizerapi.ValidateVerityMounts(config.Storage.Verity, verityDeviceMountPoint)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Check if the partition is already being used for something else.
+func ensurePartitionNotAlreadyInUse(partUuid string, baseImageVerityMetadata []verityDeviceMetadata) error {
+	for _, verityMetadata := range baseImageVerityMetadata {
+		if partUuid == verityMetadata.dataPartUuid {
+			return fmt.Errorf("partition already in use as existing verity device's (%s) data partition", verityMetadata.name)
+		}
+
+		if partUuid == verityMetadata.hashPartUuid {
+			return fmt.Errorf("partition already in use as existing verity device's (%s) hash partition", verityMetadata.name)
+		}
 	}
 
 	return nil
