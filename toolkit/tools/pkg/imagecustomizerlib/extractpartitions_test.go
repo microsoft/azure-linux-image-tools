@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -24,7 +25,7 @@ import (
 
 func TestAddSkippableFrame(t *testing.T) {
 	// Create a skippable frame containing the metadata and prepend the frame to the partition file
-	skippableFrameMetadata, _, err := createUuid()
+	skippableFrameMetadata, _, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
 	// Create test raw partition file

@@ -76,7 +76,7 @@ func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePat
 	return partUuidToFstabEntry, verityMetadata, nil
 }
 
-func createNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
+func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
 ) (map[string]string, error) {
@@ -102,7 +102,6 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConn
 	diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
 	chrootDirName string, installOS installOSFunc,
 ) (map[string]string, error) {
-
 	// Convert config to image config types, so that the imager's utils can be used.
 	imagerDiskConfig, err := diskConfigToImager(diskConfig, fileSystems)
 	if err != nil {
@@ -140,7 +139,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConn
 
 func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
-	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -157,9 +156,14 @@ func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType i
 		return err
 	}
 
-	grubMkconfigEnabled, err := isGrubMkconfigEnabled(imageConnection.Chroot())
-	if err != nil {
-		return err
+	// TODO: Remove this once we have a way to determine if grub-mkconfig is enabled.
+	grubMkconfigEnabled := true
+	if !newImage {
+		grubMkconfigEnabled, err = isGrubMkconfigEnabled(imageConnection.Chroot())
+		if err != nil {
+			return err
+		}
+
 	}
 
 	mountPointMap := make(map[string]string)
@@ -235,6 +239,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageCo
 		return mountList[i] < mountList[j]
 	})
 
+	// Create the temporary fstab file.
 	err = installutils.UpdateFstabFile(tmpFstabFile, imagerPartitionSettings, mountList, mountPointMap,
 		mountPointToFsTypeMap, mountPointToMountArgsMap, partIDToDevPathMap, partIDToFsTypeMap,
 		false, /*hidepidEnabled*/

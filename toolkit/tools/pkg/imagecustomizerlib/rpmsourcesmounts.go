@@ -300,7 +300,7 @@ func (m *rpmSourcesMounts) close() error {
 	return nil
 }
 
-func validateRpmSources(rpmsSources []string) error {
+func ValidateRpmSources(rpmsSources []string) error {
 	for _, rpmSource := range rpmsSources {
 		_, err := getRpmSourceFileType(rpmSource)
 		if err != nil {

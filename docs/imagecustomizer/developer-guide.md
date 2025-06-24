@@ -47,7 +47,7 @@ sudo go test -C ./toolkit/tools ./...
 2. Download the test RPM files:
 
    ```bash
-   ./toolkit/tools/pkg/imagecustomizerlib/testdata/testrpms/download-test-rpms.sh
+   ./toolkit/tools/internal/testutils/testrpms/download-test-utils.sh
    ```
 
 3. Run the tests:

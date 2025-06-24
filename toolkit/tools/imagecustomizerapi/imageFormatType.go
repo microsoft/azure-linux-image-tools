@@ -37,6 +37,14 @@ var supportedImageFormatTypes = []string{
 	string(ImageFormatTypeCosi),
 }
 
+var supportedImageFormatTypesImageCreator = []string{
+	string(ImageFormatTypeVhd),
+	string(ImageFormatVhdTypeFixed),
+	string(ImageFormatTypeVhdx),
+	string(ImageFormatTypeQcow2),
+	string(ImageFormatTypeRaw),
+}
+
 func (ft ImageFormatType) IsValid() error {
 	if ft != ImageFormatTypeNone && !slices.Contains(SupportedImageFormatTypes(), string(ft)) {
 		return fmt.Errorf("invalid image format type (%s)", ft)
@@ -48,4 +56,8 @@ func (ft ImageFormatType) IsValid() error {
 // SupportedImageFormatTypes returns all valid image format types.
 func SupportedImageFormatTypes() []string {
 	return supportedImageFormatTypes
+}
+
+func SupportedImageFormatTypesImageCreator() []string {
+	return supportedImageFormatTypesImageCreator
 }

@@ -1,41 +1,21 @@
-#!/usr/bin/env bash
-set -eu
+#!/bin/bash
+
+set -e
+CONTAINER_IMAGE="$1"
+IMAGE_VERSION="$2"
+IMAGE_CREATOR="$3"
+
+# Check if the required arguments are provided
+if [[ -z "$CONTAINER_IMAGE" || -z "$IMAGE_VERSION" || -z "$IMAGE_CREATOR" ]]; then
+  echo "Usage: $0 <container_image> <image_version> <image_creator>"
+  echo "Example: $0 mcr.microsoft.com/azurelinux/base/core:3.0 3.0 true"
+  exit 1
+fi
 
 SCRIPT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
-CONTAINER_TAG="imagecustomizertestrpms:latest"
 DOCKERFILE_DIR="$SCRIPT_DIR/downloader"
-
-AZURELINUX_2_CONTAINER_IMAGE="mcr.microsoft.com/cbl-mariner/base/core:2.0"
-
-IMAGE_VERSION="2.0"
-
-while getopts "t:" flag
-do
-    case "${flag}" in
-        t) IMAGE_VERSION="$OPTARG";;
-        h) ;;&
-        ?)
-            echo "Usage: download-test-rpms.sh [-t IMAGE_VERSION]"
-            echo ""
-            echo "Args:"
-            echo "  -t IMAGE_VERSION   The Azure Image version to download the RPMs for."
-            echo "  -h Show help"
-            exit 1;;
-    esac
-done
-
-case "${IMAGE_VERSION}" in
-  2.0)
-    CONTAINER_IMAGE="$AZURELINUX_2_CONTAINER_IMAGE"
-    ;;
-  *)
-    echo "error: unsupported Azure Linux version: $IMAGE_VERSION"
-    exit 1;;
-esac
-
-set -x
-
 DOWNLOADER_RPMS_DIRS="$SCRIPT_DIR/downloadedrpms"
+CONTAINER_TAG="imagecustomizertestrpms:latest"
 OUT_DIR="$DOWNLOADER_RPMS_DIRS/$IMAGE_VERSION"
 REPO_WITH_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION-withkey.repo"
 REPO_NO_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION-nokey.repo"
@@ -44,7 +24,8 @@ mkdir -p "$OUT_DIR"
 
 # Build a container image that contains the RPMs.
 docker build \
-  --build-arg "baseimage=$AZURELINUX_2_CONTAINER_IMAGE" \
+  --build-arg "baseimage=$CONTAINER_IMAGE" \
+  --build-arg "imagecreator=$IMAGE_CREATOR" \
   --tag "$CONTAINER_TAG" \
   "$DOCKERFILE_DIR"
 

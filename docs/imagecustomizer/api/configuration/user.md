@@ -109,7 +109,12 @@ Added in v0.3.
 
 ## primaryGroup [string]
 
-The primary group of the user.
+Set the primary group of the user.
+
+If a value is provided, then the group must already exist.
+
+If a value is not provided and the user does not exist, then a new group will be
+automatically created with the same name as the user.
 
 Example:
 
@@ -124,7 +129,7 @@ Added in v0.3.
 
 ## secondaryGroups [string[]]
 
-Additional groups to assign to the user.
+Additional groups to assign to the user. These groups must already exist.
 
 Example:
 

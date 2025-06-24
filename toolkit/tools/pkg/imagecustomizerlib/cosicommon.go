@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -30,7 +31,8 @@ type ImageBuildData struct {
 
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, verityMetadata []verityDeviceMetadata,
-	osRelease string, osPackages []OsPackage, imageUuid [UuidSize]byte, imageUuidStr string, cosiBootMetadata *CosiBootloader,
+	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
+	cosiBootMetadata *CosiBootloader,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -55,7 +57,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
-	err = buildCosiFile(buildDirAbs, outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
+	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
 		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
@@ -71,7 +73,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	return nil
 }
 
-func buildCosiFile(buildDirAbs string, sourceDir string, outputFile string, partitions []outputPartitionMetadata,
+func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
 ) error {
@@ -347,7 +349,6 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 	}
 
 	return packages, nil
-
 }
 
 func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnection) (*CosiBootloader, error) {
