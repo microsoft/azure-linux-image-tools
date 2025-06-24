@@ -369,8 +369,14 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	}
 
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		err := convertToCosiWhenInject(buildDirAbs, rawImageFile, outputImageBase, imageUuid, imageUuidStr, outputImageFile,
-			baseImageVerityMetadata, partUuidToFstabEntry, osRelease)
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, err :=
+			prepareImageConversionData(rawImageFile, buildDir, "imageroot")
+		if err != nil {
+			return err
+		}
+
+		err = convertToCosiWhenInject(buildDirAbs, rawImageFile, outputImageBase, imageUuid, imageUuidStr, outputImageFile,
+			baseImageVerityMetadata, partUuidToFstabEntry, osRelease, osPackages)
 		if err != nil {
 			return err
 		}
@@ -386,9 +392,33 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	return nil
 }
 
+func prepareImageConversionData(rawImageFile string, buildDir string,
+	chrootDir string,
+) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
+	[]OsPackage, error,
+) {
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, osPackages, err := connectToExistingImage(
+		rawImageFile, buildDir, chrootDir, true)
+	if err != nil {
+		return nil, nil, "", nil, fmt.Errorf("failed to connect to image:\n%w", err)
+	}
+	defer imageConnection.Close()
+
+	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, nil, "", nil, err
+	}
+
+	if err := imageConnection.CleanClose(); err != nil {
+		return nil, nil, "", nil, fmt.Errorf("failed to cleanly close image connection:\n%w", err)
+	}
+
+	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, nil
+}
+
 func convertToCosiWhenInject(buildDirAbs string, rawImageFile string, outputImageBase string,
 	imageUuid [UuidSize]byte, imageUuidStr string, outputImageFile string, baseImageVerityMetadata []verityDeviceMetadata,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, osRelease string,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, osRelease string, osPackages []OsPackage,
 ) error {
 	logger.Log.Infof("Extracting partition files")
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -414,7 +444,7 @@ func convertToCosiWhenInject(buildDirAbs string, rawImageFile string, outputImag
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, baseImageVerityMetadata,
-		partUuidToFstabEntry, imageUuidStr, osRelease)
+		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
