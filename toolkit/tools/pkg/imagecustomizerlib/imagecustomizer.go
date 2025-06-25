@@ -1042,7 +1042,7 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		}
 
 		// Convert data partition to erofs.
-		err = convertPartitionToErofs(&dataPartition, buildDir)
+		err = convertPartitionToErofs(&dataPartition, loopback.DevicePath(), buildDir, sectorSize)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert verity (%s) data partition to erofs:\n%w", verityConfig.Name, err)
 		}
@@ -1310,7 +1310,7 @@ func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecusto
 	return nil
 }
 
-func convertPartitionToErofs(partition *diskutils.PartitionInfo, buildDir string) error {
+func convertPartitionToErofs(partition *diskutils.PartitionInfo, diskDevice string, buildDir string, sectorSize uint64) error {
 	logger.Log.Infof("Converting partition (%s) to erofs", partition.Path)
 
 	// Mount data partition
@@ -1326,7 +1326,7 @@ func convertPartitionToErofs(partition *diskutils.PartitionInfo, buildDir string
 	// Generate erofs from the data partition.
 	erofsImagePath := filepath.Join(buildDir, "erofs.img")
 	logger.Log.Debugf("Creating erofs image (%s) from mounted partition", erofsImagePath)
-	err = shell.NewExecBuilder("mkfs.erofs", erofsImagePath, tmpDir).
+	err = shell.NewExecBuilder("mkfs.erofs", "-zlz4hc,9", erofsImagePath, tmpDir).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		Execute()
 	if err != nil {
@@ -1340,14 +1340,12 @@ func convertPartitionToErofs(partition *diskutils.PartitionInfo, buildDir string
 		return fmt.Errorf("failed to close partition mount (%s):\n%w", partition.Path, err)
 	}
 
-	// // Zero out the entire data partition.
-	// logger.Log.Debugf("Zeroing out data partition (%s)", partition.Path)
-	// err = shell.NewExecBuilder("dd", "if=/dev/zero", fmt.Sprintf("of=%s", partition.Path), "bs=1M", "status=progress").
-	// 	LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-	// 	Execute()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to zero out data partition (%s):\n%w", partition.Path, err)
-	// }
+	// Get the size of the EROFS image.
+	erofsImageInfo, err := os.Stat(erofsImagePath)
+	if err != nil {
+		return fmt.Errorf("failed to get EROFS image size (%s):\n%w", erofsImagePath, err)
+	}
+	erofsImageSize := uint64(erofsImageInfo.Size())
 
 	// Overwrite the data partition with the erofs image.
 	logger.Log.Debugf("Writing erofs image (%s) to data partition (%s)", erofsImagePath, partition.Path)
@@ -1365,6 +1363,16 @@ func convertPartitionToErofs(partition *diskutils.PartitionInfo, buildDir string
 		return fmt.Errorf("failed to remove temporary erofs image (%s):\n%w", erofsImagePath, err)
 	}
 
-	logger.Log.Infof("Successfully converted partition (%s) to erofs", partition.Path)
+	// Convert EROFS image size to sectors.
+	erofsImageSizeInSectors := convertBytesToSectors(erofsImageSize, sectorSize)
+
+	// Shrink the partition to fit the EROFS image.
+	logger.Log.Debugf("Shrinking partition (%s) to %d sectors", partition.Path, erofsImageSizeInSectors)
+	err = resizePartition(partition.Path, diskDevice, erofsImageSizeInSectors)
+	if err != nil {
+		return fmt.Errorf("failed to resize partition (%s):\n%w", partition.Path, err)
+	}
+
+	logger.Log.Infof("Successfully converted partition (%s) to erofs and shrunk it to %d bytes", partition.Path, erofsImageSize)
 	return nil
 }
