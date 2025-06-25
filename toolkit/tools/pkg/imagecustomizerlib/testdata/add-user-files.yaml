@@ -1,0 +1,9 @@
+os:
+  users:
+  - name: test
+    uid: 1000
+
+  additionalFiles:
+  - destination: /home/test/platypus
+    content:
+      Egg-laying mammal

@@ -38,11 +38,11 @@ The top level type for the YAML file is the [config](./configuration/config.md) 
 
 4. Update hostname. ([hostname](./configuration/os.md#hostname-string))
 
-5. Copy additional files. ([additionalFiles](./configuration/os.md#additionalfiles-additionalfile))
+5. Add/update users. ([users](./configuration/os.md#users-user))
 
 6. Copy additional directories. ([additionalDirs](./configuration/os.md#additionaldirs-dirconfig))
 
-7. Add/update users. ([users](./configuration/os.md#users-user))
+7. Copy additional files. ([additionalFiles](./configuration/os.md#additionalfiles-additionalfile))
 
 8. Enable/disable services. ([services](./configuration/os.md#services-services))
 
