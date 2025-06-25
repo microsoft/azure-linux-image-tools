@@ -40,17 +40,17 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
+	err = AddOrUpdateUsers(config.OS.Users, baseConfigPath, imageChroot)
+	if err != nil {
+		return err
+	}
+
 	err = copyAdditionalDirs(baseConfigPath, config.OS.AdditionalDirs, imageChroot)
 	if err != nil {
 		return err
 	}
 
 	err = copyAdditionalFiles(baseConfigPath, config.OS.AdditionalFiles, imageChroot)
-	if err != nil {
-		return err
-	}
-
-	err = AddOrUpdateUsers(config.OS.Users, baseConfigPath, imageChroot)
 	if err != nil {
 		return err
 	}
