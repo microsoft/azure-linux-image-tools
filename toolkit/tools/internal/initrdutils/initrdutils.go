@@ -75,7 +75,6 @@ func CreateInitrdImageFromFolder(inputRootDir, outputInitrdImagePath string) (er
 }
 
 func buildCpioHeader(inputRootDir, path string, info os.FileInfo, isRoot bool, link string) (cpioHeader *cpio.Header, err error) {
-	// logger.Log.Infof("-- buildCpioHeader -- path: (%s)", path)
 	// Convert the OS header into a CPIO header
 	cpioHeader, err = cpio.FileInfoHeader(info, link)
 	if err != nil {
@@ -220,6 +219,15 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.UID, cpioHeader.GID, err)
 			}
+
+			// UID/GID/Sticky permissions must be set after chown or else they
+			// do not take effect (MkdirAll(,permissions) is not sufficient in
+			// this case).
+			err = os.Chmod(path, golangFileMode)
+			if err != nil {
+				return fmt.Errorf("failed to set permissions on extracted (%s) to (0%08o):\n%w", path, golangFileMode, err)
+			}
+
 		case cpio.ModeRegular:
 			destFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, golangFileMode)
 			if err != nil {
@@ -241,6 +249,15 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.UID, cpioHeader.GID, err)
 			}
+
+			// UID/GID/Sticky permissions must be set after chown or else they
+			// do not take effect (OpenFile(,permissions) is not sufficient in
+			// this case).
+			err = os.Chmod(path, golangFileMode)
+			if err != nil {
+				return fmt.Errorf("failed to set permissions on extracted (%s) to (0%08o):\n%w", path, golangFileMode, err)
+			}
+
 		case cpio.ModeSymlink:
 			err = os.Symlink(cpioHeader.Linkname, path)
 			if err != nil {
