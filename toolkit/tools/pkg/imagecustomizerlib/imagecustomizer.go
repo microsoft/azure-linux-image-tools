@@ -1177,6 +1177,13 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
+
+		// ToDo: temporarily make UKI also update GRUB for Verity to allow customizing previously ukified images.
+		//
+		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+		if err != nil {
+			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
+		}
 	} else {
 		// UKI is not enabled, update grub.cfg as usual.
 		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
