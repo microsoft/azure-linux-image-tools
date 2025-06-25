@@ -413,8 +413,9 @@ func convertToCosiWhenInject(buildDirAbs string, rawImageFile string, outputImag
 		defer os.Remove(path.Join(outputDir, partition.PartitionFilename))
 	}
 
+	var packages []OsPackage
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, baseImageVerityMetadata,
-		partUuidToFstabEntry, imageUuidStr, osRelease)
+		partUuidToFstabEntry, imageUuidStr, osRelease, packages)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}

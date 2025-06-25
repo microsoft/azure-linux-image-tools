@@ -10,12 +10,10 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
 type ImageBuildData struct {
@@ -308,6 +306,7 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
+/*
 func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
 	var out string
 	err := imageConnection.Chroot().UnsafeRun(func() error {
@@ -336,6 +335,13 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 		})
 	}
 
+	return packages, nil
+
+}
+*/
+
+func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
+	var packages []OsPackage
 	return packages, nil
 
 }
