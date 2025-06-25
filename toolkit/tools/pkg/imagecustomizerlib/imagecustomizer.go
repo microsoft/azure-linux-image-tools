@@ -215,7 +215,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to customize image")
 	}
 
 	return nil
