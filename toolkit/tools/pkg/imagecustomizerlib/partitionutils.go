@@ -540,20 +540,81 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to dump kernel cmdline args from UKI (%s):\n%w", ukiFile, err)
+		fmt.Printf("\n===== Original UKI: %s =====\n", ukiFile)
+
+		printSignatureAndHash("Original (before)", ukiFile)
+
+		// Copy the UKI file to a temp path
+		tempUkiFile := filepath.Join(buildDir, filepath.Base(ukiFile)+".copy")
+		if err := file.Copy(ukiFile, tempUkiFile); err != nil {
+			return nil, fmt.Errorf("failed to copy UKI (%s):\n%w", ukiFile, err)
 		}
 
+		fmt.Printf("\n===== Temp Copy (before objcopy): %s =====\n", tempUkiFile)
+		printSignatureAndHash("Copy (before)", tempUkiFile)
+
+		// Dump the .cmdline section from the temp file
+		_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, tempUkiFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to dump .cmdline from temp UKI (%s):\n%w", tempUkiFile, err)
+		}
+
+		// Read dumped .cmdline
 		cmdlineContent, err := os.ReadFile(cmdlinePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", ukiFile, err)
+			return nil, fmt.Errorf("failed to read dumped .cmdline from temp UKI (%s):\n%w", tempUkiFile, err)
 		}
 
 		kernelToArgsString[kernelName] = string(cmdlineContent)
+
+		fmt.Printf("\n===== Temp Copy (after objcopy): %s =====\n", tempUkiFile)
+		printSignatureAndHash("Copy (after)", tempUkiFile)
+
+		// Print original UKI status again after extraction to confirm it's unchanged
+		fmt.Printf("\n===== Original UKI (after all operations): %s =====\n", ukiFile)
+		printSignatureAndHash("Original (after)", ukiFile)
+
+		// Log the build directory contents to confirm deletion
+		fmt.Printf("\n===== Build Dir Contents After Cleanup =====\n")
+		stdout, _, err := shell.Execute("ls", "-l", buildDir)
+		if err != nil {
+			fmt.Printf("  [ls] Failed to list buildDir (%s): %v\n", buildDir, err)
+		} else {
+			fmt.Println(stdout)
+		}
+
+		// Cleanup
+		if err := os.Remove(tempUkiFile); err != nil {
+			fmt.Printf("  [cleanup] Warning: failed to delete temp file: %s\n", tempUkiFile)
+		}
+
+		// Log the build directory contents to confirm deletion
+		fmt.Printf("\n===== Build Dir Contents After Cleanup =====\n")
+		stdout, _, err = shell.Execute("ls", "-l", buildDir)
+		if err != nil {
+			fmt.Printf("  [ls] Failed to list buildDir (%s): %v\n", buildDir, err)
+		} else {
+			fmt.Println(stdout)
+		}
 	}
 
 	return kernelToArgsString, nil
+}
+
+func printSignatureAndHash(label, path string) {
+	stdout, _, err := shell.Execute("pesign", "-S", "-i", path)
+	if err != nil {
+		fmt.Printf("  [%s - pesign] Failed to check signature for %s:\n    %v\n", label, path, err)
+	} else {
+		fmt.Printf("  [%s - pesign] Signature info for %s:\n%s\n", label, path, stdout)
+	}
+
+	stdout, _, err = shell.Execute("sha256sum", path)
+	if err != nil {
+		fmt.Printf("  [%s - sha256sum] Failed to calculate SHA256 for %s:\n    %v\n", label, path, err)
+	} else {
+		fmt.Printf("  [%s - sha256sum] SHA256 for %s: %s", label, path, stdout)
+	}
 }
 
 func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
