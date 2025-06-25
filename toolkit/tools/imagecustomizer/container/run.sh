@@ -19,7 +19,7 @@ if [[ "$SPECIFIC_TAG" != "latest" ]]; then
 fi
 
 # Construct the OCI Artifact full path.
-OCI_ARTIFACT_PATH="acrafoimages.azurecr.io/azurelinux/${MAJOR_VERSION}/image/linuxguard:${SPECIFIC_TAG}"
+OCI_ARTIFACT_PATH="mcr.microsoft.com/azurelinux/${MAJOR_VERSION}/image/linuxguard:${SPECIFIC_TAG}"
 
 ARTIFACT_DIR="/container/base"
 
