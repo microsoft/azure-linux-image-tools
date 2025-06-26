@@ -379,14 +379,16 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[s
 	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
+	} else if !os.IsNotExist(err) {
+		return kernelToArgs, nil
 	}
 
-	// If grub.cfg was empty or missing, fall back to extracting from UKI
-	if len(kernelToArgs) == 0 {
-		kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
-		if err != nil && !os.IsNotExist(err) {
-			return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
-		}
+	// Fallback to extracting from UKI
+	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
+	} else if os.IsNotExist(err) {
+		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
 	return kernelToArgs, nil
