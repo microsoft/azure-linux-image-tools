@@ -300,7 +300,7 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
 	logger.Log.Debugf("Customizing UKI")
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_uki")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki")
 	defer span.End()
 
 	var err error

@@ -4,15 +4,19 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"go.opentelemetry.io/otel"
 )
 
 // Check if the user accidentally uninstalled the kernel package without installing a substitute package.
-func checkForInstalledKernel(imageChroot *safechroot.Chroot) error {
+func checkForInstalledKernel(ctx context.Context, imageChroot *safechroot.Chroot) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "check_for_installed_kernel")
+	defer span.End()
 	kernelModulesDir := filepath.Join(imageChroot.RootDir(), "/lib/modules")
 
 	kernels, err := os.ReadDir(kernelModulesDir)

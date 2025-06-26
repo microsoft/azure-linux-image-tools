@@ -100,12 +100,15 @@ type verityDeviceMetadata struct {
 	hashSignaturePath     string
 }
 
-func createImageCustomizerParameters(buildDir string,
+func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
 	useBaseImageRpmRepos bool, rpmsSources []string,
 	outputImageFormat string, outputImageFile string, packageSnapshotTime string,
 ) (*ImageCustomizerParameters, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_image_customizer_parameters")
+	defer span.End()
+
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
@@ -245,7 +248,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
+	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
@@ -305,7 +308,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	if config.Output.Artifacts != nil {
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
+		err = outputArtifacts(ctx, config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
 			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata)
 		if err != nil {
 			return err
@@ -448,6 +451,9 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		return nil
 	}
 
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
+	defer span.End()
+
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is
 	// present or not will lead to a messy mix of if statements that do not
@@ -521,7 +527,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	}
 
 	// Check file systems for corruption.
-	err = checkFileSystems(ic.rawImageFile)
+	err = checkFileSystems(ctx, ic.rawImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to check filesystems:\n%w", err)
 	}
@@ -578,7 +584,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 			if ic.config.OS != nil {
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
-			err := createLiveOSFromRaw(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
+			err := createLiveOSFromRaw(ctx, ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
 				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create Live OS artifacts:\n%w", err)
@@ -911,7 +917,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(ctx, rawImageFile,
 		buildDir, "imageroot", true, false)
 	if err != nil {
 		return nil, nil, "", nil, err
@@ -942,7 +948,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	// collect OS info if generating a COSI image
 	var osPackages []OsPackage
 	if config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || outputImageFormatType == imagecustomizerapi.ImageFormatTypeCosi {
-		osPackages, err = collectOSInfo(imageConnection)
+		osPackages, err = collectOSInfo(ctx, imageConnection)
 		if err != nil {
 			return nil, nil, "", nil, err
 		}
@@ -964,7 +970,9 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, nil
 }
 
-func collectOSInfo(imageConnection *ImageConnection) ([]OsPackage, error) {
+func collectOSInfo(ctx context.Context, imageConnection *ImageConnection) ([]OsPackage, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
+	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract installed packages:\n%w", err)

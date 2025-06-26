@@ -131,7 +131,7 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 		return err
 	}
 
-	err = checkForInstalledKernel(imageChroot)
+	err = checkForInstalledKernel(ctx, imageChroot)
 	if err != nil {
 		return err
 	}

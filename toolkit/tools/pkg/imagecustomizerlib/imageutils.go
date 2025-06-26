@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -16,13 +17,16 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
+	"go.opentelemetry.io/otel"
 )
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
-func connectToExistingImage(imageFilePath string, buildDir string, chrootDirName string,
+func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
 	includeDefaultMounts bool, readonly bool,
 ) (*ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
+	defer span.End()
 	imageConnection := NewImageConnection()
 
 	partUuidToMountPath, verityMetadata, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir,

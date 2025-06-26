@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -13,10 +14,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func customizePartitionsUsingFileCopy(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string, newBuildImageFile string,
 ) (map[string]string, error) {
-	existingImageConnection, _, _, err := connectToExistingImage(buildImageFile, buildDir, "imageroot", false, false)
+	existingImageConnection, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false, false)
 	if err != nil {
 		return nil, err
 	}

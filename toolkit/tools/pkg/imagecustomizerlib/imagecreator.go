@@ -29,7 +29,7 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 	}
 	defer toolsChroot.Close(false)
 
-	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(rawImageFile, toolsChrootDir, toolsRootImageDir, true, false)
+	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(context.Background(), rawImageFile, toolsChrootDir, toolsRootImageDir, true, false)
 	if err != nil {
 		return nil, "", err
 	}
@@ -116,7 +116,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = checkForInstalledKernel(imageChroot); err != nil {
+	if err = checkForInstalledKernel(ctx, imageChroot); err != nil {
 		return err
 	}
 

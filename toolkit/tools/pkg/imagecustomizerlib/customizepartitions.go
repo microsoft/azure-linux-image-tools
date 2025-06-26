@@ -27,7 +27,7 @@ func customizePartitions(ctx context.Context, buildDir string, baseConfigPath st
 
 		// If there is no known way to create the new partition layout from the old one,
 		// then fallback to creating the new partitions from scratch and doing a file copy.
-		partIdToPartUuid, err := customizePartitionsUsingFileCopy(buildDir, baseConfigPath, config,
+		partIdToPartUuid, err := customizePartitionsUsingFileCopy(ctx, buildDir, baseConfigPath, config,
 			buildImageFile, newBuildImageFile)
 		if err != nil {
 			os.Remove(newBuildImageFile)
