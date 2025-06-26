@@ -1,0 +1,16 @@
+previewFeatures:
+- reinitialize-verity
+
+storage:
+  verity:
+  - id: verityusr
+    name: usr
+    dataDevice:
+      idType: part-label
+      id: usr
+    hashDevice:
+      idType: part-label
+      id: usrhash
+    corruptionOption: panic
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
