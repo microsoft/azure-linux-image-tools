@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sys/unix"
 )
 
@@ -20,7 +23,7 @@ const (
 	configDirMountPathInChroot = "/_imageconfigs"
 )
 
-func runUserScripts(baseConfigPath string, scripts []imagecustomizerapi.Script, listName string,
+func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagecustomizerapi.Script, listName string,
 	imageChroot *safechroot.Chroot,
 ) error {
 	if len(scripts) <= 0 {
@@ -28,6 +31,13 @@ func runUserScripts(baseConfigPath string, scripts []imagecustomizerapi.Script, 
 	}
 
 	logger.Log.Infof("Running %s scripts", listName)
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "run_user_scripts")
+	span.SetAttributes(
+		attribute.Int("scripts_count", len(scripts)),
+		attribute.String("list_name", listName),
+	)
+	defer span.End()
 
 	configDirMountPath := filepath.Join(imageChroot.RootDir(), configDirMountPathInChroot)
 

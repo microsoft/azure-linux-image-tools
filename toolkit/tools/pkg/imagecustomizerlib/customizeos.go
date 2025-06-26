@@ -78,55 +78,55 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
+	err = handleBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(config.OS.SELinux.Mode, config.OS.BootLoader.ResetType,
+	selinuxMode, err := handleSELinux(ctx, config.OS.SELinux.Mode, config.OS.BootLoader.ResetType,
 		imageChroot)
 	if err != nil {
 		return err
 	}
 
-	overlayUpdated, err := enableOverlays(config.OS.Overlays, selinuxMode, imageChroot)
+	overlayUpdated, err := enableOverlays(ctx, config.OS.Overlays, selinuxMode, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	verityUpdated, err := enableVerityPartition(config.Storage.Verity, imageChroot)
+	verityUpdated, err := enableVerityPartition(ctx, config.Storage.Verity, imageChroot)
 	if err != nil {
 		return err
 	}
 
 	if partitionsCustomized || overlayUpdated || verityUpdated {
-		err = regenerateInitrd(imageChroot)
+		err = regenerateInitrd(ctx, imageChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = prepareUki(buildDir, config.OS.Uki, imageChroot)
+	err = prepareUki(ctx, buildDir, config.OS.Uki, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = restoreResolvConf(resolvConf, imageChroot)
+	err = restoreResolvConf(ctx, resolvConf, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = selinuxSetFiles(selinuxMode, imageChroot)
+	err = selinuxSetFiles(ctx, selinuxMode, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
 	if err != nil {
 		return err
 	}

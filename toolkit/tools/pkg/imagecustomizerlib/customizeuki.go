@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"go.opentelemetry.io/otel"
 	"gopkg.in/ini.v1"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -36,7 +38,7 @@ const (
 // Matches UKI filenames like "vmlinuz-<version>.efi"
 var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 
-func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
+func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
 	var err error
 
 	if uki == nil {
@@ -44,6 +46,9 @@ func prepareUki(buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safec
 	}
 
 	logger.Log.Infof("Enabling UKI")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_uki")
+	defer span.End()
 
 	// Check UKI dependency packages.
 	err = validateUkiDependencies(imageChroot)
@@ -292,8 +297,11 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 	return kernelToInitramfs, nil
 }
 
-func createUki(uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
+func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
 	logger.Log.Debugf("Customizing UKI")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_uki")
+	defer span.End()
 
 	var err error
 

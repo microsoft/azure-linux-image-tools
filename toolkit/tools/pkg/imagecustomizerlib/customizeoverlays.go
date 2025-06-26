@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -16,9 +17,11 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-func enableOverlays(overlays *[]imagecustomizerapi.Overlay, selinuxMode imagecustomizerapi.SELinuxMode,
+func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay, selinuxMode imagecustomizerapi.SELinuxMode,
 	imageChroot *safechroot.Chroot,
 ) (bool, error) {
 	var err error
@@ -28,6 +31,13 @@ func enableOverlays(overlays *[]imagecustomizerapi.Overlay, selinuxMode imagecus
 	}
 
 	logger.Log.Infof("Enable filesystem overlays")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_overlays")
+	span.SetAttributes(
+		attribute.Int("overlays_count", len(*overlays)),
+		attribute.String("selinux_mode", string(selinuxMode)),
+	)
+	defer span.End()
 
 	// Integrate the overlay driver into the initrd image. Including the overlay
 	// driver in initrd is essential for enabling the system to recognize and

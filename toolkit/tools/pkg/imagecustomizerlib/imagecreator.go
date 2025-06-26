@@ -103,16 +103,16 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
+	if err = handleBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
 
-	if err = restoreResolvConf(resolvConf, imageChroot); err != nil {
+	if err = restoreResolvConf(ctx, resolvConf, imageChroot); err != nil {
 		return err
 	}
 
@@ -120,7 +120,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
