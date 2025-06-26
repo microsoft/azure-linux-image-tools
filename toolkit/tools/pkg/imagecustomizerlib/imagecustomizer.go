@@ -1202,17 +1202,19 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 
 	if isUki {
-		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
+		// UKI is enabled, update kernel cmdline args file.
 		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
-	} else {
-		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
-		if err != nil {
-			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
-		}
+	}
+
+	// Temporarily always update grub.cfg for verity, even when UKI is used.
+	// Since grub dependencies are still kept under /boot and won't be cleaned.
+	// This will be decoupled once the bootloader project is in place.
+	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+	if err != nil {
+		return fmt.Errorf("failed to update grub config for verity:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
