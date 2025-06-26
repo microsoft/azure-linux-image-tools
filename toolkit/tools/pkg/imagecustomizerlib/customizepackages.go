@@ -215,7 +215,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Updating base image packages")
 
-	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
 	defer span.End()
 
 	tdnfUpdateArgs := []string{
@@ -236,7 +236,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 		return nil
 	}
 
-	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
 	pkgJson, _ := json.Marshal(allPackagesToAdd)
 	span.SetAttributes(
 		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
