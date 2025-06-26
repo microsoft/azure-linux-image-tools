@@ -4,7 +4,6 @@
 package imagecustomizerlib
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -465,16 +464,18 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 		return nil, fmt.Errorf("failed to find boot partition: %w", err)
 	}
 
-	cmdline, err := extractKernelCmdlineFromUki(espPartition, buildDir)
-	if err == nil {
+	cmdline, err := extractKernelCmdlineFromGrub(bootPartition, buildDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+	} else if !os.IsNotExist(err) {
 		return cmdline, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
 	}
 
-	cmdline, err = extractKernelCmdlineFromGrub(bootPartition, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
+	} else if os.IsNotExist(err) {
+		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
 	return cmdline, nil
@@ -493,10 +494,6 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(tmpDirEsp, buildDir)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(kernelToArgs) == 0 {
-		return nil, os.ErrNotExist
 	}
 
 	// Assumes only one UKI is needed, uses the first entry in the map.

@@ -382,19 +382,21 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 }
 
 func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[string]string, error) {
-	// Try extracting from UKI first
-	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	// Try extracting from grub.cfg first
+	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
+	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
 	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
+		return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
+	} else if !os.IsNotExist(err) {
+		return kernelToArgs, nil
 	}
 
-	if len(kernelToArgs) == 0 {
-		// Fallback to grub.cfg if UKI not present or empty
-		grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
-		kernelToArgs, err = extractKernelToArgsFromGrub(grubCfgPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
-		}
+	// Fallback to extracting from UKI
+	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
+	} else if os.IsNotExist(err) {
+		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
 	return kernelToArgs, nil
