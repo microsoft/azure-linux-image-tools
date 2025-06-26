@@ -65,7 +65,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -1,16 +1,35 @@
 package imagecreatorlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
+
+var coreEfiMountPoints = []imagecustomizerlib.MountPoint{
+	{
+		PartitionNum:   2,
+		Path:           "/",
+		FileSystemType: "ext4",
+	},
+	{
+		PartitionNum:   1,
+		Path:           "/boot/efi",
+		FileSystemType: "vfat",
+	},
+}
 
 func TestCreateImageRaw(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
@@ -28,7 +47,7 @@ func TestCreateImageRaw(t *testing.T) {
 	rpmSources := []string{downloadedRpmsRepoFile}
 	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "3.0", true)
 
-	err := CreateImageWithConfigFile(buildDir, partitionsConfigFile, rpmSources, toolsFile, outputImageFilePath, outputImageFormat)
+	err := CreateImageWithConfigFile(buildDir, partitionsConfigFile, rpmSources, toolsFile, outputImageFilePath, outputImageFormat, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -41,6 +60,39 @@ func TestCreateImageRaw(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", imageInfo.Format)
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outputImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	var config imagecustomizerapi.Config
+	err = imagecustomizerapi.UnmarshalYamlFile(partitionsConfigFile, &config)
+	assert.NoError(t, err)
+
+	packages := config.OS.Packages
+	assert.NotEmpty(t, packages, "No packages found in the config file")
+
+	for _, pkg := range packages.Install {
+		// Check if the package is installed in the image.
+		err = checkInstalled(imageConnection.Chroot(), pkg)
+		assert.NoError(t, err)
+	}
+
+	// check for package xyz which does not exist in the config file
+	nonExistentPackage := "xyz"
+	err = checkInstalled(imageConnection.Chroot(), nonExistentPackage)
+	assert.ErrorContains(t, err, "is not installed")
+
+	// Check that the extraCommandLine was added to the grub.cfg file.
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+	assert.NoError(t, err, "read grub.cfg file")
+
+	linuxCommandRegex := regexp.MustCompile(`linux.* console=tty0 console=ttyS0 `)
+	matches := linuxCommandRegex.FindAllString(grubCfgContents, -1)
+	assert.GreaterOrEqual(t, len(matches), 1, "grub.cfg:\n%s", grubCfgContents)
 
 	// Customize image to vhd.
 	err = imagecustomizerlib.CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, outputImageFilePath, rpmSources, vhdFixedImageFilePath,
@@ -58,6 +110,23 @@ func TestCreateImageRaw(t *testing.T) {
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
 }
 
+func checkInstalled(imageChroot *safechroot.Chroot, pkg string) error {
+	rpmArgs := []string{
+		"-q", pkg,
+	}
+
+	return imageChroot.UnsafeRun(func() error {
+		err := shell.NewExecBuilder("rpm", rpmArgs...).
+			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Execute()
+		if err != nil {
+			return fmt.Errorf("package (%s) is not installed: %w", pkg, err)
+		}
+		return nil
+	})
+}
+
 func TestCreateImageRawNoTar(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
 
@@ -70,7 +139,7 @@ func TestCreateImageRawNoTar(t *testing.T) {
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "3.0", false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
-	err := CreateImageWithConfigFile(buildDir, partitionsConfigFile, rpmSources, "", outputImageFilePath, "raw")
+	err := CreateImageWithConfigFile(buildDir, partitionsConfigFile, rpmSources, "", outputImageFilePath, "raw", "" /*packageSnapshotTime*/)
 
 	assert.ErrorContains(t, err, "tools tar file is required for image creation")
 }
@@ -83,10 +152,10 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 	// create an empty config file
 	emptyConfigFile := filepath.Join(testDir, "empty-config.yaml")
 
-	err := CreateImageWithConfigFile(buildDir, "", []string{}, "", outputImageFilePath, "raw")
+	err := CreateImageWithConfigFile(buildDir, "", []string{}, "", outputImageFilePath, "raw", "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 
-	err = CreateImageWithConfigFile(buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw")
+	err = CreateImageWithConfigFile(buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw", "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 }
 
@@ -114,12 +183,11 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	outputImageFile := outputImageFileRelativeToCwd
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
-	useBaseImageRpmRepos := false
 
 	// Pass the output image file relative to the current working directory through the argument. This will create
 	// the file at the absolute path.
-	err = createNewImage(buildDir, baseConfigPath, config, "", rpmSources, outputImageFile,
-		outputImageFormat, useBaseImageRpmRepos, toolsFile)
+	err = createNewImage(buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+		outputImageFormat, toolsFile, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -130,8 +198,8 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the output image file relative to the config file through the config. This will create the file at the
 	// absolute path.
-	err = createNewImage(buildDir, baseConfigPath, config, outputImageFile, rpmSources, outputImageFile,
-		outputImageFormat, useBaseImageRpmRepos, toolsFile)
+	err = createNewImage(buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+		outputImageFormat, toolsFile, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -197,4 +265,8 @@ func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
 	assert.Equal(t, ic.outputImageDir, buildDir)
+}
+
+func connectToCoreEfiImage(buildDir string, imageFilePath string) (*imagecustomizerlib.ImageConnection, error) {
+	return imagecustomizerlib.ConnectToImage(buildDir, imageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
 }

@@ -124,7 +124,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// Mount injected image and verify one file was injected
 	// Connect to customized image.
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -143,7 +143,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -173,7 +173,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 }
 
 func appendMarker(path string, marker string) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}

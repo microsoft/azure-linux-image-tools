@@ -641,7 +641,7 @@ func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, in
 		return err
 	}
 
-	err = validateSystemConfig(baseConfigPath, config.OS, rpmsSources, useBaseImageRpmRepos)
+	err = validateSystemConfig(baseConfigPath, config.OS, rpmsSources, useBaseImageRpmRepos, newImage)
 	if err != nil {
 		return err
 	}
@@ -721,7 +721,7 @@ func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso) er
 }
 
 func validateSystemConfig(baseConfigPath string, config *imagecustomizerapi.OS,
-	rpmsSources []string, useBaseImageRpmRepos bool,
+	rpmsSources []string, useBaseImageRpmRepos bool, newImage bool,
 ) error {
 	if config == nil {
 		return nil
@@ -729,7 +729,7 @@ func validateSystemConfig(baseConfigPath string, config *imagecustomizerapi.OS,
 
 	var err error
 
-	err = validatePackageLists(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos)
+	err = validatePackageLists(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos, newImage)
 	if err != nil {
 		return err
 	}
@@ -785,7 +785,7 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 }
 
 func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
-	useBaseImageRpmRepos bool,
+	useBaseImageRpmRepos bool, newImage bool,
 ) error {
 	if config == nil {
 		return nil
@@ -804,6 +804,10 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	allPackagesUpdate, err := collectPackagesList(baseConfigPath, config.Packages.UpdateLists, config.Packages.Update)
 	if err != nil {
 		return err
+	}
+
+	if newImage && len(allPackagesInstall) == 0 {
+		return fmt.Errorf("no packages to install specified, please specify at least one package to install for a new image")
 	}
 
 	hasRpmSources := len(rpmsSources) > 0 || useBaseImageRpmRepos

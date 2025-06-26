@@ -52,6 +52,7 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	toolsTar string,
 	outputImageFile string,
 	outputImageFormat string,
+	packageSnapshotTime string,
 ) error {
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
@@ -65,9 +66,8 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
-	useBaseImageRpmRepos := false
 
-	err = createNewImage(buildDir, absBaseConfigPath, config, outputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, toolsTar)
+	err = createNewImage(buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -75,23 +75,24 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	return nil
 }
 
-func createNewImage(buildDir string, baseConfigPath string, config imagecustomizerapi.Config, inputImageFile string,
+func createNewImage(buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	useBaseImageRpmRepos bool, toolsTar string,
+	toolsTar string, packageSnapshotTime string,
 ) error {
 	if toolsTar == "" {
 		return fmt.Errorf("tools tar file is required for image creation")
 	}
 
-	// TODO: Add validation for the config file wrt the imager config
-	err := imagecustomizerlib.ValidateConfig(baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "", true)
+	err := validateConfig(baseConfigPath, &config, rpmsSources,
+		outputImageFile, outputImageFormat, packageSnapshotTime,
+	)
 	if err != nil {
 		return err
 	}
 
 	imageCreatorParameters, err := createImageCreatorParameters(buildDir,
 		baseConfigPath, &config, rpmsSources,
-		outputImageFormat, outputImageFile, "", toolsTar)
+		outputImageFormat, outputImageFile, packageSnapshotTime, toolsTar)
 	if err != nil {
 		return fmt.Errorf("invalid parameters:\n%w", err)
 	}
@@ -133,7 +134,7 @@ func createNewImage(buildDir string, baseConfigPath string, config imagecustomiz
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
-		false, imageCreatorParameters.imageUuidStr, "", imageCreatorParameters.toolsTar)
+		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar)
 	if err != nil {
 		return err
 	}

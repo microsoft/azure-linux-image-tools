@@ -64,3 +64,8 @@ os:
     - zlib
     - kernel
     - initramfs
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0
