@@ -465,16 +465,17 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 		return nil, fmt.Errorf("failed to find boot partition: %w", err)
 	}
 
-	cmdline, err := extractKernelCmdlineFromUki(espPartition, buildDir)
-	if err == nil {
+	cmdline, err := extractKernelCmdlineFromGrub(bootPartition, buildDir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+	}
+	if len(cmdline) > 0 {
 		return cmdline, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
 	}
 
-	cmdline, err = extractKernelCmdlineFromGrub(bootPartition, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
 	}
 
 	return cmdline, nil
