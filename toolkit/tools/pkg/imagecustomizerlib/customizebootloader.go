@@ -110,7 +110,7 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 
 	logger.Log.Infof("Setting KernelCommandLine.ExtraCommandLine")
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_extra_command_line")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
 	defer span.End()
 
 	bootCustomizer, err := NewBootCustomizer(imageChroot)

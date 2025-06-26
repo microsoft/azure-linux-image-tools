@@ -1,6 +1,7 @@
 package imagecreatorlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,7 +85,7 @@ func createNewImage(buildDir string, baseConfigPath string, config imagecustomiz
 	}
 
 	// TODO: Add validation for the config file wrt the imager config
-	err := imagecustomizerlib.ValidateConfig(baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "", true)
+	err := imagecustomizerlib.ValidateConfig(context.Background(), baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "", true)
 	if err != nil {
 		return err
 	}

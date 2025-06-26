@@ -29,7 +29,7 @@ func TestUpdateHostname(t *testing.T) {
 
 	// Set hostname.
 	expectedHostname := "testhostname"
-	err = UpdateHostname(expectedHostname, chroot)
+	err = UpdateHostname(t.Context(), expectedHostname, chroot)
 	assert.NoError(t, err)
 
 	// Ensure hostname was correctly set.

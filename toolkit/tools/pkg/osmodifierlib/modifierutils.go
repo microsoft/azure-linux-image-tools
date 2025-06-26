@@ -18,8 +18,9 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 )
 
-func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS) error {
+func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 	var dummyChroot safechroot.ChrootInterface = &safechroot.DummyChroot{}
+	ctx := context.Background()
 
 	err := imagecustomizerlib.AddOrUpdateUsers(ctx, osConfig.Users, baseConfigPath, dummyChroot)
 	if err != nil {

@@ -184,7 +184,7 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	err := ValidateConfig(testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", "vhdx", true, "", false)
+	err := ValidateConfig(t.Context(), testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", "vhdx", true, "", false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "input image file must be specified")
 }
@@ -194,7 +194,7 @@ func TestValidateConfig_CallsValidateInput_NewImage(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	err := ValidateConfig(testDir, config, "" /*inputImageFile*/, nil, "./out/image.raw", "raw", true, "", true)
+	err := ValidateConfig(t.Context(), testDir, config, "" /*inputImageFile*/, nil, "./out/image.raw", "raw", true, "", true)
 	assert.NoError(t, err)
 }
 
@@ -220,21 +220,21 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	packageSnapshotTime := ""
 
 	// The input image file can be specified as an argument without being specified in the config.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	inputImageFile = inputImageFileRealRelativeCwd
 
 	// The input image file specified as an argument can be relative to the current working directory.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	inputImageFile = inputImageFileFake
 
 	// The input image file, specified as an argument, must be a file.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
@@ -243,21 +243,21 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified in the config without being specified as an argument.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileRealRelativeConfig
 
 	// The input image file specified in the config can be relative to the bash config path.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file, specified in the config, must be a file.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
@@ -266,20 +266,20 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified both as an argument and in the config.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file can even be invalid in the config if it is specified as an argument.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 }
 
 func TestValidateConfigValidAdditionalFiles(t *testing.T) {
-	err := ValidateConfig(testDir, &imagecustomizerapi.Config{
+	err := ValidateConfig(t.Context(), testDir, &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
 				{
@@ -298,7 +298,7 @@ func TestValidateConfigValidAdditionalFiles(t *testing.T) {
 }
 
 func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
-	err := ValidateConfig(testDir, &imagecustomizerapi.Config{
+	err := ValidateConfig(t.Context(), testDir, &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
 				{
@@ -317,7 +317,7 @@ func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
 }
 
 func TestValidateConfigdditionalFilesIsDir(t *testing.T) {
-	err := ValidateConfig(testDir, &imagecustomizerapi.Config{
+	err := ValidateConfig(t.Context(), testDir, &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
 				{
@@ -379,7 +379,7 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 	packageSnapshotTime := ""
 
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
-	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err := ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "output image file must be specified")
@@ -432,21 +432,21 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	packageSnapshotTime := ""
 
 	// The output image file can be sepcified as an argument without being in specified the config.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileNewRelativeCwd
 
 	// The output image file can be specified as an argument relative to the current working directory.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageDir
 
 	// The output image file, specified as an argument, must not be a directory.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -454,7 +454,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	outputImageFile = outputImageDirRelativeCwd
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -462,14 +462,14 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	outputImageFile = outputImageFileExists
 
 	// The output image file, specified as an argument, may be a file that already exists.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileExistsRelativeCwd
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
@@ -477,21 +477,21 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file cab be specified in the config without being specified as an argument.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileNewRelativeConfig
 
 	// The output image file can be specified in the config relative to the base config path.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file, specified in the config, must not be a directory.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -499,7 +499,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageDirRelativeConfig
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -507,14 +507,14 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageFileExists
 
 	// The output image file, specified in the config, may be a file that already exists.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileExistsRelativeConfig
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
@@ -522,14 +522,14 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file can be specified both as an argument and in the config.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file can even be invalid in the config if it is specified as an argument.
-	err = ValidateConfig(baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
+	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime, false)
 	assert.NoError(t, err)
 }

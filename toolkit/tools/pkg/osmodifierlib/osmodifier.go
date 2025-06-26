@@ -4,7 +4,6 @@
 package osmodifierlib
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 
@@ -37,7 +36,7 @@ func ModifyOSWithConfigFile(configFile string) error {
 }
 
 func ModifyOS(baseConfigPath string, osConfig *osmodifierapi.OS) error {
-	err := doModifications(context.Background(), baseConfigPath, osConfig)
+	err := doModifications(baseConfigPath, osConfig)
 	if err != nil {
 		return err
 	}
