@@ -283,7 +283,7 @@ def test_min_change_efi_azl2_iso_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl2.yaml")
     output_format = "iso"
 
     run_min_change_test(
@@ -377,7 +377,7 @@ def test_min_change_legacy_azl2_iso_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 2
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl2.yaml")
     output_format = "iso"
 
     run_min_change_test(

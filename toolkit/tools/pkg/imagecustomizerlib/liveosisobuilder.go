@@ -229,7 +229,7 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 
 	// Combine the current configuration with the saved configuration
 	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine, liveosConfig.bootstrapBaseUrl,
-		liveosConfig.bootstrapFileUrl, artifactsStore.info.kernelVersion, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
+		liveosConfig.bootstrapFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
 		artifactsStore.info.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
@@ -260,7 +260,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 
 	// Update grub.cfg
 	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
-		updatedSavedConfigs, artifactsStore.files.isoGrubCfgPath, artifactsStore.files.pxeGrubCfgPath)
+		updatedSavedConfigs, getKernelVersions(artifactsStore.files), artifactsStore.files.isoGrubCfgPath,
+		artifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -275,10 +276,9 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 		}
 	}
 
-	outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
-
 	switch liveosConfig.initramfsType {
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
 		// Generate the initrd image
 		err = createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath)
 		if err != nil {
@@ -286,12 +286,14 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 		}
 		artifactsStore.files.initrdImagePath = outputInitrdPath
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
-		// Generate the initrd image
-		err = createBootstrapInitrdImage(writeableRootfsDir, artifactsStore.info.kernelVersion, outputInitrdPath)
-		if err != nil {
-			return fmt.Errorf("failed to create initrd image:\n%w", err)
+		// Generate the initrd image(s)
+		for kernelVersion, kernelBootFiles := range artifactsStore.files.kernelBootFiles {
+			err = createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, kernelBootFiles.initrdImagePath)
+			if err != nil {
+				return fmt.Errorf("failed to create initrd image:\n%w", err)
+			}
 		}
-		artifactsStore.files.initrdImagePath = outputInitrdPath
+		artifactsStore.files.initrdImagePath = ""
 
 		// Generate the squashfs image
 		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
@@ -307,7 +309,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	// Generate the final output artifacts
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
-		err := createIsoImage(isoBuildDir, baseConfigPath, artifactsStore.files, liveosConfig.additionalFiles, outputPath)
+		err := createIsoImage(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, artifactsStore.files,
+			liveosConfig.additionalFiles, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
@@ -331,8 +334,8 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
 	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine,
-		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, inputArtifactsStore.info.kernelVersion,
-		nil /*dracut pkg info*/, requestedSelinuxMode, nil /*selinux policy pkg info*/)
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode,
+		nil /*selinux policy pkg info*/)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
 	}
@@ -346,7 +349,8 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 
 	// Update grub.cfg
 	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
-		updatedSavedConfigs, inputArtifactsStore.files.isoGrubCfgPath, inputArtifactsStore.files.pxeGrubCfgPath)
+		updatedSavedConfigs, getKernelVersions(inputArtifactsStore.files), inputArtifactsStore.files.isoGrubCfgPath,
+		inputArtifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
 		return fmt.Errorf("failed to update grub.cfg:\n%w", err)
 	}
@@ -354,7 +358,8 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	// Generate the final iso image
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
-		err := createIsoImage(isoBuildDir, baseConfigPath, inputArtifactsStore.files, liveosConfig.additionalFiles, outputPath)
+		err := createIsoImage(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, inputArtifactsStore.files,
+			liveosConfig.additionalFiles, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
