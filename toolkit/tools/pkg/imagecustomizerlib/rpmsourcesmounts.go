@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -17,6 +18,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sys/unix"
 	"gopkg.in/ini.v1"
 )
@@ -33,10 +36,16 @@ type rpmSourcesMounts struct {
 	allReposConfigFilePath    string
 }
 
-func mountRpmSources(buildDir string, imageChroot *safechroot.Chroot, rpmsSources []string,
+func mountRpmSources(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot, rpmsSources []string,
 	useBaseImageRpmRepos bool,
 ) (*rpmSourcesMounts, error) {
 	var err error
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "mount_rpm_sources")
+	span.SetAttributes(
+		attribute.Int("rpm_sources_count", len(rpmsSources)),
+	)
+	defer span.End()
 
 	var mounts rpmSourcesMounts
 	err = mounts.mountRpmSourcesHelper(buildDir, imageChroot, rpmsSources, useBaseImageRpmRepos)

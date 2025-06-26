@@ -83,14 +83,14 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	var mounts *rpmSourcesMounts
 	if needRpmsSources {
 		// Mount RPM sources.
-		mounts, err = mountRpmSources(buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
+		mounts, err = mountRpmSources(ctx, buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
 			return err
 		}
 		defer mounts.close()
 
 		// Refresh metadata.
-		err = refreshTdnfMetadata(imageChroot, toolsChroot)
+		err = refreshTdnfMetadata(ctx, imageChroot, toolsChroot)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,10 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	return nil
 }
 
-func refreshTdnfMetadata(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_tdnf_metadata")
+	defer span.End()
+
 	tdnfArgs := []string{
 		"-v", "check-update", "--refresh", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
