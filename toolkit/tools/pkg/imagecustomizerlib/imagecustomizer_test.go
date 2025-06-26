@@ -557,7 +557,9 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 	err = os.Remove(outputImageFile)
 	assert.NoError(t, err)
 
-	config.Input.Image.Path = inputImageFileReal
+	inputImageFileRealAbs, err := filepath.Abs(inputImageFileReal)
+	assert.NoError(t, err)
+	config.Input.Image.Path = inputImageFileRealAbs
 	inputImageFile = ""
 
 	// Pass the input image file only through the config.
@@ -587,7 +589,10 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 	config := &imagecustomizerapi.Config{}
 
 	inputImageFileAbsoluteFake := filepath.Join(buildDir, "doesnotexist.xxx")
-	inputImageFileAbsoluteReal, _ := checkSkipForCustomizeDefaultImage(t)
+	inputImageFileReal, _ := checkSkipForCustomizeDefaultImage(t)
+
+	inputImageFileAbsoluteReal, err := filepath.Abs(inputImageFileReal)
+	assert.NoError(t, err)
 
 	cwd, err := os.Getwd()
 	assert.NoError(t, err)
