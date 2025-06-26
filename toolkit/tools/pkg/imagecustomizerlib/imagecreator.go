@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -85,17 +86,20 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
+	ctx := context.Background()
+
 	if err = addRemoveAndUpdatePackages(
+		context.Background(),
 		buildDir, baseConfigPath, config.OS, imageChroot, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime); err != nil {
 		return err
 	}
 
-	if err = UpdateHostname(config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(ctx, config.OS.Hostname, imageChroot); err != nil {
 		return err
 	}
 
-	if err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
+	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
 		return err
 	}
 

@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -14,7 +15,7 @@ const (
 	buildTimeFormat = "2006-01-02T15:04:05Z"
 )
 
-func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
 ) error {
@@ -29,49 +30,49 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
+	err = addRemoveAndUpdatePackages(ctx, buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
 
-	err = UpdateHostname(config.OS.Hostname, imageChroot)
+	err = UpdateHostname(ctx, config.OS.Hostname, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = AddOrUpdateUsers(config.OS.Users, baseConfigPath, imageChroot)
+	err = AddOrUpdateUsers(ctx, config.OS.Users, baseConfigPath, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = copyAdditionalDirs(baseConfigPath, config.OS.AdditionalDirs, imageChroot)
+	err = copyAdditionalDirs(ctx, baseConfigPath, config.OS.AdditionalDirs, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = copyAdditionalFiles(baseConfigPath, config.OS.AdditionalFiles, imageChroot)
+	err = copyAdditionalFiles(ctx, baseConfigPath, config.OS.AdditionalFiles, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = EnableOrDisableServices(config.OS.Services, imageChroot)
+	err = EnableOrDisableServices(ctx, config.OS.Services, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = LoadOrDisableModules(config.OS.Modules, imageChroot.RootDir())
+	err = LoadOrDisableModules(ctx, config.OS.Modules, imageChroot.RootDir())
 	if err != nil {
 		return err
 	}
 
-	err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid)
+	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuid)
 	if err != nil {
 		return err
 	}
 
 	if config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(imageChroot.RootDir(), imageUuid, baseConfigPath, ToolVersion, buildTime, config)
+		err = addImageHistory(ctx, imageChroot.RootDir(), imageUuid, baseConfigPath, ToolVersion, buildTime, config)
 		if err != nil {
 			return err
 		}

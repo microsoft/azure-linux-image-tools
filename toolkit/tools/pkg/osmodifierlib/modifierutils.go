@@ -4,6 +4,7 @@
 package osmodifierlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,25 +18,25 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 )
 
-func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
+func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS) error {
 	var dummyChroot safechroot.ChrootInterface = &safechroot.DummyChroot{}
 
-	err := imagecustomizerlib.AddOrUpdateUsers(osConfig.Users, baseConfigPath, dummyChroot)
+	err := imagecustomizerlib.AddOrUpdateUsers(ctx, osConfig.Users, baseConfigPath, dummyChroot)
 	if err != nil {
 		return err
 	}
 
-	err = imagecustomizerlib.UpdateHostname(osConfig.Hostname, dummyChroot)
+	err = imagecustomizerlib.UpdateHostname(ctx, osConfig.Hostname, dummyChroot)
 	if err != nil {
 		return err
 	}
 
-	err = imagecustomizerlib.EnableOrDisableServices(osConfig.Services, dummyChroot)
+	err = imagecustomizerlib.EnableOrDisableServices(ctx, osConfig.Services, dummyChroot)
 	if err != nil {
 		return err
 	}
 
-	err = imagecustomizerlib.LoadOrDisableModules(osConfig.Modules, dummyChroot.RootDir())
+	err = imagecustomizerlib.LoadOrDisableModules(ctx, osConfig.Modules, dummyChroot.RootDir())
 	if err != nil {
 		return err
 	}

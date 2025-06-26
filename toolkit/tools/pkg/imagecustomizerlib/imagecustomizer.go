@@ -234,9 +234,9 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "CustomizeImage")
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "customize_image")
 	span.SetAttributes(
-		attribute.String("outputImageFormat", string(outputImageFormat)),
+		attribute.String("output_image_format", string(outputImageFormat)),
 	)
 	defer span.End()
 
@@ -297,7 +297,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		}
 	}()
 
-	err = customizeOSContents(imageCustomizerParameters)
+	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
 	}
@@ -429,7 +429,7 @@ func qemuImgEscapeOptionValue(value string) string {
 	return strings.ReplaceAll(value, ",", ",,")
 }
 
-func customizeOSContents(ic *ImageCustomizerParameters) error {
+func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) error {
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -454,7 +454,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ic.buildDirAbs,
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
 	if err != nil {
 		return err
@@ -466,7 +466,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
+	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, err := customizeImageHelper(ctx, ic.buildDirAbs, ic.configPath,
 		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime,
 		ic.outputImageFormat)
 	if err != nil {
@@ -889,7 +889,7 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	return nil
 }
 
-func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, error) {
@@ -920,7 +920,7 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
+	err = doOsCustomizations(ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
 		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
 
 	// collect OS info if generating a COSI image

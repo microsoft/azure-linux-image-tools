@@ -4,19 +4,24 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"go.opentelemetry.io/otel"
 )
 
-func customizePartitions(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizePartitions(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string,
 ) (bool, string, map[string]string, error) {
 	switch {
 	case config.CustomizePartitions():
 		logger.Log.Infof("Customizing partitions")
+
+		_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_partitions")
+		defer span.End()
 
 		newBuildImageFile := filepath.Join(buildDir, PartitionCustomizedImageName)
 
@@ -32,7 +37,7 @@ func customizePartitions(buildDir string, baseConfigPath string, config *imagecu
 		return true, newBuildImageFile, partIdToPartUuid, nil
 
 	case config.Storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
-		err := resetPartitionsUuids(buildImageFile, buildDir)
+		err := resetPartitionsUuids(ctx, buildImageFile, buildDir)
 		if err != nil {
 			return false, "", nil, err
 		}
