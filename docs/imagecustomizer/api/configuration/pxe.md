@@ -45,7 +45,7 @@ The default is `false`.
 
 Note that by default, the Image Customizer tool removes the `/boot` folder from
 the full OS image. This is because all of its contents have already been copied
-undo the root of the PXE artifacts folder.
+unto the root of the PXE artifacts folder.
 
 Added in v0.16.
 
@@ -140,4 +140,3 @@ For an overview of the Image Customizer tool support for PXE, see the
 [PXE support](../../concepts/pxe.md) page.
 
 Added in v0.15.
-

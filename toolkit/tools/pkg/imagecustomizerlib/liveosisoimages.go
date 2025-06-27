@@ -99,20 +99,24 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool) error
 
 		// Save needed files (and remove the rest)
 		for _, bootFilePath := range bootFolderFilePaths {
-			saveFile := false
-			// Is it an initramfs kdump file?
+			isKdumpInitramfs := false
+			// Is it a kdump initramfs file?
 			matches := kdumpInitramfsRegEx.FindStringSubmatch(bootFilePath)
 			if len(matches) == 2 {
+				// Yes
+				isKdumpInitramfs = true
+
+				// Schedule its associated kernel file for saving
 				kernelVersion := matches[1]
 				associatedVmlinuzPath := filepath.Join(bootFolder, vmlinuzPrefix+kernelVersion)
 				kdumpKernelFilePaths[associatedVmlinuzPath] = struct{}{}
-
-				saveFile = true
 			}
 
-			// Is it a kdump vmlinuz-<version> file?
-			_, exists := kdumpKernelFilePaths[bootFilePath]
-			if exists || saveFile {
+			// Is it an associated kdump vmlinuz file?
+			_, isKdumpKernel := kdumpKernelFilePaths[bootFilePath]
+
+			// Should we save it aside?
+			if isKdumpInitramfs || isKdumpKernel {
 				// Move the file out so that we can delete the entire boot
 				// folder and avoid having empty folders.
 				savedFilePath := filepath.Join(savedFilesDir, filepath.Base(bootFilePath))
