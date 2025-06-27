@@ -100,7 +100,7 @@ func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
 					return fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err)
 				}
 
-				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
+				signedName := replaceSuffix(entry.Name(), ".unsigned.efi", ".signed.efi")
 				source := "./" + signedName
 				unsignedSource := "./" + entry.Name()
 
