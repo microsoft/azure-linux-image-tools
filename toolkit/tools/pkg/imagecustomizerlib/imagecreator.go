@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -14,7 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
-func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool,
 	imageUuidStr string, packageSnapshotTime string, tarFile string,
 ) (map[string]diskutils.FstabEntry, string, error) {
@@ -28,14 +29,14 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 	}
 	defer toolsChroot.Close(false)
 
-	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(rawImageFile, toolsChrootDir, toolsRootImageDir, true, false)
+	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(ctx, rawImageFile, toolsChrootDir, toolsRootImageDir, true, false)
 	if err != nil {
 		return nil, "", err
 	}
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsImageCreator(buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
+	err = doOsCustomizationsImageCreator(ctx, buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, imageUuidStr,
 		partUuidToFstabEntry, packageSnapshotTime)
 
@@ -67,6 +68,7 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 }
 
 func doOsCustomizationsImageCreator(
+	ctx context.Context,
 	buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection,
@@ -86,37 +88,38 @@ func doOsCustomizationsImageCreator(
 	}
 
 	if err = addRemoveAndUpdatePackages(
+		ctx,
 		buildDir, baseConfigPath, config.OS, imageChroot, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime); err != nil {
 		return err
 	}
 
-	if err = UpdateHostname(config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(ctx, config.OS.Hostname, imageChroot); err != nil {
 		return err
 	}
 
-	if err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
+	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
 		return err
 	}
 
-	if err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
+	if err = handleBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
 
-	if err = restoreResolvConf(resolvConf, imageChroot); err != nil {
+	if err = restoreResolvConf(ctx, resolvConf, imageChroot); err != nil {
 		return err
 	}
 
-	if err = checkForInstalledKernel(imageChroot); err != nil {
+	if err = checkForInstalledKernel(ctx, imageChroot); err != nil {
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,7 @@ func TestUpdateHostname(t *testing.T) {
 
 	// Set hostname.
 	expectedHostname := "testhostname"
-	err = UpdateHostname(expectedHostname, chroot)
+	err = UpdateHostname(t.Context(), expectedHostname, chroot)
 	assert.NoError(t, err)
 
 	// Ensure hostname was correctly set.
@@ -47,7 +47,7 @@ func TestCustomizeImageHostname(t *testing.T) {
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return

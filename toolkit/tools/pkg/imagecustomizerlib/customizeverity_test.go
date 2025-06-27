@@ -38,7 +38,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	configFile := filepath.Join(testDir, "verity-config.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -47,7 +47,7 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	verifyRootVerity(t, baseImageInfo, buildDir, outImageFilePath)
 
 	// Recustomize the image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -136,7 +136,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
-	err = CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
+	err = CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 
 	if !assert.NoError(t, err) {
@@ -345,7 +345,7 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageI
 	configFile := filepath.Join(testDir, "verity-usr-config.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -355,7 +355,7 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageI
 
 	// Recustomize image.
 	// This helps verify that verity-enabled images can be recustomized.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -430,14 +430,14 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 	stage3FilePath := filepath.Join(testTempDir, "image3.vhdx")
 
 	// Stage 1: Create the partitions for verity.
-	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "qcow2",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "qcow2",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
 	// Stage 2: Enable verity.
-	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -446,7 +446,7 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 	verityUsrVerity(t, baseImageInfo, buildDir, stage2FilePath, "panic-on-corruption")
 
 	// Stage 3: Re-apply verity settings.
-	err = CustomizeImageWithConfigFile(buildDir, stage3ConfigFile, stage2FilePath, nil, stage3FilePath, "vhdx",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage3ConfigFile, stage2FilePath, nil, stage3FilePath, "vhdx",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "verity (verityusr) data partition is invalid")
 	assert.ErrorContains(t, err, "partition already in use as existing verity device's (usr) data partition")
@@ -472,7 +472,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 	stage2FilePath := filepath.Join(testTempDir, "image2.raw")
 
 	// Stage 1: Initialize verity.
-	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -481,7 +481,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 	verifyRootVerity(t, baseImageInfo, buildDir, stage1FilePath)
 
 	// Stage 2a: Reinitialize verity.
-	err = CustomizeImageWithConfigFile(buildDir, stage2aConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage2aConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -490,7 +490,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 	verifyRootVerity(t, baseImageInfo, buildDir, stage1FilePath)
 
 	// Stage 2b: Reinitialize verity + hard-reset bootloader.
-	err = CustomizeImageWithConfigFile(buildDir, stage2bConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage2bConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -518,7 +518,7 @@ func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, base
 	stage2FilePath := filepath.Join(testTempDir, "image.raw")
 
 	// Stage 1: Initialize verity.
-	err := CustomizeImageWithConfigFile(buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -527,7 +527,7 @@ func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, base
 	verityUsrVerity(t, baseImageInfo, buildDir, stage1FilePath, "")
 
 	// Stage 2: Reinitialize verity.
-	err = CustomizeImageWithConfigFile(buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage2ConfigFile, stage1FilePath, nil, stage2FilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return

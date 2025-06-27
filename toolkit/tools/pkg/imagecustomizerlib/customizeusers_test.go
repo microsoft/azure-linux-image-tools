@@ -80,7 +80,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -164,7 +164,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set home directory (/home/root) on a user (root) that already exists")
 }
@@ -188,7 +188,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set UID (1) on a user (root) that already exists")
 }
@@ -214,7 +214,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to find SSH public key file (does-not-exist)")
 }
@@ -228,7 +228,7 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 	configFile := filepath.Join(testDir, "add-user-files.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return

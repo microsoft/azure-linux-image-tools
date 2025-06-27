@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/systemd"
+	"go.opentelemetry.io/otel"
 )
 
 type resolvConfType int
@@ -85,8 +87,11 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 	return existing, nil
 }
 
-func restoreResolvConf(existing resolvConfInfo, imageChroot *safechroot.Chroot) error {
+func restoreResolvConf(ctx context.Context, existing resolvConfInfo, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Restoring resolv.conf")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "restore_resolv_conf")
+	defer span.End()
 
 	imageResolveConfPath := filepath.Join(imageChroot.RootDir(), resolvConfPath)
 

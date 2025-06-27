@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,10 +12,14 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"go.opentelemetry.io/otel"
 )
 
-func checkFileSystems(rawImageFile string) error {
+func checkFileSystems(ctx context.Context, rawImageFile string) error {
 	logger.Log.Infof("Checking for file system errors")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "check_filesystems")
+	defer span.End()
 
 	imageLoopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {

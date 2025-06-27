@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"go.opentelemetry.io/otel"
 )
 
 type ImageHistory struct {
@@ -27,9 +29,12 @@ const (
 	redactedString       = "[redacted]"
 )
 
-func addImageHistory(rootDir string, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
+func addImageHistory(ctx context.Context, rootDir string, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
 	var err error
 	logger.Log.Infof("Creating image customizer history file")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_image_history")
+	defer span.End()
 
 	// Deep copy the config to avoid modifying the original config
 	configCopy, err := deepCopyConfig(config)

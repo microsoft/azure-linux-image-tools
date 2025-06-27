@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/resources"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -31,7 +33,7 @@ const (
 	DracutModuleScriptFileMode = 0755
 )
 
-func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
+func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
 ) (bool, error) {
 	var err error
 
@@ -40,6 +42,9 @@ func enableVerityPartition(verity []imagecustomizerapi.Verity, imageChroot *safe
 	}
 
 	logger.Log.Infof("Enable verity")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_verity_partition")
+	defer span.End()
 
 	err = validateVerityDependencies(imageChroot)
 	if err != nil {

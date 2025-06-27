@@ -1,6 +1,7 @@
 package imagecreatorlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,7 +48,7 @@ type ImageCreatorParameters struct {
 	osRelease            string
 }
 
-func CreateImageWithConfigFile(buildDir string, configFile string,
+func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string,
 	rpmsSources []string,
 	toolsTar string,
 	outputImageFile string,
@@ -67,7 +68,7 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	}
 	useBaseImageRpmRepos := false
 
-	err = createNewImage(buildDir, absBaseConfigPath, config, outputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, toolsTar)
+	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, outputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, toolsTar)
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func CreateImageWithConfigFile(buildDir string, configFile string,
 	return nil
 }
 
-func createNewImage(buildDir string, baseConfigPath string, config imagecustomizerapi.Config, inputImageFile string,
+func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, toolsTar string,
 ) error {
@@ -84,7 +85,7 @@ func createNewImage(buildDir string, baseConfigPath string, config imagecustomiz
 	}
 
 	// TODO: Add validation for the config file wrt the imager config
-	err := imagecustomizerlib.ValidateConfig(baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "", true)
+	err := imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, "", true)
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func createNewImage(buildDir string, baseConfigPath string, config imagecustomiz
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
-	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
+	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
 		false, imageCreatorParameters.imageUuidStr, "", imageCreatorParameters.toolsTar)
 	if err != nil {
 		return err

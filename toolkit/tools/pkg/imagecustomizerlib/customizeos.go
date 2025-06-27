@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"time"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -14,7 +15,7 @@ const (
 	buildTimeFormat = "2006-01-02T15:04:05Z"
 )
 
-func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
 ) error {
@@ -29,108 +30,108 @@ func doOsCustomizations(buildDir string, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
+	err = addRemoveAndUpdatePackages(ctx, buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
 
-	err = UpdateHostname(config.OS.Hostname, imageChroot)
+	err = UpdateHostname(ctx, config.OS.Hostname, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = AddOrUpdateUsers(config.OS.Users, baseConfigPath, imageChroot)
+	err = AddOrUpdateUsers(ctx, config.OS.Users, baseConfigPath, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = copyAdditionalDirs(baseConfigPath, config.OS.AdditionalDirs, imageChroot)
+	err = copyAdditionalDirs(ctx, baseConfigPath, config.OS.AdditionalDirs, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = copyAdditionalFiles(baseConfigPath, config.OS.AdditionalFiles, imageChroot)
+	err = copyAdditionalFiles(ctx, baseConfigPath, config.OS.AdditionalFiles, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = EnableOrDisableServices(config.OS.Services, imageChroot)
+	err = EnableOrDisableServices(ctx, config.OS.Services, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = LoadOrDisableModules(config.OS.Modules, imageChroot.RootDir())
+	err = LoadOrDisableModules(ctx, config.OS.Modules, imageChroot.RootDir())
 	if err != nil {
 		return err
 	}
 
-	err = addCustomizerRelease(imageChroot.RootDir(), ToolVersion, buildTime, imageUuid)
+	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuid)
 	if err != nil {
 		return err
 	}
 
 	if config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(imageChroot.RootDir(), imageUuid, baseConfigPath, ToolVersion, buildTime, config)
+		err = addImageHistory(ctx, imageChroot.RootDir(), imageUuid, baseConfigPath, ToolVersion, buildTime, config)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = handleBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
+	err = handleBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(config.OS.SELinux.Mode, config.OS.BootLoader.ResetType,
+	selinuxMode, err := handleSELinux(ctx, config.OS.SELinux.Mode, config.OS.BootLoader.ResetType,
 		imageChroot)
 	if err != nil {
 		return err
 	}
 
-	overlayUpdated, err := enableOverlays(config.OS.Overlays, selinuxMode, imageChroot)
+	overlayUpdated, err := enableOverlays(ctx, config.OS.Overlays, selinuxMode, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	verityUpdated, err := enableVerityPartition(config.Storage.Verity, imageChroot)
+	verityUpdated, err := enableVerityPartition(ctx, config.Storage.Verity, imageChroot)
 	if err != nil {
 		return err
 	}
 
 	if partitionsCustomized || overlayUpdated || verityUpdated {
-		err = regenerateInitrd(imageChroot)
+		err = regenerateInitrd(ctx, imageChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = prepareUki(buildDir, config.OS.Uki, imageChroot)
+	err = prepareUki(ctx, buildDir, config.OS.Uki, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = restoreResolvConf(resolvConf, imageChroot)
+	err = restoreResolvConf(ctx, resolvConf, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = selinuxSetFiles(selinuxMode, imageChroot)
+	err = selinuxSetFiles(ctx, selinuxMode, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = runUserScripts(baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = checkForInstalledKernel(imageChroot)
+	err = checkForInstalledKernel(ctx, imageChroot)
 	if err != nil {
 		return err
 	}

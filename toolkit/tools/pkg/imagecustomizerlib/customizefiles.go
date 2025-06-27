@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 
@@ -11,15 +12,27 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
 	defaultFilePermissions = 0o755
 )
 
-func copyAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList,
+func copyAdditionalFiles(ctx context.Context, baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList,
 	imageChroot *safechroot.Chroot,
 ) error {
+
+	if len(additionalFiles) == 0 {
+		return nil
+	}
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "copy_additional_files")
+	span.SetAttributes(
+		attribute.Int("files_count", len(additionalFiles)),
+	)
+	defer span.End()
+
 	for _, additionalFile := range additionalFiles {
 		logger.Log.Infof("Copying: %s", additionalFile.Destination)
 
@@ -44,7 +57,15 @@ func copyAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizera
 	return nil
 }
 
-func copyAdditionalDirs(baseConfigPath string, additionalDirs imagecustomizerapi.DirConfigList, imageChroot *safechroot.Chroot) error {
+func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDirs imagecustomizerapi.DirConfigList, imageChroot *safechroot.Chroot) error {
+	if len(additionalDirs) == 0 {
+		return nil
+	}
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "copy_additional_directories")
+	span.SetAttributes(
+		attribute.Int("directories_count", len(additionalDirs)),
+	)
+	defer span.End()
 	for _, dirConfigElement := range additionalDirs {
 		absSourceDir := file.GetAbsPathWithBase(baseConfigPath, dirConfigElement.Source)
 		logger.Log.Infof("Copying %s to %s", absSourceDir, dirConfigElement.Destination)

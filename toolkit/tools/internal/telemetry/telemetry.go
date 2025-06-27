@@ -8,17 +8,17 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 	autoexport "go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
 var shutdownFn func(ctx context.Context) error
 
-func InitTelemetry(disableTelemetry bool) error {
+func InitTelemetry(disableTelemetry bool, toolVersion string) error {
 	if disableTelemetry {
 		logger.Log.Info("Disabled telemetry collection")
 		return nil
@@ -34,14 +34,21 @@ func InitTelemetry(disableTelemetry bool) error {
 
 	distro, version := osinfo.GetDistroAndVersion()
 
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(resource.NewSchemaless(
+	res, _ := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("imagecustomizer"),
+			semconv.ServiceVersionKey.String(toolVersion),
 			attribute.String("host.architecture", runtime.GOARCH),
 			attribute.String("host.os", distro),
 			attribute.String("host.os.version", version),
-			attribute.String("imagecustomizer.version", imagecustomizerlib.ToolVersion),
-		)),
+		),
+	)
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
 	shutdownFn = tp.Shutdown

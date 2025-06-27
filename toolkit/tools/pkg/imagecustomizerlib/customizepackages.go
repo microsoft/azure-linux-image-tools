@@ -4,6 +4,8 @@
 package imagecustomizerlib
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +19,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // TODO: Remove this constant to support 4.0 and later releases.
@@ -44,11 +48,14 @@ var (
 	tdnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+)\s+\d+\%\s+\d+$`)
 )
 
-func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {
 	var err error
+
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
+	defer span.End()
 
 	if snapshotTime == "" {
 		snapshotTime = string(config.Packages.SnapshotTime)
@@ -76,39 +83,39 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	var mounts *rpmSourcesMounts
 	if needRpmsSources {
 		// Mount RPM sources.
-		mounts, err = mountRpmSources(buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
+		mounts, err = mountRpmSources(ctx, buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
 			return err
 		}
 		defer mounts.close()
 
 		// Refresh metadata.
-		err = refreshTdnfMetadata(imageChroot, toolsChroot)
+		err = refreshTdnfMetadata(ctx, imageChroot, toolsChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = removePackages(config.Packages.Remove, imageChroot, toolsChroot)
+	err = removePackages(ctx, config.Packages.Remove, imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
 
 	if config.Packages.UpdateExistingPackages {
-		err = updateAllPackages(imageChroot, toolsChroot)
+		err = updateAllPackages(ctx, imageChroot, toolsChroot)
 		if err != nil {
 			return err
 		}
 	}
 
 	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
-	err = installOrUpdatePackages("install", config.Packages.Install, imageChroot, toolsChroot)
+	err = installOrUpdatePackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
-	err = installOrUpdatePackages("update", config.Packages.Update, imageChroot, toolsChroot)
+	err = installOrUpdatePackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot)
 	if err != nil {
 		return err
 	}
@@ -131,7 +138,10 @@ func addRemoveAndUpdatePackages(buildDir string, baseConfigPath string, config *
 	return nil
 }
 
-func refreshTdnfMetadata(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_tdnf_metadata")
+	defer span.End()
+
 	tdnfArgs := []string{
 		"-v", "check-update", "--refresh", "--assumeyes",
 		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
@@ -176,12 +186,20 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 	return allPackages, nil
 }
 
-func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+func removePackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Removing packages: %v", allPackagesToRemove)
 
 	if len(allPackagesToRemove) <= 0 {
 		return nil
 	}
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
+	pkgJson, _ := json.Marshal(allPackagesToRemove)
+	span.SetAttributes(
+		attribute.Int("remove_packages_count", len(allPackagesToRemove)),
+		attribute.String("remove_packages", string(pkgJson)),
+	)
+	defer span.End()
 
 	tdnfRemoveArgs := []string{
 		"-v", "remove", "--assumeyes", "--disablerepo", "*",
@@ -197,8 +215,11 @@ func removePackages(allPackagesToRemove []string, imageChroot *safechroot.Chroot
 	return nil
 }
 
-func updateAllPackages(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Updating base image packages")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
+	defer span.End()
 
 	tdnfUpdateArgs := []string{
 		"-v", "update", "--assumeyes", "--cacheonly",
@@ -213,10 +234,18 @@ func updateAllPackages(imageChroot *safechroot.Chroot, toolsChroot *safechroot.C
 	return nil
 }
 
-func installOrUpdatePackages(action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
+func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
 	if len(allPackagesToAdd) <= 0 {
 		return nil
 	}
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
+	pkgJson, _ := json.Marshal(allPackagesToAdd)
+	span.SetAttributes(
+		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
+		attribute.String("packages", string(pkgJson)),
+	)
+	defer span.End()
 
 	// Create tdnf command args.
 	// Note: When using `--repofromdir`, tdnf will not use any default repos and will only use the last

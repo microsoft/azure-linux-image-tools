@@ -135,3 +135,11 @@ func roundUpToPowerOf2(n uint32) uint32 {
 	}
 	return res
 }
+
+func getVerityNames(verity []verityDeviceMetadata) []string {
+	verityNames := make([]string, len(verity))
+	for i, v := range verity {
+		verityNames[i] = v.name
+	}
+	return verityNames
+}

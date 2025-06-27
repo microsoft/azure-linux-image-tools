@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -817,8 +819,11 @@ func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 }
 
 // Regenerates the initramfs file.
-func regenerateInitrd(imageChroot *safechroot.Chroot) error {
+func regenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Regenerate initramfs file")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "regenerate_initrd")
+	defer span.End()
 
 	err := imageChroot.UnsafeRun(func() error {
 		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.

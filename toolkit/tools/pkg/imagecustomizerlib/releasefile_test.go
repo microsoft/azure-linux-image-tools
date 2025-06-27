@@ -30,7 +30,7 @@ func TestAddCustomizerRelease(t *testing.T) {
 	_, expectedUuid, err := randomization.CreateUuid()
 	assert.NoError(t, err)
 
-	err = addCustomizerRelease(proposedDir, expectedVersion, expectedDate, expectedUuid)
+	err = addCustomizerRelease(t.Context(), proposedDir, expectedVersion, expectedDate, expectedUuid)
 	assert.NoError(t, err)
 
 	releaseFilePath := filepath.Join(proposedDir, "etc/image-customizer-release")

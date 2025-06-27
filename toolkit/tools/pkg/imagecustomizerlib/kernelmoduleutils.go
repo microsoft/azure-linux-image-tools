@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -27,7 +30,7 @@ const (
 	moduleOptionsPath  = modprobeConfigDir + "/" + moduleOptionsFileName
 )
 
-func LoadOrDisableModules(modules imagecustomizerapi.ModuleList, rootDir string) error {
+func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.ModuleList, rootDir string) error {
 	var err error
 	var modulesToLoad []string
 	var modulesToDisable []string
@@ -35,6 +38,9 @@ func LoadOrDisableModules(modules imagecustomizerapi.ModuleList, rootDir string)
 	moduleDisableFilePath := filepath.Join(rootDir, moduleDisabledPath)
 	moduleLoadFilePath := filepath.Join(rootDir, moduleLoadPath)
 	moduleOptionsFilePath := filepath.Join(rootDir, moduleOptionsPath)
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_kernel_modules")
+	defer span.End()
 
 	for i, module := range modules {
 		switch module.LoadMode {
@@ -87,6 +93,12 @@ func LoadOrDisableModules(modules imagecustomizerapi.ModuleList, rootDir string)
 			}
 		}
 	}
+
+	span.SetAttributes(
+		attribute.Int("modules_to_load_count", len(modulesToLoad)),
+		attribute.Int("modules_to_disable_count", len(modulesToDisable)),
+		attribute.Int("module_options_updates_count", len(moduleOptionsUpdates)),
+	)
 
 	// Batch process module to load
 	err = ensureModulesLoaded(modulesToLoad, moduleLoadFilePath)

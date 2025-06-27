@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -11,21 +12,22 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"go.opentelemetry.io/otel"
 )
 
-func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
+func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	switch {
 	case config.OS.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
+		err := hardResetBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
 		if err != nil {
 			return fmt.Errorf("failed to hard reset bootloader:\n%w", err)
 		}
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
+		err := AddKernelCommandLine(ctx, config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("failed to add extra kernel command line:\n%w", err)
 		}
@@ -34,11 +36,14 @@ func handleBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, 
 	return nil
 }
 
-func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
+func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "hard_reset_bootloader")
+	defer span.End()
 
 	// If the image is being customized by imagecreator, we don't need to check the SELinux mode.
 	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
@@ -93,7 +98,7 @@ func hardResetBootLoader(baseConfigPath string, config *imagecustomizerapi.Confi
 }
 
 // Inserts new kernel command-line args into the grub config file.
-func AddKernelCommandLine(extraCommandLine []string,
+func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	imageChroot safechroot.ChrootInterface,
 ) error {
 	var err error
@@ -104,6 +109,9 @@ func AddKernelCommandLine(extraCommandLine []string,
 	}
 
 	logger.Log.Infof("Setting KernelCommandLine.ExtraCommandLine")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
+	defer span.End()
 
 	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {

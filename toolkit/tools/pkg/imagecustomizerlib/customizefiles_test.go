@@ -30,7 +30,7 @@ func TestCopyAdditionalFiles(t *testing.T) {
 	copy_2_filemode := os.FileMode(0o777)
 
 	// Copy a file.
-	err = copyAdditionalFiles(baseConfigPath, imagecustomizerapi.AdditionalFileList{
+	err = copyAdditionalFiles(t.Context(), baseConfigPath, imagecustomizerapi.AdditionalFileList{
 		{
 			Source:      "files/a.txt",
 			Destination: "/copy_1.txt",
@@ -56,7 +56,7 @@ func TestCopyAdditionalFiles(t *testing.T) {
 	verifyFileContentsSame(t, a_orig_path, copy_2_path)
 
 	// Copy a different file to the same location.
-	err = copyAdditionalFiles(baseConfigPath, imagecustomizerapi.AdditionalFileList{
+	err = copyAdditionalFiles(t.Context(), baseConfigPath, imagecustomizerapi.AdditionalFileList{
 		{
 			Source:      "files/b.txt",
 			Destination: "/copy_1.txt",
@@ -79,7 +79,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -125,7 +125,7 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to copy (/dev/zero)")
 	assert.ErrorContains(t, err, "no space left on device")
@@ -145,7 +145,7 @@ func TestCopyAdditionalDirs(t *testing.T) {
 	defer chroot.Close(false)
 
 	// Copy the directory.
-	err = copyAdditionalDirs(baseConfigPath,
+	err = copyAdditionalDirs(t.Context(), baseConfigPath,
 		imagecustomizerapi.DirConfigList{
 			{
 				Source:               "dirs/a",
@@ -169,7 +169,7 @@ func TestCopyAdditionalDirs(t *testing.T) {
 	verifyFilePermissions(t, os.FileMode(0o750), filepath.Join(chroot.RootDir(), "/usr"))
 
 	// Copy a different directory to the same location but change up the file and directory permissions.
-	err = copyAdditionalDirs(baseConfigPath,
+	err = copyAdditionalDirs(t.Context(), baseConfigPath,
 		imagecustomizerapi.DirConfigList{
 			{
 				Source:               "dirs/b",
@@ -201,7 +201,7 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -257,7 +257,7 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 	}
 
 	// Customize image.
-	err = CustomizeImage(buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err = CustomizeImage(t.Context(), buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to copy directory")
 	assert.ErrorContains(t, err, "failed to copy file")

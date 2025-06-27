@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,9 +15,19 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/userutils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-func AddOrUpdateUsers(users []imagecustomizerapi.User, baseConfigPath string, imageChroot safechroot.ChrootInterface) error {
+func AddOrUpdateUsers(ctx context.Context, users []imagecustomizerapi.User, baseConfigPath string, imageChroot safechroot.ChrootInterface) error {
+	if len(users) == 0 {
+		return nil
+	}
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_or_update_users")
+	span.SetAttributes(
+		attribute.Int("users_count", len(users)),
+	)
+	defer span.End()
 	for _, user := range users {
 		err := addOrUpdateUser(user, baseConfigPath, imageChroot)
 		if err != nil {

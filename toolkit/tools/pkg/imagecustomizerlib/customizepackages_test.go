@@ -44,7 +44,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(buildDir, testDir, &config, baseImage, []string{downloadedRpmsTmpDir}, outImageFilePath,
+	err = CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, []string{downloadedRpmsTmpDir}, outImageFilePath,
 		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -87,7 +87,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, []string{downloadedRpmsTmpDir}, outImageFilePath,
+	err = CustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, []string{downloadedRpmsTmpDir}, outImageFilePath,
 		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -156,7 +156,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	configFile := filepath.Join(testDir, "packages-add-config.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -185,7 +185,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 	configFile := filepath.Join(testDir, "packages-update-config.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -221,7 +221,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	configFile := filepath.Join(testDir, "install-package-disk-space.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to customize raw image")
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
@@ -240,7 +240,7 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 	repoFile := filepath.Join(testDir, "repos/cloud-native-azl3.repo")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -271,7 +271,7 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 	repoFile := filepath.Join(testDir, "repos/bad-repo.repo")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
 }
@@ -331,7 +331,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 		},
 	}
 
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
 		"raw", true, "")
 	if !assert.NoError(t, err) {
 		return
@@ -380,7 +380,7 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 	}
 
 	// Set the snapshot time in CLI to a date before jq-1.7.1-2 (2025-03-18) was published
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
 		"raw", true, snapshotTimeCLI)
 	if !assert.NoError(t, err) {
 		return
@@ -424,7 +424,7 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 		},
 	}
 
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
 		"raw", true, "")
 	assert.ErrorContains(t, err, "snapshotTime")
 	assert.ErrorContains(t, err, "preview feature")

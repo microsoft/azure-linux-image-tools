@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -11,10 +12,23 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/systemd"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-func EnableOrDisableServices(services imagecustomizerapi.Services, imageChroot safechroot.ChrootInterface) error {
+func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Services, imageChroot safechroot.ChrootInterface) error {
 	var err error
+
+	if len(services.Enable) == 0 && len(services.Disable) == 0 {
+		return nil
+	}
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_services")
+	span.SetAttributes(
+		attribute.Int("services_enable_count", len(services.Enable)),
+		attribute.Int("services_disable_count", len(services.Disable)),
+	)
+	defer span.End()
 
 	// Handle enabling services
 	for _, service := range services.Enable {

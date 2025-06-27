@@ -4,6 +4,7 @@
 package osmodifierlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/osmodifierapi"
 )
 
-func ModifyOSWithConfigFile(configFile string) error {
+func ModifyOSWithConfigFile(ctx context.Context, configFile string) error {
 	var err error
 
 	var osConfig osmodifierapi.OS
@@ -27,7 +28,7 @@ func ModifyOSWithConfigFile(configFile string) error {
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = ModifyOS(absBaseConfigPath, &osConfig)
+	err = ModifyOS(ctx, absBaseConfigPath, &osConfig)
 	if err != nil {
 		return err
 	}
@@ -35,8 +36,8 @@ func ModifyOSWithConfigFile(configFile string) error {
 	return nil
 }
 
-func ModifyOS(baseConfigPath string, osConfig *osmodifierapi.OS) error {
-	err := doModifications(baseConfigPath, osConfig)
+func ModifyOS(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS) error {
+	err := doModifications(ctx, baseConfigPath, osConfig)
 	if err != nil {
 		return err
 	}

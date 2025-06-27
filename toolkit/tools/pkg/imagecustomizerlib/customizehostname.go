@@ -4,18 +4,23 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"go.opentelemetry.io/otel"
 )
 
-func UpdateHostname(hostname string, imageChroot safechroot.ChrootInterface) error {
+func UpdateHostname(ctx context.Context, hostname string, imageChroot safechroot.ChrootInterface) error {
 	if hostname == "" {
 		return nil
 	}
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_hostname")
+	defer span.End()
 
 	logger.Log.Infof("Setting hostname (%s)", hostname)
 
