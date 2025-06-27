@@ -9,9 +9,10 @@ import (
 
 // Iso defines how the generated iso media should be configured.
 type Iso struct {
-	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
-	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
-	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	KernelCommandLine  KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles    AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType      InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	KeepKdumpBootFiles bool               `yaml:"keepKdumpBootFiles" json:"keepKdumpBootFiles,omitempty"`
 }
 
 func (i *Iso) IsValid() error {

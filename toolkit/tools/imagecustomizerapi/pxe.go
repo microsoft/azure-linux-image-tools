@@ -13,11 +13,12 @@ var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://"
 
 // Iso defines how the generated iso media should be configured.
 type Pxe struct {
-	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
-	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
-	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
-	BootstrapBaseUrl  string             `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
-	BootstrapFileUrl  string             `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
+	KernelCommandLine  KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles    AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType      InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	BootstrapBaseUrl   string             `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
+	BootstrapFileUrl   string             `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
+	KeepKdumpBootFiles bool               `yaml:"keepKdumpBootFiles" json:"keepKdumpBootFiles,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {
