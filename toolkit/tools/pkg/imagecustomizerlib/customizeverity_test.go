@@ -446,7 +446,7 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 	verityUsrVerity(t, baseImageInfo, buildDir, stage2FilePath, "panic-on-corruption")
 
 	// Stage 3: Re-apply verity settings.
-	err = CustomizeImageWithConfigFile(buildDir, stage3ConfigFile, stage2FilePath, nil, stage3FilePath, "vhdx",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage3ConfigFile, stage2FilePath, nil, stage3FilePath, "vhdx",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "verity (verityusr) data partition is invalid")
 	assert.ErrorContains(t, err, "partition already in use as existing verity device's (usr) data partition")

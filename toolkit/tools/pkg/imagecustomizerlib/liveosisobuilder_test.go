@@ -398,7 +398,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 		"" /*pxe url*/, true /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, true, /*2 kernels*/
 		selinuxMode)
 
-	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		// Azl2 should fail.
