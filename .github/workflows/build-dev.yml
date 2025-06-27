@@ -12,10 +12,17 @@ on:
     - main
     - release/*
   # Allow pipeline to be run manually.
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      runFunctionalTests:
+        description: Run functional tests
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   build:
-    uses: ./.github/workflows/build.yml
-    with:
-      publishType: dev
+   uses: ./.github/workflows/build.yml
+   with:
+     publishType: dev
+     runFunctionalTests: ${{ inputs.runFunctionalTests }} 
