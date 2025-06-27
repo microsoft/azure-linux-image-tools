@@ -69,7 +69,7 @@ func main() {
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
 	// initialize OpenTelemetry tracer
-	err := telemetry.InitTelemetry(cli.DisableTelemetry)
+	err := telemetry.InitTelemetry(cli.DisableTelemetry, imagecustomizerlib.ToolVersion)
 	if err != nil {
 		logger.Log.Warnf("Failed to initialize telemetry setup: %v", err)
 	}

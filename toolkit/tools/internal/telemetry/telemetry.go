@@ -8,7 +8,6 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 	autoexport "go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,7 +18,7 @@ import (
 
 var shutdownFn func(ctx context.Context) error
 
-func InitTelemetry(disableTelemetry bool) error {
+func InitTelemetry(disableTelemetry bool, toolVersion string) error {
 	if disableTelemetry {
 		logger.Log.Info("Disabled telemetry collection")
 		return nil
@@ -35,12 +34,12 @@ func InitTelemetry(disableTelemetry bool) error {
 
 	distro, version := osinfo.GetDistroAndVersion()
 
-	res, err := resource.Merge(
+	res, _ := resource.Merge(
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String("imagecustomizer"),
-			semconv.ServiceVersionKey.String(imagecustomizerlib.ToolVersion),
+			semconv.ServiceVersionKey.String(toolVersion),
 			attribute.String("host.architecture", runtime.GOARCH),
 			attribute.String("host.os", distro),
 			attribute.String("host.os.version", version),
