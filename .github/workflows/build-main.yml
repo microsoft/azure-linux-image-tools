@@ -16,3 +16,4 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       publishType: main
+      runFunctionalTests: true

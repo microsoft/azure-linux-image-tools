@@ -1,0 +1,156 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Tests functional
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      hostArch:
+        required: true
+        type: string
+      hostDistro:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+  ORAS_VERSION: "1.2.3"
+
+jobs:
+  tests-functional:
+    name: Funtional test suite
+    runs-on:
+    - self-hosted
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'ecf-github-runner-amd64' || 'ecf-github-runner-azl3-arm64') || 'ecf-github-runner-ubuntu2404-amd64'}}
+    permissions:
+      contents: read
+    steps:
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
+    - name: Install prerequisites (AZL3)
+      if: inputs.hostDistro == 'azl3'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
+          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+          xfsprogs zstd veritysetup grub2 binutils lsof \
+          git
+
+        # grub2-pc is only available on x86.
+        if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
+          sudo tdnf install -y grub2-pc
+        fi
+
+        sudo tdnf list installed
+
+    - name: Install prerequisites (Ubuntu 24.04)
+      if: inputs.hostDistro == 'ubuntu2404'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo apt list --installed
+        sudo apt update -y
+
+        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Download oras
+      run: |
+        set -eux
+
+        curl -sSL -o oras.tar.gz https://github.com/oras-project/oras/releases/download/v$ORAS_VERSION/oras_${ORAS_VERSION}_linux_${{ inputs.hostArch }}.tar.gz
+
+        TAR_HASH="$(sha256sum oras.tar.gz | cut -d' ' -f 1)"
+
+        EXPECTED_TAR_HASH=""
+        case "${{ inputs.hostArch }}" in
+          "amd64")
+            EXPECTED_TAR_HASH="b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827"
+            ;;
+          "arm64")
+            EXPECTED_TAR_HASH="90e24e234dc6dffe73365533db66fd14449d2c9ae77381081596bf92f40f6b82"
+            ;;
+        esac
+
+        if [ "$TAR_HASH" != "$EXPECTED_TAR_HASH" ]; then
+          echo "Expected oras hash: $EXPECTED_TAR_HASH, got: $TAR_HASH."
+          exit 1
+        fi
+
+        mkdir ./oras
+        tar -C ./oras -xf oras.tar.gz
+
+        sudo mv ./oras/oras /usr/local/bin
+
+    - name: Download base images
+      run: |
+        set -eux
+
+        pushd repo/toolkit/tools
+        oras pull --output baremetal-2.0 mcr.microsoft.com/azurelinux/2.0/image/minimal-os:latest
+        oras pull --output baremetal-3.0 mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest
+
+    - name: Test setup
+      run: |
+        set -eux
+
+        pushd repo/toolkit/tools
+
+        # Download the test RPM files.
+        ./internal/testutils/testrpms/download-test-utils.sh
+
+        mkdir -p out/testResults
+
+    - name: Run tests
+      run: |
+        set -eux
+        set -o pipefail
+
+        pushd repo/toolkit/tools
+
+        AZL2_VHDX="baremetal-2.0/image.vhdx"
+        AZL3_VHDX="baremetal-3.0/image.vhdx"
+
+        FAILED=0
+
+        sudo env "PATH=$PATH" go test -v \
+          -coverprofile=out/testResults/api.cov -covermode count \
+          ./imagecustomizerapi \
+          2>&1 \
+          | tee out/testResults/api.txt \
+          || FAILED=$(( $FAILED | 1 ))
+
+        sudo env "PATH=$PATH" go test -v \
+          -coverprofile=out/testResults/lib.cov -covermode count \
+          -timeout 60m \
+          ./pkg/imagecustomizerlib \
+          -args \
+          --base-image-bare-metal-azl2 "../../$AZL2_VHDX" \
+          --base-image-bare-metal-azl3 "../../$AZL3_VHDX" \
+          2>&1 \
+          | tee out/testResults/lib.txt \
+          || FAILED=$(( $FAILED | 2 ))
+
+        exit $FAILED
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: tests-results-functional-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        path: repo/toolkit/tools/out/testResults

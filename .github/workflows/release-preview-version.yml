@@ -19,6 +19,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       publishType: preview
+      runFunctionalTests: true
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
