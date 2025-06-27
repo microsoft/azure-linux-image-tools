@@ -30,6 +30,8 @@ jobs:
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
     permissions:
       contents: read
+      # Azure login.
+      id-token: write
     environment: public
     steps:
     - name: setup go 1.x
