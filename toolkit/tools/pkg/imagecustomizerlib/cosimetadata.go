@@ -3,16 +3,16 @@ package imagecustomizerlib
 type BootloaderType string
 
 const (
-	BootloaderGrub        BootloaderType = "grub"
-	BootloaderSystemdBoot BootloaderType = "systemd-boot"
+	BootloaderTypeGrub        BootloaderType = "grub"
+	BootloaderTypeSystemdBoot BootloaderType = "systemd-boot"
 )
 
 type SystemDBootEntryType string
 
 const (
-	EntryTypeUKIStandalone SystemDBootEntryType = "uki-standalone"
-	EntryTypeUKIConfig     SystemDBootEntryType = "uki-config"
-	EntryTypeConfig        SystemDBootEntryType = "config"
+	SystemDBootEntryTypeUKIStandalone SystemDBootEntryType = "uki-standalone"
+	SystemDBootEntryTypeUKIConfig     SystemDBootEntryType = "uki-config"
+	SystemDBootEntryTypeConfig        SystemDBootEntryType = "config"
 )
 
 type SystemDBootEntry struct {
@@ -31,17 +31,13 @@ type CosiBootloader struct {
 	SystemdBoot *SystemDBoot   `json:"systemdBoot,omitempty"`
 }
 
-type Metadata struct {
-	Bootloader CosiBootloader `json:"bootloader"`
-}
-
 type MetadataJson struct {
 	Version    string          `json:"version"`
 	OsArch     string          `json:"osArch"`
 	Images     []FileSystem    `json:"images"`
 	OsRelease  string          `json:"osRelease"`
 	Id         string          `json:"id,omitempty"`
-	Bootloader *CosiBootloader `json:"bootloader"`
+	Bootloader *CosiBootloader `json:"bootloader,omitempty"`
 	OsPackages []OsPackage     `json:"osPackages"`
 }
 

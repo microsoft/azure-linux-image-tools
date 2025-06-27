@@ -379,10 +379,6 @@ func prepareImageConversionData(rawImageFile string, buildDir string,
 	}
 
 	if err := imageConnection.CleanClose(); err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
-	}
-
-	if err := imageConnection.CleanClose(); err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("failed to cleanly close image connection:\n%w", err)
 	}
 

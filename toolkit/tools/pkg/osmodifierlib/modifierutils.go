@@ -38,13 +38,17 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 	}
 
 	// Add a check to make sure BootCustomizer can be initialized
-	grubExists := imagecustomizerlib.GrubConfigSupportExists(dummyChroot)
+	bootloaderType, err := imagecustomizerlib.DetectBootloaderType(dummyChroot)
+	if err != nil {
+		return err
+	}
 
-	needsBootCustomizer := grubExists && (osConfig.KernelCommandLine.ExtraCommandLine != nil ||
-		osConfig.Overlays != nil ||
-		osConfig.SELinux.Mode != "" ||
-		osConfig.Verity != nil ||
-		osConfig.RootDevice != "")
+	needsBootCustomizer := bootloaderType == imagecustomizerlib.BootloaderTypeGrub &&
+		(osConfig.KernelCommandLine.ExtraCommandLine != nil ||
+			osConfig.Overlays != nil ||
+			osConfig.SELinux.Mode != "" ||
+			osConfig.Verity != nil ||
+			osConfig.RootDevice != "")
 
 	var bootCustomizer *imagecustomizerlib.BootCustomizer
 	if needsBootCustomizer {
@@ -94,7 +98,7 @@ func doModifications(baseConfigPath string, osConfig *osmodifierapi.OS) error {
 		}
 	}
 
-	if osConfig.SELinux.Mode != "" && !grubExists {
+	if osConfig.SELinux.Mode != "" && bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
 		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
 		if err != nil {
 			return err
