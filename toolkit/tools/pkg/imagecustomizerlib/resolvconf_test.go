@@ -29,7 +29,7 @@ func TestCustomizeImageResolvConfDelete(t *testing.T) {
 		},
 	}
 
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -92,7 +92,7 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 		OS: &imagecustomizerapi.OS{},
 	}
 
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "raw",
+	err = CustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -162,7 +162,7 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 		OS: &imagecustomizerapi.OS{},
 	}
 
-	err = CustomizeImage(buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "raw",
+	err = CustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -200,7 +200,7 @@ func TestCustomizeImageResolvConfNewSymlink(t *testing.T) {
 		},
 	}
 
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return

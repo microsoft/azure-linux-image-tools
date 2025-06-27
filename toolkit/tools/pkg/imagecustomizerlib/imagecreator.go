@@ -15,7 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
-func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool,
 	imageUuidStr string, packageSnapshotTime string, tarFile string,
 ) (map[string]diskutils.FstabEntry, string, error) {
@@ -36,7 +36,7 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsImageCreator(buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
+	err = doOsCustomizationsImageCreator(ctx, buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, imageUuidStr,
 		partUuidToFstabEntry, packageSnapshotTime)
 
@@ -68,6 +68,7 @@ func CustomizeImageHelperImageCreator(buildDir string, baseConfigPath string, co
 }
 
 func doOsCustomizationsImageCreator(
+	ctx context.Context,
 	buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.Config,
 	imageConnection *ImageConnection,
@@ -86,10 +87,8 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	ctx := context.Background()
-
 	if err = addRemoveAndUpdatePackages(
-		context.Background(),
+		ctx,
 		buildDir, baseConfigPath, config.OS, imageChroot, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, packageSnapshotTime); err != nil {
 		return err

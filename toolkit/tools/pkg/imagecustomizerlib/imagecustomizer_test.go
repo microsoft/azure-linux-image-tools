@@ -55,7 +55,7 @@ func TestCustomizeImageEmptyConfig(t *testing.T) {
 	outImageFilePath := filepath.Join(buildDir, "image.vhd")
 
 	// Customize image.
-	err = CustomizeImage(buildDir, buildDir, &imagecustomizerapi.Config{}, baseImage, nil, outImageFilePath,
+	err = CustomizeImage(t.Context(), buildDir, buildDir, &imagecustomizerapi.Config{}, baseImage, nil, outImageFilePath,
 		"vhd",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -78,7 +78,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	vhdxImageFilePath := filepath.Join(testTmpDir, "image3.vhdx")
 
 	// Customize image to vhd.
-	err := CustomizeImageWithConfigFile(buildDir, partitionsConfigFile, baseImage, nil, vhdImageFilePath,
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, baseImage, nil, vhdImageFilePath,
 		"vhd", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -94,7 +94,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
 
 	// Customize image to vhd-fixed.
-	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdImageFilePath, nil, vhdFixedImageFilePath,
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, noChangeConfigFile, vhdImageFilePath, nil, vhdFixedImageFilePath,
 		"vhd-fixed", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -112,7 +112,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize-512)
 
 	// Customize image to vhdx.
-	err = CustomizeImageWithConfigFile(buildDir, noChangeConfigFile, vhdFixedImageFilePath, nil, vhdxImageFilePath,
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, noChangeConfigFile, vhdFixedImageFilePath, nil, vhdxImageFilePath,
 		"vhdx", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -550,7 +550,7 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 	packageSnapshotTime := ""
 
 	// Pass the input image file only through the argument.
-	err := CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err := CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -561,7 +561,7 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 	inputImageFile = ""
 
 	// Pass the input image file only through the config.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -573,7 +573,7 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 
 	// Pass the input image file through both the config and the argument. The config's Path is ignored, so even though
 	// it doesn't exist, there will be no error.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -610,7 +610,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the input image file relative to the current working directory through the argument. This works because
 	// paths on the command-line are expected to be relative to the current working directory.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -620,7 +620,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 	inputImageFile = inputImageFileRelativeToCwdFake
 
 	// The same as above but for the fake path. This fails because the file does not exist.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
@@ -631,7 +631,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the input image file relative to the config file through the config. This works because paths in the config
 	// as expected to be relative to the config file.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -641,7 +641,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 	config.Input.Image.Path = inputImageFileRelativeToConfigFake
 
 	// The same as above but for the fake path. This fails because the file does not exist.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
@@ -664,7 +664,7 @@ func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, outImageFilePath, "raw",
+	err = CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -711,7 +711,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	packageSnapshotTime := ""
 
 	// Pass the output image file only through the argument.
-	err := CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err := CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAsArgument)
@@ -722,7 +722,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	outputImageFile = ""
 
 	// Pass the output image file only through the config.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, "",
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, "",
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFilePathAsConfig)
@@ -734,7 +734,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 
 	// Pass the output image file through both the config and the argument. The config's Path is ignored, so even though
 	// it is a directory, there will be no error.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAsArgument)
@@ -767,7 +767,7 @@ func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the output image file relative to the current working directory through the argument. This will create
 	// the file at the absolute path.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
@@ -779,7 +779,7 @@ func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the output image file relative to the config file through the config. This will create the file at the
 	// absolute path.
-	err = CustomizeImage(buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
+	err = CustomizeImage(t.Context(), buildDir, baseConfigPath, config, inputImageFile, rpmSources, outputImageFile,
 		outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
@@ -804,7 +804,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 			},
 		},
 	}
-	err := CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", "",
+	err := CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, "", "",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -816,7 +816,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 
 	// Pass the output image format only through the argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
+	err = CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -828,7 +828,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 
 	// Pass the output image format through both the config and the argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
-	err = CustomizeImage(buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
+	err = CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)

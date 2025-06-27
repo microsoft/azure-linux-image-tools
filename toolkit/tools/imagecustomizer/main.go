@@ -48,6 +48,7 @@ type RootCmd struct {
 }
 
 func main() {
+	ctx := context.Background()
 
 	cli := &RootCmd{}
 
@@ -73,7 +74,7 @@ func main() {
 		logger.Log.Warnf("Failed to initialize telemetry setup: %v", err)
 	}
 	defer func() {
-		if err := telemetry.ShutdownTelemetry(context.Background()); err != nil {
+		if err := telemetry.ShutdownTelemetry(ctx); err != nil {
 			logger.Log.Warnf("Failed to shutdown telemetry: %v", err)
 		}
 	}()
@@ -85,13 +86,13 @@ func main() {
 
 	switch parseContext.Command() {
 	case "customize":
-		err := customizeImage(cli.Customize)
+		err := customizeImage(ctx, cli.Customize)
 		if err != nil {
 			log.Fatalf("image customization failed:\n%v", err)
 		}
 
 	case "inject-files":
-		err := injectFiles(cli.InjectFiles)
+		err := injectFiles(ctx, cli.InjectFiles)
 		if err != nil {
 			log.Fatalf("inject-files failed:\n%v", err)
 		}
@@ -101,8 +102,8 @@ func main() {
 	}
 }
 
-func customizeImage(cmd CustomizeCmd) error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
+func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
+	err := imagecustomizerlib.CustomizeImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, !cmd.DisableBaseImageRpmRepos, cmd.PackageSnapshotTime)
 	if err != nil {
 		return err
@@ -111,8 +112,8 @@ func customizeImage(cmd CustomizeCmd) error {
 	return nil
 }
 
-func injectFiles(cmd InjectFilesCmd) error {
-	err := imagecustomizerlib.InjectFilesWithConfigFile(cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
+func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
+	err := imagecustomizerlib.InjectFilesWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.OutputImageFile, cmd.OutputImageFormat)
 	if err != nil {
 		return err

@@ -195,7 +195,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	return ic, nil
 }
 
-func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
+func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
@@ -215,7 +215,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
+	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
@@ -233,11 +233,11 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
+func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
-	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "customize_image")
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
 		attribute.String("output_image_format", string(outputImageFormat)),
 	)

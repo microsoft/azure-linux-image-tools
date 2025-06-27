@@ -226,7 +226,7 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 	return nil
 }
 
-func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string,
+func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	outputImageFile string, outputImageFormat string,
 ) error {
 	var injectConfig imagecustomizerapi.InjectFilesConfig
@@ -246,7 +246,7 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 		return fmt.Errorf("failed to get absolute path of inject-files.yaml:\n%w", err)
 	}
 
-	err = InjectFiles(buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
+	err = InjectFiles(ctx, buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
 		outputImageFile, outputImageFormat)
 	if err != nil {
 		return err
@@ -255,13 +255,13 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 	return nil
 }
 
-func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
+func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, inputImageFile string,
 	metadata []imagecustomizerapi.InjectArtifactMetadata, outputImageFile string,
 	outputImageFormat string,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
-	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "inject_files")
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "inject_files")
 	defer span.End()
 
 	buildDirAbs, err := filepath.Abs(buildDir)

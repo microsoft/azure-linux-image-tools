@@ -32,7 +32,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Customize image
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -117,7 +117,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	}
 
 	// Inject artifacts into a fresh copy of the raw image
-	err = InjectFilesWithConfigFile(buildDir, injectConfigPath, outImageFilePath, "", "")
+	err = InjectFilesWithConfigFile(t.Context(), buildDir, injectConfigPath, outImageFilePath, "", "")
 	if !assert.NoError(t, err) {
 		return
 	}
