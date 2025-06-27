@@ -5,11 +5,12 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
+	"runtime"
+
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"golang.org/x/sys/unix"
-	"os"
-	"runtime"
 )
 
 const (
@@ -40,8 +41,10 @@ const (
 	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
 	// In the ISO image, the kernel is named 'vmlinuz'.
 	vmLinuzPrefix     = "vmlinuz"
+	initramfsPrefix   = "initramfs-"  // Azl3
+	initrdPrefix      = "initrd.img-" // CBL-Mariner
+	isoKernelDir      = "/boot"
 	isoInitrdPath     = "/boot/" + initrdImage
-	isoKernelPath     = "/boot/vmlinuz"
 	isoBootloadersDir = "/efi/boot"
 	isoBootImagePath  = "/boot/grub2/efiboot.img"
 

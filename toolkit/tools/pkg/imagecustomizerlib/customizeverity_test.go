@@ -424,8 +424,10 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 	buildDir := filepath.Join(testTempDir, "build")
 	stage1ConfigFile := filepath.Join(testDir, "verity-2stage-prepare.yaml")
 	stage2ConfigFile := filepath.Join(testDir, "verity-2stage-enable.yaml")
-	stage1FilePath := filepath.Join(testTempDir, "image.qcow2")
-	stage2FilePath := filepath.Join(testTempDir, "image.raw")
+	stage3ConfigFile := filepath.Join(testDir, "verity-2stage-bad-reinit.yaml")
+	stage1FilePath := filepath.Join(testTempDir, "image1.qcow2")
+	stage2FilePath := filepath.Join(testTempDir, "image2.raw")
+	stage3FilePath := filepath.Join(testTempDir, "image3.vhdx")
 
 	// Stage 1: Create the partitions for verity.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, stage1ConfigFile, baseImage, nil, stage1FilePath, "qcow2",
@@ -442,6 +444,12 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 	}
 
 	verityUsrVerity(t, baseImageInfo, buildDir, stage2FilePath, "panic-on-corruption")
+
+	// Stage 3: Re-apply verity settings.
+	err = CustomizeImageWithConfigFile(buildDir, stage3ConfigFile, stage2FilePath, nil, stage3FilePath, "vhdx",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "verity (verityusr) data partition is invalid")
+	assert.ErrorContains(t, err, "partition already in use as existing verity device's (usr) data partition")
 }
 
 func TestCustomizeImageVerityReinitRoot(t *testing.T) {

@@ -936,7 +936,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 		return nil
 	})
 
-	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
+	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry, baseImageVerityMetadata)
 	if err != nil {
 		return nil, nil, "", nil, fmt.Errorf("verity validation failed:\n%w", err)
 	}

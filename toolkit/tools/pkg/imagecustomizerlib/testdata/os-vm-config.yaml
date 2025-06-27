@@ -3,3 +3,7 @@ os:
     # Enable DHCP client on all of the physical NICs.
   - source: files/89-ethernet.network
     destination: /etc/systemd/network/89-ethernet.network
+  packages:
+    install:
+    # multi-kernel test
+    - kernel-6.6.57.1-6.azl3
