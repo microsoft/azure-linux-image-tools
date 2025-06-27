@@ -8,8 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
 // From: https://gitlab.com/cryptsetup/cryptsetup/-/wikis/DMVerity
@@ -139,10 +137,9 @@ func roundUpToPowerOf2(n uint32) uint32 {
 }
 
 func getVerityNames(verity []verityDeviceMetadata) []string {
-	names := make([]string, len(verity))
+	verityNames := make([]string, len(verity))
 	for i, v := range verity {
-		names[i] = v.name
+		verityNames[i] = v.name
 	}
-	verityNames := sliceutils.RemoveDuplicatesFromSlice(names)
 	return verityNames
 }
