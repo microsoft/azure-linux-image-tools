@@ -32,10 +32,9 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 
 	logger.Log.Infof("Running %s scripts", listName)
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "run_user_scripts")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "run_"+listName+"_scripts")
 	span.SetAttributes(
 		attribute.Int("scripts_count", len(scripts)),
-		attribute.String("list_name", listName),
 	)
 	defer span.End()
 

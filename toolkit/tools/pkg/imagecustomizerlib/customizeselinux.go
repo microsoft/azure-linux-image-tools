@@ -26,7 +26,6 @@ func handleSELinux(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMo
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_selinux")
 	span.SetAttributes(
 		attribute.String("selinux_mode", string(selinuxMode)),
-		attribute.String("reset_boot_loader_type", string(resetBootLoaderType)),
 	)
 	defer span.End()
 
@@ -115,9 +114,6 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 	logger.Log.Infof("Setting file SELinux labels")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "set_selinux_files")
-	span.SetAttributes(
-		attribute.String("selinux_mode", string(selinuxMode)),
-	)
 	defer span.End()
 
 	// Get the list of mount points.

@@ -35,7 +35,6 @@ func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay,
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_overlays")
 	span.SetAttributes(
 		attribute.Int("overlays_count", len(*overlays)),
-		attribute.String("selinux_mode", string(selinuxMode)),
 	)
 	defer span.End()
 

@@ -44,6 +44,7 @@ func mountRpmSources(ctx context.Context, buildDir string, imageChroot *safechro
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "mount_rpm_sources")
 	span.SetAttributes(
 		attribute.Int("rpm_sources_count", len(rpmsSources)),
+		attribute.Bool("use_base_image_rpm_repos", useBaseImageRpmRepos),
 	)
 	defer span.End()
 

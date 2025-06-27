@@ -47,6 +47,7 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_verity_partition")
 	span.SetAttributes(
 		attribute.Int("verity_count", len(verity)),
+		attribute.String("verity_device_name", verity[0].Name),
 	)
 	defer span.End()
 

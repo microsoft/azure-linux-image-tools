@@ -42,7 +42,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reset_bootloader")
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "hard_reset_bootloader")
 	defer span.End()
 
 	// If the image is being customized by imagecreator, we don't need to check the SELinux mode.
