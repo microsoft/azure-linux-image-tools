@@ -86,7 +86,9 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.kernelCommandLine = isoConfig.KernelCommandLine
 			config.additionalFiles = isoConfig.AdditionalFiles
 			config.initramfsType = isoConfig.InitramfsType
-			config.keepKdumpBootFiles = isoConfig.KeepKdumpBootFiles
+			if isoConfig.CrashDump != nil {
+				config.keepKdumpBootFiles = isoConfig.CrashDump.KeepKdumpBootFiles
+			}
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
@@ -100,7 +102,9 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.initramfsType = pxeConfig.InitramfsType
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
-			config.keepKdumpBootFiles = pxeConfig.KeepKdumpBootFiles
+			if pxeConfig.CrashDump != nil {
+				config.keepKdumpBootFiles = pxeConfig.CrashDump.KeepKdumpBootFiles
+			}
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,

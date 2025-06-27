@@ -55,15 +55,22 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 	perms0o644 := imagecustomizerapi.FilePermissions(0o644)
 
 	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureCrashDump,
+		},
 		Iso: &imagecustomizerapi.Iso{
-			KeepKdumpBootFiles: keepKdumpBootFiles,
+			CrashDump: &imagecustomizerapi.CrashDump{
+				KeepKdumpBootFiles: keepKdumpBootFiles,
+			},
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
 				ExtraCommandLine: []string{kernelParameter},
 			},
 			InitramfsType: initramfsType,
 		},
 		Pxe: &imagecustomizerapi.Pxe{
-			KeepKdumpBootFiles: keepKdumpBootFiles,
+			CrashDump: &imagecustomizerapi.CrashDump{
+				KeepKdumpBootFiles: keepKdumpBootFiles,
+			},
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
 				ExtraCommandLine: []string{kernelParameter},
 			},
@@ -190,12 +197,12 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 	if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
 		additionalFiles = config.Iso.AdditionalFiles
 		extraCommandLineParameters = config.Iso.KernelCommandLine.ExtraCommandLine
-		keepKdumpBootFiles = config.Iso.KeepKdumpBootFiles
+		keepKdumpBootFiles = config.Iso.CrashDump.KeepKdumpBootFiles
 		initramfsType = config.Iso.InitramfsType
 	} else {
 		additionalFiles = config.Pxe.AdditionalFiles
 		extraCommandLineParameters = config.Pxe.KernelCommandLine.ExtraCommandLine
-		keepKdumpBootFiles = config.Pxe.KeepKdumpBootFiles
+		keepKdumpBootFiles = config.Pxe.CrashDump.KeepKdumpBootFiles
 		initramfsType = config.Pxe.InitramfsType
 		pxeUrlBase = config.Pxe.BootstrapFileUrl
 	}

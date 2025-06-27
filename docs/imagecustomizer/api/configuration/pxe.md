@@ -32,20 +32,9 @@ pxe:
 
 See also the [PXE Support](../../concepts/pxe.md) page.
 
-## keepKdumpBootFiles [bool]
+## crashDump [[crashDump](./crashdump.md)]
 
-If set to true, the Image Customizer tool will not delete any kdump files found
-under the boot folder on the full OS image. The kdump files include:
-
-- a crashdump initramfs image named `initramfs-<kernel-version>kdump.img`.
-- a kernel named  `vmlinuz-<kernel-version>` - where its version matches that of
-  the `initramfs-<kernel-version>kdump.img`.
-
-The default is `false`.
-
-Note that by default, the Image Customizer tool removes the `/boot` folder from
-the full OS image. This is because all of its contents have already been copied
-unto the root of the PXE artifacts folder.
+Configures the crash dump behavior.
 
 Added in v0.16.
 
