@@ -70,6 +70,8 @@ jobs:
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
           xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
 
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
     - name: Azure Login
       uses: azure/login@v2
       with:
