@@ -120,9 +120,9 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool) error
 				// Move the file out so that we can delete the entire boot
 				// folder and avoid having empty folders.
 				savedFilePath := filepath.Join(savedFilesDir, filepath.Base(bootFilePath))
-				err := os.Rename(bootFilePath, savedFilePath)
+				err := file.Copy(bootFilePath, savedFilePath)
 				if err != nil {
-					return fmt.Errorf("failed to move (%s) to (%s):\n%w", bootFilePath, savedFilePath, err)
+					return fmt.Errorf("failed to copy (%s) to (%s):\n%w", bootFilePath, savedFilePath, err)
 				}
 				savedCount++
 				continue
@@ -149,9 +149,9 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool) error
 			}
 			for _, savedFilePath := range savedFilePaths {
 				restoredFilePath := filepath.Join(bootFolder, filepath.Base(savedFilePath))
-				err := os.Rename(savedFilePath, restoredFilePath)
+				err := file.Copy(savedFilePath, restoredFilePath)
 				if err != nil {
-					return fmt.Errorf("failed to move (%s) to (%s):\n%w", savedFilePath, restoredFilePath, err)
+					return fmt.Errorf("failed to copy (%s) to (%s):\n%w", savedFilePath, restoredFilePath, err)
 				}
 			}
 		}
