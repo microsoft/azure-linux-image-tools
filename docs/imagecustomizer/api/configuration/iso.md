@@ -37,7 +37,7 @@ The default is `false`.
 
 Note that by default, the Image Customizer tool removes the `/boot` folder from
 the full OS image. This is because all of its contents have already been copied
-undo the iso media directly.
+unto the iso media directly.
 
 Added in v0.16.
 
