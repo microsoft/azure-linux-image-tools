@@ -6,4 +6,7 @@ os:
   packages:
     install:
     - dracut-virtio
-
+  packages:
+    install:
+    # multi-kernel test
+    - kernel-6.6.57.1-6.azl3

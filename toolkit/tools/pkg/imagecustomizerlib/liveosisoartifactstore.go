@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,11 +28,20 @@ const (
 	savedConfigsFileNamePath = "/" + savedConfigsDir + "/" + savedConfigsFileName
 )
 
+var (
+	kernelVersionRegEx = regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.(azl|cm)\d)\b`)
+)
+
 type IsoInfoStore struct {
-	kernelVersion            string
 	seLinuxMode              imagecustomizerapi.SELinuxMode
 	dracutPackageInfo        *PackageVersionInformation
 	selinuxPolicyPackageInfo *PackageVersionInformation
+}
+
+type KernelBootFiles struct {
+	vmlinuzPath     string
+	initrdImagePath string
+	otherFiles      []string
 }
 
 type IsoFilesStore struct {
@@ -44,8 +52,8 @@ type IsoFilesStore struct {
 	isoGrubCfgPath       string
 	pxeGrubCfgPath       string
 	savedConfigsFilePath string
-	vmlinuzPath          string
-	initrdImagePath      string
+	kernelBootFiles      map[string]*KernelBootFiles // kernel-version -> KernelBootFiles
+	initrdImagePath      string                      // non-kernel specific
 	squashfsImagePath    string
 	additionalFiles      map[string]string // local-build-path -> iso-media-path
 }
@@ -82,41 +90,6 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 	return false, nil
 }
 
-func findKernelVersion(imageRootDir string) (kernelVersion string, err error) {
-	const kernelModulesDir = "/usr/lib/modules"
-
-	kernelParentPath := filepath.Join(imageRootDir, kernelModulesDir)
-	kernelDirs, err := os.ReadDir(kernelParentPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to enumerate kernels under (%s):\n%w", kernelParentPath, err)
-	}
-
-	// Filter out directories that are empty.
-	// Some versions of Azure Linux 2.0 don't cleanup properly when the kernel package is uninstalled.
-	filteredKernelDirs := []fs.DirEntry(nil)
-	for _, kernelDir := range kernelDirs {
-		kernelPath := filepath.Join(kernelParentPath, kernelDir.Name())
-		empty, err := file.IsDirEmpty(kernelPath)
-		if err != nil {
-			return "", err
-		}
-
-		if !empty {
-			filteredKernelDirs = append(filteredKernelDirs, kernelDir)
-		}
-	}
-
-	if len(filteredKernelDirs) == 0 {
-		return "", fmt.Errorf("did not find any kernels installed under (%s)", kernelModulesDir)
-	}
-	if len(filteredKernelDirs) > 1 {
-		return "", fmt.Errorf("unsupported scenario: found more than one kernel under (%s)", kernelModulesDir)
-	}
-	kernelVersion = filteredKernelDirs[0].Name()
-	logger.Log.Debugf("Found installed kernel version (%s)", kernelVersion)
-	return kernelVersion, nil
-}
-
 func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
 	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
@@ -131,6 +104,48 @@ func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxM
 	return imageSELinuxMode, nil
 }
 
+func getKernelVersions(filesStore *IsoFilesStore) []string {
+	var kernelVersions []string
+	for k := range filesStore.kernelBootFiles {
+		kernelVersions = append(kernelVersions, k)
+	}
+
+	return kernelVersions
+}
+
+func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string) bool {
+	scheduleAdditionalFile := true
+
+	baseFileName := filepath.Base(targetPath)
+
+	matches := kernelVersionRegEx.FindStringSubmatch(baseFileName)
+	if len(matches) <= 1 {
+		return scheduleAdditionalFile
+	}
+
+	kernelVersion := matches[1]
+
+	// Ensure we have an entry in the map for it
+	kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
+	if !exists {
+		kernelBootFiles = &KernelBootFiles{}
+		filesStore.kernelBootFiles[kernelVersion] = kernelBootFiles
+	}
+
+	if strings.HasPrefix(baseFileName, vmLinuzPrefix) {
+		kernelBootFiles.vmlinuzPath = targetPath
+		scheduleAdditionalFile = false
+	} else if strings.HasPrefix(baseFileName, initramfsPrefix) || strings.HasPrefix(baseFileName, initrdPrefix) {
+		kernelBootFiles.initrdImagePath = targetPath
+		scheduleAdditionalFile = false
+	} else {
+		kernelBootFiles.otherFiles = append(kernelBootFiles.otherFiles, targetPath)
+		scheduleAdditionalFile = false
+	}
+
+	return scheduleAdditionalFile
+}
+
 func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (filesStore *IsoFilesStore, err error) {
 	artifactsDir := filepath.Join(storeDir, "artifacts")
 
@@ -138,17 +153,12 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		artifactsDir:         artifactsDir,
 		savedConfigsFilePath: filepath.Join(artifactsDir, savedConfigsDir, savedConfigsFileName),
 		additionalFiles:      make(map[string]string),
+		kernelBootFiles:      make(map[string]*KernelBootFiles),
 	}
 
 	// the following files will be re-created - no need to copy them only to
 	// have them overwritten.
 	var exclusions []*regexp.Regexp
-	//
-	// We will generate a new initrd later. So, we do not copy the initrd.img
-	// that comes in the input full disk image.
-	//
-	exclusions = append(exclusions, regexp.MustCompile(`/boot/initrd\.img.*`))
-	exclusions = append(exclusions, regexp.MustCompile(`/boot/initramfs-.*\.img.*`))
 	//
 	// On full disk images (generated by Mariner toolkit), there are two
 	// grub.cfg files:
@@ -195,6 +205,13 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		relativeFilePath := strings.TrimPrefix(sourcePath, imageRootDir)
 		targetPath := strings.Replace(sourcePath, imageRootDir, filesStore.artifactsDir, -1)
 
+		// `scheduleAdditionalFile` indicates whether the file being processed
+		// now should be captured in the general 'additional' files collection
+		// or it has been captured in a data structure specific field
+		// (like filesStore.isoGrubCfgPath) and it will be handled from there.
+		// 'additional files' is a collection of all the files that need to be
+		// included in the final output, but we do not have particular interest
+		// in them (i.e. user files that we do not manipulate - but copy as-is).
 		scheduleAdditionalFile := true
 
 		_, bootFilesConfig, err := getBootArchConfig()
@@ -237,12 +254,11 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 			// We will place the pxe grub config next to the iso grub config.
 			filesStore.pxeGrubCfgPath = filepath.Join(filepath.Dir(filesStore.isoGrubCfgPath), pxeGrubCfg)
 			scheduleAdditionalFile = false
-		}
-
-		if strings.HasPrefix(filepath.Base(targetPath), vmLinuzPrefix) {
-			targetPath = filepath.Join(filepath.Dir(targetPath), "vmlinuz")
-			filesStore.vmlinuzPath = targetPath
+		case isoInitrdPath:
+			filesStore.initrdImagePath = targetPath
 			scheduleAdditionalFile = false
+		default:
+			scheduleAdditionalFile = storeIfKernelSpecificFile(filesStore, targetPath)
 		}
 
 		err = file.NewFileCopyBuilder(sourcePath, targetPath).
@@ -280,7 +296,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		// already. This also ensures that no file from the input iso overwrites
 		// a newer version that has just been created.
 
-		// Copy the addition files from the input iso store
+		// Copy the additional files from the input iso store
 		for inputSourceFile, inputTargetFile := range inputArtifactsStore.files.additionalFiles {
 			found := false
 			for _, targetFile := range filesStore.additionalFiles {
@@ -327,15 +343,9 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
-	kernelVersion, err := findKernelVersion(imageRootDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to determine kernel version from (%s):\n%w", imageRootDir, err)
-	}
-	infoStore.kernelVersion = kernelVersion
-
 	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
 	if chroot == nil {
-		return nil, fmt.Errorf("failed to create a new chroot object for (%s).", imageRootDir)
+		return nil, fmt.Errorf("failed to create a new chroot object for (%s)", imageRootDir)
 	}
 	defer chroot.Close(true /*leaveOnDisk*/)
 
@@ -387,6 +397,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	}
 
 	filesStore.additionalFiles = make(map[string]string)
+	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
 
 	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {
@@ -429,12 +440,11 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 		case savedConfigsFileNamePath:
 			filesStore.savedConfigsFilePath = isoFile
 			scheduleAdditionalFile = false
-		case isoKernelPath:
-			filesStore.vmlinuzPath = isoFile
-			scheduleAdditionalFile = false
 		case isoBootImagePath:
 			filesStore.isoBootImagePath = isoFile
 			scheduleAdditionalFile = false
+		default:
+			scheduleAdditionalFile = storeIfKernelSpecificFile(filesStore, isoFile)
 		}
 
 		if scheduleAdditionalFile {
@@ -457,7 +467,6 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	infoStore = &IsoInfoStore{
-		kernelVersion:            savedConfigs.OS.KernelVersion,
 		dracutPackageInfo:        savedConfigs.OS.DracutPackageInfo,
 		selinuxPolicyPackageInfo: savedConfigs.OS.SELinuxPolicyPackageInfo,
 	}
@@ -524,6 +533,19 @@ func fileExistsToString(filePath string) string {
 	return "!e " + filePath
 }
 
+func dumpKernelFiles(kernelBootFiles *KernelBootFiles) {
+	if kernelBootFiles == nil {
+		logger.Log.Debugf("-- -- not defined")
+		return
+	}
+
+	logger.Log.Debugf("-- -- vmlinuzPath           = %s", fileExistsToString(kernelBootFiles.vmlinuzPath))
+	logger.Log.Debugf("-- -- initrdImagePath       = %s", fileExistsToString(kernelBootFiles.initrdImagePath))
+	for _, otherFile := range kernelBootFiles.otherFiles {
+		logger.Log.Debugf("-- -- otherFile             = %s", fileExistsToString(otherFile))
+	}
+}
+
 func dumpFilesStore(filesStore *IsoFilesStore) {
 	logger.Log.Debugf("Files Store")
 	if filesStore == nil {
@@ -537,7 +559,12 @@ func dumpFilesStore(filesStore *IsoFilesStore) {
 	logger.Log.Debugf("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
 	logger.Log.Debugf("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
 	logger.Log.Debugf("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
-	logger.Log.Debugf("-- vmlinuzPath              = %s", fileExistsToString(filesStore.vmlinuzPath))
+	logger.Log.Debugf("-- kernel file groups")
+	for key, value := range filesStore.kernelBootFiles {
+		logger.Log.Debugf("-- -- version               = %s", key)
+		dumpKernelFiles(value)
+	}
+
 	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
 	logger.Log.Debugf("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
 	logger.Log.Debugf("-- additionalFiles          =")
@@ -552,7 +579,6 @@ func dumpInfoStore(infoStore *IsoInfoStore) {
 		logger.Log.Debugf("-- not defined")
 		return
 	}
-	logger.Log.Debugf("-- kernelVersion        = %s", infoStore.kernelVersion)
 	logger.Log.Debugf("-- seLinuxMode          = %s", infoStore.seLinuxMode)
 	if infoStore.dracutPackageInfo != nil {
 		logger.Log.Debugf("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
