@@ -68,8 +68,7 @@ jobs:
 
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
-          azure-cli
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
 
     - name: Azure Login
       uses: azure/login@v2
