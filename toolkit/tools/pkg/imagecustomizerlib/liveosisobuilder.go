@@ -18,13 +18,13 @@ const (
 )
 
 type LiveOSConfig struct {
-	isPxe              bool
-	kernelCommandLine  imagecustomizerapi.KernelCommandLine
-	additionalFiles    imagecustomizerapi.AdditionalFileList
-	initramfsType      imagecustomizerapi.InitramfsImageType
-	keepKdumpBootFiles bool
-	bootstrapBaseUrl   string
-	bootstrapFileUrl   string
+	isPxe             bool
+	kernelCommandLine imagecustomizerapi.KernelCommandLine
+	additionalFiles   imagecustomizerapi.AdditionalFileList
+	initramfsType     imagecustomizerapi.InitramfsImageType
+	kdumpBootFiles    *imagecustomizerapi.KdumpBootFilesType
+	bootstrapBaseUrl  string
+	bootstrapFileUrl  string
 }
 
 func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramfsType imagecustomizerapi.InitramfsImageType,
@@ -86,7 +86,14 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.kernelCommandLine = isoConfig.KernelCommandLine
 			config.additionalFiles = isoConfig.AdditionalFiles
 			config.initramfsType = isoConfig.InitramfsType
-			config.keepKdumpBootFiles = isoConfig.KeepKdumpBootFiles
+			if isoConfig.KdumpBootFiles != nil {
+				switch *isoConfig.KdumpBootFiles {
+				case imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.KdumpBootFilesTypeKeep:
+					config.kdumpBootFiles = isoConfig.KdumpBootFiles
+				default:
+					return config, false, fmt.Errorf("invalid kdumpBootFiles value (%s) in ISO configuration", *isoConfig.KdumpBootFiles)
+				}
+			}
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
@@ -100,7 +107,14 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.initramfsType = pxeConfig.InitramfsType
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
-			config.keepKdumpBootFiles = pxeConfig.KeepKdumpBootFiles
+			if pxeConfig.KdumpBootFiles != nil {
+				switch *pxeConfig.KdumpBootFiles {
+				case imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.KdumpBootFilesTypeKeep:
+					config.kdumpBootFiles = isoConfig.KdumpBootFiles
+				default:
+					return config, false, fmt.Errorf("invalid kdumpBootFiles value (%s) in PXE configuration", *pxeConfig.KdumpBootFiles)
+				}
+			}
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
@@ -231,8 +245,9 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	}
 
 	// Combine the current configuration with the saved configuration
-	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine, liveosConfig.bootstrapBaseUrl,
-		liveosConfig.bootstrapFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
+	updatedSavedConfigs, err := updateSavedConfigs(artifactsStore.files.savedConfigsFilePath,
+		liveosConfig.kdumpBootFiles, liveosConfig.kernelCommandLine,
+		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, artifactsStore.info.dracutPackageInfo, requestedSelinuxMode,
 		artifactsStore.info.selinuxPolicyPackageInfo)
 	if err != nil {
 		return fmt.Errorf("failed to combine saved configurations with new configuration:\n%w", err)
@@ -283,7 +298,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
 		// Generate the initrd image
-		err = createFullOSInitrdImage(writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputInitrdPath)
+		err = createFullOSInitrdImage(isoBuildDir, writeableRootfsDir,
+			liveosConfig.kdumpBootFiles, artifactsStore.files.kdumpBootFiles, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}
@@ -300,7 +316,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 
 		// Generate the squashfs image
 		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
-		err = createSquashfsImage(writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputSquashfsPath)
+		err = createSquashfsImage(isoBuildDir, writeableRootfsDir,
+			liveosConfig.kdumpBootFiles, artifactsStore.files.kdumpBootFiles, outputSquashfsPath)
 		if err != nil {
 			return fmt.Errorf("failed to create squashfs image:\n%w", err)
 		}
@@ -313,13 +330,14 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, artifactsStore.files,
-			liveosConfig.additionalFiles, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		err = createPXEArtifacts(isoBuildDir, outputFormat, baseConfigPath, liveosConfig.initramfsType, artifactsStore,
-			liveosConfig.additionalFiles, liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles,
+			liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to generate PXE artifacts\n%w", err)
 		}
@@ -336,7 +354,8 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	// and let any saved data override if present.
 	requestedSelinuxMode := imagecustomizerapi.SELinuxModeDefault
 
-	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath, liveosConfig.kernelCommandLine,
+	updatedSavedConfigs, err := updateSavedConfigs(inputArtifactsStore.files.savedConfigsFilePath,
+		liveosConfig.kdumpBootFiles, liveosConfig.kernelCommandLine,
 		liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, nil /*dracut pkg info*/, requestedSelinuxMode,
 		nil /*selinux policy pkg info*/)
 	if err != nil {
@@ -362,13 +381,14 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, inputArtifactsStore.files,
-			liveosConfig.additionalFiles, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		err = createPXEArtifacts(isoBuildDir, outputFormat, baseConfigPath, liveosConfig.initramfsType, inputArtifactsStore,
-			liveosConfig.additionalFiles, liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles,
+			liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to generate PXE artifacts folder\n%w", err)
 		}
