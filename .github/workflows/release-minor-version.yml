@@ -8,7 +8,7 @@ permissions:
   contents: write
   # Publish to GHCR.
   packages: write
-  # "Keyless" container signing
+  # "Keyless" container signing and Azure login.
   id-token: write
   # Publish PR.
   #pull-requests: write

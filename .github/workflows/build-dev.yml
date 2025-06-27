@@ -5,6 +5,8 @@ name: Build (dev)
 
 permissions:
   contents: read
+  # Azure login.
+  id-token: write
 
 on:
   pull_request:
