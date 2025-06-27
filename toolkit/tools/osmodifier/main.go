@@ -28,7 +28,7 @@ var (
 
 func main() {
 	ctx := context.Background()
-	
+
 	var err error
 
 	kingpin.MustParse(app.Parse(os.Args[1:]))
