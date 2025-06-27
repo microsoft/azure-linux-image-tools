@@ -18,7 +18,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -45,10 +44,6 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 	logger.Log.Infof("Enable verity")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_verity_partition")
-	span.SetAttributes(
-		attribute.Int("verity_count", len(verity)),
-		attribute.String("verity_device_name", verity[0].Name),
-	)
 	defer span.End()
 
 	err = validateVerityDependencies(imageChroot)

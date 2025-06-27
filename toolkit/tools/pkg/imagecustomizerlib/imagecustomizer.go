@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -1113,6 +1114,12 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 	if err != nil {
 		return nil, err
 	}
+
+	deviceNamesJson, _ := json.Marshal(getVerityNames(verityMetadata))
+	span.SetAttributes(
+		attribute.Int("verity_count", len(verityMetadata)),
+		attribute.String("verity_device_name", string(deviceNamesJson)),
+	)
 
 	return verityMetadata, nil
 }
