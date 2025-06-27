@@ -73,7 +73,7 @@ jobs:
 
         az login \
           --identity \
-          --client-id '${{ vars.UMI_CLIENT_ID }}' \
+          --resource-id '${{ vars.UMI_RESOURCE_ID }}' \
           --federated-token '${{ secrets.GITHUB_TOKEN }}'
 
     - name: Checkout
