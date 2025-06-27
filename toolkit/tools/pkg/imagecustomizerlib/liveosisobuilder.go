@@ -19,12 +19,13 @@ const (
 )
 
 type LiveOSConfig struct {
-	isPxe             bool
-	kernelCommandLine imagecustomizerapi.KernelCommandLine
-	additionalFiles   imagecustomizerapi.AdditionalFileList
-	initramfsType     imagecustomizerapi.InitramfsImageType
-	bootstrapBaseUrl  string
-	bootstrapFileUrl  string
+	isPxe              bool
+	kernelCommandLine  imagecustomizerapi.KernelCommandLine
+	additionalFiles    imagecustomizerapi.AdditionalFileList
+	initramfsType      imagecustomizerapi.InitramfsImageType
+	keepKdumpBootFiles bool
+	bootstrapBaseUrl   string
+	bootstrapFileUrl   string
 }
 
 func resolveInitramfsType(inputArtifactsStore *IsoArtifactsStore, outputInitramfsType imagecustomizerapi.InitramfsImageType,
@@ -86,6 +87,7 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.kernelCommandLine = isoConfig.KernelCommandLine
 			config.additionalFiles = isoConfig.AdditionalFiles
 			config.initramfsType = isoConfig.InitramfsType
+			config.keepKdumpBootFiles = isoConfig.KeepKdumpBootFiles
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
@@ -99,6 +101,7 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.initramfsType = pxeConfig.InitramfsType
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
+			config.keepKdumpBootFiles = pxeConfig.KeepKdumpBootFiles
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
@@ -281,7 +284,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
 		// Generate the initrd image
-		err = createFullOSInitrdImage(writeableRootfsDir, outputInitrdPath)
+		err = createFullOSInitrdImage(writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}
@@ -298,7 +301,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 
 		// Generate the squashfs image
 		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
-		err = createSquashfsImage(writeableRootfsDir, outputSquashfsPath)
+		err = createSquashfsImage(writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputSquashfsPath)
 		if err != nil {
 			return fmt.Errorf("failed to create squashfs image:\n%w", err)
 		}
