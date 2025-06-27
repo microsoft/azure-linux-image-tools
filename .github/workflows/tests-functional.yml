@@ -73,7 +73,6 @@ jobs:
 
         az login \
           --identity \
-          --tenant '${{ vars.UMI_TENANT_ID }}' \
           --client-id '${{ vars.UMI_CLIENT_ID }}' \
           --federated-token '${{ secrets.GITHUB_TOKEN }}'
 
