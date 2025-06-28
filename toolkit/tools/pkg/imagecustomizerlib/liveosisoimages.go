@@ -66,14 +66,15 @@ func cleanFullOSFolderForLiveOS(isoBuildDir string, fullOSDir string, keepKdumpB
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
 	}
 
-	logger.Log.Infof("Cleaning /boot")
 	bootFolder := filepath.Join(fullOSDir, "boot")
 	if !keepKdumpBootFiles {
+		logger.Log.Infof("Deleting /boot")
 		err = os.RemoveAll(bootFolder)
 		if err != nil {
 			return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
 		}
 	} else {
+		logger.Log.Infof("Cleaning /boot")
 		bootFolderFilePaths, err := file.EnumerateDirFiles(bootFolder)
 		if err != nil {
 			return fmt.Errorf("failed to scan /boot folder:\n%w", err)
@@ -126,6 +127,7 @@ func cleanFullOSFolderForLiveOS(isoBuildDir string, fullOSDir string, keepKdumpB
 					return fmt.Errorf("failed to copy (%s) to (%s):\n%w", bootFilePath, savedFilePath, err)
 				}
 				savedCount++
+				logger.Log.Infof("Keeping kdump file (%s)", filepath.Base(bootFilePath))
 				continue
 			}
 			file.RemoveFileIfExists(bootFilePath)
