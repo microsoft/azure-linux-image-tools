@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	bootDirPermissions = 0700
+	bootDirPermissions = 0o700
 
 	initKernelInitrdPath = "/init"
 	initBinaryInitrdPath = "/lib/systemd/systemd"
@@ -57,7 +57,7 @@ type StageFile struct {
 	targetName    string
 }
 
-func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool) error {
+func cleanFullOSFolderForLiveOS(isoBuildDir string, fullOSDir string, keepKdumpBootFiles bool) error {
 	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
 
@@ -88,9 +88,10 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool) error
 		// without having to do an extra iteration.
 		sort.Strings(bootFolderFilePaths)
 
-		savedFilesDir, err := os.MkdirTemp("", "files-to-save-*")
+		savedFilesDir := filepath.Join(isoBuildDir, "files-to-save")
+		err = os.MkdirAll(savedFilesDir, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("failed to create temporary folder:\n%w", err)
+			return fmt.Errorf("failed to create (%s) folder:\n%w", savedFilesDir, err)
 		}
 		defer os.RemoveAll(savedFilesDir)
 
@@ -160,10 +161,10 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool) error
 	return nil
 }
 
-func createFullOSInitrdImage(writeableRootfsDir string, keepKdumpBootFiles bool, outputInitrdPath string) error {
+func createFullOSInitrdImage(isoBuildDir string, writeableRootfsDir string, keepKdumpBootFiles bool, outputInitrdPath string) error {
 	logger.Log.Infof("Creating full OS initrd")
 
-	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, keepKdumpBootFiles)
+	err := cleanFullOSFolderForLiveOS(isoBuildDir, writeableRootfsDir, keepKdumpBootFiles)
 	if err != nil {
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
@@ -241,10 +242,10 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	return nil
 }
 
-func createSquashfsImage(writeableRootfsDir string, keepKdumpBootFiles bool, outputSquashfsPath string) error {
+func createSquashfsImage(isoBuildDir string, writeableRootfsDir string, keepKdumpBootFiles bool, outputSquashfsPath string) error {
 	logger.Log.Infof("Creating squashfs")
 
-	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, keepKdumpBootFiles)
+	err := cleanFullOSFolderForLiveOS(isoBuildDir, writeableRootfsDir, keepKdumpBootFiles)
 	if err != nil {
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}

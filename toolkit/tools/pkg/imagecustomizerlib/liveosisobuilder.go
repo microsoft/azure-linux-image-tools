@@ -287,7 +287,7 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
 		// Generate the initrd image
-		err = createFullOSInitrdImage(writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputInitrdPath)
+		err = createFullOSInitrdImage(isoBuildDir, writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}
@@ -304,7 +304,7 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 
 		// Generate the squashfs image
 		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
-		err = createSquashfsImage(writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputSquashfsPath)
+		err = createSquashfsImage(isoBuildDir, writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputSquashfsPath)
 		if err != nil {
 			return fmt.Errorf("failed to create squashfs image:\n%w", err)
 		}

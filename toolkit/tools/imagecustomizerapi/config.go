@@ -40,7 +40,7 @@ func (c *Config) IsValid() (err error) {
 			return fmt.Errorf("invalid 'iso' field:\n%w", err)
 		}
 		if c.Iso.CrashDump != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureCrashDump) {
-			return fmt.Errorf("the 'crash-dumps' preview feature must be enabled to use 'iso.crashDump'")
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.crashDump'", PreviewFeatureCrashDump)
 		}
 	}
 
@@ -50,7 +50,7 @@ func (c *Config) IsValid() (err error) {
 			return fmt.Errorf("invalid 'pxe' field:\n%w", err)
 		}
 		if c.Pxe.CrashDump != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureCrashDump) {
-			return fmt.Errorf("the 'crash-dumps' preview feature must be enabled to use 'pxe.crashDump'")
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.crashDump'", PreviewFeatureCrashDump)
 		}
 	}
 

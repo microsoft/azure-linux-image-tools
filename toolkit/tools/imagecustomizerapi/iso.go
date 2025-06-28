@@ -12,7 +12,7 @@ type Iso struct {
 	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
 	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
 	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
-	CrashDump         *CrashDump         `yaml:"crashDump " json:"crashDump,omitempty"`
+	CrashDump         *CrashDump         `yaml:"crashDump" json:"crashDump,omitempty"`
 }
 
 func (i *Iso) IsValid() error {
