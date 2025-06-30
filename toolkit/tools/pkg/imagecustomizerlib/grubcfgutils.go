@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -192,7 +194,8 @@ func FindNonRecoveryLinuxLine(inputGrubCfgContent string) ([]grub.Line, error) {
 	return linuxLines, nil
 }
 
-// Overrides the path of the kernel binary of all the linux commands within a grub config file.
+// Overrides the path of the kernel binary/initrd image in all the linux
+// commands within a grub config file.
 func setLinuxOrInitrdPathAll(inputGrubCfgContent string, commandName string, filePath string, allowMultiple bool) (outputGrubCfgContent string, oldFilePaths []string, err error) {
 	quotedFilePath := grub.QuoteString(filePath)
 
@@ -213,6 +216,34 @@ func setLinuxOrInitrdPathAll(inputGrubCfgContent string, commandName string, fil
 
 		oldFilePaths = append(oldFilePaths, inputGrubCfgContent[start:end])
 		outputGrubCfgContent = outputGrubCfgContent[:start] + quotedFilePath + outputGrubCfgContent[end:]
+	}
+
+	return outputGrubCfgContent, oldFilePaths, nil
+}
+
+// Prefixes the path of the kernel binary/initrd image in all the linux
+// commands within a grub config file.
+func prependLinuxOrInitrdPathAll(inputGrubCfgContent string, commandName string, prefix string, allowMultiple bool) (outputGrubCfgContent string, oldFilePaths []string, err error) {
+	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, commandName, allowMultiple)
+	if err != nil {
+		return "", nil, err
+	}
+
+	outputGrubCfgContent = inputGrubCfgContent
+	// loop from last to first so that the captured locations from
+	// findGrubCommandAll are not invalidated as reconstructing
+	// outputGrubCfgContent.
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		linuxFilePathToken := line.Tokens[1]
+		start := linuxFilePathToken.Loc.Start.Index
+		end := linuxFilePathToken.Loc.End.Index
+
+		oldFilePath := inputGrubCfgContent[start:end]
+		oldFilePaths = append(oldFilePaths, oldFilePath)
+		if !strings.HasPrefix(oldFilePath, prefix) {
+			outputGrubCfgContent = outputGrubCfgContent[:start] + prefix + outputGrubCfgContent[start:]
+		}
 	}
 
 	return outputGrubCfgContent, oldFilePaths, nil
@@ -788,8 +819,11 @@ func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 }
 
 // Regenerates the initramfs file.
-func regenerateInitrd(imageChroot *safechroot.Chroot) error {
+func regenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Regenerate initramfs file")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "regenerate_initrd")
+	defer span.End()
 
 	err := imageChroot.UnsafeRun(func() error {
 		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.

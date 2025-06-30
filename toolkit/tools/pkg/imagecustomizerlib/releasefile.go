@@ -4,21 +4,26 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"go.opentelemetry.io/otel"
 )
 
 const (
 	ImageCustomizerReleasePath = "etc/image-customizer-release"
 )
 
-func addCustomizerRelease(rootDir string, toolVersion string, buildTime string, imageUuid string) error {
+func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion string, buildTime string, imageUuid string) error {
 	var err error
 
 	logger.Log.Infof("Creating image customizer release file")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_customizer_release")
+	defer span.End()
 
 	customizerReleaseFilePath := filepath.Join(rootDir, ImageCustomizerReleasePath)
 	lines := []string{

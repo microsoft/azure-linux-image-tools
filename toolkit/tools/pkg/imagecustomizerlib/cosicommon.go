@@ -360,6 +360,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnectio
 
 	switch bootloaderType {
 	case BootloaderTypeSystemdBoot:
+		// Handles UKI + config and config-only
 		entries, err := extractSystemdBootEntriesIfPresent(chrootDir)
 		if err != nil {
 			return nil, err
@@ -371,6 +372,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnectio
 			}, nil
 		}
 
+		// Handles UKI standalone .efi images
 		entries, err = extractUkiEntriesIfPresent(chrootDir, buildDirAbs)
 		if err != nil {
 			return nil, err
@@ -459,32 +461,40 @@ func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
-			key, val, found := strings.Cut(strings.TrimSpace(line), " ")
-			if !found {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
 				continue
 			}
-			val = strings.TrimSpace(val)
+
+			// Split the line into whitespace-separated fields.
+			fields := strings.Fields(line)
+			// Skip lines that don't have at least a key and a value
+			if len(fields) < 2 {
+				continue
+			}
+
+			key := fields[0]
+			value := strings.Join(fields[1:], " ")
 
 			switch key {
 			case "options":
 				if entry.Cmdline != "" {
 					entry.Cmdline += " "
 				}
-				entry.Cmdline += val
-
+				entry.Cmdline += value
 			case "linux":
-				if kernelVer, err := getKernelVersion(filepath.Base(val)); err == nil {
+				if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
 					entry.Kernel = kernelVer
 				}
-
 			case "uki":
-				if kernelVer, err := getKernelVersion(filepath.Base(val)); err == nil {
+				if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
 					entry.Kernel = kernelVer
 				}
 				entry.Type = SystemDBootEntryTypeUKIConfig
 			}
 		}
 
+		// Determine fallback type
 		if entry.Type == "" {
 			if strings.HasSuffix(entry.Kernel, ".efi") {
 				entry.Type = SystemDBootEntryTypeUKIConfig

@@ -8,9 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
@@ -27,6 +29,9 @@ const (
 	GroupFile                 = "/etc/group"
 	SSHDirectoryName          = ".ssh"
 	SSHAuthorizedKeysFileName = "authorized_keys"
+
+	SshDirectoryPerm   os.FileMode = 0o700
+	AuthorizedKeysPerm os.FileMode = 0o600
 )
 
 func HashPassword(password string) (string, error) {
@@ -205,4 +210,169 @@ func PasswordExpiresDaysIsValid(passwordExpiresDays int64) error {
 		return fmt.Errorf("invalid value for PasswordExpiresDays (%d), not within [%d, %d]", passwordExpiresDays, noExpiration, upperBoundChage)
 	}
 	return nil
+}
+
+func GetUserId(username string, installChroot safechroot.ChrootInterface) (int, error) {
+	var stdout string
+	err := installChroot.UnsafeRun(func() error {
+		var err error
+		stdout, _, err = shell.NewExecBuilder("id", "-u", username).
+			ErrorStderrLines(1).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ExecuteCaptureOutput()
+		return err
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get user's (%s) ID:\n%w", username, err)
+	}
+
+	id, err := strconv.Atoi(strings.TrimSpace(stdout))
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse user's (%s) ID (%s):\n%w", username, stdout, err)
+	}
+
+	return id, nil
+}
+
+func GetUserGroupId(username string, installChroot safechroot.ChrootInterface) (int, error) {
+	var stdout string
+	err := installChroot.UnsafeRun(func() error {
+		var err error
+		stdout, _, err = shell.NewExecBuilder("id", "-g", username).
+			ErrorStderrLines(1).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ExecuteCaptureOutput()
+		return err
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get user's (%s) group ID:\n%w", username, err)
+	}
+
+	id, err := strconv.Atoi(strings.TrimSpace(stdout))
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse user's (%s) group ID (%s):\n%w", username, stdout, err)
+	}
+
+	return id, nil
+}
+
+func ProvisionUserSSHCerts(installChroot safechroot.ChrootInterface, username string, sshPubKeyPaths []string,
+	sshPubKeys []string, includeExistingKeys bool,
+) (err error) {
+	// Skip user SSH directory generation when not provided with public keys
+	// Let SSH handle the creation of this folder on its first use
+	if len(sshPubKeyPaths) == 0 && len(sshPubKeys) == 0 {
+		return
+	}
+
+	userSSHKeyDir, err := UserSSHDirectory(installChroot.RootDir(), username)
+	if err != nil {
+		return fmt.Errorf("failed to get user's (%s) home directory:\n%w", username, err)
+	}
+
+	userSSHKeyDirFullPath := filepath.Join(installChroot.RootDir(), userSSHKeyDir)
+	authorizedKeysFullPath := filepath.Join(userSSHKeyDirFullPath, SSHAuthorizedKeysFileName)
+
+	allSSHKeys := []string(nil)
+
+	// Add existing keys in the authorized_keys file, if requested.
+	if includeExistingKeys {
+		fileExists, err := file.PathExists(authorizedKeysFullPath)
+		if err != nil {
+			return fmt.Errorf("failed to check if authorized_keys file (%s) exists:\n%w", authorizedKeysFullPath, err)
+		}
+
+		if fileExists {
+			pubKeyData, err := file.ReadLines(authorizedKeysFullPath)
+			if err != nil {
+				return fmt.Errorf("failed to read existing authorized_keys (%s) file:\n%w", authorizedKeysFullPath, err)
+			}
+
+			allSSHKeys = append(allSSHKeys, pubKeyData...)
+		}
+	}
+
+	// Add SSH keys from sshPubKeyPaths
+	for _, pubKey := range sshPubKeyPaths {
+		pubKeyData, err := file.ReadLines(pubKey)
+		if err != nil {
+			return fmt.Errorf("failed to read SSH public key file (%s):\n%w", pubKey, err)
+		}
+
+		allSSHKeys = append(allSSHKeys, pubKeyData...)
+	}
+
+	// Add direct SSH keys
+	allSSHKeys = append(allSSHKeys, sshPubKeys...)
+
+	// Get user's IDs.
+	uid, err := GetUserId(username, installChroot)
+	if err != nil {
+		return err
+	}
+
+	gid, err := GetUserGroupId(username, installChroot)
+	if err != nil {
+		return err
+	}
+
+	// Create the .ssh directory, if needed.
+	sshKeyDirExists, err := file.PathExists(userSSHKeyDirFullPath)
+	if err != nil {
+		return fmt.Errorf("failed to check if user's .ssh directory (%s) exists:\n%w", userSSHKeyDirFullPath, err)
+	}
+
+	if !sshKeyDirExists {
+		err = os.Mkdir(userSSHKeyDirFullPath, SshDirectoryPerm)
+		if err != nil {
+			return fmt.Errorf("failed to create user's .ssh directory (%s):\n%w", userSSHKeyDirFullPath, err)
+		}
+
+		// Reapply the permissions to avoid the umask changing the value.
+		err = os.Chmod(userSSHKeyDirFullPath, SshDirectoryPerm)
+		if err != nil {
+			return fmt.Errorf("failed to set permissions on user's .ssh directory (%s):\n%w", userSSHKeyDirFullPath, err)
+		}
+
+		err := os.Chown(userSSHKeyDirFullPath, uid, gid)
+		if err != nil {
+			return fmt.Errorf("failed to set ownership on user's .ssh directory (%s):\n%w", userSSHKeyDirFullPath, err)
+		}
+	}
+
+	// Create the authorized_keys file.
+	authorizedKeysFile, err := os.OpenFile(authorizedKeysFullPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, AuthorizedKeysPerm)
+	if err != nil {
+		return fmt.Errorf("failed to create authorized_keys file (%s):\n%w", authorizedKeysFullPath, err)
+	}
+	defer authorizedKeysFile.Close()
+
+	// Reapply the permissions to avoid the umask changing the value.
+	err = authorizedKeysFile.Chmod(AuthorizedKeysPerm)
+	if err != nil {
+		return fmt.Errorf("failed to set authorized_keys file (%s) permission:\n%w", authorizedKeysFullPath, err)
+	}
+
+	err = authorizedKeysFile.Chown(uid, gid)
+	if err != nil {
+		return fmt.Errorf("failed to set authorized_keys file (%s) permission:\n%w", authorizedKeysFullPath, err)
+	}
+
+	// Write SSH keys.
+	for _, pubKey := range allSSHKeys {
+		logger.Log.Infof("Adding ssh key (%s) to user (%s)", filepath.Base(pubKey), username)
+
+		pubKeyLine := pubKey + "\n"
+		_, err := authorizedKeysFile.WriteString(pubKeyLine)
+		if err != nil {
+			return fmt.Errorf("failed to write authorized_keys file (%s) line:\n%w", authorizedKeysFullPath, err)
+		}
+	}
+
+	err = authorizedKeysFile.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close authorized_keys file (%s):\n%w", authorizedKeysFullPath, err)
+	}
+
+	return
 }

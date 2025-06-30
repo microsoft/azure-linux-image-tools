@@ -4,9 +4,11 @@
 package imagecustomizerlib
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -78,7 +80,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -91,7 +93,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	defer imageConnection.Close()
 
 	// Verify root user.
-	verifySshAuthorizedKeys(t, imageConnection.Chroot().RootDir(), "/root", []string{rootSshPublicKey})
+	verifySshAuthorizedKeys(t, imageConnection.Chroot().RootDir(), "/root", []string{rootSshPublicKey}, 0, 0)
 
 	rootPasswdEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "root")
 	if assert.NoError(t, err) {
@@ -120,7 +122,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 
 	// Verify test2 user.
 	verifySshAuthorizedKeys(t, imageConnection.Chroot().RootDir(), test2HomeDirectory,
-		[]string{test2SshPublicKey, "abcdefg"})
+		[]string{test2SshPublicKey, "abcdefg"}, test2Uid, test2Uid)
 
 	test2PasswdEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test2")
 	if assert.NoError(t, err) {
@@ -162,7 +164,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set home directory (/home/root) on a user (root) that already exists")
 }
@@ -186,7 +188,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set UID (1) on a user (root) that already exists")
 }
@@ -212,25 +214,79 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to find SSH public key file (does-not-exist)")
 }
 
-func verifySshAuthorizedKeys(t *testing.T, rootDir string, homeDirectory string, sshPublicKeys []string) bool {
-	authorizedKeysPath := filepath.Join(rootDir, homeDirectory, userutils.SSHDirectoryName,
-		userutils.SSHAuthorizedKeysFileName)
-	authorizedKeys, err := file.ReadLines(authorizedKeysPath)
+func TestCustomizeImageUsersAddFiles(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersAddFiles")
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "add-user-files.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
-		return false
+		return
 	}
 
-	success := true
-	for _, sshPublicKey := range sshPublicKeys {
-		success = assert.Contains(t, authorizedKeys, sshPublicKey) && success
+	// Connect to image.
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	userHomeDir := filepath.Join(imageConnection.Chroot().RootDir(), "/home/test")
+	userFilePath := filepath.Join(userHomeDir, "platypus")
+
+	// Ensure user's home directory has correct ownership.
+	userHomeDirStat, err := os.Stat(userHomeDir)
+	if assert.NoError(t, err) {
+		userHomeDirStatSys := userHomeDirStat.Sys().(*syscall.Stat_t)
+		assert.Equal(t, uint32(1000), userHomeDirStatSys.Uid)
+		assert.Equal(t, uint32(1000), userHomeDirStatSys.Gid)
 	}
 
-	return success
+	// Verity file was copied to image.
+	verifyFileContentsEqual(t, userFilePath, "Egg-laying mammal")
+}
+
+func verifySshAuthorizedKeys(t *testing.T, rootDir string, homeDirectory string, sshPublicKeys []string,
+	gid int, uid int,
+) {
+	sshDirectory := filepath.Join(rootDir, homeDirectory, userutils.SSHDirectoryName)
+
+	sshDirectoryStat, err := os.Stat(sshDirectory)
+	if assert.NoError(t, err) {
+		assert.Equal(t, userutils.SshDirectoryPerm, sshDirectoryStat.Mode().Perm())
+
+		sshDirectorySysStat := sshDirectoryStat.Sys().(*syscall.Stat_t)
+		assert.Equal(t, uint32(uid), sshDirectorySysStat.Uid)
+		assert.Equal(t, uint32(gid), sshDirectorySysStat.Gid)
+	}
+
+	authorizedKeysPath := filepath.Join(sshDirectory, userutils.SSHAuthorizedKeysFileName)
+
+	authorizedKeysStat, err := os.Stat(authorizedKeysPath)
+	if assert.NoError(t, err) {
+		assert.Equal(t, userutils.AuthorizedKeysPerm, authorizedKeysStat.Mode().Perm())
+
+		authorizedKeysSysStat := authorizedKeysStat.Sys().(*syscall.Stat_t)
+		assert.Equal(t, uint32(uid), authorizedKeysSysStat.Uid)
+		assert.Equal(t, uint32(gid), authorizedKeysSysStat.Gid)
+	}
+
+	authorizedKeys, err := file.ReadLines(authorizedKeysPath)
+	if assert.NoError(t, err) {
+		for _, sshPublicKey := range sshPublicKeys {
+			assert.Contains(t, authorizedKeys, sshPublicKey)
+		}
+	}
 }
 
 func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword string) bool {

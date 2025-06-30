@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"maps"
 	"strings"
@@ -30,6 +31,8 @@ type ImageCreatorCmd struct {
 }
 
 func main() {
+	ctx := context.Background()
+
 	cli := &ImageCreatorCmd{}
 
 	vars := kong.Vars{
@@ -48,7 +51,7 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
-	err := imagecreatorlib.CreateImageWithConfigFile(cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat)
+	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
 	}

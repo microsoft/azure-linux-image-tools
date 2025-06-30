@@ -37,7 +37,7 @@ type MetadataJson struct {
 	Images     []FileSystem    `json:"images"`
 	OsRelease  string          `json:"osRelease"`
 	Id         string          `json:"id,omitempty"`
-	Bootloader *CosiBootloader `json:"bootloader,omitempty"`
+	Bootloader *CosiBootloader `json:"bootloader"`
 	OsPackages []OsPackage     `json:"osPackages"`
 }
 

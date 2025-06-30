@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -101,12 +102,15 @@ type verityDeviceMetadata struct {
 	hashSignaturePath     string
 }
 
-func createImageCustomizerParameters(buildDir string,
+func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	inputImageFile string,
 	configPath string, config *imagecustomizerapi.Config,
 	useBaseImageRpmRepos bool, rpmsSources []string,
 	outputImageFormat string, outputImageFile string, packageSnapshotTime string,
 ) (*ImageCustomizerParameters, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_image_customizer_parameters")
+	defer span.End()
+
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
@@ -193,7 +197,7 @@ func createImageCustomizerParameters(buildDir string,
 	return ic, nil
 }
 
-func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImageFile string,
+func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
@@ -213,7 +217,7 @@ func CustomizeImageWithConfigFile(buildDir string, configFile string, inputImage
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = CustomizeImage(buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
+	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
 		return err
@@ -231,22 +235,22 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
+func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(context.Background(), "CustomizeImage")
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
-		attribute.String("outputImageFormat", string(outputImageFormat)),
+		attribute.String("output_image_format", string(outputImageFormat)),
 	)
 	defer span.End()
 
-	err := ValidateConfig(baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
+	err := ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(buildDir, inputImageFile,
+	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
@@ -281,7 +285,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		return err
 	}
 
-	inputIsoArtifacts, err := convertInputImageToWriteableFormat(imageCustomizerParameters)
+	inputIsoArtifacts, err := convertInputImageToWriteableFormat(ctx, imageCustomizerParameters)
 	if err != nil {
 		return fmt.Errorf("failed to convert input image to a raw image:\n%w", err)
 	}
@@ -298,7 +302,7 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 		}
 	}()
 
-	err = customizeOSContents(imageCustomizerParameters)
+	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
 		return fmt.Errorf("failed to customize raw image:\n%w", err)
 	}
@@ -306,14 +310,14 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	if config.Output.Artifacts != nil {
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
-		err = outputArtifacts(config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
+		err = outputArtifacts(ctx, config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
 			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = convertWriteableFormatToOutputImage(imageCustomizerParameters, inputIsoArtifacts)
+	err = convertWriteableFormatToOutputImage(ctx, imageCustomizerParameters, inputIsoArtifacts)
 	if err != nil {
 		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
 	}
@@ -323,8 +327,14 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	return nil
 }
 
-func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
+func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
 	logger.Log.Infof("Converting input image to a writeable format")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "input_image_conversion")
+	span.SetAttributes(
+		attribute.String("input_image_format", ic.inputImageFormat),
+	)
+	defer span.End()
 
 	if ic.inputIsIso {
 
@@ -430,7 +440,7 @@ func qemuImgEscapeOptionValue(value string) string {
 	return strings.ReplaceAll(value, ",", ",,")
 }
 
-func customizeOSContents(ic *ImageCustomizerParameters) error {
+func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) error {
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -442,6 +452,9 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	if !ic.customizeOSPartitions && ic.inputIsIso {
 		return nil
 	}
+
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
+	defer span.End()
 
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is
@@ -455,7 +468,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ic.buildDirAbs,
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
 	if err != nil {
 		return err
@@ -467,7 +480,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, err := customizeImageHelper(ic.buildDirAbs, ic.configPath,
+	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, err := customizeImageHelper(ctx, ic.buildDirAbs, ic.configPath,
 		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime,
 		ic.outputImageFormat)
 	if err != nil {
@@ -492,7 +505,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
 	if shrinkPartitions {
-		err = shrinkFilesystemsHelper(ic.rawImageFile)
+		err = shrinkFilesystemsHelper(ctx, ic.rawImageFile)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
@@ -500,7 +513,7 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 
 	if len(ic.config.Storage.Verity) > 0 || len(ic.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid,
+		verityMetadata, err := customizeVerityImageHelper(ctx, ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid,
 			shrinkPartitions, ic.baseImageVerityMetadata)
 		if err != nil {
 			return err
@@ -510,14 +523,14 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	}
 
 	if ic.config.OS.Uki != nil {
-		err = createUki(ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
+		err = createUki(ctx, ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Check file systems for corruption.
-	err = checkFileSystems(ic.rawImageFile)
+	err = checkFileSystems(ctx, ic.rawImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to check filesystems:\n%w", err)
 	}
@@ -525,8 +538,14 @@ func customizeOSContents(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIsoArtifacts *IsoArtifactsStore) error {
+func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomizerParameters, inputIsoArtifacts *IsoArtifactsStore) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "output_image_conversion")
+	span.SetAttributes(
+		attribute.String("output_image_format", string(ic.outputImageFormat)),
+	)
+	defer span.End()
 
 	// Create final output image file if requested.
 	switch ic.outputImageFormat {
@@ -568,7 +587,7 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 			if ic.config.OS != nil {
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
-			err := createLiveOSFromRaw(ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
+			err := createLiveOSFromRaw(ctx, ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
 				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("failed to create Live OS artifacts:\n%w", err)
@@ -623,9 +642,13 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 	}
 }
 
-func ValidateConfig(baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
+func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
 	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
 ) error {
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
+	defer span.End()
+
 	err := config.IsValid()
 	if err != nil {
 		return err
@@ -891,13 +914,13 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	return nil
 }
 
-func customizeImageHelper(buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, []OsPackage, *CosiBootloader, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(rawImageFile,
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(ctx, rawImageFile,
 		buildDir, "imageroot", true, false)
 	if err != nil {
 		return nil, nil, "", nil, nil, err
@@ -916,13 +939,13 @@ func customizeImageHelper(buildDir string, baseConfigPath string, config *imagec
 		return nil
 	})
 
-	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry)
+	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry, baseImageVerityMetadata)
 	if err != nil {
 		return nil, nil, "", nil, nil, fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(buildDir, baseConfigPath, config, imageConnection, rpmsSources,
+	err = doOsCustomizations(ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
 		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
 
 	// collect OS info if generating a COSI image
@@ -964,7 +987,10 @@ func collectOSInfo(buildDir string, imageConnection *ImageConnection) ([]OsPacka
 	return osPackages, cosiBootMetadata, nil
 }
 
-func shrinkFilesystemsHelper(buildImageFile string) error {
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
+	defer span.End()
+
 	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
 		return err
@@ -985,11 +1011,14 @@ func shrinkFilesystemsHelper(buildImageFile string) error {
 	return nil
 }
 
-func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Config,
+func customizeVerityImageHelper(ctx context.Context, buildDir string, config *imagecustomizerapi.Config,
 	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
 	baseImageVerity []verityDeviceMetadata,
 ) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Provisioning verity")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "provision_verity")
+	defer span.End()
 
 	verityMetadata := []verityDeviceMetadata(nil)
 
@@ -1091,6 +1120,12 @@ func customizeVerityImageHelper(buildDir string, config *imagecustomizerapi.Conf
 		return nil, err
 	}
 
+	deviceNamesJson, _ := json.Marshal(getVerityNames(verityMetadata))
+	span.SetAttributes(
+		attribute.Int("verity_count", len(verityMetadata)),
+		attribute.String("verity_device_name", string(deviceNamesJson)),
+	)
+
 	return verityMetadata, nil
 }
 
@@ -1179,17 +1214,19 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 
 	if isUki {
-		// UKI is enabled, update kernel cmdline args file instead of grub.cfg.
+		// UKI is enabled, update kernel cmdline args file.
 		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
 			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
 		}
-	} else {
-		// UKI is not enabled, update grub.cfg as usual.
-		err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
-		if err != nil {
-			return fmt.Errorf("failed to update grub config for verity:\n%w", err)
-		}
+	}
+
+	// Temporarily always update grub.cfg for verity, even when UKI is used.
+	// Since grub dependencies are still kept under /boot and won't be cleaned.
+	// This will be decoupled once the bootloader project is in place.
+	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+	if err != nil {
+		return fmt.Errorf("failed to update grub config for verity:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()

@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -17,10 +18,14 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"go.opentelemetry.io/otel"
 )
 
-func resetPartitionsUuids(buildImageFile string, buildDir string) error {
+func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir string) error {
 	logger.Log.Infof("Resetting partition UUIDs")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reset_partitions_uuids")
+	defer span.End()
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {

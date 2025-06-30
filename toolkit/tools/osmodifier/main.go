@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -26,6 +27,8 @@ var (
 )
 
 func main() {
+	ctx := context.Background()
+
 	var err error
 
 	kingpin.MustParse(app.Parse(os.Args[1:]))
@@ -50,15 +53,15 @@ func main() {
 	}
 
 	if len(*configFile) > 0 {
-		err = modifyImage()
+		err = modifyImage(ctx)
 		if err != nil {
 			log.Fatalf("OS modification failed: %v", err)
 		}
 	}
 }
 
-func modifyImage() error {
-	err := osmodifierlib.ModifyOSWithConfigFile(*configFile)
+func modifyImage(ctx context.Context) error {
+	err := osmodifierlib.ModifyOSWithConfigFile(ctx, *configFile)
 	if err != nil {
 		return err
 	}

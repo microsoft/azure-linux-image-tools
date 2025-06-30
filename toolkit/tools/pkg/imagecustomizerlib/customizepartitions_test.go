@@ -35,7 +35,7 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageI
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -127,7 +127,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -211,7 +211,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Convert to legacy image.
-	err := CustomizeImageWithConfigFile(buildDir, legacybootConfigFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -220,7 +220,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
 
 	// Recustomize legacy image.
-	err = CustomizeImageWithConfigFile(buildDir, legacybootConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -229,7 +229,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
 
 	// Convert back to EFI image.
-	err = CustomizeImageWithConfigFile(buildDir, efiConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, efiConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -284,7 +284,7 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -350,7 +350,7 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	os.Remove(tempRawBaseImage)
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return

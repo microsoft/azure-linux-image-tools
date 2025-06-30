@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v3"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -31,10 +33,13 @@ const (
 
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
-func outputArtifacts(items []imagecustomizerapi.OutputArtifactsItemType,
+func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtifactsItemType,
 	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "output_artifacts")
+	defer span.End()
 
 	var outputArtifactsMetadata []imagecustomizerapi.InjectArtifactMetadata
 
@@ -221,7 +226,7 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 	return nil
 }
 
-func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFile string,
+func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	outputImageFile string, outputImageFormat string,
 ) error {
 	var injectConfig imagecustomizerapi.InjectFilesConfig
@@ -241,7 +246,7 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 		return fmt.Errorf("failed to get absolute path of inject-files.yaml:\n%w", err)
 	}
 
-	err = InjectFiles(buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
+	err = InjectFiles(ctx, buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
 		outputImageFile, outputImageFormat)
 	if err != nil {
 		return err
@@ -250,11 +255,14 @@ func InjectFilesWithConfigFile(buildDir string, configFile string, inputImageFil
 	return nil
 }
 
-func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
+func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, inputImageFile string,
 	metadata []imagecustomizerapi.InjectArtifactMetadata, outputImageFile string,
 	outputImageFormat string,
 ) error {
 	logger.Log.Debugf("Injecting Files")
+
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "inject_files")
+	defer span.End()
 
 	buildDirAbs, err := filepath.Abs(buildDir)
 	if err != nil {
@@ -329,7 +337,7 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, err :=
-			prepareImageConversionData(rawImageFile, buildDir, "imageroot")
+			prepareImageConversionData(ctx, rawImageFile, buildDir, "imageroot")
 		if err != nil {
 			return err
 		}
@@ -351,12 +359,12 @@ func InjectFiles(buildDir string, baseConfigPath string, inputImageFile string,
 	return nil
 }
 
-func prepareImageConversionData(rawImageFile string, buildDir string,
+func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
 	chrootDir string,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, error,
 ) {
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(ctx,
 		rawImageFile, buildDir, chrootDir, true, true)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("failed to connect to image:\n%w", err)

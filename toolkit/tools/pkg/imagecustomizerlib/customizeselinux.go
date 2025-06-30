@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -13,12 +14,20 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
-func handleSELinux(selinuxMode imagecustomizerapi.SELinuxMode, resetBootLoaderType imagecustomizerapi.ResetBootLoaderType,
+func handleSELinux(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, resetBootLoaderType imagecustomizerapi.ResetBootLoaderType,
 	imageChroot *safechroot.Chroot,
 ) (imagecustomizerapi.SELinuxMode, error) {
 	var err error
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_selinux")
+	span.SetAttributes(
+		attribute.String("selinux_mode", string(selinuxMode)),
+	)
+	defer span.End()
 
 	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
@@ -95,7 +104,7 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 	return nil
 }
 
-func selinuxSetFiles(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot) error {
+func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDisabled {
 		// SELinux is disabled in the kernel command line.
 		// So, no need to call setfiles.
@@ -103,6 +112,9 @@ func selinuxSetFiles(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *sa
 	}
 
 	logger.Log.Infof("Setting file SELinux labels")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "set_selinux_files")
+	defer span.End()
 
 	// Get the list of mount points.
 	mountPointToFsTypeMap := make(map[string]string, 0)
