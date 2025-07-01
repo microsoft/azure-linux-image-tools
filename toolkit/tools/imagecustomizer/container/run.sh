@@ -61,17 +61,10 @@ if [[ -z "$ARG_VERSION" ]]; then
     exit_with_usage "missing required argument: 'VERSION'"
 fi
 
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64|amd64)
-        PLATFORM="linux/amd64"
-        ;;
+PLATFORM="linux/amd64"
+case "$(uname -m)" in
     aarch64|arm64)
         PLATFORM="linux/arm64"
-        ;;
-    *)
-        echo "Error: unsupported host arch '$ARCH'"
-        exit 1
         ;;
 esac
 
@@ -97,24 +90,22 @@ echo "Pulling OCI artifact: '$OCI_ARTIFACT_PATH' (platform='$PLATFORM')"
 ARTIFACT_DIR="/container/base"
 oras pull --platform "$PLATFORM" "$OCI_ARTIFACT_PATH" --output "$ARTIFACT_DIR"
 
-# Inspect the OCI artifact manifest to dynamically detect the image file name. They are always named 'image' but may
-# have any supported extension ('.vhdx', '.vhdx', etc.). File names in the OCI artifact that do not end with .spdx.json
-# or .spdx.json.sig are considered image files. There should only be one, but if there are multiple, the first one is
-# used and a warning is printed.
+# Inspect the OCI artifact manifest to dynamically detect the image file name by looking for an SBOM file and deriving
+# the image file name from it. The SBOM files are always named as <image-file-name>.spdx.json.
 OCI_ARTIFACT_FILE_NAMES=($(oras manifest fetch --platform "$PLATFORM" "$OCI_ARTIFACT_PATH" | \
     jq -r '.layers[].annotations["org.opencontainers.image.title"]'))
 IMAGE_FILE_NAME=""
 for name in "${OCI_ARTIFACT_FILE_NAMES[@]}"; do
-    if [[ "$name" == *.spdx.json || "$name" == *.spdx.json.sig ]]; then
+    if [[ "$name" != *.spdx.json ]]; then
         continue
     fi
 
     if [[ -n "$IMAGE_FILE_NAME" ]]; then
-        echo "Warning: multiple images downloaded, using the first: '$IMAGE_FILE_NAME'" >&2
+        echo "Warning: multiple SBOMs found, using the image file name from the first: '$IMAGE_FILE_NAME'" >&2
         continue
     fi
 
-    IMAGE_FILE_NAME="$name"
+    IMAGE_FILE_NAME="${name%.spdx.json}"
 done
 
 if [[ -z "$IMAGE_FILE_NAME" ]]; then
