@@ -28,7 +28,6 @@ exit_with_usage() {
     echo "Environment variables:"
     echo ""
     echo "  BASE_IMAGE_NAME  The name of the base image to use (default: 'minimal-os')."
-    echo "  DEVELOPER_MODE   If non-empty, the script will pull from the development registry instead of MCR."
     echo ""
 
     if [[ -n "$error_msg" ]]; then
@@ -69,9 +68,6 @@ case "$(uname -m)" in
 esac
 
 OCI_ARTIFACT_REGISTRY="mcr.microsoft.com"
-if [[ -n "${DEVELOPER_MODE:-}" ]]; then
-    OCI_ARTIFACT_REGISTRY="acrafoimages.azurecr.io"
-fi
 
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-minimal-os}"
 VERSION_MAJOR_MINOR="$(echo "$ARG_VERSION" | cut -d'.' -f1-2)"
