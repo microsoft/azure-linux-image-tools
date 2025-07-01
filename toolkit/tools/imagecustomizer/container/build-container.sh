@@ -7,7 +7,7 @@ scriptDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
-ORAS_VERSION="1.1.0"
+ORAS_VERSION="1.2.2"
 BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
 BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 

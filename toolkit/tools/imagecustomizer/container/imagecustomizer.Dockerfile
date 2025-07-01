@@ -8,7 +8,7 @@ RUN tdnf update -y && \
    tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
       sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
       xfsprogs zstd veritysetup grub2 grub2-pc systemd-ukify binutils lsof \
-      python3 python3-pip && \
+      python3 python3-pip jq && \
    tdnf clean all
 
 COPY . /
