@@ -73,7 +73,7 @@ if [[ -n "${DEVELOPER_MODE:-}" ]]; then
     OCI_ARTIFACT_REGISTRY="acrafoimages.azurecr.io"
 fi
 
-BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-seed}"
+BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-minimal-os}"
 VERSION_MAJOR_MINOR="$(echo "$ARG_VERSION" | cut -d'.' -f1-2)"
 OCI_ARTIFACT_REPOSITORY="azurelinux/$VERSION_MAJOR_MINOR/image/$BASE_IMAGE_NAME"
 
