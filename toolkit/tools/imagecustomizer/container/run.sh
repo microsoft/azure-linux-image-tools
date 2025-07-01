@@ -73,9 +73,9 @@ BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-minimal-os}"
 VERSION_MAJOR_MINOR="$(echo "$ARG_VERSION" | cut -d'.' -f1-2)"
 OCI_ARTIFACT_REPOSITORY="azurelinux/$VERSION_MAJOR_MINOR/image/$BASE_IMAGE_NAME"
 
-VERSION_FINAL_PARTS="$(echo "$ARG_VERSION" | cut -d'.' -f3-)"
-if [[ "$VERSION_FINAL_PARTS" == latest || "$VERSION_FINAL_PARTS" == latest-* ]]; then
-    OCI_ARTIFACT_TAG="$VERSION_FINAL_PARTS"
+VERSION_SUFFIX="$(echo "$ARG_VERSION" | cut -d'.' -f3-)"
+if [[ "$VERSION_SUFFIX" == latest || "$VERSION_SUFFIX" == latest-* ]]; then
+    OCI_ARTIFACT_TAG="$VERSION_SUFFIX"
 else
     OCI_ARTIFACT_TAG="$ARG_VERSION"
 fi
