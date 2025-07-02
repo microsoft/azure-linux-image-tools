@@ -331,7 +331,7 @@ func callTdnf(tdnfArgs []string, imageChroot *safechroot.Chroot, toolsChroot *sa
 	})
 }
 
-func isPackageInstalled(imageChroot *safechroot.Chroot, packageName string) bool {
+func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	err := imageChroot.UnsafeRun(func() error {
 		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
 		return err

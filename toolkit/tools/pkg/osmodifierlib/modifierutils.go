@@ -6,12 +6,9 @@ package osmodifierlib
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/osmodifierapi"
@@ -42,13 +39,17 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	}
 
 	// Add a check to make sure BootCustomizer can be initialized
-	grubExists := grubConfigSupportExists(dummyChroot)
+	bootloaderType, err := imagecustomizerlib.DetectBootloaderType(dummyChroot)
+	if err != nil {
+		return err
+	}
 
-	needsBootCustomizer := grubExists && (osConfig.KernelCommandLine.ExtraCommandLine != nil ||
-		osConfig.Overlays != nil ||
-		osConfig.SELinux.Mode != "" ||
-		osConfig.Verity != nil ||
-		osConfig.RootDevice != "")
+	needsBootCustomizer := bootloaderType == imagecustomizerlib.BootloaderTypeGrub &&
+		(osConfig.KernelCommandLine.ExtraCommandLine != nil ||
+			osConfig.Overlays != nil ||
+			osConfig.SELinux.Mode != "" ||
+			osConfig.Verity != nil ||
+			osConfig.RootDevice != "")
 
 	var bootCustomizer *imagecustomizerlib.BootCustomizer
 	if needsBootCustomizer {
@@ -98,7 +99,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		}
 	}
 
-	if osConfig.SELinux.Mode != "" && !grubExists {
+	if osConfig.SELinux.Mode != "" && bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
 		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
 		if err != nil {
 			return err
@@ -201,21 +202,4 @@ func updateSELinuxForGrubBasedBoot(selinuxMode imagecustomizerapi.SELinuxMode, b
 	}
 
 	return nil
-}
-
-func grubConfigSupportExists(installChroot safechroot.ChrootInterface) bool {
-	cfgPath := filepath.Join(installChroot.RootDir(), installutils.GrubCfgFile)
-	defPath := filepath.Join(installChroot.RootDir(), installutils.GrubDefFile)
-
-	cfgExists := false
-	if _, err := os.Stat(cfgPath); err == nil {
-		cfgExists = true
-	}
-
-	defExists := false
-	if _, err := os.Stat(defPath); err == nil {
-		defExists = true
-	}
-
-	return cfgExists && defExists
 }
