@@ -48,7 +48,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -71,7 +71,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -136,7 +136,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -154,7 +154,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -242,7 +242,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
 		coreLegacyMountPoints)
 	if !assert.NoError(t, err) {
 		return
@@ -402,7 +402,7 @@ func getFilteredFstabEntries(t *testing.T, imageConnection *ImageConnection) []d
 	return filteredFstabEntries
 }
 
-func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
+func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []MountPoint,
 	partitions map[int]diskutils.PartitionInfo,
 ) {
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
