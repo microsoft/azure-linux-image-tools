@@ -28,6 +28,7 @@ type ImageCreatorCmd struct {
 	OutputImageFile   string   `name:"output-image-file" help:"Path to write the customized image to."`
 	OutputImageFormat string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw)" help:"Format of output image." enum:"${imageformat}" default:""`
 	exekong.LogFlags
+	PackageSnapshotTime string `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 }
 
 func main() {
@@ -51,7 +52,7 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
-	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat)
+	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, cli.PackageSnapshotTime)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
 	}
