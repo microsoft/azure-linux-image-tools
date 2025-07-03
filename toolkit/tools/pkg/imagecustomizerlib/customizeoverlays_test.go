@@ -30,7 +30,7 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -54,7 +54,7 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
