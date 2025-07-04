@@ -86,13 +86,13 @@ func main() {
 
 	switch parseContext.Command() {
 	case "customize":
-		err := customizeImage(ctx, cli.Customize)
+		err = customizeImage(ctx, cli.Customize)
 		if err != nil {
 			logger.Log.Errorf("image customization failed:\n%v", err)
 		}
 
 	case "inject-files":
-		err := injectFiles(ctx, cli.InjectFiles)
+		err = injectFiles(ctx, cli.InjectFiles)
 		if err != nil {
 			logger.Log.Errorf("inject-files failed:\n%v", err)
 		}
@@ -102,6 +102,9 @@ func main() {
 	}
 
 	if err != nil {
+		if err := telemetry.ShutdownTelemetry(ctx); err != nil {
+			logger.Log.Warnf("Failed to shutdown telemetry: %v", err)
+		}
 		os.Exit(1)
 	}
 }
