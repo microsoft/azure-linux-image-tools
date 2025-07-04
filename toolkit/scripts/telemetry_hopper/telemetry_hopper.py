@@ -48,7 +48,8 @@ class SpanData:
                 proto_span.attributes, resource_attrs
             )
             self.status = self._extract_status(proto_span)
-            self.events = proto_span.events
+
+            self.events = self._process_events(proto_span.events)
             self.links = proto_span.links
             self.context = self._create_span_context(
                 proto_span.trace_id, proto_span.span_id
@@ -62,6 +63,12 @@ class SpanData:
         except Exception as e:
             logger.error(f"Failed to initialize SpanData: {e}")
             raise
+
+    def _process_events(self, proto_events):
+        processed_events = []
+        for event in proto_events:
+            processed_events.append(EventData(event))
+        return processed_events
 
     def _set_attributes(
         self, proto_attributes: List[KeyValue], resource_attrs: Dict[str, Any]
@@ -89,6 +96,13 @@ class SpanData:
             trace_flags=TraceFlags(0),
             trace_state=TraceState(),
         )
+
+
+class EventData:
+    def __init__(self, proto_event):
+        self.timestamp = proto_event.time_unix_nano
+        self.name = proto_event.name
+        self.attributes = extract_attributes_from_proto(proto_event.attributes)
 
 
 class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):

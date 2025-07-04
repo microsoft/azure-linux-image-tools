@@ -55,9 +55,23 @@ func InitTelemetry(disableTelemetry bool, toolVersion string) error {
 	return nil
 }
 
+// ForceFlush attempts to flush any pending spans to the exporter
+func ForceFlush(ctx context.Context) error {
+	err := otel.GetTracerProvider().(*sdktrace.TracerProvider).ForceFlush(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func ShutdownTelemetry(ctx context.Context) error {
 	if shutdownFn == nil {
 		return nil
 	}
+
+	if err := ForceFlush(ctx); err != nil {
+		logger.Log.Warnf("Failed to flush telemetry spans: %v", err)
+	}
+
 	return shutdownFn(ctx)
 }
