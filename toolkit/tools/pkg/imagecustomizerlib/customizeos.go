@@ -53,7 +53,7 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 
 	err = copyAdditionalFiles(ctx, baseConfigPath, config.OS.AdditionalFiles, imageChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add or update users during OS customization")
 	}
 
 	err = EnableOrDisableServices(ctx, config.OS.Services, imageChroot)

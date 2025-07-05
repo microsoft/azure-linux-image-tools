@@ -219,7 +219,7 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
 		useBaseImageRpmRepos, packageSnapshotTime)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to customize image")
 	}
 
 	return nil
