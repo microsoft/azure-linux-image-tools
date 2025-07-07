@@ -155,7 +155,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:    "1.0",
+		Version:    "1.1",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Images:     make([]FileSystem, len(imageData)),
@@ -456,25 +456,24 @@ func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 		}
 
 		entry := SystemDBootEntry{
-			Path: filepath.Join("boot", "loader", "entries", file.Name()),
+			Path: filepath.Join("/boot/loader/entries", file.Name()),
 		}
 
 		lines := strings.Split(string(content), "\n")
+
 		for _, line := range lines {
-			line = strings.TrimSpace(line)
+			line = strings.TrimRight(line, "\r\n")
 			if line == "" || strings.HasPrefix(line, "#") {
 				continue
 			}
 
-			// Split the line into whitespace-separated fields.
-			fields := strings.Fields(line)
-			// Skip lines that don't have at least a key and a value
-			if len(fields) < 2 {
-				continue
+			idx := strings.IndexAny(line, " \t")
+			if idx == -1 {
+				continue // no value
 			}
 
-			key := fields[0]
-			value := strings.Join(fields[1:], " ")
+			key := line[:idx]
+			value := strings.TrimLeft(line[idx:], " \t") // Trim both spaces and tabs
 
 			switch key {
 			case "options":
