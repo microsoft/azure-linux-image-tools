@@ -1,10 +1,11 @@
 package imagecreatorlib
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
@@ -13,49 +14,54 @@ import (
 func validateSupportedFields(c *imagecustomizerapi.Config) error {
 	// Verify that the config file does not contain any fields that are not supported by the image creator.
 	if c.Input != (imagecustomizerapi.Input{}) {
-		return fmt.Errorf("input field is not supported by the image creator")
+		return fmt.Errorf("input field is not supported by the image creator tool")
 	}
 	if c.Iso != nil {
-		return fmt.Errorf("iso field is not supported by the image creator")
+		return fmt.Errorf("iso field is not supported by the image creator tool")
 	}
 	if c.Pxe != nil {
-		return fmt.Errorf("pxe field is not supported by the image creator")
-	}
-
-	if len(c.PreviewFeatures) > 0 {
-		return fmt.Errorf("preview features field is not supported by the image creator")
+		return fmt.Errorf("pxe field is not supported by the image creator tool")
 	}
 
 	if c.Storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
-		return fmt.Errorf("reset partitions uuids field is not supported by the image creator")
+		return fmt.Errorf("reset partitions uuids field is not supported by the image creator tool")
 	}
 
 	if c.Storage.Verity != nil {
-		return fmt.Errorf("storage verity field is not supported by the image creator")
+		return fmt.Errorf("storage verity field is not supported by the image creator tool")
 	}
 
-	if c.OS != nil && len(c.OS.AdditionalFiles) > 0 {
-		return fmt.Errorf("os.additionalFiles field is not supported by the image creator")
+	if c.OS != nil {
+		if err := validateSupportedOsFields(c.OS); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
+	if len(osConfig.AdditionalFiles) > 0 {
+		return fmt.Errorf("os.additionalFiles field is not supported by the image creator tool")
 	}
 
-	if c.OS != nil && len(c.OS.AdditionalDirs) > 0 {
-		return fmt.Errorf("os.additionalDirectories field is not supported by the image creator")
+	if len(osConfig.AdditionalDirs) > 0 {
+		return fmt.Errorf("os.additionalDirectories field is not supported by the image creator tool")
 	}
 
-	if c.OS != nil && c.OS.Uki != nil {
-		return fmt.Errorf("uki field is not supported by the image creator")
+	if osConfig.Uki != nil {
+		return fmt.Errorf("uki field is not supported by the image creator tool")
 	}
 
-	if c.OS != nil && c.OS.SELinux != (imagecustomizerapi.SELinux{}) {
-		return fmt.Errorf("selinux field is not supported by the image creator")
+	if osConfig.SELinux != (imagecustomizerapi.SELinux{}) {
+		return fmt.Errorf("selinux field is not supported by the image creator tool")
 	}
 
-	if c.OS != nil && len(c.OS.Modules) > 0 {
-		return fmt.Errorf("os.modules field is not supported by the image creator")
+	if len(osConfig.Modules) > 0 {
+		return fmt.Errorf("os.modules field is not supported by the image creator tool")
 	}
 
-	if c.OS != nil && c.OS.Overlays != nil {
-		return fmt.Errorf("os.overlay field is not supported by the image creator")
+	if osConfig.Overlays != nil {
+		return fmt.Errorf("os.overlay field is not supported by the image creator tool")
 	}
 	return nil
 }
@@ -116,12 +122,37 @@ func validateToolsTarFile(toolsTar string) error {
 		return fmt.Errorf("tools tar file %s does not exist", toolsTar)
 	}
 	// Check if the tools tar file is a valid tar file
-	if !isValidTarFile(toolsTar) {
-		return fmt.Errorf("tools tar file %s is not a valid tar file", toolsTar)
+	isValid, err := isValidTarGz(toolsTar)
+	if err != nil {
+		return fmt.Errorf("failed to validate tools tar file %s: %w", toolsTar, err)
 	}
+	if !isValid {
+		return fmt.Errorf("tools tar file %s is not a valid tar.gz file", toolsTar)
+	}
+
 	return nil
 }
 
-func isValidTarFile(toolsTar string) bool {
-	return strings.HasSuffix(toolsTar, ".tar.gz")
+func isValidTarGz(path string) (bool, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	// Check gzip header
+	gzReader, err := gzip.NewReader(file)
+	if err != nil {
+		return false, fmt.Errorf("not a valid gzip file: %w", err)
+	}
+	defer gzReader.Close()
+
+	// Check tar structure
+	tarReader := tar.NewReader(gzReader)
+	_, err = tarReader.Next()
+	if err != nil {
+		return false, fmt.Errorf("not a valid tar archive: %w", err)
+	}
+
+	return true, nil
 }

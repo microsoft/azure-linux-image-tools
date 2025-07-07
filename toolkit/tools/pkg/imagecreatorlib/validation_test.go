@@ -1,6 +1,9 @@
 package imagecreatorlib
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +12,38 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/stretchr/testify/assert"
 )
+
+func createDummyTarGz(filename string) error {
+	// Create the output file
+	outFile, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer outFile.Close()
+
+	// Create a gzip writer
+	gzWriter := gzip.NewWriter(outFile)
+	defer gzWriter.Close()
+
+	// Create a tar writer
+	tarWriter := tar.NewWriter(gzWriter)
+	defer tarWriter.Close()
+
+	content := []byte("dummy content")
+	header := &tar.Header{
+		Name: "dummy.txt",
+		Mode: 0o600,
+		Size: int64(len(content)),
+	}
+	if err := tarWriter.WriteHeader(header); err != nil {
+		return fmt.Errorf("failed to write tar header: %w", err)
+	}
+	if _, err := tarWriter.Write(content); err != nil {
+		return fmt.Errorf("failed to write tar content: %w", err)
+	}
+
+	return nil
+}
 
 func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	cwd, err := os.Getwd()
@@ -25,7 +60,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	assert.NoError(t, err)
 
 	toolsFile := filepath.Join(testDir, "tools.tar.gz")
-	err = os.WriteFile(toolsFile, []byte("dummy tools content"), 0o644)
+	err = createDummyTarGz(toolsFile)
 	assert.NoError(t, err)
 	// just use the base config path as the RPM sources for this test
 	// since we are not testing the RPM sources here.
@@ -185,7 +220,7 @@ func TestValidateConfig_EmptyPackagestoInstall(t *testing.T) {
 	outputImageFormat := "vhdx"
 	packageSnapshotTime := ""
 	toolsFile := filepath.Join(testDir, "tools.tar.gz")
-	err = os.WriteFile(toolsFile, []byte("dummy tools content"), 0o644)
+	err = createDummyTarGz(toolsFile)
 	assert.NoError(t, err)
 	// Set the packages to install to an empty slice
 	config.OS.Packages.Install = []string{}
