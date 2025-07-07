@@ -24,6 +24,9 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
 
+	toolsFile := filepath.Join(testDir, "tools.tar.gz")
+	err = os.WriteFile(toolsFile, []byte("dummy tools content"), 0o644)
+	assert.NoError(t, err)
 	// just use the base config path as the RPM sources for this test
 	// since we are not testing the RPM sources here.
 	rpmSources := []string{baseConfigPath}
@@ -55,21 +58,21 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	packageSnapshotTime := ""
 
 	// The output image file can be sepcified as an argument without being in specified the config.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileNewRelativeCwd
 
 	// The output image file can be specified as an argument relative to the current working directory.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageDir
 
 	// The output image file, specified as an argument, must not be a directory.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -77,7 +80,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	outputImageFile = outputImageDirRelativeCwd
 
 	// The above is also true for relative paths.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -85,14 +88,14 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	outputImageFile = outputImageFileExists
 
 	// The output image file, specified as an argument, may be a file that already exists.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileExistsRelativeCwd
 
 	// The above is also true for relative paths.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
@@ -100,21 +103,21 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file cab be specified in the config without being specified as an argument.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileNewRelativeConfig
 
 	// The output image file can be specified in the config relative to the base config path.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file, specified in the config, must not be a directory.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -122,7 +125,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageDirRelativeConfig
 
 	// The above is also true for relative paths.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
@@ -130,14 +133,14 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageFileExists
 
 	// The output image file, specified in the config, may be a file that already exists.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileExistsRelativeConfig
 
 	// The above is also true for relative paths.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
@@ -145,14 +148,14 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file can be specified both as an argument and in the config.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file can even be invalid in the config if it is specified as an argument.
-	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.NoError(t, err)
 }
@@ -166,7 +169,7 @@ func TestValidateConfig_EmptyConfig(t *testing.T) {
 	outputImageFormat := "vhdx"
 	packageSnapshotTime := ""
 
-	err := validateConfig(t.Context(), baseConfigPath, config, rpmSources, outputImageFile, outputImageFormat,
+	err := validateConfig(t.Context(), baseConfigPath, config, rpmSources, "", outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.ErrorContains(t, err, "storage.disks field is required in the config file")
 }
@@ -178,12 +181,15 @@ func TestValidateConfig_EmptyPackagestoInstall(t *testing.T) {
 	assert.NoError(t, err)
 
 	rpmSources := []string{testDir} // Use the test directory as a dummy RPM source
-	outputImageFile := ""
+	outputImageFile := filepath.Join(testDir, "output.vhdx")
 	outputImageFormat := "vhdx"
 	packageSnapshotTime := ""
+	toolsFile := filepath.Join(testDir, "tools.tar.gz")
+	err = os.WriteFile(toolsFile, []byte("dummy tools content"), 0o644)
+	assert.NoError(t, err)
 	// Set the packages to install to an empty slice
 	config.OS.Packages.Install = []string{}
-	err = validateConfig(t.Context(), configFile, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), configFile, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.ErrorContains(t, err, "no packages to install specified, please specify at least one package to install for a new image")
 }
@@ -200,7 +206,7 @@ func TestValidateConfig_InvaliFieldsVerityConfig(t *testing.T) {
 	outputImageFormat := "vhdx"
 	packageSnapshotTime := ""
 
-	err = validateConfig(t.Context(), configFile, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.ErrorContains(t, err, "storage verity field is not supported by the image creator")
 }
@@ -217,7 +223,7 @@ func TestValidateConfig_InvaliFieldsOverlaysConfig(t *testing.T) {
 	outputImageFormat := "vhdx"
 	packageSnapshotTime := ""
 
-	err = validateConfig(t.Context(), configFile, &config, rpmSources, outputImageFile, outputImageFormat,
+	err = validateConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile, outputImageFormat,
 		packageSnapshotTime)
 	assert.ErrorContains(t, err, "overlay field is not supported by the image creator")
 }

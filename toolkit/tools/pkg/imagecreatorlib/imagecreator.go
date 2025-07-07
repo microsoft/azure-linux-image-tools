@@ -80,18 +80,12 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	toolsTar string, packageSnapshotTime string,
 ) error {
-	if toolsTar == "" {
-		return fmt.Errorf("tools tar file is required for image creation")
-	}
-
-	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources,
-		outputImageFile, outputImageFormat, packageSnapshotTime)
+	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile, outputImageFormat, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
 
-	imageCreatorParameters, err := createImageCreatorParameters(buildDir,
-		baseConfigPath, &config, rpmsSources,
+	imageCreatorParameters, err := createImageCreatorParameters(buildDir, baseConfigPath, &config, rpmsSources,
 		outputImageFormat, outputImageFile, packageSnapshotTime, toolsTar)
 	if err != nil {
 		return fmt.Errorf("invalid parameters:\n%w", err)

@@ -132,7 +132,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	}
 
 	// Connect to customized image.
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -150,7 +150,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

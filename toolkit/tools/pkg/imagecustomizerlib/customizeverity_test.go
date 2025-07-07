@@ -60,7 +60,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 	outImageFilePath string,
 ) {
 	// Connect to customized image.
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -84,7 +84,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -368,7 +368,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 	outImageFilePath string, corruptionOption string,
 ) {
 	// Connect to usr verity image.
-	mountPoints := []mountPoint{
+	mountPoints := []MountPoint{
 		{
 			PartitionNum:   5,
 			Path:           "/",
@@ -392,7 +392,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

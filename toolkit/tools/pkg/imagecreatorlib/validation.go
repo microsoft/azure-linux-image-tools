@@ -3,6 +3,8 @@ package imagecreatorlib
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
@@ -58,7 +60,7 @@ func validateSupportedFields(c *imagecustomizerapi.Config) error {
 	return nil
 }
 
-func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
+func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string,
 	outputImageFile, outputImageFormat string, packageSnapshotTime string,
 ) error {
 	err := validateSupportedFields(config)
@@ -66,6 +68,27 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return fmt.Errorf("invalid config file %s:\n%w", baseConfigPath, err)
 	}
 
+	// Validate mandatory fields for creating a seed image
+	err = validateMandatoryFields(baseConfigPath, config, rpmsSources, toolsTar)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Validate for distro and release
+	err = imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config,
+		"", rpmsSources, outputImageFile, outputImageFormat, false, packageSnapshotTime, true)
+	if err != nil {
+		return err
+	}
+
+	if len(config.OS.Packages.Install) == 0 {
+		return fmt.Errorf("no packages to install specified, please specify at least one package to install for a new image")
+	}
+
+	return nil
+}
+
+func validateMandatoryFields(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string) error {
 	// check if storage disks is not empty for creating a seed image
 	if len(config.Storage.Disks) == 0 {
 		return fmt.Errorf("storage.disks field is required in the config file %s", baseConfigPath)
@@ -76,12 +99,29 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return fmt.Errorf("rpm sources must be specified for creating a seed image")
 	}
 
-	// TODO: Validate for distro and release
-	err = imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config,
-		"", rpmsSources, outputImageFile, outputImageFormat, false, packageSnapshotTime, true)
+	err := validateToolsTarFile(toolsTar)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func validateToolsTarFile(toolsTar string) error {
+	// Check if the tools tar file exists
+	if toolsTar == "" {
+		return fmt.Errorf("tools tar file is required for image creation")
+	}
+	if _, err := os.Stat(toolsTar); os.IsNotExist(err) {
+		return fmt.Errorf("tools tar file %s does not exist", toolsTar)
+	}
+	// Check if the tools tar file is a valid tar file
+	if !isValidTarFile(toolsTar) {
+		return fmt.Errorf("tools tar file %s is not a valid tar file", toolsTar)
+	}
+	return nil
+}
+
+func isValidTarFile(toolsTar string) bool {
+	return strings.HasSuffix(toolsTar, ".tar.gz")
 }
