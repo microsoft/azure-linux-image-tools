@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -29,6 +30,11 @@ const (
 
 	vmLinuxPathAzl2Template = "/boot/vmlinuz-%s"
 	initrdPathAzl2Template  = "/boot/initrd.img-%s"
+)
+
+var (
+	// ?s: make . match new lines
+	menuItemRegEx = regexp.MustCompile(`(?s)menuitem.*{(.*)}`)
 )
 
 func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
@@ -237,3 +243,13 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 
 	return nil
 }
+
+// func getUsedKernelVersionsFromGrubCfg(inputGrubCfgPath string) ([]string, error) {
+// 	logger.Log.Infof("Updating grub.cfg")
+
+// 	inputContentString, err := file.Read(inputGrubCfgPath)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// }

@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	kernelVersionRegEx = regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.(azl|cm)\d)\b`)
+	kernelVersionRegEx = regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.(azl|cm)\d)(\b|kdump)`)
 )
 
 type IsoInfoStore struct {
@@ -44,6 +44,11 @@ type KernelBootFiles struct {
 	otherFiles      []string
 }
 
+type KernelKdumpFiles struct {
+	vmlinuzPath     string
+	initrdImagePath string
+}
+
 type IsoFilesStore struct {
 	artifactsDir         string
 	bootEfiPath          string
@@ -52,8 +57,9 @@ type IsoFilesStore struct {
 	isoGrubCfgPath       string
 	pxeGrubCfgPath       string
 	savedConfigsFilePath string
-	kernelBootFiles      map[string]*KernelBootFiles // kernel-version -> KernelBootFiles
-	initrdImagePath      string                      // non-kernel specific
+	kernelBootFiles      map[string]*KernelBootFiles  // kernel-version -> KernelBootFiles
+	kernelKdumpFiles     map[string]*KernelKdumpFiles // kernel-version -> KernelKdumpFiles
+	initrdImagePath      string                       // non-kernel specific
 	squashfsImagePath    string
 	additionalFiles      map[string]string // local-build-path -> iso-media-path
 }
@@ -125,22 +131,36 @@ func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string) boo
 
 	kernelVersion := matches[1]
 
-	// Ensure we have an entry in the map for it
-	kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
-	if !exists {
-		kernelBootFiles = &KernelBootFiles{}
-		filesStore.kernelBootFiles[kernelVersion] = kernelBootFiles
-	}
+	if strings.Contains(baseFileName, "kdump.img") {
+		// Ensure we have an entry in the map for it
+		kernelKdumpFiles, exists := filesStore.kernelKdumpFiles[kernelVersion]
+		if !exists {
+			kernelKdumpFiles = &KernelKdumpFiles{}
+			filesStore.kernelKdumpFiles[kernelVersion] = kernelKdumpFiles
+		}
 
-	if strings.HasPrefix(baseFileName, vmLinuzPrefix) {
-		kernelBootFiles.vmlinuzPath = targetPath
-		scheduleAdditionalFile = false
-	} else if strings.HasPrefix(baseFileName, initramfsPrefix) || strings.HasPrefix(baseFileName, initrdPrefix) {
-		kernelBootFiles.initrdImagePath = targetPath
-		scheduleAdditionalFile = false
+		if strings.HasPrefix(baseFileName, initramfsPrefix) || strings.HasPrefix(baseFileName, initrdPrefix) {
+			kernelKdumpFiles.initrdImagePath = targetPath
+			scheduleAdditionalFile = false
+		}
 	} else {
-		kernelBootFiles.otherFiles = append(kernelBootFiles.otherFiles, targetPath)
-		scheduleAdditionalFile = false
+		// Ensure we have an entry in the map for it
+		kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
+		if !exists {
+			kernelBootFiles = &KernelBootFiles{}
+			filesStore.kernelBootFiles[kernelVersion] = kernelBootFiles
+		}
+
+		if strings.HasPrefix(baseFileName, vmLinuzPrefix) {
+			kernelBootFiles.vmlinuzPath = targetPath
+			scheduleAdditionalFile = false
+		} else if strings.HasPrefix(baseFileName, initramfsPrefix) || strings.HasPrefix(baseFileName, initrdPrefix) {
+			kernelBootFiles.initrdImagePath = targetPath
+			scheduleAdditionalFile = false
+		} else {
+			kernelBootFiles.otherFiles = append(kernelBootFiles.otherFiles, targetPath)
+			scheduleAdditionalFile = false
+		}
 	}
 
 	return scheduleAdditionalFile
@@ -154,6 +174,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		savedConfigsFilePath: filepath.Join(artifactsDir, savedConfigsDir, savedConfigsFileName),
 		additionalFiles:      make(map[string]string),
 		kernelBootFiles:      make(map[string]*KernelBootFiles),
+		kernelKdumpFiles:     make(map[string]*KernelKdumpFiles),
 	}
 
 	// the following files will be re-created - no need to copy them only to
@@ -270,6 +291,16 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 
 		if scheduleAdditionalFile {
 			filesStore.additionalFiles[targetPath] = strings.TrimPrefix(targetPath, filesStore.artifactsDir)
+		}
+	}
+
+	// Resolve kdump files
+	if len(filesStore.kernelKdumpFiles) != 0 {
+		for kernelVersion, kernelKdumpFiles := range filesStore.kernelKdumpFiles {
+			kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
+			if exists {
+				kernelKdumpFiles.vmlinuzPath = kernelBootFiles.vmlinuzPath
+			}
 		}
 	}
 
@@ -398,6 +429,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 
 	filesStore.additionalFiles = make(map[string]string)
 	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
+	filesStore.kernelKdumpFiles = make(map[string]*KernelKdumpFiles)
 
 	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {
@@ -494,6 +526,8 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.info = infoStore
 
+	dumpArtifactsStore(artifactStore, "createIsoArtifactStoreFromMountedImage")
+
 	return artifactStore, nil
 }
 
@@ -519,6 +553,8 @@ func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string) (artifact
 	}
 	artifactStore.info = infoStore
 
+	dumpArtifactsStore(artifactStore, "createIsoArtifactStoreFromIsoImage")
+
 	return artifactStore, nil
 }
 
@@ -533,69 +569,84 @@ func fileExistsToString(filePath string) string {
 	return "!e " + filePath
 }
 
-func dumpKernelFiles(kernelBootFiles *KernelBootFiles) {
+func dumpKernelBootFiles(kernelBootFiles *KernelBootFiles) {
 	if kernelBootFiles == nil {
-		logger.Log.Debugf("-- -- not defined")
+		logger.Log.Infof("-- -- not defined")
 		return
 	}
 
-	logger.Log.Debugf("-- -- vmlinuzPath           = %s", fileExistsToString(kernelBootFiles.vmlinuzPath))
-	logger.Log.Debugf("-- -- initrdImagePath       = %s", fileExistsToString(kernelBootFiles.initrdImagePath))
+	logger.Log.Infof("-- -- vmlinuzPath           = %s", fileExistsToString(kernelBootFiles.vmlinuzPath))
+	logger.Log.Infof("-- -- initrdImagePath       = %s", fileExistsToString(kernelBootFiles.initrdImagePath))
 	for _, otherFile := range kernelBootFiles.otherFiles {
-		logger.Log.Debugf("-- -- otherFile             = %s", fileExistsToString(otherFile))
+		logger.Log.Infof("-- -- otherFile             = %s", fileExistsToString(otherFile))
 	}
 }
 
-func dumpFilesStore(filesStore *IsoFilesStore) {
-	logger.Log.Debugf("Files Store")
-	if filesStore == nil {
-		logger.Log.Debugf("-- not defined")
+func dumpKernelKdumpFiles(kernelKdumpFiles *KernelKdumpFiles) {
+	if kernelKdumpFiles == nil {
+		logger.Log.Infof("-- -- not defined")
 		return
 	}
-	logger.Log.Debugf("-- artifactsDir             = %s", fileExistsToString(filesStore.artifactsDir))
-	logger.Log.Debugf("-- bootEfiPath              = %s", fileExistsToString(filesStore.bootEfiPath))
-	logger.Log.Debugf("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
-	logger.Log.Debugf("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
-	logger.Log.Debugf("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
-	logger.Log.Debugf("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
-	logger.Log.Debugf("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
-	logger.Log.Debugf("-- kernel file groups")
-	for key, value := range filesStore.kernelBootFiles {
-		logger.Log.Debugf("-- -- version               = %s", key)
-		dumpKernelFiles(value)
-	}
 
-	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
-	logger.Log.Debugf("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
-	logger.Log.Debugf("-- additionalFiles          =")
-	for key, value := range filesStore.additionalFiles {
-		logger.Log.Debugf("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
+	logger.Log.Infof("-- -- vmlinuzPath           = %s", fileExistsToString(kernelKdumpFiles.vmlinuzPath))
+	logger.Log.Infof("-- -- initrdImagePath       = %s", fileExistsToString(kernelKdumpFiles.initrdImagePath))
+}
+
+func dumpFilesStore(filesStore *IsoFilesStore) {
+	logger.Log.Infof("Files Store")
+	if filesStore == nil {
+		logger.Log.Infof("-- not defined")
+		return
+	}
+	logger.Log.Infof("-- artifactsDir             = %s", fileExistsToString(filesStore.artifactsDir))
+	logger.Log.Infof("-- bootEfiPath              = %s", fileExistsToString(filesStore.bootEfiPath))
+	logger.Log.Infof("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
+	logger.Log.Infof("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
+	logger.Log.Infof("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
+	logger.Log.Infof("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
+	logger.Log.Infof("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
+	logger.Log.Infof("-- kernel file groups")
+	for key, value := range filesStore.kernelBootFiles {
+		logger.Log.Infof("-- - version               = %s", key)
+		dumpKernelBootFiles(value)
+	}
+	logger.Log.Infof("-- kdump file groups")
+	for key, value := range filesStore.kernelKdumpFiles {
+		logger.Log.Infof("-- - version               = %s", key)
+		dumpKernelKdumpFiles(value)
+	}
+	logger.Log.Infof("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
+	logger.Log.Infof("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
+	logger.Log.Infof("-- additionalFiles          =")
+	for key, _ := range filesStore.additionalFiles {
+		// logger.Log.Infof("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
+		logger.Log.Infof("-- -- localPath: %s\n", fileExistsToString(key))
 	}
 }
 
 func dumpInfoStore(infoStore *IsoInfoStore) {
-	logger.Log.Debugf("Info Store")
+	logger.Log.Infof("Info Store")
 	if infoStore == nil {
-		logger.Log.Debugf("-- not defined")
+		logger.Log.Infof("-- not defined")
 		return
 	}
-	logger.Log.Debugf("-- seLinuxMode          = %s", infoStore.seLinuxMode)
+	logger.Log.Infof("-- seLinuxMode          = %s", infoStore.seLinuxMode)
 	if infoStore.dracutPackageInfo != nil {
-		logger.Log.Debugf("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
+		logger.Log.Infof("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
 	} else {
-		logger.Log.Debugf("-- dracut package info  = unavailable")
+		logger.Log.Infof("-- dracut package info  = unavailable")
 	}
 	if infoStore.selinuxPolicyPackageInfo != nil {
-		logger.Log.Debugf("-- selinux package info = %s", infoStore.selinuxPolicyPackageInfo.getFullVersionString())
+		logger.Log.Infof("-- selinux package info = %s", infoStore.selinuxPolicyPackageInfo.getFullVersionString())
 	} else {
-		logger.Log.Debugf("-- selinux package info = unavailable")
+		logger.Log.Infof("-- selinux package info = unavailable")
 	}
 }
 
 func dumpArtifactsStore(artifactStore *IsoArtifactsStore, title string) {
-	logger.Log.Debugf("Artifacts Store - %s", title)
+	logger.Log.Infof("Artifacts Store - %s", title)
 	if artifactStore == nil {
-		logger.Log.Debugf("-- not defined")
+		logger.Log.Infof("-- not defined")
 		return
 	}
 	dumpFilesStore(artifactStore.files)
