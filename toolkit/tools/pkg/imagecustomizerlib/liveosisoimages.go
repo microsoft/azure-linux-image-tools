@@ -56,7 +56,7 @@ type StageFile struct {
 	targetName    string
 }
 
-func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KernelKdumpFiles) error {
+func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles) error {
 	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
 
@@ -107,7 +107,7 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool, Kdump
 	return nil
 }
 
-func createFullOSInitrdImage(writeableRootfsDir string, keepKernelKdumpFiles bool, KdumpBootFilesMap map[string]*KernelKdumpFiles, outputInitrdPath string) error {
+func createFullOSInitrdImage(writeableRootfsDir string, keepKernelKdumpFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string) error {
 	logger.Log.Infof("Creating full OS initrd")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, keepKernelKdumpFiles, KdumpBootFilesMap)
@@ -188,7 +188,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	return nil
 }
 
-func createSquashfsImage(writeableRootfsDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KernelKdumpFiles, outputSquashfsPath string) error {
+func createSquashfsImage(writeableRootfsDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string) error {
 	logger.Log.Infof("Creating squashfs")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, keepKdumpBootFiles, KdumpBootFilesMap)
@@ -236,7 +236,7 @@ func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
 }
 
 func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outputFormat imagecustomizerapi.ImageFormatType,
-	filesStore *IsoFilesStore, baseConfigPath string, additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string,
+	filesStore *IsoFilesStore, baseConfigPath string, keepKdumpBootFiles bool, additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string,
 ) error {
 	err := os.RemoveAll(stagingDir)
 	if err != nil {
@@ -261,6 +261,24 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
 				StageFile{
 					sourcePath:    otherKernelFile,
+					targetRelPath: "boot",
+				})
+		}
+	}
+
+	// If kdump boot files are not kept under the /boot folder in the full OS
+	// image, we need to include them directly on the Live OS media or else we
+	// lose them completely.
+	if !keepKdumpBootFiles {
+		for _, kernelFiles := range filesStore.kdumpBootFiles {
+			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+				StageFile{
+					sourcePath:    kernelFiles.vmlinuzPath,
+					targetRelPath: "boot",
+				})
+			artifactsToLiveOSMap = append(artifactsToLiveOSMap,
+				StageFile{
+					sourcePath:    kernelFiles.initrdImagePath,
 					targetRelPath: "boot",
 				})
 		}
@@ -390,11 +408,12 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 }
 
 func createIsoImage(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType,
-	filesStore *IsoFilesStore, additionalIsoFiles imagecustomizerapi.AdditionalFileList, outputImagePath string) error {
+	filesStore *IsoFilesStore, keepKdumpBootFiles bool, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
+	outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "iso-staging")
 
 	err := stageLiveOSFiles(initramfsType, imagecustomizerapi.ImageFormatTypeIso, filesStore,
-		baseConfigPath, additionalIsoFiles, stagingDir)
+		baseConfigPath, keepKdumpBootFiles, additionalIsoFiles, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}

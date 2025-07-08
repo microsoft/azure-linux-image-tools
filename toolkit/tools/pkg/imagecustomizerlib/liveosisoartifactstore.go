@@ -44,7 +44,7 @@ type KernelBootFiles struct {
 	otherFiles      []string
 }
 
-type KernelKdumpFiles struct {
+type KdumpBootFiles struct {
 	vmlinuzPath     string
 	initrdImagePath string
 }
@@ -57,9 +57,9 @@ type IsoFilesStore struct {
 	isoGrubCfgPath       string
 	pxeGrubCfgPath       string
 	savedConfigsFilePath string
-	kernelBootFiles      map[string]*KernelBootFiles  // kernel-version -> KernelBootFiles
-	kernelKdumpFiles     map[string]*KernelKdumpFiles // kernel-version -> KernelKdumpFiles
-	initrdImagePath      string                       // non-kernel specific
+	kernelBootFiles      map[string]*KernelBootFiles // kernel-version -> KernelBootFiles
+	kdumpBootFiles       map[string]*KdumpBootFiles  // kernel-version -> kdumpBootFiles
+	initrdImagePath      string                      // non-kernel specific
 	squashfsImagePath    string
 	additionalFiles      map[string]string // local-build-path -> iso-media-path
 }
@@ -133,14 +133,14 @@ func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string) boo
 
 	if strings.Contains(baseFileName, "kdump.img") {
 		// Ensure we have an entry in the map for it
-		kernelKdumpFiles, exists := filesStore.kernelKdumpFiles[kernelVersion]
+		kdumpBootFiles, exists := filesStore.kdumpBootFiles[kernelVersion]
 		if !exists {
-			kernelKdumpFiles = &KernelKdumpFiles{}
-			filesStore.kernelKdumpFiles[kernelVersion] = kernelKdumpFiles
+			kdumpBootFiles = &KdumpBootFiles{}
+			filesStore.kdumpBootFiles[kernelVersion] = kdumpBootFiles
 		}
 
 		if strings.HasPrefix(baseFileName, initramfsPrefix) || strings.HasPrefix(baseFileName, initrdPrefix) {
-			kernelKdumpFiles.initrdImagePath = targetPath
+			kdumpBootFiles.initrdImagePath = targetPath
 			scheduleAdditionalFile = false
 		}
 	} else {
@@ -174,7 +174,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		savedConfigsFilePath: filepath.Join(artifactsDir, savedConfigsDir, savedConfigsFileName),
 		additionalFiles:      make(map[string]string),
 		kernelBootFiles:      make(map[string]*KernelBootFiles),
-		kernelKdumpFiles:     make(map[string]*KernelKdumpFiles),
+		kdumpBootFiles:       make(map[string]*KdumpBootFiles),
 	}
 
 	// the following files will be re-created - no need to copy them only to
@@ -295,11 +295,11 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	}
 
 	// Resolve kdump files
-	if len(filesStore.kernelKdumpFiles) != 0 {
-		for kernelVersion, kernelKdumpFiles := range filesStore.kernelKdumpFiles {
+	if len(filesStore.kdumpBootFiles) != 0 {
+		for kernelVersion, kdumpBootFiles := range filesStore.kdumpBootFiles {
 			kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
 			if exists {
-				kernelKdumpFiles.vmlinuzPath = kernelBootFiles.vmlinuzPath
+				kdumpBootFiles.vmlinuzPath = kernelBootFiles.vmlinuzPath
 			}
 		}
 	}
@@ -429,7 +429,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 
 	filesStore.additionalFiles = make(map[string]string)
 	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
-	filesStore.kernelKdumpFiles = make(map[string]*KernelKdumpFiles)
+	filesStore.kdumpBootFiles = make(map[string]*KdumpBootFiles)
 
 	_, bootFilesConfig, err := getBootArchConfig()
 	if err != nil {
@@ -582,14 +582,14 @@ func dumpKernelBootFiles(kernelBootFiles *KernelBootFiles) {
 	}
 }
 
-func dumpKernelKdumpFiles(kernelKdumpFiles *KernelKdumpFiles) {
-	if kernelKdumpFiles == nil {
+func dumpKdumpBootFiles(kdumpBootFiles *KdumpBootFiles) {
+	if kdumpBootFiles == nil {
 		logger.Log.Infof("-- -- not defined")
 		return
 	}
 
-	logger.Log.Infof("-- -- vmlinuzPath           = %s", fileExistsToString(kernelKdumpFiles.vmlinuzPath))
-	logger.Log.Infof("-- -- initrdImagePath       = %s", fileExistsToString(kernelKdumpFiles.initrdImagePath))
+	logger.Log.Infof("-- -- vmlinuzPath           = %s", fileExistsToString(kdumpBootFiles.vmlinuzPath))
+	logger.Log.Infof("-- -- initrdImagePath       = %s", fileExistsToString(kdumpBootFiles.initrdImagePath))
 }
 
 func dumpFilesStore(filesStore *IsoFilesStore) {
@@ -611,9 +611,9 @@ func dumpFilesStore(filesStore *IsoFilesStore) {
 		dumpKernelBootFiles(value)
 	}
 	logger.Log.Infof("-- kdump file groups")
-	for key, value := range filesStore.kernelKdumpFiles {
+	for key, value := range filesStore.kdumpBootFiles {
 		logger.Log.Infof("-- - version               = %s", key)
-		dumpKernelKdumpFiles(value)
+		dumpKdumpBootFiles(value)
 	}
 	logger.Log.Infof("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
 	logger.Log.Infof("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
