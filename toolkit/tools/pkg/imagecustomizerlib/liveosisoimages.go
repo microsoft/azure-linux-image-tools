@@ -56,7 +56,7 @@ type StageFile struct {
 	targetName    string
 }
 
-func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles) error {
+func cleanFullOSFolderForLiveOS(isoBuildDir, fullOSDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles) error {
 	fstabFile := filepath.Join(fullOSDir, "/etc/fstab")
 	logger.Log.Debugf("Deleting fstab from %s", fstabFile)
 
@@ -74,32 +74,55 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool, Kdump
 		}
 	} else {
 		logger.Log.Infof("Cleaning /boot")
-		bootFolderFilePaths, err := file.EnumerateDirFiles(bootFolder)
+
+		// Move the kdump files out so that we can delete the entire boot
+		// folder and avoid having empty folders.
+		savedFilesDir := filepath.Join(isoBuildDir, "files-to-save")
+		err = os.MkdirAll(savedFilesDir, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("failed to scan /boot folder:\n%w", err)
+			return fmt.Errorf("failed to create (%s) folder:\n%w", savedFilesDir, err)
+		}
+		defer os.RemoveAll(savedFilesDir)
+
+		for _, kdumpBootFiles := range KdumpBootFilesMap {
+			logger.Log.Infof("Saving %s", kdumpBootFiles.vmlinuzPath)
+			savedFilePath := filepath.Join(savedFilesDir, filepath.Base(kdumpBootFiles.vmlinuzPath))
+			err := file.Copy(kdumpBootFiles.vmlinuzPath, savedFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", kdumpBootFiles.vmlinuzPath, savedFilePath, err)
+			}
+			logger.Log.Infof("Saving %s", kdumpBootFiles.initrdImagePath)
+			savedFilePath = filepath.Join(savedFilesDir, filepath.Base(kdumpBootFiles.initrdImagePath))
+			err = file.Copy(kdumpBootFiles.initrdImagePath, savedFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", kdumpBootFiles.initrdImagePath, savedFilePath, err)
+			}
 		}
 
-		for _, bootFilePath := range bootFolderFilePaths {
-			bootFilePathBase := filepath.Base(bootFilePath)
-			isKdumpFile := false
-			for _, kdumpBootFiles := range KdumpBootFilesMap {
-				if bootFilePathBase == filepath.Base(kdumpBootFiles.vmlinuzPath) {
-					isKdumpFile = true
-					break
-				}
-				if bootFilePathBase == filepath.Base(kdumpBootFiles.initrdImagePath) {
-					isKdumpFile = true
-					break
-				}
+		// Delete the /boot folder
+		logger.Log.Infof("Deleting /boot")
+		err = os.RemoveAll(bootFolder)
+		if err != nil {
+			return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+		}
+
+		// Restore needed files if any
+		if len(KdumpBootFilesMap) > 0 {
+			err := os.MkdirAll(bootFolder, bootDirPermissions)
+			if err != nil {
+				return fmt.Errorf("failed to re-create directory (%s):\n%w", bootFolder, err)
 			}
-			if !isKdumpFile {
-				logger.Log.Infof("Deleting %s", bootFilePath)
-				err = os.Remove(bootFilePath)
+			savedFilePaths, err := file.EnumerateDirFiles(savedFilesDir)
+			if err != nil {
+				return fmt.Errorf("failed to scan /boot folder:\n%w", err)
+			}
+			for _, savedFilePath := range savedFilePaths {
+				restoredFilePath := filepath.Join(bootFolder, filepath.Base(savedFilePath))
+				logger.Log.Infof("Restoring %s", restoredFilePath)
+				err := file.Copy(savedFilePath, restoredFilePath)
 				if err != nil {
-					return fmt.Errorf("failed to delete (%s):\n%w", bootFilePath, err)
+					return fmt.Errorf("failed to copy (%s) to (%s):\n%w", savedFilePath, restoredFilePath, err)
 				}
-			} else {
-				logger.Log.Infof("Keeping %s", bootFilePath)
 			}
 		}
 	}
@@ -107,10 +130,10 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, keepKdumpBootFiles bool, Kdump
 	return nil
 }
 
-func createFullOSInitrdImage(writeableRootfsDir string, keepKernelKdumpFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string) error {
+func createFullOSInitrdImage(isoBuildDir, writeableRootfsDir string, keepKernelKdumpFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string) error {
 	logger.Log.Infof("Creating full OS initrd")
 
-	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, keepKernelKdumpFiles, KdumpBootFilesMap)
+	err := cleanFullOSFolderForLiveOS(isoBuildDir, writeableRootfsDir, keepKernelKdumpFiles, KdumpBootFilesMap)
 	if err != nil {
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
@@ -188,10 +211,10 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	return nil
 }
 
-func createSquashfsImage(writeableRootfsDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string) error {
+func createSquashfsImage(isoBuildDir, writeableRootfsDir string, keepKdumpBootFiles bool, KdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string) error {
 	logger.Log.Infof("Creating squashfs")
 
-	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, keepKdumpBootFiles, KdumpBootFilesMap)
+	err := cleanFullOSFolderForLiveOS(isoBuildDir, writeableRootfsDir, keepKdumpBootFiles, KdumpBootFilesMap)
 	if err != nil {
 		return fmt.Errorf("failed to clean root filesystem directory (%s):\n%w", writeableRootfsDir, err)
 	}
