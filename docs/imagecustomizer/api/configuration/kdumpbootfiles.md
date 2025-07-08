@@ -31,4 +31,6 @@ Supported options:
 - `keep`: kdump files are preserved in the full OS image under the `/boot`
   folder.
 
+The default value is `none`.
+
 Added in v0.16.
