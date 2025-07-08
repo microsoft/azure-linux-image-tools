@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"maps"
 	"strings"
@@ -68,6 +69,13 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
+	err := runCommand(ctx, parseContext.Command(), cli)
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 	// initialize OpenTelemetry tracer
 	err := telemetry.InitTelemetry(cli.DisableTelemetry, imagecustomizerlib.ToolVersion)
 	if err != nil {
@@ -84,22 +92,24 @@ func main() {
 		defer timestamp.CompleteTiming()
 	}
 
-	switch parseContext.Command() {
+	switch command {
 	case "customize":
-		err := customizeImage(ctx, cli.Customize)
+		err = customizeImage(ctx, cli.Customize)
 		if err != nil {
-			log.Fatalf("image customization failed:\n%v", err)
+			return fmt.Errorf("image customization failed:\n%w", err)
 		}
 
 	case "inject-files":
-		err := injectFiles(ctx, cli.InjectFiles)
+		err = injectFiles(ctx, cli.InjectFiles)
 		if err != nil {
-			log.Fatalf("inject-files failed:\n%v", err)
+			return fmt.Errorf("inject-files failed:\n%w", err)
 		}
 
 	default:
-		panic(parseContext.Command())
+		panic(command)
 	}
+
+	return nil
 }
 
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {

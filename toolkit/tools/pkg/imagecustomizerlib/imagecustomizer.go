@@ -26,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sys/unix"
 )
 
@@ -237,14 +238,20 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
-) error {
+) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
 		attribute.String("output_image_format", string(outputImageFormat)),
 	)
-	defer span.End()
+	defer func() {
+		if err != nil {
+			span.RecordError(fmt.Errorf("image customization failed"))
+			span.SetStatus(codes.Error, "image customization failed")
+		}
+		span.End()
+	}()
 
-	err := ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
