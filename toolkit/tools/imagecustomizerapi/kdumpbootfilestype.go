@@ -10,7 +10,7 @@ import (
 type KdumpBootFilesType string
 
 const (
-	KdumpBootFilesTypeNone KdumpBootFilesType = ""
+	KdumpBootFilesTypeNone KdumpBootFilesType = "none"
 	KdumpBootFilesTypeKeep KdumpBootFilesType = "keep"
 )
 
