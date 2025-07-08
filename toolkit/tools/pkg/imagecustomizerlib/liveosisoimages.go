@@ -65,64 +65,32 @@ func cleanFullOSFolderForLiveOS(isoBuildDir, fullOSDir string, keepKdumpBootFile
 		return fmt.Errorf("failed to delete fstab:\n%w", err)
 	}
 
+	logger.Log.Infof("Deleting /boot")
 	bootFolder := filepath.Join(fullOSDir, "boot")
-	if !keepKdumpBootFiles || KdumpBootFilesMap == nil || len(KdumpBootFilesMap) == 0 {
-		logger.Log.Infof("Deleting /boot")
-		err = os.RemoveAll(bootFolder)
-		if err != nil {
-			return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
-		}
-	} else {
-		logger.Log.Infof("Cleaning /boot")
+	err = os.RemoveAll(bootFolder)
+	if err != nil {
+		return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
+	}
 
-		// Move the kdump files out so that we can delete the entire boot
-		// folder and avoid having empty folders.
-		savedFilesDir := filepath.Join(isoBuildDir, "files-to-save")
-		err = os.MkdirAll(savedFilesDir, os.ModePerm)
+	// Restore kdump files if desired and they exist
+	if keepKdumpBootFiles && KdumpBootFilesMap != nil && len(KdumpBootFilesMap) > 0 {
+		err := os.MkdirAll(bootFolder, bootDirPermissions)
 		if err != nil {
-			return fmt.Errorf("failed to create (%s) folder:\n%w", savedFilesDir, err)
+			return fmt.Errorf("failed to re-create directory (%s):\n%w", bootFolder, err)
 		}
-		defer os.RemoveAll(savedFilesDir)
 
 		for _, kdumpBootFiles := range KdumpBootFilesMap {
-			logger.Log.Infof("Saving %s", kdumpBootFiles.vmlinuzPath)
-			savedFilePath := filepath.Join(savedFilesDir, filepath.Base(kdumpBootFiles.vmlinuzPath))
-			err := file.Copy(kdumpBootFiles.vmlinuzPath, savedFilePath)
+			logger.Log.Infof("Restoring %s", kdumpBootFiles.vmlinuzPath)
+			restoredFilePath := filepath.Join(bootFolder, filepath.Base(kdumpBootFiles.vmlinuzPath))
+			err := file.Copy(kdumpBootFiles.vmlinuzPath, restoredFilePath)
 			if err != nil {
-				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", kdumpBootFiles.vmlinuzPath, savedFilePath, err)
+				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", kdumpBootFiles.vmlinuzPath, restoredFilePath, err)
 			}
-			logger.Log.Infof("Saving %s", kdumpBootFiles.initrdImagePath)
-			savedFilePath = filepath.Join(savedFilesDir, filepath.Base(kdumpBootFiles.initrdImagePath))
-			err = file.Copy(kdumpBootFiles.initrdImagePath, savedFilePath)
+			logger.Log.Infof("Restoring %s", kdumpBootFiles.initrdImagePath)
+			restoredFilePath = filepath.Join(bootFolder, filepath.Base(kdumpBootFiles.initrdImagePath))
+			err = file.Copy(kdumpBootFiles.initrdImagePath, restoredFilePath)
 			if err != nil {
-				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", kdumpBootFiles.initrdImagePath, savedFilePath, err)
-			}
-		}
-
-		// Delete the /boot folder
-		logger.Log.Infof("Deleting /boot")
-		err = os.RemoveAll(bootFolder)
-		if err != nil {
-			return fmt.Errorf("failed to remove the /boot folder from the source image:\n%w", err)
-		}
-
-		// Restore needed files if any
-		if len(KdumpBootFilesMap) > 0 {
-			err := os.MkdirAll(bootFolder, bootDirPermissions)
-			if err != nil {
-				return fmt.Errorf("failed to re-create directory (%s):\n%w", bootFolder, err)
-			}
-			savedFilePaths, err := file.EnumerateDirFiles(savedFilesDir)
-			if err != nil {
-				return fmt.Errorf("failed to scan /boot folder:\n%w", err)
-			}
-			for _, savedFilePath := range savedFilePaths {
-				restoredFilePath := filepath.Join(bootFolder, filepath.Base(savedFilePath))
-				logger.Log.Infof("Restoring %s", restoredFilePath)
-				err := file.Copy(savedFilePath, restoredFilePath)
-				if err != nil {
-					return fmt.Errorf("failed to copy (%s) to (%s):\n%w", savedFilePath, restoredFilePath, err)
-				}
+				return fmt.Errorf("failed to copy (%s) to (%s):\n%w", kdumpBootFiles.initrdImagePath, restoredFilePath, err)
 			}
 		}
 	}
