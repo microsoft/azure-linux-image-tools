@@ -86,8 +86,15 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.kernelCommandLine = isoConfig.KernelCommandLine
 			config.additionalFiles = isoConfig.AdditionalFiles
 			config.initramfsType = isoConfig.InitramfsType
-			if isoConfig.CrashDump != nil {
-				config.keepKdumpBootFiles = isoConfig.CrashDump.KeepKdumpBootFiles
+			if isoConfig.KdumpBootFiles != nil {
+				switch *isoConfig.KdumpBootFiles {
+				case imagecustomizerapi.KdumpBootFilesTypeNone:
+					config.keepKdumpBootFiles = false
+				case imagecustomizerapi.KdumpBootFilesTypeKeep:
+					config.keepKdumpBootFiles = true
+				default:
+					return config, false, fmt.Errorf("invalid kdumpBootFiles value (%s) in ISO configuration", *isoConfig.KdumpBootFiles)
+				}
 			}
 		}
 
@@ -102,8 +109,15 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.initramfsType = pxeConfig.InitramfsType
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
-			if pxeConfig.CrashDump != nil {
-				config.keepKdumpBootFiles = pxeConfig.CrashDump.KeepKdumpBootFiles
+			if pxeConfig.KdumpBootFiles != nil {
+				switch *pxeConfig.KdumpBootFiles {
+				case imagecustomizerapi.KdumpBootFilesTypeNone:
+					config.keepKdumpBootFiles = false
+				case imagecustomizerapi.KdumpBootFilesTypeKeep:
+					config.keepKdumpBootFiles = true
+				default:
+					return config, false, fmt.Errorf("invalid kdumpBootFiles value (%s) in PXE configuration", *pxeConfig.KdumpBootFiles)
+				}
 			}
 		}
 
@@ -287,7 +301,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		outputInitrdPath := filepath.Join(artifactsStore.files.artifactsDir, initrdImage)
 		// Generate the initrd image
-		err = createFullOSInitrdImage(isoBuildDir, writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputInitrdPath)
+		err = createFullOSInitrdImage(writeableRootfsDir,
+			liveosConfig.keepKdumpBootFiles, artifactsStore.files.kernelKdumpFiles, outputInitrdPath)
 		if err != nil {
 			return fmt.Errorf("failed to create initrd image:\n%w", err)
 		}
@@ -304,7 +319,8 @@ func createLiveOSFromRawHelper(buildDir, baseConfigPath string, inputArtifactsSt
 
 		// Generate the squashfs image
 		outputSquashfsPath := filepath.Join(artifactsStore.files.artifactsDir, liveOSImage)
-		err = createSquashfsImage(isoBuildDir, writeableRootfsDir, liveosConfig.keepKdumpBootFiles, outputSquashfsPath)
+		err = createSquashfsImage(writeableRootfsDir,
+			liveosConfig.keepKdumpBootFiles, artifactsStore.files.kernelKdumpFiles, outputSquashfsPath)
 		if err != nil {
 			return fmt.Errorf("failed to create squashfs image:\n%w", err)
 		}

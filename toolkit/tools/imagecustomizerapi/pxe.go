@@ -13,12 +13,12 @@ var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://"
 
 // Iso defines how the generated iso media should be configured.
 type Pxe struct {
-	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
-	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
-	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
-	BootstrapBaseUrl  string             `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
-	BootstrapFileUrl  string             `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
-	CrashDump         *CrashDump         `yaml:"crashDump" json:"crashDump,omitempty"`
+	KernelCommandLine KernelCommandLine   `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles   AdditionalFileList  `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType     InitramfsImageType  `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	BootstrapBaseUrl  string              `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
+	BootstrapFileUrl  string              `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
+	KdumpBootFiles    *KdumpBootFilesType `yaml:"kdumpBootFiles" json:"kdumpBootFiles,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {
@@ -79,10 +79,10 @@ func (p *Pxe) IsValid() error {
 		return fmt.Errorf("invalid 'bootstrapFileUrl' field value (%s):\n%w", p.BootstrapFileUrl, err)
 	}
 
-	if p.CrashDump != nil {
-		err = p.CrashDump.IsValid()
+	if p.KdumpBootFiles != nil {
+		err = p.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("invalid crashDump type:\n%w", err)
+			return fmt.Errorf("invalid kdumpBootFiles: %w", err)
 		}
 	}
 

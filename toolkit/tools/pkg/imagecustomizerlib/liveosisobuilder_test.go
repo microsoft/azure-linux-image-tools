@@ -26,7 +26,7 @@ import (
 )
 
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
-	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, keepKdumpBootFiles bool,
+	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
 	selinuxMode imagecustomizerapi.SELinuxMode) *imagecustomizerapi.Config {
 	fileNamesArray := strings.Split(fileNames, ";")
 
@@ -59,18 +59,14 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 			imagecustomizerapi.PreviewFeatureCrashDump,
 		},
 		Iso: &imagecustomizerapi.Iso{
-			CrashDump: &imagecustomizerapi.CrashDump{
-				KeepKdumpBootFiles: keepKdumpBootFiles,
-			},
+			KdumpBootFiles: &kdumpBootFiles,
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
 				ExtraCommandLine: []string{kernelParameter},
 			},
 			InitramfsType: initramfsType,
 		},
 		Pxe: &imagecustomizerapi.Pxe{
-			CrashDump: &imagecustomizerapi.CrashDump{
-				KeepKdumpBootFiles: keepKdumpBootFiles,
-			},
+			KdumpBootFiles: &kdumpBootFiles,
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
 				ExtraCommandLine: []string{kernelParameter},
 			},
@@ -197,12 +193,12 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 	if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
 		additionalFiles = config.Iso.AdditionalFiles
 		extraCommandLineParameters = config.Iso.KernelCommandLine.ExtraCommandLine
-		keepKdumpBootFiles = config.Iso.CrashDump.KeepKdumpBootFiles
+		keepKdumpBootFiles = *config.Iso.KdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
 		initramfsType = config.Iso.InitramfsType
 	} else {
 		additionalFiles = config.Pxe.AdditionalFiles
 		extraCommandLineParameters = config.Pxe.KernelCommandLine.ExtraCommandLine
-		keepKdumpBootFiles = config.Pxe.CrashDump.KeepKdumpBootFiles
+		keepKdumpBootFiles = *config.Pxe.KdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
 		initramfsType = config.Pxe.InitramfsType
 		pxeUrlBase = config.Pxe.BootstrapFileUrl
 	}
@@ -444,7 +440,7 @@ func testCustomizeImageLiveOSKeepKdumpFiles(t *testing.T, testName string, baseI
 	configA := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.azl3kdump.img;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		true /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -457,7 +453,7 @@ func testCustomizeImageLiveOSKeepKdumpFiles(t *testing.T, testName string, baseI
 	// Case 2: keepKdumpBootFiles=true, boot/initramfs-6.6.65.1-2.azl3kdump.img does not exist -> no /boot
 	configB := createConfig(t, baseImageInfo.Version, "a.txt;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		true /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(buildDir, testDir, configB, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -471,7 +467,7 @@ func testCustomizeImageLiveOSKeepKdumpFiles(t *testing.T, testName string, baseI
 	configC := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.azl3kdump.img;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(buildDir, testDir, configC, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -508,7 +504,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, true /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, true, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -549,7 +545,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
@@ -563,7 +559,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	// ISO  {bootstrap} to ISO {bootstrap}, with no OS changes
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.debug", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, false /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDefault)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDefault)
 
 	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -576,7 +572,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	// - ISO {bootstrap} to ISO {full-os}, with selinux disabled
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -603,7 +599,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	// vhdx {raw} to ISO {full-os}, with selinux disabled
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -616,7 +612,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	// ISO  {full-os} to ISO {full-os}, with selinux disabled
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -636,7 +632,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	err = CustomizeImage(buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -659,7 +655,7 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 	// vhdx {raw} to ISO {full-os}, with selinux disabled
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeEnforcing)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -682,7 +678,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	config := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		pxeBootstrapUrl, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeEnforcing)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -704,7 +700,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	config := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
