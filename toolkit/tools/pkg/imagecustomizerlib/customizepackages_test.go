@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -276,7 +277,7 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
 }
 
-func ensureTdnfCacheCleanup(t *testing.T, imageConnection *ImageConnection, dirPath string,
+func ensureTdnfCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageConnection, dirPath string,
 	baseImageInfo testBaseImageInfo,
 ) {
 	// Array to capture all the files of the provided root directory
@@ -337,7 +338,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -386,7 +387,7 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 		return
 	}
 
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -430,7 +431,7 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 	assert.ErrorContains(t, err, "preview feature")
 }
 
-func getPkgVersionFromChroot(imageConnection *ImageConnection, pkgName string) (string, error) {
+func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {
 	var versionOutput string
 	err := imageConnection.Chroot().UnsafeRun(func() error {
 		out, _, err := shell.Execute("rpm", "-q", pkgName)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	imageConnection *ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
+	imageConnection *imageconnection.ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
 ) error {
 	var err error

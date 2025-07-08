@@ -8,6 +8,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -124,7 +125,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// Mount injected image and verify one file was injected
 	// Connect to customized image.
-	mountPoints := []MountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -143,7 +144,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -151,20 +152,20 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// Check the injected files
 	// shim
-	expectedInjectedShim := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "BOOT", filepath.Base(bootBinary))
+	expectedInjectedShim := filepath.Join(imageConnection.Chroot().RootDir(), "EFI", "BOOT", filepath.Base(bootBinary))
 	contains, err := fileContainsMarker(expectedInjectedShim, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected shim to exist:\n%s", expectedInjectedShim)
 
 	// systemd-boot
-	expectedInjectedSystemdBoot := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "systemd", filepath.Base(systemdBootBinary))
+	expectedInjectedSystemdBoot := filepath.Join(imageConnection.Chroot().RootDir(), "EFI", "systemd", filepath.Base(systemdBootBinary))
 	contains, err = fileContainsMarker(expectedInjectedSystemdBoot, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected systemd-boot to exist:\n%s", expectedInjectedSystemdBoot)
 
 	// UKI(s)
 	for _, src := range ukiFiles {
-		expectedInjectedUKI := filepath.Join(imageConnection.chroot.RootDir(), "EFI", "Linux", filepath.Base(src))
+		expectedInjectedUKI := filepath.Join(imageConnection.Chroot().RootDir(), "EFI", "Linux", filepath.Base(src))
 
 		exists, err = file.PathExists(expectedInjectedUKI)
 		assert.NoError(t, err)

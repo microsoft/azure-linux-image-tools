@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/resources"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"go.opentelemetry.io/otel"
 )
 
@@ -28,9 +29,9 @@ const (
 	// Dracut module directory path for verity boot partition support.
 	VerityMountBootPartitionModuleDir = "/usr/lib/dracut/modules.d/90mountbootpartition"
 	// Standard permission mode for dracut module directories.
-	DracutModuleDirMode = 0755
+	DracutModuleDirMode = 0o755
 	// Standard permission mode for executable scripts in dracut modules.
-	DracutModuleScriptFileMode = 0755
+	DracutModuleScriptFileMode = 0o755
 )
 
 func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
@@ -435,7 +436,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	return nil
 }
 
-func validateVerityMountPaths(imageConnection *ImageConnection, config *imagecustomizerapi.Config,
+func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, baseImageVerityMetadata []verityDeviceMetadata,
 ) error {
 	if config.Storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {

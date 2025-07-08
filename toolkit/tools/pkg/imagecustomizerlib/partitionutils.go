@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"golang.org/x/sys/unix"
 )
 
@@ -682,7 +683,7 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 	return ExtendedMountIdentifierTypeDefault, "", err
 }
 
-func getImageBootType(imageConnection *ImageConnection) (imagecustomizerapi.BootType, error) {
+func getImageBootType(imageConnection *imageconnection.ImageConnection) (imagecustomizerapi.BootType, error) {
 	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
 		return "", err

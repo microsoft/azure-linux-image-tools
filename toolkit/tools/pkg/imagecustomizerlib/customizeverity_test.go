@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
@@ -60,7 +61,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 	outImageFilePath string,
 ) {
 	// Connect to customized image.
-	mountPoints := []MountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -84,7 +85,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 		},
 	}
 
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -95,9 +96,9 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 
 	// Verify that verity is configured correctly.
 	// This helps verify that verity-enabled images can be recustomized.
-	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
-	rootDevice := partitionDevPath(imageConnection, 3)
-	hashDevice := partitionDevPath(imageConnection, 4)
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
+	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption")
 
@@ -368,7 +369,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 	outImageFilePath string, corruptionOption string,
 ) {
 	// Connect to usr verity image.
-	mountPoints := []MountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   5,
 			Path:           "/",
@@ -392,7 +393,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 		},
 	}
 
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -402,9 +403,9 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 	assert.NoError(t, err, "get disk partitions")
 
 	// Verify that usr verity is configured correctly.
-	bootPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot")
-	usrDevice := partitionDevPath(imageConnection, 3)
-	hashDevice := partitionDevPath(imageConnection, 4)
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
+	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[3].Uuid,
 		"UUID="+partitions[4].Uuid, "usr", "rd.info", baseImageInfo, corruptionOption)
 }

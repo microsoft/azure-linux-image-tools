@@ -10,8 +10,21 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"github.com/stretchr/testify/assert"
 )
+
+const (
+	testImageRootDirName = "testimageroot"
+)
+
+type MountPoint struct {
+	PartitionNum   int
+	Path           string
+	FileSystemType string
+	Flags          uintptr
+}
 
 func GetImageFileType(filePath string) (string, error) {
 	file, err := os.OpenFile(filePath, os.O_RDONLY, 0)
@@ -123,4 +136,44 @@ func CheckSkipForCustomizeImageRequirements(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
+}
+
+func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts bool, mounts []MountPoint,
+) (*imageconnection.ImageConnection, error) {
+	imageConnection := imageconnection.NewImageConnection()
+	err := imageConnection.ConnectLoopback(imageFilePath)
+	if err != nil {
+		imageConnection.Close()
+		return nil, err
+	}
+
+	rootDir := filepath.Join(buildDir, testImageRootDirName)
+
+	mountPoints := []*safechroot.MountPoint(nil)
+	for _, mount := range mounts {
+		devPath := PartitionDevPath(imageConnection, mount.PartitionNum)
+
+		var mountPoint *safechroot.MountPoint
+		if mount.Path == "/" {
+			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags,
+				"")
+		} else {
+			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags, "")
+		}
+
+		mountPoints = append(mountPoints, mountPoint)
+	}
+
+	err = imageConnection.ConnectChroot(rootDir, false, []string{}, mountPoints, includeDefaultMounts)
+	if err != nil {
+		imageConnection.Close()
+		return nil, err
+	}
+
+	return imageConnection, nil
+}
+
+func PartitionDevPath(imageConnection *imageconnection.ImageConnection, partitionNum int) string {
+	devPath := fmt.Sprintf("%sp%d", imageConnection.Loopback().DevicePath(), partitionNum)
+	return devPath
 }

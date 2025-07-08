@@ -14,11 +14,12 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	coreEfiMountPoints = []MountPoint{
+	coreEfiMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -31,7 +32,7 @@ var (
 		},
 	}
 
-	coreLegacyMountPoints = []MountPoint{
+	coreLegacyMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -122,8 +123,8 @@ func TestCustomizeImageVhd(t *testing.T) {
 	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
 }
 
-func connectToCoreEfiImage(buildDir string, imageFilePath string) (*ImageConnection, error) {
-	return ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
+func connectToCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
+	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
 }
 
 func TestValidateConfig_CallsValidateInput(t *testing.T) {

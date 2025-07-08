@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -308,20 +309,20 @@ func verifyFilePermissionsSame(t *testing.T, origPath string, newPath string) {
 	assert.Equal(t, origStat.Mode()&os.ModePerm, newStat.Mode()&os.ModePerm)
 }
 
-func ensureFilesExist(t *testing.T, imageConnection *ImageConnection, filePaths ...string) {
+func ensureFilesExist(t *testing.T, imageConnection *imageconnection.ImageConnection, filePaths ...string) {
 	for _, filePath := range filePaths {
 		// Note: Symbolic links might be broken as we are not checking under the chroot.
 		// Hence, the use of lstat instead of stat.
-		_, err := os.Lstat(filepath.Join(imageConnection.chroot.RootDir(), filePath))
+		_, err := os.Lstat(filepath.Join(imageConnection.Chroot().RootDir(), filePath))
 		assert.NoErrorf(t, err, "check file exists (%s)", filePath)
 	}
 }
 
-func ensureFilesNotExist(t *testing.T, imageConnection *ImageConnection, filePaths ...string) {
+func ensureFilesNotExist(t *testing.T, imageConnection *imageconnection.ImageConnection, filePaths ...string) {
 	for _, filePath := range filePaths {
 		// Note: Symbolic links might be broken as we are not checking under the chroot.
 		// Hence, the use of lstat instead of stat.
-		_, err := os.Lstat(filepath.Join(imageConnection.chroot.RootDir(), filePath))
+		_, err := os.Lstat(filepath.Join(imageConnection.Chroot().RootDir(), filePath))
 		assert.ErrorIsf(t, err, os.ErrNotExist, "ensure file does not exist (%s)", filePath)
 	}
 }

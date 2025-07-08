@@ -9,6 +9,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 )
@@ -36,7 +37,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	mountPoints := []MountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   5,
 			Path:           "/",
@@ -65,7 +66,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -75,9 +76,9 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	assert.NoError(t, err, "get disk partitions")
 
 	// Verify that verity is configured correctly.
-	espPath := filepath.Join(imageConnection.chroot.RootDir(), "/boot/efi")
-	usrDevice := partitionDevPath(imageConnection, 3)
-	usrHashDevice := partitionDevPath(imageConnection, 4)
+	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
+	usrHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
 

@@ -23,6 +23,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"golang.org/x/sys/unix"
 )
 
@@ -336,8 +337,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 	}
 
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, err :=
-			prepareImageConversionData(ctx, rawImageFile, buildDir, "imageroot")
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, err := prepareImageConversionData(ctx, rawImageFile, buildDir, "imageroot")
 		if err != nil {
 			return err
 		}
@@ -393,7 +393,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, nil
 }
 
-func extractImageUUID(imageConnection *ImageConnection) ([randomization.UuidSize]byte, string, error) {
+func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([randomization.UuidSize]byte, string, error) {
 	var emptyUuid [randomization.UuidSize]byte
 
 	releasePath := filepath.Join(imageConnection.Chroot().RootDir(), ImageCustomizerReleasePath)

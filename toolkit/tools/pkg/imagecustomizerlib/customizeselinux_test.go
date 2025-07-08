@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -132,7 +134,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	}
 
 	// Connect to customized image.
-	mountPoints := []MountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -150,7 +152,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 		},
 	}
 
-	imageConnection, err := ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -197,7 +199,7 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	}
 }
 
-func verifyKernelCommandLine(t *testing.T, imageConnection *ImageConnection, existsArgs []string,
+func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, existsArgs []string,
 	notExistsArgs []string,
 ) {
 	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
@@ -215,7 +217,7 @@ func verifyKernelCommandLine(t *testing.T, imageConnection *ImageConnection, exi
 	}
 }
 
-func verifySELinuxConfigFile(t *testing.T, imageConnection *ImageConnection, mode string) {
+func verifySELinuxConfigFile(t *testing.T, imageConnection *imageconnection.ImageConnection, mode string) {
 	selinuxConfigPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/selinux/config")
 	selinuxConfigContents, err := file.Read(selinuxConfigPath)
 	assert.NoError(t, err, "read SELinux config file")

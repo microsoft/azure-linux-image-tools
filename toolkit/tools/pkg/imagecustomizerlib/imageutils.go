@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 	"go.opentelemetry.io/otel"
 )
 
@@ -24,10 +25,10 @@ type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
 	includeDefaultMounts bool, readonly bool,
-) (*ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
+) (*imageconnection.ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
 	defer span.End()
-	imageConnection := NewImageConnection()
+	imageConnection := imageconnection.NewImageConnection()
 
 	partUuidToMountPath, verityMetadata, err := connectToExistingImageHelper(imageConnection, imageFilePath, buildDir,
 		chrootDirName, includeDefaultMounts, readonly)
@@ -39,7 +40,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 	return imageConnection, partUuidToMountPath, verityMetadata, nil
 }
 
-func connectToExistingImageHelper(imageConnection *ImageConnection, imageFilePath string,
+func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
 	// Connect to image file using loopback device.
@@ -84,7 +85,7 @@ func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imag
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
 ) (map[string]string, error) {
-	imageConnection := NewImageConnection()
+	imageConnection := imageconnection.NewImageConnection()
 	defer imageConnection.Close()
 
 	partIdToPartUuid, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
@@ -102,7 +103,7 @@ func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imag
 	return partIdToPartUuid, nil
 }
 
-func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConnection, filename string,
+func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconnection.ImageConnection, filename string,
 	diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
 	chrootDirName string, installOS installOSFunc,
 ) (map[string]string, error) {
@@ -141,7 +142,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *ImageConn
 	return partIdToPartUuid, nil
 }
 
-func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
+func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
 	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
@@ -187,7 +188,7 @@ func configureDiskBootLoader(imageConnection *ImageConnection, rootMountIdType i
 	return nil
 }
 
-func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *ImageConnection, filename string,
+func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageconnection.ImageConnection, filename string,
 	buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
 	imagerPartitionSettings []configuration.PartitionSetting,
 ) (map[string]string, string, error) {
@@ -291,7 +292,7 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 	return partIdToPartUuid, nil
 }
 
-func extractOSRelease(imageConnection *ImageConnection) (string, error) {
+func extractOSRelease(imageConnection *imageconnection.ImageConnection) (string, error) {
 	osReleasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/os-release")
 	data, err := file.Read(osReleasePath)
 	if err != nil {

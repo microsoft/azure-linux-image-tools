@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
 )
 
 func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
@@ -71,7 +72,7 @@ func doOsCustomizationsImageCreator(
 	ctx context.Context,
 	buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.Config,
-	imageConnection *ImageConnection,
+	imageConnection *imageconnection.ImageConnection,
 	toolsChroot *safechroot.Chroot,
 	rpmsSources []string,
 	useBaseImageRpmRepos bool,
