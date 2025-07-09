@@ -82,7 +82,7 @@ func (p *Pxe) IsValid() error {
 	if p.KdumpBootFiles != nil {
 		err = p.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("invalid kdumpBootFiles: %w", err)
+			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
 		}
 	}
 

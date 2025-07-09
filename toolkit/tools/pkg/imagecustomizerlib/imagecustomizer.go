@@ -376,8 +376,6 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 		// image, and a reconstruction of the full OS image is needed.
 		kdumpBootFileChanging := isKdumpBootFilesConfigChanging(liveosConfig.kdumpBootFiles, inputIsoArtifacts.info.kdumpBootFiles)
 
-		// inputIsoArtifacts.info.
-
 		// If the input is a LiveOS iso and there are OS customizations
 		// defined, we create a writeable disk image so that mic can modify
 		// it. If no OS customizations are defined, we can skip this step and

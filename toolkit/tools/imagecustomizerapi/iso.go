@@ -34,7 +34,7 @@ func (i *Iso) IsValid() error {
 	if i.KdumpBootFiles != nil {
 		err = i.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("invalid kdumpBootFiles: %w", err)
+			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
 		}
 	}
 
