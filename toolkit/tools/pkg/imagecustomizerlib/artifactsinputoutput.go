@@ -18,6 +18,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
@@ -336,8 +337,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 	}
 
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, err :=
-			prepareImageConversionData(ctx, rawImageFile, buildDir, "imageroot")
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, err := prepareImageConversionData(ctx, rawImageFile, buildDir, "imageroot")
 		if err != nil {
 			return err
 		}
@@ -376,7 +376,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfo(buildDir, imageConnection)
+	osPackages, cosiBootMetadata, err := collectOSInfo(ctx, buildDir, imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
 	}
@@ -393,7 +393,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, nil
 }
 
-func extractImageUUID(imageConnection *ImageConnection) ([randomization.UuidSize]byte, string, error) {
+func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([randomization.UuidSize]byte, string, error) {
 	var emptyUuid [randomization.UuidSize]byte
 
 	releasePath := filepath.Join(imageConnection.Chroot().RootDir(), ImageCustomizerReleasePath)

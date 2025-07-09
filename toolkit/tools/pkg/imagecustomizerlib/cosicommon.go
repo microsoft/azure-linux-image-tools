@@ -15,6 +15,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
@@ -316,7 +317,7 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
+func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
 	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
 		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
 	}
@@ -351,7 +352,7 @@ func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, er
 	return packages, nil
 }
 
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnection) (*CosiBootloader, error) {
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection) (*CosiBootloader, error) {
 	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot())
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type: %w", err)

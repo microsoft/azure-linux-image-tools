@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,7 +31,7 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	mountPoints := []mountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -54,14 +55,14 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer imageConnection.Close()
 
 	// Read fstab file.
-	fstabPath := filepath.Join(imageConnection.chroot.RootDir(), "etc/fstab")
+	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
 	fstabContents, err := file.Read(fstabPath)
 	if !assert.NoError(t, err) {
 		return
@@ -100,7 +101,7 @@ func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 	defer imageConnection.Close()
 
 	// Read fstab file.
-	fstabPath := filepath.Join(imageConnection.chroot.RootDir(), "etc/fstab")
+	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
 	fstabContents, err := file.Read(fstabPath)
 	assert.NoError(t, err)
 
@@ -108,10 +109,10 @@ func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 	assert.Contains(t, fstabContents,
 		"overlay /var overlay lowerdir=/var,upperdir=/mnt/overlays/var/upper,workdir=/mnt/overlays/var/work 0 0")
 
-	upperLabel, err := getSELinuxLabel(filepath.Join(imageConnection.chroot.RootDir(), "/mnt/overlays/var/upper"))
+	upperLabel, err := getSELinuxLabel(filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/overlays/var/upper"))
 	assert.NoError(t, err)
 
-	workLabel, err := getSELinuxLabel(filepath.Join(imageConnection.chroot.RootDir(), "/mnt/overlays/var/work"))
+	workLabel, err := getSELinuxLabel(filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/overlays/var/work"))
 	assert.NoError(t, err)
 
 	assert.Contains(t, upperLabel, ":object_r:var_t:s0")

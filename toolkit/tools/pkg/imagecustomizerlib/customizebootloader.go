@@ -9,13 +9,14 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 	"go.opentelemetry.io/otel"
 )
 
-func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
+func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	switch {
@@ -36,7 +37,7 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 	return nil
 }
 
-func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *ImageConnection,
+func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	var err error

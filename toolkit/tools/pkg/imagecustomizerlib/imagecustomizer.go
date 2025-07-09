@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
@@ -26,6 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sys/unix"
 )
 
@@ -238,14 +240,20 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
-) error {
+) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
 		attribute.String("output_image_format", string(outputImageFormat)),
 	)
-	defer span.End()
+	defer func() {
+		if err != nil {
+			span.RecordError(fmt.Errorf("image customization failed"))
+			span.SetStatus(codes.Error, "image customization failed")
+		}
+		span.End()
+	}()
 
-	err := ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
 		return fmt.Errorf("invalid image config:\n%w", err)
 	}
@@ -645,7 +653,6 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
 	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
 ) error {
-
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
@@ -952,7 +959,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	var osPackages []OsPackage
 	var cosiBootMetadata *CosiBootloader
 	if config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || outputImageFormatType == imagecustomizerapi.ImageFormatTypeCosi {
-		osPackages, cosiBootMetadata, err = collectOSInfo(buildDir, imageConnection)
+		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, buildDir, imageConnection)
 		if err != nil {
 			return nil, nil, "", nil, nil, err
 		}
@@ -974,7 +981,9 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, cosiBootMetadata, nil
 }
 
-func collectOSInfo(buildDir string, imageConnection *ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfo(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
+	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
@@ -1237,7 +1246,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	return nil
 }
 
-func warnOnLowFreeSpace(buildDir string, imageConnection *ImageConnection) {
+func warnOnLowFreeSpace(buildDir string, imageConnection *imageconnection.ImageConnection) {
 	logger.Log.Debugf("Checking disk space")
 
 	imageChroot := imageConnection.Chroot()
