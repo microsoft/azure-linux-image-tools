@@ -9,7 +9,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imageconnection"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 )
 
 const (

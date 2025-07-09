@@ -109,10 +109,10 @@ func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 	assert.Contains(t, fstabContents,
 		"overlay /var overlay lowerdir=/var,upperdir=/mnt/overlays/var/upper,workdir=/mnt/overlays/var/work 0 0")
 
-	upperLabel, err := getSELinuxLabel(filepath.Join(imageConnection.chroot.RootDir(), "/mnt/overlays/var/upper"))
+	upperLabel, err := getSELinuxLabel(filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/overlays/var/upper"))
 	assert.NoError(t, err)
 
-	workLabel, err := getSELinuxLabel(filepath.Join(imageConnection.chroot.RootDir(), "/mnt/overlays/var/work"))
+	workLabel, err := getSELinuxLabel(filepath.Join(imageConnection.Chroot().RootDir(), "/mnt/overlays/var/work"))
 	assert.NoError(t, err)
 
 	assert.Contains(t, upperLabel, ":object_r:var_t:s0")

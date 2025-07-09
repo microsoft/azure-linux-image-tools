@@ -71,7 +71,7 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 ) error {
 	err := validateSupportedFields(config)
 	if err != nil {
-		return fmt.Errorf("invalid config file %s:\n%w", baseConfigPath, err)
+		return fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
 	}
 
 	// Validate mandatory fields for creating a seed image
@@ -97,7 +97,7 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 func validateMandatoryFields(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string) error {
 	// check if storage disks is not empty for creating a seed image
 	if len(config.Storage.Disks) == 0 {
-		return fmt.Errorf("storage.disks field is required in the config file %s", baseConfigPath)
+		return fmt.Errorf("storage.disks field is required in the config file (%s)", baseConfigPath)
 	}
 
 	// rpmSources must not be empty for creating a seed image
@@ -119,15 +119,15 @@ func validateToolsTarFile(toolsTar string) error {
 		return fmt.Errorf("tools tar file is required for image creation")
 	}
 	if _, err := os.Stat(toolsTar); os.IsNotExist(err) {
-		return fmt.Errorf("tools tar file %s does not exist", toolsTar)
+		return fmt.Errorf("tools tar file (%s) does not exist", toolsTar)
 	}
 	// Check if the tools tar file is a valid tar file
 	isValid, err := isValidTarGz(toolsTar)
 	if err != nil {
-		return fmt.Errorf("failed to validate tools tar file %s: %w", toolsTar, err)
+		return fmt.Errorf("failed to validate tools tar file (%s): %w", toolsTar, err)
 	}
 	if !isValid {
-		return fmt.Errorf("tools tar file %s is not a valid tar.gz file", toolsTar)
+		return fmt.Errorf("tools tar file (%s) is not a valid tar.gz file", toolsTar)
 	}
 
 	return nil
