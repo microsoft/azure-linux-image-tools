@@ -34,12 +34,14 @@ type LiveOSSavedConfigs struct {
 }
 
 func (i *LiveOSSavedConfigs) IsValid() error {
-	err := i.KdumpBootFiles.IsValid()
-	if err != nil {
-		return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
+	if i.KdumpBootFiles != nil {
+		err := i.KdumpBootFiles.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
+		}
 	}
 
-	err = i.KernelCommandLine.IsValid()
+	err := i.KernelCommandLine.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid kernelCommandLine:\n%w", err)
 	}
