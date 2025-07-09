@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -161,7 +162,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		Images:     make([]FileSystem, len(imageData)),
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
-		Bootloader: cosiBootMetadata,
+		Bootloader: *cosiBootMetadata,
 	}
 
 	// Copy updated metadata
@@ -395,7 +396,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *ImageConnectio
 }
 
 func extractUkiEntriesIfPresent(chrootDir, buildDir string) ([]SystemDBootEntry, error) {
-	espDir := filepath.Join(chrootDir, "boot", "efi")
+	espDir := filepath.Join(chrootDir, "boot/efi")
 	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel cmdline from UKI .efi files:\n%w", err)
@@ -445,67 +446,90 @@ func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
 	var entries []SystemDBootEntry
 
 	for _, file := range files {
-		if file.IsDir() || !strings.HasSuffix(file.Name(), ".conf") {
-			continue
-		}
-
-		absPath := filepath.Join(entryDir, file.Name())
-		content, err := os.ReadFile(absPath)
+		entry, err := parseSystemdBootEntryFromFile(entryDir, file)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", absPath, err)
+			return nil, err
 		}
-
-		entry := SystemDBootEntry{
-			Path: filepath.Join("/boot/loader/entries", file.Name()),
+		if entry != nil {
+			entries = append(entries, *entry)
 		}
-
-		lines := strings.Split(string(content), "\n")
-
-		for _, line := range lines {
-			line = strings.TrimRight(line, "\r\n")
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-
-			idx := strings.IndexAny(line, " \t")
-			if idx == -1 {
-				continue // no value
-			}
-
-			key := line[:idx]
-			value := strings.TrimLeft(line[idx:], " \t") // Trim both spaces and tabs
-
-			switch key {
-			case "options":
-				if entry.Cmdline != "" {
-					entry.Cmdline += " "
-				}
-				entry.Cmdline += value
-			case "linux":
-				if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
-					entry.Kernel = kernelVer
-				}
-			case "uki":
-				if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
-					entry.Kernel = kernelVer
-				}
-				entry.Type = SystemDBootEntryTypeUKIConfig
-			}
-		}
-
-		// Determine fallback type
-		if entry.Type == "" {
-			if strings.HasSuffix(entry.Kernel, ".efi") {
-				entry.Type = SystemDBootEntryTypeUKIConfig
-			} else {
-				entry.Type = SystemDBootEntryTypeConfig
-			}
-		}
-
-		entries = append(entries, entry)
 	}
 
 	return entries, nil
+}
+
+func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDBootEntry, error) {
+	if file.IsDir() || !strings.HasSuffix(file.Name(), ".conf") {
+		return nil, nil
+	}
+
+	absPath := filepath.Join(entryDir, file.Name())
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", absPath, err)
+	}
+
+	entry := &SystemDBootEntry{
+		Path: filepath.Join("/boot/loader/entries", file.Name()),
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		// Handle line endings
+		line = strings.TrimRight(line, "\r\n")
+
+		// Ignore blank lines and comment lines (even with leading spaces/tabs)
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		// Split key and value on first space/tab
+		idx := strings.IndexAny(line, " \t")
+		if idx == -1 {
+			continue // No key-value separator
+		}
+
+		key := strings.TrimSpace(line[:idx])
+
+		value := strings.TrimLeft(line[idx:], " \t") // Remove leading separators
+		value = strings.TrimRight(value, " \t")      // Remove trailing whitespace
+
+		// Remove surrounding quotes from value, if any
+		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
+			value = value[1 : len(value)-1]
+		}
+
+		switch key {
+		case "options":
+			if entry.Cmdline != "" {
+				entry.Cmdline += " "
+			}
+			entry.Cmdline += value
+
+		case "linux":
+			if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
+				entry.Kernel = kernelVer
+			}
+
+		case "uki":
+			if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
+				entry.Kernel = kernelVer
+			}
+			entry.Type = SystemDBootEntryTypeUKIConfig
+		}
+	}
+
+	// Determine fallback type
+	if entry.Type == "" {
+		if strings.HasSuffix(entry.Kernel, ".efi") {
+			entry.Type = SystemDBootEntryTypeUKIConfig
+		} else {
+			entry.Type = SystemDBootEntryTypeConfig
+		}
+	}
+
+	return entry, nil
 }
 
 func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
