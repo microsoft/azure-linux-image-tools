@@ -13,8 +13,10 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +50,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	mountPoints := []mountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
@@ -71,7 +73,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -136,7 +138,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	mountPoints := []mountPoint{
+	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -154,7 +156,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -242,7 +244,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	imageConnection, err := connectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
 		coreLegacyMountPoints)
 	if !assert.NoError(t, err) {
 		return
@@ -391,7 +393,7 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		baseImageInfo)
 }
 
-func getFilteredFstabEntries(t *testing.T, imageConnection *ImageConnection) []diskutils.FstabEntry {
+func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if !assert.NoError(t, err, "read /etc/fstab") {
@@ -402,7 +404,7 @@ func getFilteredFstabEntries(t *testing.T, imageConnection *ImageConnection) []d
 	return filteredFstabEntries
 }
 
-func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoints []mountPoint,
+func verifyFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection, mountPoints []testutils.MountPoint,
 	partitions map[int]diskutils.PartitionInfo,
 ) {
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
@@ -427,14 +429,14 @@ func verifyFstabEntries(t *testing.T, imageConnection *ImageConnection, mountPoi
 	}
 }
 
-func verifyBootloaderConfig(t *testing.T, imageConnection *ImageConnection, extraCommandLineArgs string,
+func verifyBootloaderConfig(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, baseImageInfo testBaseImageInfo,
 ) {
 	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid)
 	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
 }
 
-func verifyEspGrubCfg(t *testing.T, imageConnection *ImageConnection, bootUuid string) {
+func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, bootUuid string) {
 	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi/boot/grub2/grub.cfg")
 	grubCfgContents, err := file.Read(grubCfgFilePath)
 	if !assert.NoError(t, err, "read ESP grub.cfg file") {
@@ -444,7 +446,7 @@ func verifyEspGrubCfg(t *testing.T, imageConnection *ImageConnection, bootUuid s
 	assert.Regexp(t, fmt.Sprintf("(?m)^search -n -u %s -s$", regexp.QuoteMeta(bootUuid)), grubCfgContents)
 }
 
-func verifyBootGrubCfg(t *testing.T, imageConnection *ImageConnection, extraCommandLineArgs string,
+func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
 	baseImageInfo testBaseImageInfo,
 ) {

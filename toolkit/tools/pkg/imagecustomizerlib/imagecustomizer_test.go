@@ -4,7 +4,6 @@
 package imagecustomizerlib
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,17 +13,13 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	testImageRootDirName = "testimageroot"
-)
-
 var (
-	coreEfiMountPoints = []mountPoint{
+	coreEfiMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -37,7 +32,7 @@ var (
 		},
 	}
 
-	coreLegacyMountPoints = []mountPoint{
+	coreLegacyMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -128,55 +123,8 @@ func TestCustomizeImageVhd(t *testing.T) {
 	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
 }
 
-func connectToCoreEfiImage(buildDir string, imageFilePath string) (*ImageConnection, error) {
-	return connectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
-}
-
-type mountPoint struct {
-	PartitionNum   int
-	Path           string
-	FileSystemType string
-	Flags          uintptr
-}
-
-func connectToImage(buildDir string, imageFilePath string, includeDefaultMounts bool, mounts []mountPoint,
-) (*ImageConnection, error) {
-	imageConnection := NewImageConnection()
-	err := imageConnection.ConnectLoopback(imageFilePath)
-	if err != nil {
-		imageConnection.Close()
-		return nil, err
-	}
-
-	rootDir := filepath.Join(buildDir, testImageRootDirName)
-
-	mountPoints := []*safechroot.MountPoint(nil)
-	for _, mount := range mounts {
-		devPath := partitionDevPath(imageConnection, mount.PartitionNum)
-
-		var mountPoint *safechroot.MountPoint
-		if mount.Path == "/" {
-			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags,
-				"")
-		} else {
-			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags, "")
-		}
-
-		mountPoints = append(mountPoints, mountPoint)
-	}
-
-	err = imageConnection.ConnectChroot(rootDir, false, []string{}, mountPoints, includeDefaultMounts)
-	if err != nil {
-		imageConnection.Close()
-		return nil, err
-	}
-
-	return imageConnection, nil
-}
-
-func partitionDevPath(imageConnection *ImageConnection, partitionNum int) string {
-	devPath := fmt.Sprintf("%sp%d", imageConnection.Loopback().DevicePath(), partitionNum)
-	return devPath
+func connectToCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
+	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
 }
 
 func TestValidateConfig_CallsValidateInput(t *testing.T) {

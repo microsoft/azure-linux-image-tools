@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
@@ -311,7 +312,7 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *ImageConnection) ([]OsPackage, error) {
+func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
 	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
 		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
 	}

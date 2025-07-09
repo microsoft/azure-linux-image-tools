@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
@@ -650,7 +651,6 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
 	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
 ) error {
-
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
@@ -978,7 +978,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, nil
 }
 
-func collectOSInfo(ctx context.Context, imageConnection *ImageConnection) ([]OsPackage, error) {
+func collectOSInfo(ctx context.Context, imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
@@ -1239,7 +1239,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	return nil
 }
 
-func warnOnLowFreeSpace(buildDir string, imageConnection *ImageConnection) {
+func warnOnLowFreeSpace(buildDir string, imageConnection *imageconnection.ImageConnection) {
 	logger.Log.Debugf("Checking disk space")
 
 	imageChroot := imageConnection.Chroot()

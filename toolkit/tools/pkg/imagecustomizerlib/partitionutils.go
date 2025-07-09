@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/grub"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
@@ -682,7 +683,7 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 	return ExtendedMountIdentifierTypeDefault, "", err
 }
 
-func getImageBootType(imageConnection *ImageConnection) (imagecustomizerapi.BootType, error) {
+func getImageBootType(imageConnection *imageconnection.ImageConnection) (imagecustomizerapi.BootType, error) {
 	diskPartitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
 		return "", err
