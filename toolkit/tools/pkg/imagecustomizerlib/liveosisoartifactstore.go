@@ -34,6 +34,7 @@ var (
 
 type IsoInfoStore struct {
 	seLinuxMode              imagecustomizerapi.SELinuxMode
+	kdumpBootFiles           *imagecustomizerapi.KdumpBootFilesType
 	dracutPackageInfo        *PackageVersionInformation
 	selinuxPolicyPackageInfo *PackageVersionInformation
 }
@@ -499,6 +500,7 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	// since we will not expand the rootfs and inspect its contents to get
 	// such information.
 	infoStore = &IsoInfoStore{
+		kdumpBootFiles:           savedConfigs.LiveOS.KdumpBootFiles,
 		dracutPackageInfo:        savedConfigs.OS.DracutPackageInfo,
 		selinuxPolicyPackageInfo: savedConfigs.OS.SELinuxPolicyPackageInfo,
 	}
@@ -629,6 +631,11 @@ func dumpInfoStore(infoStore *IsoInfoStore) {
 	if infoStore == nil {
 		logger.Log.Infof("-- not defined")
 		return
+	}
+	if infoStore.kdumpBootFiles != nil {
+		logger.Log.Infof("-- kdumpBootFiles       = %s", *infoStore.kdumpBootFiles)
+	} else {
+		logger.Log.Infof("-- kdumpBootFiles       = not defined")
 	}
 	logger.Log.Infof("-- seLinuxMode          = %s", infoStore.seLinuxMode)
 	if infoStore.dracutPackageInfo != nil {
