@@ -322,11 +322,11 @@ func CustomizeImage(buildDir string, baseConfigPath string, config *imagecustomi
 	return nil
 }
 
-func isKdumpBootFilesConfigChanging(requestKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, inputKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType) bool {
-	// Check if user is changing the kdump boot files configuration
+func isKdumpBootFilesConfigChanging(requestedKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
+	inputKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType) bool {
 	requestedKdumpBootFilesCfg := false
-	if requestKdumpBootFiles != nil {
-		requestedKdumpBootFilesCfg = *requestKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
+	if requestedKdumpBootFiles != nil {
+		requestedKdumpBootFilesCfg = *requestedKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
 	}
 
 	inputKdumpBootFilesCfg := false
@@ -354,7 +354,9 @@ func convertInputImageToWriteableFormat(ic *ImageCustomizerParameters) (*IsoArti
 			return nil, fmt.Errorf("failed to build Live OS configuration:\n%w", err)
 		}
 
-		// Check if user is changing the kdump boot files configuration
+		// Check if the user is changing the kdump boot files configuration.
+		// If it is changing, it may change the composition of the full OS
+		// image, and a reconstruction of the full OS image is needed.
 		kdumpBootFileChanging := isKdumpBootFilesConfigChanging(liveosConfig.kdumpBootFiles, inputIsoArtifacts.info.kdumpBootFiles)
 
 		// inputIsoArtifacts.info.
@@ -580,7 +582,9 @@ func convertWriteableFormatToOutputImage(ic *ImageCustomizerParameters, inputIso
 				return fmt.Errorf("failed to build Live OS configuration\n%w", err)
 			}
 
-			// Check if user is changing the kdump boot files configuration
+			// Check if the user is changing the kdump boot files configuration.
+			// If it is changing, it may change the composition of the full OS
+			// image, and a reconstruction of the full OS image is needed.
 			kdumpBootFileChanging = isKdumpBootFilesConfigChanging(liveosConfig.kdumpBootFiles, inputIsoArtifacts.info.kdumpBootFiles)
 		}
 

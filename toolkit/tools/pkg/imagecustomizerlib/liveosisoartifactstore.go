@@ -295,7 +295,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		}
 	}
 
-	// Resolve kdump files
+	// Find the kdump kernel files matching the initramfs files found earlier.
 	if len(filesStore.kdumpBootFiles) != 0 {
 		for kernelVersion, kdumpBootFiles := range filesStore.kdumpBootFiles {
 			kernelBootFiles, exists := filesStore.kernelBootFiles[kernelVersion]
@@ -616,9 +616,8 @@ func dumpFilesStore(filesStore *IsoFilesStore) {
 	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
 	logger.Log.Debugf("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
 	logger.Log.Debugf("-- additionalFiles          =")
-	for key, _ := range filesStore.additionalFiles {
-		// logger.Log.Debugf("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
-		logger.Log.Debugf("-- -- localPath: %s\n", fileExistsToString(key))
+	for key, value := range filesStore.additionalFiles {
+		logger.Log.Debugf("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
 	}
 }
 
