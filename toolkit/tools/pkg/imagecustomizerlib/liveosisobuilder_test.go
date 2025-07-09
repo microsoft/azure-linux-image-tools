@@ -453,7 +453,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -479,7 +479,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 		},
 	}
 
-	err = CustomizeImage(buildDir, testDir, configA1, outImageFilePath, nil, outImageFilePath,
+	err = CustomizeImage(t.Context(), buildDir, testDir, configA1, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -569,7 +569,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(buildDir, testDir, configB, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -591,7 +591,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(buildDir, testDir, configC, baseImage, nil, outImageFilePath,
+	err = CustomizeImage(t.Context(), buildDir, testDir, configC, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
