@@ -87,14 +87,7 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.kernelCommandLine = isoConfig.KernelCommandLine
 			config.additionalFiles = isoConfig.AdditionalFiles
 			config.initramfsType = isoConfig.InitramfsType
-			if isoConfig.KdumpBootFiles != nil {
-				switch *isoConfig.KdumpBootFiles {
-				case imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.KdumpBootFilesTypeKeep:
-					config.kdumpBootFiles = isoConfig.KdumpBootFiles
-				default:
-					return config, false, fmt.Errorf("invalid kdumpBootFiles value (%s) in ISO configuration", *isoConfig.KdumpBootFiles)
-				}
-			}
+			config.kdumpBootFiles = isoConfig.KdumpBootFiles
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,
@@ -108,14 +101,7 @@ func buildLiveOSConfig(inputArtifactsStore *IsoArtifactsStore, isoConfig *imagec
 			config.initramfsType = pxeConfig.InitramfsType
 			config.bootstrapBaseUrl = pxeConfig.BootstrapBaseUrl
 			config.bootstrapFileUrl = pxeConfig.BootstrapFileUrl
-			if pxeConfig.KdumpBootFiles != nil {
-				switch *pxeConfig.KdumpBootFiles {
-				case imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.KdumpBootFilesTypeKeep:
-					config.kdumpBootFiles = isoConfig.KdumpBootFiles
-				default:
-					return config, false, fmt.Errorf("invalid kdumpBootFiles value (%s) in PXE configuration", *pxeConfig.KdumpBootFiles)
-				}
-			}
+			config.kdumpBootFiles = isoConfig.KdumpBootFiles
 		}
 
 		config.initramfsType, convertingInitramfsType = resolveInitramfsType(inputArtifactsStore, config.initramfsType,

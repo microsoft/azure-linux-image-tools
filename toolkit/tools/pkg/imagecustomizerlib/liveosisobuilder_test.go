@@ -56,7 +56,7 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 
 	config := imagecustomizerapi.Config{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureCrashDump,
+			imagecustomizerapi.PreviewFeatureKdumpBootFiles,
 		},
 		Iso: &imagecustomizerapi.Iso{
 			KdumpBootFiles: &kdumpBootFiles,
@@ -472,7 +472,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 	kdumpBootFiles := imagecustomizerapi.KdumpBootFilesTypeNone
 	configA1 := &imagecustomizerapi.Config{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureCrashDump,
+			imagecustomizerapi.PreviewFeatureKdumpBootFiles,
 		},
 		Iso: &imagecustomizerapi.Iso{
 			KdumpBootFiles: &kdumpBootFiles,

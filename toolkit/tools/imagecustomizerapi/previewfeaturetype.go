@@ -23,14 +23,14 @@ const (
 	// PreviewFeatureSnapshotTime enables support for snapshot-based package filtering.
 	PreviewFeaturePackageSnapshotTime PreviewFeature = "package-snapshot-time"
 
-	// PreviewFeatureCrashDump enables support for crash dump configuration.
-	PreviewFeatureCrashDump PreviewFeature = "crash-dump"
+	// PreviewFeatureKdumpBootFiles enables support for crash dump configuration.
+	PreviewFeatureKdumpBootFiles PreviewFeature = "kdump-boot-files"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureCrashDump:
+		PreviewFeatureKdumpBootFiles:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

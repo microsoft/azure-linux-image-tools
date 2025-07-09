@@ -39,8 +39,8 @@ func (c *Config) IsValid() (err error) {
 		if err != nil {
 			return fmt.Errorf("invalid 'iso' field:\n%w", err)
 		}
-		if c.Iso.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureCrashDump) {
-			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.kdumpBootFiles'", PreviewFeatureCrashDump)
+		if c.Iso.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'iso.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
 	}
 
@@ -49,8 +49,8 @@ func (c *Config) IsValid() (err error) {
 		if err != nil {
 			return fmt.Errorf("invalid 'pxe' field:\n%w", err)
 		}
-		if c.Pxe.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureCrashDump) {
-			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.kdumpBootFiles'", PreviewFeatureCrashDump)
+		if c.Pxe.KdumpBootFiles != nil && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureKdumpBootFiles) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'pxe.kdumpBootFiles'", PreviewFeatureKdumpBootFiles)
 		}
 	}
 
