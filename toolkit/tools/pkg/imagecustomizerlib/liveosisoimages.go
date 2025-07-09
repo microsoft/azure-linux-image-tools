@@ -580,9 +580,6 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		// root partitions will be mounted, and the files of /boot/efi will
 		// land on the the boot partition, while the rest will be on the rootfs
 		// partition.
-
-		logger.Log.Infof("-- debug -- installing (%s) to (%s)", rootfsDir, imageChroot.RootDir())
-
 		err := copyPartitionFiles(rootfsDir+"/.", imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy squashfs contents to a writeable disk:\n%w", err)
@@ -595,9 +592,6 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		// pull the boot artifacts back into the full file system so that
 		// it is restored to its original state and subsequent customization
 		// or extraction can proceed transparently.
-
-		logger.Log.Infof("-- debug -- installing (%s) to (%s)", artifactsBootDir, imageChroot.RootDir())
-
 		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
@@ -646,18 +640,12 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		}
 
 		targetShimPath := filepath.Join(targetEfiDir, filepath.Base(inputArtifactsStore.files.bootEfiPath))
-
-		logger.Log.Infof("-- debug -- installing (%s) to (%s)", inputArtifactsStore.files.bootEfiPath, targetShimPath)
-
 		err = file.Copy(inputArtifactsStore.files.bootEfiPath, targetShimPath)
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", inputArtifactsStore.files.bootEfiPath, targetShimPath, err)
 		}
 
 		targetGrubPath := filepath.Join(targetEfiDir, filepath.Base(inputArtifactsStore.files.grubEfiPath))
-
-		logger.Log.Infof("-- debug -- installing (%s) to (%s)", inputArtifactsStore.files.grubEfiPath, targetGrubPath)
-
 		err = file.Copy(inputArtifactsStore.files.grubEfiPath, targetGrubPath)
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) to (%s):\n%w", inputArtifactsStore.files.grubEfiPath, targetGrubPath, err)

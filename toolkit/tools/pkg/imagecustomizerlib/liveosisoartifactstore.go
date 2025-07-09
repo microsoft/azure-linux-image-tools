@@ -528,8 +528,6 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.info = infoStore
 
-	dumpArtifactsStore(artifactStore, "createIsoArtifactStoreFromMountedImage")
-
 	return artifactStore, nil
 }
 
@@ -555,8 +553,6 @@ func createIsoArtifactStoreFromIsoImage(isoImageFile, storeDir string) (artifact
 	}
 	artifactStore.info = infoStore
 
-	dumpArtifactsStore(artifactStore, "createIsoArtifactStoreFromIsoImage")
-
 	return artifactStore, nil
 }
 
@@ -573,87 +569,87 @@ func fileExistsToString(filePath string) string {
 
 func dumpKernelBootFiles(kernelBootFiles *KernelBootFiles) {
 	if kernelBootFiles == nil {
-		logger.Log.Infof("-- -- not defined")
+		logger.Log.Debugf("-- -- not defined")
 		return
 	}
 
-	logger.Log.Infof("-- -- vmlinuzPath           = %s", fileExistsToString(kernelBootFiles.vmlinuzPath))
-	logger.Log.Infof("-- -- initrdImagePath       = %s", fileExistsToString(kernelBootFiles.initrdImagePath))
+	logger.Log.Debugf("-- -- vmlinuzPath           = %s", fileExistsToString(kernelBootFiles.vmlinuzPath))
+	logger.Log.Debugf("-- -- initrdImagePath       = %s", fileExistsToString(kernelBootFiles.initrdImagePath))
 	for _, otherFile := range kernelBootFiles.otherFiles {
-		logger.Log.Infof("-- -- otherFile             = %s", fileExistsToString(otherFile))
+		logger.Log.Debugf("-- -- otherFile             = %s", fileExistsToString(otherFile))
 	}
 }
 
 func dumpKdumpBootFiles(kdumpBootFiles *KdumpBootFiles) {
 	if kdumpBootFiles == nil {
-		logger.Log.Infof("-- -- not defined")
+		logger.Log.Debugf("-- -- not defined")
 		return
 	}
 
-	logger.Log.Infof("-- -- vmlinuzPath           = %s", fileExistsToString(kdumpBootFiles.vmlinuzPath))
-	logger.Log.Infof("-- -- initrdImagePath       = %s", fileExistsToString(kdumpBootFiles.initrdImagePath))
+	logger.Log.Debugf("-- -- vmlinuzPath           = %s", fileExistsToString(kdumpBootFiles.vmlinuzPath))
+	logger.Log.Debugf("-- -- initrdImagePath       = %s", fileExistsToString(kdumpBootFiles.initrdImagePath))
 }
 
 func dumpFilesStore(filesStore *IsoFilesStore) {
-	logger.Log.Infof("Files Store")
+	logger.Log.Debugf("Files Store")
 	if filesStore == nil {
-		logger.Log.Infof("-- not defined")
+		logger.Log.Debugf("-- not defined")
 		return
 	}
-	logger.Log.Infof("-- artifactsDir             = %s", fileExistsToString(filesStore.artifactsDir))
-	logger.Log.Infof("-- bootEfiPath              = %s", fileExistsToString(filesStore.bootEfiPath))
-	logger.Log.Infof("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
-	logger.Log.Infof("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
-	logger.Log.Infof("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
-	logger.Log.Infof("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
-	logger.Log.Infof("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
-	logger.Log.Infof("-- kernel file groups")
+	logger.Log.Debugf("-- artifactsDir             = %s", fileExistsToString(filesStore.artifactsDir))
+	logger.Log.Debugf("-- bootEfiPath              = %s", fileExistsToString(filesStore.bootEfiPath))
+	logger.Log.Debugf("-- grubEfiPath              = %s", fileExistsToString(filesStore.grubEfiPath))
+	logger.Log.Debugf("-- isoBootImagePath         = %s", fileExistsToString(filesStore.isoBootImagePath))
+	logger.Log.Debugf("-- isoGrubCfgPath           = %s", fileExistsToString(filesStore.isoGrubCfgPath))
+	logger.Log.Debugf("-- pxeGrubCfgPath           = %s", fileExistsToString(filesStore.pxeGrubCfgPath))
+	logger.Log.Debugf("-- savedConfigsFilePath     = %s", fileExistsToString(filesStore.savedConfigsFilePath))
+	logger.Log.Debugf("-- kernel file groups")
 	for key, value := range filesStore.kernelBootFiles {
-		logger.Log.Infof("-- - version               = %s", key)
+		logger.Log.Debugf("-- - version               = %s", key)
 		dumpKernelBootFiles(value)
 	}
-	logger.Log.Infof("-- kdump file groups")
+	logger.Log.Debugf("-- kdump file groups")
 	for key, value := range filesStore.kdumpBootFiles {
-		logger.Log.Infof("-- - version               = %s", key)
+		logger.Log.Debugf("-- - version               = %s", key)
 		dumpKdumpBootFiles(value)
 	}
-	logger.Log.Infof("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
-	logger.Log.Infof("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
-	logger.Log.Infof("-- additionalFiles          =")
+	logger.Log.Debugf("-- initrdImagePath          = %s", fileExistsToString(filesStore.initrdImagePath))
+	logger.Log.Debugf("-- squashfsImagePath        = %s", fileExistsToString(filesStore.squashfsImagePath))
+	logger.Log.Debugf("-- additionalFiles          =")
 	for key, _ := range filesStore.additionalFiles {
-		// logger.Log.Infof("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
-		logger.Log.Infof("-- -- localPath: %s\n", fileExistsToString(key))
+		// logger.Log.Debugf("-- -- localPath: %s, isoPath: %s\n", fileExistsToString(key), value)
+		logger.Log.Debugf("-- -- localPath: %s\n", fileExistsToString(key))
 	}
 }
 
 func dumpInfoStore(infoStore *IsoInfoStore) {
-	logger.Log.Infof("Info Store")
+	logger.Log.Debugf("Info Store")
 	if infoStore == nil {
-		logger.Log.Infof("-- not defined")
+		logger.Log.Debugf("-- not defined")
 		return
 	}
 	if infoStore.kdumpBootFiles != nil {
-		logger.Log.Infof("-- kdumpBootFiles       = %s", *infoStore.kdumpBootFiles)
+		logger.Log.Debugf("-- kdumpBootFiles       = %s", *infoStore.kdumpBootFiles)
 	} else {
-		logger.Log.Infof("-- kdumpBootFiles       = not defined")
+		logger.Log.Debugf("-- kdumpBootFiles       = not defined")
 	}
-	logger.Log.Infof("-- seLinuxMode          = %s", infoStore.seLinuxMode)
+	logger.Log.Debugf("-- seLinuxMode          = %s", infoStore.seLinuxMode)
 	if infoStore.dracutPackageInfo != nil {
-		logger.Log.Infof("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
+		logger.Log.Debugf("-- dracut package info  = %s", infoStore.dracutPackageInfo.getFullVersionString())
 	} else {
-		logger.Log.Infof("-- dracut package info  = unavailable")
+		logger.Log.Debugf("-- dracut package info  = unavailable")
 	}
 	if infoStore.selinuxPolicyPackageInfo != nil {
-		logger.Log.Infof("-- selinux package info = %s", infoStore.selinuxPolicyPackageInfo.getFullVersionString())
+		logger.Log.Debugf("-- selinux package info = %s", infoStore.selinuxPolicyPackageInfo.getFullVersionString())
 	} else {
-		logger.Log.Infof("-- selinux package info = unavailable")
+		logger.Log.Debugf("-- selinux package info = unavailable")
 	}
 }
 
 func dumpArtifactsStore(artifactStore *IsoArtifactsStore, title string) {
-	logger.Log.Infof("Artifacts Store - %s", title)
+	logger.Log.Debugf("Artifacts Store - %s", title)
 	if artifactStore == nil {
-		logger.Log.Infof("-- not defined")
+		logger.Log.Debugf("-- not defined")
 		return
 	}
 	dumpFilesStore(artifactStore.files)
