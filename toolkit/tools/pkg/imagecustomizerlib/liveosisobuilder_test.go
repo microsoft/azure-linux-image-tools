@@ -26,7 +26,7 @@ import (
 )
 
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
-	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, keepKdumpBootFiles bool,
+	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
 	selinuxMode imagecustomizerapi.SELinuxMode) *imagecustomizerapi.Config {
 	fileNamesArray := strings.Split(fileNames, ";")
 
@@ -55,15 +55,18 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 	perms0o644 := imagecustomizerapi.FilePermissions(0o644)
 
 	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureCrashDump,
+		},
 		Iso: &imagecustomizerapi.Iso{
-			KeepKdumpBootFiles: keepKdumpBootFiles,
+			KdumpBootFiles: &kdumpBootFiles,
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
 				ExtraCommandLine: []string{kernelParameter},
 			},
 			InitramfsType: initramfsType,
 		},
 		Pxe: &imagecustomizerapi.Pxe{
-			KeepKdumpBootFiles: keepKdumpBootFiles,
+			KdumpBootFiles: &kdumpBootFiles,
 			KernelCommandLine: imagecustomizerapi.KernelCommandLine{
 				ExtraCommandLine: []string{kernelParameter},
 			},
@@ -190,12 +193,12 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 	if outputFormat == imagecustomizerapi.ImageFormatTypeIso {
 		additionalFiles = config.Iso.AdditionalFiles
 		extraCommandLineParameters = config.Iso.KernelCommandLine.ExtraCommandLine
-		keepKdumpBootFiles = config.Iso.KeepKdumpBootFiles
+		keepKdumpBootFiles = *config.Iso.KdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
 		initramfsType = config.Iso.InitramfsType
 	} else {
 		additionalFiles = config.Pxe.AdditionalFiles
 		extraCommandLineParameters = config.Pxe.KernelCommandLine.ExtraCommandLine
-		keepKdumpBootFiles = config.Pxe.KeepKdumpBootFiles
+		keepKdumpBootFiles = *config.Pxe.KdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
 		initramfsType = config.Pxe.InitramfsType
 		pxeUrlBase = config.Pxe.BootstrapFileUrl
 	}
@@ -299,17 +302,17 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath string, outpu
 		defer os.RemoveAll(fullOsDir)
 	}
 
+	additionalKdumpBootFilesExist := false
 	// Check that each file is in the root file system.
-	expectedKdumpBootFilesExist := false
 	for _, additionalFile := range osConfig.AdditionalFiles {
 		origFilePath := filepath.Join(testDir, additionalFile.Source)
 		fullOSFilePath := filepath.Join(fullOsDir, additionalFile.Destination)
 		if strings.Contains(fullOSFilePath, "kdump.img") {
-			expectedKdumpBootFilesExist = expectedKdumpBootFilesExist || true
+			additionalKdumpBootFilesExist = additionalKdumpBootFilesExist || true
 		}
 		// While from an API perspective additional files in /boot are no
 		// different than any other folder, we will not test them here but
-		// rather under the keepKdumpBootFiles later.
+		// rather under the keepKdumpBootFiles flag later.
 		if !strings.HasPrefix(additionalFile.Destination, "/boot") {
 			verifyFileContentsSame(t, origFilePath, fullOSFilePath)
 			verifyFilePermissions(t, os.FileMode(*additionalFile.Permissions), fullOSFilePath)
@@ -322,8 +325,8 @@ func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath string, outpu
 		return
 	}
 	if keepKdumpBootFiles {
-		assert.Equal(t, actualBootFolderExists, expectedKdumpBootFilesExist)
-		if expectedKdumpBootFilesExist {
+		assert.Equal(t, actualBootFolderExists, additionalKdumpBootFilesExist)
+		if additionalKdumpBootFilesExist {
 			for _, additionalFile := range osConfig.AdditionalFiles {
 				origFilePath := filepath.Join(testDir, additionalFile.Source)
 				fullOSFilePath := filepath.Join(fullOsDir, additionalFile.Destination)
@@ -415,44 +418,158 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 	assert.Regexp(t, pxeKernelRootArg, pxeGrubCfgContents)
 }
 
-func TestCustomizeImageLiveOSKeepKdumpFiles(t *testing.T) {
+func TestCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T) {
 	for _, baseImageInfo := range baseImageAll {
 		if *baseImageInfo.Param == "" || baseImageInfo.Version == baseImageVersionAzl2 {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSKeepKdumpFiles(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSKeepKdumpFilesA(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSKeepKdumpFiles(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
-	// Case 1: keepKdumpBootFiles=true, boot/initramfs-6.6.65.1-2.azl3kdump.img exists -> /boot + initramfs + kernel
-	configA := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.azl3kdump.img;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info",
+	// Case A0:
+	//       Input: base vhdx
+	//	       kdumpBootFiles=keep
+	//         boot/initramfs-6.6.65.1-2.azl3kdump.img exists
+	//         boot/vmlinuz-6.6.65.1-2.azl3 exist
+	//       Expected: {full-os}/boot/{initramfs + kernel}
+	//
+	// This test case ensures we can exclude the kdump files from the /boot folder clean-up.
+	//
+	kdumpInitrdRelPath := "boot/initramfs-6.6.65.1-2.azl3kdump.img"
+	kdumpVmlinuzRelPath := "boot/vmlinuz-6.6.65.1-2.azl3"
+	kudmpFilePaths := kdumpInitrdRelPath + ";" + kdumpVmlinuzRelPath
+	configA0 := createConfig(t, baseImageInfo.Version, kudmpFilePaths, "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		true /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(buildDir, testDir, configA, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	ValidateIsoContent(t, configA, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
+	ValidateIsoContent(t, configA0, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
-	// Case 2: keepKdumpBootFiles=true, boot/initramfs-6.6.65.1-2.azl3kdump.img does not exist -> no /boot
+	// Case A1:
+	//       Input: iso with kdumpBootFiles=keep
+	//         kdumpBootFiles=none
+	//       Expected: {iso}/boot/{initramfs + kernel}
+	//
+	// This test case ensures that the kdump file can move from inside the the full-os to the iso
+	// if the user changes the kdumpBootFiles from keep to none.
+	//
+	kdumpBootFiles := imagecustomizerapi.KdumpBootFilesTypeNone
+	configA1 := &imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureCrashDump,
+		},
+		Iso: &imagecustomizerapi.Iso{
+			KdumpBootFiles: &kdumpBootFiles,
+		},
+	}
+
+	err = CustomizeImage(buildDir, testDir, configA1, outImageFilePath, nil, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Mount the iso
+	isoImageLoopDevice, err := safeloopback.NewLoopback(outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer isoImageLoopDevice.Close()
+
+	isoMountDir := filepath.Join(testTempDir, "iso-mount")
+	isoImageMount, err := safemount.NewMount(isoImageLoopDevice.DevicePath(), isoMountDir,
+		"iso9660" /*fstype*/, unix.MS_RDONLY /*flags*/, "" /*data*/, true /*makeAndDelete*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer isoImageMount.Close()
+
+	// Verify the kdump files are now present on the iso
+	origKdumpInitrdPath := filepath.Join(testDir, "files", kdumpInitrdRelPath)
+	kdumpInitrdPath := filepath.Join(isoMountDir, kdumpInitrdRelPath)
+	verifyFileContentsSame(t, origKdumpInitrdPath, kdumpInitrdPath)
+
+	origKdumpVmlinuzPath := filepath.Join(testDir, "files", kdumpVmlinuzRelPath)
+	kdumpVmlinuzPath := filepath.Join(isoMountDir, kdumpVmlinuzRelPath)
+	verifyFileContentsSame(t, origKdumpVmlinuzPath, kdumpVmlinuzPath)
+
+	// Expand initrd to a folder
+	fullOSImagePath := filepath.Join(isoMountDir, "boot/initrd.img")
+	fullOsDir := filepath.Join(testTempDir, "full-os")
+	err = initrdutils.CreateFolderFromInitrdImage(fullOSImagePath, fullOsDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer os.RemoveAll(fullOsDir)
+
+	// Verify the kdump files are not present in the full OS (no duplication)
+	kdumpInitrdFullOsPath := filepath.Join(fullOsDir, kdumpInitrdRelPath)
+	kdumpInitrdFullOsExists, err := file.PathExists(kdumpInitrdFullOsPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.Equal(t, kdumpInitrdFullOsExists, false, "kdump initramfs file should not exist in full-os") {
+		return
+	}
+	kdumpVmlinuzFullOsPath := filepath.Join(fullOsDir, kdumpVmlinuzRelPath)
+	kdumpVmlinuzFullOsExists, err := file.PathExists(kdumpVmlinuzFullOsPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	if !assert.Equal(t, kdumpVmlinuzFullOsExists, false, "kdump vmlinuz file should not exist in full-os") {
+		return
+	}
+}
+
+func TestCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		if *baseImageInfo.Param == "" || baseImageInfo.Version == baseImageVersionAzl2 {
+			continue
+		}
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageLiveOSKeepKdumpFilesBC(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := *baseImageInfo.Param
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
+
+	// Case B:
+	//       Input: base vhdx
+	//	       kdumpBootFiles=keep
+	//         boot/initramfs-6.6.65.1-2.azl3kdump.img does not exist
+	//         boot/vmlinuz-6.6.65.1-2.azl3 exists
+	//       Expected: no {full-os}/boot
+	//
+	// This test case ensures that if the kdump initramfs file is not present, the entire
+	// /boot folder will be deleted from the full-os.
+	//
 	configB := createConfig(t, baseImageInfo.Version, "a.txt;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		true /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(buildDir, testDir, configB, baseImage, nil, outImageFilePath,
+	err := CustomizeImage(buildDir, testDir, configB, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -460,11 +577,19 @@ func testCustomizeImageLiveOSKeepKdumpFiles(t *testing.T, testName string, baseI
 
 	ValidateIsoContent(t, configB, testTempDir, imagecustomizerapi.InitramfsImageTypeFullOS, outImageFilePath)
 
-	// Case 3: keepKdumpBootFiles=false, boot/initramfs-6.6.65.1-2.azl3kdump.img exists -> no /boot
+	// Case C:
+	//       Input: base vhdx
+	//         kdumpBootFiles=none
+	//         boot/initramfs-6.6.65.1-2.azl3kdump.img exists
+	//         boot/vmlinuz-6.6.65.1-2.azl3 exist
+	//       Expected: no {full-os}/boot
+	//
+	//
+	//
 	configC := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.azl3kdump.img;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(buildDir, testDir, configC, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -501,7 +626,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, true /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, true, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -542,7 +667,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
@@ -556,7 +681,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	// ISO  {bootstrap} to ISO {bootstrap}, with no OS changes
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.debug", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, false /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDefault)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDefault)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -569,7 +694,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	// - ISO {bootstrap} to ISO {full-os}, with selinux disabled
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -596,7 +721,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	// vhdx {raw} to ISO {full-os}, with selinux disabled
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -609,7 +734,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	// ISO  {full-os} to ISO {full-os}, with selinux disabled
 	configB := createConfig(t, baseImageInfo.Version, "b.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -629,7 +754,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	configC := createConfig(t, baseImageInfo.Version, "c.txt", "rd.shell", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, selinuxMode)
+		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -652,7 +777,7 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 	// vhdx {raw} to ISO {full-os}, with selinux disabled
 	configA := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeEnforcing)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -675,7 +800,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	config := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeBootstrap,
 		pxeBootstrapUrl, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeEnforcing)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -697,7 +822,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	config := createConfig(t, baseImageInfo.Version, "a.txt", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
-		false /*keepKdumpBootFiles*/, imagecustomizerapi.SELinuxModeDisabled)
+		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)

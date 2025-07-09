@@ -333,6 +333,21 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	return nil
 }
 
+func isKdumpBootFilesConfigChanging(requestedKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
+	inputKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType) bool {
+	requestedKdumpBootFilesCfg := false
+	if requestedKdumpBootFiles != nil {
+		requestedKdumpBootFilesCfg = *requestedKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
+	}
+
+	inputKdumpBootFilesCfg := false
+	if inputKdumpBootFiles != nil {
+		inputKdumpBootFilesCfg = *inputKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
+	}
+
+	return requestedKdumpBootFilesCfg != inputKdumpBootFilesCfg
+}
+
 func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizerParameters) (*IsoArtifactsStore, error) {
 	logger.Log.Infof("Converting input image to a writeable format")
 
@@ -349,17 +364,25 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 			return inputIsoArtifacts, fmt.Errorf("failed to create artifacts store from (%s):\n%w", ic.inputImageFile, err)
 		}
 
-		_, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso,
+		var liveosConfig LiveOSConfig
+		liveosConfig, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso,
 			ic.config.Pxe, ic.outputImageFormat)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build Live OS configuration:\n%w", err)
 		}
 
+		// Check if the user is changing the kdump boot files configuration.
+		// If it is changing, it may change the composition of the full OS
+		// image, and a reconstruction of the full OS image is needed.
+		kdumpBootFileChanging := isKdumpBootFilesConfigChanging(liveosConfig.kdumpBootFiles, inputIsoArtifacts.info.kdumpBootFiles)
+
+		// inputIsoArtifacts.info.
+
 		// If the input is a LiveOS iso and there are OS customizations
 		// defined, we create a writeable disk image so that mic can modify
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
-		rebuildFullOsImage := ic.customizeOSPartitions || convertInitramfsType
+		rebuildFullOsImage := ic.customizeOSPartitions || convertInitramfsType || kdumpBootFileChanging
 
 		if rebuildFullOsImage {
 			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
@@ -574,17 +597,24 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		// Decide whether we need to re-build the full OS image or not
 		convertInitramfsType := false
+		kdumpBootFileChanging := false
 		if inputIsoArtifacts != nil {
-			// Let's check if use is converting from full os initramfs to bootstrap initramfs
+			// Check if user is converting from full os initramfs to bootstrap initramfs
 			var err error
-			_, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso, ic.config.Pxe,
+			var liveosConfig LiveOSConfig
+			liveosConfig, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso, ic.config.Pxe,
 				ic.outputImageFormat)
 			if err != nil {
 				return fmt.Errorf("failed to build Live OS configuration\n%w", err)
 			}
+
+			// Check if the user is changing the kdump boot files configuration.
+			// If it is changing, it may change the composition of the full OS
+			// image, and a reconstruction of the full OS image is needed.
+			kdumpBootFileChanging = isKdumpBootFilesConfigChanging(liveosConfig.kdumpBootFiles, inputIsoArtifacts.info.kdumpBootFiles)
 		}
 
-		rebuildFullOsImage := ic.customizeOSPartitions || inputIsoArtifacts == nil || convertInitramfsType
+		rebuildFullOsImage := ic.customizeOSPartitions || inputIsoArtifacts == nil || convertInitramfsType || kdumpBootFileChanging
 
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
