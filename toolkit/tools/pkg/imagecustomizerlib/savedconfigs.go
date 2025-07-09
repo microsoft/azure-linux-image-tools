@@ -29,13 +29,21 @@ import (
 // re-apply them.
 
 type LiveOSSavedConfigs struct {
-	KernelCommandLine imagecustomizerapi.KernelCommandLine `yaml:"kernelCommandLine"`
+	KdumpBootFiles    *imagecustomizerapi.KdumpBootFilesType `yaml:"kdumpBootFiles"`
+	KernelCommandLine imagecustomizerapi.KernelCommandLine   `yaml:"kernelCommandLine"`
 }
 
 func (i *LiveOSSavedConfigs) IsValid() error {
+	if i.KdumpBootFiles != nil {
+		err := i.KdumpBootFiles.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
+		}
+	}
+
 	err := i.KernelCommandLine.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid kernelCommandLine: %w", err)
+		return fmt.Errorf("invalid kernelCommandLine:\n%w", err)
 	}
 
 	return nil
@@ -129,12 +137,14 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	return savedConfigs, nil
 }
 
-func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
+func updateSavedConfigs(savedConfigsFilePath string,
+	newKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, newKernelCommandLine imagecustomizerapi.KernelCommandLine,
 	newBootstrapBaseUrl string, newBootstrapFileUrl string, newDracutPackageInfo *PackageVersionInformation,
 	newRequestedSelinuxMode imagecustomizerapi.SELinuxMode, newSELinuxPackageInfo *PackageVersionInformation,
 ) (outputConfigs *SavedConfigs, err error) {
 	logger.Log.Infof("Updating saved configurations")
 	outputConfigs = &SavedConfigs{}
+	outputConfigs.LiveOS.KdumpBootFiles = newKdumpBootFiles
 	outputConfigs.LiveOS.KernelCommandLine = newKernelCommandLine
 	outputConfigs.Pxe.bootstrapBaseUrl = newBootstrapBaseUrl
 	outputConfigs.Pxe.bootstrapFileUrl = newBootstrapFileUrl
@@ -148,6 +158,10 @@ func updateSavedConfigs(savedConfigsFilePath string, newKernelCommandLine imagec
 	}
 
 	if inputConfigs != nil {
+		// if the kdumpBootFiles are not set, set it to the value from the previous run.
+		if newKdumpBootFiles == nil {
+			outputConfigs.LiveOS.KdumpBootFiles = inputConfigs.LiveOS.KdumpBootFiles
+		}
 		// do we have kernel arguments from a previous run?
 		if len(inputConfigs.LiveOS.KernelCommandLine.ExtraCommandLine) > 0 {
 			// If yes, add them before the new kernel arguments.
