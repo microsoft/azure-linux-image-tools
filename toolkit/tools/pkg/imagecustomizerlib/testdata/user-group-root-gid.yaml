@@ -1,0 +1,4 @@
+os:
+  groups:
+  - name: root
+    gid: 42
