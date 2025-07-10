@@ -85,13 +85,13 @@ echo "Pulling OCI artifact: '$OCI_ARTIFACT_PATH'"
 
 ARTIFACT_DIR="/container/base"
 
-OCI_MANIFEST_JSON=$(oras manifest fetch "$OCI_ARTIFACT_PATH" 2>/dev/null || echo "")
+OCI_MANIFEST_JSON="$(oras manifest fetch "$OCI_ARTIFACT_PATH" 2>/dev/null || echo "")"
 if [[ -z "$OCI_MANIFEST_JSON" ]]; then
     echo "Error: failed to fetch manifest for '$OCI_ARTIFACT_PATH'" >&2
     exit 1
 fi
 
-OCI_MEDIA_TYPE=$(echo "$OCI_MANIFEST_JSON" | jq -r '.mediaType // empty')
+OCI_MEDIA_TYPE="$(echo "$OCI_MANIFEST_JSON" | jq -r '.mediaType // empty')"
 
 # New releases that are multi-arch must be fetched with the --platform option, while older (single-arch) releases must
 # be fetched without it. Older releases are also always just the minimal-os image, so we do not need to derive the image
