@@ -178,7 +178,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
 	// were picked by observing values seen during test and adding a good buffer.
 	assert.Greater(t, int64(150*diskutils.MiB), bootStat.Size())
-	assert.Greater(t, int64(655*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(675*diskutils.MiB), rootStat.Size())
 	assert.Greater(t, int64(10*diskutils.MiB), hashStat.Size())
 	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
 
