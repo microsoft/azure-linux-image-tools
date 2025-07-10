@@ -210,6 +210,9 @@
         },
         "initramfsType": {
           "type": "string"
+        },
+        "kdumpBootFiles": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -459,6 +462,9 @@
           "type": "string"
         },
         "bootstrapFileUrl": {
+          "type": "string"
+        },
+        "kdumpBootFiles": {
           "type": "string"
         }
       },
