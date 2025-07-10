@@ -91,7 +91,11 @@ if [[ -z "$OCI_MANIFEST_JSON" ]]; then
     exit 1
 fi
 
-OCI_MEDIA_TYPE="$(echo "$OCI_MANIFEST_JSON" | jq -r '.mediaType // empty')"
+OCI_MEDIA_TYPE="$(jq -r '.mediaType // empty' <<< "$OCI_MANIFEST_JSON")"
+if [[ -z "$OCI_MEDIA_TYPE" ]]; then
+    echo "Error: no media type found in the manifest for '$OCI_ARTIFACT_PATH'" >&2
+    exit 1
+fi
 
 # New releases that are multi-arch must be fetched with the --platform option, while older (single-arch) releases must
 # be fetched without it. Older releases are also always just the minimal-os image, so we do not need to derive the image
