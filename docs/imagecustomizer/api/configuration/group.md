@@ -38,7 +38,7 @@ Example:
 os:
   groups:
   - name: test
-    uid: 1000
+    gid: 1000
 ```
 
 Added in v0.16.
