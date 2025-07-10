@@ -67,7 +67,11 @@ case "$(uname -m)" in
         ;;
 esac
 
-OCI_ARTIFACT_REGISTRY="mcr.microsoft.com"
+if [[ "$ARG_VERSION" == "3.0.20250521" ]]; then
+    OCI_ARTIFACT_REGISTRY="mcr.microsoft.com"
+else
+    OCI_ARTIFACT_REGISTRY=acrafoimages.azurecr.io
+fi
 
 BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-minimal-os}"
 VERSION_MAJOR_MINOR="$(echo "$ARG_VERSION" | cut -d'.' -f1-2)"
