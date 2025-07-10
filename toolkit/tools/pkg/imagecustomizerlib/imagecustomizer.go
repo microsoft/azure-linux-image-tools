@@ -336,11 +336,17 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 func isKdumpBootFilesConfigChanging(requestedKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
 	inputKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType) bool {
-	requestedKdumpBootFilesCfg := false
-	if requestedKdumpBootFiles != nil {
-		requestedKdumpBootFilesCfg = *requestedKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
+	// If the requested kdump boot files is nil, it means that the user did not
+	// specify a kdump boot files configuration, so it is definitely not changing
+	// when compared to the previous run.
+	if requestedKdumpBootFiles == nil {
+		return false
 	}
 
+	requestedKdumpBootFilesCfg := *requestedKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
+
+	// The default value for inputKdumpBootFilesCfg is false because in case of the absence of
+	// inputKdumpBootFiles, the implied configuration is false (KdumpBootFilesTypeKeepNone).
 	inputKdumpBootFilesCfg := false
 	if inputKdumpBootFiles != nil {
 		inputKdumpBootFilesCfg = *inputKdumpBootFiles == imagecustomizerapi.KdumpBootFilesTypeKeep
