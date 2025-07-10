@@ -175,7 +175,7 @@
         "name": {
           "type": "string"
         },
-        "uid": {
+        "gid": {
           "type": "integer"
         }
       },
