@@ -163,7 +163,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		Images:     make([]FileSystem, len(imageData)),
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
-		Bootloader: *cosiBootMetadata,
+		Bootloader: handleBootloaderMetadata(cosiBootMetadata),
 	}
 
 	// Copy updated metadata
@@ -492,9 +492,7 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 		}
 
 		key := strings.TrimSpace(line[:idx])
-
-		value := strings.TrimLeft(line[idx:], " \t") // Remove leading separators
-		value = strings.TrimRight(value, " \t")      // Remove trailing whitespace
+		value := strings.Trim(line[idx:], " \t") // Remove leading and trailing spaces/tabs
 
 		// Remove surrounding quotes from value, if any
 		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
@@ -541,4 +539,11 @@ func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderTyp
 		return BootloaderTypeSystemdBoot, nil
 	}
 	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary nor systemd-boot found")
+}
+
+func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
+	if bootloader == nil {
+		return CosiBootloader{}
+	}
+	return *bootloader
 }
