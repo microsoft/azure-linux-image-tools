@@ -397,8 +397,37 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 }
 
 func extractUkiEntriesIfPresent(chrootDir, buildDir string) ([]SystemDBootEntry, error) {
-	espDir := filepath.Join(chrootDir, "boot/efi")
-	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
+	espDir := filepath.Join(chrootDir, EspDir)
+	linuxDir := filepath.Join(espDir, UkiOutputDir)
+
+	tempDir, err := os.MkdirTemp(buildDir, "uki-temp-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir for UKI copies: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	files, err := os.ReadDir(linuxDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list EFI/Linux directory: %w", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".efi") {
+			continue
+		}
+		src := filepath.Join(linuxDir, file.Name())
+		dst := filepath.Join(tempDir, file.Name())
+
+		input, err := os.ReadFile(src)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", src, err)
+		}
+		if err := os.WriteFile(dst, input, 0o644); err != nil {
+			return nil, fmt.Errorf("failed to write temp UKI copy to %s: %w", dst, err)
+		}
+	}
+
+	cmdlines, err := extractKernelCmdlineFromUkiEfis(tempDir, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel cmdline from UKI .efi files:\n%w", err)
 	}
