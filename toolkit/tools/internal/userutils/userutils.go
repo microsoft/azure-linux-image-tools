@@ -71,7 +71,12 @@ func userExistsHelper(name string, installChroot safechroot.ChrootInterface, gro
 		_, stderr, err := shell.Execute("id", typeFlag, name)
 		if err != nil {
 			if !strings.Contains(stderr, "no such user") {
-				return fmt.Errorf("failed to check if user exists (%s):\n%w", name, err)
+				typeStr := "user"
+				if group {
+					typeStr = "group"
+				}
+
+				return fmt.Errorf("failed to check if %s exists (%s):\n%w", typeStr, name, err)
 			}
 
 			userExists = false

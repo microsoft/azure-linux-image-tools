@@ -49,15 +49,13 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 
 	if groupExists {
 		logger.Log.Infof("Updating group (%s)", group.Name)
-	} else {
-		logger.Log.Infof("Adding group (%s)", group.Name)
-	}
 
-	if groupExists {
 		if group.GID != nil {
 			return fmt.Errorf("cannot set GID (%d) on a group (%s) that already exists", *group.GID, group.Name)
 		}
 	} else {
+		logger.Log.Infof("Adding group (%s)", group.Name)
+
 		var gidStr string
 		if group.GID != nil {
 			gidStr = strconv.Itoa(*group.GID)
