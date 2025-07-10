@@ -14,7 +14,7 @@ type Group struct {
 	// Name is the name of the group.
 	Name string `yaml:"name" json:"name,omitempty"`
 	// GID is the (optional) ID number to give to the new group.
-	GID *int `yaml:"gid" json:"uid,omitempty"`
+	GID *int `yaml:"gid" json:"gid,omitempty"`
 }
 
 // IsValid returns an error if the MountPoint is not valid
