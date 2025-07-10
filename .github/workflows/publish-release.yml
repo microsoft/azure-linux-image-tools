@@ -26,6 +26,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         path: repo
+        persist-credentials: false
 
     - name: Download build artifacts
       uses: actions/download-artifact@v4
@@ -35,6 +36,7 @@ jobs:
     - name: Publish release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        IS_LATEST_RELEASE: ${{ inputs.isLatestRelease }}
       run: |
         set -x
 
@@ -52,9 +54,9 @@ jobs:
         mv ../out/binary-amd64/imagecustomizer.tar.gz ../release/imagecustomizer-amd64.tar.gz
         mv ../out/binary-arm64/imagecustomizer.tar.gz ../release/imagecustomizer-arm64.tar.gz
 
-        gh release create --latest="${{ inputs.isLatestRelease }}" --title "${TAG}" --notes "" "${TAG}" ../release/*
+        gh release create --latest="${IS_LATEST_RELEASE}" --title "${TAG}" --notes "" "${TAG}" ../release/*
 
         # Push to stable branch.
-        if [ "${{ inputs.isLatestRelease }}" == "true" ]; then
+        if [ "${IS_LATEST_RELEASE}" == "true" ]; then
           git push --force origin HEAD:stable
         fi

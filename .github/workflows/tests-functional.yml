@@ -46,11 +46,13 @@ jobs:
           git
 
         # grub2-pc is only available on x86.
-        if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
+        if [[ "${HOST_ARCH}" == "amd64" ]]; then
           sudo tdnf install -y grub2-pc
         fi
 
         sudo tdnf list installed
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
 
     - name: Install prerequisites (Ubuntu 24.04)
       if: inputs.hostDistro == 'ubuntu2404'
@@ -69,17 +71,18 @@ jobs:
       uses: actions/checkout@v4
       with:
         path: repo
+        persist-credentials: false
 
     - name: Download oras
       run: |
         set -eux
 
-        curl -sSL -o oras.tar.gz https://github.com/oras-project/oras/releases/download/v$ORAS_VERSION/oras_${ORAS_VERSION}_linux_${{ inputs.hostArch }}.tar.gz
+        curl -sSL -o oras.tar.gz https://github.com/oras-project/oras/releases/download/v$ORAS_VERSION/oras_${ORAS_VERSION}_linux_${HOST_ARCH}.tar.gz
 
         TAR_HASH="$(sha256sum oras.tar.gz | cut -d' ' -f 1)"
 
         EXPECTED_TAR_HASH=""
-        case "${{ inputs.hostArch }}" in
+        case "${HOST_ARCH}" in
           "amd64")
             EXPECTED_TAR_HASH="b4efc97a91f471f323f193ea4b4d63d8ff443ca3aab514151a30751330852827"
             ;;
@@ -97,6 +100,8 @@ jobs:
         tar -C ./oras -xf oras.tar.gz
 
         sudo mv ./oras/oras /usr/local/bin
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
 
     - name: Download base images
       run: |
