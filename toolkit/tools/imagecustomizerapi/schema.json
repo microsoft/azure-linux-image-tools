@@ -170,6 +170,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Group": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "IdentifiedPartition": {
       "properties": {
         "idType": {
@@ -285,6 +297,12 @@
         },
         "additionalDirs": {
           "$ref": "#/$defs/DirConfigList"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/Group"
+          },
+          "type": "array"
         },
         "users": {
           "items": {
