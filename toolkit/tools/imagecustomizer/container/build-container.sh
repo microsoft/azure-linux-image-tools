@@ -11,9 +11,6 @@ ORAS_VERSION="1.2.2"
 BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
 BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 
-# Telemetry connection string for Azure Monitor
-AZ_CONN_STRING="InstrumentationKey=a1806720-18d3-4da0-9b6d-463d5860268e;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c74b3aa7-b332-4bea-8b92-2ee767bd30bd"
-
 function showUsage() {
     echo
     echo "usage:"
@@ -119,11 +116,7 @@ if [ "$ARCH" == "arm64" ]; then
 fi
 
 # build the container
-if [[ "$containerTag" == "azurelinuximagecustomizer:latest" ]]; then
-    docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_CONN_STRING=$AZ_CONN_STRING" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
-else
-    docker build --build-arg "BASE_IMAGE=$baseImage" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
-fi
+docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_MON_CONN_STR=$AZ_MON_CONN_STR" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
 
 # clean-up
 cleanUp

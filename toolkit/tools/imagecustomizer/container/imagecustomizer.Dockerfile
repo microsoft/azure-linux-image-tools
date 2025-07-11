@@ -5,9 +5,9 @@ ARG BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
 
 FROM ${BASE_IMAGE}
 
-ARG AZ_CONN_STRING
+ARG AZ_MON_CONN_STR
 
-ENV AZURE_MONITOR_CONNECTION_STRING=${AZ_CONN_STRING}
+ENV AZURE_MONITOR_CONNECTION_STRING=${AZ_MON_CONN_STR}
 
 RUN tdnf update -y && \
    tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
