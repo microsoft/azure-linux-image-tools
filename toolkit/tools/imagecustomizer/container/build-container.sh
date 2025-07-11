@@ -7,7 +7,6 @@ scriptDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
-ORAS_VERSION="1.2.2"
 BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
 BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 
@@ -95,21 +94,6 @@ cp "$telemetryRequirements" "${stagingBinDir}"
 cp "$entrypointScript" "${stagingBinDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
-
-# download oras
-orasUnzipDir="${buildDir}/oras-install/"
-if [ ! -d "$orasUnzipDir" ]; then
-  ORAS_TAR="${buildDir}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz"
-
-  curl -L "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz" \
-    -o "$ORAS_TAR"
-
-  mkdir "$orasUnzipDir"
-  tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
-fi
-
-# stage oras
-cp "$orasUnzipDir/oras" "${stagingBinDir}"
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
