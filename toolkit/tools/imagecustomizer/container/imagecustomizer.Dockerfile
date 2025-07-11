@@ -19,15 +19,16 @@ RUN tdnf update -y && \
    tdnf clean all
 
 # Copy telemetry requirements file first to leverage Docker layer caching for pip install step.
-COPY usr/local/bin/requirements.txt /usr/local/bin/requirements.txt
+COPY telemetry-requirements.txt /telemetry-requirements.txt
 
 # Create virtual environment and install Python dependencies for telemetry
 COPY ./usr/local/bin/requirements.txt /usr/local/bin/requirements.txt
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --upgrade pip && \
-   /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
+   /opt/telemetry-venv/bin/pip install --no-cache-dir -r /telemetry-requirements.txt && \
+   rm -rf /telemetry-requirements.txt
 
 # Copy the rest of the files.
-COPY . /
+COPY usr .mariner-toolkit-ignore-dockerenv /
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
