@@ -1,6 +1,6 @@
 ---
-title: Configuration
-parent: API
+parent: API (Image Creator)
+title : Configuration (Image Creator)
 nav_order: 2
 has_toc: false
 ---
@@ -11,11 +11,11 @@ The Image Creator is configured using a YAML (or JSON) file.
 
 ## Top-level
 
-The top level type for the YAML file is the [config](../configuration/config.md) type.
+The top level type for the YAML file is the [config](./configuration/config.md) type.
 
 ## Schema Overview
 
-- [config type](../configuration/config.md)
+- [config type](./configuration/config.md)
   - [storage](../../imagecustomizer/api/configuration/config.md#storage-storage)
     - [bootType](../../imagecustomizer/api/configuration/storage.md#boottype-string)
     - [disks](../../imagecustomizer/api/configuration/storage.md#disks-disk) ([disk type](../../imagecustomizer/api/configuration/disk.md))

@@ -1,7 +1,8 @@
 ---
 title: Quick Start - Binary
-parent: Quick Start
+parent: Image Creator
 nav_order: 1
+
 ---
 
 # Using the Image Creator Binary
@@ -15,7 +16,45 @@ nav_order: 1
 
 1. Create a image config file.
 
-   For example refer to the [minimal-os](../../../toolkit/tools/pkg/imagecreatorlib/testdata/minimal-os.yaml) config file
+   For example refer to the below config file
+
+   ```yaml
+   storage:
+    disks:
+    - partitionTableType: gpt
+      
+      maxSize: 1G
+      partitions:
+      - id: boot
+         type: esp
+         start: 1M
+         end: 15M
+
+      - id: rootfs
+         start: 15M
+
+    bootType: efi
+
+    filesystems:
+    - deviceId: boot
+      type: fat32
+      mountPoint:
+         path: /boot/efi
+         options: umask=0077
+
+    - deviceId: rootfs
+      type: ext4
+      mountPoint:
+         path: /
+
+   os:
+    bootloader:
+      resetType: hard-reset
+
+    packages:
+      installLists:
+      - lists/packages.yaml
+   ```
 
    For documentation on the supported configuration options, see:
    [Supported configuration](../api/configuration.md)
