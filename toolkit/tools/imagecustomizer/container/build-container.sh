@@ -12,7 +12,7 @@ BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
 BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 
 # Telemetry connection string for Azure Monitor
-AZ_CONN_STRING="InstrumentationKey=a65b25be-d5c6-4aca-aa84-5c1c35cc9ab1;IngestionEndpoint=https://eastus2-3.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus2.livediagnostics.monitor.azure.com/;ApplicationId=6faca17c-7478-4f1a-9c38-15765db103cb"
+AZ_CONN_STRING="InstrumentationKey=a1806720-18d3-4da0-9b6d-463d5860268e;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c74b3aa7-b332-4bea-8b92-2ee767bd30bd"
 
 function showUsage() {
     echo
