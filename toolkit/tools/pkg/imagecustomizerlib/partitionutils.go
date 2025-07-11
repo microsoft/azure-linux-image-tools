@@ -523,8 +523,6 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 }
 
 func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[string]string, error) {
-	cmdlinePath := filepath.Join(buildDir, "cmdline.txt")
-
 	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
 	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
 	if err != nil {
@@ -538,20 +536,52 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, ukiFile)
+		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, buildDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to dump kernel cmdline args from UKI (%s):\n%w", ukiFile, err)
-		}
-
-		cmdlineContent, err := os.ReadFile(cmdlinePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", ukiFile, err)
+			return nil, fmt.Errorf("failed to extract cmdline from UKI file (%s):\n%w", ukiFile, err)
 		}
 
 		kernelToArgsString[kernelName] = string(cmdlineContent)
 	}
 
 	return kernelToArgsString, nil
+}
+
+func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
+	// Create a temporary copy of UKI files to avoid modifying the original file,
+	// since objcopy might tamper with signatures or hashes.
+	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp UKI copy: %w", err)
+	}
+	defer os.Remove(tempCopy.Name())
+
+	input, err := os.ReadFile(originalPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read UKI file:\n%w", err)
+	}
+	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
+		return "", fmt.Errorf("failed to write temp UKI file:\n%w", err)
+	}
+
+	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)
+	}
+	cmdlinePath.Close()
+	defer os.Remove(cmdlinePath.Name())
+
+	_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath.Name(), tempCopy.Name())
+	if err != nil {
+		return "", fmt.Errorf("objcopy failed:\n%w", err)
+	}
+
+	content, err := os.ReadFile(cmdlinePath.Name())
+	if err != nil {
+		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", cmdlinePath.Name(), err)
+	}
+
+	return string(content), nil
 }
 
 func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
