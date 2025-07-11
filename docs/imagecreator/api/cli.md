@@ -1,7 +1,7 @@
 ---
-title: Command line
-parent: API
-nav_order: 1
+title: Command line (Image Creator)
+parent: API (Image Creator)
+nav_order: 3
 ---
 
 # Image Creator command line
@@ -108,7 +108,7 @@ This option can be specified multiple times.
 See, [Building custom packages](../../imagecustomizer/reference/building-packages.md) for a guide on
 how to build your own packages for Azure Linux.
 
-See, [Cloning an RPM repo](../../imagecustomizer/clone-rpm-repo.md) for how to clone or download
+See, [Cloning an RPM repo](../../imagecustomizer/reference/clone-rpm-repo.md) for how to clone or download
 RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
