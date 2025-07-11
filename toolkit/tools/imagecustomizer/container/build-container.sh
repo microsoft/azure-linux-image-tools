@@ -11,6 +11,7 @@ ORAS_VERSION="1.2.2"
 BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
 BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 
+# Telemetry connection string for Azure Monitor
 AZ_CONN_STRING="InstrumentationKey=a65b25be-d5c6-4aca-aa84-5c1c35cc9ab1;IngestionEndpoint=https://eastus2-3.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus2.livediagnostics.monitor.azure.com/;ApplicationId=6faca17c-7478-4f1a-9c38-15765db103cb"
 
 function showUsage() {
