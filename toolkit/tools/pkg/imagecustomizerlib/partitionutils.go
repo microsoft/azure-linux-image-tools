@@ -548,6 +548,8 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 }
 
 func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
+	// Create a temporary copy of UKI files to avoid modifying the original file,
+	// since objcopy might tamper with signatures or hashes.
 	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp UKI copy: %w", err)
