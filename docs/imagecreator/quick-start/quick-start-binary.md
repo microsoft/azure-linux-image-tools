@@ -26,12 +26,12 @@ nav_order: 1
       maxSize: 1G
       partitions:
       - id: boot
-         type: esp
-         start: 1M
-         end: 15M
+        type: esp
+        start: 1M
+        end: 15M
 
       - id: rootfs
-         start: 15M
+        start: 15M
 
     bootType: efi
 
@@ -95,10 +95,12 @@ nav_order: 1
 4. Download the tools file 
    
    For creating a 2.0 tools file run
-    ../../toolkit/tools/internal/testutils/create-tools-file.sh mcr.microsoft.com/cbl-mariner/base/core:2.0 tools.tar.gz
+    ../../toolkit/tools/internal/testutils/testrpms/create-tools-file.sh
+    "mcr.microsoft.com/cbl-mariner/base/core:2.0" "tools.tar.gz"
 
-   For creating a 3.0 tools file run 
-    ../../toolkit/tools/internal/testutils/create-tools-file.sh mcr.microsoft.com/azurelinux/base/core:3.0 tools.tar.gz
+   For creating a 3.0 tools file run
+    ../../toolkit/tools/internal/testutils/testrpms/create-tools-file.sh
+    "mcr.microsoft.com/azurelinux/base/core:3.0" "tools.tar.gz"
 
    Note: Currently we only support creating Azure Linux 2.0/3.0 images 
 
