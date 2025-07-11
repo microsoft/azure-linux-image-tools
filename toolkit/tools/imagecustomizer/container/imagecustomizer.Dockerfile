@@ -4,6 +4,11 @@
 ARG BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
 
 FROM ${BASE_IMAGE}
+
+ARG AZ_CONN_STRING
+
+ENV AZURE_MONITOR_CONNECTION_STRING=${AZ_CONN_STRING}
+
 RUN tdnf update -y && \
    tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
       sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
@@ -16,3 +21,5 @@ COPY . /
 # Create virtual environment and install Python dependencies for telemetry
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
