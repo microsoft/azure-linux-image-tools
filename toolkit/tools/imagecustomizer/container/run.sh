@@ -81,32 +81,56 @@ else
 fi
 
 OCI_ARTIFACT_PATH="$OCI_ARTIFACT_REGISTRY/$OCI_ARTIFACT_REPOSITORY:$OCI_ARTIFACT_TAG"
-echo "Pulling OCI artifact: '$OCI_ARTIFACT_PATH' (platform='$PLATFORM')"
+echo "Pulling OCI artifact: '$OCI_ARTIFACT_PATH'"
 
 ARTIFACT_DIR="/container/base"
-oras pull --platform "$PLATFORM" "$OCI_ARTIFACT_PATH" --output "$ARTIFACT_DIR"
 
-# Inspect the OCI artifact manifest to dynamically detect the image file name by looking for an SBOM file and deriving
-# the image file name from it. The SBOM files are always named as <image-file-name>.spdx.json.
-OCI_ARTIFACT_FILE_NAMES=($(oras manifest fetch --platform "$PLATFORM" "$OCI_ARTIFACT_PATH" | \
-    jq -r '.layers[].annotations["org.opencontainers.image.title"]'))
-IMAGE_FILE_NAME=""
-for name in "${OCI_ARTIFACT_FILE_NAMES[@]}"; do
-    if [[ "$name" != *.spdx.json ]]; then
-        continue
-    fi
-
-    if [[ -n "$IMAGE_FILE_NAME" ]]; then
-        echo "Warning: multiple SBOMs found, using the image file name from the first: '$IMAGE_FILE_NAME'" >&2
-        continue
-    fi
-
-    IMAGE_FILE_NAME="${name%.spdx.json}"
-done
-
-if [[ -z "$IMAGE_FILE_NAME" ]]; then
-    echo "Error: no image file found in the OCI artifact '$OCI_ARTIFACT_PATH'" >&2
+OCI_MANIFEST_JSON="$(oras manifest fetch "$OCI_ARTIFACT_PATH" 2>/dev/null || echo "")"
+if [[ -z "$OCI_MANIFEST_JSON" ]]; then
+    echo "Error: failed to fetch manifest for '$OCI_ARTIFACT_PATH'" >&2
     exit 1
+fi
+
+OCI_MEDIA_TYPE="$(jq -r '.mediaType // empty' <<< "$OCI_MANIFEST_JSON")"
+if [[ -z "$OCI_MEDIA_TYPE" ]]; then
+    echo "Error: no media type found in the manifest for '$OCI_ARTIFACT_PATH'" >&2
+    exit 1
+fi
+
+# New releases that are multi-arch must be fetched with the --platform option, while older (single-arch) releases must
+# be fetched without it. Older releases are also always just the minimal-os image, so we do not need to derive the image
+# file name from the manifest.
+if [[ "$OCI_MEDIA_TYPE" == "application/vnd.oci.image.manifest.v1+json" ]]; then
+    oras pull "$OCI_ARTIFACT_PATH" --output "$ARTIFACT_DIR"
+
+    IMAGE_FILE_NAME="image.vhdx"
+else
+    oras pull --platform "$PLATFORM" "$OCI_ARTIFACT_PATH" --output "$ARTIFACT_DIR"
+
+    IMAGE_FILE_NAME=""
+
+    # The manifest must be re-fetched with the --platform option to obtain the list of files in the artifact. Fetch and
+    # inspect the OCI artifact manifest to dynamically detect the image file name by looking for an SBOM file and
+    # deriving the image file name from it. In new releases, SBOM files are always named as <image-file-name>.spdx.json.
+    OCI_ARTIFACT_FILE_NAMES=($(oras manifest fetch --platform "$PLATFORM" "$OCI_ARTIFACT_PATH" 2>/dev/null | \
+        jq -r '.layers[].annotations["org.opencontainers.image.title"]'))
+    for name in "${OCI_ARTIFACT_FILE_NAMES[@]}"; do
+        if [[ "$name" != *.spdx.json ]]; then
+            continue
+        fi
+
+        if [[ -n "$IMAGE_FILE_NAME" ]]; then
+            echo "Warning: multiple SBOMs found, using the image file name from the first: '$IMAGE_FILE_NAME'" >&2
+            continue
+        fi
+
+        IMAGE_FILE_NAME="${name%.spdx.json}"
+    done
+
+    if [[ -z "$IMAGE_FILE_NAME" ]]; then
+        echo "Error: no image file found in the OCI artifact '$OCI_ARTIFACT_PATH'" >&2
+        exit 1
+    fi
 fi
 
 imagecustomizer --image-file "$ARTIFACT_DIR/$IMAGE_FILE_NAME" "$@"

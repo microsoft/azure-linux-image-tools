@@ -13,11 +13,12 @@ var PxeIsoDownloadProtocols = []string{"ftp://", "http://", "https://", "nfs://"
 
 // Iso defines how the generated iso media should be configured.
 type Pxe struct {
-	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
-	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
-	InitramfsType     InitramfsImageType `yaml:"initramfsType" json:"initramfsType,omitempty"`
-	BootstrapBaseUrl  string             `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
-	BootstrapFileUrl  string             `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
+	KernelCommandLine KernelCommandLine   `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
+	AdditionalFiles   AdditionalFileList  `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
+	InitramfsType     InitramfsImageType  `yaml:"initramfsType" json:"initramfsType,omitempty"`
+	BootstrapBaseUrl  string              `yaml:"bootstrapBaseUrl" json:"bootstrapBaseUrl,omitempty"`
+	BootstrapFileUrl  string              `yaml:"bootstrapFileUrl" json:"bootstrapFileUrl,omitempty"`
+	KdumpBootFiles    *KdumpBootFilesType `yaml:"kdumpBootFiles" json:"kdumpBootFiles,omitempty"`
 }
 
 func IsValidPxeUrl(urlString string) error {
@@ -38,7 +39,7 @@ func IsValidPxeUrl(urlString string) error {
 		}
 	}
 	if !protocolFound {
-		return fmt.Errorf("unsupported iso image URL protocol in (%s). One of (%v) is expected.", urlString, PxeIsoDownloadProtocols)
+		return fmt.Errorf("unsupported iso image URL protocol in (%s). One of (%v) is expected", urlString, PxeIsoDownloadProtocols)
 	}
 
 	return nil
@@ -62,12 +63,12 @@ func (p *Pxe) IsValid() error {
 
 	if p.InitramfsType == InitramfsImageTypeFullOS {
 		if p.BootstrapBaseUrl != "" || p.BootstrapFileUrl != "" {
-			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' or 'bootstrapFileUrl' when the initramfs type is set to '%s'.", InitramfsImageTypeFullOS)
+			return fmt.Errorf("cannot specify either 'bootstrapBaseUrl' or 'bootstrapFileUrl' when the initramfs type is set to '%s'", InitramfsImageTypeFullOS)
 		}
 	}
 
 	if p.BootstrapBaseUrl != "" && p.BootstrapFileUrl != "" {
-		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time.")
+		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time")
 	}
 	err = IsValidPxeUrl(p.BootstrapBaseUrl)
 	if err != nil {
@@ -77,5 +78,13 @@ func (p *Pxe) IsValid() error {
 	if err != nil {
 		return fmt.Errorf("invalid 'bootstrapFileUrl' field value (%s):\n%w", p.BootstrapFileUrl, err)
 	}
+
+	if p.KdumpBootFiles != nil {
+		err = p.KdumpBootFiles.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
+		}
+	}
+
 	return nil
 }

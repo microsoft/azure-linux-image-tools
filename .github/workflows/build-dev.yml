@@ -25,4 +25,4 @@ jobs:
    uses: ./.github/workflows/build.yml
    with:
      publishType: dev
-     runFunctionalTests: ${{ inputs.runFunctionalTests }} 
+     runFunctionalTests: ${{ inputs.runFunctionalTests || false }}
