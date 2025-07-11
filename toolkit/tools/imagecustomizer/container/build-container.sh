@@ -18,13 +18,15 @@ function showUsage() {
     echo "build-container.sh \\"
     echo "    -t <container-tag>"
     echo "    -a <architecture> (default: amd64)"
+    echo "    -c <azure-monitor-connection-string> (optional)"
     echo
 }
 
-while getopts "t:a:b" OPTIONS; do
+while getopts "t:a:c:b" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     a ) ARCH=$OPTARG ;;
+    c ) azmonitor_connection_string=$OPTARG ;;
     b ) VERIFY_BASE_IMAGE=true ;;
     \? ) echo "Invalid option: $OPTARG" 1>&2; showUsage; exit 1 ;;
   esac
@@ -116,7 +118,7 @@ if [ "$ARCH" == "arm64" ]; then
 fi
 
 # build the container
-docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_MON_CONN_STR=$AZ_MON_CONN_STR" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
+docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_MON_CONN_STR=$azmonitor_connection_string" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
 
 # clean-up
 cleanUp
