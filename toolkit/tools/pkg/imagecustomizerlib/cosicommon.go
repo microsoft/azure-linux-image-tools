@@ -362,72 +362,47 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 
 	switch bootloaderType {
 	case BootloaderTypeSystemdBoot:
-		// Handles UKI + config and config-only
-		entries, err := extractSystemdBootEntriesIfPresent(chrootDir)
+		// Try extracting systemd-boot entries (UKI + config or config-only)
+		configEntries, err := extractSystemdBootEntriesIfPresent(chrootDir)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error extracting systemd-boot config entries:\n%w", err)
 		}
-		if len(entries) > 0 {
+		if len(configEntries) > 0 {
 			return &CosiBootloader{
 				Type:        BootloaderTypeSystemdBoot,
-				SystemdBoot: &SystemDBoot{Entries: entries},
+				SystemdBoot: &SystemDBoot{Entries: configEntries},
 			}, nil
 		}
 
-		// Handles UKI standalone .efi images
-		entries, err = extractUkiEntriesIfPresent(chrootDir, buildDirAbs)
+		// If no config entries, try extracting standalone UKI .efi entries
+		ukiEntries, err := extractUkiEntriesIfPresent(chrootDir, buildDirAbs)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error extracting UKI standalone entries:\n%w", err)
 		}
-		if len(entries) > 0 {
+		if len(ukiEntries) > 0 {
 			return &CosiBootloader{
 				Type:        BootloaderTypeSystemdBoot,
-				SystemdBoot: &SystemDBoot{Entries: entries},
+				SystemdBoot: &SystemDBoot{Entries: ukiEntries},
 			}, nil
 		}
+
+		return nil, fmt.Errorf("systemd-boot detected, but no supported boot entries found")
 
 	case BootloaderTypeGrub:
 		return &CosiBootloader{
 			Type:        BootloaderTypeGrub,
 			SystemdBoot: nil,
 		}, nil
-	}
 
-	return nil, fmt.Errorf("no supported bootloader configuration found")
+	default:
+		return nil, fmt.Errorf("unsupported bootloader type")
+	}
 }
 
 func extractUkiEntriesIfPresent(chrootDir, buildDir string) ([]SystemDBootEntry, error) {
 	espDir := filepath.Join(chrootDir, EspDir)
-	linuxDir := filepath.Join(espDir, UkiOutputDir)
 
-	tempDir, err := os.MkdirTemp(buildDir, "uki-temp-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir for UKI copies: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	files, err := os.ReadDir(linuxDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list EFI/Linux directory: %w", err)
-	}
-
-	for _, file := range files {
-		if file.IsDir() || !strings.HasSuffix(file.Name(), ".efi") {
-			continue
-		}
-		src := filepath.Join(linuxDir, file.Name())
-		dst := filepath.Join(tempDir, file.Name())
-
-		input, err := os.ReadFile(src)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", src, err)
-		}
-		if err := os.WriteFile(dst, input, 0o644); err != nil {
-			return nil, fmt.Errorf("failed to write temp UKI copy to %s: %w", dst, err)
-		}
-	}
-
-	cmdlines, err := extractKernelCmdlineFromUkiEfis(tempDir, buildDir)
+	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel cmdline from UKI .efi files:\n%w", err)
 	}
