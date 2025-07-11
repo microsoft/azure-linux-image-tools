@@ -17,8 +17,10 @@ For other package dependencies, see [Getting started guide](./quick-start/quick-
 Run:
 
 ```bash
-sudo make -C ./toolkit imagecreator
+sudo make -C ./toolkit go-imagecreator
 ```
+After running the command, the Image Creator binary will be located at
+`./toolkit/out/tools/imagecreator`.
 
 ## Run Image Creator specific tests
 
