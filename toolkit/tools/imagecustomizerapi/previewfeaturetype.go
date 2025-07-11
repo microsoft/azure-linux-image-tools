@@ -18,7 +18,7 @@ const (
 	PreviewFeatureInjectFiles PreviewFeature = "inject-files"
 
 	// PreviewFeatureReinitializeVerity will reinitialize verity on verity partitions in the base image.
-	PreviewFeatureReinitializeVerity = "reinitialize-verity"
+	PreviewFeatureReinitializeVerity PreviewFeature = "reinitialize-verity"
 
 	// PreviewFeatureSnapshotTime enables support for snapshot-based package filtering.
 	PreviewFeaturePackageSnapshotTime PreviewFeature = "package-snapshot-time"
@@ -29,8 +29,8 @@ const (
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
-	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles:
+	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
+		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)
