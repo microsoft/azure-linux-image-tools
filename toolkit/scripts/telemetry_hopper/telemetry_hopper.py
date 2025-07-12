@@ -24,7 +24,6 @@ from opentelemetry.proto.common.v1.common_pb2 import KeyValue
 
 SHUTDOWN_GRACE_PERIOD_SEC = 5
 
-# TODO: Replace with PME resource string when available
 AZURE_CONN_STR = os.getenv("AZURE_MONITOR_CONNECTION_STRING")
 
 

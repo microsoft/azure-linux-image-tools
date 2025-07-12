@@ -5,7 +5,7 @@
 
 set -e
 
-ENABLE_TELEMETRY="${ENABLE_TELEMETRY:-false}"
+ENABLE_TELEMETRY="${ENABLE_TELEMETRY:-true}"
 
 # Check if --disable-telemetry flag is present in arguments
 for arg in "$@"; do
@@ -15,8 +15,8 @@ for arg in "$@"; do
     fi
 done
 
-# Start telemetry service if enabled
-if [[ "$ENABLE_TELEMETRY" == "true" ]]; then
+# Start telemetry service if enabled and connection string is set
+if [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRING" ]]; then
 
     export OTEL_PORT=4317
     export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
