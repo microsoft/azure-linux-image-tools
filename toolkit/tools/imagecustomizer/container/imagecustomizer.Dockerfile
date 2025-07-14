@@ -29,6 +29,7 @@ RUN python3 -m venv /opt/telemetry-venv && \
    rm -rf /telemetry-requirements.txt
 
 # Copy the rest of the files.
-COPY usr .mariner-toolkit-ignore-dockerenv /
+COPY .mariner-toolkit-ignore-dockerenv /
+COPY usr /usr
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

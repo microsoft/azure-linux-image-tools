@@ -101,6 +101,8 @@ if [ "$ARCH" == "arm64" ]; then
     sed -i 's/\<grub2-pc systemd-ukify\>//g' "$dockerFile"
 fi
 
+find "$containerStagingFolder" -type f
+
 # build the container
 docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_MON_CONN_STR=$azMonitorString" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
 
