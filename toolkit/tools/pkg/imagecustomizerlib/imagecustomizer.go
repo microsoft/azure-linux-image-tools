@@ -277,7 +277,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
 		return NewImageCustomizerErrorWithCause(
-			ConfigValidationError,
+			InvalidInputError,
 			"invalid parameters",
 			err,
 		)
