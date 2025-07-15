@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -13,9 +14,11 @@ import (
 	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
@@ -30,6 +33,7 @@ type ImageBuildData struct {
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
+	cosiBootMetadata *CosiBootloader,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -55,7 +59,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
-		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages)
+		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
 		return fmt.Errorf("failed to build COSI file:\n%w", err)
 	}
@@ -72,7 +76,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry,
-	imageUuidStr string, osRelease string, osPackages []OsPackage,
+	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
@@ -153,12 +157,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:    "1.0",
+		Version:    "1.1",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Images:     make([]FileSystem, len(imageData)),
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
+		Bootloader: handleBootloaderMetadata(cosiBootMetadata),
 	}
 
 	// Copy updated metadata
@@ -345,4 +350,204 @@ func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) 
 	}
 
 	return packages, nil
+}
+
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection) (*CosiBootloader, error) {
+	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot())
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect bootloader type: %w", err)
+	}
+
+	chrootDir := imageConnection.Chroot().RootDir()
+
+	switch bootloaderType {
+	case BootloaderTypeSystemdBoot:
+		// Try extracting systemd-boot entries (UKI + config or config-only)
+		configEntries, err := extractSystemdBootEntriesIfPresent(chrootDir)
+		if err != nil {
+			return nil, fmt.Errorf("error extracting systemd-boot config entries:\n%w", err)
+		}
+		if len(configEntries) > 0 {
+			return &CosiBootloader{
+				Type:        BootloaderTypeSystemdBoot,
+				SystemdBoot: &SystemDBoot{Entries: configEntries},
+			}, nil
+		}
+
+		// If no config entries, try extracting standalone UKI .efi entries
+		ukiEntries, err := extractUkiEntriesIfPresent(chrootDir, buildDirAbs)
+		if err != nil {
+			return nil, fmt.Errorf("error extracting UKI standalone entries:\n%w", err)
+		}
+		if len(ukiEntries) > 0 {
+			return &CosiBootloader{
+				Type:        BootloaderTypeSystemdBoot,
+				SystemdBoot: &SystemDBoot{Entries: ukiEntries},
+			}, nil
+		}
+
+		return nil, fmt.Errorf("systemd-boot detected, but no supported boot entries found")
+
+	case BootloaderTypeGrub:
+		return &CosiBootloader{
+			Type:        BootloaderTypeGrub,
+			SystemdBoot: nil,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported bootloader type")
+	}
+}
+
+func extractUkiEntriesIfPresent(chrootDir, buildDir string) ([]SystemDBootEntry, error) {
+	espDir := filepath.Join(chrootDir, EspDir)
+
+	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract kernel cmdline from UKI .efi files:\n%w", err)
+	}
+
+	var entries []SystemDBootEntry
+	for kernelName, cmdline := range cmdlines {
+		efiPath := filepath.Join("/boot/efi/EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
+		kernelVersion, err := getKernelVersion(kernelName)
+		if err != nil {
+			return nil, fmt.Errorf("invalid kernel name in UKI file (%s):\n%w", kernelName, err)
+		}
+		entries = append(entries, SystemDBootEntry{
+			Type:    SystemDBootEntryTypeUKIStandalone,
+			Path:    efiPath,
+			Kernel:  kernelVersion,
+			Cmdline: strings.TrimRight(cmdline, "\n"),
+		})
+	}
+	return entries, nil
+}
+
+func extractSystemdBootEntriesIfPresent(chrootDir string) ([]SystemDBootEntry, error) {
+	loaderEntryDir := filepath.Join(chrootDir, "boot", "loader", "entries")
+	exists, err := file.DirExists(loaderEntryDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed while checking if systemd-boot entry dir '%s' exists:\n%w", loaderEntryDir, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	entries, err := extractSystemdBootEntries(loaderEntryDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract systemd-boot entries:\n%w", err)
+	}
+
+	return entries, nil
+}
+
+func extractSystemdBootEntries(entryDir string) ([]SystemDBootEntry, error) {
+	files, err := os.ReadDir(entryDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory %s:\n%w", entryDir, err)
+	}
+
+	var entries []SystemDBootEntry
+
+	for _, file := range files {
+		entry, err := parseSystemdBootEntryFromFile(entryDir, file)
+		if err != nil {
+			return nil, err
+		}
+		if entry != nil {
+			entries = append(entries, *entry)
+		}
+	}
+
+	return entries, nil
+}
+
+func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDBootEntry, error) {
+	if file.IsDir() || !strings.HasSuffix(file.Name(), ".conf") {
+		return nil, nil
+	}
+
+	absPath := filepath.Join(entryDir, file.Name())
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", absPath, err)
+	}
+
+	entry := &SystemDBootEntry{
+		Path: filepath.Join("/boot/loader/entries", file.Name()),
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		// Handle line endings
+		line = strings.TrimRight(line, "\r\n")
+
+		// Ignore blank lines and comment lines (even with leading spaces/tabs)
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		// Split key and value on first space/tab
+		idx := strings.IndexAny(line, " \t")
+		if idx == -1 {
+			continue // No key-value separator
+		}
+
+		key := strings.TrimSpace(line[:idx])
+		value := strings.Trim(line[idx:], " \t") // Remove leading and trailing spaces/tabs
+
+		// Remove surrounding quotes from value, if any
+		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && len(value) >= 2 {
+			value = value[1 : len(value)-1]
+		}
+
+		switch key {
+		case "options":
+			if entry.Cmdline != "" {
+				entry.Cmdline += " "
+			}
+			entry.Cmdline += value
+
+		case "linux":
+			if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
+				entry.Kernel = kernelVer
+			}
+
+		case "uki":
+			if kernelVer, err := getKernelVersion(filepath.Base(value)); err == nil {
+				entry.Kernel = kernelVer
+			}
+			entry.Type = SystemDBootEntryTypeUKIConfig
+		}
+	}
+
+	// Determine fallback type
+	if entry.Type == "" {
+		if strings.HasSuffix(entry.Kernel, ".efi") {
+			entry.Type = SystemDBootEntryTypeUKIConfig
+		} else {
+			entry.Type = SystemDBootEntryTypeConfig
+		}
+	}
+
+	return entry, nil
+}
+
+func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+	if isPackageInstalled(imageChroot, "grub2-efi-binary") {
+		return BootloaderTypeGrub, nil
+	}
+	if isPackageInstalled(imageChroot, "systemd-boot") {
+		return BootloaderTypeSystemdBoot, nil
+	}
+	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary nor systemd-boot found")
+}
+
+func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
+	if bootloader == nil {
+		return CosiBootloader{}
+	}
+	return *bootloader
 }
