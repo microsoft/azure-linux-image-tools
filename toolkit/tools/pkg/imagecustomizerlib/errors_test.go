@@ -14,13 +14,12 @@ import (
 func TestGlobalErrorTypes(t *testing.T) {
 	// Test that all error types are distinct
 	errorTypes := []error{
-		ConfigValidationError,
+		InvalidInputError,
 		ImageConversionError,
 		FilesystemOperationError,
 		PackageManagementError,
 		ScriptExecutionError,
 		InternalSystemError,
-		InvalidInputError,
 	}
 
 	for i, errType1 := range errorTypes {
@@ -32,21 +31,20 @@ func TestGlobalErrorTypes(t *testing.T) {
 	}
 
 	// Test that error types have expected string representations
-	assert.Equal(t, "config-validation", ConfigValidationError.Error())
+	assert.Equal(t, "invalid-input", InvalidInputError.Error())
 	assert.Equal(t, "image-conversion", ImageConversionError.Error())
 	assert.Equal(t, "filesystem-operation", FilesystemOperationError.Error())
 	assert.Equal(t, "package-management", PackageManagementError.Error())
 	assert.Equal(t, "script-execution", ScriptExecutionError.Error())
 	assert.Equal(t, "internal-system", InternalSystemError.Error())
-	assert.Equal(t, "invalid-input", InvalidInputError.Error())
 }
 
 func TestImageCustomizerError_WithoutCause(t *testing.T) {
 	message := "test message"
-	err := NewImageCustomizerError(ConfigValidationError, message)
+	err := NewImageCustomizerError(InvalidInputError, message)
 
 	assert.Equal(t, message, err.Error())
-	assert.Equal(t, ConfigValidationError, err.Type)
+	assert.Equal(t, InvalidInputError, err.Type)
 	assert.Equal(t, message, err.Message)
 	assert.Nil(t, err.Cause)
 }
@@ -54,32 +52,32 @@ func TestImageCustomizerError_WithoutCause(t *testing.T) {
 func TestImageCustomizerError_WithCause(t *testing.T) {
 	message := "test message"
 	cause := errors.New("underlying error")
-	err := NewImageCustomizerErrorWithCause(ConfigValidationError, message, cause)
+	err := NewImageCustomizerErrorWithCause(InvalidInputError, message, cause)
 
 	expectedErrorMessage := fmt.Sprintf("%s:\n%v", message, cause)
 	assert.Equal(t, expectedErrorMessage, err.Error())
-	assert.Equal(t, ConfigValidationError, err.Type)
+	assert.Equal(t, InvalidInputError, err.Type)
 	assert.Equal(t, message, err.Message)
 	assert.Equal(t, cause, err.Cause)
 }
 
 func TestImageCustomizerError_Unwrap(t *testing.T) {
 	// Test without cause
-	err1 := NewImageCustomizerError(ConfigValidationError, "test message")
+	err1 := NewImageCustomizerError(InvalidInputError, "test message")
 	assert.Nil(t, err1.Unwrap())
 
 	// Test with cause
 	cause := errors.New("underlying error")
-	err2 := NewImageCustomizerErrorWithCause(ConfigValidationError, "test message", cause)
+	err2 := NewImageCustomizerErrorWithCause(InvalidInputError, "test message", cause)
 	assert.Equal(t, cause, err2.Unwrap())
 }
 
 func TestImageCustomizerError_Is(t *testing.T) {
-	err := NewImageCustomizerError(ConfigValidationError, "test message")
+	err := NewImageCustomizerError(InvalidInputError, "test message")
 
 	// Test positive case
-	assert.True(t, err.Is(ConfigValidationError))
-	assert.True(t, errors.Is(err, ConfigValidationError))
+	assert.True(t, err.Is(InvalidInputError))
+	assert.True(t, errors.Is(err, InvalidInputError))
 
 	// Test negative cases
 	assert.False(t, err.Is(ImageConversionError))
@@ -89,24 +87,24 @@ func TestImageCustomizerError_Is(t *testing.T) {
 
 func TestImageCustomizerError_ErrorsIsCompatibility(t *testing.T) {
 	// Test that errors.Is() works correctly with ImageCustomizerError
-	err1 := NewImageCustomizerError(ConfigValidationError, "config error")
+	err1 := NewImageCustomizerError(InvalidInputError, "config error")
 	err2 := NewImageCustomizerError(ImageConversionError, "conversion error")
 	
 	// Test direct Is() calls
-	assert.True(t, errors.Is(err1, ConfigValidationError))
+	assert.True(t, errors.Is(err1, InvalidInputError))
 	assert.True(t, errors.Is(err2, ImageConversionError))
 	assert.False(t, errors.Is(err1, ImageConversionError))
-	assert.False(t, errors.Is(err2, ConfigValidationError))
+	assert.False(t, errors.Is(err2, InvalidInputError))
 }
 
 func TestImageCustomizerError_ChainedErrors(t *testing.T) {
 	// Test error chaining works correctly
 	originalErr := errors.New("original error")
-	wrappedErr := NewImageCustomizerErrorWithCause(ConfigValidationError, "wrapped error", originalErr)
+	wrappedErr := NewImageCustomizerErrorWithCause(InvalidInputError, "wrapped error", originalErr)
 	
 	// Test that we can unwrap to get to the original error
 	assert.True(t, errors.Is(wrappedErr, originalErr))
-	assert.True(t, errors.Is(wrappedErr, ConfigValidationError))
+	assert.True(t, errors.Is(wrappedErr, InvalidInputError))
 }
 
 func TestImageCustomizerError_MessageFormatting(t *testing.T) {
@@ -120,21 +118,21 @@ func TestImageCustomizerError_MessageFormatting(t *testing.T) {
 	}{
 		{
 			name:           "no cause",
-			errorType:      ConfigValidationError,
+			errorType:      InvalidInputError,
 			message:        "simple message",
 			cause:          nil,
 			expectedFormat: "simple message",
 		},
 		{
 			name:           "with cause",
-			errorType:      ConfigValidationError,
+			errorType:      InvalidInputError,
 			message:        "context message",
 			cause:          errors.New("underlying error"),
 			expectedFormat: "context message:\nunderlying error",
 		},
 		{
 			name:           "file path in message",
-			errorType:      ConfigValidationError,
+			errorType:      InvalidInputError,
 			message:        "invalid command-line option '--image-file': '/path/to/file'",
 			cause:          nil,
 			expectedFormat: "invalid command-line option '--image-file': '/path/to/file'",
@@ -159,11 +157,11 @@ func TestImageCustomizerError_PreviewFeaturePattern(t *testing.T) {
 	// Test the preview feature error pattern
 	previewFeature := "preview-feature-name"
 	message := fmt.Sprintf("the '%s' preview feature must be enabled to use 'some.config'", previewFeature)
-	err := NewImageCustomizerError(ConfigValidationError, message)
+	err := NewImageCustomizerError(InvalidInputError, message)
 
 	expectedMessage := "the 'preview-feature-name' preview feature must be enabled to use 'some.config'"
 	assert.Equal(t, expectedMessage, err.Error())
-	assert.True(t, errors.Is(err, ConfigValidationError))
+	assert.True(t, errors.Is(err, InvalidInputError))
 }
 
 func TestImageCustomizerError_ErrorWrappingPattern(t *testing.T) {
@@ -172,10 +170,10 @@ func TestImageCustomizerError_ErrorWrappingPattern(t *testing.T) {
 	filePath := "/path/to/config.yaml"
 	
 	message := fmt.Sprintf("invalid config file property 'input.image.path': '%s'", filePath)
-	err := NewImageCustomizerErrorWithCause(ConfigValidationError, message, originalErr)
+	err := NewImageCustomizerErrorWithCause(InvalidInputError, message, originalErr)
 
 	expectedMessage := fmt.Sprintf("invalid config file property 'input.image.path': '%s':\nfile not found", filePath)
 	assert.Equal(t, expectedMessage, err.Error())
-	assert.True(t, errors.Is(err, ConfigValidationError))
+	assert.True(t, errors.Is(err, InvalidInputError))
 	assert.True(t, errors.Is(err, originalErr))
 }

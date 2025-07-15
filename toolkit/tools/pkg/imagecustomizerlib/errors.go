@@ -10,13 +10,12 @@ import (
 
 // Global error types for categorization
 var (
-	ConfigValidationError     = errors.New("config-validation")
+	InvalidInputError         = errors.New("invalid-input")
 	ImageConversionError      = errors.New("image-conversion")
 	FilesystemOperationError  = errors.New("filesystem-operation")
 	PackageManagementError    = errors.New("package-management")
 	ScriptExecutionError      = errors.New("script-execution")
 	InternalSystemError       = errors.New("internal-system")
-	InvalidInputError         = errors.New("invalid-input")
 )
 
 // Static error messages as global variables
