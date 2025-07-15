@@ -196,6 +196,11 @@ func TestErrorMessagePreservation(t *testing.T) {
 			originalMessage: "have packages to install or update but no RPM sources were specified",
 			newError:        ErrRpmSourcesRequiredForPackages,
 		},
+		{
+			name:            "root hash parsing failed",
+			originalMessage: "failed to parse root hash from veritysetup output",
+			newError:        ErrRootHashParsingFailed,
+		},
 	}
 	
 	for _, tc := range testCases {

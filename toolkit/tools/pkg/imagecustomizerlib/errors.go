@@ -30,6 +30,7 @@ var (
 	ErrCannotCustomizePartitionsIso  = errors.New("cannot customize partitions when the input is an iso")
 	ErrRpmSourcesRequiredForPackages = errors.New("have packages to install or update but no RPM sources were specified")
 	ErrKdumpBootFilesPreviewRequired = errors.New("preview feature must be enabled to use 'iso.kdumpBootFiles'")
+	ErrRootHashParsingFailed         = errors.New("failed to parse root hash from veritysetup output")
 )
 
 // ImageCustomizerError struct for dynamic content

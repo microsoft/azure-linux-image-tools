@@ -160,7 +160,11 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("invalid output image format:\n%w", err)
+		return nil, NewImageCustomizerErrorWithCause(
+			ErrTypeImageConversion,
+			"invalid output image format",
+			err,
+		)
 	}
 
 	if ic.outputImageFormat == "" {
@@ -182,7 +186,10 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
 		if !ic.outputIsIso && !ic.outputIsPxe {
-			return nil, fmt.Errorf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat)
+			return nil, NewImageCustomizerError(
+				ErrTypeImageConversion,
+				fmt.Sprintf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat),
+			)
 		}
 
 		// While defining a storage configuration can work when the input image is
@@ -215,7 +222,11 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
+		return NewImageCustomizerErrorWithCause(
+			ErrTypeConfigValidation,
+			"failed to get absolute path of config file directory",
+			err,
+		)
 	}
 
 	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
@@ -254,14 +265,22 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
-		return fmt.Errorf("invalid image config:\n%w", err)
+		return NewImageCustomizerErrorWithCause(
+			ErrTypeConfigValidation,
+			"invalid image config",
+			err,
+		)
 	}
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
-		return fmt.Errorf("invalid parameters:\n%w", err)
+		return NewImageCustomizerErrorWithCause(
+			ErrTypeConfigValidation,
+			"invalid parameters",
+			err,
+		)
 	}
 	defer func() {
 		cleanupErr := cleanUp(imageCustomizerParameters)
@@ -294,7 +313,11 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	inputIsoArtifacts, err := convertInputImageToWriteableFormat(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("failed to convert input image to a raw image:\n%w", err)
+		return NewImageCustomizerErrorWithCause(
+			ErrTypeImageConversion,
+			"failed to convert input image to a raw image",
+			err,
+		)
 	}
 	defer func() {
 		if inputIsoArtifacts != nil {
@@ -311,7 +334,11 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("failed to customize raw image:\n%w", err)
+		return NewImageCustomizerErrorWithCause(
+			ErrTypeInternalSystem,
+			"failed to customize raw image",
+			err,
+		)
 	}
 
 	if config.Output.Artifacts != nil {
@@ -326,7 +353,11 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = convertWriteableFormatToOutputImage(ctx, imageCustomizerParameters, inputIsoArtifacts)
 	if err != nil {
-		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+		return NewImageCustomizerErrorWithCause(
+			ErrTypeImageConversion,
+			"failed to convert customized raw image to output format",
+			err,
+		)
 	}
 
 	logger.Log.Infof("Success!")
@@ -465,7 +496,10 @@ func qemuStringtoImageFormatType(qemuFormat string) (imagecustomizerapi.ImageFor
 	case "iso":
 		return imagecustomizerapi.ImageFormatTypeIso, nil
 	default:
-		return "", fmt.Errorf("unsupported qemu-img format: %s", qemuFormat)
+		return "", NewImageCustomizerError(
+			ErrTypeImageConversion,
+			fmt.Sprintf("unsupported qemu-img format: %s", qemuFormat),
+		)
 	}
 }
 
@@ -836,14 +870,22 @@ func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts)
 	for i, script := range scripts.PostCustomization {
 		err := validateScript(baseConfigPath, &script)
 		if err != nil {
-			return fmt.Errorf("invalid postCustomization item at index %d:\n%w", i, err)
+			return NewImageCustomizerErrorWithCause(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("invalid postCustomization item at index %d", i),
+				err,
+			)
 		}
 	}
 
 	for i, script := range scripts.FinalizeCustomization {
 		err := validateScript(baseConfigPath, &script)
 		if err != nil {
-			return fmt.Errorf("invalid finalizeCustomization item at index %d:\n%w", i, err)
+			return NewImageCustomizerErrorWithCause(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("invalid finalizeCustomization item at index %d", i),
+				err,
+			)
 		}
 	}
 
@@ -855,7 +897,10 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 		// Ensure that install scripts sit under the config file's parent directory.
 		// This allows the install script to be run in the chroot environment by bind mounting the config directory.
 		if !filepath.IsLocal(script.Path) {
-			return fmt.Errorf("script file (%s) is not under config directory (%s)", script.Path, baseConfigPath)
+			return NewImageCustomizerError(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("script file (%s) is not under config directory (%s)", script.Path, baseConfigPath),
+			)
 		}
 
 		fullPath := filepath.Join(baseConfigPath, script.Path)
@@ -863,7 +908,11 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 		// Verify that the file exists.
 		_, err := os.Stat(fullPath)
 		if err != nil {
-			return fmt.Errorf("couldn't read script file (%s):\n%w", script.Path, err)
+			return NewImageCustomizerErrorWithCause(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("couldn't read script file (%s)", script.Path),
+				err,
+			)
 		}
 	}
 
@@ -962,7 +1011,11 @@ func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error
 	for _, user := range users {
 		err := validateUser(baseConfigPath, user)
 		if err != nil {
-			return fmt.Errorf("invalid user (%s):\n%w", user.Name, err)
+			return NewImageCustomizerErrorWithCause(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("invalid user (%s)", user.Name),
+				err,
+			)
 		}
 	}
 
@@ -974,10 +1027,17 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 		absPath := file.GetAbsPathWithBase(baseConfigPath, path)
 		isFile, err := file.IsFile(absPath)
 		if err != nil {
-			return fmt.Errorf("failed to find SSH public key file (%s):\n%w", path, err)
+			return NewImageCustomizerErrorWithCause(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("failed to find SSH public key file (%s)", path),
+				err,
+			)
 		}
 		if !isFile {
-			return fmt.Errorf("SSH public key path is not a file (%s)", path)
+			return NewImageCustomizerError(
+				ErrTypeConfigValidation,
+				fmt.Sprintf("SSH public key path is not a file (%s)", path),
+			)
 		}
 	}
 
@@ -1216,7 +1276,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 
 	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
 	if len(rootHashMatches) <= 1 {
-		return "", fmt.Errorf("failed to parse root hash from veritysetup output")
+		return "", ErrRootHashParsingFailed
 	}
 
 	rootHash := rootHashMatches[1]
