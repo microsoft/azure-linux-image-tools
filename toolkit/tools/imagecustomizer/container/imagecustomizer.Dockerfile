@@ -18,10 +18,12 @@ RUN tdnf update -y && \
       python3 python3-pip jq oras && \
    tdnf clean all
 
-COPY . /
-
 # Create virtual environment and install Python dependencies for telemetry
+COPY ./usr/local/bin/requirements.txt /usr/local/bin/requirements.txt
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
+
+# Copy binaries.
+COPY . /
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
