@@ -17,8 +17,8 @@ func TestValidateInput_WithGlobalErrors(t *testing.T) {
 	
 	// Test that missing input returns the global error
 	err := validateInput(baseConfigPath, imagecustomizerapi.Input{}, "")
-	assert.True(t, errors.Is(err, ErrInputImageFileRequired))
-	assert.Equal(t, ErrInputImageFileRequired.Error(), err.Error())
+	assert.True(t, errors.Is(err, InputImageFileRequiredError))
+	assert.Equal(t, InputImageFileRequiredError.Error(), err.Error())
 }
 
 func TestValidateOutput_WithGlobalErrors(t *testing.T) {
@@ -26,8 +26,8 @@ func TestValidateOutput_WithGlobalErrors(t *testing.T) {
 	
 	// Test that missing output returns the global error  
 	err := validateOutput(baseConfigPath, imagecustomizerapi.Output{}, "", "")
-	assert.True(t, errors.Is(err, ErrOutputImageFileRequired))
-	assert.Equal(t, ErrOutputImageFileRequired.Error(), err.Error())
+	assert.True(t, errors.Is(err, OutputImageFileRequiredError))
+	assert.Equal(t, OutputImageFileRequiredError.Error(), err.Error())
 }
 
 func TestValidateInput_WithDynamicErrors(t *testing.T) {
@@ -50,8 +50,8 @@ func TestValidateOutput_WithDynamicErrors(t *testing.T) {
 	
 	// Test that missing output format returns the global error
 	err := validateOutput(baseConfigPath, imagecustomizerapi.Output{}, "output.raw", "")
-	assert.True(t, errors.Is(err, ErrOutputImageFormatRequired))
-	assert.Equal(t, ErrOutputImageFormatRequired.Error(), err.Error())
+	assert.True(t, errors.Is(err, OutputImageFormatRequiredError))
+	assert.Equal(t, OutputImageFormatRequiredError.Error(), err.Error())
 }
 
 func TestValidatePackageLists_WithGlobalErrors(t *testing.T) {
@@ -64,8 +64,8 @@ func TestValidatePackageLists_WithGlobalErrors(t *testing.T) {
 	
 	// Test that missing RPM sources returns the global error
 	err := validatePackageLists(baseConfigPath, config, []string{}, false)
-	assert.True(t, errors.Is(err, ErrRpmSourcesRequiredForPackages))
-	assert.Equal(t, ErrRpmSourcesRequiredForPackages.Error(), err.Error())
+	assert.True(t, errors.Is(err, RpmSourcesRequiredForPackagesError))
+	assert.Equal(t, RpmSourcesRequiredForPackagesError.Error(), err.Error())
 }
 
 func TestCheckEnvironmentVars_WithDynamicErrors(t *testing.T) {
@@ -116,7 +116,7 @@ func TestErrorCategorization(t *testing.T) {
 		{
 			name:      "config validation error",
 			errorType: ConfigValidationError,
-			err:       ErrInputImageFileRequired,
+			err:       InputImageFileRequiredError,
 		},
 		{
 			name:      "dynamic config validation error",
@@ -154,52 +154,52 @@ func TestErrorMessagePreservation(t *testing.T) {
 		{
 			name:            "input image file required",
 			originalMessage: "input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'",
-			newError:        ErrInputImageFileRequired,
+			newError:        InputImageFileRequiredError,
 		},
 		{
 			name:            "output image file required", 
 			originalMessage: "output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'",
-			newError:        ErrOutputImageFileRequired,
+			newError:        OutputImageFileRequiredError,
 		},
 		{
 			name:            "tool must run as root",
 			originalMessage: "tool should be run as root (e.g. by using sudo)",
-			newError:        ErrToolMustRunAsRoot,
+			newError:        ToolMustRunAsRootError,
 		},
 		{
 			name:            "uki preview feature required",
 			originalMessage: "the 'uki' preview feature must be enabled to use 'os.uki'",
-			newError:        ErrUkiPreviewFeatureRequired,
+			newError:        UkiPreviewFeatureRequiredError,
 		},
 		{
 			name:            "bootloader reset required",
 			originalMessage: "'os.bootloader.reset' must be specified if 'storage.disks' is specified",
-			newError:        ErrBootLoaderResetRequired,
+			newError:        BootLoaderResetRequiredError,
 		},
 		{
 			name:            "bootloader reset uuids required",
 			originalMessage: "'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified",
-			newError:        ErrBootLoaderResetUuidsRequired,
+			newError:        BootLoaderResetUuidsRequiredError,
 		},
 		{
 			name:            "output image format required",
 			originalMessage: "output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'",
-			newError:        ErrOutputImageFormatRequired,
+			newError:        OutputImageFormatRequiredError,
 		},
 		{
 			name:            "cannot customize partitions iso",
 			originalMessage: "cannot customize partitions when the input is an iso",
-			newError:        ErrCannotCustomizePartitionsIso,
+			newError:        CannotCustomizePartitionsIsoError,
 		},
 		{
 			name:            "rpm sources required for packages",
 			originalMessage: "have packages to install or update but no RPM sources were specified",
-			newError:        ErrRpmSourcesRequiredForPackages,
+			newError:        RpmSourcesRequiredForPackagesError,
 		},
 		{
 			name:            "root hash parsing failed",
 			originalMessage: "failed to parse root hash from veritysetup output",
-			newError:        ErrRootHashParsingFailed,
+			newError:        RootHashParsingFailedError,
 		},
 	}
 	

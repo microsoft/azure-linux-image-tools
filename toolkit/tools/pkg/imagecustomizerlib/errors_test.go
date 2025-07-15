@@ -20,6 +20,7 @@ func TestGlobalErrorTypes(t *testing.T) {
 		PackageManagementError,
 		ScriptExecutionError,
 		InternalSystemError,
+		InvalidInputError,
 	}
 
 	for i, errType1 := range errorTypes {
@@ -37,19 +38,20 @@ func TestGlobalErrorTypes(t *testing.T) {
 	assert.Equal(t, "package-management", PackageManagementError.Error())
 	assert.Equal(t, "script-execution", ScriptExecutionError.Error())
 	assert.Equal(t, "internal-system", InternalSystemError.Error())
+	assert.Equal(t, "invalid-input", InvalidInputError.Error())
 }
 
 func TestGlobalErrorMessages(t *testing.T) {
 	// Test static error messages
-	assert.Equal(t, "input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'", ErrInputImageFileRequired.Error())
-	assert.Equal(t, "output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'", ErrOutputImageFileRequired.Error())
-	assert.Equal(t, "tool should be run as root (e.g. by using sudo)", ErrToolMustRunAsRoot.Error())
-	assert.Equal(t, "the 'uki' preview feature must be enabled to use 'os.uki'", ErrUkiPreviewFeatureRequired.Error())
-	assert.Equal(t, "'os.bootloader.reset' must be specified if 'storage.disks' is specified", ErrBootLoaderResetRequired.Error())
-	assert.Equal(t, "'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified", ErrBootLoaderResetUuidsRequired.Error())
-	assert.Equal(t, "output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'", ErrOutputImageFormatRequired.Error())
-	assert.Equal(t, "cannot customize partitions when the input is an iso", ErrCannotCustomizePartitionsIso.Error())
-	assert.Equal(t, "have packages to install or update but no RPM sources were specified", ErrRpmSourcesRequiredForPackages.Error())
+	assert.Equal(t, "input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'", InputImageFileRequiredError.Error())
+	assert.Equal(t, "output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'", OutputImageFileRequiredError.Error())
+	assert.Equal(t, "tool should be run as root (e.g. by using sudo)", ToolMustRunAsRootError.Error())
+	assert.Equal(t, "the 'uki' preview feature must be enabled to use 'os.uki'", UkiPreviewFeatureRequiredError.Error())
+	assert.Equal(t, "'os.bootloader.reset' must be specified if 'storage.disks' is specified", BootLoaderResetRequiredError.Error())
+	assert.Equal(t, "'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified", BootLoaderResetUuidsRequiredError.Error())
+	assert.Equal(t, "output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'", OutputImageFormatRequiredError.Error())
+	assert.Equal(t, "cannot customize partitions when the input is an iso", CannotCustomizePartitionsIsoError.Error())
+	assert.Equal(t, "have packages to install or update but no RPM sources were specified", RpmSourcesRequiredForPackagesError.Error())
 }
 
 func TestImageCustomizerError_WithoutCause(t *testing.T) {

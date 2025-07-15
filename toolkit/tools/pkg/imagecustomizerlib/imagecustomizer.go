@@ -196,7 +196,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
 		if config.CustomizePartitions() {
-			return nil, ErrCannotCustomizePartitionsIso
+			return nil, CannotCustomizePartitionsIsoError
 		}
 	}
 
@@ -766,7 +766,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) error {
 	if inputImageFile == "" && input.Image.Path == "" {
-		return ErrInputImageFileRequired
+		return InputImageFileRequiredError
 	}
 
 	if inputImageFile != "" {
@@ -948,7 +948,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 			config.Packages.UpdateExistingPackages
 
 		if needRpmsSources {
-			return ErrRpmSourcesRequiredForPackages
+			return RpmSourcesRequiredForPackagesError
 		}
 	}
 
@@ -965,7 +965,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 
 func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, outputImageFile, outputImageFormat string) error {
 	if outputImageFile == "" && output.Image.Path == "" {
-		return ErrOutputImageFileRequired
+		return OutputImageFileRequiredError
 	}
 
 	// Pxe output format allows the output to be a path.
@@ -1001,7 +1001,7 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 	}
 
 	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
-		return ErrOutputImageFormatRequired
+		return OutputImageFormatRequiredError
 	}
 
 	return nil
@@ -1276,7 +1276,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 
 	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
 	if len(rootHashMatches) <= 1 {
-		return "", ErrRootHashParsingFailed
+		return "", RootHashParsingFailedError
 	}
 
 	rootHash := rootHashMatches[1]

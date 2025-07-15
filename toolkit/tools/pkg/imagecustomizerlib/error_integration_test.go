@@ -100,11 +100,11 @@ func TestValidateConfig_ErrorCategorization(t *testing.T) {
 				}
 			} else {
 				// For global errors, check if it's one of our defined global errors
-				isGlobalError := errors.Is(err, ErrInputImageFileRequired) ||
-					errors.Is(err, ErrOutputImageFileRequired) ||
-					errors.Is(err, ErrOutputImageFormatRequired) ||
-					errors.Is(err, ErrCannotCustomizePartitionsIso) ||
-					errors.Is(err, ErrRpmSourcesRequiredForPackages)
+				isGlobalError := errors.Is(err, InputImageFileRequiredError) ||
+					errors.Is(err, OutputImageFileRequiredError) ||
+					errors.Is(err, OutputImageFormatRequiredError) ||
+					errors.Is(err, CannotCustomizePartitionsIsoError) ||
+					errors.Is(err, RpmSourcesRequiredForPackagesError)
 
 				assert.True(t, isGlobalError, "Expected a global error but got: %v", err)
 			}
