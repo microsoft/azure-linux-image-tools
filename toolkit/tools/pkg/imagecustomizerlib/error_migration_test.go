@@ -40,7 +40,7 @@ func TestValidateInput_WithDynamicErrors(t *testing.T) {
 	// Should be an ImageCustomizerError
 	var icErr *ImageCustomizerError
 	assert.True(t, errors.As(err, &icErr))
-	assert.True(t, errors.Is(icErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(icErr, ConfigValidationError))
 	assert.Contains(t, icErr.Error(), "invalid command-line option '--image-file'")
 	assert.Contains(t, icErr.Error(), nonExistentFile)
 }
@@ -88,7 +88,7 @@ func TestCheckEnvironmentVars_WithDynamicErrors(t *testing.T) {
 	// Should be an ImageCustomizerError
 	var icErr *ImageCustomizerError
 	assert.True(t, errors.As(err, &icErr))
-	assert.True(t, errors.Is(icErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(icErr, ConfigValidationError))
 	assert.Contains(t, icErr.Error(), "tool should be run as root")
 	assert.Contains(t, icErr.Error(), "HOME must be set to")
 	assert.Contains(t, icErr.Error(), "USER must be set to")
@@ -100,7 +100,7 @@ func TestValidateSnapshotTimeInput_WithDynamicErrors(t *testing.T) {
 	
 	var icErr *ImageCustomizerError
 	assert.True(t, errors.As(err, &icErr))
-	assert.True(t, errors.Is(icErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(icErr, ConfigValidationError))
 	assert.Contains(t, icErr.Error(), "please enable the")
 	assert.Contains(t, icErr.Error(), "preview feature")
 	assert.Contains(t, icErr.Error(), "package-snapshot-time")
@@ -115,18 +115,18 @@ func TestErrorCategorization(t *testing.T) {
 	}{
 		{
 			name:      "config validation error",
-			errorType: ErrTypeConfigValidation,
+			errorType: ConfigValidationError,
 			err:       ErrInputImageFileRequired,
 		},
 		{
 			name:      "dynamic config validation error",
-			errorType: ErrTypeConfigValidation,
-			err:       NewImageCustomizerError(ErrTypeConfigValidation, "test validation error"),
+			errorType: ConfigValidationError,
+			err:       NewImageCustomizerError(ConfigValidationError, "test validation error"),
 		},
 		{
 			name:      "image conversion error",
-			errorType: ErrTypeImageConversion,
-			err:       NewImageCustomizerError(ErrTypeImageConversion, "test conversion error"),
+			errorType: ImageConversionError,
+			err:       NewImageCustomizerError(ImageConversionError, "test conversion error"),
 		},
 	}
 	

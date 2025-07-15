@@ -10,12 +10,12 @@ import (
 
 // Global error types for categorization
 var (
-	ErrTypeConfigValidation     = errors.New("config-validation")
-	ErrTypeImageConversion      = errors.New("image-conversion")
-	ErrTypeFilesystemOperation  = errors.New("filesystem-operation")
-	ErrTypePackageManagement    = errors.New("package-management")
-	ErrTypeScriptExecution      = errors.New("script-execution")
-	ErrTypeInternalSystem       = errors.New("internal-system")
+	ConfigValidationError     = errors.New("config-validation")
+	ImageConversionError      = errors.New("image-conversion")
+	FilesystemOperationError  = errors.New("filesystem-operation")
+	PackageManagementError    = errors.New("package-management")
+	ScriptExecutionError      = errors.New("script-execution")
+	InternalSystemError       = errors.New("internal-system")
 )
 
 // Static error messages as global variables

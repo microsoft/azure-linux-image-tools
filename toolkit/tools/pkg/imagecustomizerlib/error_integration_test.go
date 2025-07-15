@@ -56,7 +56,7 @@ func TestValidateConfig_ErrorCategorization(t *testing.T) {
 			outputImageFormat:   "raw",
 			useBaseImageRpmRepos: false,
 			packageSnapshotTime: "",
-			expectedErrorType:   ErrTypeConfigValidation, // This will be a dynamic error due to file validation
+			expectedErrorType:   ConfigValidationError, // This will be a dynamic error due to file validation
 		},
 		{
 			name:           "invalid snapshot time with missing preview feature",
@@ -81,7 +81,7 @@ func TestValidateConfig_ErrorCategorization(t *testing.T) {
 			outputImageFormat:   "raw",
 			useBaseImageRpmRepos: false,
 			packageSnapshotTime: "2024-01-01",
-			expectedErrorType:   ErrTypeConfigValidation,
+			expectedErrorType:   ConfigValidationError,
 		},
 	}
 
@@ -132,7 +132,7 @@ func TestCreateImageCustomizerParameters_ErrorWrapping(t *testing.T) {
 	// Should be an ImageCustomizerError with the image conversion type
 	var icErr *ImageCustomizerError
 	if assert.True(t, errors.As(err, &icErr)) {
-		assert.True(t, errors.Is(icErr, ErrTypeImageConversion))
+		assert.True(t, errors.Is(icErr, ImageConversionError))
 		assert.Contains(t, icErr.Error(), "invalid output image format")
 	}
 }
@@ -165,40 +165,40 @@ func TestCheckEnvironmentVars_WithNewErrorHandling(t *testing.T) {
 
 	var icErr *ImageCustomizerError
 	if assert.True(t, errors.As(err, &icErr)) {
-		assert.True(t, errors.Is(icErr, ErrTypeConfigValidation))
+		assert.True(t, errors.Is(icErr, ConfigValidationError))
 		assert.Contains(t, icErr.Error(), "tool should be run as root")
 	}
 }
 
 // Test that we can distinguish between different error types
 func TestErrorTypeDistinction(t *testing.T) {
-	configErr := NewImageCustomizerError(ErrTypeConfigValidation, "config error")
-	conversionErr := NewImageCustomizerError(ErrTypeImageConversion, "conversion error")
-	fsErr := NewImageCustomizerError(ErrTypeFilesystemOperation, "filesystem error")
-	pkgErr := NewImageCustomizerError(ErrTypePackageManagement, "package error")
-	scriptErr := NewImageCustomizerError(ErrTypeScriptExecution, "script error")
-	systemErr := NewImageCustomizerError(ErrTypeInternalSystem, "system error")
+	configErr := NewImageCustomizerError(ConfigValidationError, "config error")
+	conversionErr := NewImageCustomizerError(ImageConversionError, "conversion error")
+	fsErr := NewImageCustomizerError(FilesystemOperationError, "filesystem error")
+	pkgErr := NewImageCustomizerError(PackageManagementError, "package error")
+	scriptErr := NewImageCustomizerError(ScriptExecutionError, "script error")
+	systemErr := NewImageCustomizerError(InternalSystemError, "system error")
 
 	// Test that each error type is distinct
-	assert.True(t, errors.Is(configErr, ErrTypeConfigValidation))
-	assert.False(t, errors.Is(configErr, ErrTypeImageConversion))
-	assert.False(t, errors.Is(configErr, ErrTypeFilesystemOperation))
-	assert.False(t, errors.Is(configErr, ErrTypePackageManagement))
-	assert.False(t, errors.Is(configErr, ErrTypeScriptExecution))
-	assert.False(t, errors.Is(configErr, ErrTypeInternalSystem))
+	assert.True(t, errors.Is(configErr, ConfigValidationError))
+	assert.False(t, errors.Is(configErr, ImageConversionError))
+	assert.False(t, errors.Is(configErr, FilesystemOperationError))
+	assert.False(t, errors.Is(configErr, PackageManagementError))
+	assert.False(t, errors.Is(configErr, ScriptExecutionError))
+	assert.False(t, errors.Is(configErr, InternalSystemError))
 
-	assert.True(t, errors.Is(conversionErr, ErrTypeImageConversion))
-	assert.False(t, errors.Is(conversionErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(conversionErr, ImageConversionError))
+	assert.False(t, errors.Is(conversionErr, ConfigValidationError))
 
-	assert.True(t, errors.Is(fsErr, ErrTypeFilesystemOperation))
-	assert.False(t, errors.Is(fsErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(fsErr, FilesystemOperationError))
+	assert.False(t, errors.Is(fsErr, ConfigValidationError))
 
-	assert.True(t, errors.Is(pkgErr, ErrTypePackageManagement))
-	assert.False(t, errors.Is(pkgErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(pkgErr, PackageManagementError))
+	assert.False(t, errors.Is(pkgErr, ConfigValidationError))
 
-	assert.True(t, errors.Is(scriptErr, ErrTypeScriptExecution))
-	assert.False(t, errors.Is(scriptErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(scriptErr, ScriptExecutionError))
+	assert.False(t, errors.Is(scriptErr, ConfigValidationError))
 
-	assert.True(t, errors.Is(systemErr, ErrTypeInternalSystem))
-	assert.False(t, errors.Is(systemErr, ErrTypeConfigValidation))
+	assert.True(t, errors.Is(systemErr, InternalSystemError))
+	assert.False(t, errors.Is(systemErr, ConfigValidationError))
 }
