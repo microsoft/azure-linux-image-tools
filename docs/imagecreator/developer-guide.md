@@ -34,7 +34,6 @@ After running the command, the Image Creator binary will be located at
 2. Run the tests:
 
    ```bash
-
    sudo go test -C ./toolkit/tools ./pkg/imagecreatorlib -args \
      --run-create-image-tests true
    ```
