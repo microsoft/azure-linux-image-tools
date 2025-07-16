@@ -835,7 +835,7 @@ func regenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error
 		if mkinitrdExists {
 			return shell.ExecuteLiveWithErr(1, "mkinitrd")
 		} else {
-			return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
+			return shell.ExecuteLiveWithErr(1, "dracut", "--debug", "--force", "--regenerate-all")
 		}
 	})
 	if err != nil {
