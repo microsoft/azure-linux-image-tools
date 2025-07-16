@@ -254,6 +254,41 @@ func TestTelemetryIntegration(t *testing.T) {
 	}
 }
 
+func TestErrorCategoriesInRealValidation(t *testing.T) {
+	// Test that error categories work with real validation functions
+	t.Run("ValidateRpmSources_InvalidInput", func(t *testing.T) {
+		// Test with invalid RPM source
+		err := ValidateRpmSources([]string{"/non/existent/path.invalidext"})
+		assert.NotNil(t, err)
+		
+		// Should have InvalidInput category
+		assert.True(t, IsErrorCategory(err, ErrorCategoryTypeInvalidInput))
+		assert.Equal(t, ErrorCategoryTypeInvalidInput, GetErrorCategory(err))
+	})
+	
+	t.Run("ValidateRpmSources_ValidInput", func(t *testing.T) {
+		// Test with valid (empty) RPM sources
+		err := ValidateRpmSources([]string{})
+		assert.Nil(t, err)
+	})
+	
+	t.Run("ErrorWrapping_PreservesCategory", func(t *testing.T) {
+		// Test that when errors are wrapped, categories are preserved
+		err := ValidateRpmSources([]string{"/non/existent/path.invalidext"})
+		assert.NotNil(t, err)
+		
+		// Wrap the error
+		wrappedErr := fmt.Errorf("configuration validation failed: %w", err)
+		
+		// Category should still be extractable
+		assert.True(t, IsErrorCategory(wrappedErr, ErrorCategoryTypeInvalidInput))
+		assert.Equal(t, ErrorCategoryTypeInvalidInput, GetErrorCategory(wrappedErr))
+		
+		// Original error should still be in the chain
+		assert.True(t, errors.Is(wrappedErr, err))
+	})
+}
+
 func TestBackwardsCompatibility(t *testing.T) {
 	// Test that existing error handling code still works
 	originalErr := errors.New("test error")
