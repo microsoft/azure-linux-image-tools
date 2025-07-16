@@ -1,6 +1,7 @@
 ---
-parent: API (Image Creator)
-title : Configuration (Image Creator)
+parent: API
+grand_parent: Image Creator
+title : Configuration
 nav_order: 2
 has_toc: false
 ---

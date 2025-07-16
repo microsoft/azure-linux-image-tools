@@ -10,7 +10,7 @@ nav_order: 5
 - Golang
 - [Trivy](https://github.com/aquasecurity/trivy/releases/latest) for license scanning
 
-For other package dependencies, see [Getting started guide](./quick-start/quick-start-binary.md)
+For other package dependencies, see [Getting started guide](./quick-start/quick-start.md)
 
 ## Build Image Creator binary
 
@@ -19,6 +19,7 @@ Run:
 ```bash
 sudo make -C ./toolkit go-imagecreator
 ```
+
 After running the command, the Image Creator binary will be located at
 `./toolkit/out/tools/imagecreator`.
 

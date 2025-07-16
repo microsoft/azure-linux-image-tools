@@ -1,11 +1,11 @@
 ---
-title: Quick Start - Binary
+title: Quick Start
 parent: Image Creator
 nav_order: 1
 
 ---
 
-# Using the Image Creator Binary
+# Using the Image Creator
 
 ## Prerequisities
 

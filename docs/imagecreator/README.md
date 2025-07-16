@@ -23,7 +23,7 @@ recommended to use Image Customizer on top of the seed image produced by Image C
 
 ## Getting Started with Image Creator
 
-- [Quick Start](./quick-start/quick-start-binary.md) - A beginner-friendly guide to
+- [Quick Start](./quick-start/quick-start.md) - A beginner-friendly guide to
   quickly build an Azure Linux image using Image Creator
 - API Documentation:
   - [CLI](./api/cli.md) - Learn about the available command-line interface
@@ -37,4 +37,3 @@ If you'd like to report bugs, request features, or contribute to the tool, you
 can do so directly through our [GitHub
 repo](https://github.com/microsoft/azure-linux-image-tools). We welcome feedback
 and contributions from the community!
-

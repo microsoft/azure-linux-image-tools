@@ -1,5 +1,6 @@
 ---
-parent: Configuration (Image Creator)
+parent: Configuration
+ancestor: Image Creator
 ---
 
 # config type
@@ -33,7 +34,6 @@ os:
 
 Specifies custom scripts to run during the image creation process.
 
-
 ## previewFeatures [string[]]
 
 Enables preview features.
@@ -63,4 +63,3 @@ Supported options:
 ## output [[output](../../../imagecustomizer/api/configuration/output.md#image-outputimage)]
 
 Specifies the configuration for the output image.
-

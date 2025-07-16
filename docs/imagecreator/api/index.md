@@ -1,6 +1,6 @@
 ---
 parent: Image Creator
-title: API (Image Creator)
+title: API
 nav_order: 1
 ---
 

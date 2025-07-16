@@ -1,6 +1,7 @@
 ---
-title: Command line (Image Creator)
-parent: API (Image Creator)
+title: Command line
+parent: API
+grand_parent: Image Creator
 nav_order: 3
 ---
 
@@ -16,16 +17,14 @@ Required.
 
 The directory where the tool will place its temporary files.
 
-
 ## --tools-file=FILE-PATH
 
-Required. 
+Required.
 
 Specifies the path to a tools file in `.tar.gz` format.
 
 This file should contain the TDNF tar package (or an equivalent), which is used to manage package
 dependencies and facilitate installation workflows.
-
 
 ## --output-image-file=FILE-PATH
 
@@ -37,11 +36,9 @@ is used.
 
 The file path to write the created image to.
 
-
 ## --output-path=FILE-PATH
 
 An alias to `--output-image-file`.
-
 
 ## --output-image-format=FORMAT
 
@@ -57,7 +54,6 @@ Options: vhd, vhd-fixed, vhdx, qcow2, raw.
 
 The vhd-fixed option outputs a fixed size VHD image. This is the required format for
 VMs in Azure.
-
 
 ## --config-file=FILE-PATH
 
@@ -111,7 +107,6 @@ how to build your own packages for Azure Linux.
 See, [Cloning an RPM repo](../../imagecustomizer/reference/clone-rpm-repo.md) for how to clone or download
 RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
-
 
 ## --log-level=LEVEL
 

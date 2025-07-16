@@ -13,4 +13,3 @@ In this repo, you'll find documentation for the following tools:
 
 - Image Customizer
 - Image Creator
-- *... more coming soon!*
