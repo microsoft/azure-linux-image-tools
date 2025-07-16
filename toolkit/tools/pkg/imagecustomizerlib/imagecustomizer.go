@@ -334,11 +334,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
-		return NewImageCustomizerErrorWithCause(
-			ErrInternalSystem,
-			"failed to customize raw image",
-			err,
-		)
+		return WrapWithContextPreservingType(err, "failed to customize raw image")
 	}
 
 	if config.Output.Artifacts != nil {

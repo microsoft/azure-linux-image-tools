@@ -178,12 +178,106 @@ func TestImageCustomizerError_ErrorWrappingPattern(t *testing.T) {
 	assert.True(t, errors.Is(err, originalErr))
 }
 
+func TestImageCustomizerError_GetTypeString(t *testing.T) {
+	// Test GetTypeString method for different error types
+	testCases := []struct {
+		name         string
+		errorType    error
+		expectedType string
+	}{
+		{
+			name:         "invalid input error",
+			errorType:    ErrInvalidInput,
+			expectedType: "invalid-input",
+		},
+		{
+			name:         "image conversion error",
+			errorType:    ErrImageConversion,
+			expectedType: "image-conversion",
+		},
+		{
+			name:         "filesystem operation error",
+			errorType:    ErrFilesystemOperation,
+			expectedType: "filesystem-operation",
+		},
+		{
+			name:         "package management error",
+			errorType:    ErrPackageManagement,
+			expectedType: "package-management",
+		},
+		{
+			name:         "script execution error",
+			errorType:    ErrScriptExecution,
+			expectedType: "script-execution",
+		},
+		{
+			name:         "internal system error",
+			errorType:    ErrInternalSystem,
+			expectedType: "internal-system",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := NewImageCustomizerError(tc.errorType, "test message")
+			assert.Equal(t, tc.expectedType, err.GetTypeString())
+		})
+	}
+}
+
+func TestGetErrorType(t *testing.T) {
+	// Test GetErrorType with ImageCustomizerError
+	structuredErr := NewImageCustomizerError(ErrInvalidInput, "test message")
+	assert.Equal(t, ErrInvalidInput, GetErrorType(structuredErr))
+	
+	// Test GetErrorType with regular error
+	regularErr := errors.New("regular error")
+	assert.Equal(t, ErrInternalSystem, GetErrorType(regularErr))
+	
+	// Test GetErrorType with nil
+	assert.Equal(t, ErrInternalSystem, GetErrorType(nil))
+}
+
+func TestWrapWithContextPreservingType(t *testing.T) {
+	// Test with nil error
+	result := WrapWithContextPreservingType(nil, "context message")
+	assert.Nil(t, result)
+	
+	// Test with structured error - should preserve type
+	originalErr := NewImageCustomizerError(ErrInvalidInput, "original message")
+	wrappedErr := WrapWithContextPreservingType(originalErr, "context message")
+	
+	assert.NotNil(t, wrappedErr)
+	assert.True(t, errors.Is(wrappedErr, ErrInvalidInput))
+	assert.True(t, errors.Is(wrappedErr, originalErr))
+	
+	var icErr *ImageCustomizerError
+	assert.True(t, errors.As(wrappedErr, &icErr))
+	assert.Equal(t, ErrInvalidInput, icErr.Type)
+	assert.Equal(t, "context message", icErr.Message)
+	assert.Equal(t, originalErr, icErr.Cause)
+	
+	// Test with regular error - should use ErrInternalSystem
+	regularErr := errors.New("regular error")
+	wrappedRegularErr := WrapWithContextPreservingType(regularErr, "context message")
+	
+	assert.NotNil(t, wrappedRegularErr)
+	assert.True(t, errors.Is(wrappedRegularErr, ErrInternalSystem))
+	assert.True(t, errors.Is(wrappedRegularErr, regularErr))
+	
+	var icErr2 *ImageCustomizerError
+	assert.True(t, errors.As(wrappedRegularErr, &icErr2))
+	assert.Equal(t, ErrInternalSystem, icErr2.Type)
+	assert.Equal(t, "context message", icErr2.Message)
+	assert.Equal(t, regularErr, icErr2.Cause)
+}
+
 func TestCommonErrorConstructors(t *testing.T) {
 	// Test NewPackageManagementError
 	packages := []string{"package1", "package2"}
 	originalErr := errors.New("tdnf error")
 	
-	err := NewPackageManagementError("install", packages, originalErr)
+	err := NewPackageManagementError("failed to install packages", packages, originalErr)
 	assert.Equal(t, "failed to install packages ([package1 package2])", err.Message)
 	assert.Equal(t, ErrPackageManagement, err.Type)
 	assert.Equal(t, originalErr, err.Cause)
@@ -201,7 +295,7 @@ func TestCommonErrorConstructors(t *testing.T) {
 
 	// Test NewFilesystemOperationError
 	fsErr := errors.New("permission denied")
-	err3 := NewFilesystemOperationError("read file", "/path/to/file", fsErr)
+	err3 := NewFilesystemOperationError("failed to read file", "/path/to/file", fsErr)
 	assert.Equal(t, "failed to read file (/path/to/file)", err3.Message)
 	assert.Equal(t, ErrFilesystemOperation, err3.Type)
 	assert.Equal(t, fsErr, err3.Cause)

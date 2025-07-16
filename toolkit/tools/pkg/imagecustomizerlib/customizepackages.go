@@ -209,7 +209,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return NewPackageManagementError("remove", allPackagesToRemove, err)
+		return NewPackageManagementError("failed to remove packages", allPackagesToRemove, err)
 	}
 
 	return nil
@@ -259,7 +259,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return NewPackageManagementError(action, allPackagesToAdd, err)
+		return NewPackageManagementError(fmt.Sprintf("failed to %s packages", action), allPackagesToAdd, err)
 	}
 
 	return nil

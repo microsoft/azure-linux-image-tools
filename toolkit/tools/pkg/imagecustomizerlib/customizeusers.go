@@ -66,7 +66,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 			passwordFileContents, err := os.ReadFile(passwordFullPath)
 			if err != nil {
-				return NewFilesystemOperationError("read password file", passwordFullPath, err)
+				return NewFilesystemOperationError("failed to read password file", passwordFullPath, err)
 			}
 
 			password = string(passwordFileContents)

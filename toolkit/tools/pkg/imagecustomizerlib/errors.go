@@ -55,6 +55,31 @@ func (e *ImageCustomizerError) Is(target error) bool {
 	return errors.Is(e.Type, target)
 }
 
+// GetTypeString returns a string representation of the error type for telemetry
+func (e *ImageCustomizerError) GetTypeString() string {
+	return e.Type.Error()
+}
+
+// GetErrorType returns the error type of an error, preserving structured error types
+func GetErrorType(err error) error {
+	var icErr *ImageCustomizerError
+	if errors.As(err, &icErr) {
+		return icErr.Type
+	}
+	return ErrInternalSystem
+}
+
+// WrapWithContextPreservingType wraps an error with context while preserving structured error types
+func WrapWithContextPreservingType(err error, contextMessage string) error {
+	if err == nil {
+		return nil
+	}
+	
+	// Preserve the original error type if it's a structured error
+	errorType := GetErrorType(err)
+	return NewImageCustomizerErrorWithCause(errorType, contextMessage, err)
+}
+
 // Helper functions for creating ImageCustomizerError instances
 func NewImageCustomizerError(errorType error, message string) *ImageCustomizerError {
 	return &ImageCustomizerError{
@@ -73,9 +98,9 @@ func NewImageCustomizerErrorWithCause(errorType error, message string, cause err
 }
 
 // Common error constructor functions for frequently used patterns
-func NewPackageManagementError(operation string, packages []string, cause error) *ImageCustomizerError {
-	message := fmt.Sprintf("failed to %s packages (%v)", operation, packages)
-	return NewImageCustomizerErrorWithCause(ErrPackageManagement, message, cause)
+func NewPackageManagementError(message string, packages []string, cause error) *ImageCustomizerError {
+	fullMessage := fmt.Sprintf("%s (%v)", message, packages)
+	return NewImageCustomizerErrorWithCause(ErrPackageManagement, fullMessage, cause)
 }
 
 func NewScriptExecutionError(scriptName string, cause error) *ImageCustomizerError {
@@ -83,7 +108,7 @@ func NewScriptExecutionError(scriptName string, cause error) *ImageCustomizerErr
 	return NewImageCustomizerErrorWithCause(ErrScriptExecution, message, cause)
 }
 
-func NewFilesystemOperationError(operation, path string, cause error) *ImageCustomizerError {
-	message := fmt.Sprintf("failed to %s (%s)", operation, path)
-	return NewImageCustomizerErrorWithCause(ErrFilesystemOperation, message, cause)
+func NewFilesystemOperationError(message, path string, cause error) *ImageCustomizerError {
+	fullMessage := fmt.Sprintf("%s (%s)", message, path)
+	return NewImageCustomizerErrorWithCause(ErrFilesystemOperation, fullMessage, cause)
 }

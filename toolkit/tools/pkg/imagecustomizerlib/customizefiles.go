@@ -89,7 +89,7 @@ func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDi
 		}
 		err := imageChroot.AddDirs(dirToCopy)
 		if err != nil {
-			return NewFilesystemOperationError(fmt.Sprintf("copy directory (%s) to (%s)", absSourceDir, dirConfigElement.Destination), absSourceDir, err)
+			return NewFilesystemOperationError(fmt.Sprintf("failed to copy directory (%s) to (%s)", absSourceDir, dirConfigElement.Destination), absSourceDir, err)
 		}
 	}
 	return nil
