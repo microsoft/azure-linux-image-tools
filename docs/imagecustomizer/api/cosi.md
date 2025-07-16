@@ -62,6 +62,7 @@ The metadata file MUST contain a JSON object with the following fields:
 | `osArch`     | [OsArchitecture](#osarchitecture-enum) | 1.0      | Yes (since 1.0) | The architecture of the OS.                      |
 | `osRelease`  | string                                 | 1.0      | Yes (since 1.0) | The contents of `/etc/os-release` verbatim.      |
 | `images`     | [Filesystem](#filesystem-object)[]     | 1.0      | Yes (since 1.0) | Filesystem metadata.                             |
+| `bootloader` | [Bootloader](#bootloader-object)       | 1.1      | Yes (since 1.1) | Information about the bootloader used by the OS. |
 | `osPackages` | [OsPackage](#ospackage-object)[]       | 1.0      | Yes (since 1.1) | The list of packages installed in the OS.        |
 | `id`         | UUID (string, case insensitive)        | 1.0      | No              | A unique identifier for the COSI file.           |
 
@@ -144,6 +145,57 @@ objects. Each object represents a package installed in the OS.
 | `release` | string | 1.0      | Yes (since 1.1) | The release of the package.           |
 | `arch`    | string | 1.0      | Yes (since 1.1) | The architecture of the package.      |
 
+##### `Bootloader` Object
+
+| Field         | Type                                     | Added in | Required                         | Description                 |
+| ------------- | ---------------------------------------- | -------- | -------------------------------- | --------------------------- |
+| `type`        | [`BootloaderType`](#bootloadertype-enum) | 1.1      | Yes (since 1.1)                  | The type of the bootloader. |
+| `systemdBoot` | `SystemDBoot`                            | 1.1      | When `type` == `systemd-boot`    | systemd-boot configuration. |
+
+_Notes:_
+
+The `systemd-boot` field is required if the `type` field is set to
+`systemd-boot`. It MUST be omitted OR set to `null` if the `type`
+field is set to any other value.
+
+##### `BootloaderType` Enum
+
+A string that represents the primary bootloader used in the contained OS. These
+are the valid values for the `type` field in the `bootloader` object:
+
+| Value          | Description                                         |
+| -------------- | --------------------------------------------------- |
+| `systemd-boot` | The system is using systemd-boot as the bootloader. |
+| `grub`         | The system is using GRUB as the bootloader.         |
+
+##### `SystemDBoot` Object
+
+This object contains metadata about how systemd-boot is configured in the OS.
+
+| Field     | Type                                             | Added in | Required        | Description                                                                          |
+| --------- | ------------------------------------------------ | -------- | --------------- | ------------------------------------------------------------------------------------ |
+| `entries` | [`SystemDBootEntry`](#systemdbootentry-object)[] | 1.1      | Yes (since 1.1) | The contents of the `loader/entries/*.conf` files in the systemd-boot EFI partition. |
+
+##### `SystemDBootEntry` Object
+
+This object contains metadata about a specific systemd-boot entry.
+
+| Field     | Type                                                 | Added in | Required        | Description                                            |
+| --------- | ---------------------------------------------------- | -------- | --------------- | ------------------------------------------------------ |
+| `type`    | [`SystemDBootEntryType`](#systemdbootentrytype-enum) | 1.1      | Yes (since 1.1) | The type of the entry.                                 |
+| `path`    | string                                               | 1.1      | Yes (since 1.1) | Absolute path (from the root FS) to the UKI or config. |
+| `cmdline` | string                                               | 1.1      | Yes (since 1.1) | The kernel command line.                               |
+| `kernel`  | string                                               | 1.1      | Yes (since 1.1) | Kernel release as a string.                            |
+
+##### `SystemDBootEntryType` Enum
+
+A string that represents the type of the systemd-boot entry.
+
+| Value            | Description                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `uki-standalone` | The entry is a bare UKI file in the ESP.                           |
+| `uki-config`     | The entry is a config file with a UKI.                             |
+| `config`         | The entry is a config file with a kernel, initrd and command line. |
 
 #### Samples
 
@@ -181,6 +233,9 @@ objects. Each object represents a package installed in the OS.
         }
     ],
     "osRelease": "NAME=\"Microsoft Azure Linux\"\nVERSION=\"3.0.20240824\"\nID=azurelinux\nVERSION_ID=\"3.0\"\nPRETTY_NAME=\"Microsoft Azure Linux 3.0\"\nANSI_COLOR=\"1;34\"\nHOME_URL=\"https://aka.ms/azurelinux\"\nBUG_REPORT_URL=\"https://aka.ms/azurelinux\"\nSUPPORT_URL=\"https://aka.ms/azurelinux\"\n",
+    "bootloader": {
+        "type": "grub"
+    },
     "osPackages": [
         {
             "name": "bash",
@@ -235,6 +290,19 @@ objects. Each object represents a package installed in the OS.
         // More images...
     ],
     "osRelease": "NAME=\"Microsoft Azure Linux\"\nVERSION=\"3.0.20240824\"\nID=azurelinux\nVERSION_ID=\"3.0\"\nPRETTY_NAME=\"Microsoft Azure Linux 3.0\"\nANSI_COLOR=\"1;34\"\nHOME_URL=\"https://aka.ms/azurelinux\"\nBUG_REPORT_URL=\"https://aka.ms/azurelinux\"\nSUPPORT_URL=\"https://aka.ms/azurelinux\"\n",
+    "bootloader": {
+        "type": "systemd-boot",
+        "systemdBoot": {
+            "entries": [
+                {
+                    "type": "uki-standalone",
+                    "path": "/boot/efi/EFI/Linux/azurelinux-uki.efi",
+                    "cmdline": "root=/dev/disk/by-partuuid/88d2fa9b-7a32-450a-a9f8-aa9c3de79298 ro",
+                    "kernel": "6.6.78.1-3.azl3"
+                }
+            ]
+        }
+    },
     "osPackages": [
         {
             "name": "systemd",

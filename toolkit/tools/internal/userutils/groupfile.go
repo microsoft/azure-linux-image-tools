@@ -92,3 +92,19 @@ func GetUserGroups(rootDir string, username string) ([]string, error) {
 
 	return userGroups, nil
 }
+
+func GetGroupEntry(rootDir string, name string) (GroupEntry, error) {
+	entries, err := ReadGroupFile(rootDir)
+	if err != nil {
+		return GroupEntry{}, err
+	}
+
+	entry, found := sliceutils.FindValueFunc(entries, func(entry GroupEntry) bool {
+		return entry.Name == name
+	})
+	if !found {
+		return GroupEntry{}, fmt.Errorf("failed to find group (%s) in (%s) file", name, GroupFile)
+	}
+
+	return entry, nil
+}

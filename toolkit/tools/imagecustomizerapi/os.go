@@ -18,6 +18,7 @@ type OS struct {
 	KernelCommandLine KernelCommandLine  `yaml:"kernelCommandLine" json:"kernelCommandLine,omitempty"`
 	AdditionalFiles   AdditionalFileList `yaml:"additionalFiles" json:"additionalFiles,omitempty"`
 	AdditionalDirs    DirConfigList      `yaml:"additionalDirs" json:"additionalDirs,omitempty"`
+	Groups            []Group            `yaml:"groups" json:"groups,omitempty"`
 	Users             []User             `yaml:"users" json:"users,omitempty"`
 	Services          Services           `yaml:"services" json:"services,omitempty"`
 	Modules           ModuleList         `yaml:"modules" json:"modules,omitempty"`
@@ -69,6 +70,13 @@ func (s *OS) IsValid() error {
 		err = user.IsValid()
 		if err != nil {
 			return fmt.Errorf("invalid users item at index %d:\n%w", i, err)
+		}
+	}
+
+	for i, group := range s.Groups {
+		err = group.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid groups item at index %d:\n%w", i, err)
 		}
 	}
 

@@ -42,6 +42,11 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 		return err
 	}
 
+	err = AddOrUpdateGroups(ctx, config.OS.Groups, imageChroot)
+	if err != nil {
+		return err
+	}
+
 	err = AddOrUpdateUsers(ctx, config.OS.Users, baseConfigPath, imageChroot)
 	if err != nil {
 		return err

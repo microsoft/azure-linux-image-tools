@@ -76,6 +76,20 @@ os:
 
 Added in v0.3.
 
+## groups [[group](./group.md)]
+
+Used to add and/or update user groups.
+
+Example:
+
+```yaml
+os:
+  groups:
+  - name: test
+```
+
+Added in v0.16.
+
 ## users [[user](./user.md)]
 
 Used to add and/or update user accounts.

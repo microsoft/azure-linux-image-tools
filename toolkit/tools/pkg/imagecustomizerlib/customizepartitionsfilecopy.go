@@ -57,12 +57,20 @@ func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot
 }
 
 func copyPartitionFiles(sourceRoot, targetRoot string) error {
+	return copyPartitionFilesWithOptions(sourceRoot, targetRoot, true /*noClobber*/)
+}
+
+func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool) error {
 	// Notes:
 	// `-a` ensures unix permissions, extended attributes (including SELinux), and sub-directories (-r) are copied.
 	// `--no-dereference` ensures that symlinks are copied as symlinks.
 	copyArgs := []string{
-		"--verbose", "--no-clobber", "-a", "--no-dereference", "--sparse", "always",
+		"--verbose", "-a", "--no-dereference", "--sparse", "always",
 		sourceRoot, targetRoot,
+	}
+
+	if noClobber {
+		copyArgs = append(copyArgs, "--no-clobber")
 	}
 
 	err := shell.NewExecBuilder("cp", copyArgs...).

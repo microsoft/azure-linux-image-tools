@@ -7,7 +7,6 @@ scriptDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 enlistmentRoot="$scriptDir/../../../.."
 
 ARCH="amd64"
-ORAS_VERSION="1.2.2"
 BASE_IMAGE="mcr.microsoft.com/azurelinux/base/core"
 BASE_IMAGE_TAG="$BASE_IMAGE:3.0"
 
@@ -18,13 +17,15 @@ function showUsage() {
     echo "build-container.sh \\"
     echo "    -t <container-tag>"
     echo "    -a <architecture> (default: amd64)"
+    echo "    -c <azure-monitor-connection-string> (optional)"
     echo
 }
 
-while getopts "t:a:b" OPTIONS; do
+while getopts "t:a:c:b" OPTIONS; do
   case "${OPTIONS}" in
     t ) containerTag=$OPTARG ;;
     a ) ARCH=$OPTARG ;;
+    c ) azMonitorString=$OPTARG ;;
     b ) VERIFY_BASE_IMAGE=true ;;
     \? ) echo "Invalid option: $OPTARG" 1>&2; showUsage; exit 1 ;;
   esac
@@ -94,21 +95,6 @@ cp "$entrypointScript" "${stagingBinDir}"
 
 touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
 
-# download oras
-orasUnzipDir="${buildDir}/oras-install/"
-if [ ! -d "$orasUnzipDir" ]; then
-  ORAS_TAR="${buildDir}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz"
-
-  curl -L "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${ARCH}.tar.gz" \
-    -o "$ORAS_TAR"
-
-  mkdir "$orasUnzipDir"
-  tar -zxf "$ORAS_TAR" -C "$orasUnzipDir/"
-fi
-
-# stage oras
-cp "$orasUnzipDir/oras" "${stagingBinDir}"
-
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
     echo "Removing grub2-pc and systemd-ukify from Dockerfile for arm64"
@@ -116,7 +102,7 @@ if [ "$ARCH" == "arm64" ]; then
 fi
 
 # build the container
-docker build --build-arg "BASE_IMAGE=$baseImage" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag" 
+docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_MON_CONN_STR=$azMonitorString" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
 
 # clean-up
 cleanUp

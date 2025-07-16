@@ -1,0 +1,7 @@
+os:
+  groups:
+  - name: new-group
+
+  users:
+  - name: new-user
+    primaryGroup: new-group

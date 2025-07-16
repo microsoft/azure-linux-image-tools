@@ -170,6 +170,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "Group": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "gid": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "IdentifiedPartition": {
       "properties": {
         "idType": {
@@ -209,6 +221,9 @@
           "$ref": "#/$defs/AdditionalFileList"
         },
         "initramfsType": {
+          "type": "string"
+        },
+        "kdumpBootFiles": {
           "type": "string"
         }
       },
@@ -285,6 +300,12 @@
         },
         "additionalDirs": {
           "$ref": "#/$defs/DirConfigList"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/Group"
+          },
+          "type": "array"
         },
         "users": {
           "items": {
@@ -459,6 +480,9 @@
           "type": "string"
         },
         "bootstrapFileUrl": {
+          "type": "string"
+        },
+        "kdumpBootFiles": {
           "type": "string"
         }
       },

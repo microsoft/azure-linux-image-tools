@@ -26,7 +26,8 @@ Added in v0.3.
 ## uid [int]
 
 The ID to use for the user.
-This value is not used if the user already exists.
+
+If the user already exists, providing this value will result in an error.
 
 Valid range: 0-60000
 

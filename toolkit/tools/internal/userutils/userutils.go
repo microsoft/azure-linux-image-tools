@@ -60,13 +60,23 @@ func HashPassword(password string) (string, error) {
 	return hashedPassword, nil
 }
 
-func UserExists(username string, installChroot safechroot.ChrootInterface) (bool, error) {
+func userExistsHelper(name string, installChroot safechroot.ChrootInterface, group bool) (bool, error) {
+	typeFlag := "-u"
+	if group {
+		typeFlag = "-g"
+	}
+
 	var userExists bool
 	err := installChroot.UnsafeRun(func() error {
-		_, stderr, err := shell.Execute("id", "-u", username)
+		_, stderr, err := shell.Execute("id", typeFlag, name)
 		if err != nil {
 			if !strings.Contains(stderr, "no such user") {
-				return fmt.Errorf("failed to check if user exists (%s):\n%w", username, err)
+				typeStr := "user"
+				if group {
+					typeStr = "group"
+				}
+
+				return fmt.Errorf("failed to check if %s exists (%s):\n%w", typeStr, name, err)
 			}
 
 			userExists = false
@@ -81,6 +91,14 @@ func UserExists(username string, installChroot safechroot.ChrootInterface) (bool
 	}
 
 	return userExists, nil
+}
+
+func UserExists(name string, installChroot safechroot.ChrootInterface) (bool, error) {
+	return userExistsHelper(name, installChroot, false /*group*/)
+}
+
+func GroupExists(name string, installChroot safechroot.ChrootInterface) (bool, error) {
+	return userExistsHelper(name, installChroot, true /*group*/)
 }
 
 func AddUser(username string, homeDir string, primaryGroup string, hashedPassword string, uid string, installChroot safechroot.ChrootInterface) error {
@@ -103,6 +121,22 @@ func AddUser(username string, homeDir string, primaryGroup string, hashedPasswor
 	})
 	if err != nil {
 		return fmt.Errorf("failed to add user (%s):\n%w", username, err)
+	}
+
+	return nil
+}
+
+func AddGroup(name string, gid string, installChroot safechroot.ChrootInterface) error {
+	var args = []string{name}
+	if gid != "" {
+		args = append(args, "-g", gid)
+	}
+
+	err := installChroot.UnsafeRun(func() error {
+		return shell.ExecuteLive(false /*squashErrors*/, "groupadd", args...)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add group (%s):\n%w", name, err)
 	}
 
 	return nil

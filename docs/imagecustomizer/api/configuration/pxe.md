@@ -33,6 +33,12 @@ pxe:
 
 See also the [PXE Support](../../concepts/pxe.md) page.
 
+## kdumpBootFiles [[KdumpBootFiles](./kdumpbootfiles.md)]
+
+Specifies how to handle kdump boot files.
+
+Added in v0.16.
+
 ## kernelCommandLine [[kernelCommandLine](./kernelcommandline.md)]
 
 Specifies extra kernel command line options.
