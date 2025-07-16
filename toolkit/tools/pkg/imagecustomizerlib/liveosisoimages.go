@@ -599,7 +599,18 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		// pull the boot artifacts back into the full file system so that
 		// it is restored to its original state and subsequent customization
 		// or extraction can proceed transparently.
-		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
+		//
+		// We are disabling the --no-clobber option since the target boot
+		// folder may have common files already from the previous steps.
+		// This can happen when kdump boot files are set to 'keep' in the
+		// input iso which will result in two copies of the kernel vmlinux
+		// file:
+		// - one from the iso media
+		// - one from the full OS image (next to the initramfs kdump.img file).
+		// When the OS is being re-constructed, the attempt to re-copy the
+		// kernel vmlinuz file will fail if we use --no-clobber. So, we disable
+		// it here while coying the boot files from the artifacts.
+		err = copyPartitionFilesWithOptions(artifactsBootDir, imageChroot.RootDir(), false /*noClobber*/)
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
 		}

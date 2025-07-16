@@ -440,7 +440,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 	//       Input: base vhdx
 	//	       kdumpBootFiles=keep
 	//         boot/initramfs-6.6.65.1-2.azl3kdump.img exists
-	//         boot/vmlinuz-6.6.65.1-2.azl3 exist
+	//         boot/vmlinuz-6.6.65.1-2.azl3 exists
 	//       Expected: {full-os}/boot/{initramfs + kernel}
 	//
 	// This test case ensures we can exclude the kdump files from the /boot folder clean-up.
