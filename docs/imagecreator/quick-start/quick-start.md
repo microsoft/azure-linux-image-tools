@@ -92,17 +92,23 @@ nav_order: 1
 
 3. Add executable permissions using `chmod +x imagecreator`.
 
-4. Download the tools file 
-   
+4. Download the tools file.
+
    For creating a 2.0 tools file run
-    ../../toolkit/tools/internal/testutils/testrpms/create-tools-file.sh
+
+    ```bash
+    ../../toolkit/tools/internal/testutils/testrpms/create-tools-file.sh \
     "mcr.microsoft.com/cbl-mariner/base/core:2.0" "tools.tar.gz"
+    ```
 
    For creating a 3.0 tools file run
-    ../../toolkit/tools/internal/testutils/testrpms/create-tools-file.sh
-    "mcr.microsoft.com/azurelinux/base/core:3.0" "tools.tar.gz"
 
-   Note: Currently we only support creating Azure Linux 2.0/3.0 images 
+    ```bash
+    ../../toolkit/tools/internal/testutils/testrpms/create-tools-file.sh \
+    "mcr.microsoft.com/azurelinux/base/core:3.0" "tools.tar.gz"
+    ```
+
+   Note: Currently we only support creating Azure Linux 2.0/3.0 images.
 
 5. Run the Image creator tool.
 
@@ -122,7 +128,6 @@ nav_order: 1
 
    - `<config-file.yaml>`: The configuration file created in Step 1.
    - `<tools-file.tar.gz>`: The tools file created in step 4.
-
 
    For a description of all the command line options, see:
    [Image creator command line](../api/cli.md)
