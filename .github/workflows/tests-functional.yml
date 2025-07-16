@@ -104,7 +104,9 @@ jobs:
 
         pushd repo/toolkit/tools
         oras pull --output baremetal-2.0 mcr.microsoft.com/azurelinux/2.0/image/minimal-os:latest
-        oras pull --output baremetal-3.0 mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest
+        oras pull --output baremetal-3.0 --platform "linux/$HOST_ARCH" mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
 
     - name: Test setup
       run: |
