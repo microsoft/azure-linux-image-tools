@@ -160,7 +160,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err)
+		return NewImageCustomizerErrorWithCause(ErrPackageManagement, "failed to refresh tdnf repo metadata", err)
 	}
 	return nil
 }
@@ -176,7 +176,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err)
+			return nil, NewImageCustomizerErrorWithCause(ErrFilesystemOperation, fmt.Sprintf("failed to read package list file (%s)", packageListFilePath), err)
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)
@@ -209,7 +209,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
+		return NewPackageManagementError("remove", allPackagesToRemove, err)
 	}
 
 	return nil
@@ -228,7 +228,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to update packages:\n%w", err)
+		return NewImageCustomizerErrorWithCause(ErrPackageManagement, "failed to update packages", err)
 	}
 
 	return nil
@@ -259,7 +259,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
+		return NewPackageManagementError(action, allPackagesToAdd, err)
 	}
 
 	return nil

@@ -10,27 +10,27 @@ import (
 
 // Global error types for categorization
 var (
-	InvalidInputError         = errors.New("invalid-input")
-	ImageConversionError      = errors.New("image-conversion")
-	FilesystemOperationError  = errors.New("filesystem-operation")
-	PackageManagementError    = errors.New("package-management")
-	ScriptExecutionError      = errors.New("script-execution")
-	InternalSystemError       = errors.New("internal-system")
+	ErrInvalidInput         = errors.New("invalid-input")
+	ErrImageConversion      = errors.New("image-conversion")
+	ErrFilesystemOperation  = errors.New("filesystem-operation")
+	ErrPackageManagement    = errors.New("package-management")
+	ErrScriptExecution      = errors.New("script-execution")
+	ErrInternalSystem       = errors.New("internal-system")
 )
 
 // Static error messages as global variables
 var (
-	InputImageFileRequiredError        = errors.New("input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'")
-	OutputImageFileRequiredError       = errors.New("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
-	ToolMustRunAsRootError             = errors.New("tool should be run as root (e.g. by using sudo)")
-	UkiPreviewFeatureRequiredError     = errors.New("the 'uki' preview feature must be enabled to use 'os.uki'")
-	BootLoaderResetRequiredError       = errors.New("'os.bootloader.reset' must be specified if 'storage.disks' is specified")
-	BootLoaderResetUuidsRequiredError  = errors.New("'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
-	OutputImageFormatRequiredError     = errors.New("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
-	CannotCustomizePartitionsIsoError  = errors.New("cannot customize partitions when the input is an iso")
-	RpmSourcesRequiredForPackagesError = errors.New("have packages to install or update but no RPM sources were specified")
-	KdumpBootFilesPreviewRequiredError = errors.New("preview feature must be enabled to use 'iso.kdumpBootFiles'")
-	RootHashParsingFailedError         = errors.New("failed to parse root hash from veritysetup output")
+	ErrInputImageFileRequired        = errors.New("input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'")
+	ErrOutputImageFileRequired       = errors.New("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
+	ErrToolMustRunAsRoot             = errors.New("tool should be run as root (e.g. by using sudo)")
+	ErrUkiPreviewFeatureRequired     = errors.New("the 'uki' preview feature must be enabled to use 'os.uki'")
+	ErrBootLoaderResetRequired       = errors.New("'os.bootloader.reset' must be specified if 'storage.disks' is specified")
+	ErrBootLoaderResetUuidsRequired  = errors.New("'os.bootloader.reset' must be specified if 'storage.resetPartitionsUuidsType' is specified")
+	ErrOutputImageFormatRequired     = errors.New("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
+	ErrCannotCustomizePartitionsIso  = errors.New("cannot customize partitions when the input is an iso")
+	ErrRpmSourcesRequiredForPackages = errors.New("have packages to install or update but no RPM sources were specified")
+	ErrKdumpBootFilesPreviewRequired = errors.New("preview feature must be enabled to use 'iso.kdumpBootFiles'")
+	ErrRootHashParsingFailed         = errors.New("failed to parse root hash from veritysetup output")
 )
 
 // ImageCustomizerError struct for dynamic content
@@ -70,4 +70,20 @@ func NewImageCustomizerErrorWithCause(errorType error, message string, cause err
 		Message: message,
 		Cause:   cause,
 	}
+}
+
+// Common error constructor functions for frequently used patterns
+func NewPackageManagementError(operation string, packages []string, cause error) *ImageCustomizerError {
+	message := fmt.Sprintf("failed to %s packages (%v)", operation, packages)
+	return NewImageCustomizerErrorWithCause(ErrPackageManagement, message, cause)
+}
+
+func NewScriptExecutionError(scriptName string, cause error) *ImageCustomizerError {
+	message := fmt.Sprintf("script (%s) failed", scriptName)
+	return NewImageCustomizerErrorWithCause(ErrScriptExecution, message, cause)
+}
+
+func NewFilesystemOperationError(operation, path string, cause error) *ImageCustomizerError {
+	message := fmt.Sprintf("failed to %s (%s)", operation, path)
+	return NewImageCustomizerErrorWithCause(ErrFilesystemOperation, message, cause)
 }

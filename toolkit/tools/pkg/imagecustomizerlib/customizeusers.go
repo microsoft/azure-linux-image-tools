@@ -66,7 +66,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 			passwordFileContents, err := os.ReadFile(passwordFullPath)
 			if err != nil {
-				return fmt.Errorf("failed to read password file (%s): %w", passwordFullPath, err)
+				return NewFilesystemOperationError("read password file", passwordFullPath, err)
 			}
 
 			password = string(passwordFileContents)
@@ -84,12 +84,11 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 	if userExists {
 		if user.UID != nil {
-			return fmt.Errorf("cannot set UID (%d) on a user (%s) that already exists", *user.UID, user.Name)
+			return NewImageCustomizerError(ErrInvalidInput, fmt.Sprintf("cannot set UID (%d) on a user (%s) that already exists", *user.UID, user.Name))
 		}
 
 		if user.HomeDirectory != "" {
-			return fmt.Errorf("cannot set home directory (%s) on a user (%s) that already exists",
-				user.HomeDirectory, user.Name)
+			return NewImageCustomizerError(ErrInvalidInput, fmt.Sprintf("cannot set home directory (%s) on a user (%s) that already exists", user.HomeDirectory, user.Name))
 		}
 
 		// Update the user's password.
