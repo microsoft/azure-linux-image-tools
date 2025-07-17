@@ -111,11 +111,11 @@ def run_min_change_test(
     vm_name = test_instance_name
 
     vm_spec = VmSpec(vm_name, 4096, 4, vm_image, target_boot_type, secure_boot)
-    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec, vm_console_log_file_path)
+    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
-    vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
+    vm = LibvirtVm(vm_name, domain_xml, vm_console_log_file_path, libvirt_conn)
     close_list.append(vm)
 
     # Start VM.
