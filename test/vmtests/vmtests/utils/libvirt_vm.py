@@ -9,13 +9,15 @@ from typing import Any, Optional
 
 import libvirt  # type: ignore
 
+from .libvirt_console_logger import LibvirtConsoleLogger
 from .ssh_client import SshClient, SshClientException
 
 
 # Assists with creating and destroying a libvirt VM.
 class LibvirtVm:
-    def __init__(self, vm_name: str, domain_xml: str, libvirt_conn: libvirt.virConnect):
+    def __init__(self, vm_name: str, domain_xml: str, console_log_file_path: str, libvirt_conn: libvirt.virConnect):
         self.vm_name: str = vm_name
+        self.console_log_file_path: str = console_log_file_path
         self.domain: libvirt.virDomain = None
 
         self.domain = libvirt_conn.defineXML(domain_xml)
@@ -25,10 +27,9 @@ class LibvirtVm:
         # This gives the console logger a chance to connect before the VM starts.
         self.domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
-        # PLACEHOLDER
         # Attach the console logger
-        # self.console_logger = LibvirtConsoleLogger()
-        # self.console_logger.attach(domain, console_log_file_path)
+        self.console_logger = LibvirtConsoleLogger()
+        self.console_logger.attach(self.domain, self.console_log_file_path)
 
         # Start the VM.
         self.domain.resume()
@@ -82,14 +83,12 @@ class LibvirtVm:
         except libvirt.libvirtError as ex:
             logging.warning(f"VM stop failed. {ex}")
 
-        # PLACEHOLDER
         # Wait for console log to close.
         # Note: libvirt can deadlock if you try to undefine the VM while the stream
         # is trying to close.
-        # if self.console_logger:
-        #    log.debug(f"Close VM console log: {vm_name}")
-        #    self.console_logger.close()
-        #    self.console_logger = None
+        if self.console_logger:
+            logging.debug(f"Close VM console log: {self.vm_name}")
+            self.console_logger.close()
 
         # Undefine the VM.
         logging.debug(f"Delete VM: {self.vm_name}")
