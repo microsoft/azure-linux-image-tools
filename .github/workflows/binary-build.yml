@@ -108,7 +108,10 @@ jobs:
     - name: check vmtests types and formatting
       run: |
         set -eux
-        
+
+        sudo apt -y update
+        sudo apt -y install libvirt-dev
+
         pushd repo/test/vmtests
 
         make create-venv
