@@ -1,5 +1,6 @@
 ---
 parent: Configuration
+ancestor: Image Customizer
 ---
 
 # verityPartition type

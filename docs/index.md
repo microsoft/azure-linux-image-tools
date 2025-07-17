@@ -12,4 +12,4 @@ customization and management of Azure Linux images.
 In this repo, you'll find documentation for the following tools:
 
 - Image Customizer
-- *... more coming soon!*
+- Image Creator
