@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import logging
 import os
 import random
 import shutil
@@ -14,6 +15,7 @@ import libvirt  # type: ignore
 import pytest
 from docker import DockerClient
 
+from .utils import libvirt_events_thread
 from .utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
@@ -144,7 +146,15 @@ def ssh_key(request: pytest.FixtureRequest) -> Generator[Tuple[str, Path], None,
 
 
 @pytest.fixture(scope="session")
-def libvirt_conn() -> Generator[libvirt.virConnect, None, None]:
+def libvirt_event_thread() -> Generator[None, None, None]:
+    # The libvirtaio library's logs are a little spammy. So, back them off a bit.
+    logging.getLogger("virEventAsyncIOImpl").setLevel(logging.INFO)
+    libvirt_events_thread.init()
+    yield
+
+
+@pytest.fixture(scope="session")
+def libvirt_conn(libvirt_event_thread: pytest.FixtureRequest) -> Generator[libvirt.virConnect, None, None]:
     # Connect to libvirt.
     libvirt_conn_str = f"qemu:///system"
     libvirt_conn = libvirt.open(libvirt_conn_str)
