@@ -18,14 +18,13 @@ on:
 
 env:
   EXPECTED_GO_VERSION: "1.24.1"
-  ORAS_VERSION: "1.2.3"
 
 jobs:
   tests-functional:
     name: Funtional test suite
     runs-on:
     - self-hosted
-    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'ecf-github-runner-amd64' || 'ecf-github-runner-azl3-arm64') || 'ecf-github-runner-ubuntu2404-amd64'}}
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
     permissions:
       contents: read
     steps:

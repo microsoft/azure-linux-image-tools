@@ -187,5 +187,5 @@ jobs:
     - name: Upload image creator artifact
       uses: actions/upload-artifact@v4
       with:
-        name: imagecreator-${{ inputs.arch }}
+        name: imagecreator-binary-${{ inputs.arch }}
         path: repo/toolkit/out/imagecreator.tar.gz
