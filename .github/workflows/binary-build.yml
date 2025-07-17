@@ -105,6 +105,13 @@ jobs:
           echo "Schema is up-to-date!"
         fi
 
+    - name: check vmtests types and formatting
+      run: |
+        set -eux
+
+        pushd repo
+        make -C repo/test/vmtests check
+
     - name: Build binary
       id: build
       run: |
