@@ -570,10 +570,9 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		if err != nil {
 			return nil
 		}
+		ic.osPackages = osPackages
+		ic.cosiBootMetadata = cosiBootMetadata
 	}
-
-	ic.osPackages = osPackages
-	ic.cosiBootMetadata = cosiBootMetadata
 
 	// Check file systems for corruption.
 	err = checkFileSystems(ctx, ic.rawImageFile)
@@ -1016,20 +1015,24 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, nil
 }
 
-func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, imageConnection *imageconnection.ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, imageConnection *imageconnection.ImageConnection,
+) ([]OsPackage, *CosiBootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
 
-	createdConnection := false
 	if imageConnection == nil {
 		var err error
 		imageConnection, _, _, err = connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, false)
 		if err != nil {
 			return nil, nil, err
 		}
-		createdConnection = true
+		defer imageConnection.Close()
 	}
 
+	return collectOSInfoHelper(buildDir, imageConnection)
+}
+
+func collectOSInfoHelper(buildDir string, imageConnection *imageconnection.ImageConnection) ([]OsPackage, *CosiBootloader, error) {
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
@@ -1038,13 +1041,6 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, im
 	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract bootloader metadata:\n%w", err)
-	}
-
-	if createdConnection {
-		err = imageConnection.CleanClose()
-		if err != nil {
-			return nil, nil, err
-		}
 	}
 
 	return osPackages, cosiBootMetadata, nil
