@@ -536,13 +536,13 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 }
 
 func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if isPackageInstalled(imageChroot, "grub2-efi-binary") {
+	if isPackageInstalled(imageChroot, "grub2-efi-binary") || isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
 		return BootloaderTypeGrub, nil
 	}
 	if isPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary nor systemd-boot found")
+	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
 }
 
 func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
