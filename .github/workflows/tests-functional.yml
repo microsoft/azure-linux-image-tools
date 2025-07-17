@@ -103,7 +103,11 @@ jobs:
         set -eux
 
         pushd repo/toolkit/tools
-        oras pull --output baremetal-2.0 mcr.microsoft.com/azurelinux/2.0/image/minimal-os:latest
+        
+        if [ "$HOST_ARCH" == "amd64" ]; then
+          oras pull --output baremetal-2.0 mcr.microsoft.com/azurelinux/2.0/image/minimal-os:latest
+        fi
+
         oras pull --output baremetal-3.0 --platform "linux/$HOST_ARCH" mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
@@ -126,7 +130,11 @@ jobs:
 
         pushd repo/toolkit/tools
 
-        AZL2_VHDX="baremetal-2.0/image.vhdx"
+        AZL2_VHDX=""
+        if [ "$HOST_ARCH" == "amd64" ]; then
+          AZL2_VHDX="baremetal-2.0/image.vhdx"
+        fi
+
         AZL3_VHDX="baremetal-3.0/image.vhdx"
 
         FAILED=0
