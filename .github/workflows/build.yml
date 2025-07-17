@@ -5,6 +5,8 @@ name: Build binary, container, and docs
 
 permissions:
   contents: read
+  # Azure login.
+  id-token: write
 
 on:
   workflow_call:
