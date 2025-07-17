@@ -1,14 +1,17 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# Downloads an OS image from an Azure Stroage Account Blob Storage.
+# Downloads an OS image from an Azure Storage Account Blob Storage.
 #
 # Usage:
 #   download-image.sh ACCOUNT CONTAINER IMAGE_NAME OUTPUT_DIR
 #
 #     ACCOUNT: Name of an Azure Storage Account.
 #     CONTAINER: Name of a container in the Azure Storage Account.
-#     IMAGE_NAME: Name of the image type. Images are expected to be named: '<IMAGE-TYPE>/<VERSION>/image.vhdx".
+#     IMAGE_NAME: Name of the image.
+#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.vhdx" within the blob container.
+#       IMAGE_NAME typically has the format "<DISTRO>/<IMAGE-TYPE>".
+#       For example, "azure-linux/core-efi-vhdx-3.0-amd64/3.0.20250702/image.vhdx".
 #     OUTPUT_DIR: The directory to output files to.
 
 set -eu
