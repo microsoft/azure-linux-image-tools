@@ -158,6 +158,8 @@ jobs:
           || FAILED=$(( $FAILED | 2 ))
 
         exit $FAILED
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
