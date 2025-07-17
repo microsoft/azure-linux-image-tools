@@ -108,8 +108,11 @@ jobs:
     - name: check vmtests types and formatting
       run: |
         set -eux
+        
+        pushd repo/test/vmtests
 
-        make -C repo/test/vmtests check
+        make create-venv
+        make check
 
     - name: Build binary
       id: build
