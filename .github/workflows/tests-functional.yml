@@ -132,10 +132,10 @@ jobs:
 
         AZL2_VHDX=""
         if [ "$HOST_ARCH" == "amd64" ]; then
-          AZL2_VHDX="baremetal-2.0/image.vhdx"
+          AZL2_VHDX="../../baremetal-2.0/image.vhdx"
         fi
 
-        AZL3_VHDX="baremetal-3.0/image.vhdx"
+        AZL3_VHDX="../../baremetal-3.0/image.vhdx"
 
         FAILED=0
 
@@ -151,8 +151,8 @@ jobs:
           -timeout 60m \
           ./pkg/imagecustomizerlib \
           -args \
-          --base-image-bare-metal-azl2 "../../$AZL2_VHDX" \
-          --base-image-bare-metal-azl3 "../../$AZL3_VHDX" \
+          --base-image-bare-metal-azl2 "$AZL2_VHDX" \
+          --base-image-bare-metal-azl3 "$AZL3_VHDX" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))
