@@ -566,7 +566,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	var osPackages []OsPackage
 	var cosiBootMetadata *CosiBootloader
 	if ic.config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, ic.buildDirAbs, ic.rawImageFile, nil)
+		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return nil
 		}
@@ -1015,24 +1015,31 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, nil
 }
 
-func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, imageConnection *imageconnection.ImageConnection,
+func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string,
 ) ([]OsPackage, *CosiBootloader, error) {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
-	defer span.End()
+	var err error
+	imageConnection, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer imageConnection.Close()
 
-	if imageConnection == nil {
-		var err error
-		imageConnection, _, _, err = connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, false)
-		if err != nil {
-			return nil, nil, err
-		}
-		defer imageConnection.Close()
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return collectOSInfoHelper(buildDir, imageConnection)
+	err = imageConnection.CleanClose()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return osPackages, cosiBootMetadata, nil
 }
 
-func collectOSInfoHelper(buildDir string, imageConnection *imageconnection.ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
+	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
