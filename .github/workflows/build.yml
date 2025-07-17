@@ -63,3 +63,19 @@ jobs:
     with:
       hostArch: amd64
       hostDistro: ubuntu2404
+      
+  imagecreator-tests-functional-azl3-amd64:
+    name: Functional tests AZL3 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/imagecreator-tests-functional.yml
+    with:
+      hostArch: amd64
+      hostDistro: azl3
+
+  imagecreator-tests-functional-ubuntu2404-amd64:
+    name: Functional tests Ubuntu24.04 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/imagecreator-tests-functional.yml
+    with:
+      hostArch: amd64
+      hostDistro: ubuntu2404
