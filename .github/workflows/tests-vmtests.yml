@@ -24,7 +24,7 @@ env:
 
 jobs:
   tests-vmtests:
-    name: Funtional test suite
+    name: Tests VMTests suite
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
