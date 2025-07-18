@@ -51,11 +51,6 @@ jobs:
 
         sudo tdnf list installed
 
-        # # Update polkit policy so that virsh user can access the libvirt stack
-        # sudo mount proc -o remount,hidepid=0
-        # sudo systemctl restart polkit
-        # sudo systemctl status polkit
-
         sudo systemctl restart libvirtd
         sudo systemctl status libvirtd
 
