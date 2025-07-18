@@ -105,6 +105,18 @@ jobs:
           echo "Schema is up-to-date!"
         fi
 
+    - name: check vmtests types and formatting
+      run: |
+        set -eux
+
+        sudo apt -y update
+        sudo apt -y install libvirt-dev
+
+        pushd repo/test/vmtests
+
+        make create-venv
+        make check
+
     - name: Build binary
       id: build
       run: |

@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+
 def get_host_distro() -> str:
     file_path = "/etc/os-release"
     name_value = ""

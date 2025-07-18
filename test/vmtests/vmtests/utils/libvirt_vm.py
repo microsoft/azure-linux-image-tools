@@ -2,9 +2,9 @@
 # Licensed under the MIT License.
 
 import logging
-from pathlib import Path
 import platform
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import libvirt  # type: ignore
@@ -115,7 +115,7 @@ class LibvirtVm:
         # arm64 emulated runs take a very long time to boot and get to a state
         # where we can connect to it.
         ip_wait_time = 30
-        if platform.machine() == 'aarch64':
+        if platform.machine() == "aarch64":
             ip_wait_time = 300
 
         # For arm64 runs, we are seeing a behavior where the first IP address that

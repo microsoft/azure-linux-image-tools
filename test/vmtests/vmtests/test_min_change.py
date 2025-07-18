@@ -1,15 +1,15 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-from getpass import getuser
 import logging
 import os
-from pathlib import Path
 import platform
-import pytest
+from getpass import getuser
+from pathlib import Path
 from typing import List, Tuple
 
 import libvirt  # type: ignore
+import pytest
 from docker import DockerClient
 
 from .conftest import TEST_CONFIGS_DIR
@@ -76,7 +76,18 @@ def run_min_change_test(
 
     image_name = os.path.basename(output_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
-    customized_image_name = image_name_without_ext + "_" + get_host_distro() + "_" + source_boot_type + "_azl" + str(input_image_azl_release) + "_to_" + target_boot_type + image_ext
+    customized_image_name = (
+        image_name_without_ext
+        + "_"
+        + get_host_distro()
+        + "_"
+        + source_boot_type
+        + "_azl"
+        + str(input_image_azl_release)
+        + "_to_"
+        + target_boot_type
+        + image_ext
+    )
     customized_image_path = str(logs_dir) + "/" + customized_image_name
     vm_console_log_file_path = customized_image_path + ".console.log"
     logging.debug(f"- vm_console_log_file_path = {vm_console_log_file_path}")
@@ -131,16 +142,16 @@ def run_basic_checks(
         os_release_text = os_release_fd.read()
 
         if input_image_azl_release == 2:
-            assert ("ID=mariner" in os_release_text)
-            assert ('VERSION_ID="2.0"' in os_release_text)
+            assert "ID=mariner" in os_release_text
+            assert 'VERSION_ID="2.0"' in os_release_text
         elif input_image_azl_release == 3:
-            assert ("ID=azurelinux" in os_release_text)
-            assert ('VERSION_ID="3.0"' in os_release_text)
+            assert "ID=azurelinux" in os_release_text
+            assert 'VERSION_ID="3.0"' in os_release_text
         else:
             assert False, "Unexpected image identity in /etc/os-release"
 
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
 def test_min_change_efi_azl2_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -184,7 +195,7 @@ def test_min_change_efi_azl3_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    if platform.machine() == 'x86_64':
+    if platform.machine() == "x86_64":
         config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
     else:
         config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64.yaml")
@@ -206,7 +217,7 @@ def test_min_change_efi_azl3_qcow_output(
     )
 
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
 def test_min_change_legacy_azl2_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -238,7 +249,7 @@ def test_min_change_legacy_azl2_qcow_output(
     )
 
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="no arm64 legacy boot input images are available")
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
 def test_min_change_legacy_azl3_qcow_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -270,7 +281,7 @@ def test_min_change_legacy_azl3_qcow_output(
     )
 
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
 def test_min_change_efi_azl2_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -364,7 +375,7 @@ def test_min_change_efi_azl3_iso_full_os_output(
     )
 
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="arm64 is not supported for this combination")
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
 def test_min_change_legacy_azl2_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -396,7 +407,7 @@ def test_min_change_legacy_azl2_iso_output(
     )
 
 
-@pytest.mark.skipif(platform.machine() != 'x86_64', reason="no arm64 legacy boot input images are available")
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
 def test_min_change_legacy_azl3_iso_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
