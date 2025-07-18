@@ -1,0 +1,108 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Image Creator Tests functional
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      hostArch:
+        required: true
+        type: string
+      hostDistro:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+
+jobs:
+  tests-functional:
+    name: Funtional test suite
+    runs-on:
+    - self-hosted
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
+    permissions:
+      contents: read
+    steps:
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
+    - name: Install prerequisites (AZL3)
+      if: inputs.hostDistro == 'azl3'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
+          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+          xfsprogs zstd veritysetup grub2 binutils lsof \
+          git
+
+        # grub2-pc is only available on x86.
+        if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
+          sudo tdnf install -y grub2-pc
+        fi
+
+        sudo tdnf list installed
+
+    - name: Install prerequisites (Ubuntu 24.04)
+      if: inputs.hostDistro == 'ubuntu2404'
+      run: |
+        set -eux
+
+        # Install Image Customizer prerequisities.
+        sudo apt list --installed
+        sudo apt update -y
+
+        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Test setup
+      run: |
+        set -eux
+
+        pushd repo/toolkit/tools
+
+        # Download the test RPM files.
+        ./internal/testutils/testrpms/download-test-utils.sh -t 3.0 -s true
+
+        mkdir -p out/testResults
+
+    - name: Run tests
+      run: |
+        set -eux
+        set -o pipefail
+
+        pushd repo/toolkit/tools
+
+        FAILED=0
+
+        sudo env "PATH=$PATH" go test -v \
+          -coverprofile=out/testResults/imagecreatorlib.cov -covermode count \
+          -timeout 30m \
+          ./pkg/imagecreatorlib \
+          -args \
+          --run-create-image-tests true \
+          2>&1 \
+          | tee out/testResults/imagecreatorlib.txt \
+          || FAILED=$(( $FAILED | 1 ))
+
+        exit $FAILED
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: imagecreator-tests-results-functional-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        path: repo/toolkit/tools/out/testResults
