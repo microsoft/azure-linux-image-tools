@@ -4,7 +4,6 @@
 import logging
 import os
 import platform
-from getpass import getuser
 from pathlib import Path
 from typing import List, Tuple
 
@@ -20,6 +19,7 @@ from .utils.imagecustomizer import run_image_customizer
 from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from .utils.libvirt_vm import LibvirtVm
 from .utils.ssh_client import SshClient
+from .utils.user_utils import get_username
 
 
 def run_min_change_test(
@@ -60,7 +60,7 @@ def run_min_change_test(
     logging.debug(f"- target_boot_type        = {target_boot_type}")
     logging.debug(f"- logs_dir                = {logs_dir}")
 
-    username = getuser()
+    username = get_username()
 
     run_image_customizer(
         docker_client,
@@ -122,7 +122,7 @@ def run_min_change_test(
     vm.start()
 
     # Connect to the VM.
-    with vm.create_ssh_client(ssh_private_key_path, test_temp_dir) as ssh_client:
+    with vm.create_ssh_client(ssh_private_key_path, test_temp_dir, username) as ssh_client:
         # Run the test
         run_basic_checks(ssh_client, input_image_azl_release, test_temp_dir)
 
