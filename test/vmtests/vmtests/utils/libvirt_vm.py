@@ -107,6 +107,7 @@ class LibvirtVm:
         self,
         ssh_private_key_path: Path,
         test_temp_dir: Path,
+        username: str,
     ) -> SshClient:
 
         ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
@@ -133,7 +134,12 @@ class LibvirtVm:
 
             # Connect to VM using SSH.
             try:
-                vm_ssh = SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path)
+                vm_ssh = SshClient(
+                    vm_ip_address,
+                    key_path=ssh_private_key_path,
+                    known_hosts_path=ssh_known_hosts_path,
+                    username=username,
+                )
                 return vm_ssh
             except SshClientException as e:
                 delta_time = time.monotonic() - stable_ip_start_time
