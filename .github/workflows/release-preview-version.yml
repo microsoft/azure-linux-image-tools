@@ -20,6 +20,7 @@ jobs:
     with:
       publishType: preview
       runFunctionalTests: true
+      runVMTests: true
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml

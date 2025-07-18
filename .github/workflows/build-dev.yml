@@ -21,10 +21,16 @@ on:
         required: true
         type: boolean
         default: false
+      runVMTests:
+        description: Run VMTests suite
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   build:
-   uses: ./.github/workflows/build.yml
-   with:
-     publishType: dev
-     runFunctionalTests: ${{ inputs.runFunctionalTests || false }}
+    uses: ./.github/workflows/build.yml
+    with:
+      publishType: dev
+      runFunctionalTests: ${{ inputs.runFunctionalTests || false }}
+      runVMTests: ${{ inputs.runVMTests || false }}
