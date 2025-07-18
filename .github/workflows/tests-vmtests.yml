@@ -65,7 +65,7 @@ jobs:
         set -eux
 
         sudo apt update -y
-        sudo apt -y install python3.10-venv python3-pip python3-dev \
+        sudo apt -y install python3.12-venv python3-pip python3-dev \
             libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
             qemu-kvm virt-manager
 
