@@ -536,35 +536,57 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 	// define a disk layout with a boot partition and a rootfs partition
 	maxDiskSizeMB := imagecustomizerapi.DiskSize(safeDiskSizeMB * diskutils.MiB)
 	bootPartitionStart := imagecustomizerapi.DiskSize(1 * diskutils.MiB)
-	bootPartitionEnd := imagecustomizerapi.DiskSize(9 * diskutils.MiB)
+	// bootPartitionEnd := imagecustomizerapi.DiskSize(9 * diskutils.MiB)
+
+	// diskConfig := imagecustomizerapi.Disk{
+	// 	PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
+	// 	MaxSize:            &maxDiskSizeMB,
+	// 	Partitions: []imagecustomizerapi.Partition{
+	// 		{
+	// 			Id:    "esp",
+	// 			Start: &bootPartitionStart,
+	// 			End:   &bootPartitionEnd,
+	// 			Type:  imagecustomizerapi.PartitionTypeESP,
+	// 		},
+	// 		{
+	// 			Id:    "rootfs",
+	// 			Start: &bootPartitionEnd,
+	// 		},
+	// 	},
+	// }
+
+	// fileSystemConfigs := []imagecustomizerapi.FileSystem{
+	// 	{
+	// 		DeviceId:    "esp",
+	// 		PartitionId: "esp",
+	// 		Type:        imagecustomizerapi.FileSystemTypeFat32,
+	// 		MountPoint: &imagecustomizerapi.MountPoint{
+	// 			Path:    "/boot/efi",
+	// 			Options: "umask=0077",
+	// 		},
+	// 	},
+	// 	{
+	// 		DeviceId:    "rootfs",
+	// 		PartitionId: "rootfs",
+	// 		Type:        imagecustomizerapi.FileSystemTypeExt4,
+	// 		MountPoint: &imagecustomizerapi.MountPoint{
+	// 			Path: "/",
+	// 		},
+	// 	},
+	// }
 
 	diskConfig := imagecustomizerapi.Disk{
 		PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
 		MaxSize:            &maxDiskSizeMB,
 		Partitions: []imagecustomizerapi.Partition{
 			{
-				Id:    "esp",
-				Start: &bootPartitionStart,
-				End:   &bootPartitionEnd,
-				Type:  imagecustomizerapi.PartitionTypeESP,
-			},
-			{
 				Id:    "rootfs",
-				Start: &bootPartitionEnd,
+				Start: &bootPartitionStart,
 			},
 		},
 	}
 
 	fileSystemConfigs := []imagecustomizerapi.FileSystem{
-		{
-			DeviceId:    "esp",
-			PartitionId: "esp",
-			Type:        imagecustomizerapi.FileSystemTypeFat32,
-			MountPoint: &imagecustomizerapi.MountPoint{
-				Path:    "/boot/efi",
-				Options: "umask=0077",
-			},
-		},
 		{
 			DeviceId:    "rootfs",
 			PartitionId: "rootfs",
