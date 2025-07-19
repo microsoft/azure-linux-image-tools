@@ -129,7 +129,6 @@ jobs:
           -coverprofile=out/testResults/lib.cov -covermode count \
           -timeout 60m \
           ./pkg/imagecustomizerlib \
-          -run '^TestCustomizeImageLiveOSKeepKdumpFilesA' \
           -args \
           --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
           --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
