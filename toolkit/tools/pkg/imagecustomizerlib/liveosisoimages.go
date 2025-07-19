@@ -632,7 +632,7 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		// When the OS is being re-constructed, the attempt to re-copy the
 		// kernel vmlinuz file will fail if we use --no-clobber. So, we disable
 		// it here while coying the boot files from the artifacts.
-		err = copyPartitionFiles(artifactsBootDir, imageChroot.RootDir())
+		err = copyPartitionFilesWithOptions(artifactsBootDir, imageChroot.RootDir(), true /*noClobber*/)
 		if err != nil {
 			return fmt.Errorf("failed to copy (%s) contents to a writeable disk:\n%w", artifactsBootDir, err)
 		}
