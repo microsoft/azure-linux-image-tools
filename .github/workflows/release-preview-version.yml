@@ -5,7 +5,7 @@ name: Release (preview)
 
 permissions:
   contents: read
-  # "Keyless" container signing
+  # "Keyless" container signing and Azure login.
   id-token: write
   # Publish to GHCR.
   packages: write

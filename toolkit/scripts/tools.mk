@@ -99,6 +99,14 @@ imagecustomizer-targz: go-imagecustomizer license-scan
 	cp -r $(toolkit_root)/out/LICENSES $(BUILD_DIR)/imagecustomizertar
 	tar -C $(BUILD_DIR)/imagecustomizertar -cz --file $(toolkit_root)/out/imagecustomizer.tar.gz .
 
+.PHONY: imagecreator-targz
+imagecreator-targz: go-imagecreator license-scan
+	rm -rf $(BUILD_DIR)/imagecreatortargz || true
+	mkdir -p $(BUILD_DIR)/imagecreatortargz
+	cp $(TOOL_BINS_DIR)/imagecreator $(BUILD_DIR)/imagecreatortargz
+	cp -r $(toolkit_root)/out/LICENSES $(BUILD_DIR)/imagecreatortargz
+	tar -C $(BUILD_DIR)/imagecreatortargz -cz --file $(toolkit_root)/out/imagecreator.tar.gz .
+
 # Downloads all the go dependencies without using sudo, so we don't break other go use cases for the user.
 # We can check if $SUDO_USER is set (the user who invoked sudo), and if so, use that user to run go get via sudo -u.
 # We allow the command to fail with || echo ..., since we don't want to fail the build if the user has already

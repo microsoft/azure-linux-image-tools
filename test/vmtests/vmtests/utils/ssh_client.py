@@ -4,7 +4,7 @@
 import logging
 import shlex
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from threading import Thread
@@ -198,9 +198,11 @@ class SshClient:
         # Open SSH connection.
         start_time = datetime.now()
         while True:
-            delta_time = 0
+            delta_time = timedelta()
             try:
-                self.ssh_client.connect(hostname=hostname, port=port, username=username, key_filename=key_filename, sock=sock)
+                self.ssh_client.connect(
+                    hostname=hostname, port=port, username=username, key_filename=key_filename, sock=sock
+                )
                 break
             except (NoValidConnectionsError, SSHException) as e:
                 delta_time = datetime.now() - start_time

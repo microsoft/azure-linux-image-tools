@@ -5,6 +5,8 @@ name: Build (preview)
 
 permissions:
   contents: read
+  # Azure login.
+  id-token: write
 
 on:
   push:

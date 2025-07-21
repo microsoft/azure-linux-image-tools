@@ -2,9 +2,9 @@
 # Licensed under the MIT License.
 
 import logging
-from pathlib import Path
 import platform
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import libvirt  # type: ignore
@@ -107,6 +107,7 @@ class LibvirtVm:
         self,
         ssh_private_key_path: Path,
         test_temp_dir: Path,
+        username: str,
     ) -> SshClient:
 
         ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
@@ -115,7 +116,7 @@ class LibvirtVm:
         # arm64 emulated runs take a very long time to boot and get to a state
         # where we can connect to it.
         ip_wait_time = 30
-        if platform.machine() == 'aarch64':
+        if platform.machine() == "aarch64":
             ip_wait_time = 300
 
         # For arm64 runs, we are seeing a behavior where the first IP address that
@@ -133,7 +134,12 @@ class LibvirtVm:
 
             # Connect to VM using SSH.
             try:
-                vm_ssh = SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path)
+                vm_ssh = SshClient(
+                    vm_ip_address,
+                    key_path=ssh_private_key_path,
+                    known_hosts_path=ssh_known_hosts_path,
+                    username=username,
+                )
                 return vm_ssh
             except SshClientException as e:
                 delta_time = time.monotonic() - stable_ip_start_time

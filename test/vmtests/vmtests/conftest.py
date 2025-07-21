@@ -76,7 +76,7 @@ def test_temp_dir(
 def core_efi_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     image = request.config.getoption("--core-efi-azl2")
     if not image:
-        raise Exception("--core-efi-azl2 is required for test")
+        pytest.skip("--core-efi-azl2 is required for test")
     yield Path(image)
 
 
@@ -84,7 +84,7 @@ def core_efi_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]
 def core_efi_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     image = request.config.getoption("--core-efi-azl3")
     if not image:
-        raise Exception("--core-efi-azl3 is required for test")
+        pytest.skip("--core-efi-azl3 is required for test")
     yield Path(image)
 
 
@@ -92,7 +92,7 @@ def core_efi_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]
 def core_legacy_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     image = request.config.getoption("--core-legacy-azl2")
     if not image:
-        raise Exception("--core-legacy-azl2 is required for test")
+        pytest.skip("--core-legacy-azl2 is required for test")
     yield Path(image)
 
 
@@ -100,7 +100,7 @@ def core_legacy_azl2(request: pytest.FixtureRequest) -> Generator[Path, None, No
 def core_legacy_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     image = request.config.getoption("--core-legacy-azl3")
     if not image:
-        raise Exception("--core-legacy-azl3 is required for test")
+        pytest.skip("--core-legacy-azl3 is required for test")
     yield Path(image)
 
 
