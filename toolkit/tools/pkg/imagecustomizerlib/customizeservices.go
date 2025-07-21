@@ -38,7 +38,7 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 			return shell.ExecuteLiveWithErr(1, "systemctl", "enable", service)
 		})
 		if err != nil {
-			return AttachErrorCategory(ErrorCategoryTypeInternalSystem, 
+			return AttachErrorCategory(ErrorCategoryTypeServiceOperation, 
 				fmt.Errorf("failed to enable service (%s):\n%w", service, err))
 		}
 	}
@@ -51,7 +51,7 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 		// So, use `systemctl is-enabled` to check if the service exists.
 		_, err := systemd.IsServiceEnabled(service, imageChroot)
 		if err != nil {
-			return AttachErrorCategory(ErrorCategoryTypeInternalSystem, 
+			return AttachErrorCategory(ErrorCategoryTypeServiceOperation, 
 				fmt.Errorf("failed to disable service (%s):\n%w", service, err))
 		}
 
@@ -59,7 +59,7 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 			return shell.ExecuteLiveWithErr(1, "systemctl", "disable", service)
 		})
 		if err != nil {
-			return AttachErrorCategory(ErrorCategoryTypeInternalSystem, 
+			return AttachErrorCategory(ErrorCategoryTypeServiceOperation, 
 				fmt.Errorf("failed to disable service (%s):\n%w", service, err))
 		}
 	}

@@ -58,6 +58,16 @@ func TestErrorCategoryType_String(t *testing.T) {
 			expected: "permission-denied",
 		},
 		{
+			name:     "UserGroupOperation",
+			category: ErrorCategoryTypeUserGroupOperation,
+			expected: "user-group-operation",
+		},
+		{
+			name:     "ServiceOperation",
+			category: ErrorCategoryTypeServiceOperation,
+			expected: "service-operation",
+		},
+		{
 			name:     "Unknown",
 			category: ErrorCategoryType(999),
 			expected: "internal",

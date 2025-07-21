@@ -19,6 +19,8 @@ const (
 	ErrorCategoryTypeInternalSystem
 	ErrorCategoryTypeNetworkOperation
 	ErrorCategoryTypePermissionDenied
+	ErrorCategoryTypeUserGroupOperation
+	ErrorCategoryTypeServiceOperation
 )
 
 // String returns the string representation of the error category
@@ -40,6 +42,10 @@ func (e ErrorCategoryType) String() string {
 		return "network-operation"
 	case ErrorCategoryTypePermissionDenied:
 		return "permission-denied"
+	case ErrorCategoryTypeUserGroupOperation:
+		return "user-group-operation"
+	case ErrorCategoryTypeServiceOperation:
+		return "service-operation"
 	default:
 		return "internal"
 	}

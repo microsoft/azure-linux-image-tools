@@ -160,7 +160,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypeNetworkOperation, 
+		return AttachErrorCategory(ErrorCategoryTypePackageManagement, 
 			fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err))
 	}
 	return nil
