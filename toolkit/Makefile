@@ -22,6 +22,8 @@ include $(SCRIPTS_DIR)/utils.mk
 ######## REMAINING BUILD FLAGS ########
 
 STOP_ON_WARNING    ?= n
+# Skip license scanning (useful for air-gapped builds).
+SKIP_LICENSE_SCAN  ?= n
 
 ######## HIGH LEVEL TARGETS ########
 

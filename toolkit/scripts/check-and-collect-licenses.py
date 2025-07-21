@@ -16,7 +16,8 @@ import tempfile
 import urllib
 import urllib.request
 
-REPO_ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
+SCRIPT_DIR = Path(os.path.realpath(__file__)).parent
+REPO_ROOT = (SCRIPT_DIR / ".." / "..").resolve()
 OUTPUT_DIR = Path(REPO_ROOT) / "toolkit" / "out"
 LICENSE_SCAN_OUTPUT = OUTPUT_DIR / "LICENSES-SCAN.json"
 LICENSES_DIR = OUTPUT_DIR / "LICENSES"
