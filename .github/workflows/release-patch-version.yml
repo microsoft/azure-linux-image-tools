@@ -21,6 +21,7 @@ jobs:
     with:
       publishType: patch
       runFunctionalTests: true
+      runVMTests: true
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml

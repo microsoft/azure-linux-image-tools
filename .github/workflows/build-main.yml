@@ -19,3 +19,4 @@ jobs:
     with:
       publishType: main
       runFunctionalTests: true
+      runVMTests: true
