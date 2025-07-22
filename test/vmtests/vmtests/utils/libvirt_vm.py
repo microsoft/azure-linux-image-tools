@@ -2,20 +2,22 @@
 # Licensed under the MIT License.
 
 import logging
-from pathlib import Path
 import platform
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import libvirt  # type: ignore
 
+from .libvirt_console_logger import LibvirtConsoleLogger
 from .ssh_client import SshClient, SshClientException
 
 
 # Assists with creating and destroying a libvirt VM.
 class LibvirtVm:
-    def __init__(self, vm_name: str, domain_xml: str, libvirt_conn: libvirt.virConnect):
+    def __init__(self, vm_name: str, domain_xml: str, console_log_file_path: str, libvirt_conn: libvirt.virConnect):
         self.vm_name: str = vm_name
+        self.console_log_file_path: str = console_log_file_path
         self.domain: libvirt.virDomain = None
 
         self.domain = libvirt_conn.defineXML(domain_xml)
@@ -25,10 +27,9 @@ class LibvirtVm:
         # This gives the console logger a chance to connect before the VM starts.
         self.domain.createWithFlags(libvirt.VIR_DOMAIN_START_PAUSED)
 
-        # PLACEHOLDER
         # Attach the console logger
-        # self.console_logger = LibvirtConsoleLogger()
-        # self.console_logger.attach(domain, console_log_file_path)
+        self.console_logger = LibvirtConsoleLogger()
+        self.console_logger.attach(self.domain, self.console_log_file_path)
 
         # Start the VM.
         self.domain.resume()
@@ -82,14 +83,12 @@ class LibvirtVm:
         except libvirt.libvirtError as ex:
             logging.warning(f"VM stop failed. {ex}")
 
-        # PLACEHOLDER
         # Wait for console log to close.
         # Note: libvirt can deadlock if you try to undefine the VM while the stream
         # is trying to close.
-        # if self.console_logger:
-        #    log.debug(f"Close VM console log: {vm_name}")
-        #    self.console_logger.close()
-        #    self.console_logger = None
+        if self.console_logger:
+            logging.debug(f"Close VM console log: {self.vm_name}")
+            self.console_logger.close()
 
         # Undefine the VM.
         logging.debug(f"Delete VM: {self.vm_name}")
@@ -107,6 +106,7 @@ class LibvirtVm:
         self,
         ssh_private_key_path: Path,
         test_temp_dir: Path,
+        username: str,
     ) -> SshClient:
 
         ssh_known_hosts_path = test_temp_dir.joinpath("known_hosts")
@@ -115,7 +115,7 @@ class LibvirtVm:
         # arm64 emulated runs take a very long time to boot and get to a state
         # where we can connect to it.
         ip_wait_time = 30
-        if platform.machine() == 'aarch64':
+        if platform.machine() == "aarch64":
             ip_wait_time = 300
 
         # For arm64 runs, we are seeing a behavior where the first IP address that
@@ -133,7 +133,12 @@ class LibvirtVm:
 
             # Connect to VM using SSH.
             try:
-                vm_ssh = SshClient(vm_ip_address, key_path=ssh_private_key_path, known_hosts_path=ssh_known_hosts_path)
+                vm_ssh = SshClient(
+                    vm_ip_address,
+                    key_path=ssh_private_key_path,
+                    known_hosts_path=ssh_known_hosts_path,
+                    username=username,
+                )
                 return vm_ssh
             except SshClientException as e:
                 delta_time = time.monotonic() - stable_ip_start_time

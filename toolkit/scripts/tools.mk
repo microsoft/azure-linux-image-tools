@@ -76,9 +76,16 @@ go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.Too
 				-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.DistroNameAbbreviation=$(DIST_NAME_ABRV) \
 				-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.DistroMajorVersion=$(dist_major_version_number)
 
+# Conditionally include license-scan dependency based on SKIP_LICENSE_SCAN flag
+ifeq ($(SKIP_LICENSE_SCAN),y)
+license_scan_dependency =
+else
+license_scan_dependency = license-scan
+endif
+
 # Matching rules for the above targets
 # Tool specific pre-requisites are tracked via $(go-util): $(shell find...) dynamic variable defined above
-$(TOOL_BINS_DIR)/%: $(go_common_files) license-scan
+$(TOOL_BINS_DIR)/%: $(go_common_files) $(license_scan_dependency)
 	cd $(TOOLS_DIR)/$* && \
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
 		CGO_ENABLED=0 go build \
@@ -92,12 +99,28 @@ $(BUILD_DIR)/tools/internal.test_coverage: $(go_internal_files) $(go_imagegen_fi
 		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$@ ./...
 
 .PHONY: imagecustomizer-targz
-imagecustomizer-targz: go-imagecustomizer license-scan
+imagecustomizer-targz: go-imagecustomizer $(license_scan_dependency)
 	rm -rf $(BUILD_DIR)/imagecustomizertar || true
 	mkdir -p $(BUILD_DIR)/imagecustomizertar
 	cp $(TOOL_BINS_DIR)/imagecustomizer $(BUILD_DIR)/imagecustomizertar
+ifeq ($(SKIP_LICENSE_SCAN),y)
+	@echo "Skipping license scan - LICENSES directory will not be included"
+else
 	cp -r $(toolkit_root)/out/LICENSES $(BUILD_DIR)/imagecustomizertar
+endif
 	tar -C $(BUILD_DIR)/imagecustomizertar -cz --file $(toolkit_root)/out/imagecustomizer.tar.gz .
+
+.PHONY: imagecreator-targz
+imagecreator-targz: go-imagecreator $(license_scan_dependency)
+	rm -rf $(BUILD_DIR)/imagecreatortargz || true
+	mkdir -p $(BUILD_DIR)/imagecreatortargz
+	cp $(TOOL_BINS_DIR)/imagecreator $(BUILD_DIR)/imagecreatortargz
+ifeq ($(SKIP_LICENSE_SCAN),y)
+	@echo "Skipping license scan - LICENSES directory will not be included"
+else
+	cp -r $(toolkit_root)/out/LICENSES $(BUILD_DIR)/imagecreatortargz
+endif
+	tar -C $(BUILD_DIR)/imagecreatortargz -cz --file $(toolkit_root)/out/imagecreator.tar.gz .
 
 # Downloads all the go dependencies without using sudo, so we don't break other go use cases for the user.
 # We can check if $SUDO_USER is set (the user who invoked sudo), and if so, use that user to run go get via sudo -u.
