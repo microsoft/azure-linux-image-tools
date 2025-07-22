@@ -1,10 +1,11 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-
+import random
 import shutil
+import string
 from pathlib import Path
-from typing import Generator
+from typing import Generator, List
 
 import pytest
 from vmtests.vmtests.conftest import (
@@ -17,15 +18,12 @@ from vmtests.vmtests.conftest import (
     logs_dir,
     ssh_key,
     test_instance_name,
-    test_temp_dir,
 )
+from vmtests.vmtests.utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
 TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath(
     "../../toolkit/tools/pkg/imagecustomizerlib/testdata"
-)
-OSMODIFIER_TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath(
-    "../../toolkit/tools/pkg/imagecustomizerlib/testdata/osmodifiertestdata"
 )
 
 
@@ -77,3 +75,29 @@ def input_image(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     if not image:
         raise Exception("--input-image is required for test")
     yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def test_instance_name(request: pytest.FixtureRequest) -> Generator[str, None, None]:
+    instance_suffix = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
+    yield request.node.name + "-" + instance_suffix
+
+
+@pytest.fixture(scope="session")
+def close_list(keep_environment: bool) -> Generator[List[Closeable], None, None]:
+    vm_delete_list: List[Closeable] = []
+
+    yield vm_delete_list
+
+    if keep_environment:
+        return
+
+    exceptions = []
+    for vm in reversed(vm_delete_list):
+        try:
+            vm.close()
+        except Exception as ex:
+            exceptions.append(ex)
+
+    if len(exceptions) > 0:
+        raise ExceptionGroup("failed to close resources", exceptions)
