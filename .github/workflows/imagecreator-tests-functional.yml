@@ -1,12 +1,10 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: Tests functional
+name: Image Creator Tests functional
 
 permissions:
   contents: read
-  # Azure login.
-  id-token: write
 
 on:
   workflow_call:
@@ -20,7 +18,6 @@ on:
 
 env:
   EXPECTED_GO_VERSION: "1.24.1"
-  ORAS_VERSION: "1.2.3"
 
 jobs:
   tests-functional:
@@ -30,9 +27,6 @@ jobs:
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
     permissions:
       contents: read
-      # Azure login.
-      id-token: write
-    environment: public
     steps:
     - name: setup go 1.x
       uses: actions/setup-go@v5
@@ -48,7 +42,7 @@ jobs:
         sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
           sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
           xfsprogs zstd veritysetup grub2 binutils lsof \
-          git azure-cli
+          git
 
         # grub2-pc is only available on x86.
         if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
@@ -68,32 +62,12 @@ jobs:
 
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
-
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        client-id: ${{ vars.AZURE_CLIENT_ID }}
-        tenant-id: ${{ vars.AZURE_TENANT_ID }}
-        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
 
     - name: Checkout
       uses: actions/checkout@v4
       with:
         path: repo
-
-    - name: Download base images
-      run: |
-        set -eux
-
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
-      env:
-        HOST_ARCH: ${{ inputs.hostArch }}
-        AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
-        AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
     - name: Test setup
       run: |
@@ -102,7 +76,7 @@ jobs:
         pushd repo/toolkit/tools
 
         # Download the test RPM files.
-        ./internal/testutils/testrpms/download-test-utils.sh
+        ./internal/testutils/testrpms/download-test-utils.sh -t 3.0 -s true
 
         mkdir -p out/testResults
 
@@ -113,33 +87,22 @@ jobs:
 
         pushd repo/toolkit/tools
 
-        AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
-        AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
-
         FAILED=0
 
         sudo env "PATH=$PATH" go test -v \
-          -coverprofile=out/testResults/api.cov -covermode count \
-          ./imagecustomizerapi \
-          2>&1 \
-          | tee out/testResults/api.txt \
-          || FAILED=$(( $FAILED | 1 ))
-
-        sudo env "PATH=$PATH" go test -v \
-          -coverprofile=out/testResults/lib.cov -covermode count \
-          -timeout 60m \
-          ./pkg/imagecustomizerlib \
+          -coverprofile=out/testResults/imagecreatorlib.cov -covermode count \
+          -timeout 30m \
+          ./pkg/imagecreatorlib \
           -args \
-          --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
-          --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
+          --run-create-image-tests true \
           2>&1 \
-          | tee out/testResults/lib.txt \
-          || FAILED=$(( $FAILED | 2 ))
+          | tee out/testResults/imagecreatorlib.txt \
+          || FAILED=$(( $FAILED | 1 ))
 
         exit $FAILED
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
-        name: tests-results-functional-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        name: imagecreator-tests-results-functional-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
         path: repo/toolkit/tools/out/testResults
