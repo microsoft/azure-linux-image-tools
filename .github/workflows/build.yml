@@ -91,7 +91,7 @@ jobs:
       hostArch: amd64
       hostDistro: azl3
 
-  tests-vmtests-azl3-amd64:
+  tests-vmtests-azl3-arm64:
     name: VMTests suite AZL3 ARM64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-arm64
