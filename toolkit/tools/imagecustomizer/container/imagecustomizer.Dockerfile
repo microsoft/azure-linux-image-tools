@@ -18,11 +18,13 @@ RUN tdnf update -y && \
       python3 python3-pip jq oras && \
    tdnf clean all
 
+# Create the virtual environment for telementry.
+
+
 # Copy telemetry requirements file first to leverage Docker layer caching for pip install step.
 COPY telemetry-requirements.txt /telemetry-requirements.txt
 
 # Create virtual environment and install Python dependencies for telemetry
-COPY ./usr/local/bin/requirements.txt /usr/local/bin/requirements.txt
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --upgrade pip && \
    /opt/telemetry-venv/bin/pip install --no-cache-dir -r /telemetry-requirements.txt && \
