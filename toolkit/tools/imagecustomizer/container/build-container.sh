@@ -90,10 +90,10 @@ cp "$exeFile" "${stagingBinDir}"
 cp "$runScriptPath" "${stagingBinDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
 cp "$telemetryScript" "${stagingBinDir}"
-cp "$telemetryRequirements" "${stagingBinDir}"
 cp "$entrypointScript" "${stagingBinDir}"
 
-touch ${containerStagingFolder}/.mariner-toolkit-ignore-dockerenv
+cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.txt
+touch "${containerStagingFolder}"/.mariner-toolkit-ignore-dockerenv
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
@@ -101,8 +101,19 @@ if [ "$ARCH" == "arm64" ]; then
     sed -i 's/\<grub2-pc systemd-ukify\>//g' "$dockerFile"
 fi
 
+# list all staged files
+(
+    cd "$containerStagingFolder"
+    find . -type f | sort
+)
+
 # build the container
-docker build --build-arg "BASE_IMAGE=$baseImage" --build-arg "AZ_MON_CONN_STR=$azMonitorString" -f "$dockerFile" "$containerStagingFolder" -t "$containerTag"
+docker build \
+    --build-arg "BASE_IMAGE=$baseImage" \
+    --build-arg "AZ_MON_CONN_STR=$azMonitorString" \
+    --file "$dockerFile" \
+    --tag "$containerTag" \
+    "$containerStagingFolder"
 
 # clean-up
 cleanUp
