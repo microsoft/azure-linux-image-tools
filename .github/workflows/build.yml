@@ -50,7 +50,6 @@ jobs:
       hostArch: amd64
       hostDistro: azl3
 
-  ARM64 images aren't available in MCR yet.
   tests-functional-azl3-arm64:
    name: Functional tests AZL3 ARM64
    if: ${{ inputs.runFunctionalTests }}
