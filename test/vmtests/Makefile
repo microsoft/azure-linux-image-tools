@@ -80,6 +80,3 @@ test:
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests
-
-.PHONY: run
-run: image-customizer-container test
