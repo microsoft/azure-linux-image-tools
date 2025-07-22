@@ -36,9 +36,9 @@ update-venv:
 	${PIP} install -r requirements.txt
 
 .PHONY: check
-check: mypy flake8
+check: mypy flake8 check-black check-isort
 
-.PHONY: check
+.PHONY: flake8
 flake8:
 	${FLAKE8} .
 
@@ -53,17 +53,21 @@ fix: fix-isort fix-black
 fix-isort:
 	${ISORT} .
 
+.PHONY: check-isort
+check-isort:
+	${ISORT} --check .
+
 .PHONY: fix-black
 fix-black:
 	${BLACK} .
 
+.PHONY: check-black
+check-black:
+	${BLACK} --check .
+
 .PHONY: ${IMAGE_CUSTOMIZER_BIN}
 ${IMAGE_CUSTOMIZER_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer
-
-.PHONY: image-customizer-container
-image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
-	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
 
 .PHONY: test-osmodifier
 test-osmodifier:

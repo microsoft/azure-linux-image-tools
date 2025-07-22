@@ -35,9 +35,9 @@ update-venv:
 	${PIP} install -r requirements/dev.txt
 
 .PHONY: check
-check: mypy flake8
+check: mypy flake8 check-black check-isort
 
-.PHONY: check
+.PHONY: flake8
 flake8:
 	${FLAKE8} vmtests
 
@@ -52,9 +52,17 @@ fix: fix-isort fix-black
 fix-isort:
 	${ISORT} vmtests
 
+.PHONY: check-isort
+check-isort:
+	${ISORT} --check vmtests
+
 .PHONY: fix-black
 fix-black:
 	${BLACK} vmtests
+
+.PHONY: check-black
+check-black:
+	${BLACK} --check vmtests
 
 .PHONY: ${IMAGE_CUSTOMIZER_BIN}
 ${IMAGE_CUSTOMIZER_BIN}:
@@ -80,3 +88,6 @@ test:
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests
+
+.PHONY: run
+run: image-customizer-container test
