@@ -250,8 +250,9 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			span.RecordError(fmt.Errorf("image customization failed"))
-			span.SetStatus(codes.Error, "image customization failed")
+			category := GetErrorCategory(err)
+			span.RecordError(fmt.Errorf("%s", category.String()))
+			span.SetStatus(codes.Error, category.String())
 		}
 		span.End()
 	}()
