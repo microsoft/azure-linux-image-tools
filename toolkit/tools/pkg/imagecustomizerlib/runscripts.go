@@ -43,7 +43,7 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 	// Bind mount the config directory so that the scripts can access any required resources.
 	mount, err := safemount.NewMount(baseConfigPath, configDirMountPath, "", unix.MS_BIND|unix.MS_RDONLY, "", true)
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypeFilesystemOperation, err)
+		return AttachErrorCategory(CategoryFilesystemOperation, err)
 	}
 	defer mount.Close()
 
@@ -51,13 +51,13 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 	for i, script := range scripts {
 		err := runUserScript(i, script, listName, imageChroot)
 		if err != nil {
-			return AttachErrorCategory(ErrorCategoryTypeScriptExecution, err)
+			return AttachErrorCategory(CategoryScriptExecution, err)
 		}
 	}
 
 	err = mount.CleanClose()
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypeFilesystemOperation, err)
+		return AttachErrorCategory(CategoryFilesystemOperation, err)
 	}
 
 	return nil
@@ -119,7 +119,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypeScriptExecution, 
+		return AttachErrorCategory(CategoryScriptExecution, 
 			fmt.Errorf("script (%s) failed:\n%w", scriptLogName, err))
 	}
 

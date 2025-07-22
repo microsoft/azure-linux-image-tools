@@ -160,7 +160,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypePackageManagement, 
+		return NewImageCustomizerError(CategoryPackageManagement, CodeFailedToRefreshTdnfRepoMetadata,
 			fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err))
 	}
 	return nil
@@ -177,7 +177,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, AttachErrorCategory(ErrorCategoryTypeInvalidInput, 
+			return nil, NewImageCustomizerError(CategoryInvalidInput, CodeInvalidPackageListFile,
 				fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err))
 		}
 
@@ -211,7 +211,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypePackageManagement, 
+		return NewImageCustomizerError(CategoryPackageManagement, CodeFailedToRemovePackages,
 			fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err))
 	}
 
@@ -231,7 +231,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypePackageManagement, 
+		return AttachErrorCategory(CategoryPackageManagement, 
 			fmt.Errorf("failed to update packages:\n%w", err))
 	}
 
@@ -263,7 +263,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return AttachErrorCategory(ErrorCategoryTypePackageManagement, 
+		return AttachErrorCategory(CategoryPackageManagement, 
 			fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err))
 	}
 
@@ -368,7 +368,7 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chro
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return AttachErrorCategory(ErrorCategoryTypePackageManagement, 
+			return AttachErrorCategory(CategoryPackageManagement, 
 				fmt.Errorf("failed to clean tdnf cache:\n%w", err))
 		}
 		return nil
