@@ -3,6 +3,7 @@ build/
 out/
 
 *.tmp
+*.tar.gz
 
 # Python
 __pycache__/
