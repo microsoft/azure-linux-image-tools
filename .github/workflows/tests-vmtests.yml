@@ -46,8 +46,17 @@ jobs:
 
         sudo tdnf install -y libvirt libvirt-daemon libvirt-daemon-config-network \
           libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
-          python3-devel edk2-ovmf \
+          python3-devel \
           azure-cli
+
+        case "$HOST_ARCH" in
+          "amd64")
+            sudo tdnf install -y edk2-ovmf
+            ;;
+          "arm64")
+            sudo tdnf install -y qemu-system-aarch64
+            ;;
+        esac
 
         sudo tdnf list installed
 
