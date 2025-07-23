@@ -27,7 +27,7 @@ func UpdateHostname(ctx context.Context, hostname string, imageChroot safechroot
 	hostnameFilePath := filepath.Join(imageChroot.RootDir(), "etc/hostname")
 	err := file.Write(hostname, hostnameFilePath)
 	if err != nil {
-		return AttachErrorCategory(CategoryFilesystemOperation, 
+		return NewImageCustomizerError(CategoryFilesystemOperation, CodeHostnameWrite,
 			fmt.Errorf("failed to write hostname file: %w", err))
 	}
 

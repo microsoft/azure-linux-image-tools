@@ -77,15 +77,15 @@ func TestErrorCategory_String(t *testing.T) {
 	}
 }
 
-func TestAttachErrorCategory(t *testing.T) {
-	t.Run("AttachToNilError", func(t *testing.T) {
-		err := AttachErrorCategory(CategoryInvalidInput, nil)
+func TestNewImageCustomizerError(t *testing.T) {
+	t.Run("CreateWithNilError", func(t *testing.T) {
+		err := NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, nil)
 		assert.Nil(t, err)
 	})
 
-	t.Run("AttachToValidError", func(t *testing.T) {
+	t.Run("CreateWithValidError", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		err := AttachErrorCategory(CategoryInvalidInput, originalErr)
+		err := NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, originalErr)
 		
 		assert.NotNil(t, err)
 		assert.Equal(t, "test error", err.Error())
@@ -121,7 +121,7 @@ func TestImageCustomizerError_Unwrap(t *testing.T) {
 func TestGetErrorCategory(t *testing.T) {
 	t.Run("ErrorWithCategory", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		categorizedErr := AttachErrorCategory(CategoryImageConversion, originalErr)
+		categorizedErr := NewImageCustomizerError(CategoryImageConversion, CodeImageFormatCheck, originalErr)
 		
 		category := GetErrorCategory(categorizedErr)
 		assert.Equal(t, CategoryImageConversion, category)
@@ -136,7 +136,7 @@ func TestGetErrorCategory(t *testing.T) {
 
 	t.Run("WrappedErrorWithCategory", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		categorizedErr := AttachErrorCategory(CategoryFilesystemOperation, originalErr)
+		categorizedErr := NewImageCustomizerError(CategoryFilesystemOperation, CodeFileCopy, originalErr)
 		wrappedErr := fmt.Errorf("wrapped: %w", categorizedErr)
 		
 		category := GetErrorCategory(wrappedErr)
@@ -145,7 +145,7 @@ func TestGetErrorCategory(t *testing.T) {
 
 	t.Run("MultipleWrappedErrorWithCategory", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		categorizedErr := AttachErrorCategory(CategoryPackageManagement, originalErr)
+		categorizedErr := NewImageCustomizerError(CategoryPackageManagement, CodePackageInstall, originalErr)
 		wrappedErr := fmt.Errorf("wrapped: %w", categorizedErr)
 		doubleWrappedErr := fmt.Errorf("double wrapped: %w", wrappedErr)
 		
@@ -162,7 +162,7 @@ func TestGetErrorCategory(t *testing.T) {
 func TestIsErrorCategory(t *testing.T) {
 	t.Run("MatchingCategory", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		categorizedErr := AttachErrorCategory(CategoryScriptExecution, originalErr)
+		categorizedErr := NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecution, originalErr)
 		
 		assert.True(t, IsErrorCategory(categorizedErr, CategoryScriptExecution))
 		assert.False(t, IsErrorCategory(categorizedErr, CategoryInvalidInput))
@@ -170,7 +170,7 @@ func TestIsErrorCategory(t *testing.T) {
 
 	t.Run("WrappedMatchingCategory", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		categorizedErr := AttachErrorCategory(CategoryNetworkOperation, originalErr)
+		categorizedErr := NewImageCustomizerError(CategoryNetworkOperation, CodeNetworkOperation, originalErr)
 		wrappedErr := fmt.Errorf("wrapped: %w", categorizedErr)
 		
 		assert.True(t, IsErrorCategory(wrappedErr, CategoryNetworkOperation))
@@ -193,7 +193,7 @@ func TestIsErrorCategory(t *testing.T) {
 func TestErrorCategoryPreservationThroughWrapping(t *testing.T) {
 	// Test that categories are preserved when errors are wrapped multiple times
 	originalErr := errors.New("base error")
-	categorizedErr := AttachErrorCategory(CategoryPermissionDenied, originalErr)
+	categorizedErr := NewImageCustomizerError(CategoryPermissionDenied, CodePermissionDenied, originalErr)
 	
 	// Wrap the error multiple times
 	wrapped1 := fmt.Errorf("layer 1: %w", categorizedErr)
@@ -222,21 +222,21 @@ func TestTelemetryIntegration(t *testing.T) {
 		{
 			name: "InvalidInput",
 			errorGenerator: func() error {
-				return AttachErrorCategory(CategoryInvalidInput, errors.New("invalid input"))
+				return NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, errors.New("invalid input"))
 			},
 			expectedCategory: CategoryInvalidInput,
 		},
 		{
 			name: "ImageConversion",
 			errorGenerator: func() error {
-				return AttachErrorCategory(CategoryImageConversion, errors.New("conversion failed"))
+				return NewImageCustomizerError(CategoryImageConversion, CodeImageFormatCheck, errors.New("conversion failed"))
 			},
 			expectedCategory: CategoryImageConversion,
 		},
 		{
 			name: "ScriptExecution",
 			errorGenerator: func() error {
-				return AttachErrorCategory(CategoryScriptExecution, errors.New("script failed"))
+				return NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecution, errors.New("script failed"))
 			},
 			expectedCategory: CategoryScriptExecution,
 		},
@@ -299,7 +299,7 @@ func TestErrorCategoriesInRealValidation(t *testing.T) {
 func TestBackwardsCompatibility(t *testing.T) {
 	// Test that existing error handling code still works
 	originalErr := errors.New("test error")
-	categorizedErr := AttachErrorCategory(CategoryInvalidInput, originalErr)
+	categorizedErr := NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, originalErr)
 	
 	// Standard error methods should work
 	assert.Equal(t, "test error", categorizedErr.Error())
@@ -311,45 +311,22 @@ func TestBackwardsCompatibility(t *testing.T) {
 	assert.True(t, errors.Is(wrappedErr, categorizedErr))
 }
 
-func TestNewImageCustomizerError(t *testing.T) {
-	t.Run("NewErrorWithCodeAndCategory", func(t *testing.T) {
-		originalErr := errors.New("test error")
-		custErr := NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, originalErr)
-		
-		assert.NotNil(t, custErr)
-		assert.Equal(t, "test error", custErr.Error())
-		
-		// Check category extraction
-		category := GetErrorCategory(custErr)
-		assert.Equal(t, CategoryInvalidInput, category)
-		
-		// Check code extraction
-		code := GetErrorCode(custErr)
-		assert.Equal(t, CodeInvalidOutputFormat, code)
-	})
-	
-	t.Run("NewErrorWithNilInput", func(t *testing.T) {
-		custErr := NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, nil)
-		assert.Nil(t, custErr)
-	})
-}
-
 func TestGetErrorCode(t *testing.T) {
 	t.Run("ErrorWithCode", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		custErr := NewImageCustomizerError(CategoryImageConversion, CodeFailedToCheckImageFormat, originalErr)
+		custErr := NewImageCustomizerError(CategoryImageConversion, CodeImageFormatCheck, originalErr)
 		
 		code := GetErrorCode(custErr)
-		assert.Equal(t, CodeFailedToCheckImageFormat, code)
+		assert.Equal(t, CodeImageFormatCheck, code)
 	})
 	
 	t.Run("WrappedErrorWithCode", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		custErr := NewImageCustomizerError(CategoryPackageManagement, CodeFailedToInstallPackages, originalErr)
+		custErr := NewImageCustomizerError(CategoryPackageManagement, CodePackageInstall, originalErr)
 		wrappedErr := fmt.Errorf("wrapped: %w", custErr)
 		
 		code := GetErrorCode(wrappedErr)
-		assert.Equal(t, CodeFailedToInstallPackages, code)
+		assert.Equal(t, CodePackageInstall, code)
 	})
 	
 	t.Run("ErrorWithoutCode", func(t *testing.T) {
@@ -362,18 +339,18 @@ func TestGetErrorCode(t *testing.T) {
 func TestIsErrorCode(t *testing.T) {
 	t.Run("MatchingCode", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		custErr := NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecutionFailed, originalErr)
+		custErr := NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecution, originalErr)
 		
-		assert.True(t, IsErrorCode(custErr, CodeScriptExecutionFailed))
+		assert.True(t, IsErrorCode(custErr, CodeScriptExecution))
 		assert.False(t, IsErrorCode(custErr, CodeInvalidOutputFormat))
 	})
 	
 	t.Run("WrappedMatchingCode", func(t *testing.T) {
 		originalErr := errors.New("test error")
-		custErr := NewImageCustomizerError(CategoryServiceOperation, CodeFailedToEnableService, originalErr)
+		custErr := NewImageCustomizerError(CategoryServiceOperation, CodeServiceEnable, originalErr)
 		wrappedErr := fmt.Errorf("wrapped: %w", custErr)
 		
-		assert.True(t, IsErrorCode(wrappedErr, CodeFailedToEnableService))
-		assert.False(t, IsErrorCode(wrappedErr, CodeFailedToDisableService))
+		assert.True(t, IsErrorCode(wrappedErr, CodeServiceEnable))
+		assert.False(t, IsErrorCode(wrappedErr, CodeServiceDisable))
 	})
 }

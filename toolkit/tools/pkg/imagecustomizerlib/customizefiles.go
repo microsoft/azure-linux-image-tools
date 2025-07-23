@@ -50,7 +50,7 @@ func copyAdditionalFiles(ctx context.Context, baseConfigPath string, additionalF
 
 		err := imageChroot.AddFiles(fileToCopy)
 		if err != nil {
-			return AttachErrorCategory(CategoryFilesystemOperation, err)
+			return NewImageCustomizerError(CategoryFilesystemOperation, CodeFileCopy, err)
 		}
 	}
 
@@ -89,7 +89,7 @@ func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDi
 		}
 		err := imageChroot.AddDirs(dirToCopy)
 		if err != nil {
-			return AttachErrorCategory(CategoryFilesystemOperation, 
+			return NewImageCustomizerError(CategoryFilesystemOperation, CodeDirectoryCopy,
 				fmt.Errorf("failed to copy directory (%s) to (%s):\n%w", absSourceDir, dirConfigElement.Destination, err))
 		}
 	}

@@ -18,14 +18,14 @@ type ImageFileInfo struct {
 func GetImageFileInfo(inputImageFile string) (ImageFileInfo, error) {
 	stdout, _, err := shell.Execute("qemu-img", "info", "--output", "json", inputImageFile)
 	if err != nil {
-		return ImageFileInfo{}, AttachErrorCategory(CategoryImageConversion, 
+		return ImageFileInfo{}, NewImageCustomizerError(CategoryImageConversion, CodeImageFormatCheck,
 			fmt.Errorf("failed to check image file's disk format:\n%w", err))
 	}
 
 	info := ImageFileInfo{}
 	err = json.Unmarshal([]byte(stdout), &info)
 	if err != nil {
-		return ImageFileInfo{}, AttachErrorCategory(CategoryImageConversion, 
+		return ImageFileInfo{}, NewImageCustomizerError(CategoryImageConversion, CodeQemuImgInfo,
 			fmt.Errorf("failed to qemu-img info JSON:\n%w", err))
 	}
 

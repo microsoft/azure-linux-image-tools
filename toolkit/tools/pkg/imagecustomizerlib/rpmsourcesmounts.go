@@ -314,7 +314,7 @@ func ValidateRpmSources(rpmsSources []string) error {
 	for _, rpmSource := range rpmsSources {
 		_, err := getRpmSourceFileType(rpmSource)
 		if err != nil {
-			return AttachErrorCategory(CategoryInvalidInput, err)
+			return NewImageCustomizerError(CategoryInvalidInput, CodeRpmSourceTypeDetection, err)
 		}
 	}
 
@@ -325,7 +325,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 	// First, check if path points to a directory.
 	isDir, err := file.IsDir(rpmSourcePath)
 	if err != nil {
-		return "", AttachErrorCategory(CategoryFilesystemOperation, 
+		return "", NewImageCustomizerError(CategoryFilesystemOperation, CodeRpmSourceTypeDetection,
 			fmt.Errorf("failed to get type of RPM source (%s):\n%w", rpmSourcePath, err))
 	}
 
@@ -345,7 +345,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 		return "repo", nil
 
 	default:
-		return "", AttachErrorCategory(CategoryInvalidInput, 
+		return "", NewImageCustomizerError(CategoryInvalidInput, CodeUnknownRpmSourceType,
 			fmt.Errorf("unknown RPM source type (%s):\nmust be a .repo file or a directory", rpmSourcePath))
 	}
 }

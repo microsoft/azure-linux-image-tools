@@ -33,44 +33,60 @@ type ErrorCode string
 
 const (
 	// Invalid Input errors
-	CodeInvalidOutputFormat              ErrorCode = "Invalid_Output_Format"
-	CodeCannotCustomizePartitionsOnIso  ErrorCode = "Cannot_Customize_Partitions_On_Iso"
-	CodeCannotGenerateOutputFormat       ErrorCode = "Cannot_Generate_Output_Format"
-	CodeInvalidPackageListFile           ErrorCode = "Invalid_Package_List_File"
-	CodeInvalidPasswordFile              ErrorCode = "Invalid_Password_File"
-	CodeUnknownRpmSourceType             ErrorCode = "Unknown_Rpm_Source_Type"
-	CodeFailedToGetRpmSourceType         ErrorCode = "Failed_To_Get_Rpm_Source_Type"
+	CodeInvalidOutputFormat              ErrorCode = "Invalid_Output_Format_Failure"
+	CodeCannotCustomizePartitionsOnIso  ErrorCode = "Partition_Customization_On_Iso_Failure"
+	CodeCannotGenerateOutputFormat       ErrorCode = "Output_Format_Generation_Failure"
+	CodeInvalidPackageListFile           ErrorCode = "Package_List_File_Validation_Failure"
+	CodeInvalidPasswordFile              ErrorCode = "Password_File_Validation_Failure"
+	CodeUnknownRpmSourceType             ErrorCode = "Rpm_Source_Type_Recognition_Failure"
+	CodeRpmSourceTypeDetection           ErrorCode = "Rpm_Source_Type_Detection_Failure"
 
 	// Image Conversion errors
-	CodeFailedToCheckImageFormat         ErrorCode = "Failed_To_Check_Image_Format"
-	CodeFailedToQemuImgInfo              ErrorCode = "Failed_To_Qemu_Img_Info"
+	CodeImageFormatCheck                 ErrorCode = "Image_Format_Check_Failure"
+	CodeQemuImgInfo                      ErrorCode = "Qemu_Img_Info_Failure"
 
 	// Filesystem Operation errors
-	CodeFailedToWriteHostnameFile        ErrorCode = "Failed_To_Write_Hostname_File"
-	CodeFailedToCopyDirectory            ErrorCode = "Failed_To_Copy_Directory"
-	CodeFailedToCreateOverlayDirectories ErrorCode = "Failed_To_Create_Overlay_Directories"
-	CodeFailedToUpdateFstabForOverlays   ErrorCode = "Failed_To_Update_Fstab_For_Overlays"
-	CodeFailedToMountConfigDir           ErrorCode = "Failed_To_Mount_Config_Dir"
-	CodeFailedToUnmountConfigDir         ErrorCode = "Failed_To_Unmount_Config_Dir"
+	CodeHostnameWrite                    ErrorCode = "Hostname_Write_Failure"
+	CodeDirectoryCopy                    ErrorCode = "Directory_Copy_Failure"
+	CodeFileCopy                         ErrorCode = "File_Copy_Failure"
+	CodeOverlayDirectoryCreate           ErrorCode = "Overlay_Directory_Create_Failure"
+	CodeOverlayFstabUpdate               ErrorCode = "Overlay_Fstab_Update_Failure"
+	CodeConfigDirMount                   ErrorCode = "Config_Dir_Mount_Failure"
+	CodeConfigDirUnmount                 ErrorCode = "Config_Dir_Unmount_Failure"
 
 	// Package Management errors
-	CodeFailedToRefreshTdnfRepoMetadata  ErrorCode = "Failed_To_Refresh_Tdnf_Repo_Metadata"
-	CodeFailedToInstallPackages          ErrorCode = "Failed_To_Install_Packages"
-	CodeFailedToRemovePackages           ErrorCode = "Failed_To_Remove_Packages"
-	CodeFailedToUpdatePackages           ErrorCode = "Failed_To_Update_Packages"
-	CodeFailedToCleanTdnfCache           ErrorCode = "Failed_To_Clean_Tdnf_Cache"
+	CodePackageRepoMetadataRefresh       ErrorCode = "Package_Repo_Metadata_Refresh_Failure"
+	CodePackageInstall                   ErrorCode = "Package_Install_Failure"
+	CodePackageRemove                    ErrorCode = "Package_Remove_Failure"
+	CodePackageUpdate                    ErrorCode = "Package_Update_Failure"
+	CodePackageCacheClean                ErrorCode = "Package_Cache_Clean_Failure"
+	CodePackageClean                     ErrorCode = "Package_Clean_Failure"
+	CodePackageUpgrade                   ErrorCode = "Package_Upgrade_Failure"
 
 	// Script Execution errors
-	CodeScriptExecutionFailed            ErrorCode = "Script_Execution_Failed"
+	CodeScriptExecution                  ErrorCode = "Script_Execution_Failure"
 
 	// Service Operation errors
-	CodeFailedToEnableService            ErrorCode = "Failed_To_Enable_Service"
-	CodeFailedToDisableService           ErrorCode = "Failed_To_Disable_Service"
+	CodeServiceEnable                    ErrorCode = "Service_Enable_Failure"
+	CodeServiceDisable                   ErrorCode = "Service_Disable_Failure"
 
 	// User/Group Operation errors
-	CodeCannotSetGidOnExistingGroup      ErrorCode = "Cannot_Set_Gid_On_Existing_Group"
-	CodeCannotSetUidOnExistingUser       ErrorCode = "Cannot_Set_Uid_On_Existing_User"
-	CodeCannotSetHomeDirOnExistingUser   ErrorCode = "Cannot_Set_Home_Dir_On_Existing_User"
+	CodeGroupGidSet                      ErrorCode = "Group_Gid_Set_Failure"
+	CodeUserUidSet                       ErrorCode = "User_Uid_Set_Failure"
+	CodeUserHomeDirSet                   ErrorCode = "User_Home_Dir_Set_Failure"
+	CodeGroupExists                      ErrorCode = "Group_Exists_Check_Failure"
+	CodeGroupAdd                         ErrorCode = "Group_Add_Failure"
+	CodeUserExists                       ErrorCode = "User_Exists_Check_Failure"
+	CodeUserAdd                          ErrorCode = "User_Add_Failure"
+	CodeUserUpdate                       ErrorCode = "User_Update_Failure"
+	CodePasswordRead                     ErrorCode = "Password_Read_Failure"
+
+	// Miscellaneous errors for other operations
+	CodeOverlayCheck                     ErrorCode = "Overlay_Check_Failure"
+	CodeRpmSourceMount                   ErrorCode = "Rpm_Source_Mount_Failure"
+	CodeInternalSystem                   ErrorCode = "Internal_System_Failure"
+	CodeNetworkOperation                 ErrorCode = "Network_Operation_Failure"
+	CodePermissionDenied                 ErrorCode = "Permission_Denied_Failure"
 )
 
 // ImageCustomizerError represents a structured error with category and unique code
@@ -86,6 +102,18 @@ func (e *ImageCustomizerError) Error() string {
 
 func (e *ImageCustomizerError) Unwrap() error {
 	return e.Err
+}
+
+// Wrap wraps an error with additional context while preserving the category and code
+func (e *ImageCustomizerError) Wrap(msg string) error {
+	if e == nil {
+		return nil
+	}
+	return &ImageCustomizerError{
+		Category: e.Category,
+		Code:     e.Code,
+		Err:      errors.New(msg + ": " + e.Err.Error()),
+	}
 }
 
 // NewImageCustomizerError creates a new ImageCustomizerError
@@ -126,98 +154,4 @@ func IsErrorCategory(err error, category ErrorCategory) bool {
 // IsErrorCode checks if an error has a specific code
 func IsErrorCode(err error, code ErrorCode) bool {
 	return GetErrorCode(err) == code
-}
-
-// Legacy functions for backward compatibility during transition
-// These maintain the old function signatures but use the new system
-
-// AttachErrorCategory wraps an error with a category (legacy function)
-// Deprecated: Use NewImageCustomizerError with appropriate ErrorCode instead
-func AttachErrorCategory(category ErrorCategory, err error) error {
-	if err == nil {
-		return nil
-	}
-	// Map to appropriate error code based on category and error message
-	code := inferErrorCodeFromError(err)
-	return NewImageCustomizerError(category, code, err)
-}
-
-// inferErrorCodeFromError attempts to infer an appropriate error code from the error message
-func inferErrorCodeFromError(err error) ErrorCode {
-	if err == nil {
-		return ""
-	}
-	
-	errMsg := err.Error()
-	
-	// Try to match common error patterns to appropriate codes
-	switch {
-	case contains(errMsg, "cannot customize partitions when the input is an iso"):
-		return CodeCannotCustomizePartitionsOnIso
-	case contains(errMsg, "cannot generate output format"):
-		return CodeCannotGenerateOutputFormat
-	case contains(errMsg, "invalid output image format"):
-		return CodeInvalidOutputFormat
-	case contains(errMsg, "failed to read package list file"):
-		return CodeInvalidPackageListFile
-	case contains(errMsg, "failed to read password file"):
-		return CodeInvalidPasswordFile
-	case contains(errMsg, "unknown RPM source type"):
-		return CodeUnknownRpmSourceType
-	case contains(errMsg, "failed to get type of RPM source"):
-		return CodeFailedToGetRpmSourceType
-	case contains(errMsg, "failed to check image file's disk format"):
-		return CodeFailedToCheckImageFormat
-	case contains(errMsg, "failed to qemu-img info JSON"):
-		return CodeFailedToQemuImgInfo
-	case contains(errMsg, "failed to write hostname file"):
-		return CodeFailedToWriteHostnameFile
-	case contains(errMsg, "failed to copy directory"):
-		return CodeFailedToCopyDirectory
-	case contains(errMsg, "failed to create overlay directories"):
-		return CodeFailedToCreateOverlayDirectories
-	case contains(errMsg, "failed to update fstab file for overlays"):
-		return CodeFailedToUpdateFstabForOverlays
-	case contains(errMsg, "failed to refresh tdnf repo metadata"):
-		return CodeFailedToRefreshTdnfRepoMetadata
-	case contains(errMsg, "failed to install packages") || contains(errMsg, "failed to add packages"):
-		return CodeFailedToInstallPackages
-	case contains(errMsg, "failed to remove packages"):
-		return CodeFailedToRemovePackages
-	case contains(errMsg, "failed to update packages"):
-		return CodeFailedToUpdatePackages
-	case contains(errMsg, "failed to clean tdnf cache"):
-		return CodeFailedToCleanTdnfCache
-	case contains(errMsg, "script") && contains(errMsg, "failed"):
-		return CodeScriptExecutionFailed
-	case contains(errMsg, "failed to enable service"):
-		return CodeFailedToEnableService
-	case contains(errMsg, "failed to disable service"):
-		return CodeFailedToDisableService
-	case contains(errMsg, "cannot set GID") && contains(errMsg, "on a group") && contains(errMsg, "that already exists"):
-		return CodeCannotSetGidOnExistingGroup
-	case contains(errMsg, "cannot set UID") && contains(errMsg, "on a user") && contains(errMsg, "that already exists"):
-		return CodeCannotSetUidOnExistingUser
-	case contains(errMsg, "cannot set home directory") && contains(errMsg, "on a user") && contains(errMsg, "that already exists"):
-		return CodeCannotSetHomeDirOnExistingUser
-	default:
-		return ""
-	}
-}
-
-// contains is a simple substring check helper
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		(len(s) > len(substr) && 
-			(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-				containsAt(s, substr))))
-}
-
-func containsAt(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

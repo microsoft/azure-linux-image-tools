@@ -44,14 +44,14 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 	// Check if the user already exists.
 	groupExists, err := userutils.GroupExists(group.Name, imageChroot)
 	if err != nil {
-		return AttachErrorCategory(CategoryUserGroupOperation, err)
+		return NewImageCustomizerError(CategoryUserGroupOperation, CodeGroupExists, err)
 	}
 
 	if groupExists {
 		logger.Log.Infof("Updating group (%s)", group.Name)
 
 		if group.GID != nil {
-			return AttachErrorCategory(CategoryInvalidInput, 
+			return NewImageCustomizerError(CategoryInvalidInput, CodeGroupGidSet,
 				fmt.Errorf("cannot set GID (%d) on a group (%s) that already exists", *group.GID, group.Name))
 		}
 	} else {
@@ -65,7 +65,7 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 		// Add the user.
 		err = userutils.AddGroup(group.Name, gidStr, imageChroot)
 		if err != nil {
-			return AttachErrorCategory(CategoryUserGroupOperation, err)
+			return NewImageCustomizerError(CategoryUserGroupOperation, CodeGroupAdd, err)
 		}
 	}
 

@@ -152,7 +152,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 
 	err = ValidateRpmSources(rpmsSources)
 	if err != nil {
-		return nil, NewImageCustomizerError(CategoryInvalidInput, CodeFailedToGetRpmSourceType, err)
+		return nil, NewImageCustomizerError(CategoryInvalidInput, CodeRpmSourceTypeDetection, err)
 	}
 
 	// intermediate writeable image
