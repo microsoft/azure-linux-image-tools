@@ -31,11 +31,6 @@ const (
 	CategoryArtifactHandling    ErrorCategory = "Artifact_Handling"
 )
 
-// String returns the string representation of the error category
-func (e ErrorCategory) String() string {
-	return string(e)
-}
-
 // ErrorCode is a fine-grained, unique identifier for each specific failure
 type ErrorCode string
 
@@ -156,6 +151,9 @@ const (
 	CodeUKIFileCopy                      ErrorCode = "UKI_File_Copy_Failure"
 	CodeUKIKernelCmdlineExtract          ErrorCode = "UKI_Kernel_Cmdline_Extract_Failure"
 	CodeUKICmdlineFileWrite              ErrorCode = "UKI_Cmdline_File_Write_Failure"
+	
+	// Dracut Operation errors
+	CodeAddDracutDriver                  ErrorCode = "Add_Dracut_Driver_Failure"
 )
 
 // ImageCustomizerError represents a structured error with category and unique code

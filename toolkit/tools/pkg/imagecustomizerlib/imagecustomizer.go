@@ -253,14 +253,33 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 			category := GetErrorCategory(err)
 			code := GetErrorCode(err)
 			
-			// Record both category and code in telemetry
+			// Create JSON structure for error details
+			errorDetails := map[string]string{
+				"category": string(category),
+			}
 			if code != "" {
-				span.RecordError(fmt.Errorf("category: %s, code: %s", category.String(), string(code)))
-				span.SetStatus(codes.Error, fmt.Sprintf("category: %s, code: %s", category.String(), string(code)))
+				errorDetails["code"] = string(code)
+			}
+			
+			// Marshal to JSON for RecordError
+			errorDetailsJSON, _ := json.Marshal(errorDetails)
+			span.RecordError(fmt.Errorf("%s", string(errorDetailsJSON)))
+			
+			// Set span attributes
+			span.SetAttributes(
+				attribute.String("error.category", string(category)),
+			)
+			if code != "" {
+				span.SetAttributes(
+					attribute.String("error.code", string(code)),
+				)
+			}
+			
+			// Set status with category and code info
+			if code != "" {
+				span.SetStatus(codes.Error, fmt.Sprintf("category: %s, code: %s", string(category), string(code)))
 			} else {
-				// Fallback for uncategorized errors
-				span.RecordError(fmt.Errorf("category: %s", category.String()))
-				span.SetStatus(codes.Error, category.String())
+				span.SetStatus(codes.Error, string(category))
 			}
 		}
 		span.End()

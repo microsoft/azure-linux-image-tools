@@ -11,72 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestErrorCategory_String(t *testing.T) {
-	tests := []struct {
-		name     string
-		category ErrorCategory
-		expected string
-	}{
-		{
-			name:     "InvalidInput",
-			category: CategoryInvalidInput,
-			expected: "Invalid_Input",
-		},
-		{
-			name:     "ImageConversion",
-			category: CategoryImageConversion,
-			expected: "Image_Conversion",
-		},
-		{
-			name:     "FilesystemOperation",
-			category: CategoryFilesystemOperation,
-			expected: "Filesystem_Operation",
-		},
-		{
-			name:     "PackageManagement",
-			category: CategoryPackageManagement,
-			expected: "Package_Management",
-		},
-		{
-			name:     "ScriptExecution",
-			category: CategoryScriptExecution,
-			expected: "Script_Execution",
-		},
-		{
-			name:     "InternalSystem",
-			category: CategoryInternalSystem,
-			expected: "Internal_System",
-		},
-		{
-			name:     "NetworkOperation",
-			category: CategoryNetworkOperation,
-			expected: "Network_Operation",
-		},
-		{
-			name:     "PermissionDenied",
-			category: CategoryPermissionDenied,
-			expected: "Permission_Denied",
-		},
-		{
-			name:     "UserGroupOperation",
-			category: CategoryUserGroupOperation,
-			expected: "User_Group_Operation",
-		},
-		{
-			name:     "ServiceOperation",
-			category: CategoryServiceOperation,
-			expected: "Service_Operation",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.category.String()
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestNewImageCustomizerError(t *testing.T) {
 	t.Run("CreateWithNilError", func(t *testing.T) {
 		err := NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, nil)
@@ -210,55 +144,6 @@ func TestErrorCategoryPreservationThroughWrapping(t *testing.T) {
 	
 	// Original error should still be in the chain
 	assert.True(t, errors.Is(wrapped3, originalErr))
-}
-
-func TestTelemetryIntegration(t *testing.T) {
-	// Test showing how error categories can be used for telemetry
-	testCases := []struct {
-		name           string
-		errorGenerator func() error
-		expectedCategory ErrorCategory
-	}{
-		{
-			name: "InvalidInput",
-			errorGenerator: func() error {
-				return NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, errors.New("invalid input"))
-			},
-			expectedCategory: CategoryInvalidInput,
-		},
-		{
-			name: "ImageConversion",
-			errorGenerator: func() error {
-				return NewImageCustomizerError(CategoryImageConversion, CodeImageFormatCheck, errors.New("conversion failed"))
-			},
-			expectedCategory: CategoryImageConversion,
-		},
-		{
-			name: "ScriptExecution",
-			errorGenerator: func() error {
-				return NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecution, errors.New("script failed"))
-			},
-			expectedCategory: CategoryScriptExecution,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := tc.errorGenerator()
-			
-			// This is how telemetry would categorize errors
-			category := GetErrorCategory(err)
-			assert.Equal(t, tc.expectedCategory, category)
-			
-			// This is how telemetry would get the category string
-			categoryString := category.String()
-			assert.NotEmpty(t, categoryString)
-			
-			// Verify the error is still a normal error
-			assert.NotNil(t, err)
-			assert.NotEmpty(t, err.Error())
-		})
-	}
 }
 
 func TestErrorCategoriesInRealValidation(t *testing.T) {
