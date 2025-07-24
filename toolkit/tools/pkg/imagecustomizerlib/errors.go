@@ -36,6 +36,9 @@ const (
 type ErrorCode string
 
 const (
+	// Default/unset error code
+	CodeUnset                            ErrorCode = "Unset"
+	
 	// Invalid Input errors
 	CodeInvalidOutputFormat              ErrorCode = "Invalid_Output_Format_Failure"
 	CodeCannotCustomizePartitionsOnIso  ErrorCode = "Partition_Customization_On_Iso_Failure"
@@ -211,7 +214,7 @@ func GetErrorCode(err error) ErrorCode {
 	if errors.As(err, &custErr) {
 		return custErr.Code
 	}
-	return ""
+	return CodeUnset
 }
 
 // IsErrorCategory checks if an error has a specific category
@@ -233,7 +236,7 @@ func GetErrorJSON(err error) string {
 	errorDetails := map[string]string{
 		"category": string(category),
 	}
-	if code != "" {
+	if code != CodeUnset {
 		errorDetails["code"] = string(code)
 	}
 	

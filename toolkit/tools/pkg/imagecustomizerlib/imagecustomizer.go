@@ -260,18 +260,14 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 			span.SetAttributes(
 				attribute.String("error.category", string(category)),
 			)
-			if code != "" {
+			if code != CodeUnset {
 				span.SetAttributes(
 					attribute.String("error.code", string(code)),
 				)
 			}
 			
-			// Set status with category and code info
-			if code != "" {
-				span.SetStatus(codes.Error, fmt.Sprintf("category: %s, code: %s", string(category), string(code)))
-			} else {
-				span.SetStatus(codes.Error, string(category))
-			}
+			// Set status using JSON representation
+			span.SetStatus(codes.Error, GetErrorJSON(err))
 		}
 		span.End()
 	}()

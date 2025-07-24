@@ -217,7 +217,7 @@ func TestGetErrorCode(t *testing.T) {
 	t.Run("ErrorWithoutCode", func(t *testing.T) {
 		originalErr := errors.New("test error")
 		code := GetErrorCode(originalErr)
-		assert.Equal(t, ErrorCode(""), code)
+		assert.Equal(t, CodeUnset, code)
 	})
 }
 
