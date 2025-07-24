@@ -253,17 +253,8 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 			category := GetErrorCategory(err)
 			code := GetErrorCode(err)
 			
-			// Create JSON structure for error details
-			errorDetails := map[string]string{
-				"category": string(category),
-			}
-			if code != "" {
-				errorDetails["code"] = string(code)
-			}
-			
-			// Marshal to JSON for RecordError
-			errorDetailsJSON, _ := json.Marshal(errorDetails)
-			span.RecordError(fmt.Errorf("%s", string(errorDetailsJSON)))
+			// Use GetErrorJSON to create JSON representation without PII
+			span.RecordError(fmt.Errorf("%s", GetErrorJSON(err)))
 			
 			// Set span attributes
 			span.SetAttributes(

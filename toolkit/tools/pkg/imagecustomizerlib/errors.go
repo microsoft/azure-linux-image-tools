@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"encoding/json"
 	"errors"
 )
 
@@ -221,4 +222,22 @@ func IsErrorCategory(err error, category ErrorCategory) bool {
 // IsErrorCode checks if an error has a specific code
 func IsErrorCode(err error, code ErrorCode) bool {
 	return GetErrorCode(err) == code
+}
+
+// GetErrorJSON returns a JSON representation of the error category and code for telemetry
+// This excludes the actual error message to avoid PII in telemetry data
+func GetErrorJSON(err error) string {
+	category := GetErrorCategory(err)
+	code := GetErrorCode(err)
+	
+	errorDetails := map[string]string{
+		"category": string(category),
+	}
+	if code != "" {
+		errorDetails["code"] = string(code)
+	}
+	
+	// Marshal to JSON, ignoring any errors since this is for telemetry
+	errorDetailsJSON, _ := json.Marshal(errorDetails)
+	return string(errorDetailsJSON)
 }

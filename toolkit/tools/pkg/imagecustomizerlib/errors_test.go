@@ -239,3 +239,27 @@ func TestIsErrorCode(t *testing.T) {
 		assert.False(t, IsErrorCode(wrappedErr, CodeServiceDisable))
 	})
 }
+
+func TestGetErrorJSON(t *testing.T) {
+	t.Run("ErrorWithCategoryAndCode", func(t *testing.T) {
+		originalErr := errors.New("test error with sensitive info")
+		custErr := NewImageCustomizerError(CategoryPackageManagement, CodePackageInstall, originalErr)
+		
+		json := GetErrorJSON(custErr)
+		
+		// Should contain category and code but not the actual error message
+		assert.Contains(t, json, "Package_Management")
+		assert.Contains(t, json, "Package_Install_Failure")
+		assert.NotContains(t, json, "sensitive info")
+	})
+	
+	t.Run("ErrorWithCategoryOnly", func(t *testing.T) {
+		originalErr := errors.New("test error")
+		
+		json := GetErrorJSON(originalErr)
+		
+		// Should contain default category but no code
+		assert.Contains(t, json, "Internal_System")
+		assert.NotContains(t, json, "code")
+	})
+}
