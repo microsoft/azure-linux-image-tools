@@ -250,24 +250,10 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			category := GetErrorCategory(err)
-			code := GetErrorCode(err)
-			
 			// Use GetErrorJSON to create JSON representation without PII
-			span.RecordError(fmt.Errorf("%s", GetErrorJSON(err)))
-			
-			// Set span attributes
-			span.SetAttributes(
-				attribute.String("error.category", string(category)),
-			)
-			if code != CodeUnset {
-				span.SetAttributes(
-					attribute.String("error.code", string(code)),
-				)
-			}
-			
-			// Set status using JSON representation
-			span.SetStatus(codes.Error, GetErrorJSON(err))
+			errorJSON := GetErrorJSON(err)
+			span.RecordError(fmt.Errorf("%s", errorJSON))
+			span.SetStatus(codes.Error, errorJSON)
 		}
 		span.End()
 	}()
