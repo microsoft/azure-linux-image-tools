@@ -62,6 +62,8 @@ jobs:
 
         sudo systemctl restart libvirtd
         sudo systemctl status libvirtd
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
 
     - name: Install prerequisites (Ubuntu 24.04)
       if: inputs.hostDistro == 'ubuntu2404'
