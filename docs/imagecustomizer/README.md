@@ -61,6 +61,13 @@ other Linux distributions as well.
   - [Configuration](./api/configuration.md) - Understand how to configure Image
     Customizer to suit your needs
 
+## Telemetry 
+
+Image Customizer collects usage data to help improve the product. This data
+helps us understand usage patterns, diagnose issues, improve reliability, and
+prioritize new features based on real-world usage. Learn how Image Customizer
+collects and uses telemetry, and how to opt out [here](telemetry.md).
+
 ## Help and Feedback
 
 If you'd like to report bugs, request features, or contribute to the tool, you
