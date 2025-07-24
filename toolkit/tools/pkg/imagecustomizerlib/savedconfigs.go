@@ -37,13 +37,13 @@ func (i *LiveOSSavedConfigs) IsValid() error {
 	if i.KdumpBootFiles != nil {
 		err := i.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
+			return NewImageCustomizerError(CategoryConfigValidation, CodeConfigKdumpBootFiles, fmt.Errorf("invalid kdumpBootFiles:\n%w", err))
 		}
 	}
 
 	err := i.KernelCommandLine.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid kernelCommandLine:\n%w", err)
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigKernelCommandLine, fmt.Errorf("invalid kernelCommandLine:\n%w", err))
 	}
 
 	return nil
@@ -56,7 +56,7 @@ type PxeSavedConfigs struct {
 
 func (p *PxeSavedConfigs) IsValid() error {
 	if p.bootstrapBaseUrl != "" && p.bootstrapFileUrl != "" {
-		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time.")
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigBootstrapUrl, fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time."))
 	}
 	err := imagecustomizerapi.IsValidPxeUrl(p.bootstrapBaseUrl)
 	if err != nil {
@@ -88,17 +88,17 @@ type SavedConfigs struct {
 func (c *SavedConfigs) IsValid() (err error) {
 	err = c.LiveOS.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid 'iso' field:\n%w", err)
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigIsoField, fmt.Errorf("invalid 'iso' field:\n%w", err))
 	}
 
 	err = c.Pxe.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid 'pxe' field:\n%w", err)
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigPxeField, fmt.Errorf("invalid 'pxe' field:\n%w", err))
 	}
 
 	err = c.OS.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalud 'os' field:\n%w", err)
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigOsField, fmt.Errorf("invalud 'os' field:\n%w", err))
 	}
 
 	return nil
@@ -107,12 +107,12 @@ func (c *SavedConfigs) IsValid() (err error) {
 func (c *SavedConfigs) persistSavedConfigs(savedConfigsFilePath string) (err error) {
 	err = os.MkdirAll(filepath.Dir(savedConfigsFilePath), os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create directory for (%s):\n%w", savedConfigsFilePath, err)
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigDirectoryCreate, fmt.Errorf("failed to create directory for (%s):\n%w", savedConfigsFilePath, err))
 	}
 
 	err = imagecustomizerapi.MarshalYamlFile(savedConfigsFilePath, c)
 	if err != nil {
-		return fmt.Errorf("failed to persist saved configs file to (%s):\n%w", savedConfigsFilePath, err)
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigFilePersist, fmt.Errorf("failed to persist saved configs file to (%s):\n%w", savedConfigsFilePath, err))
 	}
 
 	return nil
@@ -121,7 +121,7 @@ func (c *SavedConfigs) persistSavedConfigs(savedConfigsFilePath string) (err err
 func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, err error) {
 	exists, err := file.PathExists(savedConfigsFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check if (%s) exists:\n%w", savedConfigsFilePath, err)
+		return nil, NewImageCustomizerError(CategoryConfigValidation, CodeConfigFileExists, fmt.Errorf("failed to check if (%s) exists:\n%w", savedConfigsFilePath, err))
 	}
 
 	if !exists {
@@ -131,7 +131,7 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	savedConfigs = &SavedConfigs{}
 	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load saved configs file (%s):\n%w", savedConfigsFilePath, err)
+		return nil, NewImageCustomizerError(CategoryConfigValidation, CodeConfigFileLoad, fmt.Errorf("failed to load saved configs file (%s):\n%w", savedConfigsFilePath, err))
 	}
 
 	return savedConfigs, nil

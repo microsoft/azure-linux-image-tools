@@ -53,13 +53,13 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// Check UKI dependency packages.
 	err = validateUkiDependencies(imageChroot)
 	if err != nil {
-		return fmt.Errorf("failed to validate package dependencies for uki:\n%w", err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIPackageDependencyValidation, fmt.Errorf("failed to validate package dependencies for uki:\n%w", err))
 	}
 
 	// Create necessary directories for UKI.
 	err = createUkiDirectories(buildDir, imageChroot)
 	if err != nil {
-		return fmt.Errorf("failed to create UKI directories:\n%w", err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIDirectoryCreate, fmt.Errorf("failed to create UKI directories:\n%w", err))
 	}
 
 	// Detect system architecture.
@@ -75,7 +75,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// Backup the original shim binary before it gets overwritten by bootctl.
 	err = file.Copy(shimSrcPath, shimTmpPath)
 	if err != nil {
-		return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", shimSrcPath, shimTmpPath, err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIShimFileCopy, fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", shimSrcPath, shimTmpPath, err))
 	}
 
 	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
@@ -102,7 +102,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 		return shell.ExecuteLiveWithErr(1, "bootctl", "install", "--no-variables")
 	})
 	if err != nil {
-		return fmt.Errorf("failed to install systemd-boot:\n%w", err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKISystemdBootInstall, fmt.Errorf("failed to install systemd-boot:\n%w", err))
 	}
 
 	// Restore the original signed shim binary to BOOTX64.EFI.
@@ -110,41 +110,41 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// because shim (not systemd-boot) must be the entry point under EFI/BOOT.
 	err = file.Copy(shimTmpPath, shimSrcPath)
 	if err != nil {
-		return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", shimTmpPath, shimSrcPath, err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIShimFileCopy, fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", shimTmpPath, shimSrcPath, err))
 	}
 
 	// The "--random-seed=no" flag is preferred to disable this behavior, but it requires systemd version 257 or later.
 	// Since AZL 3.0 uses version 255, we manually remove the random-seed file here for now.
 	randomSeedPath := filepath.Join(imageChroot.RootDir(), "/boot/efi/loader/random-seed")
 	if err := file.RemoveFileIfExists(randomSeedPath); err != nil {
-		return fmt.Errorf("failed to remove random-seed file (%s):\n%w", randomSeedPath, err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIRandomSeedRemove, fmt.Errorf("failed to remove random-seed file (%s):\n%w", randomSeedPath, err))
 	}
 
 	// Map kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
 	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir, uki.Kernels)
 	if err != nil {
-		return fmt.Errorf("failed to get kernel to initramfs map:\n%w", err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIKernelInitramfsMap, fmt.Errorf("failed to get kernel to initramfs map:\n%w", err))
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
 	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot)
 	if err != nil {
-		return fmt.Errorf("failed to copy UKI files:\n%w", err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIFileCopy, fmt.Errorf("failed to copy UKI files:\n%w", err))
 	}
 
 	// Extract kernel command line arguments from either grub.cfg or UKI.
 	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
 	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
-		return fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKIKernelCmdlineExtract, fmt.Errorf("failed to extract kernel command-line arguments:\n%w", err))
 	}
 
 	// Dump kernel command line arguments to a file in buildDir.
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 	err = writeKernelCmdlineArgsFile(cmdlineFilePath, kernelToArgs)
 	if err != nil {
-		return fmt.Errorf("failed to write kernel cmdline args JSON to (%s):\n%w", cmdlineFilePath, err)
+		return NewImageCustomizerError(CategoryUKIOperation, CodeUKICmdlineFileWrite, fmt.Errorf("failed to write kernel cmdline args JSON to (%s):\n%w", cmdlineFilePath, err))
 	}
 
 	return nil

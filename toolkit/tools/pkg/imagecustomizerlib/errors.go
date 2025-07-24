@@ -21,6 +21,14 @@ const (
 	CategoryPermissionDenied    ErrorCategory = "Permission_Denied"
 	CategoryUserGroupOperation  ErrorCategory = "User_Group_Operation"
 	CategoryServiceOperation    ErrorCategory = "Service_Operation"
+	CategoryImageHistory        ErrorCategory = "Image_History"
+	CategoryConfigValidation    ErrorCategory = "Config_Validation"
+	CategoryFilesystemCheck     ErrorCategory = "Filesystem_Check"
+	CategoryPartitionOperation  ErrorCategory = "Partition_Operation"
+	CategoryUKIOperation        ErrorCategory = "UKI_Operation"
+	CategorySELinuxOperation    ErrorCategory = "SELinux_Operation"
+	CategoryBootCustomization   ErrorCategory = "Boot_Customization"
+	CategoryArtifactHandling    ErrorCategory = "Artifact_Handling"
 )
 
 // String returns the string representation of the error category
@@ -87,6 +95,67 @@ const (
 	CodeInternalSystem                   ErrorCode = "Internal_System_Failure"
 	CodeNetworkOperation                 ErrorCode = "Network_Operation_Failure"
 	CodePermissionDenied                 ErrorCode = "Permission_Denied_Failure"
+	
+	// Image History errors
+	CodeImageHistoryDeepCopy             ErrorCode = "Image_History_Deep_Copy_Failure"
+	CodeImageHistoryModify               ErrorCode = "Image_History_Modify_Failure"
+	CodeImageHistoryDirectoryCreate      ErrorCode = "Image_History_Directory_Create_Failure"
+	CodeImageHistoryRead                 ErrorCode = "Image_History_Read_Failure"
+	CodeImageHistoryWrite                ErrorCode = "Image_History_Write_Failure"
+	CodeImageHistoryFileCheck            ErrorCode = "Image_History_File_Check_Failure"
+	CodeImageHistoryFileRead             ErrorCode = "Image_History_File_Read_Failure"
+	CodeImageHistoryUnmarshal            ErrorCode = "Image_History_Unmarshal_Failure"
+	CodeImageHistoryMarshal              ErrorCode = "Image_History_Marshal_Failure"
+	CodeImageHistoryFileWrite            ErrorCode = "Image_History_File_Write_Failure"
+	
+	// Config Validation errors
+	CodeConfigKdumpBootFiles             ErrorCode = "Config_Kdump_Boot_Files_Failure"
+	CodeConfigKernelCommandLine          ErrorCode = "Config_Kernel_Command_Line_Failure"
+	CodeConfigBootstrapUrl               ErrorCode = "Config_Bootstrap_Url_Failure"
+	CodeConfigIsoField                   ErrorCode = "Config_Iso_Field_Failure"
+	CodeConfigPxeField                   ErrorCode = "Config_Pxe_Field_Failure"
+	CodeConfigOsField                    ErrorCode = "Config_Os_Field_Failure"
+	CodeConfigDirectoryCreate            ErrorCode = "Config_Directory_Create_Failure"
+	CodeConfigFilePersist                ErrorCode = "Config_File_Persist_Failure"
+	CodeConfigFileExists                 ErrorCode = "Config_File_Exists_Failure"
+	CodeConfigFileLoad                   ErrorCode = "Config_File_Load_Failure"
+	
+	// Filesystem Check errors
+	CodeFilesystemE2fsckCheck            ErrorCode = "Filesystem_E2fsck_Check_Failure"
+	CodeFilesystemXfsRepairCheck         ErrorCode = "Filesystem_Xfs_Repair_Check_Failure"
+	CodeFilesystemFsckCheck              ErrorCode = "Filesystem_Fsck_Check_Failure"
+	
+	// Release File errors
+	CodeReleaseFileWrite                 ErrorCode = "Release_File_Write_Failure"
+	
+	// Filesystem Shrink errors
+	CodeFilesystemSectorSizeGet          ErrorCode = "Filesystem_Sector_Size_Get_Failure"
+	CodeFilesystemShrink                 ErrorCode = "Filesystem_Shrink_Failure"
+	CodeFilesystemE2fsckResize           ErrorCode = "Filesystem_E2fsck_Resize_Failure"
+	CodeFilesystemResize2fs              ErrorCode = "Filesystem_Resize2fs_Failure"
+	
+	// Partition Operation errors
+	CodePartitionExtractAbsolutePath     ErrorCode = "Partition_Extract_Absolute_Path_Failure"
+	CodePartitionExtractIntegrityCheck   ErrorCode = "Partition_Extract_Integrity_Check_Failure"
+	CodePartitionExtractStatFile         ErrorCode = "Partition_Extract_Stat_File_Failure"
+	CodePartitionExtractUnsupportedFormat ErrorCode = "Partition_Extract_Unsupported_Format_Failure"
+	CodePartitionExtractMetadataConstruct ErrorCode = "Partition_Extract_Metadata_Construct_Failure"
+	CodePartitionExtractRemoveRawFile    ErrorCode = "Partition_Extract_Remove_Raw_File_Failure"
+	CodePartitionExtractRemoveTempFile   ErrorCode = "Partition_Extract_Remove_Temp_File_Failure"
+	CodePartitionExtractCopyBlockDevice  ErrorCode = "Partition_Extract_Copy_Block_Device_Failure"
+	CodePartitionExtractCompress         ErrorCode = "Partition_Extract_Compress_Failure"
+	CodePartitionExtractOpenFile         ErrorCode = "Partition_Extract_Open_File_Failure"
+	
+	// UKI Operation errors
+	CodeUKIPackageDependencyValidation   ErrorCode = "UKI_Package_Dependency_Validation_Failure"
+	CodeUKIDirectoryCreate               ErrorCode = "UKI_Directory_Create_Failure"
+	CodeUKIShimFileCopy                  ErrorCode = "UKI_Shim_File_Copy_Failure"
+	CodeUKISystemdBootInstall            ErrorCode = "UKI_Systemd_Boot_Install_Failure"
+	CodeUKIRandomSeedRemove              ErrorCode = "UKI_Random_Seed_Remove_Failure"
+	CodeUKIKernelInitramfsMap            ErrorCode = "UKI_Kernel_Initramfs_Map_Failure"
+	CodeUKIFileCopy                      ErrorCode = "UKI_File_Copy_Failure"
+	CodeUKIKernelCmdlineExtract          ErrorCode = "UKI_Kernel_Cmdline_Extract_Failure"
+	CodeUKICmdlineFileWrite              ErrorCode = "UKI_Cmdline_File_Write_Failure"
 )
 
 // ImageCustomizerError represents a structured error with category and unique code

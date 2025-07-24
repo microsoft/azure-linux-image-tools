@@ -251,8 +251,17 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	defer func() {
 		if err != nil {
 			category := GetErrorCategory(err)
-			span.RecordError(fmt.Errorf("%s", category.String()))
-			span.SetStatus(codes.Error, category.String())
+			code := GetErrorCode(err)
+			
+			// Record both category and code in telemetry
+			if code != "" {
+				span.RecordError(fmt.Errorf("category: %s, code: %s", category.String(), string(code)))
+				span.SetStatus(codes.Error, fmt.Sprintf("category: %s, code: %s", category.String(), string(code)))
+			} else {
+				// Fallback for uncategorized errors
+				span.RecordError(fmt.Errorf("category: %s", category.String()))
+				span.SetStatus(codes.Error, category.String())
+			}
 		}
 		span.End()
 	}()

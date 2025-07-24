@@ -67,20 +67,20 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionFullFilePath, err := filepath.Abs(partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get absolute path (%s):\n%w", partitionFilepath, err)
+			return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractAbsolutePath, fmt.Errorf("failed to get absolute path (%s):\n%w", partitionFilepath, err))
 		}
 
 		// Sanity check the partition file.
 		err = checkFileSystemFile(partition.FileSystemType, partitionFullFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check file system integrity (%s):\n%w", partitionFilepath, err)
+			return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractIntegrityCheck, fmt.Errorf("failed to check file system integrity (%s):\n%w", partitionFilepath, err))
 		}
 
 		// Get uncompressed size for raw files
 		var uncompressedPartitionFileSize uint64
 		stat, err := os.Stat(partitionFullFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to stat raw file %s: %w", partitionFilepath, err)
+			return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractStatFile, fmt.Errorf("failed to stat raw file %s: %w", partitionFilepath, err))
 		}
 		uncompressedPartitionFileSize = uint64(stat.Size())
 
@@ -93,12 +93,12 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 				return nil, err
 			}
 		default:
-			return nil, fmt.Errorf("unsupported partition format (supported: raw, raw-zst): %s", partitionFormat)
+			return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractUnsupportedFormat, fmt.Errorf("unsupported partition format (supported: raw, raw-zst): %s", partitionFormat))
 		}
 
 		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to construct partition metadata:\n%w", err)
+			return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractMetadataConstruct, fmt.Errorf("failed to construct partition metadata:\n%w", err))
 		}
 		partitionMetadata.UncompressedSize = uncompressedPartitionFileSize
 		partitionMetadataOutput = append(partitionMetadataOutput, partitionMetadata)
@@ -120,7 +120,7 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	// Remove raw file since output partition format is raw-zst
 	err = os.Remove(partitionRawFilepath)
 	if err != nil {
-		return "", fmt.Errorf("failed to remove raw file %s:\n%w", partitionRawFilepath, err)
+		return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractRemoveRawFile, fmt.Errorf("failed to remove raw file %s:\n%w", partitionRawFilepath, err))
 	}
 	// Create a skippable frame containing the metadata and prepend the frame to the partition file
 	partitionFilepath, err = addSkippableFrame(tempPartitionFilepath, skippableFrameMetadata, partitionFilename, outDir)
@@ -130,7 +130,7 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	// Remove temp partition file
 	err = os.Remove(tempPartitionFilepath)
 	if err != nil {
-		return "", fmt.Errorf("failed to remove temp file %s:\n%w", tempPartitionFilepath, err)
+		return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractRemoveTempFile, fmt.Errorf("failed to remove temp file %s:\n%w", tempPartitionFilepath, err))
 	}
 	return partitionFilepath, nil
 }
@@ -152,7 +152,7 @@ func copyBlockDeviceToFile(outDir, devicePath, name string) (filename string, er
 
 	err = shell.ExecuteLive(squashErrors, "dd", ddArgs...)
 	if err != nil {
-		return "", fmt.Errorf("failed to copy block device into file:\n%w", err)
+		return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractCopyBlockDevice, fmt.Errorf("failed to copy block device into file:\n%w", err))
 	}
 
 	return fullPath, nil
@@ -163,7 +163,7 @@ func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath strin
 	// Using -f to overwrite a file with same name if it exists.
 	err = shell.ExecuteLive(true, "zstd", "-f", "-9", "-T0", partitionRawFilepath, "-o", outputPartitionFilepath)
 	if err != nil {
-		return fmt.Errorf("failed to compress %s with zstd:\n%w", partitionRawFilepath, err)
+		return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractCompress, fmt.Errorf("failed to compress %s with zstd:\n%w", partitionRawFilepath, err))
 	}
 
 	return nil
@@ -174,7 +174,7 @@ func addSkippableFrame(tempPartitionFilepath string, skippableFrameMetadata [Ski
 	// Open tempPartitionFile for reading
 	tempPartitionFile, err := os.OpenFile(tempPartitionFilepath, os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("failed to open partition file %s:\n%w", tempPartitionFilepath, err)
+		return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionExtractOpenFile, fmt.Errorf("failed to open partition file %s:\n%w", tempPartitionFilepath, err))
 	}
 	// Create a skippable frame
 	skippableFrame := createSkippableFrame(SkippableFrameMagicNumber, SkippableFramePayloadSize, skippableFrameMetadata)
