@@ -23,7 +23,7 @@ Telemetry is collected in both cases.
 ## How to opt out 
 
 Telemetry collection for Image Customizer is enabled by default. To opt out, use
-the flag `–disable-telemetry` . Here is a sample command: 
+the flag `--disable-telemetry`. Here is a sample command: 
 
 ```bash
 docker run \
