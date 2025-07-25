@@ -207,6 +207,15 @@ const (
 	CodeBootloaderVerityRootUnsupported ErrorCode = "Bootloader_Verity_Root_Unsupported_Failure"
 	CodeBootloaderMountIdUnsupported   ErrorCode = "Bootloader_Mount_Id_Unsupported_Failure"
 
+	// Type Conversion errors
+	CodeTypeConversionBootTypeInvalid            ErrorCode = "Type_Conversion_Boot_Type_Invalid_Failure"
+	CodeTypeConversionDiskSizeInvalid            ErrorCode = "Type_Conversion_Disk_Size_Invalid_Failure"
+	CodeTypeConversionPartitionTableTypeUnknown  ErrorCode = "Type_Conversion_Partition_Table_Type_Unknown_Failure"
+	CodeTypeConversionPartitionStartInvalid      ErrorCode = "Type_Conversion_Partition_Start_Invalid_Failure"
+	CodeTypeConversionPartitionEndInvalid        ErrorCode = "Type_Conversion_Partition_End_Invalid_Failure"
+	CodeTypeConversionMountIdentifierTypeUnknown ErrorCode = "Type_Conversion_Mount_Identifier_Type_Unknown_Failure"
+	CodeTypeConversionSelinuxModeUnknown          ErrorCode = "Type_Conversion_Selinux_Mode_Unknown_Failure"
+
 	// Artifact Handling errors
 	CodeArtifactImageConnection      ErrorCode = "Artifact_Image_Connection_Failure"
 	CodeArtifactPartitionMount       ErrorCode = "Artifact_Partition_Mount_Failure"

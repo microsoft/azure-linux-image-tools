@@ -21,7 +21,8 @@ func bootTypeToImager(bootType imagecustomizerapi.BootType) (string, error) {
 		return "legacy", nil
 
 	default:
-		return "", fmt.Errorf("invalid BootType value (%s)", bootType)
+		return "", NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionBootTypeInvalid,
+			fmt.Errorf("invalid BootType value (%s)", bootType))
 	}
 }
 
@@ -39,7 +40,8 @@ func diskConfigToImager(diskConfig imagecustomizerapi.Disk, fileSystems []imagec
 
 	imagerMaxSize := *diskConfig.MaxSize / diskutils.MiB
 	if *diskConfig.MaxSize%diskutils.MiB != 0 {
-		return configuration.Disk{}, fmt.Errorf("disk max size (%d) must be a multiple of 1 MiB", diskConfig.MaxSize)
+		return configuration.Disk{}, NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionDiskSizeInvalid,
+			fmt.Errorf("disk max size (%d) must be a multiple of 1 MiB", diskConfig.MaxSize))
 	}
 
 	imagerDisk := configuration.Disk{
@@ -57,7 +59,8 @@ func partitionTableTypeToImager(partitionTableType imagecustomizerapi.PartitionT
 		return configuration.PartitionTableTypeGpt, nil
 
 	default:
-		return "", fmt.Errorf("unknown partition table type (%s)", partitionTableType)
+		return "", NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionPartitionTableTypeUnknown,
+			fmt.Errorf("unknown partition table type (%s)", partitionTableType))
 	}
 }
 
@@ -86,13 +89,15 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 
 	imagerStart := *partition.Start / diskutils.MiB
 	if *partition.Start%diskutils.MiB != 0 {
-		return configuration.Partition{}, fmt.Errorf("partition start (%d) must be a multiple of 1 MiB", partition.Start)
+		return configuration.Partition{}, NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionPartitionStartInvalid,
+			fmt.Errorf("partition start (%d) must be a multiple of 1 MiB", partition.Start))
 	}
 
 	end, _ := partition.GetEnd()
 	imagerEnd := end / diskutils.MiB
 	if end%diskutils.MiB != 0 {
-		return configuration.Partition{}, fmt.Errorf("partition end (%d) must be a multiple of 1 MiB", end)
+		return configuration.Partition{}, NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionPartitionEndInvalid,
+			fmt.Errorf("partition end (%d) must be a multiple of 1 MiB", end))
 	}
 
 	imagerFlags, typeUuid, err := toImagerPartitionFlags(partition.Type)
@@ -183,7 +188,8 @@ func mountIdentifierTypeToImager(mountIdentifierType imagecustomizerapi.MountIde
 		return configuration.MountIdentifierPartLabel, nil
 
 	default:
-		return "", fmt.Errorf("unknown MountIdentifierType value (%s)", mountIdentifierType)
+		return "", NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionMountIdentifierTypeUnknown,
+			fmt.Errorf("unknown MountIdentifierType value (%s)", mountIdentifierType))
 	}
 }
 
@@ -229,6 +235,7 @@ func selinuxModeToImager(selinuxMode imagecustomizerapi.SELinuxMode) (configurat
 		return configuration.SELinuxForceEnforcing, nil
 
 	default:
-		return "", fmt.Errorf("unknown SELinuxMode value (%s)", selinuxMode)
+		return "", NewImageCustomizerError(CategoryInvalidInput, CodeTypeConversionSelinuxModeUnknown,
+			fmt.Errorf("unknown SELinuxMode value (%s)", selinuxMode))
 	}
 }
