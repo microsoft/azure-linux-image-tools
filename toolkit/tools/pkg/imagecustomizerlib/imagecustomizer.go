@@ -161,7 +161,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat, 
+		return nil, NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat,
 			fmt.Errorf("invalid output image format:\n%w", err))
 	}
 
@@ -250,10 +250,11 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			// Use GetErrorJSON to create JSON representation without PII
-			errorJSON := GetErrorJSON(err)
-			span.RecordError(fmt.Errorf("%s", errorJSON))
-			span.SetStatus(codes.Error, errorJSON)
+			errorCode := GetErrorCode(err)
+			errorCategory := GetErrorCategory(err)
+			span.SetStatus(codes.Error, fmt.Sprintf("%s:%s", errorCategory, errorCode))
+			span.SetAttributes(attribute.String("error.code", string(errorCode)))
+			span.SetAttributes(attribute.String("error.category", string(errorCategory)))
 		}
 		span.End()
 	}()
