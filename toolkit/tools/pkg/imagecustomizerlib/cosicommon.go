@@ -39,7 +39,8 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create folder %s:\n%w", outputDir, err)
+		return NewImageCustomizerError(CategoryArtifactHandling, CodeCosiDirectoryCreate,
+			fmt.Errorf("failed to create folder %s:\n%w", outputDir, err))
 	}
 	defer os.Remove(outputDir)
 
@@ -61,7 +62,8 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
 		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
-		return fmt.Errorf("failed to build COSI file:\n%w", err)
+		return NewImageCustomizerError(CategoryArtifactHandling, CodeCosiBuildFile,
+			fmt.Errorf("failed to build COSI file:\n%w", err))
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
@@ -126,7 +128,8 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			if partition.PartUuid == verity.dataPartUuid {
 				hashPartition, exists := partUuidToMetadata[verity.hashPartUuid]
 				if !exists {
-					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
+					return NewImageCustomizerError(CategoryArtifactHandling, CodeCosiHashPartitionMissing,
+						fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid))
 				}
 
 				metadataImage.Verity = &VerityConfig{
@@ -150,7 +153,8 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	for i := range imageData {
 		err := populateMetadata(&imageData[i])
 		if err != nil {
-			return fmt.Errorf("failed to populate metadata for %s:\n%w", imageData[i].Source, err)
+			return NewImageCustomizerError(CategoryArtifactHandling, CodeCosiMetadataPopulate,
+				fmt.Errorf("failed to populate metadata for %s:\n%w", imageData[i].Source, err))
 		}
 
 		logger.Log.Infof("Populated metadata for image %s", imageData[i].Source)
@@ -174,13 +178,15 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	// Marshal metadata.json
 	metadataJson, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal metadata:\n%w", err)
+		return NewImageCustomizerError(CategoryArtifactHandling, CodeCosiMetadataMarshal,
+			fmt.Errorf("failed to marshal metadata:\n%w", err))
 	}
 
 	// Create COSI file
 	cosiFile, err := os.Create(outputFile)
 	if err != nil {
-		return fmt.Errorf("failed to create COSI file:\n%w", err)
+		return NewImageCustomizerError(CategoryArtifactHandling, CodeCosiFileCreate,
+			fmt.Errorf("failed to create COSI file:\n%w", err))
 	}
 	defer cosiFile.Close()
 

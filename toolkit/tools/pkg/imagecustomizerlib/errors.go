@@ -29,6 +29,8 @@ const (
 	CategorySELinuxOperation    ErrorCategory = "SELinux_Operation"
 	CategoryBootCustomization   ErrorCategory = "Boot_Customization"
 	CategoryArtifactHandling    ErrorCategory = "Artifact_Handling"
+	CategoryDracutOperation     ErrorCategory = "Dracut_Operation"
+	CategoryVerityOperation     ErrorCategory = "Verity_Operation"
 )
 
 // ErrorCode is a fine-grained, unique identifier for each specific failure
@@ -156,7 +158,75 @@ const (
 	CodeUKICmdlineFileWrite            ErrorCode = "UKI_Cmdline_File_Write_Failure"
 
 	// Dracut Operation errors
-	CodeAddDracutDriver ErrorCode = "Add_Dracut_Driver_Failure"
+	CodeAddDracutDriver         ErrorCode = "Add_Dracut_Driver_Failure"
+	CodeDracutConfigWrite       ErrorCode = "Dracut_Config_Write_Failure"
+	CodeDracutConfigRead        ErrorCode = "Dracut_Config_Read_Failure"
+	CodeDracutConfigAppend      ErrorCode = "Dracut_Config_Append_Failure"
+
+	// Verity Operation errors
+	CodeVerityPackageDependencyValidation ErrorCode = "Verity_Package_Dependency_Validation_Failure"
+	CodeVerityDracutModuleAdd             ErrorCode = "Verity_Dracut_Module_Add_Failure"
+	CodeVerityFstabUpdate                 ErrorCode = "Verity_Fstab_Update_Failure"
+	CodeVerityGrubConfigPrepare           ErrorCode = "Verity_Grub_Config_Prepare_Failure"
+	CodeVerityHashSignatureSupport        ErrorCode = "Verity_Hash_Signature_Support_Failure"
+	CodeVerityFstabRead                   ErrorCode = "Verity_Fstab_Read_Failure"
+	CodeVerityDracutScriptInstall         ErrorCode = "Verity_Dracut_Script_Install_Failure"
+	CodeVerityDracutFileInstall           ErrorCode = "Verity_Dracut_File_Install_Failure"
+	CodeVerityKernelArgumentGenerate      ErrorCode = "Verity_Kernel_Argument_Generate_Failure"
+
+	// Artifact Handling errors
+	CodeArtifactImageConnection      ErrorCode = "Artifact_Image_Connection_Failure"
+	CodeArtifactPartitionMount       ErrorCode = "Artifact_Partition_Mount_Failure"
+	CodeArtifactDirectoryRead        ErrorCode = "Artifact_Directory_Read_Failure"
+	CodeArtifactFileCopy             ErrorCode = "Artifact_File_Copy_Failure"
+	CodeArtifactFileWrite            ErrorCode = "Artifact_File_Write_Failure"
+	CodeArtifactYamlWrite            ErrorCode = "Artifact_Yaml_Write_Failure"
+	CodeArtifactYamlMarshal          ErrorCode = "Artifact_Yaml_Marshal_Failure"
+	CodeArtifactConfigValidation     ErrorCode = "Artifact_Config_Validation_Failure"
+	CodeArtifactPathResolution       ErrorCode = "Artifact_Path_Resolution_Failure"
+	CodeArtifactPartitionUnmount     ErrorCode = "Artifact_Partition_Unmount_Failure"
+	CodeArtifactImageConversion      ErrorCode = "Artifact_Image_Conversion_Failure"
+	CodeArtifactImageConnectionClose ErrorCode = "Artifact_Image_Connection_Close_Failure"
+	CodeArtifactUuidRead             ErrorCode = "Artifact_Uuid_Read_Failure"
+	CodeArtifactUuidNotFound         ErrorCode = "Artifact_Uuid_Not_Found_Failure"
+	CodeArtifactUuidParse            ErrorCode = "Artifact_Uuid_Parse_Failure"
+
+	// Boot Customization errors
+	CodeBootGrubMkconfigGeneration ErrorCode = "Boot_Grub_Mkconfig_Generation_Failure"
+
+	// COSI Operation errors
+	CodeCosiDirectoryCreate         ErrorCode = "Cosi_Directory_Create_Failure"
+	CodeCosiBuildFile               ErrorCode = "Cosi_Build_File_Failure"
+	CodeCosiMetadataPopulate        ErrorCode = "Cosi_Metadata_Populate_Failure"
+	CodeCosiMetadataMarshal         ErrorCode = "Cosi_Metadata_Marshal_Failure"
+	CodeCosiFileCreate              ErrorCode = "Cosi_File_Create_Failure"
+	CodeCosiImageAdd                ErrorCode = "Cosi_Image_Add_Failure"
+	CodeCosiVerityAdd               ErrorCode = "Cosi_Verity_Add_Failure"
+	CodeCosiFileOpen                ErrorCode = "Cosi_File_Open_Failure"
+	CodeCosiTarHeaderWrite          ErrorCode = "Cosi_Tar_Header_Write_Failure"
+	CodeCosiImageWrite              ErrorCode = "Cosi_Image_Write_Failure"
+	CodeCosiFileStat                ErrorCode = "Cosi_File_Stat_Failure"
+	CodeCosiDirectoryError          ErrorCode = "Cosi_Directory_Error_Failure"
+	CodeCosiSha384Calculate         ErrorCode = "Cosi_Sha384_Calculate_Failure"
+	CodeCosiMetadataError           ErrorCode = "Cosi_Metadata_Error_Failure"
+	CodeCosiVerityMetadataError     ErrorCode = "Cosi_Verity_Metadata_Error_Failure"
+	CodeCosiVerityConfigMismatch    ErrorCode = "Cosi_Verity_Config_Mismatch_Failure"
+	CodeCosiPackageListMissing      ErrorCode = "Cosi_Package_List_Missing_Failure"
+	CodeCosiRpmOutputGet            ErrorCode = "Cosi_Rpm_Output_Get_Failure"
+	CodeCosiRpmLineMalformed        ErrorCode = "Cosi_Rpm_Line_Malformed_Failure"
+	CodeCosiBootloaderDetect        ErrorCode = "Cosi_Bootloader_Detect_Failure"
+	CodeCosiSystemdBootExtract      ErrorCode = "Cosi_Systemd_Boot_Extract_Failure"
+	CodeCosiUkiExtract              ErrorCode = "Cosi_Uki_Extract_Failure"
+	CodeCosiBootEntryNotFound       ErrorCode = "Cosi_Boot_Entry_Not_Found_Failure"
+	CodeCosiBootloaderUnsupported   ErrorCode = "Cosi_Bootloader_Unsupported_Failure"
+	CodeCosiKernelCmdlineExtract    ErrorCode = "Cosi_Kernel_Cmdline_Extract_Failure"
+	CodeCosiKernelNameInvalid       ErrorCode = "Cosi_Kernel_Name_Invalid_Failure"
+	CodeCosiSystemdBootDirCheck     ErrorCode = "Cosi_Systemd_Boot_Dir_Check_Failure"
+	CodeCosiSystemdBootEntryExtract ErrorCode = "Cosi_Systemd_Boot_Entry_Extract_Failure"
+	CodeCosiEntryDirectoryRead      ErrorCode = "Cosi_Entry_Directory_Read_Failure"
+	CodeCosiEntryFileRead           ErrorCode = "Cosi_Entry_File_Read_Failure"
+	CodeCosiBootloaderUnknown       ErrorCode = "Cosi_Bootloader_Unknown_Failure"
+	CodeCosiHashPartitionMissing    ErrorCode = "Cosi_Hash_Partition_Missing_Failure"
 )
 
 // ImageCustomizerError represents a structured error with category and unique code
