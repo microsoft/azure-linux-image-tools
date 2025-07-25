@@ -108,7 +108,7 @@ func checkFileSystem(fileSystemType string, path string) error {
 		// Add -f flag to force check to run even if the journal is marked as clean.
 		err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fn", path)
 		if err != nil {
-			return fmt.Errorf("failed to check (%s) with e2fsck:\n%w", path, err)
+			return NewImageCustomizerError(CategoryFilesystemCheck, CodeFilesystemE2fsckCheck, fmt.Errorf("failed to check (%s) with e2fsck:\n%w", path, err))
 
 		}
 
@@ -116,13 +116,13 @@ func checkFileSystem(fileSystemType string, path string) error {
 		// The fsck.xfs tool doesn't do anything. So, call xfs_repair instead.
 		err := shell.ExecuteLive(true /*squashErrors*/, "xfs_repair", "-n", path)
 		if err != nil {
-			return fmt.Errorf("failed to check (%s) with xfs_repair:\n%w", path, err)
+			return NewImageCustomizerError(CategoryFilesystemCheck, CodeFilesystemXfsRepairCheck, fmt.Errorf("failed to check (%s) with xfs_repair:\n%w", path, err))
 		}
 
 	default:
 		err := shell.ExecuteLive(true /*squashErrors*/, "fsck", "-n", path)
 		if err != nil {
-			return fmt.Errorf("failed to check (%s) with fsck:\n%w", path, err)
+			return NewImageCustomizerError(CategoryFilesystemCheck, CodeFilesystemFsckCheck, fmt.Errorf("failed to check (%s) with fsck:\n%w", path, err))
 		}
 	}
 

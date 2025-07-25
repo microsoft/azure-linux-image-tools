@@ -22,13 +22,15 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 		// File does not exist, create and write the lines.
 		err := file.WriteLines(lines, dracutConfigFile)
 		if err != nil {
-			return fmt.Errorf("failed to write to dracut config file (%s):\n%w", dracutConfigFile, err)
+			return NewImageCustomizerError(CategoryDracutOperation, CodeDracutConfigWrite,
+				fmt.Errorf("failed to write to dracut config file (%s):\n%w", dracutConfigFile, err))
 		}
 	} else {
 		// File exists, append the lines.
 		existingLines, err := file.ReadLines(dracutConfigFile)
 		if err != nil {
-			return fmt.Errorf("failed to read existing dracut config file (%s):\n%w", dracutConfigFile, err)
+			return NewImageCustomizerError(CategoryDracutOperation, CodeDracutConfigRead,
+				fmt.Errorf("failed to read existing dracut config file (%s):\n%w", dracutConfigFile, err))
 		}
 
 		// Avoid duplicate lines by checking if they already exist.
@@ -49,7 +51,8 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 			content := strings.Join(linesToAppend, "\n") + "\n"
 			err = file.Append(content, dracutConfigFile)
 			if err != nil {
-				return fmt.Errorf("failed to append to dracut config file (%s):\n%w", dracutConfigFile, err)
+				return NewImageCustomizerError(CategoryDracutOperation, CodeDracutConfigAppend,
+					fmt.Errorf("failed to append to dracut config file (%s):\n%w", dracutConfigFile, err))
 			}
 		}
 	}

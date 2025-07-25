@@ -42,7 +42,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	// Check if the user already exists.
 	userExists, err := userutils.UserExists(user.Name, imageChroot)
 	if err != nil {
-		return err
+		return NewImageCustomizerError(CategoryUserGroupOperation, CodeUserExists, err)
 	}
 
 	if userExists {
@@ -66,7 +66,8 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 			passwordFileContents, err := os.ReadFile(passwordFullPath)
 			if err != nil {
-				return fmt.Errorf("failed to read password file (%s): %w", passwordFullPath, err)
+				return NewImageCustomizerError(CategoryInvalidInput, CodePasswordRead,
+					fmt.Errorf("failed to read password file (%s): %w", passwordFullPath, err))
 			}
 
 			password = string(passwordFileContents)
@@ -77,25 +78,27 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			// Hash the password.
 			hashedPassword, err = userutils.HashPassword(password)
 			if err != nil {
-				return err
+				return NewImageCustomizerError(CategoryInternalSystem, CodeInternalSystem, err)
 			}
 		}
 	}
 
 	if userExists {
 		if user.UID != nil {
-			return fmt.Errorf("cannot set UID (%d) on a user (%s) that already exists", *user.UID, user.Name)
+			return NewImageCustomizerError(CategoryInvalidInput, CodeUserUidSet,
+				fmt.Errorf("cannot set UID (%d) on a user (%s) that already exists", *user.UID, user.Name))
 		}
 
 		if user.HomeDirectory != "" {
-			return fmt.Errorf("cannot set home directory (%s) on a user (%s) that already exists",
-				user.HomeDirectory, user.Name)
+			return NewImageCustomizerError(CategoryInvalidInput, CodeUserHomeDirSet,
+				fmt.Errorf("cannot set home directory (%s) on a user (%s) that already exists",
+					user.HomeDirectory, user.Name))
 		}
 
 		// Update the user's password.
 		err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
 		if err != nil {
-			return err
+			return NewImageCustomizerError(CategoryUserGroupOperation, CodeUserUpdate, err)
 		}
 	} else {
 		var uidStr string
@@ -106,7 +109,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		// Add the user.
 		err = userutils.AddUser(user.Name, user.HomeDirectory, user.PrimaryGroup, hashedPassword, uidStr, imageChroot)
 		if err != nil {
-			return err
+			return NewImageCustomizerError(CategoryUserGroupOperation, CodeUserAdd, err)
 		}
 	}
 
@@ -114,7 +117,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	if user.PasswordExpiresDays != nil {
 		err = installutils.Chage(imageChroot, *user.PasswordExpiresDays, user.Name)
 		if err != nil {
-			return err
+			return NewImageCustomizerError(CategoryUserGroupOperation, CodeUserUpdate, err)
 		}
 	}
 

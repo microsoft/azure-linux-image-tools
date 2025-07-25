@@ -23,7 +23,8 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 
 	parsedTime, err := snapshotTime.Parse()
 	if err != nil {
-		return fmt.Errorf("failed to parse snapshot time:\n%w", err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfSnapshotTimeParse,
+			fmt.Errorf("failed to parse snapshot time:\n%w", err))
 	}
 
 	epoch := strconv.FormatInt(parsedTime.Unix(), 10)
@@ -34,7 +35,8 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg := ini.Empty()
 	if _, err := os.Stat(baseTdnfConfPath); err == nil {
 		if err := cfg.Append(baseTdnfConfPath); err != nil {
-			return fmt.Errorf("failed to parse existing tdnf.conf:\n%w", err)
+			return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigParse,
+				fmt.Errorf("failed to parse existing tdnf.conf:\n%w", err))
 		}
 	} else {
 		cfg.NewSection("main")
@@ -43,11 +45,13 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg.Section("main").Key("snapshottime").SetValue(epoch)
 
 	if err := os.MkdirAll(filepath.Dir(tempTdnfConfPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory for custom tdnf.conf:\n%w", err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigDirectoryCreate,
+			fmt.Errorf("failed to create directory for custom tdnf.conf:\n%w", err))
 	}
 
 	if err := cfg.SaveTo(tempTdnfConfPath); err != nil {
-		return fmt.Errorf("failed to write custom tdnf.conf:\n%w", err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigWrite,
+			fmt.Errorf("failed to write custom tdnf.conf:\n%w", err))
 	}
 
 	return nil
@@ -57,7 +61,8 @@ func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
 	// e.g., remove the temp config file
 	err := os.Remove(filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath))
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to clean up temp tdnf config: %w", err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigCleanup,
+			fmt.Errorf("failed to clean up temp tdnf config: %w", err))
 	}
 	return nil
 }

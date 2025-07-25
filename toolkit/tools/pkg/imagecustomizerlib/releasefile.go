@@ -34,7 +34,7 @@ func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion strin
 	}
 	err = file.WriteLines(lines, customizerReleaseFilePath)
 	if err != nil {
-		return fmt.Errorf("error writing customizer release file (%s): %w", customizerReleaseFilePath, err)
+		return NewImageCustomizerError(CategoryFilesystemOperation, CodeReleaseFileWrite, fmt.Errorf("error writing customizer release file (%s): %w", customizerReleaseFilePath, err))
 	}
 
 	return nil

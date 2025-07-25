@@ -49,28 +49,33 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 
 	err = validateVerityDependencies(imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to validate package dependencies for verity:\n%w", err)
+		return false, NewImageCustomizerError(CategoryVerityOperation, CodeVerityPackageDependencyValidation,
+			fmt.Errorf("failed to validate package dependencies for verity:\n%w", err))
 	}
 
 	// Integrate systemd veritysetup dracut module into initramfs img.
 	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to add dracut modules for verity:\n%w", err)
+		return false, NewImageCustomizerError(CategoryVerityOperation, CodeVerityDracutModuleAdd,
+			fmt.Errorf("failed to add dracut modules for verity:\n%w", err))
 	}
 
 	err = updateFstabForVerity(verity, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to update fstab file for verity:\n%w", err)
+		return false, NewImageCustomizerError(CategoryVerityOperation, CodeVerityFstabUpdate,
+			fmt.Errorf("failed to update fstab file for verity:\n%w", err))
 	}
 
 	err = prepareGrubConfigForVerity(verity, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to prepare grub config files for verity:\n%w", err)
+		return false, NewImageCustomizerError(CategoryVerityOperation, CodeVerityGrubConfigPrepare,
+			fmt.Errorf("failed to prepare grub config files for verity:\n%w", err))
 	}
 
 	err = supportVerityHashSignature(verity, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to support hash signature for verity:\n%w", err)
+		return false, NewImageCustomizerError(CategoryVerityOperation, CodeVerityHashSignatureSupport,
+			fmt.Errorf("failed to support hash signature for verity:\n%w", err))
 	}
 
 	return true, nil
@@ -80,7 +85,8 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	fstabFile := filepath.Join(imageChroot.RootDir(), "etc", "fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabFile)
 	if err != nil {
-		return fmt.Errorf("failed to read fstab file: %v", err)
+		return NewImageCustomizerError(CategoryVerityOperation, CodeVerityFstabRead,
+			fmt.Errorf("failed to read fstab file: %v", err))
 	}
 
 	// Update fstab entries so that verity mounts point to verity device paths.

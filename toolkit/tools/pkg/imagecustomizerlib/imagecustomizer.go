@@ -152,7 +152,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 
 	err = ValidateRpmSources(rpmsSources)
 	if err != nil {
-		return nil, err
+		return nil, NewImageCustomizerError(CategoryInvalidInput, CodeRpmSourceTypeDetection, err)
 	}
 
 	// intermediate writeable image
@@ -161,7 +161,8 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("invalid output image format:\n%w", err)
+		return nil, NewImageCustomizerError(CategoryInvalidInput, CodeInvalidOutputFormat,
+			fmt.Errorf("invalid output image format:\n%w", err))
 	}
 
 	if ic.outputImageFormat == "" {
@@ -183,14 +184,16 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
 		if !ic.outputIsIso && !ic.outputIsPxe {
-			return nil, fmt.Errorf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat)
+			return nil, NewImageCustomizerError(CategoryInvalidInput, CodeCannotGenerateOutputFormat,
+				fmt.Errorf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat))
 		}
 
 		// While defining a storage configuration can work when the input image is
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
 		if config.CustomizePartitions() {
-			return nil, fmt.Errorf("cannot customize partitions when the input is an iso")
+			return nil, NewImageCustomizerError(CategoryInvalidInput, CodeCannotCustomizePartitionsOnIso,
+				fmt.Errorf("cannot customize partitions when the input is an iso"))
 		}
 	}
 
@@ -247,8 +250,11 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			span.RecordError(fmt.Errorf("image customization failed"))
-			span.SetStatus(codes.Error, "image customization failed")
+			errorCode := GetErrorCode(err)
+			errorCategory := GetErrorCategory(err)
+			span.SetStatus(codes.Error, fmt.Sprintf("%s:%s", errorCategory, errorCode))
+			span.SetAttributes(attribute.String("error.code", string(errorCode)))
+			span.SetAttributes(attribute.String("error.category", string(errorCategory)))
 		}
 		span.End()
 	}()

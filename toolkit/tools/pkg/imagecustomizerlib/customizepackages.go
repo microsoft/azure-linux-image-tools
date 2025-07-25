@@ -160,7 +160,8 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodePackageRepoMetadataRefresh,
+			fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err))
 	}
 	return nil
 }
@@ -176,7 +177,8 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err)
+			return nil, NewImageCustomizerError(CategoryInvalidInput, CodeInvalidPackageListFile,
+				fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err))
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)
@@ -209,7 +211,8 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodePackageRemove,
+			fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err))
 	}
 
 	return nil
@@ -228,7 +231,8 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to update packages:\n%w", err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodePackageUpdate,
+			fmt.Errorf("failed to update packages:\n%w", err))
 	}
 
 	return nil
@@ -259,7 +263,8 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
+		return NewImageCustomizerError(CategoryPackageManagement, CodePackageInstall,
+			fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err))
 	}
 
 	return nil
@@ -363,7 +368,8 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chro
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("failed to clean tdnf cache:\n%w", err)
+			return NewImageCustomizerError(CategoryPackageManagement, CodePackageCacheClean,
+				fmt.Errorf("failed to clean tdnf cache:\n%w", err))
 		}
 		return nil
 	})
