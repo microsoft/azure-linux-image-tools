@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: Image Creator Tests functional
+name: Tests Image Creator functional
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ env:
 
 jobs:
   tests-functional:
-    name: Funtional test suite
+    name: Tests Image Creator functional
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}

@@ -10,6 +10,8 @@ permissions:
   packages: write
   # "Keyless" container signing and Azure login.
   id-token: write
+  # GitHub pages publish.
+  pages: write
 
 on:
   # Allow pipeline to be run manually.
@@ -21,6 +23,7 @@ jobs:
     with:
       publishType: patch
       runFunctionalTests: true
+      runVMTests: true
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
@@ -31,5 +34,11 @@ jobs:
     uses: ./.github/workflows/publish-release.yml
     with:
       isLatestRelease: ${{ needs.build.outputs.isLatestRelease }}
+    needs:
+    - build
+
+  publish-github-pages:
+    uses: ./.github/workflows/publish-github-pages.yml
+    if: ${{ needs.build.outputs.isLatestRelease == 'true' }}
     needs:
     - build
