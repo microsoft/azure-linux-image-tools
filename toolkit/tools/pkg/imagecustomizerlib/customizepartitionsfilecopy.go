@@ -25,7 +25,8 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 
 	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine target OS of base image:\n%w", err)
+		return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionCopyTargetOsDetermination,
+			fmt.Errorf("failed to determine target OS of base image:\n%w", err))
 	}
 
 	diskConfig := config.Storage.Disks[0]
@@ -51,7 +52,8 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {
 	err := copyPartitionFiles(existingImageChroot.RootDir()+"/.", newImageChroot.RootDir())
 	if err != nil {
-		return fmt.Errorf("failed to copy files into new partition layout:\n%w", err)
+		return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionCopyFilesToNewLayout,
+			fmt.Errorf("failed to copy files into new partition layout:\n%w", err))
 	}
 	return nil
 }
@@ -78,7 +80,8 @@ func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("failed to copy files:\n%w", err)
+		return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionCopyFiles,
+			fmt.Errorf("failed to copy files:\n%w", err))
 	}
 
 	return nil

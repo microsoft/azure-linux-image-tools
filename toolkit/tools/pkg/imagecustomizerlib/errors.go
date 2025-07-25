@@ -174,6 +174,39 @@ const (
 	CodeVerityDracutFileInstall           ErrorCode = "Verity_Dracut_File_Install_Failure"
 	CodeVerityKernelArgumentGenerate      ErrorCode = "Verity_Kernel_Argument_Generate_Failure"
 
+	// Partition Copy Operation errors
+	CodePartitionCopyTargetOsDetermination ErrorCode = "Partition_Copy_Target_Os_Determination_Failure"
+	CodePartitionCopyFilesToNewLayout      ErrorCode = "Partition_Copy_Files_To_New_Layout_Failure"
+	CodePartitionCopyFiles                 ErrorCode = "Partition_Copy_Files_Failure"
+
+	// Partition UUID Operation errors
+	CodePartitionUuidResetFilesystem   ErrorCode = "Partition_Uuid_Reset_Filesystem_Failure"
+	CodePartitionUuidUpdate            ErrorCode = "Partition_Uuid_Update_Failure"
+	CodePartitionE2fsckCheck           ErrorCode = "Partition_E2fsck_Check_Failure"
+	CodePartitionVfatIdGenerate        ErrorCode = "Partition_Vfat_Id_Generate_Failure"
+	CodePartitionVerityNotImplemented  ErrorCode = "Partition_Verity_Not_Implemented_Failure"
+	CodePartitionUnsupportedFilesystem ErrorCode = "Partition_Unsupported_Filesystem_Failure"
+
+	// TDNF Snapshot Operation errors  
+	CodeTdnfSnapshotTimeParse        ErrorCode = "Tdnf_Snapshot_Time_Parse_Failure"
+	CodeTdnfConfigParse              ErrorCode = "Tdnf_Config_Parse_Failure"
+	CodeTdnfConfigDirectoryCreate    ErrorCode = "Tdnf_Config_Directory_Create_Failure"
+	CodeTdnfConfigWrite              ErrorCode = "Tdnf_Config_Write_Failure"
+	CodeTdnfConfigCleanup            ErrorCode = "Tdnf_Config_Cleanup_Failure"
+
+	// Bootloader Operation errors
+	CodeBootloaderHardReset            ErrorCode = "Bootloader_Hard_Reset_Failure"
+	CodeBootloaderKernelCommandLineAdd ErrorCode = "Bootloader_Kernel_Command_Line_Add_Failure"
+	CodeBootloaderSelinuxModeGet       ErrorCode = "Bootloader_Selinux_Mode_Get_Failure"
+	CodeBootloaderRootFilesystemFind   ErrorCode = "Bootloader_Root_Filesystem_Find_Failure"
+	CodeBootloaderRootMountIdTypeGet   ErrorCode = "Bootloader_Root_Mount_Id_Type_Get_Failure"
+	CodeBootloaderImageBootTypeGet     ErrorCode = "Bootloader_Image_Boot_Type_Get_Failure"
+	CodeBootloaderDiskConfigure        ErrorCode = "Bootloader_Disk_Configure_Failure"
+	CodeBootloaderRootMountFind        ErrorCode = "Bootloader_Root_Mount_Find_Failure"
+	CodeBootloaderRootMountSourceParse ErrorCode = "Bootloader_Root_Mount_Source_Parse_Failure"
+	CodeBootloaderVerityRootUnsupported ErrorCode = "Bootloader_Verity_Root_Unsupported_Failure"
+	CodeBootloaderMountIdUnsupported   ErrorCode = "Bootloader_Mount_Id_Unsupported_Failure"
+
 	// Artifact Handling errors
 	CodeArtifactImageConnection      ErrorCode = "Artifact_Image_Connection_Failure"
 	CodeArtifactPartitionMount       ErrorCode = "Artifact_Partition_Mount_Failure"
