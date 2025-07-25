@@ -15,6 +15,7 @@ from vmtests.vmtests.conftest import (
     image_customizer_container_url,
     keep_environment,
     libvirt_conn,
+    libvirt_event_thread,
     logs_dir,
     ssh_key,
     test_instance_name,
@@ -22,9 +23,7 @@ from vmtests.vmtests.conftest import (
 from vmtests.vmtests.utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
-TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath(
-    "../../toolkit/tools/pkg/imagecustomizerlib/testdata"
-)
+TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../toolkit/tools/pkg/imagecustomizerlib/testdata")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -34,9 +33,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Keep the resources created during the test",
     )
     parser.addoption("--input-image", action="store", help="Path to input image")
-    parser.addoption(
-        "--osmodifier-binary", action="store", help="Path to osmodifier binary"
-    )
+    parser.addoption("--osmodifier-binary", action="store", help="Path to osmodifier binary")
     parser.addoption("--logs-dir", action="store", help="Path to logs directory")
     parser.addoption(
         "--ssh-private-key",
@@ -51,10 +48,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 @pytest.fixture(scope="session")
-def session_temp_dir(
-    request: pytest.FixtureRequest, keep_environment: bool
-) -> Generator[Path, None, None]:
-    temp_path = create_temp_folder("osmodifiertests-")
+def session_temp_dir(request: pytest.FixtureRequest, keep_environment: bool) -> Generator[Path, None, None]:
+    temp_path = create_temp_folder("osmodifiertest-")
     yield Path(temp_path)
 
     if not keep_environment:

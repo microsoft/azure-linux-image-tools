@@ -113,13 +113,11 @@ def setup_vm_with_osmodifier(
     vm_name = test_instance_name
 
     vm_spec = VmSpec(vm_name, 4096, 4, vm_image, target_boot_type, secure_boot)
-    domain_xml = create_libvirt_domain_xml(
-        libvirt_conn, vm_spec, vm_console_log_file_path
-    )
+    domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec)
 
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
-    vm = LibvirtVm(vm_name, domain_xml, libvirt_conn)
+    vm = LibvirtVm(vm_name, domain_xml, vm_console_log_file_path, libvirt_conn)
     close_list.append(vm)
 
     # Start VM.
@@ -127,7 +125,7 @@ def setup_vm_with_osmodifier(
 
     remote_osmodifier_path = Path("/tmp/osmodifier")
 
-    ssh_client = vm.create_ssh_client(ssh_private_key_path, session_temp_dir)
+    ssh_client = vm.create_ssh_client(ssh_private_key_path, session_temp_dir, username)
     ssh_client.put_file(osmodifier_binary, remote_osmodifier_path)
     ssh_client.run(f"sudo chmod +x {remote_osmodifier_path}").check_exit_code()
 
@@ -175,9 +173,7 @@ def check_services(ssh_client, service: str, expected: str) -> None:
     if expected == "enabled":
         assert "enabled" in output, f"{service} expected 'enabled', got {output}"
     elif expected == "disabled":
-        assert all(
-            line != "enabled" for line in output
-        ), f"{service} expected 'disabled', got {output}"
+        assert all(line != "enabled" for line in output), f"{service} expected 'disabled', got {output}"
 
 
 def test_modify_services(
@@ -246,9 +242,103 @@ def test_update_hostname(
         logs_dir / "test_hostname.log",
     )
 
-    # Verify hostname
     actual_hostname = ssh_client.run("cat /etc/hostname").stdout.strip()
     expected_hostname = "testname"
-    assert (
-        actual_hostname == expected_hostname
-    ), f"Expected hostname '{expected_hostname}', got '{actual_hostname}'"
+    assert actual_hostname == expected_hostname, f"Expected hostname '{expected_hostname}', got '{actual_hostname}'"
+
+
+def test_user_creation_config(
+    setup_vm_with_osmodifier: Tuple[SshClient, Path, Path],
+) -> None:
+    """
+    Verifies that osmodifier correctly applies user configuration.
+    """
+    ssh_client, remote_bin_path, log_path = setup_vm_with_osmodifier
+
+    config_filename = "users-config.yaml"
+    run_osmodifier_with_config(
+        (ssh_client, remote_bin_path, log_path),
+        config_filename,
+        log_path / "test_user.log",
+    )
+
+    result = ssh_client.run("id test")
+    result.check_exit_code()
+
+    output = result.stdout.strip()
+    assert "sudo" in output, f"'sudo' not found in groups: {output}"
+
+
+def is_package_installed(ssh_client: SshClient, pkg_name: str) -> bool:
+    try:
+        cmd = f"tdnf info {pkg_name} --repo @system"
+        result = ssh_client.run(cmd)
+        return result.exit_code == 0
+    except Exception:
+        return False
+
+
+def is_grub_bootloader(ssh_client: SshClient) -> bool:
+    if is_package_installed(ssh_client, "grub2-efi-binary") or is_package_installed(
+        ssh_client, "grub2-efi-binary-noprefix"
+    ):
+        return True
+
+    if is_package_installed(ssh_client, "systemd-boot"):
+        return False
+
+    raise RuntimeError(
+        "Unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot is installed"
+    )
+
+
+def test_osmodifier_boot_config(
+    setup_vm_with_osmodifier: Tuple[SshClient, Path, Path],
+) -> None:
+    """
+    Verifies that osmodifier correctly modifies bootloader config when kernelCommandLine,
+    overlays, verity, rootDevice, and SELinux settings are applied.
+    """
+    ssh_client, _, logs_dir = setup_vm_with_osmodifier
+
+    if not is_grub_bootloader(ssh_client):
+        pytest.skip("Test requires GRUB bootloader, but system uses systemd-boot")
+
+    config_filename = "osmodifier-boot-config.yaml"
+    run_osmodifier_with_config(
+        setup_vm_with_osmodifier,
+        config_filename,
+        logs_dir / "test_boot_config.log",
+    )
+
+    grub_cfg = ssh_client.run("cat /boot/grub2/grub.cfg").stdout
+
+    assert "console=tty0" in grub_cfg
+    assert "console=ttyS0" in grub_cfg
+    assert "verity" in grub_cfg
+    assert "overlay" in grub_cfg
+    assert "selinux=1" in grub_cfg
+    assert "enforcing=0" in grub_cfg
+
+
+def test_uki_selinux_config(
+    setup_vm_with_osmodifier: Tuple[SshClient, Path, Path],
+) -> None:
+    """
+    Verifies that osmodifier correctly updates SELinux mode in systemd-boot systems.
+    """
+    ssh_client, remote_bin_path, log_path = setup_vm_with_osmodifier
+
+    if is_grub_bootloader(ssh_client):
+        pytest.skip("Test requires systemd-boot, but system uses GRUB")
+
+    config_filename = "selinux-enforcing-nopackages.yaml"
+    run_osmodifier_with_config(
+        (ssh_client, remote_bin_path, log_path),
+        config_filename,
+        log_path / "test_selinux.log",
+    )
+
+    # Check /etc/selinux/config file
+    selinux_conf = ssh_client.run("cat /etc/selinux/config").stdout
+    assert "SELINUX=permissive" in selinux_conf

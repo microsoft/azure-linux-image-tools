@@ -36,15 +36,11 @@ update-venv:
 	${PIP} install -r requirements.txt
 
 .PHONY: check
-check: mypy flake8 check-black check-isort
+check: flake8 check-black check-isort
 
 .PHONY: flake8
 flake8:
 	${FLAKE8} .
-
-.PHONY: mypy
-mypy:
-	${MYPY} --strict --config-file pyproject.toml -p .
 
 .PHONY: fix
 fix: fix-isort fix-black

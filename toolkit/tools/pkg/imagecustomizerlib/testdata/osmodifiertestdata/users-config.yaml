@@ -1,4 +1,0 @@
-users:
-- name: test
-  secondaryGroups:
-  - sudo
