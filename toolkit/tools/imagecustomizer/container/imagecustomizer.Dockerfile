@@ -19,11 +19,13 @@ RUN tdnf update -y && \
    tdnf clean all
 
 # Create virtual environment and install Python dependencies for telemetry
-COPY ./usr/local/bin/requirements.txt /usr/local/bin/requirements.txt
-RUN python3 -m venv /opt/telemetry-venv && \
-   /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
+RUN python3 -m venv /opt/telemetry-venv
+COPY telemetry-requirements.txt /telemetry-requirements.txt
+RUN /opt/telemetry-venv/bin/pip install --no-cache-dir -r /telemetry-requirements.txt
+RUN rm -rf /telemetry-requirements.txt
 
-# Copy binaries.
-COPY . /
+# Copy all necessary files
+COPY .mariner-toolkit-ignore-dockerenv /
+COPY usr /usr
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

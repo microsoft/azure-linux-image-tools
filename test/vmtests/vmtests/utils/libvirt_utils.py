@@ -116,7 +116,7 @@ def _get_libvirt_firmware_config(
 
 
 # Create XML definition for a VM.
-def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec, log_file: str) -> str:
+def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec) -> str:
 
     host_arch = platform.machine()
 
@@ -212,9 +212,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     controller_scsi.attrib["model"] = "virtio-scsi"
 
     serial = ET.SubElement(devices, "serial")
-    serial.attrib["type"] = "file"
-    serial_source = ET.SubElement(serial, "source")
-    serial_source.attrib["path"] = log_file
+    serial.attrib["type"] = "pty"
 
     serial_target = ET.SubElement(serial, "target")
     serial_target.attrib["type"] = serial_target_type
@@ -224,10 +222,7 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec,
     serial_target_model.attrib["name"] = serial_target_model_name
 
     console = ET.SubElement(devices, "console")
-    console.attrib["type"] = "file"
-
-    console_source = ET.SubElement(console, "source")
-    console_source.attrib["path"] = log_file
+    console.attrib["type"] = "pty"
 
     console_target = ET.SubElement(console, "target")
     console_target.attrib["type"] = "serial"

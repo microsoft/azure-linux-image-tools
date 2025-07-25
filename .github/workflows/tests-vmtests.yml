@@ -1,0 +1,148 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Tests VMTests suite
+
+permissions:
+  contents: read
+  # Azure login.
+  id-token: write
+
+on:
+  workflow_call:
+    inputs:
+      hostArch:
+        required: true
+        type: string
+      hostDistro:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+  ORAS_VERSION: "1.2.3"
+
+jobs:
+  tests-vmtests:
+    name: Tests VMTests suite
+    runs-on:
+    - self-hosted
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+    environment: public
+    steps:
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
+    - name: Install prerequisites (AZL3)
+      if: inputs.hostDistro == 'azl3'
+      run: |
+        set -eux
+
+        sudo tdnf install -y libvirt libvirt-daemon libvirt-daemon-config-network \
+          libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
+          python3-devel edk2-ovmf \
+          azure-cli
+
+        sudo tdnf list installed
+
+        sudo systemctl restart libvirtd
+        sudo systemctl status libvirtd
+
+    - name: Install prerequisites (Ubuntu 24.04)
+      if: inputs.hostDistro == 'ubuntu2404'
+      run: |
+        set -eux
+
+        sudo apt update -y
+        sudo apt -y install python3.12-venv python3-pip python3-dev \
+            libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
+            qemu-kvm virt-manager
+
+        # Install arm64 specific
+        if [[ "$HOST_ARCH" == "arm64" ]]; then
+          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+        fi
+
+        sudo apt list --installed
+
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Download base images
+      run: |
+        set -eux
+
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
+        AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
+        AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: out
+
+    - name: Import container
+      id: importContainer
+      run: |
+        set -eux
+
+        CONTAINER_TAR_PATH="out/container-$HOST_ARCH/imagecustomizer.tar.gz"
+        DOCKER_OUTPUT=$(sudo docker image load -i "$CONTAINER_TAR_PATH" 2>&1)
+        CONTAINER_TAG=$(echo $DOCKER_OUTPUT | awk '{print $3}')
+
+        echo "containerTag=$CONTAINER_TAG" >> "$GITHUB_OUTPUT"
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
+
+    - name: Test setup
+      run: |
+        set -eux
+
+        pushd ./repo/test/vmtests
+
+        # Ensure an ssh key exists.
+        ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+
+        make create-venv
+
+    - name: Run tests
+      run: |
+        set -eux
+
+        pushd ./repo/test/vmtests
+
+        sudo make test \
+          IMAGE_CUSTOMIZER_CONTAINER_TAG="$CONTAINER_TAG" \
+          CORE_EFI_AZL2="../../../azl-core-efi-2.0/image.vhdx" \
+          CORE_EFI_AZL3="../../../azl-core-efi-3.0/image.vhdx" \
+          SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+      env:
+        CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: tests-results-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        path: repo/test/vmtests/out

@@ -32,6 +32,14 @@ detailed instructions on getting started and building.
 Have questions, found a bug, or need a new feature? Open an issue in our [GitHub
 repository](https://github.com/microsoft/azure-linux-image-tools/issues/new?template=Blank+issue).
 
+## Telemetry
+
+Image Customizer collects usage data to help improve the product. This data
+helps us understand usage patterns, diagnose issues, improve reliability, and
+prioritize new features based on real-world usage. Learn how Image Customizer
+collects and uses telemetry, and how to opt out
+[here](https://microsoft.github.io/azure-linux-image-tools/imagecustomizer/telemetry.html).
+
 ---
 
 ## Trademarks
