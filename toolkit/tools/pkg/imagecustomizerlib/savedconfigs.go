@@ -98,7 +98,7 @@ func (c *SavedConfigs) IsValid() (err error) {
 
 	err = c.OS.IsValid()
 	if err != nil {
-		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigOsField, fmt.Errorf("invalud 'os' field:\n%w", err))
+		return NewImageCustomizerError(CategoryConfigValidation, CodeConfigOsField, fmt.Errorf("invalid 'os' field:\n%w", err))
 	}
 
 	return nil
