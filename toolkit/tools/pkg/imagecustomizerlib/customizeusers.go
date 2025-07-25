@@ -19,6 +19,10 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	ErrCannotSetUidOnExistingUser = NewImageCustomizerError("Users:SetUidOnExistingUser", "cannot set UID on a user that already exists")
+)
+
 func AddOrUpdateUsers(ctx context.Context, users []imagecustomizerapi.User, baseConfigPath string, imageChroot safechroot.ChrootInterface) error {
 	if len(users) == 0 {
 		return nil
@@ -84,7 +88,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 	if userExists {
 		if user.UID != nil {
-			return fmt.Errorf("cannot set UID (%d) on a user (%s) that already exists", *user.UID, user.Name)
+			return fmt.Errorf("%w (UID='%d', user='%s')", ErrCannotSetUidOnExistingUser, *user.UID, user.Name)
 		}
 
 		if user.HomeDirectory != "" {

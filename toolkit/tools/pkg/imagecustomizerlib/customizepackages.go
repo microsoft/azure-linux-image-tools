@@ -23,6 +23,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	ErrPackagesRemoveFailed          = NewImageCustomizerError("Packages:RemoveFailed", "failed to remove packages")
+	ErrPackagesInstallFailed         = NewImageCustomizerError("Packages:InstallFailed", "failed to install packages")
+	ErrPackagesUpdateFailed          = NewImageCustomizerError("Packages:UpdateFailed", "failed to update packages")
+	ErrPackagesUpdateInstalledFailed = NewImageCustomizerError("Packages:UpdateInstalledFailed", "failed to update installed packages")
+)
+
 // TODO: Remove this constant to support 4.0 and later releases.
 const (
 	releaseVerCliArg = "--releasever=3.0"
@@ -111,13 +118,13 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
 	err = installOrUpdatePackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (%v):\n%w", ErrPackagesInstallFailed, config.Packages.Install, err)
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
 	err = installOrUpdatePackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (%v):\n%w", ErrPackagesUpdateFailed, config.Packages.Update, err)
 	}
 
 	// Unmount RPM sources.
@@ -209,7 +216,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
+		return fmt.Errorf("%w (%v):\n%w", ErrPackagesRemoveFailed, allPackagesToRemove, err)
 	}
 
 	return nil
@@ -228,7 +235,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to update packages:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalledFailed, err)
 	}
 
 	return nil
@@ -259,7 +266,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
+		return err
 	}
 
 	return nil

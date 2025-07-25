@@ -247,8 +247,13 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			span.RecordError(fmt.Errorf("image customization failed"))
-			span.SetStatus(codes.Error, "image customization failed")
+			errorName := ""
+			var namedErr *ImageCustomizerError
+			if errors.As(err, &namedErr) {
+				errorName = namedErr.Name()
+			}
+
+			span.SetStatus(codes.Error, errorName)
 		}
 		span.End()
 	}()
