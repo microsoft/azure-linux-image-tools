@@ -16,6 +16,21 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+var (
+	// Bootloader-related errors
+	ErrBootloaderHardReset             = NewImageCustomizerError("Bootloader:HardReset", "failed to perform hard reset")
+	ErrBootloaderKernelCommandLineAdd  = NewImageCustomizerError("Bootloader:KernelCommandLineAdd", "failed to add kernel command line")
+	ErrBootloaderSelinuxModeGet        = NewImageCustomizerError("Bootloader:SelinuxModeGet", "failed to get SELinux mode")
+	ErrBootloaderRootFilesystemFind    = NewImageCustomizerError("Bootloader:RootFilesystemFind", "failed to find root filesystem")
+	ErrBootloaderRootMountIdTypeGet    = NewImageCustomizerError("Bootloader:RootMountIdTypeGet", "failed to get root mount ID type")
+	ErrBootloaderImageBootTypeGet      = NewImageCustomizerError("Bootloader:ImageBootTypeGet", "failed to get image boot type")
+	ErrBootloaderDiskConfigure         = NewImageCustomizerError("Bootloader:DiskConfigure", "failed to configure disk")
+	ErrBootloaderRootMountFind         = NewImageCustomizerError("Bootloader:RootMountFind", "failed to find root mount")
+	ErrBootloaderRootMountSourceParse  = NewImageCustomizerError("Bootloader:RootMountSourceParse", "failed to parse root mount source")
+	ErrBootloaderVerityRootUnsupported = NewImageCustomizerError("Bootloader:VerityRootUnsupported", "verity root unsupported")
+	ErrBootloaderMountIdUnsupported    = NewImageCustomizerError("Bootloader:MountIdUnsupported", "mount ID type unsupported")
+)
+
 func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
@@ -23,7 +38,7 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 	case config.OS.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
 		err := hardResetBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
 		if err != nil {
-			return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderHardReset,
+			return fmt.Errorf("%w: %w", ErrBootloaderHardReset,
 				fmt.Errorf("failed to hard reset bootloader:\n%w", err))
 		}
 
@@ -31,7 +46,7 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 		// Append the kernel command-line args to the existing grub config.
 		err := AddKernelCommandLine(ctx, config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
-			return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderKernelCommandLineAdd,
+			return fmt.Errorf("%w: %w", ErrBootloaderKernelCommandLineAdd,
 				fmt.Errorf("failed to add extra kernel command line:\n%w", err))
 		}
 	}
@@ -59,7 +74,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 
 		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
 		if err != nil {
-			return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderSelinuxModeGet,
+			return fmt.Errorf("%w: %w", ErrBootloaderSelinuxModeGet,
 				fmt.Errorf("failed to get existing SELinux mode:\n%w", err))
 		}
 	}
@@ -74,7 +89,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 			},
 		)
 		if !foundRootFileSystem {
-			return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderRootFilesystemFind,
+			return fmt.Errorf("%w: %w", ErrBootloaderRootFilesystemFind,
 				fmt.Errorf("failed to find root filesystem (i.e. mount equal to '/')"))
 		}
 
@@ -83,13 +98,13 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	} else {
 		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
 		if err != nil {
-			return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderRootMountIdTypeGet,
+			return fmt.Errorf("%w: %w", ErrBootloaderRootMountIdTypeGet,
 				fmt.Errorf("failed to get image's root mount ID type:\n%w", err))
 		}
 
 		bootType, err = getImageBootType(imageConnection)
 		if err != nil {
-			return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderImageBootTypeGet,
+			return fmt.Errorf("%w: %w", ErrBootloaderImageBootTypeGet,
 				fmt.Errorf("failed to get image's boot type:\n%w", err))
 		}
 	}
@@ -98,7 +113,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, config.OS.SELinux,
 		config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
-		return NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderDiskConfigure,
+		return fmt.Errorf("%w: %w", ErrBootloaderDiskConfigure,
 			fmt.Errorf("failed to configure bootloader:\n%w", err))
 	}
 
@@ -152,13 +167,13 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	}
 
 	if !rootFound {
-		return "", NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderRootMountFind,
+		return "", fmt.Errorf("%w: %w", ErrBootloaderRootMountFind,
 			fmt.Errorf("failed to find root mount (/)"))
 	}
 
 	mountIdType, mountId, err := parseExtendedSourcePartition(rootFstabEntry.Source)
 	if err != nil {
-		return "", NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderRootMountSourceParse,
+		return "", fmt.Errorf("%w: %w", ErrBootloaderRootMountSourceParse,
 			fmt.Errorf("failed to parse root (/) mount source:\n%w", err))
 	}
 
@@ -181,12 +196,12 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 			rootMountIdType = imagecustomizerapi.MountIdentifierTypeDefault
 
 		default:
-			return "", NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderVerityRootUnsupported,
+			return "", fmt.Errorf("%w: %w", ErrBootloaderVerityRootUnsupported,
 				fmt.Errorf("unsupported root mount identifier (%s)", rootFstabEntry.Source))
 		}
 
 	default:
-		return "", NewImageCustomizerError(CategoryBootCustomization, CodeBootloaderMountIdUnsupported,
+		return "", fmt.Errorf("%w: %w", ErrBootloaderMountIdUnsupported,
 			fmt.Errorf("unsupported root mount identifier (%s)", rootFstabEntry.Source))
 	}
 
