@@ -14,6 +14,15 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+var (
+	// TDNF snapshot errors
+	ErrTdnfSnapshotTimeParse     = NewImageCustomizerError("TdnfSnapshot:TimeParse", "failed to parse TDNF snapshot time")
+	ErrTdnfConfigParse           = NewImageCustomizerError("TdnfSnapshot:ConfigParse", "failed to parse TDNF config")
+	ErrTdnfConfigDirectoryCreate = NewImageCustomizerError("TdnfSnapshot:ConfigDirectoryCreate", "failed to create TDNF config directory")
+	ErrTdnfConfigWrite           = NewImageCustomizerError("TdnfSnapshot:ConfigWrite", "failed to write TDNF config")
+	ErrTdnfConfigCleanup         = NewImageCustomizerError("TdnfSnapshot:ConfigCleanup", "failed to clean up TDNF config")
+)
+
 const customTdnfConfRelPath = "tmp/custom-tdnf.conf"
 
 func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTime imagecustomizerapi.PackageSnapshotTime) error {
@@ -23,7 +32,7 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 
 	parsedTime, err := snapshotTime.Parse()
 	if err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfSnapshotTimeParse,
+		return fmt.Errorf("%w: %w", ErrTdnfSnapshotTimeParse,
 			fmt.Errorf("failed to parse snapshot time:\n%w", err))
 	}
 
@@ -35,7 +44,7 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg := ini.Empty()
 	if _, err := os.Stat(baseTdnfConfPath); err == nil {
 		if err := cfg.Append(baseTdnfConfPath); err != nil {
-			return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigParse,
+			return fmt.Errorf("%w: %w", ErrTdnfConfigParse,
 				fmt.Errorf("failed to parse existing tdnf.conf:\n%w", err))
 		}
 	} else {
@@ -45,12 +54,12 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg.Section("main").Key("snapshottime").SetValue(epoch)
 
 	if err := os.MkdirAll(filepath.Dir(tempTdnfConfPath), 0755); err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigDirectoryCreate,
+		return fmt.Errorf("%w: %w", ErrTdnfConfigDirectoryCreate,
 			fmt.Errorf("failed to create directory for custom tdnf.conf:\n%w", err))
 	}
 
 	if err := cfg.SaveTo(tempTdnfConfPath); err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigWrite,
+		return fmt.Errorf("%w: %w", ErrTdnfConfigWrite,
 			fmt.Errorf("failed to write custom tdnf.conf:\n%w", err))
 	}
 
@@ -61,7 +70,7 @@ func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
 	// e.g., remove the temp config file
 	err := os.Remove(filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath))
 	if err != nil && !os.IsNotExist(err) {
-		return NewImageCustomizerError(CategoryPackageManagement, CodeTdnfConfigCleanup,
+		return fmt.Errorf("%w: %w", ErrTdnfConfigCleanup,
 			fmt.Errorf("failed to clean up temp tdnf config: %w", err))
 	}
 	return nil

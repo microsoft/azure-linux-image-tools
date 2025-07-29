@@ -14,6 +14,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	// Partition copy errors
+	ErrPartitionCopyTargetOsDetermination = NewImageCustomizerError("PartitionCopy:TargetOsDetermination", "failed to determine target OS")
+	ErrPartitionCopyFilesToNewLayout      = NewImageCustomizerError("PartitionCopy:FilesToNewLayout", "failed to copy files to new layout")
+	ErrPartitionCopyFiles                 = NewImageCustomizerError("PartitionCopy:Files", "failed to copy partition files")
+)
+
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string, newBuildImageFile string,
 ) (map[string]string, error) {
@@ -25,7 +32,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 
 	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
 	if err != nil {
-		return nil, NewImageCustomizerError(CategoryPartitionOperation, CodePartitionCopyTargetOsDetermination,
+		return nil, fmt.Errorf("%w: %w", ErrPartitionCopyTargetOsDetermination,
 			fmt.Errorf("failed to determine target OS of base image:\n%w", err))
 	}
 
@@ -52,7 +59,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {
 	err := copyPartitionFiles(existingImageChroot.RootDir()+"/.", newImageChroot.RootDir())
 	if err != nil {
-		return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionCopyFilesToNewLayout,
+		return fmt.Errorf("%w: %w", ErrPartitionCopyFilesToNewLayout,
 			fmt.Errorf("failed to copy files into new partition layout:\n%w", err))
 	}
 	return nil
@@ -80,7 +87,7 @@ func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionCopyFiles,
+		return fmt.Errorf("%w: %w", ErrPartitionCopyFiles,
 			fmt.Errorf("failed to copy files:\n%w", err))
 	}
 

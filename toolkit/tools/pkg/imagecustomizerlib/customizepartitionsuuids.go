@@ -21,6 +21,16 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+var (
+	// Partition UUID errors
+	ErrPartitionUuidResetFilesystem   = NewImageCustomizerError("PartitionUUID:ResetFilesystem", "failed to reset filesystem UUID")
+	ErrPartitionUuidUpdate            = NewImageCustomizerError("PartitionUUID:Update", "failed to update partition UUID")
+	ErrPartitionE2fsckCheck           = NewImageCustomizerError("PartitionUUID:E2fsckCheck", "e2fsck check failed for partition")
+	ErrPartitionVfatIdGenerate        = NewImageCustomizerError("PartitionUUID:VfatIdGenerate", "failed to generate VFAT ID")
+	ErrPartitionVerityNotImplemented  = NewImageCustomizerError("PartitionUUID:VerityNotImplemented", "verity partition UUID reset not implemented")
+	ErrPartitionUnsupportedFilesystem = NewImageCustomizerError("PartitionUUID:UnsupportedFilesystem", "unsupported filesystem for UUID reset")
+)
+
 func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir string) error {
 	logger.Log.Infof("Resetting partition UUIDs")
 
@@ -47,7 +57,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 
 		newUuid, err := resetFileSystemUuid(partition)
 		if err != nil {
-			return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionUuidResetFilesystem,
+			return fmt.Errorf("%w: %w", ErrPartitionUuidResetFilesystem,
 				fmt.Errorf("failed to reset partition's (%s) filesystem (%s) UUID:\n%w", partition.Path,
 					partition.FileSystemType, err))
 		}
@@ -64,7 +74,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 
 		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i)
 		if err != nil {
-			return NewImageCustomizerError(CategoryPartitionOperation, CodePartitionUuidUpdate,
+			return fmt.Errorf("%w: %w", ErrPartitionUuidUpdate,
 				fmt.Errorf("failed to update partition (%s) UUID:\n%w", partition.Path, err))
 		}
 
@@ -98,7 +108,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		// tune2fs requires you to run 'e2fsck -f' first.
 		err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", partition.Path)
 		if err != nil {
-			return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionE2fsckCheck,
+			return "", fmt.Errorf("%w: %w", ErrPartitionE2fsckCheck,
 				fmt.Errorf("failed to check %s with e2fsck:\n%w", partition.Path, err))
 		}
 
@@ -119,7 +129,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		newUuidBytes := make([]byte, 4)
 		_, err := rand.Read(newUuidBytes)
 		if err != nil {
-			return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionVfatIdGenerate,
+			return "", fmt.Errorf("%w: %w", ErrPartitionVfatIdGenerate,
 				fmt.Errorf("failed to generate new random ID for vfat partition:\n%w", err))
 		}
 
@@ -136,11 +146,11 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 	case "DM_verity_hash":
 		// Resetting partition IDs on a disk with verity would require updating the kernel command-line args.
 		// This is probably doable, just not implemented yet.
-		return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionVerityNotImplemented,
+		return "", fmt.Errorf("%w: %w", ErrPartitionVerityNotImplemented,
 			fmt.Errorf("resetting partition IDs on a verity-enabled image is not implemented"))
 
 	default:
-		return "", NewImageCustomizerError(CategoryPartitionOperation, CodePartitionUnsupportedFilesystem,
+		return "", fmt.Errorf("%w: %w", ErrPartitionUnsupportedFilesystem,
 			fmt.Errorf("unsupported filesystem type (%s)", partition.FileSystemType))
 	}
 
