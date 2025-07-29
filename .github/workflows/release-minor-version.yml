@@ -8,10 +8,12 @@ permissions:
   contents: write
   # Publish to GHCR.
   packages: write
-  # "Keyless" container signing and Azure login.
+  # "Keyless" container signing, Azure login, GitHub pages publish.
   id-token: write
   # Publish PR.
   #pull-requests: write
+  # GitHub pages publish.
+  pages: write
 
 on:
   # Allow pipeline to be run manually.
@@ -44,5 +46,10 @@ jobs:
 
   open-bump-version-pr:
     uses: ./.github/workflows/open-bump-version-pr.yml
+    needs:
+    - build
+
+  publish-github-pages:
+    uses: ./.github/workflows/publish-github-pages.yml
     needs:
     - build

@@ -160,7 +160,8 @@ def create_libvirt_domain_xml(libvirt_conn: libvirt.virConnect, vm_spec: VmSpec)
     os_type.attrib["arch"] = host_arch
     os_type.attrib["machine"] = machine_model
 
-    ET.SubElement(os_tag, "nvram")
+    if vm_spec.boot_type == "efi":
+        ET.SubElement(os_tag, "nvram")
 
     os_boot = ET.SubElement(os_tag, "boot")
 
