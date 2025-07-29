@@ -133,7 +133,7 @@ jobs:
 
         pushd ./repo/test/vmtests
 
-        sudo make test \
+        sudo make test-imagecustomizer \
           IMAGE_CUSTOMIZER_CONTAINER_TAG="$CONTAINER_TAG" \
           CORE_EFI_AZL2="../../../azl-core-efi-2.0/image.vhdx" \
           CORE_EFI_AZL3="../../../azl-core-efi-3.0/image.vhdx" \
