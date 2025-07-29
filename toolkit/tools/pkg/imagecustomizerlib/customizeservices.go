@@ -16,6 +16,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// Service-related errors
+	ErrServiceEnable  = NewImageCustomizerError("Services:Enable", "failed to enable service")
+	ErrServiceDisable = NewImageCustomizerError("Services:Disable", "failed to disable service")
+)
+
 func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Services, imageChroot safechroot.ChrootInterface) error {
 	var err error
 
@@ -38,8 +44,7 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 			return shell.ExecuteLiveWithErr(1, "systemctl", "enable", service)
 		})
 		if err != nil {
-			return NewImageCustomizerError(CategoryServiceOperation, CodeServiceEnable,
-				fmt.Errorf("failed to enable service (%s):\n%w", service, err))
+			return fmt.Errorf("%w (service='%s'): %w", ErrServiceEnable, service, err)
 		}
 	}
 
@@ -51,16 +56,14 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 		// So, use `systemctl is-enabled` to check if the service exists.
 		_, err := systemd.IsServiceEnabled(service, imageChroot)
 		if err != nil {
-			return NewImageCustomizerError(CategoryServiceOperation, CodeServiceDisable,
-				fmt.Errorf("failed to disable service (%s):\n%w", service, err))
+			return fmt.Errorf("%w (service='%s'): %w", ErrServiceDisable, service, err)
 		}
 
 		err = imageChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "systemctl", "disable", service)
 		})
 		if err != nil {
-			return NewImageCustomizerError(CategoryServiceOperation, CodeServiceDisable,
-				fmt.Errorf("failed to disable service (%s):\n%w", service, err))
+			return fmt.Errorf("%w (service='%s'): %w", ErrServiceDisable, service, err)
 		}
 	}
 

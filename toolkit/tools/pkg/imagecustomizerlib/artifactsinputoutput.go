@@ -27,6 +27,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var (
+	// Artifact handling errors
+	ErrArtifactImageConnection      = NewImageCustomizerError("Artifacts:ImageConnection", "failed to connect to image file")
+	ErrArtifactPartitionMount       = NewImageCustomizerError("Artifacts:PartitionMount", "failed to mount partition")
+	ErrArtifactDirectoryRead        = NewImageCustomizerError("Artifacts:DirectoryRead", "failed to read directory")
+	ErrArtifactFileCopy             = NewImageCustomizerError("Artifacts:FileCopy", "failed to copy file")
+	ErrArtifactFileWrite            = NewImageCustomizerError("Artifacts:FileWrite", "failed to write file")
+	ErrArtifactYamlWrite            = NewImageCustomizerError("Artifacts:YamlWrite", "failed to write YAML file")
+	ErrArtifactYamlMarshal          = NewImageCustomizerError("Artifacts:YamlMarshal", "failed to marshal YAML")
+	ErrArtifactConfigValidation     = NewImageCustomizerError("Artifacts:ConfigValidation", "artifact config validation failed")
+	ErrArtifactPathResolution       = NewImageCustomizerError("Artifacts:PathResolution", "failed to resolve artifact path")
+	ErrArtifactPartitionUnmount     = NewImageCustomizerError("Artifacts:PartitionUnmount", "failed to unmount partition")
+	ErrArtifactImageConversion      = NewImageCustomizerError("Artifacts:ImageConversion", "failed to convert image")
+	ErrArtifactImageConnectionClose = NewImageCustomizerError("Artifacts:ImageConnectionClose", "failed to close image connection")
+	ErrArtifactUuidRead             = NewImageCustomizerError("Artifacts:UuidRead", "failed to read UUID")
+	ErrArtifactUuidNotFound         = NewImageCustomizerError("Artifacts:UuidNotFound", "UUID not found")
+	ErrArtifactUuidParse            = NewImageCustomizerError("Artifacts:UuidParse", "failed to parse UUID")
+)
+
 const (
 	ShimDir        = "EFI/BOOT"
 	SystemdBootDir = "EFI/systemd"
@@ -46,8 +65,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	loopback, err := safeloopback.NewLoopback(buildImage)
 	if err != nil {
-		return NewImageCustomizerError(CategoryArtifactHandling, CodeArtifactImageConnection,
-			fmt.Errorf("failed to connect to image file to output artifacts:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrArtifactImageConnection, err)
 	}
 	defer loopback.Close()
 

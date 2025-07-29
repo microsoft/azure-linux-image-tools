@@ -253,8 +253,8 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 			errorCode := GetErrorCode(err)
 			errorCategory := GetErrorCategory(err)
 			span.SetStatus(codes.Error, fmt.Sprintf("%s:%s", errorCategory, errorCode))
-			span.SetAttributes(attribute.String("error.code", string(errorCode)))
-			span.SetAttributes(attribute.String("error.category", string(errorCategory)))
+			span.SetAttributes(attribute.String("error.code", errorCode))
+			span.SetAttributes(attribute.String("error.category", errorCategory))
 		}
 		span.End()
 	}()

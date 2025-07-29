@@ -19,6 +19,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var (
+	// Script execution errors
+	ErrConfigDirMount   = NewImageCustomizerError("Scripts:ConfigDirMount", "failed to mount config directory")
+	ErrConfigDirUnmount = NewImageCustomizerError("Scripts:ConfigDirUnmount", "failed to unmount config directory")
+	ErrScriptExecution  = NewImageCustomizerError("Scripts:Execution", "script execution failed")
+)
+
 const (
 	configDirMountPathInChroot = "/_imageconfigs"
 )
@@ -43,7 +50,7 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 	// Bind mount the config directory so that the scripts can access any required resources.
 	mount, err := safemount.NewMount(baseConfigPath, configDirMountPath, "", unix.MS_BIND|unix.MS_RDONLY, "", true)
 	if err != nil {
-		return NewImageCustomizerError(CategoryFilesystemOperation, CodeConfigDirMount, err)
+		return fmt.Errorf("%w: %w", ErrConfigDirMount, err)
 	}
 	defer mount.Close()
 
@@ -51,13 +58,13 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 	for i, script := range scripts {
 		err := runUserScript(i, script, listName, imageChroot)
 		if err != nil {
-			return NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecution, err)
+			return fmt.Errorf("%w: %w", ErrScriptExecution, err)
 		}
 	}
 
 	err = mount.CleanClose()
 	if err != nil {
-		return NewImageCustomizerError(CategoryFilesystemOperation, CodeConfigDirUnmount, err)
+		return fmt.Errorf("%w: %w", ErrConfigDirUnmount, err)
 	}
 
 	return nil
@@ -119,8 +126,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return NewImageCustomizerError(CategoryScriptExecution, CodeScriptExecution,
-			fmt.Errorf("script (%s) failed:\n%w", scriptLogName, err))
+		return fmt.Errorf("%w (script='%s'): %w", ErrScriptExecution, scriptLogName, err)
 	}
 
 	if tempScriptFullPath != "" {
