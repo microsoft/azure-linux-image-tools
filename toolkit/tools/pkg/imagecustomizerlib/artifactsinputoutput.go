@@ -88,8 +88,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
 		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return NewImageCustomizerError(CategoryArtifactHandling, CodeArtifactPartitionMount,
-			fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err))
+		return fmt.Errorf("%w (partition='%s'): %w", ErrArtifactPartitionMount, systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
@@ -114,8 +113,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		ukiDir := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
 		dirEntries, err := os.ReadDir(ukiDir)
 		if err != nil {
-			return NewImageCustomizerError(CategoryArtifactHandling, CodeArtifactDirectoryRead,
-				fmt.Errorf("failed to read UKI directory (%s):\n%w", ukiDir, err))
+			return fmt.Errorf("%w (directory='%s'): %w", ErrArtifactDirectoryRead, ukiDir, err)
 		}
 
 		for _, entry := range dirEntries {
@@ -124,8 +122,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				destPath := filepath.Join(outputDir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
-					return NewImageCustomizerError(CategoryArtifactHandling, CodeArtifactFileCopy,
-						fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err))
+					return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactFileCopy, srcPath, destPath, err)
 				}
 
 				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")

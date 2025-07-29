@@ -16,6 +16,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// File operation errors
+	ErrFileCopy      = NewImageCustomizerError("Files:Copy", "failed to copy file")
+	ErrDirectoryCopy = NewImageCustomizerError("Files:DirectoryCopy", "failed to copy directory")
+)
+
 const (
 	defaultFilePermissions = 0o755
 )
@@ -50,7 +56,7 @@ func copyAdditionalFiles(ctx context.Context, baseConfigPath string, additionalF
 
 		err := imageChroot.AddFiles(fileToCopy)
 		if err != nil {
-			return NewImageCustomizerError(CategoryFilesystemOperation, CodeFileCopy, err)
+			return fmt.Errorf("%w (dest='%s'): %w", ErrFileCopy, additionalFile.Destination, err)
 		}
 	}
 
@@ -89,8 +95,7 @@ func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDi
 		}
 		err := imageChroot.AddDirs(dirToCopy)
 		if err != nil {
-			return NewImageCustomizerError(CategoryFilesystemOperation, CodeDirectoryCopy,
-				fmt.Errorf("failed to copy directory (%s) to (%s):\n%w", absSourceDir, dirConfigElement.Destination, err))
+			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrDirectoryCopy, absSourceDir, dirConfigElement.Destination, err)
 		}
 	}
 	return nil
