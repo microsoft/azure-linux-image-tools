@@ -21,6 +21,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// Overlay-related errors
+	ErrAddDracutDriver        = NewImageCustomizerError("Overlays:AddDracutDriver", "failed to add dracut driver")
+	ErrOverlayFstabUpdate     = NewImageCustomizerError("Overlays:FstabUpdate", "failed to update fstab for overlay")
+	ErrOverlayDirectoryCreate = NewImageCustomizerError("Overlays:DirectoryCreate", "failed to create overlay directory")
+)
+
 func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay, selinuxMode imagecustomizerapi.SELinuxMode,
 	imageChroot *safechroot.Chroot,
 ) (bool, error) {
@@ -44,21 +51,21 @@ func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay,
 	overlayDriver := "overlay"
 	err = addDracutDriver(overlayDriver, imageChroot)
 	if err != nil {
-		return false, NewImageCustomizerError(CategoryInternalSystem, CodeAddDracutDriver, err)
+		return false, fmt.Errorf("%w: %w", ErrAddDracutDriver, err)
 	}
 
 	// Dereference the pointer to get the slice
 	overlaysDereference := *overlays
 	err = updateFstabForOverlays(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, NewImageCustomizerError(CategoryFilesystemOperation, CodeOverlayFstabUpdate,
+		return false, fmt.Errorf("%w: %w", ErrOverlayFstabUpdate,
 			fmt.Errorf("failed to update fstab file for overlays:\n%w", err))
 	}
 
 	// Create necessary directories for overlays
 	err = createOverlayDirectories(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, NewImageCustomizerError(CategoryFilesystemOperation, CodeOverlayDirectoryCreate,
+		return false, fmt.Errorf("%w: %w", ErrOverlayDirectoryCreate,
 			fmt.Errorf("failed to create overlay directories:\n%w", err))
 	}
 

@@ -29,6 +29,14 @@ const (
 )
 
 var (
+	// Package-related errors
+	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh package repository metadata")
+	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "invalid package list file")
+	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
+	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
+	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
+	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean package cache")
+
 	tdnfOpLines = []string{
 		"Installing/Updating: ",
 		"Removing: ",
@@ -160,7 +168,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodePackageRepoMetadataRefresh,
+		return fmt.Errorf("%w: %w", ErrPackageRepoMetadataRefresh,
 			fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err))
 	}
 	return nil
@@ -177,7 +185,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, NewImageCustomizerError(CategoryInvalidInput, CodeInvalidPackageListFile,
+			return nil, fmt.Errorf("%w: %w", ErrInvalidPackageListFile,
 				fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err))
 		}
 
@@ -211,7 +219,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodePackageRemove,
+		return fmt.Errorf("%w: %w", ErrPackageRemove,
 			fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err))
 	}
 
@@ -231,7 +239,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodePackageUpdate,
+		return fmt.Errorf("%w: %w", ErrPackageUpdate,
 			fmt.Errorf("failed to update packages:\n%w", err))
 	}
 
@@ -263,7 +271,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return NewImageCustomizerError(CategoryPackageManagement, CodePackageInstall,
+		return fmt.Errorf("%w: %w", ErrPackageInstall,
 			fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err))
 	}
 
@@ -368,7 +376,7 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chro
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return NewImageCustomizerError(CategoryPackageManagement, CodePackageCacheClean,
+			return fmt.Errorf("%w: %w", ErrPackageCacheClean,
 				fmt.Errorf("failed to clean tdnf cache:\n%w", err))
 		}
 		return nil
