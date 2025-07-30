@@ -3,10 +3,6 @@
 
 package imagecustomizerlib
 
-import (
-	"errors"
-)
-
 // ImageCustomizerError represents a structured error with a descriptive name
 type ImageCustomizerError struct {
 	name    string // descriptive name in format "Module:ErrorType"

@@ -18,16 +18,16 @@ import (
 
 var (
 	// Image history errors
-	ErrImageHistoryDeepCopy          = NewImageCustomizerError("ImageHistory:DeepCopy", "failed to deep copy config")
-	ErrImageHistoryModify            = NewImageCustomizerError("ImageHistory:Modify", "failed to modify config")
-	ErrImageHistoryDirectoryCreate   = NewImageCustomizerError("ImageHistory:DirectoryCreate", "failed to create logging directory")
-	ErrImageHistoryRead              = NewImageCustomizerError("ImageHistory:Read", "failed to read image history")
-	ErrImageHistoryWrite             = NewImageCustomizerError("ImageHistory:Write", "failed to write image history")
-	ErrImageHistoryFileCheck         = NewImageCustomizerError("ImageHistory:FileCheck", "failed to check if file exists")
-	ErrImageHistoryFileRead          = NewImageCustomizerError("ImageHistory:FileRead", "failed to read image history file")
-	ErrImageHistoryUnmarshal         = NewImageCustomizerError("ImageHistory:Unmarshal", "failed to unmarshal image history file")
-	ErrImageHistoryMarshal           = NewImageCustomizerError("ImageHistory:Marshal", "failed to marshal image history")
-	ErrImageHistoryFileWrite         = NewImageCustomizerError("ImageHistory:FileWrite", "failed to write image history to file")
+	ErrImageHistoryDeepCopy        = NewImageCustomizerError("ImageHistory:DeepCopy", "failed to deep copy config")
+	ErrImageHistoryModify          = NewImageCustomizerError("ImageHistory:Modify", "failed to modify config")
+	ErrImageHistoryDirectoryCreate = NewImageCustomizerError("ImageHistory:DirectoryCreate", "failed to create logging directory")
+	ErrImageHistoryRead            = NewImageCustomizerError("ImageHistory:Read", "failed to read image history")
+	ErrImageHistoryWrite           = NewImageCustomizerError("ImageHistory:Write", "failed to write image history")
+	ErrImageHistoryFileCheck       = NewImageCustomizerError("ImageHistory:FileCheck", "failed to check if file exists")
+	ErrImageHistoryFileRead        = NewImageCustomizerError("ImageHistory:FileRead", "failed to read image history file")
+	ErrImageHistoryUnmarshal       = NewImageCustomizerError("ImageHistory:Unmarshal", "failed to unmarshal image history file")
+	ErrImageHistoryMarshal         = NewImageCustomizerError("ImageHistory:Marshal", "failed to marshal image history")
+	ErrImageHistoryFileWrite       = NewImageCustomizerError("ImageHistory:FileWrite", "failed to write image history to file")
 )
 
 type ImageHistory struct {

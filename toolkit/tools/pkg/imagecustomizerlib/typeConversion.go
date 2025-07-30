@@ -14,13 +14,13 @@ import (
 
 var (
 	// Type conversion errors
-	ErrBootTypeInvalid                     = NewImageCustomizerError("TypeConversion:BootTypeInvalid", "invalid BootType value")
-	ErrDiskSizeInvalid                     = NewImageCustomizerError("TypeConversion:DiskSizeInvalid", "disk size must be multiple of 1 MiB")
-	ErrPartitionTableTypeUnknown           = NewImageCustomizerError("TypeConversion:PartitionTableTypeUnknown", "unknown partition table type")
-	ErrPartitionStartInvalid               = NewImageCustomizerError("TypeConversion:PartitionStartInvalid", "partition start must be multiple of 1 MiB")
-	ErrPartitionEndInvalid                 = NewImageCustomizerError("TypeConversion:PartitionEndInvalid", "partition end must be multiple of 1 MiB")
-	ErrMountIdentifierTypeUnknown          = NewImageCustomizerError("TypeConversion:MountIdentifierTypeUnknown", "unknown MountIdentifierType value")
-	ErrSelinuxModeUnknown                  = NewImageCustomizerError("TypeConversion:SelinuxModeUnknown", "unknown SELinuxMode value")
+	ErrBootTypeInvalid            = NewImageCustomizerError("TypeConversion:BootTypeInvalid", "invalid BootType value")
+	ErrDiskSizeInvalid            = NewImageCustomizerError("TypeConversion:DiskSizeInvalid", "disk size must be multiple of 1 MiB")
+	ErrPartitionTableTypeUnknown  = NewImageCustomizerError("TypeConversion:PartitionTableTypeUnknown", "unknown partition table type")
+	ErrPartitionStartInvalid      = NewImageCustomizerError("TypeConversion:PartitionStartInvalid", "partition start must be multiple of 1 MiB")
+	ErrPartitionEndInvalid        = NewImageCustomizerError("TypeConversion:PartitionEndInvalid", "partition end must be multiple of 1 MiB")
+	ErrMountIdentifierTypeUnknown = NewImageCustomizerError("TypeConversion:MountIdentifierTypeUnknown", "unknown MountIdentifierType value")
+	ErrSelinuxModeUnknown         = NewImageCustomizerError("TypeConversion:SelinuxModeUnknown", "unknown SELinuxMode value")
 )
 
 func bootTypeToImager(bootType imagecustomizerapi.BootType) (string, error) {

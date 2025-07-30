@@ -33,10 +33,10 @@ import (
 
 var (
 	// Image customizer input validation errors
-	ErrRpmSourceTypeDetection             = NewImageCustomizerError("Customizer:RpmSourceTypeDetection", "failed to detect RPM source type")
-	ErrInvalidOutputFormat                = NewImageCustomizerError("Customizer:InvalidOutputFormat", "invalid output image format")
-	ErrCannotGenerateOutputFormat         = NewImageCustomizerError("Customizer:CannotGenerateOutputFormat", "cannot generate output format from input format")
-	ErrCannotCustomizePartitionsOnIso     = NewImageCustomizerError("Customizer:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
+	ErrRpmSourceTypeDetection         = NewImageCustomizerError("Customizer:RpmSourceTypeDetection", "failed to detect RPM source type")
+	ErrInvalidOutputFormat            = NewImageCustomizerError("Customizer:InvalidOutputFormat", "invalid output image format")
+	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Customizer:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Customizer:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
 )
 
 const (

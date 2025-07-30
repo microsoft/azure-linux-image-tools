@@ -25,12 +25,12 @@ import (
 
 var (
 	// COSI-related errors
-	ErrCosiDirectoryCreate         = NewImageCustomizerError("COSI:DirectoryCreate", "failed to create COSI directory")
-	ErrCosiBuildFile               = NewImageCustomizerError("COSI:BuildFile", "failed to build COSI file")
-	ErrCosiHashPartitionMissing    = NewImageCustomizerError("COSI:HashPartitionMissing", "hash partition missing for verity")
-	ErrCosiMetadataPopulate        = NewImageCustomizerError("COSI:MetadataPopulate", "failed to populate COSI metadata")
-	ErrCosiMetadataMarshal         = NewImageCustomizerError("COSI:MetadataMarshal", "failed to marshal COSI metadata")
-	ErrCosiFileCreate              = NewImageCustomizerError("COSI:FileCreate", "failed to create COSI file")
+	ErrCosiDirectoryCreate      = NewImageCustomizerError("COSI:DirectoryCreate", "failed to create COSI directory")
+	ErrCosiBuildFile            = NewImageCustomizerError("COSI:BuildFile", "failed to build COSI file")
+	ErrCosiHashPartitionMissing = NewImageCustomizerError("COSI:HashPartitionMissing", "hash partition missing for verity")
+	ErrCosiMetadataPopulate     = NewImageCustomizerError("COSI:MetadataPopulate", "failed to populate COSI metadata")
+	ErrCosiMetadataMarshal      = NewImageCustomizerError("COSI:MetadataMarshal", "failed to marshal COSI metadata")
+	ErrCosiFileCreate           = NewImageCustomizerError("COSI:FileCreate", "failed to create COSI file")
 )
 
 type ImageBuildData struct {
