@@ -64,19 +64,19 @@ func addImageHistory(ctx context.Context, rootDir string, imageUuid string, base
 	customizerLoggingDirPath := filepath.Join(rootDir, customizerLoggingDir)
 	err = os.MkdirAll(customizerLoggingDirPath, 0o755)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrImageHistoryDirectoryCreate, err)
+		return fmt.Errorf("%w (path='%s'): %w", ErrImageHistoryDirectoryCreate, customizerLoggingDirPath, err)
 	}
 	imageHistoryFilePath := filepath.Join(customizerLoggingDirPath, historyFileName)
 
 	var allImageHistory []ImageHistory
 	err = readImageHistory(imageHistoryFilePath, &allImageHistory)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrImageHistoryRead, err)
+		return fmt.Errorf("%w (file='%s'): %w", ErrImageHistoryRead, imageHistoryFilePath, err)
 	}
 
 	err = writeImageHistory(imageHistoryFilePath, allImageHistory, imageUuid, buildTime, toolVersion, configCopy)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrImageHistoryWrite, err)
+		return fmt.Errorf("%w (file='%s'): %w", ErrImageHistoryWrite, imageHistoryFilePath, err)
 	}
 
 	return nil

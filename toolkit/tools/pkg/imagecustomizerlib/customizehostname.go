@@ -32,7 +32,7 @@ func UpdateHostname(ctx context.Context, hostname string, imageChroot safechroot
 	hostnameFilePath := filepath.Join(imageChroot.RootDir(), "etc/hostname")
 	err := file.Write(hostname, hostnameFilePath)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrHostnameWrite, err)
+		return fmt.Errorf("%w (hostname='%s', file='%s'): %w", ErrHostnameWrite, hostname, hostnameFilePath, err)
 	}
 
 	return nil

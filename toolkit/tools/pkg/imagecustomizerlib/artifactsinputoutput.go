@@ -208,7 +208,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrArtifactInjectFilesYamlWrite, err)
+		return fmt.Errorf("%w (outputDir='%s'): %w", ErrArtifactInjectFilesYamlWrite, outputDir, err)
 	}
 
 	err = systemBootPartitionMount.CleanClose()
@@ -244,7 +244,7 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 
 	outputFilePath := filepath.Join(outputDir, "inject-files.yaml")
 	if err := os.WriteFile(outputFilePath, yamlBytes, 0o644); err != nil {
-		return fmt.Errorf("%w: %w", ErrArtifactInjectFilesYamlWrite, err)
+		return fmt.Errorf("%w (file='%s'): %w", ErrArtifactInjectFilesYamlWrite, outputFilePath, err)
 	}
 
 	return nil

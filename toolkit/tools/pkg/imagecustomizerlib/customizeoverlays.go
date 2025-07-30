@@ -51,7 +51,7 @@ func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay,
 	overlayDriver := "overlay"
 	err = addDracutDriver(overlayDriver, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", ErrAddDracutDriver, err)
+		return false, fmt.Errorf("%w (driver='%s'): %w", ErrAddDracutDriver, overlayDriver, err)
 	}
 
 	// Dereference the pointer to get the slice

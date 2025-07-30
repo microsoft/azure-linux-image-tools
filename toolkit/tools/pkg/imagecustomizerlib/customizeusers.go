@@ -88,7 +88,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			// Hash the password.
 			hashedPassword, err = userutils.HashPassword(password)
 			if err != nil {
-				return fmt.Errorf("%w: %w", ErrUserPasswordHash, err)
+				return fmt.Errorf("%w (user='%s'): %w", ErrUserPasswordHash, user.Name, err)
 			}
 		}
 	}
