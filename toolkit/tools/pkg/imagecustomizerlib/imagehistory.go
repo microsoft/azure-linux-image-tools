@@ -16,6 +16,20 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+var (
+	// Image history errors
+	ErrImageHistoryDeepCopy          = NewImageCustomizerError("ImageHistory:DeepCopy", "failed to deep copy config")
+	ErrImageHistoryModify            = NewImageCustomizerError("ImageHistory:Modify", "failed to modify config")
+	ErrImageHistoryDirectoryCreate   = NewImageCustomizerError("ImageHistory:DirectoryCreate", "failed to create logging directory")
+	ErrImageHistoryRead              = NewImageCustomizerError("ImageHistory:Read", "failed to read image history")
+	ErrImageHistoryWrite             = NewImageCustomizerError("ImageHistory:Write", "failed to write image history")
+	ErrImageHistoryFileCheck         = NewImageCustomizerError("ImageHistory:FileCheck", "failed to check if file exists")
+	ErrImageHistoryFileRead          = NewImageCustomizerError("ImageHistory:FileRead", "failed to read image history file")
+	ErrImageHistoryUnmarshal         = NewImageCustomizerError("ImageHistory:Unmarshal", "failed to unmarshal image history file")
+	ErrImageHistoryMarshal           = NewImageCustomizerError("ImageHistory:Marshal", "failed to marshal image history")
+	ErrImageHistoryFileWrite         = NewImageCustomizerError("ImageHistory:FileWrite", "failed to write image history to file")
+)
+
 type ImageHistory struct {
 	BuildTime   string                    `yaml:"timestamp" json:"timestamp"`
 	ToolVersion string                    `yaml:"toolVersion" json:"toolVersion"`
@@ -39,30 +53,30 @@ func addImageHistory(ctx context.Context, rootDir string, imageUuid string, base
 	// Deep copy the config to avoid modifying the original config
 	configCopy, err := deepCopyConfig(config)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryDeepCopy, fmt.Errorf("failed to deep copy config while writing image history:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryDeepCopy, err)
 	}
 
 	err = modifyConfig(configCopy, baseConfigPath)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryModify, fmt.Errorf("failed to modify config while writing image history:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryModify, err)
 	}
 
 	customizerLoggingDirPath := filepath.Join(rootDir, customizerLoggingDir)
 	err = os.MkdirAll(customizerLoggingDirPath, 0o755)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryDirectoryCreate, fmt.Errorf("failed to create customizer logging directory:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryDirectoryCreate, err)
 	}
 	imageHistoryFilePath := filepath.Join(customizerLoggingDirPath, historyFileName)
 
 	var allImageHistory []ImageHistory
 	err = readImageHistory(imageHistoryFilePath, &allImageHistory)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryRead, fmt.Errorf("failed to read image history:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryRead, err)
 	}
 
 	err = writeImageHistory(imageHistoryFilePath, allImageHistory, imageUuid, buildTime, toolVersion, configCopy)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryWrite, fmt.Errorf("failed to write image history:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryWrite, err)
 	}
 
 	return nil
@@ -71,18 +85,18 @@ func addImageHistory(ctx context.Context, rootDir string, imageUuid string, base
 func readImageHistory(imageHistoryFilePath string, allImageHistory *[]ImageHistory) error {
 	exists, err := file.PathExists(imageHistoryFilePath)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryFileCheck, fmt.Errorf("failed to check if file exists:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryFileCheck, err)
 	}
 
 	if exists {
 		file, err := os.ReadFile(imageHistoryFilePath)
 		if err != nil {
-			return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryFileRead, fmt.Errorf("error reading image history file:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrImageHistoryFileRead, err)
 		}
 
 		err = json.Unmarshal(file, &allImageHistory)
 		if err != nil {
-			return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryUnmarshal, fmt.Errorf("error unmarshalling image history file:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrImageHistoryUnmarshal, err)
 		}
 	}
 	return nil
@@ -99,12 +113,12 @@ func writeImageHistory(imageHistoryFilePath string, allImageHistory []ImageHisto
 
 	jsonBytes, err := json.MarshalIndent(allImageHistory, "", " ")
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryMarshal, fmt.Errorf("failed to marshal image history:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryMarshal, err)
 	}
 
 	err = file.Write(string(jsonBytes), imageHistoryFilePath)
 	if err != nil {
-		return NewImageCustomizerError(CategoryImageHistory, CodeImageHistoryFileWrite, fmt.Errorf("failed to write image history to file:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrImageHistoryFileWrite, err)
 	}
 
 	return nil

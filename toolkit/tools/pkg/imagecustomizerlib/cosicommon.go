@@ -49,8 +49,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCosiDirectoryCreate,
-			fmt.Errorf("failed to create folder %s:\n%w", outputDir, err))
+		return fmt.Errorf("%w (directory='%s'): %w", ErrCosiDirectoryCreate, outputDir, err)
 	}
 	defer os.Remove(outputDir)
 

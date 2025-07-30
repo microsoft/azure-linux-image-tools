@@ -250,11 +250,15 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			errorCode := GetErrorCode(err)
-			errorCategory := GetErrorCategory(err)
-			span.SetStatus(codes.Error, fmt.Sprintf("%s:%s", errorCategory, errorCode))
-			span.SetAttributes(attribute.String("error.code", errorCode))
-			span.SetAttributes(attribute.String("error.category", errorCategory))
+			errorName := ""
+			var namedErr *ImageCustomizerError
+			if errors.As(err, &namedErr) {
+				errorName = namedErr.Name()
+			}
+			span.SetAttributes(
+				attribute.String("error.name", errorName),
+			)
+			span.SetStatus(codes.Error, errorName)
 		}
 		span.End()
 	}()

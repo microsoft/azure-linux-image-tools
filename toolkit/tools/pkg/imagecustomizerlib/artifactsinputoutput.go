@@ -32,8 +32,8 @@ var (
 	ErrArtifactImageConnection      = NewImageCustomizerError("Artifacts:ImageConnection", "failed to connect to image file")
 	ErrArtifactPartitionMount       = NewImageCustomizerError("Artifacts:PartitionMount", "failed to mount partition")
 	ErrArtifactDirectoryRead        = NewImageCustomizerError("Artifacts:DirectoryRead", "failed to read directory")
-	ErrArtifactFileCopy             = NewImageCustomizerError("Artifacts:FileCopy", "failed to copy file")
-	ErrArtifactFileWrite            = NewImageCustomizerError("Artifacts:FileWrite", "failed to write file")
+	ErrArtifactBinaryCopy           = NewImageCustomizerError("Artifacts:BinaryCopy", "failed to copy binary")
+	ErrArtifactRootHashDump         = NewImageCustomizerError("Artifacts:RootHashDump", "failed to dump root hash")
 	ErrArtifactYamlWrite            = NewImageCustomizerError("Artifacts:YamlWrite", "failed to write YAML file")
 	ErrArtifactYamlMarshal          = NewImageCustomizerError("Artifacts:YamlMarshal", "failed to marshal YAML")
 	ErrArtifactConfigValidation     = NewImageCustomizerError("Artifacts:ConfigValidation", "artifact config validation failed")
@@ -122,7 +122,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				destPath := filepath.Join(outputDir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
-					return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactFileCopy, srcPath, destPath, err)
+					return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 				}
 
 				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
@@ -145,8 +145,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrArtifactFileCopy,
-				fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err))
+			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
@@ -165,8 +164,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrArtifactFileCopy,
-				fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err))
+			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
@@ -190,8 +188,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			destPath := filepath.Join(outputDir, unsignedHashFile)
 			err = file.Write(verity.rootHash, destPath)
 			if err != nil {
-				return fmt.Errorf("%w: %w", ErrArtifactFileWrite,
-					fmt.Errorf("failed to dump root hash for (%s) to (%s):\n%w", verity.name, destPath, err))
+				return fmt.Errorf("%w (name='%s', path='%s'): %w", ErrArtifactRootHashDump, verity.name, destPath, err)
 			}
 
 			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
@@ -350,8 +347,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		destPath := filepath.Join(partitionsToMountpoints[partitionKey], item.Destination)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrArtifactFileCopy,
-				fmt.Errorf("failed to copy binary from (%s) to (%s):\n%w", srcPath, destPath, err))
+			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 	}
 
