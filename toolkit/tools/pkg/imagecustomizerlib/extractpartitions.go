@@ -112,7 +112,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrPartitionExtractMetadataConstruct, err)
+			return nil, fmt.Errorf("%w (partition=%d, file='%s'): %w", ErrPartitionExtractMetadataConstruct, partitionNum, partitionFilepath, err)
 		}
 		partitionMetadata.UncompressedSize = uncompressedPartitionFileSize
 		partitionMetadataOutput = append(partitionMetadataOutput, partitionMetadata)
@@ -166,7 +166,7 @@ func copyBlockDeviceToFile(outDir, devicePath, name string) (filename string, er
 
 	err = shell.ExecuteLive(squashErrors, "dd", ddArgs...)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrPartitionExtractCopyBlockDevice, err)
+		return "", fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrPartitionExtractCopyBlockDevice, devicePath, fullPath, err)
 	}
 
 	return fullPath, nil

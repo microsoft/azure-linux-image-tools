@@ -169,7 +169,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidOutputFormat, err)
+		return nil, fmt.Errorf("%w (format='%s'): %w", ErrInvalidOutputFormat, outputImageFormat, err)
 	}
 
 	if ic.outputImageFormat == "" {

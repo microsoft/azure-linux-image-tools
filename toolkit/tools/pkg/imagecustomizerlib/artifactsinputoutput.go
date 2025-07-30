@@ -368,12 +368,12 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
 			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrArtifactCosiImageConversion, err)
+			return fmt.Errorf("%w (output='%s'): %w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}
 	} else {
 		err = ConvertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrArtifactOutputImageConversion, err)
+			return fmt.Errorf("%w (output='%s', format='%s'): %w", ErrArtifactOutputImageConversion, outputImageFile, detectedImageFormat, err)
 		}
 	}
 
