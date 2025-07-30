@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"go.opentelemetry.io/otel"
 )
 
@@ -30,13 +30,28 @@ const (
 	redactedString       = "[redacted]"
 )
 
-func addImageHistory(ctx context.Context, rootDir string, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
-	var err error
-
-	// TODO: What if /usr subdirectory has its own mount?
-	if slices.Contains(config.Storage.CustomizationReadOnlyMounts, "/usr") {
+func addImageHistory(ctx context.Context, imageChroot *safechroot.Chroot, imageUuid string,
+	baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config,
+) error {
+	canWriteHistoryFile := isPathOnReadOnlyMount(customizerLoggingDir, imageChroot,
+		config.Storage.CustomizationReadOnlyMounts)
+	if !canWriteHistoryFile {
 		return nil
 	}
+
+	err := addImageHistoryHelper(ctx, imageChroot.RootDir(), imageUuid, baseConfigPath, toolVersion,
+		buildTime, config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func addImageHistoryHelper(ctx context.Context, rootDir string, imageUuid string, baseConfigPath string,
+	toolVersion string, buildTime string, config *imagecustomizerapi.Config,
+) error {
+	var err error
 
 	logger.Log.Infof("Creating image customizer history file")
 
