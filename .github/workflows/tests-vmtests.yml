@@ -27,7 +27,7 @@ jobs:
     name: Tests VMTests suite
     runs-on:
     - self-hosted
-    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || 'maritimus-github-runner-ubuntu2404-amd64'}}
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
     permissions:
       contents: read
       # Azure login.
@@ -60,13 +60,13 @@ jobs:
         set -eux
 
         sudo apt update -y
-        sudo apt -y install python3.12-venv python3-pip python3-dev \
+        sudo apt -y install python3-venv python3-pip python3-dev \
             libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
             qemu-kvm virt-manager
 
         # Install arm64 specific
         if [[ "$HOST_ARCH" == "arm64" ]]; then
-          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
         fi
 
         sudo apt list --installed

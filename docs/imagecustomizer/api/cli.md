@@ -183,7 +183,7 @@ Supports:
 - A date in `YYYY-MM-DD` format (interpreted as UTC midnight)
 - A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
 
-You may enable this feature by adding `package-snapshot-time` to the [previewfeatures]
-(./configuration/config.md#previewfeatures-string) API.
+You may enable this feature by adding `package-snapshot-time` to the
+[previewfeatures](./configuration/config.md#previewfeatures-string) API.
 
 Added in v0.15.

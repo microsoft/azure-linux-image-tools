@@ -66,6 +66,14 @@ jobs:
       hostArch: amd64
       hostDistro: ubuntu2404
 
+  tests-functional-ubuntu2404-arm64:
+    name: Functional tests Ubuntu24.04 ARM64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      hostArch: arm64
+      hostDistro: ubuntu2404
+
   imagecreator-tests-functional-azl3-amd64:
     name: Functional tests AZL3 AMD64
     if: ${{ inputs.runFunctionalTests }}
@@ -91,15 +99,6 @@ jobs:
       hostArch: amd64
       hostDistro: azl3
 
-  # tests-vmtests-azl3-amd64:
-  #   name: VMTests suite AZL3 ARM64
-  #   if: ${{ inputs.runVMTests }}
-  #   needs: binary-build-arm64
-  #   uses: ./.github/workflows/tests-vmtests.yml
-  #   with:
-  #     hostArch: arm64
-  #     hostDistro: azl3
-
   tests-vmtests-ubuntu2404-amd64:
     name: VMTests suite Ubuntu24.04 AMD64
     if: ${{ inputs.runVMTests }}
@@ -107,4 +106,13 @@ jobs:
     uses: ./.github/workflows/tests-vmtests.yml
     with:
       hostArch: amd64
+      hostDistro: ubuntu2404
+
+  tests-vmtests-ubuntu2404-arm64:
+    name: VMTests suite Ubuntu24.04 ARM64
+    if: ${{ inputs.runVMTests }}
+    needs: binary-build-arm64
+    uses: ./.github/workflows/tests-vmtests.yml
+    with:
+      hostArch: arm64
       hostDistro: ubuntu2404
