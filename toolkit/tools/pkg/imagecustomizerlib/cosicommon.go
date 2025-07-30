@@ -71,8 +71,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
 		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCosiBuildFile,
-			fmt.Errorf("failed to build COSI file:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrCosiBuildFile, err)
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
@@ -137,8 +136,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			if partition.PartUuid == verity.dataPartUuid {
 				hashPartition, exists := partUuidToMetadata[verity.hashPartUuid]
 				if !exists {
-					return fmt.Errorf("%w: %w", ErrCosiHashPartitionMissing,
-						fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid))
+					return fmt.Errorf("%w (uuid='%s')", ErrCosiHashPartitionMissing, verity.hashPartUuid)
 				}
 
 				metadataImage.Verity = &VerityConfig{
@@ -162,8 +160,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	for i := range imageData {
 		err := populateMetadata(&imageData[i])
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrCosiMetadataPopulate,
-				fmt.Errorf("failed to populate metadata for %s:\n%w", imageData[i].Source, err))
+			return fmt.Errorf("%w (source='%s'): %w", ErrCosiMetadataPopulate, imageData[i].Source, err)
 		}
 
 		logger.Log.Infof("Populated metadata for image %s", imageData[i].Source)
@@ -187,15 +184,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	// Marshal metadata.json
 	metadataJson, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCosiMetadataMarshal,
-			fmt.Errorf("failed to marshal metadata:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrCosiMetadataMarshal, err)
 	}
 
 	// Create COSI file
 	cosiFile, err := os.Create(outputFile)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCosiFileCreate,
-			fmt.Errorf("failed to create COSI file:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrCosiFileCreate, err)
 	}
 	defer cosiFile.Close()
 

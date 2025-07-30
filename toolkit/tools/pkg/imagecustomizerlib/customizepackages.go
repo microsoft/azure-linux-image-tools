@@ -30,13 +30,13 @@ const (
 
 var (
 	// Package-related errors
-	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh package repository metadata")
-	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "invalid package list file")
+	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh tdnf repo metadata")
+	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
 	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
 	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
 	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
-	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean package cache")
+	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
 
 	tdnfOpLines = []string{
 		"Installing/Updating: ",
@@ -169,8 +169,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPackageRepoMetadataRefresh,
-			fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrPackageRepoMetadataRefresh, err)
 	}
 	return nil
 }
@@ -186,8 +185,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrInvalidPackageListFile,
-				fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err))
+			return nil, fmt.Errorf("%w (file='%s'): %w", ErrInvalidPackageListFile, packageListFilePath, err)
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)
@@ -270,8 +268,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPackageInstall,
-			fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err))
+		return fmt.Errorf("%w (%s packages %v): %w", ErrPackageInstall, action, allPackagesToAdd, err)
 	}
 
 	return nil
@@ -375,8 +372,7 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chro
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrPackageCacheClean,
-				fmt.Errorf("failed to clean tdnf cache:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrPackageCacheClean, err)
 		}
 		return nil
 	})

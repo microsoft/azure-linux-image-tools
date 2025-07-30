@@ -18,15 +18,15 @@ import (
 
 var (
 	// Bootloader-related errors
-	ErrBootloaderHardReset             = NewImageCustomizerError("Bootloader:HardReset", "failed to perform hard reset")
+	ErrBootloaderHardReset             = NewImageCustomizerError("Bootloader:HardReset", "failed to hard reset bootloader")
 	ErrBootloaderKernelCommandLineAdd  = NewImageCustomizerError("Bootloader:KernelCommandLineAdd", "failed to add kernel command line")
-	ErrBootloaderSelinuxModeGet        = NewImageCustomizerError("Bootloader:SelinuxModeGet", "failed to get SELinux mode")
-	ErrBootloaderRootFilesystemFind    = NewImageCustomizerError("Bootloader:RootFilesystemFind", "failed to find root filesystem")
-	ErrBootloaderRootMountIdTypeGet    = NewImageCustomizerError("Bootloader:RootMountIdTypeGet", "failed to get root mount ID type")
-	ErrBootloaderImageBootTypeGet      = NewImageCustomizerError("Bootloader:ImageBootTypeGet", "failed to get image boot type")
-	ErrBootloaderDiskConfigure         = NewImageCustomizerError("Bootloader:DiskConfigure", "failed to configure disk")
-	ErrBootloaderRootMountFind         = NewImageCustomizerError("Bootloader:RootMountFind", "failed to find root mount")
-	ErrBootloaderRootMountSourceParse  = NewImageCustomizerError("Bootloader:RootMountSourceParse", "failed to parse root mount source")
+	ErrBootloaderSelinuxModeGet        = NewImageCustomizerError("Bootloader:SelinuxModeGet", "failed to get existing SELinux mode")
+	ErrBootloaderRootFilesystemFind    = NewImageCustomizerError("Bootloader:RootFilesystemFind", "failed to find root filesystem (i.e. mount equal to '/')")
+	ErrBootloaderRootMountIdTypeGet    = NewImageCustomizerError("Bootloader:RootMountIdTypeGet", "failed to get image's root mount ID type")
+	ErrBootloaderImageBootTypeGet      = NewImageCustomizerError("Bootloader:ImageBootTypeGet", "failed to get image's boot type")
+	ErrBootloaderDiskConfigure         = NewImageCustomizerError("Bootloader:DiskConfigure", "failed to configure bootloader")
+	ErrBootloaderRootMountFind         = NewImageCustomizerError("Bootloader:RootMountFind", "failed to find root mount (/)")
+	ErrBootloaderRootMountSourceParse  = NewImageCustomizerError("Bootloader:RootMountSourceParse", "failed to parse root (/) mount source")
 	ErrBootloaderVerityRootUnsupported = NewImageCustomizerError("Bootloader:VerityRootUnsupported", "verity root unsupported")
 	ErrBootloaderMountIdUnsupported    = NewImageCustomizerError("Bootloader:MountIdUnsupported", "mount ID type unsupported")
 )
@@ -38,8 +38,7 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 	case config.OS.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
 		err := hardResetBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrBootloaderHardReset,
-				fmt.Errorf("failed to hard reset bootloader:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrBootloaderHardReset, err)
 		}
 
 	default:
@@ -73,8 +72,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 
 		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrBootloaderSelinuxModeGet,
-				fmt.Errorf("failed to get existing SELinux mode:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrBootloaderSelinuxModeGet, err)
 		}
 	}
 
@@ -88,8 +86,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 			},
 		)
 		if !foundRootFileSystem {
-			return fmt.Errorf("%w: %w", ErrBootloaderRootFilesystemFind,
-				fmt.Errorf("failed to find root filesystem (i.e. mount equal to '/')"))
+			return fmt.Errorf("%w", ErrBootloaderRootFilesystemFind)
 		}
 
 		rootMountIdType = rootFileSystem.MountPoint.IdType
@@ -97,14 +94,12 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	} else {
 		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrBootloaderRootMountIdTypeGet,
-				fmt.Errorf("failed to get image's root mount ID type:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrBootloaderRootMountIdTypeGet, err)
 		}
 
 		bootType, err = getImageBootType(imageConnection)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrBootloaderImageBootTypeGet,
-				fmt.Errorf("failed to get image's boot type:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrBootloaderImageBootTypeGet, err)
 		}
 	}
 
@@ -112,8 +107,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, config.OS.SELinux,
 		config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrBootloaderDiskConfigure,
-			fmt.Errorf("failed to configure bootloader:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrBootloaderDiskConfigure, err)
 	}
 
 	return nil
@@ -166,14 +160,12 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	}
 
 	if !rootFound {
-		return "", fmt.Errorf("%w: %w", ErrBootloaderRootMountFind,
-			fmt.Errorf("failed to find root mount (/)"))
+		return "", fmt.Errorf("%w", ErrBootloaderRootMountFind)
 	}
 
 	mountIdType, mountId, err := parseExtendedSourcePartition(rootFstabEntry.Source)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrBootloaderRootMountSourceParse,
-			fmt.Errorf("failed to parse root (/) mount source:\n%w", err))
+		return "", fmt.Errorf("%w: %w", ErrBootloaderRootMountSourceParse, err)
 	}
 
 	rootMountIdType := imagecustomizerapi.MountIdentifierTypeDefault
