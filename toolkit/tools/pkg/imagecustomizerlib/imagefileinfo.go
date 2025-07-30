@@ -24,7 +24,7 @@ type ImageFileInfo struct {
 func GetImageFileInfo(inputImageFile string) (ImageFileInfo, error) {
 	stdout, _, err := shell.Execute("qemu-img", "info", "--output", "json", inputImageFile)
 	if err != nil {
-		return ImageFileInfo{}, fmt.Errorf("%w (file='%s'): %w", ErrImageFormatCheck, inputImageFile, err)
+		return ImageFileInfo{}, fmt.Errorf("%w: %w", ErrImageFormatCheck, err)
 	}
 
 	info := ImageFileInfo{}

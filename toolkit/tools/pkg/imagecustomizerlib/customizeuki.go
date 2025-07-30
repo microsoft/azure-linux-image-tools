@@ -89,7 +89,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// Backup the original shim binary before it gets overwritten by bootctl.
 	err = file.Copy(shimSrcPath, shimTmpPath)
 	if err != nil {
-		return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrUKIShimFileCopyToTemp, shimSrcPath, shimTmpPath, err)
+		return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrUKIShimFileCopyToTemp, shimSrcPath, shimTmpPath, err)
 	}
 
 	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
@@ -124,7 +124,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// because shim (not systemd-boot) must be the entry point under EFI/BOOT.
 	err = file.Copy(shimTmpPath, shimSrcPath)
 	if err != nil {
-		return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrUKIShimFileCopyFromTemp, shimTmpPath, shimSrcPath, err)
+		return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrUKIShimFileCopyFromTemp, shimTmpPath, shimSrcPath, err)
 	}
 
 	// The "--random-seed=no" flag is preferred to disable this behavior, but it requires systemd version 257 or later.
@@ -216,7 +216,7 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 	for src, dest := range filesToCopy {
 		err := file.Copy(src, dest)
 		if err != nil {
-			return fmt.Errorf("failed to copy file from (%s) to (%s):\n%w", src, dest, err)
+			return fmt.Errorf("failed to copy file (source='%s', destination='%s'): %w", src, dest, err)
 		}
 	}
 

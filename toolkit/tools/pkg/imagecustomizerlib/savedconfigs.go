@@ -18,9 +18,9 @@ var (
 	ErrConfigKdumpBootFiles    = NewImageCustomizerError("Config:KdumpBootFiles", "invalid kdumpBootFiles")
 	ErrConfigKernelCommandLine = NewImageCustomizerError("Config:KernelCommandLine", "invalid kernelCommandLine")
 	ErrConfigBootstrapUrl      = NewImageCustomizerError("Config:BootstrapUrl", "cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl'")
-	ErrConfigIsoField          = NewImageCustomizerError("Config:IsoField", "invalid 'iso' field")
-	ErrConfigPxeField          = NewImageCustomizerError("Config:PxeField", "invalid 'pxe' field")
-	ErrConfigOsField           = NewImageCustomizerError("Config:OsField", "invalid 'os' field")
+	ErrConfigInvalidIsoField   = NewImageCustomizerError("Config:InvalidIsoField", "invalid 'iso' field")
+	ErrConfigInvalidPxeField   = NewImageCustomizerError("Config:InvalidPxeField", "invalid 'pxe' field")
+	ErrConfigInvalidOsField    = NewImageCustomizerError("Config:InvalidOsField", "invalid 'os' field")
 	ErrConfigDirectoryCreate   = NewImageCustomizerError("Config:DirectoryCreate", "failed to create directory")
 	ErrConfigFilePersist       = NewImageCustomizerError("Config:FilePersist", "failed to persist saved configs file")
 	ErrConfigFileExists        = NewImageCustomizerError("Config:FileExists", "failed to check if file exists")
@@ -102,17 +102,17 @@ type SavedConfigs struct {
 func (c *SavedConfigs) IsValid() (err error) {
 	err = c.LiveOS.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigIsoField, err)
+		return fmt.Errorf("%w: %w", ErrConfigInvalidIsoField, err)
 	}
 
 	err = c.Pxe.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigPxeField, err)
+		return fmt.Errorf("%w: %w", ErrConfigInvalidPxeField, err)
 	}
 
 	err = c.OS.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigOsField, err)
+		return fmt.Errorf("%w: %w", ErrConfigInvalidOsField, err)
 	}
 
 	return nil

@@ -57,9 +57,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 
 		newUuid, err := resetFileSystemUuid(partition)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrPartitionUuidResetFilesystem,
-				fmt.Errorf("failed to reset partition's (%s) filesystem (%s) UUID:\n%w", partition.Path,
-					partition.FileSystemType, err))
+			return fmt.Errorf("%w (partition='%s', type='%s'): %w", ErrPartitionUuidResetFilesystem, partition.Path, partition.FileSystemType, err)
 		}
 
 		newUuids[i] = newUuid
@@ -74,8 +72,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 
 		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrPartitionUuidUpdate,
-				fmt.Errorf("failed to update partition (%s) UUID:\n%w", partition.Path, err))
+			return fmt.Errorf("%w (partition='%s'): %w", ErrPartitionUuidUpdate, partition.Path, err)
 		}
 
 		newPartUuids[i] = newPartUuid
@@ -108,8 +105,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		// tune2fs requires you to run 'e2fsck -f' first.
 		err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", partition.Path)
 		if err != nil {
-			return "", fmt.Errorf("%w: %w", ErrPartitionE2fsckCheck,
-				fmt.Errorf("failed to check %s with e2fsck:\n%w", partition.Path, err))
+			return "", fmt.Errorf("%w (partition='%s'): %w", ErrPartitionE2fsckCheck, partition.Path, err)
 		}
 
 		newUuid = uuid.NewString()
@@ -129,8 +125,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		newUuidBytes := make([]byte, 4)
 		_, err := rand.Read(newUuidBytes)
 		if err != nil {
-			return "", fmt.Errorf("%w: %w", ErrPartitionVfatIdGenerate,
-				fmt.Errorf("failed to generate new random ID for vfat partition:\n%w", err))
+			return "", fmt.Errorf("%w: %w", ErrPartitionVfatIdGenerate, err)
 		}
 
 		newUuid = hex.EncodeToString(newUuidBytes)
@@ -146,12 +141,10 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 	case "DM_verity_hash":
 		// Resetting partition IDs on a disk with verity would require updating the kernel command-line args.
 		// This is probably doable, just not implemented yet.
-		return "", fmt.Errorf("%w: %w", ErrPartitionVerityNotImplemented,
-			fmt.Errorf("resetting partition IDs on a verity-enabled image is not implemented"))
+		return "", fmt.Errorf("%w: resetting partition IDs on a verity-enabled image is not implemented", ErrPartitionVerityNotImplemented)
 
 	default:
-		return "", fmt.Errorf("%w: %w", ErrPartitionUnsupportedFilesystem,
-			fmt.Errorf("unsupported filesystem type (%s)", partition.FileSystemType))
+		return "", fmt.Errorf("%w (type='%s')", ErrPartitionUnsupportedFilesystem, partition.FileSystemType)
 	}
 
 	return newUuid, nil

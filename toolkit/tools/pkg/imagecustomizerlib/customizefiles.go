@@ -56,7 +56,7 @@ func copyAdditionalFiles(ctx context.Context, baseConfigPath string, additionalF
 
 		err := imageChroot.AddFiles(fileToCopy)
 		if err != nil {
-			return fmt.Errorf("%w (dest='%s'): %w", ErrFileCopy, additionalFile.Destination, err)
+			return fmt.Errorf("%w (destination='%s'): %w", ErrFileCopy, additionalFile.Destination, err)
 		}
 	}
 
@@ -95,7 +95,7 @@ func copyAdditionalDirs(ctx context.Context, baseConfigPath string, additionalDi
 		}
 		err := imageChroot.AddDirs(dirToCopy)
 		if err != nil {
-			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrDirectoryCopy, absSourceDir, dirConfigElement.Destination, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrDirectoryCopy, absSourceDir, dirConfigElement.Destination, err)
 		}
 	}
 	return nil

@@ -55,7 +55,7 @@ func shrinkFilesystems(imageLoopDevice string) error {
 		case "ext2", "ext3", "ext4":
 			fileSystemSizeInBytes, err = shrinkExt4FileSystem(partitionLoopDevice, imageLoopDevice)
 			if err != nil {
-				return fmt.Errorf("%w (fstype='%s', device='%s'): %w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
+				return fmt.Errorf("%w (type='%s', device='%s'): %w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
 			}
 
 		default:

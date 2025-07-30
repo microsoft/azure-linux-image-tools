@@ -32,8 +32,6 @@ var (
 	ErrArtifactImageConnection              = NewImageCustomizerError("Artifacts:ImageConnection", "failed to connect to image file")
 	ErrArtifactESPPartitionMount            = NewImageCustomizerError("Artifacts:ESPPartitionMount", "failed to mount ESP partition")
 	ErrArtifactUKIDirectoryRead             = NewImageCustomizerError("Artifacts:UKIDirectoryRead", "failed to read UKI directory")
-	ErrArtifactShimBinaryCopy               = NewImageCustomizerError("Artifacts:ShimBinaryCopy", "failed to copy shim binary")
-	ErrArtifactSystemdBootBinaryCopy        = NewImageCustomizerError("Artifacts:SystemdBootBinaryCopy", "failed to copy systemd-boot binary")
 	ErrArtifactBinaryCopy                   = NewImageCustomizerError("Artifacts:BinaryCopy", "failed to copy binary")
 	ErrArtifactRootHashDump                 = NewImageCustomizerError("Artifacts:RootHashDump", "failed to dump root hash")
 	ErrArtifactInjectFilesYamlWrite         = NewImageCustomizerError("Artifacts:InjectFilesYamlWrite", "failed to write inject-files.yaml")
@@ -128,7 +126,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				destPath := filepath.Join(outputDir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
-					return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactUKIBinaryCopy, srcPath, destPath, err)
+					return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 				}
 
 				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
@@ -151,7 +149,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactShimBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
@@ -170,7 +168,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactSystemdBootBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
