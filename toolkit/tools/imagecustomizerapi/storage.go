@@ -21,11 +21,12 @@ const (
 )
 
 type Storage struct {
-	ResetPartitionsUuidsType ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType" json:"resetPartitionsUuidsType,omitempty"`
-	BootType                 BootType                 `yaml:"bootType" json:"bootType,omitempty"`
-	Disks                    []Disk                   `yaml:"disks" json:"disks,omitempty"`
-	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
-	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
+	ResetPartitionsUuidsType    ResetPartitionsUuidsType `yaml:"resetPartitionsUuidsType" json:"resetPartitionsUuidsType,omitempty"`
+	BootType                    BootType                 `yaml:"bootType" json:"bootType,omitempty"`
+	Disks                       []Disk                   `yaml:"disks" json:"disks,omitempty"`
+	FileSystems                 []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
+	Verity                      []Verity                 `yaml:"verity" json:"verity,omitempty"`
+	CustomizationReadOnlyMounts []string                 `yaml:"customizationReadOnlyMounts" json:"customizationReadOnlyMounts,omitempty"`
 
 	// Filled in by Storage.IsValid().
 	VerityPartitionsType VerityPartitionsType `json:"-"`
@@ -93,6 +94,12 @@ func (s *Storage) IsValid() error {
 		err = fileSystem.IsValid()
 		if err != nil {
 			return fmt.Errorf("invalid filesystems item at index %d:\n%w", i, err)
+		}
+	}
+
+	for i, mountPath := range s.CustomizationReadOnlyMounts {
+		if err := validatePath(mountPath); err != nil {
+			return fmt.Errorf("invalid customizationMountOptions item at index %d:\n%w", i, err)
 		}
 	}
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -31,6 +32,12 @@ const (
 
 func addImageHistory(ctx context.Context, rootDir string, imageUuid string, baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config) error {
 	var err error
+
+	// TODO: What if /usr subdirectory has its own mount?
+	if slices.Contains(config.Storage.CustomizationReadOnlyMounts, "/usr") {
+		return nil
+	}
+
 	logger.Log.Infof("Creating image customizer history file")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_image_history")

@@ -30,7 +30,8 @@ func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, base
 	}
 	defer toolsChroot.Close(false)
 
-	imageConnection, partUuidToFstabEntry, _, err := connectToExistingImage(ctx, rawImageFile, toolsChrootDir, toolsRootImageDir, true, false)
+	imageConnection, partUuidToFstabEntry, _, _, err := connectToExistingImage(ctx, rawImageFile, toolsChrootDir,
+		toolsRootImageDir, true, false, nil)
 	if err != nil {
 		return nil, "", err
 	}

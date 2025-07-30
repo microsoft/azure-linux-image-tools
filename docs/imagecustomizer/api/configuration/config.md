@@ -104,6 +104,12 @@ Supported options:
 
   Added in v0.15.
 
+- `read-only-mounts`: Enables the
+  [`storage.customizationReadOnlyMounts`](./storage.md#customizationreadonlymounts-string)
+  API.
+
+  Added in v0.17.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

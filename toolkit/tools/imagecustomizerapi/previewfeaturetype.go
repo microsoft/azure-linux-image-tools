@@ -25,6 +25,9 @@ const (
 
 	// PreviewFeatureKdumpBootFiles enables support for crash dump configuration.
 	PreviewFeatureKdumpBootFiles PreviewFeature = "kdump-boot-files"
+
+	// PreviewFeatureReadOnlyMounts enables support for setting mounts as readonly during customization.
+	PreviewFeatureReadOnlyMounts PreviewFeature = "read-only-mounts"
 )
 
 func (pf PreviewFeature) IsValid() error {

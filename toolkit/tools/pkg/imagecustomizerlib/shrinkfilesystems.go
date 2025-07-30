@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func shrinkFilesystems(imageLoopDevice string) error {
+func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
@@ -37,6 +38,12 @@ func shrinkFilesystems(imageLoopDevice string) error {
 		fstype := diskPartition.FileSystemType
 		if !supportedShrinkFsType(fstype) {
 			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
+			continue
+		}
+
+		readonly := slices.Contains(readonlyPartUuids, diskPartition.PartUuid)
+		if readonly {
+			logger.Log.Infof("Shrinking partition (%s): skipping readonly partition (%s)", partitionLoopDevice, fstype)
 			continue
 		}
 

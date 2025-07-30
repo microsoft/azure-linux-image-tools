@@ -1,0 +1,13 @@
+previewFeatures:
+- reinitialize-verity
+- read-only-mounts
+
+storage:
+  customizationReadOnlyMounts:
+  - /usr
+
+os:
+  additionalFiles:
+  - content: |
+      cat, dog, elephant, squirrel
+    destination: /etc/animals.txt

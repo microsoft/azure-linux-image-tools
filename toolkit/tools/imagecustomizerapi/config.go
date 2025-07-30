@@ -118,6 +118,11 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	if len(c.Storage.CustomizationReadOnlyMounts) > 0 &&
+		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureReadOnlyMounts) {
+		return fmt.Errorf("the 'read-only-mounts' preview feature must be enabled to use 'storage.customizationReadOnlyMounts'")
+	}
+
 	return nil
 }
 

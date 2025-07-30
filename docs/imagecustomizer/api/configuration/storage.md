@@ -136,3 +136,32 @@ os:
 ```
 
 Added in v0.7.
+
+## customizationReadOnlyMounts [string[]]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `read-only-mounts` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+Specifies a list of partitions that will be mounted as readonly during OS customization.
+Partitions are specified by mount target path.
+
+Example:
+
+```yaml
+previewFeatures:
+- read-only-mounts
+
+storage:
+  customizationReadOnlyMounts:
+  - /usr
+
+os:
+  additionalFiles:
+  - content: |
+      cat, dog, elephant, squirrel
+    destination: /etc/animals.txt
+```
+
+Added in v0.17.
