@@ -51,22 +51,20 @@ func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay,
 	overlayDriver := "overlay"
 	err = addDracutDriver(overlayDriver, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w (driver='%s'): %w", ErrAddDracutDriver, overlayDriver, err)
+		return false, err
 	}
 
 	// Dereference the pointer to get the slice
 	overlaysDereference := *overlays
 	err = updateFstabForOverlays(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", ErrOverlayFstabUpdate,
-			fmt.Errorf("failed to update fstab file for overlays:\n%w", err))
+		return false, fmt.Errorf("%w: %w", ErrOverlayFstabUpdate, err)
 	}
 
 	// Create necessary directories for overlays
 	err = createOverlayDirectories(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", ErrOverlayDirectoryCreate,
-			fmt.Errorf("failed to create overlay directories:\n%w", err))
+		return false, fmt.Errorf("%w: %w", ErrOverlayDirectoryCreate, err)
 	}
 
 	// Add equivalency rules for each overlay

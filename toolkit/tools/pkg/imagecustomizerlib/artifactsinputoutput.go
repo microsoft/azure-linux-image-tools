@@ -69,7 +69,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	loopback, err := safeloopback.NewLoopback(buildImage)
 	if err != nil {
-		return fmt.Errorf("%w (image='%s'): %w", ErrArtifactImageConnection, buildImage, err)
+		return fmt.Errorf("%w: %w", ErrArtifactImageConnection, err)
 	}
 	defer loopback.Close()
 
@@ -309,7 +309,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
-		return fmt.Errorf("%w (image='%s'): %w", ErrArtifactInjectFilesImageConnection, rawImageFile, err)
+		return fmt.Errorf("%w: %w", ErrArtifactInjectFilesImageConnection, err)
 	}
 	defer loopback.Close()
 

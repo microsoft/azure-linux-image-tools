@@ -27,7 +27,7 @@ var (
 	ErrPartitionUuidUpdate            = NewImageCustomizerError("PartitionUUID:Update", "failed to update partition UUID")
 	ErrPartitionE2fsckCheck           = NewImageCustomizerError("PartitionUUID:E2fsckCheck", "e2fsck check failed for partition")
 	ErrPartitionVfatIdGenerate        = NewImageCustomizerError("PartitionUUID:VfatIdGenerate", "failed to generate VFAT ID")
-	ErrPartitionVerityNotImplemented  = NewImageCustomizerError("PartitionUUID:VerityNotImplemented", "verity partition UUID reset not implemented")
+	ErrPartitionVerityNotImplemented  = NewImageCustomizerError("PartitionUUID:VerityNotImplemented", "resetting partition IDs on a verity-enabled image is not implemented")
 	ErrPartitionUnsupportedFilesystem = NewImageCustomizerError("PartitionUUID:UnsupportedFilesystem", "unsupported filesystem for UUID reset")
 )
 
@@ -141,7 +141,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 	case "DM_verity_hash":
 		// Resetting partition IDs on a disk with verity would require updating the kernel command-line args.
 		// This is probably doable, just not implemented yet.
-		return "", fmt.Errorf("%w: resetting partition IDs on a verity-enabled image is not implemented", ErrPartitionVerityNotImplemented)
+		return "", ErrPartitionVerityNotImplemented
 
 	default:
 		return "", fmt.Errorf("%w (type='%s')", ErrPartitionUnsupportedFilesystem, partition.FileSystemType)

@@ -15,16 +15,16 @@ import (
 
 var (
 	// Config validation errors
-	ErrConfigKdumpBootFiles    = NewImageCustomizerError("Config:KdumpBootFiles", "invalid kdumpBootFiles")
-	ErrConfigKernelCommandLine = NewImageCustomizerError("Config:KernelCommandLine", "invalid kernelCommandLine")
-	ErrConfigBootstrapUrl      = NewImageCustomizerError("Config:BootstrapUrl", "cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl'")
-	ErrConfigInvalidIsoField   = NewImageCustomizerError("Config:InvalidIsoField", "invalid 'iso' field")
-	ErrConfigInvalidPxeField   = NewImageCustomizerError("Config:InvalidPxeField", "invalid 'pxe' field")
-	ErrConfigInvalidOsField    = NewImageCustomizerError("Config:InvalidOsField", "invalid 'os' field")
-	ErrConfigDirectoryCreate   = NewImageCustomizerError("Config:DirectoryCreate", "failed to create directory")
-	ErrConfigFilePersist       = NewImageCustomizerError("Config:FilePersist", "failed to persist saved configs file")
-	ErrConfigFileExists        = NewImageCustomizerError("Config:FileExists", "failed to check if file exists")
-	ErrConfigFileLoad          = NewImageCustomizerError("Config:FileLoad", "failed to load saved configs file")
+	ErrConfigInvalidKdumpBootFiles    = NewImageCustomizerError("Config:InvalidKdumpBootFiles", "invalid kdumpBootFiles")
+	ErrConfigInvalidKernelCommandLine = NewImageCustomizerError("Config:InvalidKernelCommandLine", "invalid kernelCommandLine")
+	ErrConfigBootstrapUrl             = NewImageCustomizerError("Config:BootstrapUrl", "cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl'")
+	ErrConfigInvalidIsoField          = NewImageCustomizerError("Config:InvalidIsoField", "invalid 'iso' field")
+	ErrConfigInvalidPxeField          = NewImageCustomizerError("Config:InvalidPxeField", "invalid 'pxe' field")
+	ErrConfigInvalidOsField           = NewImageCustomizerError("Config:InvalidOsField", "invalid 'os' field")
+	ErrConfigDirectoryCreate          = NewImageCustomizerError("Config:DirectoryCreate", "failed to create directory")
+	ErrConfigFilePersist              = NewImageCustomizerError("Config:FilePersist", "failed to persist saved configs file")
+	ErrConfigFileExists               = NewImageCustomizerError("Config:FileExists", "failed to check if file exists")
+	ErrConfigFileLoad                 = NewImageCustomizerError("Config:FileLoad", "failed to load saved configs file")
 )
 
 // 'SavedConfigs' is a subset of the Image Customizer input configurations that
@@ -51,13 +51,13 @@ func (i *LiveOSSavedConfigs) IsValid() error {
 	if i.KdumpBootFiles != nil {
 		err := i.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrConfigKdumpBootFiles, err)
+			return fmt.Errorf("%w: %w", ErrConfigInvalidKdumpBootFiles, err)
 		}
 	}
 
 	err := i.KernelCommandLine.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigKernelCommandLine, err)
+		return fmt.Errorf("%w: %w", ErrConfigInvalidKernelCommandLine, err)
 	}
 
 	return nil

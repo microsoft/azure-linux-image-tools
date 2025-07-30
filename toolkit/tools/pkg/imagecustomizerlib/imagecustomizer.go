@@ -33,7 +33,6 @@ import (
 
 var (
 	// Image customizer input validation errors
-	ErrRpmSourceTypeDetection         = NewImageCustomizerError("Customizer:RpmSourceTypeDetection", "failed to detect RPM source type")
 	ErrInvalidOutputFormat            = NewImageCustomizerError("Customizer:InvalidOutputFormat", "invalid output image format")
 	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Customizer:CannotGenerateOutputFormat", "cannot generate output format from input format")
 	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Customizer:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
@@ -160,7 +159,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 
 	err = ValidateRpmSources(rpmsSources)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrRpmSourceTypeDetection, err)
+		return nil, err
 	}
 
 	// intermediate writeable image

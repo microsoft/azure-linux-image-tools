@@ -46,8 +46,7 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 		// Append the kernel command-line args to the existing grub config.
 		err := AddKernelCommandLine(ctx, config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrBootloaderKernelCommandLineAdd,
-				fmt.Errorf("failed to add extra kernel command line:\n%w", err))
+			return fmt.Errorf("%w: %w", ErrBootloaderKernelCommandLineAdd, err)
 		}
 	}
 

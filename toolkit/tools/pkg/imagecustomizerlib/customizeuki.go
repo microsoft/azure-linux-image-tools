@@ -73,7 +73,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// Create necessary directories for UKI.
 	err = createUkiDirectories(buildDir, imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w (buildDir='%s'): %w", ErrUKIDirectoryCreate, buildDir, err)
+		return fmt.Errorf("%w: %w", ErrUKIDirectoryCreate, err)
 	}
 
 	// Detect system architecture.
@@ -144,14 +144,14 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
 	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w (buildDir='%s'): %w", ErrUKIFileCopy, buildDir, err)
+		return fmt.Errorf("%w: %w", ErrUKIFileCopy, err)
 	}
 
 	// Extract kernel command line arguments from either grub.cfg or UKI.
 	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
 	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
-		return fmt.Errorf("%w (espDir='%s', bootDir='%s'): %w", ErrUKIKernelCmdlineExtract, espDir, bootDir, err)
+		return fmt.Errorf("%w: %w", ErrUKIKernelCmdlineExtract, err)
 	}
 
 	// Dump kernel command line arguments to a file in buildDir.
@@ -216,7 +216,7 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 	for src, dest := range filesToCopy {
 		err := file.Copy(src, dest)
 		if err != nil {
-			return fmt.Errorf("failed to copy file (source='%s', destination='%s'): %w", src, dest, err)
+			return fmt.Errorf("%w: %w", ErrUKIFileCopy, err)
 		}
 	}
 

@@ -15,7 +15,7 @@ import (
 
 var (
 	// Release file errors
-	ErrReleaseFileWrite = NewImageCustomizerError("ReleaseFile:Write", "failed to write release file")
+	ErrReleaseFileWrite = NewImageCustomizerError("ReleaseFile:Write", "failed to write customizer release file")
 )
 
 const (

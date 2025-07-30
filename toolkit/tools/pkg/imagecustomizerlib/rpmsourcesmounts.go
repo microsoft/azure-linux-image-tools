@@ -321,7 +321,7 @@ func ValidateRpmSources(rpmsSources []string) error {
 	for _, rpmSource := range rpmsSources {
 		_, err := getRpmSourceFileType(rpmSource)
 		if err != nil {
-			return fmt.Errorf("%w (source='%s'): %w", ErrRpmSourceFilePathCheck, rpmSource, err)
+			return err
 		}
 	}
 

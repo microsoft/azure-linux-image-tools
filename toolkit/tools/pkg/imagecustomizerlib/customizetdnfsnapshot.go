@@ -66,7 +66,7 @@ func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
 	// e.g., remove the temp config file
 	err := os.Remove(filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath))
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("%w (path='%s'): %w", ErrTdnfConfigCleanup, filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath), err)
+		return fmt.Errorf("%w: %w", ErrTdnfConfigCleanup, err)
 	}
 	return nil
 }

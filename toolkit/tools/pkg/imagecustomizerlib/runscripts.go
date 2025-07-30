@@ -50,7 +50,7 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 	// Bind mount the config directory so that the scripts can access any required resources.
 	mount, err := safemount.NewMount(baseConfigPath, configDirMountPath, "", unix.MS_BIND|unix.MS_RDONLY, "", true)
 	if err != nil {
-		return fmt.Errorf("%w (source='%s', target='%s'): %w", ErrConfigDirMount, baseConfigPath, configDirMountPath, err)
+		return err
 	}
 	defer mount.Close()
 
@@ -58,13 +58,13 @@ func runUserScripts(ctx context.Context, baseConfigPath string, scripts []imagec
 	for i, script := range scripts {
 		err := runUserScript(i, script, listName, imageChroot)
 		if err != nil {
-			return fmt.Errorf("%w (script=%d, list='%s'): %w", ErrScriptExecution, i, listName, err)
+			return err
 		}
 	}
 
 	err = mount.CleanClose()
 	if err != nil {
-		return fmt.Errorf("%w (path='%s'): %w", ErrConfigDirUnmount, configDirMountPath, err)
+		return err
 	}
 
 	return nil

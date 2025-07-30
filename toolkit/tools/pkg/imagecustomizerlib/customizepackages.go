@@ -34,6 +34,7 @@ var (
 	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "invalid package list file")
 	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
 	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
+	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
 	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean package cache")
 
@@ -219,8 +220,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPackageRemove,
-			fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err))
+		return fmt.Errorf("%w (%v): %w", ErrPackageRemove, allPackagesToRemove, err)
 	}
 
 	return nil
@@ -239,8 +239,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPackageUpdate,
-			fmt.Errorf("failed to update packages:\n%w", err))
+		return fmt.Errorf("%w: %w", ErrPackagesUpdateInstalled, err)
 	}
 
 	return nil
