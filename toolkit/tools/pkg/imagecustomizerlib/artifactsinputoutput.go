@@ -30,13 +30,15 @@ import (
 var (
 	// Artifact handling errors
 	ErrArtifactImageConnection              = NewImageCustomizerError("Artifacts:ImageConnection", "failed to connect to image file")
-	ErrArtifactPartitionMount               = NewImageCustomizerError("Artifacts:PartitionMount", "failed to mount partition")
-	ErrArtifactDirectoryRead                = NewImageCustomizerError("Artifacts:DirectoryRead", "failed to read directory")
+	ErrArtifactESPPartitionMount            = NewImageCustomizerError("Artifacts:ESPPartitionMount", "failed to mount ESP partition")
+	ErrArtifactUKIDirectoryRead             = NewImageCustomizerError("Artifacts:UKIDirectoryRead", "failed to read UKI directory")
+	ErrArtifactShimBinaryCopy               = NewImageCustomizerError("Artifacts:ShimBinaryCopy", "failed to copy shim binary")
+	ErrArtifactSystemdBootBinaryCopy        = NewImageCustomizerError("Artifacts:SystemdBootBinaryCopy", "failed to copy systemd-boot binary")
 	ErrArtifactBinaryCopy                   = NewImageCustomizerError("Artifacts:BinaryCopy", "failed to copy binary")
 	ErrArtifactRootHashDump                 = NewImageCustomizerError("Artifacts:RootHashDump", "failed to dump root hash")
 	ErrArtifactInjectFilesYamlWrite         = NewImageCustomizerError("Artifacts:InjectFilesYamlWrite", "failed to write inject-files.yaml")
 	ErrArtifactInjectFilesYamlMarshal       = NewImageCustomizerError("Artifacts:InjectFilesYamlMarshal", "failed to marshal inject files metadata")
-	ErrArtifactInjectFilesConfigValidation  = NewImageCustomizerError("Artifacts:InjectFilesConfigValidation", "invalid inject files config")
+	ErrArtifactInvalidInjectFilesConfig     = NewImageCustomizerError("Artifacts:InvalidInjectFilesConfig", "invalid inject files config")
 	ErrArtifactInjectFilesPathResolution    = NewImageCustomizerError("Artifacts:InjectFilesPathResolution", "failed to get absolute path of inject-files.yaml")
 	ErrArtifactInjectFilesImageConnection   = NewImageCustomizerError("Artifacts:InjectFilesImageConnection", "failed to connect to image file to inject files")
 	ErrArtifactInjectFilesPartitionMount    = NewImageCustomizerError("Artifacts:InjectFilesPartitionMount", "failed to mount partition for file injection")
@@ -69,7 +71,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	loopback, err := safeloopback.NewLoopback(buildImage)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrArtifactImageConnection, err)
+		return fmt.Errorf("%w (image='%s'): %w", ErrArtifactImageConnection, buildImage, err)
 	}
 	defer loopback.Close()
 
@@ -92,7 +94,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
 		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return fmt.Errorf("%w (partition='%s'): %w", ErrArtifactPartitionMount, systemBootPartition.Path, err)
+		return fmt.Errorf("%w (partition='%s'): %w", ErrArtifactESPPartitionMount, systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
@@ -117,7 +119,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		ukiDir := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
 		dirEntries, err := os.ReadDir(ukiDir)
 		if err != nil {
-			return fmt.Errorf("%w (directory='%s'): %w", ErrArtifactDirectoryRead, ukiDir, err)
+			return fmt.Errorf("%w (directory='%s'): %w", ErrArtifactUKIDirectoryRead, ukiDir, err)
 		}
 
 		for _, entry := range dirEntries {
@@ -126,7 +128,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				destPath := filepath.Join(outputDir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
-					return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+					return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactUKIBinaryCopy, srcPath, destPath, err)
 				}
 
 				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
@@ -149,7 +151,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactShimBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
@@ -168,7 +170,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactSystemdBootBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
@@ -260,14 +262,14 @@ func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile 
 	}
 
 	if err := injectConfig.IsValid(); err != nil {
-		return fmt.Errorf("%w: %w", ErrArtifactInjectFilesConfigValidation, err)
+		return fmt.Errorf("%w: %w", ErrArtifactInvalidInjectFilesConfig, err)
 	}
 
 	baseConfigPath, _ := filepath.Split(configFile)
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrArtifactInjectFilesPathResolution, err)
+		return fmt.Errorf("%w (path='%s'): %w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
 	err = InjectFiles(ctx, buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
@@ -309,7 +311,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrArtifactInjectFilesImageConnection, err)
+		return fmt.Errorf("%w (image='%s'): %w", ErrArtifactInjectFilesImageConnection, rawImageFile, err)
 	}
 	defer loopback.Close()
 
@@ -344,7 +346,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		destPath := filepath.Join(partitionsToMountpoints[partitionKey], item.Destination)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (from='%s', to='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 	}
 
@@ -437,7 +439,7 @@ func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([random
 
 	parsed, err := randomization.ParseUuidString(uuidStr)
 	if err != nil {
-		return emptyUuid, "", fmt.Errorf("%w (uuid='%s'): %w", ErrArtifactImageUuidParse, uuidStr, err)
+		return emptyUuid, "", fmt.Errorf("%w (IMAGE_UUID='%s'): %w", ErrArtifactImageUuidParse, uuidStr, err)
 	}
 
 	return parsed, uuidStr, nil
