@@ -592,6 +592,12 @@
             "$ref": "#/$defs/Verity"
           },
           "type": "array"
+        },
+        "customizationReadOnlyMounts": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
