@@ -51,13 +51,13 @@ func (i *LiveOSSavedConfigs) IsValid() error {
 	if i.KdumpBootFiles != nil {
 		err := i.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrConfigInvalidKdumpBootFiles, err)
+			return fmt.Errorf("%w: \n%w", ErrConfigInvalidKdumpBootFiles, err)
 		}
 	}
 
 	err := i.KernelCommandLine.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigInvalidKernelCommandLine, err)
+		return fmt.Errorf("%w: \n%w", ErrConfigInvalidKernelCommandLine, err)
 	}
 
 	return nil
@@ -102,17 +102,17 @@ type SavedConfigs struct {
 func (c *SavedConfigs) IsValid() (err error) {
 	err = c.LiveOS.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigInvalidIsoField, err)
+		return fmt.Errorf("%w: \n%w", ErrConfigInvalidIsoField, err)
 	}
 
 	err = c.Pxe.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigInvalidPxeField, err)
+		return fmt.Errorf("%w: \n%w", ErrConfigInvalidPxeField, err)
 	}
 
 	err = c.OS.IsValid()
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigInvalidOsField, err)
+		return fmt.Errorf("%w: \n%w", ErrConfigInvalidOsField, err)
 	}
 
 	return nil
@@ -121,12 +121,12 @@ func (c *SavedConfigs) IsValid() (err error) {
 func (c *SavedConfigs) persistSavedConfigs(savedConfigsFilePath string) (err error) {
 	err = os.MkdirAll(filepath.Dir(savedConfigsFilePath), os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("%w (path='%s'): %w", ErrConfigDirectoryCreate, savedConfigsFilePath, err)
+		return fmt.Errorf("%w (path='%s'): \n%w", ErrConfigDirectoryCreate, savedConfigsFilePath, err)
 	}
 
 	err = imagecustomizerapi.MarshalYamlFile(savedConfigsFilePath, c)
 	if err != nil {
-		return fmt.Errorf("%w (path='%s'): %w", ErrConfigFilePersist, savedConfigsFilePath, err)
+		return fmt.Errorf("%w (path='%s'): \n%w", ErrConfigFilePersist, savedConfigsFilePath, err)
 	}
 
 	return nil
@@ -135,7 +135,7 @@ func (c *SavedConfigs) persistSavedConfigs(savedConfigsFilePath string) (err err
 func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, err error) {
 	exists, err := file.PathExists(savedConfigsFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("%w (path='%s'): %w", ErrConfigFileExists, savedConfigsFilePath, err)
+		return nil, fmt.Errorf("%w (path='%s'): \n%w", ErrConfigFileExists, savedConfigsFilePath, err)
 	}
 
 	if !exists {
@@ -145,7 +145,7 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	savedConfigs = &SavedConfigs{}
 	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	if err != nil {
-		return nil, fmt.Errorf("%w (path='%s'): %w", ErrConfigFileLoad, savedConfigsFilePath, err)
+		return nil, fmt.Errorf("%w (path='%s'): \n%w", ErrConfigFileLoad, savedConfigsFilePath, err)
 	}
 
 	return savedConfigs, nil

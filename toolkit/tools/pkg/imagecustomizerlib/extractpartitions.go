@@ -81,20 +81,20 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionFullFilePath, err := filepath.Abs(partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("%w (path='%s'): %w", ErrPartitionExtractAbsolutePath, partitionFilepath, err)
+			return nil, fmt.Errorf("%w (path='%s'): \n%w", ErrPartitionExtractAbsolutePath, partitionFilepath, err)
 		}
 
 		// Sanity check the partition file.
 		err = checkFileSystemFile(partition.FileSystemType, partitionFullFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("%w (path='%s'): %w", ErrPartitionExtractIntegrityCheck, partitionFilepath, err)
+			return nil, fmt.Errorf("%w (path='%s'): \n%w", ErrPartitionExtractIntegrityCheck, partitionFilepath, err)
 		}
 
 		// Get uncompressed size for raw files
 		var uncompressedPartitionFileSize uint64
 		stat, err := os.Stat(partitionFullFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("%w (file='%s'): %w", ErrPartitionExtractStatFile, partitionFilepath, err)
+			return nil, fmt.Errorf("%w (file='%s'): \n%w", ErrPartitionExtractStatFile, partitionFilepath, err)
 		}
 		uncompressedPartitionFileSize = uint64(stat.Size())
 
@@ -112,7 +112,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("%w (partition=%d, file='%s'): %w", ErrPartitionExtractMetadataConstruct, partitionNum, partitionFilepath, err)
+			return nil, fmt.Errorf("%w (partition=%d, file='%s'): \n%w", ErrPartitionExtractMetadataConstruct, partitionNum, partitionFilepath, err)
 		}
 		partitionMetadata.UncompressedSize = uncompressedPartitionFileSize
 		partitionMetadataOutput = append(partitionMetadataOutput, partitionMetadata)
@@ -134,7 +134,7 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	// Remove raw file since output partition format is raw-zst
 	err = os.Remove(partitionRawFilepath)
 	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'): %w", ErrPartitionExtractRemoveRawFile, partitionRawFilepath, err)
+		return "", fmt.Errorf("%w (file='%s'): \n%w", ErrPartitionExtractRemoveRawFile, partitionRawFilepath, err)
 	}
 	// Create a skippable frame containing the metadata and prepend the frame to the partition file
 	partitionFilepath, err = addSkippableFrame(tempPartitionFilepath, skippableFrameMetadata, partitionFilename, outDir)
@@ -144,7 +144,7 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	// Remove temp partition file
 	err = os.Remove(tempPartitionFilepath)
 	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'): %w", ErrPartitionExtractRemoveTempFile, tempPartitionFilepath, err)
+		return "", fmt.Errorf("%w (file='%s'): \n%w", ErrPartitionExtractRemoveTempFile, tempPartitionFilepath, err)
 	}
 	return partitionFilepath, nil
 }
@@ -166,7 +166,7 @@ func copyBlockDeviceToFile(outDir, devicePath, name string) (filename string, er
 
 	err = shell.ExecuteLive(squashErrors, "dd", ddArgs...)
 	if err != nil {
-		return "", fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrPartitionExtractCopyBlockDevice, devicePath, fullPath, err)
+		return "", fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrPartitionExtractCopyBlockDevice, devicePath, fullPath, err)
 	}
 
 	return fullPath, nil
@@ -177,7 +177,7 @@ func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath strin
 	// Using -f to overwrite a file with same name if it exists.
 	err = shell.ExecuteLive(true, "zstd", "-f", "-9", "-T0", partitionRawFilepath, "-o", outputPartitionFilepath)
 	if err != nil {
-		return fmt.Errorf("%w (file='%s'): %w", ErrPartitionExtractCompress, partitionRawFilepath, err)
+		return fmt.Errorf("%w (file='%s'): \n%w", ErrPartitionExtractCompress, partitionRawFilepath, err)
 	}
 
 	return nil
@@ -188,7 +188,7 @@ func addSkippableFrame(tempPartitionFilepath string, skippableFrameMetadata [Ski
 	// Open tempPartitionFile for reading
 	tempPartitionFile, err := os.OpenFile(tempPartitionFilepath, os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'): %w", ErrPartitionExtractOpenFile, tempPartitionFilepath, err)
+		return "", fmt.Errorf("%w (file='%s'): \n%w", ErrPartitionExtractOpenFile, tempPartitionFilepath, err)
 	}
 	// Create a skippable frame
 	skippableFrame := createSkippableFrame(SkippableFrameMagicNumber, SkippableFramePayloadSize, skippableFrameMetadata)

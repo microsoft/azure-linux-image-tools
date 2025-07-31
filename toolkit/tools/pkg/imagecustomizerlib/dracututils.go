@@ -29,13 +29,13 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 		// File does not exist, create and write the lines.
 		err := file.WriteLines(lines, dracutConfigFile)
 		if err != nil {
-			return fmt.Errorf("%w (file='%s'): %w", ErrDracutConfigWrite, dracutConfigFile, err)
+			return fmt.Errorf("%w (file='%s'): \n%w", ErrDracutConfigWrite, dracutConfigFile, err)
 		}
 	} else {
 		// File exists, append the lines.
 		existingLines, err := file.ReadLines(dracutConfigFile)
 		if err != nil {
-			return fmt.Errorf("%w (file='%s'): %w", ErrDracutConfigRead, dracutConfigFile, err)
+			return fmt.Errorf("%w (file='%s'): \n%w", ErrDracutConfigRead, dracutConfigFile, err)
 		}
 
 		// Avoid duplicate lines by checking if they already exist.
@@ -56,7 +56,7 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 			content := strings.Join(linesToAppend, "\n") + "\n"
 			err = file.Append(content, dracutConfigFile)
 			if err != nil {
-				return fmt.Errorf("%w (file='%s'): %w", ErrDracutConfigAppend, dracutConfigFile, err)
+				return fmt.Errorf("%w (file='%s'): \n%w", ErrDracutConfigAppend, dracutConfigFile, err)
 			}
 		}
 	}

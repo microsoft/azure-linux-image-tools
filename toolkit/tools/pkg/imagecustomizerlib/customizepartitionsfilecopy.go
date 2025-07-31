@@ -32,7 +32,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 
 	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrPartitionCopyTargetOsDetermination, err)
+		return nil, fmt.Errorf("%w: \n%w", ErrPartitionCopyTargetOsDetermination, err)
 	}
 
 	diskConfig := config.Storage.Disks[0]
@@ -58,7 +58,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {
 	err := copyPartitionFiles(existingImageChroot.RootDir()+"/.", newImageChroot.RootDir())
 	if err != nil {
-		return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrPartitionCopyFilesToNewLayout, existingImageChroot.RootDir(), newImageChroot.RootDir(), err)
+		return fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrPartitionCopyFilesToNewLayout, existingImageChroot.RootDir(), newImageChroot.RootDir(), err)
 	}
 	return nil
 }
@@ -85,7 +85,7 @@ func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("%w (source='%s', destination='%s'): %w", ErrPartitionCopyFiles, sourceRoot, targetRoot, err)
+		return fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrPartitionCopyFiles, sourceRoot, targetRoot, err)
 	}
 
 	return nil

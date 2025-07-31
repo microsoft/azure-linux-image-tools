@@ -125,13 +125,13 @@ func ensureModulesLoaded(moduleNames []string, moduleLoadFilePath string) error 
 	// Ensure the directory exists
 	dir := filepath.Dir(moduleLoadFilePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory for module load configuration: %w", err)
+		return fmt.Errorf("failed to create directory for module load configuration: \n%w", err)
 	}
 
 	content, err := os.ReadFile(moduleLoadFilePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to read module load configuration: %w", err)
+			return fmt.Errorf("failed to read module load configuration: \n%w", err)
 		}
 		// If the file does not exist, initialize content as empty
 		content = []byte{}
@@ -152,7 +152,7 @@ func ensureModulesLoaded(moduleNames []string, moduleLoadFilePath string) error 
 	if needUpdate {
 		err = os.WriteFile(moduleLoadFilePath, content, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to update module load configuration: %w", err)
+			return fmt.Errorf("failed to update module load configuration: \n%w", err)
 		}
 	}
 
@@ -163,13 +163,13 @@ func ensureModulesDisabled(moduleNames []string, moduleDisableFilePath string) e
 	// Ensure the directory exists
 	dir := filepath.Dir(moduleDisableFilePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory for module disable configuration: %w", err)
+		return fmt.Errorf("failed to create directory for module disable configuration: \n%w", err)
 	}
 
 	content, err := os.ReadFile(moduleDisableFilePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to read module disable configuration: %w", err)
+			return fmt.Errorf("failed to read module disable configuration: \n%w", err)
 		}
 		content = []byte{}
 	}
@@ -191,7 +191,7 @@ func ensureModulesDisabled(moduleNames []string, moduleDisableFilePath string) e
 	if needUpdate {
 		err = os.WriteFile(moduleDisableFilePath, []byte(updatedContent), 0644)
 		if err != nil {
-			return fmt.Errorf("failed to update disable configuration: %w", err)
+			return fmt.Errorf("failed to update disable configuration: \n%w", err)
 		}
 	}
 
@@ -233,7 +233,7 @@ func removeModuleFromDisableList(moduleName, moduleDisableFilePath string) error
 		lines, err := file.ReadLines(moduleDisableFilePath)
 
 		if err != nil {
-			return fmt.Errorf("failed to write module disable configuration: %w", err)
+			return fmt.Errorf("failed to write module disable configuration: \n%w", err)
 		}
 
 		// Filter out the line that contains the module name.
@@ -245,7 +245,7 @@ func removeModuleFromDisableList(moduleName, moduleDisableFilePath string) error
 		}
 
 		if err := file.WriteLines(updatedLines, moduleDisableFilePath); err != nil {
-			return fmt.Errorf("failed to write module disable configuration: %w", err)
+			return fmt.Errorf("failed to write module disable configuration: \n%w", err)
 		}
 	}
 
@@ -260,7 +260,7 @@ func updateModulesOptions(optionsMap map[string]map[string]string, moduleOptions
 	// Ensure the directory exists
 	dir := filepath.Dir(moduleOptionsFilePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory for module options configuration: %w", err)
+		return fmt.Errorf("failed to create directory for module options configuration: \n%w", err)
 	}
 
 	// Read the existing content of the file, if it exists

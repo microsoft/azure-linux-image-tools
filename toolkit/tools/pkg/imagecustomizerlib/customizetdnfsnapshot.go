@@ -32,7 +32,7 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 
 	parsedTime, err := snapshotTime.Parse()
 	if err != nil {
-		return fmt.Errorf("%w (time='%s'): %w", ErrTdnfSnapshotTimeParse, snapshotTime, err)
+		return fmt.Errorf("%w (time='%s'): \n%w", ErrTdnfSnapshotTimeParse, snapshotTime, err)
 	}
 
 	epoch := strconv.FormatInt(parsedTime.Unix(), 10)
@@ -43,7 +43,7 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg := ini.Empty()
 	if _, err := os.Stat(baseTdnfConfPath); err == nil {
 		if err := cfg.Append(baseTdnfConfPath); err != nil {
-			return fmt.Errorf("%w (path='%s'): %w", ErrTdnfConfigParse, baseTdnfConfPath, err)
+			return fmt.Errorf("%w (path='%s'): \n%w", ErrTdnfConfigParse, baseTdnfConfPath, err)
 		}
 	} else {
 		cfg.NewSection("main")
@@ -52,11 +52,11 @@ func createTempTdnfConfigWithSnapshot(imageChroot *safechroot.Chroot, snapshotTi
 	cfg.Section("main").Key("snapshottime").SetValue(epoch)
 
 	if err := os.MkdirAll(filepath.Dir(tempTdnfConfPath), 0755); err != nil {
-		return fmt.Errorf("%w (directory='%s'): %w", ErrTdnfConfigDirectoryCreate, filepath.Dir(tempTdnfConfPath), err)
+		return fmt.Errorf("%w (directory='%s'): \n%w", ErrTdnfConfigDirectoryCreate, filepath.Dir(tempTdnfConfPath), err)
 	}
 
 	if err := cfg.SaveTo(tempTdnfConfPath); err != nil {
-		return fmt.Errorf("%w (path='%s'): %w", ErrTdnfConfigWrite, tempTdnfConfPath, err)
+		return fmt.Errorf("%w (path='%s'): \n%w", ErrTdnfConfigWrite, tempTdnfConfPath, err)
 	}
 
 	return nil
@@ -66,7 +66,7 @@ func cleanupSnapshotTimeConfig(imageChroot *safechroot.Chroot) error {
 	// e.g., remove the temp config file
 	err := os.Remove(filepath.Join(imageChroot.RootDir(), customTdnfConfRelPath))
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("%w: %w", ErrTdnfConfigCleanup, err)
+		return fmt.Errorf("%w: \n%w", ErrTdnfConfigCleanup, err)
 	}
 	return nil
 }

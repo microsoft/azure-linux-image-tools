@@ -168,7 +168,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("%w (format='%s'): %w", ErrInvalidOutputFormat, outputImageFormat, err)
+		return nil, fmt.Errorf("%w (format='%s'): \n%w", ErrInvalidOutputFormat, outputImageFormat, err)
 	}
 
 	if ic.outputImageFormat == "" {
@@ -1224,7 +1224,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 	// Extract root hash using regular expressions.
 	rootHashRegex, err := regexp.Compile(`Root hash:\s+([0-9a-fA-F]+)`)
 	if err != nil {
-		return "", fmt.Errorf("failed to compile root hash regex: %w", err)
+		return "", fmt.Errorf("failed to compile root hash regex: \n%w", err)
 	}
 
 	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)

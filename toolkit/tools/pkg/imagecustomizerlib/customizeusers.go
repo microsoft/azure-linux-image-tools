@@ -53,7 +53,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	// Check if the user already exists.
 	userExists, err := userutils.UserExists(user.Name, imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w (user='%s'): %w", ErrUserExistsCheck, user.Name, err)
+		return fmt.Errorf("%w (user='%s'): \n%w", ErrUserExistsCheck, user.Name, err)
 	}
 
 	if userExists {
@@ -77,7 +77,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 			passwordFileContents, err := os.ReadFile(passwordFullPath)
 			if err != nil {
-				return fmt.Errorf("%w (file='%s'): %w", ErrUserPasswordFileRead, passwordFullPath, err)
+				return fmt.Errorf("%w (file='%s'): \n%w", ErrUserPasswordFileRead, passwordFullPath, err)
 			}
 
 			password = string(passwordFileContents)
@@ -88,7 +88,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			// Hash the password.
 			hashedPassword, err = userutils.HashPassword(password)
 			if err != nil {
-				return fmt.Errorf("%w (user='%s'): %w", ErrUserPasswordHash, user.Name, err)
+				return fmt.Errorf("%w (user='%s'): \n%w", ErrUserPasswordHash, user.Name, err)
 			}
 		}
 	}
@@ -105,7 +105,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		// Update the user's password.
 		err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
 		if err != nil {
-			return fmt.Errorf("%w (user='%s'): %w", ErrUserUpdate, user.Name, err)
+			return fmt.Errorf("%w (user='%s'): \n%w", ErrUserUpdate, user.Name, err)
 		}
 	} else {
 		var uidStr string
@@ -116,7 +116,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		// Add the user.
 		err = userutils.AddUser(user.Name, user.HomeDirectory, user.PrimaryGroup, hashedPassword, uidStr, imageChroot)
 		if err != nil {
-			return fmt.Errorf("%w (user='%s'): %w", ErrUserAdd, user.Name, err)
+			return fmt.Errorf("%w (user='%s'): \n%w", ErrUserAdd, user.Name, err)
 		}
 	}
 
@@ -124,7 +124,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	if user.PasswordExpiresDays != nil {
 		err = installutils.Chage(imageChroot, *user.PasswordExpiresDays, user.Name)
 		if err != nil {
-			return fmt.Errorf("%w (user='%s'): %w", ErrUserUpdate, user.Name, err)
+			return fmt.Errorf("%w (user='%s'): \n%w", ErrUserUpdate, user.Name, err)
 		}
 	}
 

@@ -57,7 +57,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 
 		newUuid, err := resetFileSystemUuid(partition)
 		if err != nil {
-			return fmt.Errorf("%w (partition='%s', type='%s'): %w", ErrPartitionUuidResetFilesystem, partition.Path, partition.FileSystemType, err)
+			return fmt.Errorf("%w (partition='%s', type='%s'): \n%w", ErrPartitionUuidResetFilesystem, partition.Path, partition.FileSystemType, err)
 		}
 
 		newUuids[i] = newUuid
@@ -72,7 +72,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 
 		newPartUuid, err := resetPartitionUuid(loopback.DevicePath(), i)
 		if err != nil {
-			return fmt.Errorf("%w (partition='%s'): %w", ErrPartitionUuidUpdate, partition.Path, err)
+			return fmt.Errorf("%w (partition='%s'): \n%w", ErrPartitionUuidUpdate, partition.Path, err)
 		}
 
 		newPartUuids[i] = newPartUuid
@@ -105,7 +105,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		// tune2fs requires you to run 'e2fsck -f' first.
 		err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", partition.Path)
 		if err != nil {
-			return "", fmt.Errorf("%w (partition='%s'): %w", ErrPartitionE2fsckCheck, partition.Path, err)
+			return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrPartitionE2fsckCheck, partition.Path, err)
 		}
 
 		newUuid = uuid.NewString()
@@ -125,7 +125,7 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		newUuidBytes := make([]byte, 4)
 		_, err := rand.Read(newUuidBytes)
 		if err != nil {
-			return "", fmt.Errorf("%w: %w", ErrPartitionVfatIdGenerate, err)
+			return "", fmt.Errorf("%w: \n%w", ErrPartitionVfatIdGenerate, err)
 		}
 
 		newUuid = hex.EncodeToString(newUuidBytes)

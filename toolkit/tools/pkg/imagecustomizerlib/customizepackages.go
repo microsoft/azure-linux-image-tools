@@ -169,7 +169,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPackageRepoMetadataRefresh, err)
+		return fmt.Errorf("%w: \n%w", ErrPackageRepoMetadataRefresh, err)
 	}
 	return nil
 }
@@ -185,7 +185,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("%w (file='%s'): %w", ErrInvalidPackageListFile, packageListFilePath, err)
+			return nil, fmt.Errorf("%w (file='%s'): \n%w", ErrInvalidPackageListFile, packageListFilePath, err)
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)
@@ -218,7 +218,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w (%v): %w", ErrPackageRemove, allPackagesToRemove, err)
+		return fmt.Errorf("%w (%v): \n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
 
 	return nil
@@ -237,7 +237,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrPackagesUpdateInstalled, err)
+		return fmt.Errorf("%w: \n%w", ErrPackagesUpdateInstalled, err)
 	}
 
 	return nil
@@ -268,7 +268,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w (%s packages %v): %w", ErrPackageInstall, action, allPackagesToAdd, err)
+		return fmt.Errorf("%w (%s packages %v): \n%w", ErrPackageInstall, action, allPackagesToAdd, err)
 	}
 
 	return nil
@@ -372,7 +372,7 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chro
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrPackageCacheClean, err)
+			return fmt.Errorf("%w: \n%w", ErrPackageCacheClean, err)
 		}
 		return nil
 	})

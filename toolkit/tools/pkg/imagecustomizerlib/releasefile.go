@@ -39,7 +39,7 @@ func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion strin
 	}
 	err = file.WriteLines(lines, customizerReleaseFilePath)
 	if err != nil {
-		return fmt.Errorf("%w (path='%s'): %w", ErrReleaseFileWrite, customizerReleaseFilePath, err)
+		return fmt.Errorf("%w (path='%s'): \n%w", ErrReleaseFileWrite, customizerReleaseFilePath, err)
 	}
 
 	return nil
