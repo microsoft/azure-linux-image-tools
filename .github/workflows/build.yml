@@ -126,11 +126,11 @@ jobs:
       hostArch: amd64
       hostDistro: ubuntu2404
 
-  tests-vmtests-ubuntu2404-arm64:
+  tests-vmtests-imagecreator-ubuntu2404-arm64:
     name: VMTests suite Ubuntu24.04 ARM64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-arm64
-    uses: ./.github/workflows/tests-vmtests.yml
+    uses: ./.github/workflows/tests-vmtests-imagecreator.yml
     with:
       hostArch: arm64
       hostDistro: ubuntu2404
