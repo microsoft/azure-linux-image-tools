@@ -89,6 +89,6 @@ func TestCustomizeImageServicesDisableUnknown(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to disable service (chocolate-chip-muffin)")
+	assert.ErrorContains(t, err, "failed to disable service (service='chocolate-chip-muffin')")
 	assert.ErrorContains(t, err, "No such file or directory")
 }
