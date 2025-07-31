@@ -127,7 +127,7 @@ jobs:
       hostDistro: azl3
 
   tests-vmtests-imagecreator-ubuntu2404-amd64:
-    name: VMTests suite Ubuntu24.04 AMD64
+    name: VMTests suite image creator Ubuntu24.04 AMD64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-amd64
     uses: ./.github/workflows/tests-vmtests-imagecreator.yml
@@ -136,7 +136,7 @@ jobs:
       hostDistro: ubuntu2404    
 
   tests-vmtests-imagecreator-ubuntu2404-arm64:
-    name: VMTests suite Ubuntu24.04 ARM64
+    name: VMTests suite image creator Ubuntu24.04 ARM64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-arm64
     uses: ./.github/workflows/tests-vmtests-imagecreator.yml
