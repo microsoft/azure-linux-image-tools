@@ -515,9 +515,9 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	}
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, baseImageVerityMetadata, osRelease, err := customizeImageHelper(ctx, ic.buildDirAbs, ic.configPath,
-		ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos, partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime,
-		ic.outputImageFormat)
+	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx,
+		ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos,
+		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -538,7 +538,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
 	if shrinkPartitions {
-		err = shrinkFilesystemsHelper(ctx, ic.rawImageFile)
+		err = shrinkFilesystemsHelper(ctx, ic.rawImageFile, readonlyPartUuids)
 		if err != nil {
 			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
 		}
@@ -547,7 +547,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	if len(ic.config.Storage.Verity) > 0 || len(ic.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		verityMetadata, err := customizeVerityImageHelper(ctx, ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid,
-			shrinkPartitions, ic.baseImageVerityMetadata)
+			shrinkPartitions, ic.baseImageVerityMetadata, readonlyPartUuids)
 		if err != nil {
 			return err
 		}
@@ -968,19 +968,21 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
-) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string, error) {
+) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(ctx, rawImageFile,
-		buildDir, "imageroot", true, false)
+	readOnlyVerity := config.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
+
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
+		ctx, rawImageFile, buildDir, "imageroot", true, false, readOnlyVerity)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 	defer imageConnection.Close()
 
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 
 	imageConnection.Chroot().UnsafeRun(func() error {
@@ -992,7 +994,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry, baseImageVerityMetadata)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("verity validation failed:\n%w", err)
+		return nil, nil, nil, "", fmt.Errorf("verity validation failed:\n%w", err)
 	}
 
 	// Do the actual customizations.
@@ -1004,21 +1006,21 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	warnOnLowFreeSpace(buildDir, imageConnection)
 
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 
 	err = imageConnection.CleanClose()
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, "", err
 	}
 
-	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, nil
+	return partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil
 }
 
 func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string,
 ) ([]OsPackage, *CosiBootloader, error) {
 	var err error
-	imageConnection, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true)
+	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1053,7 +1055,7 @@ func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *
 	return osPackages, cosiBootMetadata, nil
 }
 
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string) error {
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
@@ -1064,7 +1066,7 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string) error {
 	defer imageLoopback.Close()
 
 	// Shrink the filesystems.
-	err = shrinkFilesystems(imageLoopback.DevicePath())
+	err = shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids)
 	if err != nil {
 		return err
 	}
@@ -1079,7 +1081,7 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string) error {
 
 func customizeVerityImageHelper(ctx context.Context, buildDir string, config *imagecustomizerapi.Config,
 	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
-	baseImageVerity []verityDeviceMetadata,
+	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
 ) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Provisioning verity")
 
@@ -1104,29 +1106,37 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		return nil, fmt.Errorf("failed to get disk's (%s) sector size:\n%w", loopback.DevicePath(), err)
 	}
 
+	verityUpdated := false
+
 	for _, metadata := range baseImageVerity {
-		// Find partitions.
-		dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
-			metadata.dataPartUuid, diskPartitions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", metadata.name, err)
-		}
-
-		hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
-			metadata.hashPartUuid, diskPartitions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", metadata.name, err)
-		}
-
-		// Format hash partition.
-		rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
-			shrinkHashPartition, sectorSize)
-		if err != nil {
-			return nil, err
-		}
-
 		newMetadata := metadata
-		newMetadata.rootHash = rootHash
+
+		readonly := slices.Contains(readonlyPartUuids, metadata.dataPartUuid)
+		if !readonly {
+			// Find partitions.
+			dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
+				metadata.dataPartUuid, diskPartitions)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", metadata.name, err)
+			}
+
+			hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
+				metadata.hashPartUuid, diskPartitions)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", metadata.name, err)
+			}
+
+			// Format hash partition.
+			rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
+				shrinkHashPartition, sectorSize)
+			if err != nil {
+				return nil, err
+			}
+
+			newMetadata.rootHash = rootHash
+			verityUpdated = true
+		}
+
 		verityMetadata = append(verityMetadata, newMetadata)
 	}
 
@@ -1161,6 +1171,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 			hashSignaturePath:     verityConfig.HashSignaturePath,
 		}
 		verityMetadata = append(verityMetadata, metadata)
+		verityUpdated = true
 	}
 
 	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
@@ -1169,16 +1180,18 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		return nil, err
 	}
 
-	diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
-	if err != nil {
-		return nil, err
-	}
+	if verityUpdated {
+		diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
+		if err != nil {
+			return nil, err
+		}
 
-	// Update kernel args.
-	isUki := config.OS.Uki != nil
-	err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
-	if err != nil {
-		return nil, err
+		// Update kernel args.
+		isUki := config.OS.Uki != nil
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = loopback.CleanClose()
