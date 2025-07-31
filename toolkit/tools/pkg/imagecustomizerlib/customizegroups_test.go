@@ -22,7 +22,7 @@ func TestCustomizeImageGroupsExistingGid(t *testing.T) {
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "cannot set GID (42) on a group (root) that already exists")
+	assert.ErrorContains(t, err, "cannot set GID on a group that already exists (GID='42', group='root')")
 }
 
 func TestCustomizeImageGroupsNewGid(t *testing.T) {
