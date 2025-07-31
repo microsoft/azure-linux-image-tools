@@ -55,3 +55,45 @@ func TestErrorWrapping(t *testing.T) {
 		assert.True(t, errors.Is(wrappedErr, originalErr))
 	})
 }
+
+func TestGetDeepestImageCustomizerError(t *testing.T) {
+	t.Run("SingleImageCustomizerError", func(t *testing.T) {
+		singleErr := NewImageCustomizerError("Single:Error", "single error")
+		wrappedSingle := fmt.Errorf("wrapper: %w", singleErr)
+
+		deepest := GetDeepestImageCustomizerError(wrappedSingle)
+		assert.NotNil(t, deepest)
+		assert.Equal(t, "Single:Error", deepest.Name())
+		assert.Equal(t, "single error", deepest.Error())
+	})
+
+	t.Run("NoImageCustomizerErrorInChain", func(t *testing.T) {
+		regularErr := fmt.Errorf("regular error")
+		wrappedRegular := fmt.Errorf("wrapper: %w", regularErr)
+
+		deepest := GetDeepestImageCustomizerError(wrappedRegular)
+		assert.Nil(t, deepest)
+	})
+
+	t.Run("MultipleImageCustomizerErrors_ReturnsDeepest", func(t *testing.T) {
+		// Create a proper chain: outerErr -> middleWrapper -> innerErr
+		innerErr := NewImageCustomizerError("Inner:Error", "inner error message")
+		middleWrapper := fmt.Errorf("middle wrapper: %w", innerErr)
+		outerErr := NewImageCustomizerError("Outer:Error", "outer error message")
+		finalWrapper := fmt.Errorf("final wrapper with %w and also %w", outerErr, middleWrapper)
+
+		// The deepest should be the inner error (it's furthest down the chain)
+		deepest := GetDeepestImageCustomizerError(finalWrapper)
+		assert.NotNil(t, deepest)
+		assert.Equal(t, "Inner:Error", deepest.Name())
+		assert.Equal(t, "inner error message", deepest.Error())
+	})
+
+	t.Run("DirectImageCustomizerError", func(t *testing.T) {
+		directErr := NewImageCustomizerError("Direct:Error", "direct error")
+
+		deepest := GetDeepestImageCustomizerError(directErr)
+		assert.NotNil(t, deepest)
+		assert.Equal(t, "Direct:Error", deepest.Name())
+	})
+}
