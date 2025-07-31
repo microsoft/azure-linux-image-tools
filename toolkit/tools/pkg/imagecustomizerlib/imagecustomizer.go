@@ -36,6 +36,8 @@ var (
 	ErrInvalidOutputFormat            = NewImageCustomizerError("Customizer:InvalidOutputFormat", "invalid output image format")
 	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Customizer:CannotGenerateOutputFormat", "cannot generate output format from input format")
 	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Customizer:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
+	ErrInvalidImageConfig             = NewImageCustomizerError("Customizer:InvalidImageConfig", "invalid image config")
+	ErrInvalidParameters              = NewImageCustomizerError("Customizer:InvalidParameters", "invalid parameters")
 )
 
 const (
@@ -269,14 +271,14 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
-		return fmt.Errorf("invalid image config:\n%w", err)
+		return fmt.Errorf("%w: \n%w", ErrInvalidImageConfig, err)
 	}
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
-		return fmt.Errorf("invalid parameters:\n%w", err)
+		return fmt.Errorf("%w: \n%w", ErrInvalidParameters, err)
 	}
 	defer func() {
 		cleanupErr := cleanUp(imageCustomizerParameters)

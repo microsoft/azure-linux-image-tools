@@ -187,13 +187,11 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 			rootMountIdType = imagecustomizerapi.MountIdentifierTypeDefault
 
 		default:
-			return "", fmt.Errorf("%w: \n%w", ErrBootloaderVerityRootUnsupported,
-				fmt.Errorf("unsupported root mount identifier (%s)", rootFstabEntry.Source))
+			return "", fmt.Errorf("%w (identifier='%s')", ErrBootloaderVerityRootUnsupported, rootFstabEntry.Source)
 		}
 
 	default:
-		return "", fmt.Errorf("%w: \n%w", ErrBootloaderMountIdUnsupported,
-			fmt.Errorf("unsupported root mount identifier (%s)", rootFstabEntry.Source))
+		return "", fmt.Errorf("%w (identifier='%s')", ErrBootloaderMountIdUnsupported, rootFstabEntry.Source)
 	}
 
 	return rootMountIdType, nil
