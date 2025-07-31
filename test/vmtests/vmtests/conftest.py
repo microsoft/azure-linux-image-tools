@@ -218,7 +218,7 @@ def close_list(keep_environment: bool) -> Generator[List[Closeable], None, None]
             exceptions.append(ex)
 
     if len(exceptions) > 0:
-        return ExceptionGroup("failed to close resources", exceptions)
+        raise ExceptionGroup("failed to close resources", exceptions)
 
 
 def create_temp_folder(
