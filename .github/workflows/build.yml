@@ -124,7 +124,16 @@ jobs:
     uses: ./.github/workflows/tests-vmtests-imagecreator.yml
     with:
       hostArch: amd64
-      hostDistro: ubuntu2404
+      hostDistro: azl3
+
+  tests-vmtests-imagecreator-ubuntu2404-amd64:
+    name: VMTests suite Ubuntu24.04 AMD64
+    if: ${{ inputs.runVMTests }}
+    needs: binary-build-amd64
+    uses: ./.github/workflows/tests-vmtests-imagecreator.yml
+    with:
+      hostArch: amd64
+      hostDistro: ubuntu2404    
 
   tests-vmtests-imagecreator-ubuntu2404-arm64:
     name: VMTests suite Ubuntu24.04 ARM64
