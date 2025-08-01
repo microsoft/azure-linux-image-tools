@@ -95,6 +95,7 @@ var (
 	ErrStatFile                = NewImageCustomizerError("Customizer:StatFile", "failed to stat file")
 	ErrUpdateKernelArgs        = NewImageCustomizerError("Customizer:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
 	ErrUpdateGrubConfig        = NewImageCustomizerError("Customizer:UpdateGrubConfig", "failed to update grub config for verity")
+	ErrCollectOSInfo           = NewImageCustomizerError("Customizer:CollectOSInfo", "failed to collect OS information")
 )
 
 const (
@@ -640,7 +641,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	if ic.config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
-			return nil
+			return fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
 		ic.osPackages = osPackages
 		ic.cosiBootMetadata = cosiBootMetadata
