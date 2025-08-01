@@ -31,20 +31,22 @@ CONTAINERS_JSON=$(
         --prefix "$IMAGE_NAME/"
 )
 
-LATEST_DIR=$(
+LATEST_IMAGE=$(
     jq \
     -r \
     --arg image "$IMAGE_NAME" \
-    '[.[].name | select(endswith("/image.vhdx")) | rtrimstr("/image.vhdx")] | sort | last' \
+    '[.[].name | select(endswith("/image.vhdx") or endswith("/image.vhd"))] | sort | last' \
     <<< "$CONTAINERS_JSON" \
 )
 
-echo "Latest: $LATEST_DIR"
+echo "Latest: $LATEST_IMAGE"
+
+FILENAME="$(basename "$LATEST_IMAGE")"
 
 az storage blob download \
     --auth-mode login \
     --account-name "$ACCOUNT" \
     --container-name "$CONTAINER" \
-    --name "$LATEST_DIR/image.vhdx" \
-    --file "$OUTPUT_DIR/image.vhdx" \
+    --name "$LATEST_IMAGE" \
+    --file "$OUTPUT_DIR/$FILENAME" \
     --output none
