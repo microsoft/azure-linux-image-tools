@@ -64,38 +64,50 @@ var (
 	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", "preview feature required to customize verity enabled base image")
 	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 
-	// OS customization errors
-	ErrGetAbsoluteConfigPath   = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
-	ErrConvertInputImage       = NewImageCustomizerError("Customizer:ConvertInputImage", "failed to convert input image to a raw image")
-	ErrCustomizeRawImage       = NewImageCustomizerError("Customizer:CustomizeRawImage", "failed to customize raw image")
-	ErrConvertToOutputFormat   = NewImageCustomizerError("Customizer:ConvertToOutputFormat", "failed to convert customized raw image to output format")
-	ErrCreateArtifactsStore    = NewImageCustomizerError("Customizer:CreateArtifactsStore", "failed to create artifacts store")
-	ErrBuildLiveOSConfig       = NewImageCustomizerError("Customizer:BuildLiveOSConfig", "failed to build Live OS configuration")
-	ErrCreateWriteableImage    = NewImageCustomizerError("Customizer:CreateWriteableImage", "failed to create writeable image")
-	ErrDetectImageFormat       = NewImageCustomizerError("Customizer:DetectImageFormat", "failed to detect input image format")
-	ErrConvertImageFormat      = NewImageCustomizerError("Customizer:ConvertImageFormat", "failed to convert image file to raw format")
-	ErrShrinkFilesystems       = NewImageCustomizerError("Customizer:ShrinkFilesystems", "failed to shrink filesystems")
-	ErrCheckFilesystems        = NewImageCustomizerError("Customizer:CheckFilesystems", "failed to check filesystems")
-	ErrCreateLiveOSArtifacts   = NewImageCustomizerError("Customizer:CreateLiveOSArtifacts", "failed to create Live OS artifacts")
-	ErrConvertImageToFormat    = NewImageCustomizerError("Customizer:ConvertImageToFormat", "failed to convert image file to format")
-	ErrExtractPackages         = NewImageCustomizerError("Customizer:ExtractPackages", "failed to extract installed packages")
-	ErrExtractBootloader       = NewImageCustomizerError("Customizer:ExtractBootloader", "failed to extract bootloader metadata")
-	ErrConnectToImage          = NewImageCustomizerError("Customizer:ConnectToImage", "failed to connect to image file to provision verity")
-	ErrGetDiskSectorSize       = NewImageCustomizerError("Customizer:GetDiskSectorSize", "failed to get disk sector size")
-	ErrFindVerityDataPartition = NewImageCustomizerError("Customizer:FindVerityDataPartition", "failed to find verity data partition")
-	ErrFindVerityHashPartition = NewImageCustomizerError("Customizer:FindVerityHashPartition", "failed to find verity hash partition")
-	ErrCalculateRootHash       = NewImageCustomizerError("Customizer:CalculateRootHash", "failed to calculate root hash")
-	ErrCompileRootHashRegex    = NewImageCustomizerError("Customizer:CompileRootHashRegex", "failed to compile root hash regex")
-	ErrParseRootHash           = NewImageCustomizerError("Customizer:ParseRootHash", "failed to parse root hash from veritysetup output")
-	ErrUpdateDisk              = NewImageCustomizerError("Customizer:UpdateDisk", "failed to wait for disk to update")
-	ErrCalculateHashSize       = NewImageCustomizerError("Customizer:CalculateHashSize", "failed to calculate hash partition size")
-	ErrShrinkHashPartition     = NewImageCustomizerError("Customizer:ShrinkHashPartition", "failed to shrink hash partition")
-	ErrVerifyVerity            = NewImageCustomizerError("Customizer:VerifyVerity", "failed to verify verity")
-	ErrMountPartition          = NewImageCustomizerError("Customizer:MountPartition", "failed to mount partition")
-	ErrStatFile                = NewImageCustomizerError("Customizer:StatFile", "failed to stat file")
-	ErrUpdateKernelArgs        = NewImageCustomizerError("Customizer:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
-	ErrUpdateGrubConfig        = NewImageCustomizerError("Customizer:UpdateGrubConfig", "failed to update grub config for verity")
-	ErrCollectOSInfo           = NewImageCustomizerError("Customizer:CollectOSInfo", "failed to collect OS information")
+	// Generic customization errors
+	ErrGetAbsoluteConfigPath = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
+	ErrCustomizeRawImage     = NewImageCustomizerError("Customizer:CustomizeRawImage", "failed to customize raw image")
+
+	// Image conversion errors
+	ErrConvertInputImage       = NewImageCustomizerError("ImageConversion:ConvertInput", "failed to convert input image to a raw image")
+	ErrConvertToOutputFormat   = NewImageCustomizerError("ImageConversion:ConvertToOutput", "failed to convert customized raw image to output format")
+	ErrDetectImageFormat       = NewImageCustomizerError("ImageConversion:DetectFormat", "failed to detect input image format")
+	ErrConvertImageToRawFormat = NewImageCustomizerError("ImageConversion:ConvertToRawFormat", "failed to convert image file to raw format")
+	ErrConvertImageToFormat    = NewImageCustomizerError("ImageConversion:ConvertToFormat", "failed to convert image file to format")
+
+	// Artifacts errors
+	ErrCreateArtifactsStore = NewImageCustomizerError("Artifacts:CreateStore", "failed to create artifacts store")
+	ErrExtractPackages      = NewImageCustomizerError("Artifacts:ExtractPackages", "failed to extract installed packages")
+	ErrExtractBootloader    = NewImageCustomizerError("Artifacts:ExtractBootloader", "failed to extract bootloader metadata")
+	ErrCollectOSInfo        = NewImageCustomizerError("Artifacts:CollectOSInfo", "failed to collect OS information")
+
+	// LiveOS errors
+	ErrBuildLiveOSConfig     = NewImageCustomizerError("LiveOS:BuildConfig", "failed to build Live OS configuration")
+	ErrCreateWriteableImage  = NewImageCustomizerError("LiveOS:CreateWriteableImage", "failed to create writeable image")
+	ErrCreateLiveOSArtifacts = NewImageCustomizerError("LiveOS:CreateArtifacts", "failed to create Live OS artifacts")
+
+	// Filesystem errors
+	ErrShrinkFilesystems = NewImageCustomizerError("Filesystem:Shrink", "failed to shrink filesystems")
+	ErrCheckFilesystems  = NewImageCustomizerError("Filesystem:Check", "failed to check filesystems")
+	ErrStatFile          = NewImageCustomizerError("Filesystem:StatFile", "failed to stat file")
+
+	// Disk/Storage errors
+	ErrConnectToImage    = NewImageCustomizerError("Disk:ConnectToImage", "failed to connect to image file to provision verity")
+	ErrGetDiskSectorSize = NewImageCustomizerError("Disk:GetSectorSize", "failed to get disk sector size")
+	ErrMountPartition    = NewImageCustomizerError("Disk:MountPartition", "failed to mount partition")
+	ErrUpdateDisk        = NewImageCustomizerError("Disk:UpdateDisk", "failed to wait for disk to update")
+
+	// Verity errors
+	ErrFindVerityDataPartition = NewImageCustomizerError("Verity:FindDataPartition", "failed to find verity data partition")
+	ErrFindVerityHashPartition = NewImageCustomizerError("Verity:FindHashPartition", "failed to find verity hash partition")
+	ErrCalculateRootHash       = NewImageCustomizerError("Verity:CalculateRootHash", "failed to calculate root hash")
+	ErrCompileRootHashRegex    = NewImageCustomizerError("Verity:CompileRootHashRegex", "failed to compile root hash regex")
+	ErrParseRootHash           = NewImageCustomizerError("Verity:ParseRootHash", "failed to parse root hash from veritysetup output")
+	ErrCalculateHashSize       = NewImageCustomizerError("Verity:CalculateHashSize", "failed to calculate hash partition size")
+	ErrShrinkHashPartition     = NewImageCustomizerError("Verity:ShrinkHashPartition", "failed to shrink hash partition")
+	ErrVerifyVerity            = NewImageCustomizerError("Verity:Verify", "failed to verify verity")
+	ErrUpdateKernelArgs        = NewImageCustomizerError("Verity:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
+	ErrUpdateGrubConfig        = NewImageCustomizerError("Verity:UpdateGrubConfig", "failed to update grub config for verity")
 )
 
 const (
@@ -516,7 +528,7 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
 	if err != nil {
-		return "", fmt.Errorf("%w: \n%w", ErrConvertImageFormat, err)
+		return "", fmt.Errorf("%w: \n%w", ErrConvertImageToRawFormat, err)
 	}
 
 	format, err := qemuStringtoImageFormatType(detectedImageFormat)
@@ -1348,6 +1360,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	defer bootPartitionMount.Close()
 
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
+	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'): \n%w", ErrStatFile, grubCfgFullPath, err)
 	}
