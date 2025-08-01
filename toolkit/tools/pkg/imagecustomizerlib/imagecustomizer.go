@@ -61,7 +61,7 @@ var (
 	ErrUnsupportedQemuImageFormat     = NewImageCustomizerError("Customizer:UnsupportedQemuImageFormat", "unsupported qemu-img format")
 	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
 	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", "preview feature required to specify package snapshot time")
-	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Customizer:VerityPreviewFeatureRequired", "preview feature required to customize verity enabled base image")
+	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", "preview feature required to customize verity enabled base image")
 	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 
 	// OS customization errors

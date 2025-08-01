@@ -216,7 +216,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to find SSH public key file (does-not-exist)")
+	assert.ErrorContains(t, err, "failed to find SSH public key file (path='does-not-exist')")
 }
 
 func TestCustomizeImageUsersAddFiles(t *testing.T) {
