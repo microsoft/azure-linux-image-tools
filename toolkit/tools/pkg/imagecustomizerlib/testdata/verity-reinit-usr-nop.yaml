@@ -2,10 +2,10 @@ previewFeatures:
 - reinitialize-verity
 
 storage:
-  reinitializeVerity: all
+  reinitializeVerity: none
 
 os:
   additionalFiles:
   - content: |
       cat, dog, elephant, squirrel
-    destination: /usr/local/share/animals.txt
+    destination: /etc/animals.txt

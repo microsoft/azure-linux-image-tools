@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -20,7 +21,7 @@ var (
 	ErrFilesystemResize2fs     = NewImageCustomizerError("Filesystem:Resize2fs", "failed to resize filesystem with resize2fs")
 )
 
-func shrinkFilesystems(imageLoopDevice string) error {
+func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
@@ -45,6 +46,12 @@ func shrinkFilesystems(imageLoopDevice string) error {
 		fstype := diskPartition.FileSystemType
 		if !supportedShrinkFsType(fstype) {
 			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
+			continue
+		}
+
+		readonly := slices.Contains(readonlyPartUuids, diskPartition.PartUuid)
+		if readonly {
+			logger.Log.Infof("Shrinking partition (%s): skipping read-only partition (%s)", partitionLoopDevice, fstype)
 			continue
 		}
 

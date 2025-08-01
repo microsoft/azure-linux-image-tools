@@ -36,6 +36,26 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		return
 	}
 
+	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	if !ok {
+		return
+	}
+
+	// Customize again without changing /usr verity or the UKI.
+	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
+	configFile2 := filepath.Join(testDir, "verity-reinit-usr-nop.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+}
+
+func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
+) (map[string]string, bool) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
 		{
@@ -66,9 +86,9 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, imagePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
-		return
+		return nil, false
 	}
 	defer imageConnection.Close()
 
@@ -136,4 +156,28 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	}
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
 	assert.Equal(t, expectedFstabEntries, filteredFstabEntries)
+
+	ukiFiles, err := getUkiFiles(espPath)
+	if !assert.NoError(t, err) {
+		return nil, false
+	}
+
+	ukiFilesChecksums := make(map[string]string)
+	for _, ukiFile := range ukiFiles {
+		checksum, err := file.GenerateSHA256(ukiFile)
+		if !assert.NoError(t, err) {
+			return nil, false
+		}
+
+		ukiFilesChecksums[ukiFile] = checksum
+	}
+
+	if expectedUkiFilesChecksums != nil {
+		// Verify that the UKI files haven't changed.
+		// Note: This indirectly also checks that the verity partitions haven't changed since the UKIs contain the
+		// verity root hash in the kernel command-line args.
+		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
+	}
+
+	return ukiFilesChecksums, true
 }

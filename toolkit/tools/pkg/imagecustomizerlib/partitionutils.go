@@ -199,8 +199,8 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, readonly bool,
-) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, error) {
+	buildDir string, readonly bool, readOnlyVerity bool,
+) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
 	// Convert fstab entries into mount points.
@@ -208,19 +208,25 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	var foundRoot bool
 	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
 	verityMetadataList := []verityDeviceMetadata(nil)
+	readonlyPartUuids := []string(nil)
 	for _, fstabEntry := range filteredFstabEntries {
 		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
+		}
+
+		readOnlyPartition := readOnlyVerity && verityMetadata != nil
+		if readOnlyPartition {
+			readonlyPartUuids = append(readonlyPartUuids, partition.PartUuid)
 		}
 
 		var vfsOptions diskutils.MountFlags
-		if readonly {
+		if readonly || readOnlyPartition {
 			// In scenarios where the image has completed customization (e.g. when the image is re-mounted for injection),
 			// force read-only mount. Since we're only reading data, execution and write permissions aren't needed.
 			vfsOptions = fstabEntry.VfsOptions | diskutils.MountFlags(unix.MS_RDONLY)
 		} else {
-			// Unset read-only flag so that read-only partitions can be customized.Add commentMore actions
+			// Unset read-only flag so that read-only partitions can be customized.
 			// Unset noexec flag so that if rootfs is set as noexec, image can still be customized. For example, allowing
 			// grub2-mkconfig to be called.
 			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
@@ -247,10 +253,10 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	}
 
 	if !foundRoot {
-		return nil, nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
+		return nil, nil, nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
-	return mountPoints, partUuidToFstabEntry, verityMetadataList, nil
+	return mountPoints, partUuidToFstabEntry, verityMetadataList, readonlyPartUuids, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {
@@ -522,11 +528,20 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	return args, nil
 }
 
-func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[string]string, error) {
+func getUkiFiles(espPath string) ([]string, error) {
 	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
 	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+	}
+
+	return ukiFiles, nil
+}
+
+func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[string]string, error) {
+	ukiFiles, err := getUkiFiles(espPath)
+	if err != nil {
+		return nil, err
 	}
 
 	kernelToArgsString := make(map[string]string)

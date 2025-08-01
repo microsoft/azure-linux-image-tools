@@ -1,6 +1,9 @@
 previewFeatures:
 - reinitialize-verity
 
+storage:
+  reinitializeVerity: all
+
 os:
   bootloader:
     resetType: hard-reset

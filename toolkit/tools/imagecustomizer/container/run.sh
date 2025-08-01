@@ -4,7 +4,10 @@ set -euo pipefail
 shopt -s nullglob
 
 exit_with_usage() {
-    local error_msg="$1"
+    local error_msg=""
+    if [[ $# -gt 0 ]]; then
+        error_msg="$1"
+    fi
 
     echo "Usage: run.sh <VERSION> [extra imagecustomizer args]"
     echo ""

@@ -152,7 +152,7 @@ in front of any HTTP endpoints.
 5. Run Image Customizer to create the new image:
 
    ```bash
-   IMG_CUSTOMIZER_TAG="mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0"
+   IMG_CUSTOMIZER_TAG="mcr.microsoft.com/azurelinux/imagecustomizer:0.17.0"
    docker run \
      --rm \
      --privileged=true \

@@ -9,23 +9,37 @@ has_toc: false
 
 The Image Customizer container packages up the Image Customizer executable along with all of its dependencies. This is the *recommended* way to use Image Customizer. 
 
-The container is published to the [Microsoft Container Registry (MCR)](https://mcr.microsoft.com/en-us/artifact/mar/azurelinux/imagecustomizer/) at:
+The container is published to both:
 
-```text
-mcr.microsoft.com/azurelinux/imagecustomizer:<version>
-```
+- The [Microsoft Artifact Registry (MCR)](https://mcr.microsoft.com/en-us/artifact/mar/azurelinux/imagecustomizer/) at:
 
-For example:
+  ```text
+  mcr.microsoft.com/azurelinux/imagecustomizer:<version>
+  ```
 
-```text
-mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0
-```
+  For example:
 
-You can also use the MCR REST API to query available and latest tags:
+  ```text
+  mcr.microsoft.com/azurelinux/imagecustomizer:0.17.0
+  ```
 
-``` bash 
-curl -s "https://mcr.microsoft.com/v2/azurelinux/imagecustomizer/tags/list" | jq '.tags[]' 
-```
+  You can use the MCR REST API to query available and latest tags:
+
+  ``` bash
+  curl -s "https://mcr.microsoft.com/v2/azurelinux/imagecustomizer/tags/list" | jq '.tags[]' 
+  ```
+
+- The GitHub Container Registry at:
+
+  ```text
+  ghcr.io/microsoft/imagecustomizer:<version>
+  ```
+
+  For example:
+
+  ```text
+  ghcr.io/microsoft/imagecustomizer:0.17.0
+  ```
 
 ## Prerequisites
 
@@ -60,7 +74,7 @@ curl -s "https://mcr.microsoft.com/v2/azurelinux/imagecustomizer/tags/list" | jq
       --privileged=true \
       -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
-      mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0 \
+      mcr.microsoft.com/azurelinux/imagecustomizer:0.17.0 \
       imagecustomizer \
         --image-file "/mnt/staging/image.vhdx" \
         --config-file "/mnt/staging/image-config.yaml" \
@@ -87,7 +101,7 @@ curl -s "https://mcr.microsoft.com/v2/azurelinux/imagecustomizer/tags/list" | jq
     - `-v $HOME/staging:/mnt/staging:z`: Mounts a host directory (`$HOME/staging`) into the
       container. This can be used to easily pass files in and out of the container.
 
-    - `mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0`: The container to run.
+    - `mcr.microsoft.com/azurelinux/imagecustomizer:0.17.0`: The container to run.
 
     - `imagecustomizer`: Specifies the executable to run within the container.
 
@@ -121,7 +135,7 @@ For example, this is the equivalent call to the above example:
 
 ```bash
 run-container.sh \
-    -t mcr.microsoft.com/azurelinux/imagecustomizer:0.13.0 \
+    -t mcr.microsoft.com/azurelinux/imagecustomizer:0.17.0 \
     -i "$HOME/staging/image.vhdx" \
     -c "$HOME/staging/image-config.yaml" \
     -f vhdx \

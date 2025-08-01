@@ -78,7 +78,7 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 	}
 
 	if config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(ctx, imageChroot.RootDir(), imageUuid, baseConfigPath, ToolVersion, buildTime, config)
+		err = addImageHistory(ctx, imageChroot, imageUuid, baseConfigPath, ToolVersion, buildTime, config)
 		if err != nil {
 			return err
 		}

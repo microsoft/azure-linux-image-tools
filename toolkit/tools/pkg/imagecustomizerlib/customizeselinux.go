@@ -16,6 +16,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -126,6 +127,11 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 	// Get the list of mount points.
 	mountPointToFsTypeMap := make(map[string]string, 0)
 	for _, mountPoint := range getNonSpecialChrootMountPoints(imageChroot) {
+		if (mountPoint.GetFlags() & unix.MS_RDONLY) != 0 {
+			// Skip read-only filesystems.
+			continue
+		}
+
 		mountPointToFsTypeMap[mountPoint.GetTarget()] = mountPoint.GetFSType()
 	}
 

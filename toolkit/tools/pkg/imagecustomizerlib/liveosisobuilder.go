@@ -197,7 +197,8 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 	}()
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
-	rawImageConnection, _, _, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount", false /*includeDefaultMounts*/, false)
+	rawImageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
+		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/)
 	if err != nil {
 		return err
 	}
