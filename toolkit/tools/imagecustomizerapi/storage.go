@@ -26,6 +26,7 @@ type Storage struct {
 	Disks                    []Disk                   `yaml:"disks" json:"disks,omitempty"`
 	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
+	ReinitializeVerity       ReinitializeVerityType   `yaml:"reinitializeVerity" json:"reinitializeVerity,omitempty"`
 
 	// Filled in by Storage.IsValid().
 	VerityPartitionsType VerityPartitionsType `json:"-"`
@@ -94,6 +95,11 @@ func (s *Storage) IsValid() error {
 		if err != nil {
 			return fmt.Errorf("invalid filesystems item at index %d:\n%w", i, err)
 		}
+	}
+
+	err = s.ReinitializeVerity.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid 'reinitializeVerity' value:\n%w", err)
 	}
 
 	hasResetUuids := s.ResetPartitionsUuidsType != ResetPartitionsUuidsTypeDefault
