@@ -41,7 +41,7 @@ jobs:
         bundle exec htmlproofer \
           --disable-external \
           --assume_extension '.html' \
-          --swap-urls '^${PAGES_PATH}/:/' \
+          --swap-urls "^${PAGES_PATH}/:/" \
           ./_site
       working-directory: ./docs
       env:
