@@ -18,7 +18,7 @@ Image Customizer can be run in two ways:
 - As a container image downloaded from Microsoft Artifact Registry
 - As a binary built from the GitHub repository
 
-Telemetry is collected in both cases. 
+Telemetry is collected in both cases.
 
 ## How to opt out 
 
@@ -31,7 +31,7 @@ docker run \
    --privileged=true \
    -v /dev:/dev \
    -v "$HOME/staging:/mnt/staging:z" \
-   mcr.microsoft.com/azurelinux/imagecustomizer:0.15.0 \
+   mcr.microsoft.com/azurelinux/imagecustomizer:0.17.0 \
    imagecustomizer \
      --image-file "/mnt/staging/image.vhdx" \
      --config-file "/mnt/staging/image-config.yaml" \
