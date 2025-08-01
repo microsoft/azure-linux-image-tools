@@ -313,7 +313,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			errorName := "Internal"
+			errorName := "Customizer:Internal" // default
 			if namedErr := GetDeepestImageCustomizerError(err); namedErr != nil {
 				errorName = namedErr.Name()
 			}
