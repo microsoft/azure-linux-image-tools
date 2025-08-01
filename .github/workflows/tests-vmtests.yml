@@ -86,6 +86,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         path: repo
+        persist-credentials: false
 
     - name: Download base images
       run: |
