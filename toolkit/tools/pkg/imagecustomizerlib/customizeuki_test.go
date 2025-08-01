@@ -173,7 +173,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 	}
 
 	if expectedUkiFilesChecksums != nil {
-		// Veirfy that the UKI files haven't changed.
+		// Verify that the UKI files haven't changed.
 		// Note: This indirectly also checks that the verity partitions haven't changed since the UKIs contain the
 		// verity root hash in the kernel command-line args.
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
