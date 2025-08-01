@@ -11,15 +11,15 @@ import libvirt  # type: ignore
 import pytest
 from docker import DockerClient
 
-from .conftest import TEST_CONFIGS_DIR
-from .utils import local_client
-from .utils.closeable import Closeable
-from .utils.host_utils import get_host_distro
-from .utils.imagecustomizer import run_image_customizer
-from .utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
-from .utils.libvirt_vm import LibvirtVm
-from .utils.ssh_client import SshClient
-from .utils.user_utils import get_username
+from ..conftest import TEST_CONFIGS_DIR
+from ..utils import local_client
+from ..utils.closeable import Closeable
+from ..utils.host_utils import get_host_distro
+from ..utils.imagecustomizer import run_image_customizer
+from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
+from ..utils.libvirt_vm import LibvirtVm
+from ..utils.ssh_client import SshClient
+from ..utils.user_utils import get_username
 
 
 def run_min_change_test(

@@ -15,6 +15,7 @@ MYPY=${VENV_BIN_DIR}/mypy
 TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
+OSMODIFIER_BIN=${TOOLS_BIN_DIR}/osmodifier
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
@@ -87,7 +88,23 @@ test:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests
+		./vmtests/imagecustomizer
 
 .PHONY: run
 run: image-customizer-container test
+
+.PHONY: test-osmodifier
+test-osmodifier:
+	${MAKE} -C ${TOOLKIT_DIR} go-osmodifier
+	${PYTEST} \
+		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+		--osmodifier-binary="${OSMODIFIER_BIN}" \
+		--logs-dir="${LOGS_DIR}" \
+		--input-image="${INPUT_IMAGE}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		./vmtests/osmodifier

@@ -4,24 +4,36 @@
 import logging
 import os
 import platform
+import sys
 import tempfile
 from getpass import getuser
 from pathlib import Path
-from typing import Generator, List, Tuple
+from typing import List, Tuple
 
 import libvirt  # type: ignore
 import pytest
 import yaml
 from docker import DockerClient
-from vmtests.vmtests.utils import local_client
-from vmtests.vmtests.utils.closeable import Closeable
-from vmtests.vmtests.utils.host_utils import get_host_distro
-from vmtests.vmtests.utils.imagecustomizer import run_image_customizer
-from vmtests.vmtests.utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
-from vmtests.vmtests.utils.libvirt_vm import LibvirtVm
-from vmtests.vmtests.utils.ssh_client import SshClient
 
-from .conftest import TEST_CONFIGS_DIR
+from ..conftest import (
+    TEST_CONFIGS_DIR,
+    docker_client,
+    image_customizer_container_url,
+    keep_environment,
+    libvirt_conn,
+    libvirt_event_thread,
+    logs_dir,
+    session_close_list,
+    session_instance_name,
+    ssh_key,
+)
+from ..utils import local_client
+from ..utils.closeable import Closeable
+from ..utils.host_utils import get_host_distro
+from ..utils.imagecustomizer import run_image_customizer
+from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
+from ..utils.libvirt_vm import LibvirtVm
+from ..utils.ssh_client import SshClient
 
 
 @pytest.fixture(scope="session")
@@ -32,11 +44,11 @@ def setup_vm_with_osmodifier(
     input_image: Path,
     ssh_key: Tuple[str, Path],
     session_temp_dir: Path,
-    test_instance_name: str,
+    session_instance_name: str,
     logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
-    close_list: List[Closeable],
-) -> Generator[Tuple[SshClient, Path, Path], None, None]:
+    session_close_list: List[Closeable],
+) -> Tuple[SshClient, Path, Path]:
     if platform.machine() == "x86_64":
         config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
     else:
@@ -66,7 +78,7 @@ def setup_vm_with_osmodifier(
         ssh_public_key,
         output_format,
         output_image_path,
-        close_list,
+        session_close_list,
     )
 
     image_name = os.path.basename(output_image_path)
@@ -110,7 +122,7 @@ def setup_vm_with_osmodifier(
     vm_image = diff_image_path
 
     # Create VM.
-    vm_name = test_instance_name
+    vm_name = session_instance_name
 
     vm_spec = VmSpec(vm_name, 4096, 4, vm_image, target_boot_type, secure_boot)
     domain_xml = create_libvirt_domain_xml(libvirt_conn, vm_spec)
@@ -118,7 +130,7 @@ def setup_vm_with_osmodifier(
     logging.debug(f"\n\ndomain_xml            = {domain_xml}\n\n")
 
     vm = LibvirtVm(vm_name, domain_xml, vm_console_log_file_path, libvirt_conn)
-    close_list.append(vm)
+    session_close_list.append(vm)
 
     # Start VM.
     vm.start()
@@ -167,7 +179,7 @@ def run_osmodifier_with_config(
     result.check_exit_code()
 
 
-def check_services(ssh_client, service: str, expected: str) -> None:
+def check_services(ssh_client: SshClient, service: str, expected: str) -> None:
     cmd = f"systemctl is-enabled {service} || true"
     output = ssh_client.run(cmd).stdout.strip().splitlines()
     if expected == "enabled":
