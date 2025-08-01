@@ -32,31 +32,12 @@ import (
 )
 
 var (
-	// Image customizer input validation errors
-	ErrInvalidOutputFormat            = NewImageCustomizerError("Customizer:InvalidOutputFormat", "invalid output image format")
-	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Customizer:CannotGenerateOutputFormat", "cannot generate output format from input format")
-	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Customizer:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
-	ErrInvalidImageConfig             = NewImageCustomizerError("Customizer:InvalidImageConfig", "invalid image config")
-	ErrInvalidParameters              = NewImageCustomizerError("Customizer:InvalidParameters", "invalid parameters")
-
-	// Image processing errors
-	ErrFailedToGetAbsoluteConfigPath        = NewImageCustomizerError("Customizer:FailedToGetAbsoluteConfigPath", "failed to get absolute path of config file directory")
-	ErrFailedToConvertInputImage            = NewImageCustomizerError("Customizer:FailedToConvertInputImage", "failed to convert input image to a raw image")
-	ErrFailedToCustomizeRawImage            = NewImageCustomizerError("Customizer:FailedToCustomizeRawImage", "failed to customize raw image")
-	ErrFailedToConvertToOutputFormat        = NewImageCustomizerError("Customizer:FailedToConvertToOutputFormat", "failed to convert customized raw image to output format")
-	ErrFailedToCreateArtifactsStore         = NewImageCustomizerError("Customizer:FailedToCreateArtifactsStore", "failed to create artifacts store")
-	ErrFailedToBuildLiveOSConfig            = NewImageCustomizerError("Customizer:FailedToBuildLiveOSConfig", "failed to build Live OS configuration")
-	ErrFailedToCreateWriteableImage         = NewImageCustomizerError("Customizer:FailedToCreateWriteableImage", "failed to create writeable image")
-	ErrFailedToDetectImageFormat            = NewImageCustomizerError("Customizer:FailedToDetectImageFormat", "failed to detect input image format")
-	ErrFailedToConvertImageFormat           = NewImageCustomizerError("Customizer:FailedToConvertImageFormat", "failed to convert image file to raw format")
-	ErrUnsupportedQemuImageFormat           = NewImageCustomizerError("Customizer:UnsupportedQemuImageFormat", "unsupported qemu-img format")
-	ErrVerityPreviewFeatureRequired         = NewImageCustomizerError("Customizer:VerityPreviewFeatureRequired", "preview feature required to customize verity enabled base image")
-	ErrFailedToShrinkFilesystems            = NewImageCustomizerError("Customizer:FailedToShrinkFilesystems", "failed to shrink filesystems")
-	ErrFailedToCheckFilesystems             = NewImageCustomizerError("Customizer:FailedToCheckFilesystems", "failed to check filesystems")
-	ErrFailedToCreateLiveOSArtifacts        = NewImageCustomizerError("Customizer:FailedToCreateLiveOSArtifacts", "failed to create Live OS artifacts")
-	ErrFailedToConvertImageToFormat         = NewImageCustomizerError("Customizer:FailedToConvertImageToFormat", "failed to convert image file to format")
-
-	// Input validation errors
+	// Validation errors
+	ErrInvalidOutputFormat            = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
+	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
+	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
+	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
 	ErrInputImageFileRequired         = NewImageCustomizerError("Validation:InputImageFileRequired", "input image file must be specified")
 	ErrInvalidInputImageFileArg       = NewImageCustomizerError("Validation:InvalidInputImageFileArg", "invalid command-line option '--image-file'")
 	ErrInputImageFileNotFile          = NewImageCustomizerError("Validation:InputImageFileNotFile", "input image file is not a file")
@@ -68,41 +49,54 @@ var (
 	ErrScriptNotUnderConfigDir        = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
 	ErrScriptFileNotReadable          = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
 	ErrNoRpmSourcesSpecified          = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
-
-	// Output validation errors
-	ErrOutputImageFileRequired         = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
-	ErrInvalidOutputImageFileArg       = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
-	ErrOutputImageFileIsDirectory      = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
-	ErrInvalidOutputImageFileConfig    = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
-	ErrOutputImageFormatRequired       = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
-	ErrInvalidUser                     = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
-	ErrInvalidSSHPublicKeyFile         = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
-	ErrSSHPublicKeyNotFile             = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
+	ErrOutputImageFileRequired        = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
+	ErrInvalidOutputImageFileArg      = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
+	ErrOutputImageFileIsDirectory     = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
+	ErrInvalidOutputImageFileConfig   = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
+	ErrOutputImageFormatRequired      = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
+	ErrInvalidUser                    = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
+	ErrInvalidSSHPublicKeyFile        = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
+	ErrSSHPublicKeyNotFile            = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
+	ErrVerityValidation               = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
 
 	// OS customization errors
-	ErrVerityValidationFailed          = NewImageCustomizerError("Customizer:VerityValidationFailed", "verity validation failed")
-	ErrFailedToExtractPackages         = NewImageCustomizerError("Customizer:FailedToExtractPackages", "failed to extract installed packages")
-	ErrFailedToExtractBootloader       = NewImageCustomizerError("Customizer:FailedToExtractBootloader", "failed to extract bootloader metadata")
-	ErrFailedToConnectToImage          = NewImageCustomizerError("Customizer:FailedToConnectToImage", "failed to connect to image file to provision verity")
-	ErrFailedToGetDiskSectorSize       = NewImageCustomizerError("Customizer:FailedToGetDiskSectorSize", "failed to get disk sector size")
-	ErrFailedToFindVerityDataPartition = NewImageCustomizerError("Customizer:FailedToFindVerityDataPartition", "failed to find verity data partition")
-	ErrFailedToFindVerityHashPartition = NewImageCustomizerError("Customizer:FailedToFindVerityHashPartition", "failed to find verity hash partition")
-	ErrFailedToCalculateRootHash       = NewImageCustomizerError("Customizer:FailedToCalculateRootHash", "failed to calculate root hash")
-	ErrFailedToCompileRootHashRegex    = NewImageCustomizerError("Customizer:FailedToCompileRootHashRegex", "failed to compile root hash regex")
-	ErrFailedToParseRootHash           = NewImageCustomizerError("Customizer:FailedToParseRootHash", "failed to parse root hash from veritysetup output")
-	ErrFailedToUpdateDisk              = NewImageCustomizerError("Customizer:FailedToUpdateDisk", "failed to wait for disk to update")
-	ErrFailedToCalculateHashSize       = NewImageCustomizerError("Customizer:FailedToCalculateHashSize", "failed to calculate hash partition size")
-	ErrFailedToShrinkHashPartition     = NewImageCustomizerError("Customizer:FailedToShrinkHashPartition", "failed to shrink hash partition")
-	ErrFailedToVerifyVerity            = NewImageCustomizerError("Customizer:FailedToVerifyVerity", "failed to verify verity")
-	ErrFailedToMountPartition          = NewImageCustomizerError("Customizer:FailedToMountPartition", "failed to mount partition")
-	ErrFailedToStatFile                = NewImageCustomizerError("Customizer:FailedToStatFile", "failed to stat file")
-	ErrFailedToUpdateKernelArgs        = NewImageCustomizerError("Customizer:FailedToUpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
-	ErrFailedToUpdateGrubConfig        = NewImageCustomizerError("Customizer:FailedToUpdateGrubConfig", "failed to update grub config for verity")
+	ErrGetAbsoluteConfigPath        = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
+	ErrConvertInputImage            = NewImageCustomizerError("Customizer:ConvertInputImage", "failed to convert input image to a raw image")
+	ErrCustomizeRawImage            = NewImageCustomizerError("Customizer:CustomizeRawImage", "failed to customize raw image")
+	ErrConvertToOutputFormat        = NewImageCustomizerError("Customizer:ConvertToOutputFormat", "failed to convert customized raw image to output format")
+	ErrCreateArtifactsStore         = NewImageCustomizerError("Customizer:CreateArtifactsStore", "failed to create artifacts store")
+	ErrBuildLiveOSConfig            = NewImageCustomizerError("Customizer:BuildLiveOSConfig", "failed to build Live OS configuration")
+	ErrCreateWriteableImage         = NewImageCustomizerError("Customizer:CreateWriteableImage", "failed to create writeable image")
+	ErrDetectImageFormat            = NewImageCustomizerError("Customizer:DetectImageFormat", "failed to detect input image format")
+	ErrConvertImageFormat           = NewImageCustomizerError("Customizer:ConvertImageFormat", "failed to convert image file to raw format")
+	ErrUnsupportedQemuImageFormat   = NewImageCustomizerError("Customizer:UnsupportedQemuImageFormat", "unsupported qemu-img format")
+	ErrVerityPreviewFeatureRequired = NewImageCustomizerError("Customizer:VerityPreviewFeatureRequired", "preview feature required to customize verity enabled base image")
+	ErrShrinkFilesystems            = NewImageCustomizerError("Customizer:ShrinkFilesystems", "failed to shrink filesystems")
+	ErrCheckFilesystems             = NewImageCustomizerError("Customizer:CheckFilesystems", "failed to check filesystems")
+	ErrCreateLiveOSArtifacts        = NewImageCustomizerError("Customizer:CreateLiveOSArtifacts", "failed to create Live OS artifacts")
+	ErrConvertImageToFormat         = NewImageCustomizerError("Customizer:ConvertImageToFormat", "failed to convert image file to format")
+	ErrExtractPackages              = NewImageCustomizerError("Customizer:ExtractPackages", "failed to extract installed packages")
+	ErrExtractBootloader            = NewImageCustomizerError("Customizer:ExtractBootloader", "failed to extract bootloader metadata")
+	ErrConnectToImage               = NewImageCustomizerError("Customizer:ConnectToImage", "failed to connect to image file to provision verity")
+	ErrGetDiskSectorSize            = NewImageCustomizerError("Customizer:GetDiskSectorSize", "failed to get disk sector size")
+	ErrFindVerityDataPartition      = NewImageCustomizerError("Customizer:FindVerityDataPartition", "failed to find verity data partition")
+	ErrFindVerityHashPartition      = NewImageCustomizerError("Customizer:FindVerityHashPartition", "failed to find verity hash partition")
+	ErrCalculateRootHash            = NewImageCustomizerError("Customizer:CalculateRootHash", "failed to calculate root hash")
+	ErrCompileRootHashRegex         = NewImageCustomizerError("Customizer:CompileRootHashRegex", "failed to compile root hash regex")
+	ErrParseRootHash                = NewImageCustomizerError("Customizer:ParseRootHash", "failed to parse root hash from veritysetup output")
+	ErrUpdateDisk                   = NewImageCustomizerError("Customizer:UpdateDisk", "failed to wait for disk to update")
+	ErrCalculateHashSize            = NewImageCustomizerError("Customizer:CalculateHashSize", "failed to calculate hash partition size")
+	ErrShrinkHashPartition          = NewImageCustomizerError("Customizer:ShrinkHashPartition", "failed to shrink hash partition")
+	ErrVerifyVerity                 = NewImageCustomizerError("Customizer:VerifyVerity", "failed to verify verity")
+	ErrMountPartition               = NewImageCustomizerError("Customizer:MountPartition", "failed to mount partition")
+	ErrStatFile                     = NewImageCustomizerError("Customizer:StatFile", "failed to stat file")
+	ErrUpdateKernelArgs             = NewImageCustomizerError("Customizer:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
+	ErrUpdateGrubConfig             = NewImageCustomizerError("Customizer:UpdateGrubConfig", "failed to update grub config for verity")
 
 	// Environment validation errors
-	ErrToolNotRunAsRoot                = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root")
-	ErrPackageSnapshotPreviewRequired  = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", "preview feature required to specify package snapshot time")
-	ErrInvalidPackageSnapshotTime      = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
+	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root")
+	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", "preview feature required to specify package snapshot time")
+	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 )
 
 const (
@@ -290,7 +284,7 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrFailedToGetAbsoluteConfigPath, err)
+		return fmt.Errorf("%w: \n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
 	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
@@ -375,7 +369,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	inputIsoArtifacts, err := convertInputImageToWriteableFormat(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrFailedToConvertInputImage, err)
+		return fmt.Errorf("%w: \n%w", ErrConvertInputImage, err)
 	}
 	defer func() {
 		if inputIsoArtifacts != nil {
@@ -392,7 +386,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrFailedToCustomizeRawImage, err)
+		return fmt.Errorf("%w: \n%w", ErrCustomizeRawImage, err)
 	}
 
 	if config.Output.Artifacts != nil {
@@ -407,7 +401,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = convertWriteableFormatToOutputImage(ctx, imageCustomizerParameters, inputIsoArtifacts)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrFailedToConvertToOutputFormat, err)
+		return fmt.Errorf("%w: \n%w", ErrConvertToOutputFormat, err)
 	}
 
 	logger.Log.Infof("Success!")
@@ -449,14 +443,14 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 
 		inputIsoArtifacts, err := createIsoArtifactStoreFromIsoImage(ic.inputImageFile, filepath.Join(ic.buildDirAbs, "from-iso"))
 		if err != nil {
-			return inputIsoArtifacts, fmt.Errorf("%w (source='%s'): \n%w", ErrFailedToCreateArtifactsStore, ic.inputImageFile, err)
+			return inputIsoArtifacts, fmt.Errorf("%w (source='%s'): \n%w", ErrCreateArtifactsStore, ic.inputImageFile, err)
 		}
 
 		var liveosConfig LiveOSConfig
 		liveosConfig, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso,
 			ic.config.Pxe, ic.outputImageFormat)
 		if err != nil {
-			return nil, fmt.Errorf("%w: \n%w", ErrFailedToBuildLiveOSConfig, err)
+			return nil, fmt.Errorf("%w: \n%w", ErrBuildLiveOSConfig, err)
 		}
 
 		// Check if the user is changing the kdump boot files configuration.
@@ -473,7 +467,7 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 		if rebuildFullOsImage {
 			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
 			if err != nil {
-				return nil, fmt.Errorf("%w: \n%w", ErrFailedToCreateWriteableImage, err)
+				return nil, fmt.Errorf("%w: \n%w", ErrCreateWriteableImage, err)
 			}
 		}
 
@@ -495,7 +489,7 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 ) (imagecustomizerapi.ImageFormatType, error) {
 	imageInfo, err := GetImageFileInfo(inputImageFile)
 	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'): \n%w", ErrFailedToDetectImageFormat, inputImageFile, err)
+		return "", fmt.Errorf("%w (file='%s'): \n%w", ErrDetectImageFormat, inputImageFile, err)
 	}
 
 	detectedImageFormat := imageInfo.Format
@@ -523,7 +517,7 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
 	if err != nil {
-		return "", fmt.Errorf("%w: \n%w", ErrFailedToConvertImageFormat, err)
+		return "", fmt.Errorf("%w: \n%w", ErrConvertImageFormat, err)
 	}
 
 	format, err := qemuStringtoImageFormatType(detectedImageFormat)
@@ -620,7 +614,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	if shrinkPartitions {
 		err = shrinkFilesystemsHelper(ctx, ic.rawImageFile)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrFailedToShrinkFilesystems, err)
+			return fmt.Errorf("%w: \n%w", ErrShrinkFilesystems, err)
 		}
 	}
 
@@ -657,7 +651,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	// Check file systems for corruption.
 	err = checkFileSystems(ctx, ic.rawImageFile)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrFailedToCheckFilesystems, err)
+		return fmt.Errorf("%w: \n%w", ErrCheckFilesystems, err)
 	}
 
 	return nil
@@ -702,7 +696,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 			liveosConfig, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso, ic.config.Pxe,
 				ic.outputImageFormat)
 			if err != nil {
-				return fmt.Errorf("%w: \n%w", ErrFailedToBuildLiveOSConfig, err)
+				return fmt.Errorf("%w: \n%w", ErrBuildLiveOSConfig, err)
 			}
 
 			// Check if the user is changing the kdump boot files configuration.
@@ -722,13 +716,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 			err := createLiveOSFromRaw(ctx, ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
 				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
-				return fmt.Errorf("%w: \n%w", ErrFailedToCreateLiveOSArtifacts, err)
+				return fmt.Errorf("%w: \n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
 			err := repackageLiveOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
 				inputIsoArtifacts, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
-				return fmt.Errorf("%w: \n%w", ErrFailedToCreateLiveOSArtifacts, err)
+				return fmt.Errorf("%w: \n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		}
 	}
@@ -747,7 +741,7 @@ func ConvertImageFile(inputPath string, outputPath string, format imagecustomize
 
 	err := shell.ExecuteLiveWithErr(1, "qemu-img", qemuImgArgs...)
 	if err != nil {
-		return fmt.Errorf("%w (format='%s'): \n%w", ErrFailedToConvertImageToFormat, format, err)
+		return fmt.Errorf("%w (format='%s'): \n%w", ErrConvertImageToFormat, format, err)
 	}
 
 	return nil
@@ -1072,7 +1066,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry, baseImageVerityMetadata)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("%w: \n%w", ErrVerityValidationFailed, err)
+		return nil, nil, "", fmt.Errorf("%w: \n%w", ErrVerityValidation, err)
 	}
 
 	// Do the actual customizations.
@@ -1122,12 +1116,12 @@ func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: \n%w", ErrFailedToExtractPackages, err)
+		return nil, nil, fmt.Errorf("%w: \n%w", ErrExtractPackages, err)
 	}
 
 	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: \n%w", ErrFailedToExtractBootloader, err)
+		return nil, nil, fmt.Errorf("%w: \n%w", ErrExtractBootloader, err)
 	}
 
 	return osPackages, cosiBootMetadata, nil
@@ -1170,7 +1164,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return nil, fmt.Errorf("%w: \n%w", ErrFailedToConnectToImage, err)
+		return nil, fmt.Errorf("%w: \n%w", ErrConnectToImage, err)
 	}
 	defer loopback.Close()
 
@@ -1181,7 +1175,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 	sectorSize, _, err := diskutils.GetSectorSize(loopback.DevicePath())
 	if err != nil {
-		return nil, fmt.Errorf("%w (device='%s'): \n%w", ErrFailedToGetDiskSectorSize, loopback.DevicePath(), err)
+		return nil, fmt.Errorf("%w (device='%s'): \n%w", ErrGetDiskSectorSize, loopback.DevicePath(), err)
 	}
 
 	for _, metadata := range baseImageVerity {
@@ -1189,13 +1183,13 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
 			metadata.dataPartUuid, diskPartitions)
 		if err != nil {
-			return nil, fmt.Errorf("%w (name='%s'): \n%w", ErrFailedToFindVerityDataPartition, metadata.name, err)
+			return nil, fmt.Errorf("%w (name='%s'): \n%w", ErrFindVerityDataPartition, metadata.name, err)
 		}
 
 		hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
 			metadata.hashPartUuid, diskPartitions)
 		if err != nil {
-			return nil, fmt.Errorf("%w (name='%s'): \n%w", ErrFailedToFindVerityHashPartition, metadata.name, err)
+			return nil, fmt.Errorf("%w (name='%s'): \n%w", ErrFindVerityHashPartition, metadata.name, err)
 		}
 
 		// Format hash partition.
@@ -1215,12 +1209,12 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
 			diskPartitions)
 		if err != nil {
-			return nil, fmt.Errorf("%w (id='%s'): \n%w", ErrFailedToFindVerityDataPartition, verityConfig.Id, err)
+			return nil, fmt.Errorf("%w (id='%s'): \n%w", ErrFindVerityDataPartition, verityConfig.Id, err)
 		}
 		hashPartition, err := verityIdToPartition(verityConfig.HashDeviceId, verityConfig.HashDevice, partIdToPartUuid,
 			diskPartitions)
 		if err != nil {
-			return nil, fmt.Errorf("%w (id='%s'): \n%w", ErrFailedToFindVerityHashPartition, verityConfig.Id, err)
+			return nil, fmt.Errorf("%w (id='%s'): \n%w", ErrFindVerityHashPartition, verityConfig.Id, err)
 		}
 
 		// Format hash partition.
@@ -1284,25 +1278,25 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		ErrorStderrLines(1).
 		ExecuteCaptureOutput()
 	if err != nil {
-		return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrFailedToCalculateRootHash, dataPartitionPath, err)
+		return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrCalculateRootHash, dataPartitionPath, err)
 	}
 
 	// Extract root hash using regular expressions.
 	rootHashRegex, err := regexp.Compile(`Root hash:\s+([0-9a-fA-F]+)`)
 	if err != nil {
-		return "", fmt.Errorf("%w: \n%w", ErrFailedToCompileRootHashRegex, err)
+		return "", fmt.Errorf("%w: \n%w", ErrCompileRootHashRegex, err)
 	}
 
 	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
 	if len(rootHashMatches) <= 1 {
-		return "", ErrFailedToParseRootHash
+		return "", ErrParseRootHash
 	}
 
 	rootHash := rootHashMatches[1]
 
 	err = diskutils.RefreshPartitions(diskDevicePath)
 	if err != nil {
-		return "", fmt.Errorf("%w (device='%s'): \n%w", ErrFailedToUpdateDisk, diskDevicePath, err)
+		return "", fmt.Errorf("%w (device='%s'): \n%w", ErrUpdateDisk, diskDevicePath, err)
 	}
 
 	if shrinkHashPartition {
@@ -1311,14 +1305,14 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		// is too new for now.
 		hashPartitionSizeInBytes, err := calculateHashFileSizeInBytes(hashPartitionPath)
 		if err != nil {
-			return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrFailedToCalculateHashSize, hashPartitionPath, err)
+			return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrCalculateHashSize, hashPartitionPath, err)
 		}
 
 		hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
 
 		err = resizePartition(hashPartitionPath, diskDevicePath, hashPartitionSizeInSectors)
 		if err != nil {
-			return "", fmt.Errorf("%w (device='%s'): \n%w", ErrFailedToShrinkHashPartition, diskDevicePath, err)
+			return "", fmt.Errorf("%w (device='%s'): \n%w", ErrShrinkHashPartition, diskDevicePath, err)
 		}
 
 		// Verify everything is still valid.
@@ -1326,7 +1320,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			Execute()
 		if err != nil {
-			return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrFailedToVerifyVerity, dataPartitionPath, err)
+			return "", fmt.Errorf("%w (partition='%s'): \n%w", ErrVerifyVerity, dataPartitionPath, err)
 		}
 	}
 
@@ -1350,20 +1344,20 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	// Temporarily mount the partition.
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("%w (partition='%s'): \n%w", ErrFailedToMountPartition, bootPartition.Path, err)
+		return fmt.Errorf("%w (partition='%s'): \n%w", ErrMountPartition, bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
 	if err != nil {
-		return fmt.Errorf("%w (file='%s'): \n%w", ErrFailedToStatFile, grubCfgFullPath, err)
+		return fmt.Errorf("%w (file='%s'): \n%w", ErrStatFile, grubCfgFullPath, err)
 	}
 
 	if isUki {
 		// UKI is enabled, update kernel cmdline args file.
 		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrFailedToUpdateKernelArgs, err)
+			return fmt.Errorf("%w: \n%w", ErrUpdateKernelArgs, err)
 		}
 	}
 
@@ -1372,7 +1366,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	// This will be decoupled once the bootloader project is in place.
 	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrFailedToUpdateGrubConfig, err)
+		return fmt.Errorf("%w: \n%w", ErrUpdateGrubConfig, err)
 	}
 
 	err = bootPartitionMount.CleanClose()
