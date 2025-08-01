@@ -21,9 +21,12 @@ import (
 
 var (
 	// Script execution errors
-	ErrConfigDirMount   = NewImageCustomizerError("Scripts:ConfigDirMount", "failed to mount config directory")
-	ErrConfigDirUnmount = NewImageCustomizerError("Scripts:ConfigDirUnmount", "failed to unmount config directory")
-	ErrScriptExecution  = NewImageCustomizerError("Scripts:Execution", "script execution failed")
+	ErrScriptExecution        = NewImageCustomizerError("Scripts:Execution", "script execution failed")
+	ErrScriptPathResolution   = NewImageCustomizerError("Scripts:PathResolution", "failed to get relative path for temp script file")
+	ErrScriptTempFileRemoval  = NewImageCustomizerError("Scripts:TempFileRemoval", "failed to remove temp script file")
+	ErrScriptTempFileCreation = NewImageCustomizerError("Scripts:TempFileCreation", "failed to create temp file for script")
+	ErrScriptTempFileWrite    = NewImageCustomizerError("Scripts:TempFileWrite", "failed to write temp file for script")
+	ErrScriptTempFileClose    = NewImageCustomizerError("Scripts:TempFileClose", "failed to close temp file for script")
 )
 
 const (
@@ -95,7 +98,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 		// Get the path of the script file in the chroot.
 		tempScriptPath, err := filepath.Rel(imageChroot.RootDir(), tempScriptFullPath)
 		if err != nil {
-			return fmt.Errorf("failed to get relative path for temp script file:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrScriptPathResolution, err)
 		}
 
 		// Ensure path is rooted.
@@ -133,7 +136,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 		// Remove the script file and error out if the delete fails.
 		err = os.Remove(tempScriptFullPath)
 		if err != nil {
-			return fmt.Errorf("failed to remove temp script file:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrScriptTempFileRemoval, err)
 		}
 	}
 
@@ -161,7 +164,7 @@ func createTempScriptFile(script imagecustomizerapi.Script, listName string, scr
 	// Create a temporary file for the script.
 	tempFile, err := os.CreateTemp(chrootTempDir, listName)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp file for script:\n%w", err)
+		return "", fmt.Errorf("%w:\n%w", ErrScriptTempFileCreation, err)
 	}
 	defer tempFile.Close()
 
@@ -171,13 +174,13 @@ func createTempScriptFile(script imagecustomizerapi.Script, listName string, scr
 	// Write the script's content.
 	_, err = tempFile.WriteString(script.Content)
 	if err != nil {
-		return "", fmt.Errorf("failed to write temp file for script:\n%w", err)
+		return "", fmt.Errorf("%w:\n%w", ErrScriptTempFileWrite, err)
 	}
 
 	// Ensure the file is written correctly.
 	err = tempFile.Close()
 	if err != nil {
-		return "", fmt.Errorf("failed to close temp file for script:\n%w", err)
+		return "", fmt.Errorf("%w:\n%w", ErrScriptTempFileClose, err)
 	}
 
 	return tempFilePath, nil
