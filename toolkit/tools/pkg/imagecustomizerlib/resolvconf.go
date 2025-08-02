@@ -16,6 +16,18 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+var (
+	// Resolv.conf-related errors
+	ErrResolvConfStat          = NewImageCustomizerError("ResolvConf:Stat", "failed to stat resolv.conf file")
+	ErrResolvConfSymlinkRead   = NewImageCustomizerError("ResolvConf:SymlinkRead", "failed to read resolv.conf symlink's path")
+	ErrResolvConfFileRead      = NewImageCustomizerError("ResolvConf:FileRead", "failed to read resolv.conf file")
+	ErrResolvConfDelete        = NewImageCustomizerError("ResolvConf:Delete", "failed to delete resolv.conf file")
+	ErrResolvConfOverride      = NewImageCustomizerError("ResolvConf:Override", "failed to override resolv.conf file with host's resolv.conf")
+	ErrResolvConfSymlinkCreate = NewImageCustomizerError("ResolvConf:SymlinkCreate", "failed to create resolv.conf symlink")
+	ErrResolvConfRestore       = NewImageCustomizerError("ResolvConf:Restore", "failed to restore resolv.conf file")
+	ErrResolvConfUnknownType   = NewImageCustomizerError("ResolvConf:UnknownType", "unknown resolvConfType value")
+)
+
 type resolvConfType int
 
 const (
@@ -51,20 +63,20 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 	stat, err := os.Lstat(imageResolveConfPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return resolvConfInfo{}, fmt.Errorf("failed to stat resolv.conf file:\n%w", err)
+			return resolvConfInfo{}, fmt.Errorf("%w:\n%w", ErrResolvConfStat, err)
 		}
 		existing.existingType = resolvConfTypeNone
 	} else if stat.Mode()&os.ModeSymlink != 0 {
 		symlinkPath, err := os.Readlink(imageResolveConfPath)
 		if err != nil {
-			return resolvConfInfo{}, fmt.Errorf("failed to read resolv.conf symlink's path:\n%w", err)
+			return resolvConfInfo{}, fmt.Errorf("%w:\n%w", ErrResolvConfSymlinkRead, err)
 		}
 		existing.existingType = resolvConfTypeSymlink
 		existing.symlinkPath = symlinkPath
 	} else {
 		fileContents, err := file.Read(imageResolveConfPath)
 		if err != nil {
-			return resolvConfInfo{}, fmt.Errorf("failed to read resolv.conf file:\n%w", err)
+			return resolvConfInfo{}, fmt.Errorf("%w:\n%w", ErrResolvConfFileRead, err)
 		}
 		existing.existingType = resolvConfTypeFile
 		existing.fileContents = fileContents
@@ -76,12 +88,12 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 	// file. For example, systemd-resolved. So, it isn't neccessary to make a back-up of the existing file.
 	err = os.RemoveAll(imageResolveConfPath)
 	if err != nil {
-		return resolvConfInfo{}, fmt.Errorf("failed to delete existing resolv.conf file:\n%w", err)
+		return resolvConfInfo{}, fmt.Errorf("%w:\n%w", ErrResolvConfDelete, err)
 	}
 
 	err = file.Copy(resolvConfPath, imageResolveConfPath)
 	if err != nil {
-		return resolvConfInfo{}, fmt.Errorf("failed to override resolv.conf file with host's resolv.conf:\n%w", err)
+		return resolvConfInfo{}, fmt.Errorf("%w:\n%w", ErrResolvConfOverride, err)
 	}
 
 	return existing, nil
@@ -98,7 +110,7 @@ func restoreResolvConf(ctx context.Context, existing resolvConfInfo, imageChroot
 	// Delete the overridden resolv.conf file.
 	err := os.RemoveAll(imageResolveConfPath)
 	if err != nil {
-		return fmt.Errorf("failed to delete overridden resolv.conf file:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrResolvConfDelete, err)
 	}
 
 	switch existing.existingType {
@@ -118,7 +130,7 @@ func restoreResolvConf(ctx context.Context, existing resolvConfInfo, imageChroot
 			// it now is helpful for verity images where the root filesystem is readonly.
 			err := os.Symlink(resolvSystemdStubPath, imageResolveConfPath)
 			if err != nil {
-				return fmt.Errorf("failed to create resolv.conf symlink:\n%w", err)
+				return fmt.Errorf("%w:\n%w", ErrResolvConfSymlinkCreate, err)
 			}
 		}
 
@@ -128,7 +140,7 @@ func restoreResolvConf(ctx context.Context, existing resolvConfInfo, imageChroot
 		// Restore the resolv.conf file.
 		err := file.WriteWithPerm(existing.fileContents, imageResolveConfPath, existing.filePerms)
 		if err != nil {
-			return fmt.Errorf("failed to restore resolv.conf file:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrResolvConfRestore, err)
 		}
 
 	case resolvConfTypeSymlink:
@@ -137,11 +149,11 @@ func restoreResolvConf(ctx context.Context, existing resolvConfInfo, imageChroot
 		// Restore the resolv.conf symlink.
 		err := os.Symlink(existing.symlinkPath, imageResolveConfPath)
 		if err != nil {
-			return fmt.Errorf("failed to restore resolv.conf file:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrResolvConfRestore, err)
 		}
 
 	default:
-		return fmt.Errorf("unknown resolvConfType value (%v)", existing.existingType)
+		return fmt.Errorf("%w (%v)", ErrResolvConfUnknownType, existing.existingType)
 	}
 
 	return nil

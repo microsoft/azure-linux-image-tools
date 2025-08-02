@@ -13,6 +13,20 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 )
 
+var (
+	// Config validation errors
+	ErrConfigInvalidKdumpBootFiles    = NewImageCustomizerError("Config:InvalidKdumpBootFiles", "invalid kdumpBootFiles")
+	ErrConfigInvalidKernelCommandLine = NewImageCustomizerError("Config:InvalidKernelCommandLine", "invalid kernelCommandLine")
+	ErrConfigBootstrapUrl             = NewImageCustomizerError("Config:BootstrapUrl", "cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl'")
+	ErrConfigInvalidIsoField          = NewImageCustomizerError("Config:InvalidIsoField", "invalid 'iso' field")
+	ErrConfigInvalidPxeField          = NewImageCustomizerError("Config:InvalidPxeField", "invalid 'pxe' field")
+	ErrConfigInvalidOsField           = NewImageCustomizerError("Config:InvalidOsField", "invalid 'os' field")
+	ErrConfigDirectoryCreate          = NewImageCustomizerError("Config:DirectoryCreate", "failed to create directory")
+	ErrConfigFilePersist              = NewImageCustomizerError("Config:FilePersist", "failed to persist saved configs file")
+	ErrConfigFileExists               = NewImageCustomizerError("Config:FileExists", "failed to check if file exists")
+	ErrConfigFileLoad                 = NewImageCustomizerError("Config:FileLoad", "failed to load saved configs file")
+)
+
 // 'SavedConfigs' is a subset of the Image Customizer input configurations that
 // needs to be saved on the output media so that it can be used in subsequent
 // runs of the Image Customizer against that same output media.
@@ -37,13 +51,13 @@ func (i *LiveOSSavedConfigs) IsValid() error {
 	if i.KdumpBootFiles != nil {
 		err := i.KdumpBootFiles.IsValid()
 		if err != nil {
-			return fmt.Errorf("invalid kdumpBootFiles:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrConfigInvalidKdumpBootFiles, err)
 		}
 	}
 
 	err := i.KernelCommandLine.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid kernelCommandLine:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrConfigInvalidKernelCommandLine, err)
 	}
 
 	return nil
@@ -56,7 +70,7 @@ type PxeSavedConfigs struct {
 
 func (p *PxeSavedConfigs) IsValid() error {
 	if p.bootstrapBaseUrl != "" && p.bootstrapFileUrl != "" {
-		return fmt.Errorf("cannot specify both 'bootstrapBaseUrl' and 'bootstrapFileUrl' at the same time.")
+		return ErrConfigBootstrapUrl
 	}
 	err := imagecustomizerapi.IsValidPxeUrl(p.bootstrapBaseUrl)
 	if err != nil {
@@ -88,17 +102,17 @@ type SavedConfigs struct {
 func (c *SavedConfigs) IsValid() (err error) {
 	err = c.LiveOS.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid 'iso' field:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrConfigInvalidIsoField, err)
 	}
 
 	err = c.Pxe.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid 'pxe' field:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrConfigInvalidPxeField, err)
 	}
 
 	err = c.OS.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalud 'os' field:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrConfigInvalidOsField, err)
 	}
 
 	return nil
@@ -107,12 +121,12 @@ func (c *SavedConfigs) IsValid() (err error) {
 func (c *SavedConfigs) persistSavedConfigs(savedConfigsFilePath string) (err error) {
 	err = os.MkdirAll(filepath.Dir(savedConfigsFilePath), os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create directory for (%s):\n%w", savedConfigsFilePath, err)
+		return fmt.Errorf("%w (path='%s'):\n%w", ErrConfigDirectoryCreate, savedConfigsFilePath, err)
 	}
 
 	err = imagecustomizerapi.MarshalYamlFile(savedConfigsFilePath, c)
 	if err != nil {
-		return fmt.Errorf("failed to persist saved configs file to (%s):\n%w", savedConfigsFilePath, err)
+		return fmt.Errorf("%w (path='%s'):\n%w", ErrConfigFilePersist, savedConfigsFilePath, err)
 	}
 
 	return nil
@@ -121,7 +135,7 @@ func (c *SavedConfigs) persistSavedConfigs(savedConfigsFilePath string) (err err
 func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, err error) {
 	exists, err := file.PathExists(savedConfigsFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check if (%s) exists:\n%w", savedConfigsFilePath, err)
+		return nil, fmt.Errorf("%w (path='%s'):\n%w", ErrConfigFileExists, savedConfigsFilePath, err)
 	}
 
 	if !exists {
@@ -131,7 +145,7 @@ func loadSavedConfigs(savedConfigsFilePath string) (savedConfigs *SavedConfigs, 
 	savedConfigs = &SavedConfigs{}
 	err = imagecustomizerapi.UnmarshalAndValidateYamlFile(savedConfigsFilePath, savedConfigs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load saved configs file (%s):\n%w", savedConfigsFilePath, err)
+		return nil, fmt.Errorf("%w (path='%s'):\n%w", ErrConfigFileLoad, savedConfigsFilePath, err)
 	}
 
 	return savedConfigs, nil
