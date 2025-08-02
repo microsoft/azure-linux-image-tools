@@ -32,7 +32,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error
 
 	sectorSize, _, err := diskutils.GetSectorSize(imageLoopDevice)
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'): \n%w", ErrFilesystemSectorSizeGet, imageLoopDevice, err)
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemSectorSizeGet, imageLoopDevice, err)
 	}
 
 	for _, diskPartition := range diskPartitions {
@@ -62,7 +62,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error
 		case "ext2", "ext3", "ext4":
 			fileSystemSizeInBytes, err = shrinkExt4FileSystem(partitionLoopDevice, imageLoopDevice)
 			if err != nil {
-				return fmt.Errorf("%w (type='%s', device='%s'): \n%w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
+				return fmt.Errorf("%w (type='%s', device='%s'):\n%w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
 			}
 
 		default:
@@ -89,14 +89,14 @@ func shrinkExt4FileSystem(partitionDevice string, diskDevice string) (uint64, er
 	// Check the file system with e2fsck
 	err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", partitionDevice)
 	if err != nil {
-		return 0, fmt.Errorf("%w (device='%s'): \n%w", ErrFilesystemE2fsckResize, partitionDevice, err)
+		return 0, fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemE2fsckResize, partitionDevice, err)
 	}
 
 	// Shrink the file system with resize2fs -M
 	stdout, stderr, err := shell.Execute("flock", "--timeout", "5", diskDevice,
 		"resize2fs", "-M", partitionDevice)
 	if err != nil {
-		return 0, fmt.Errorf("%w (device='%s', stderr='%s'): \n%w", ErrFilesystemResize2fs, partitionDevice, stderr, err)
+		return 0, fmt.Errorf("%w (device='%s', stderr='%s'):\n%w", ErrFilesystemResize2fs, partitionDevice, stderr, err)
 	}
 
 	// Find the new partition end value

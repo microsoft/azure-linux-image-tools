@@ -49,7 +49,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
 	err := os.MkdirAll(outputDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("%w (directory='%s'): \n%w", ErrCosiDirectoryCreate, outputDir, err)
+		return fmt.Errorf("%w (directory='%s'):\n%w", ErrCosiDirectoryCreate, outputDir, err)
 	}
 	defer os.Remove(outputDir)
 
@@ -71,7 +71,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
 		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrCosiBuildFile, err)
+		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
@@ -160,7 +160,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	for i := range imageData {
 		err := populateMetadata(&imageData[i])
 		if err != nil {
-			return fmt.Errorf("%w (source='%s'): \n%w", ErrCosiMetadataPopulate, imageData[i].Source, err)
+			return fmt.Errorf("%w (source='%s'):\n%w", ErrCosiMetadataPopulate, imageData[i].Source, err)
 		}
 
 		logger.Log.Infof("Populated metadata for image %s", imageData[i].Source)
@@ -184,13 +184,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	// Marshal metadata.json
 	metadataJson, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrCosiMetadataMarshal, err)
+		return fmt.Errorf("%w:\n%w", ErrCosiMetadataMarshal, err)
 	}
 
 	// Create COSI file
 	cosiFile, err := os.Create(outputFile)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrCosiFileCreate, err)
+		return fmt.Errorf("%w:\n%w", ErrCosiFileCreate, err)
 	}
 	defer cosiFile.Close()
 
@@ -365,7 +365,7 @@ func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) 
 func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection) (*CosiBootloader, error) {
 	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot())
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect bootloader type: \n%w", err)
+		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
 
 	chrootDir := imageConnection.Chroot().RootDir()
@@ -481,7 +481,7 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 	absPath := filepath.Join(entryDir, file.Name())
 	content, err := os.ReadFile(absPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: \n%w", absPath, err)
+		return nil, fmt.Errorf("failed to read %s:\n%w", absPath, err)
 	}
 
 	entry := &SystemDBootEntry{

@@ -51,7 +51,7 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 	// Check if the user already exists.
 	groupExists, err := userutils.GroupExists(group.Name, imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w (group='%s'): \n%w", ErrGroupExistsCheck, group.Name, err)
+		return fmt.Errorf("%w (group='%s'):\n%w", ErrGroupExistsCheck, group.Name, err)
 	}
 
 	if groupExists {
@@ -71,7 +71,7 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 		// Add the user.
 		err = userutils.AddGroup(group.Name, gidStr, imageChroot)
 		if err != nil {
-			return fmt.Errorf("%w (group='%s'): \n%w", ErrGroupAdd, group.Name, err)
+			return fmt.Errorf("%w (group='%s'):\n%w", ErrGroupAdd, group.Name, err)
 		}
 	}
 

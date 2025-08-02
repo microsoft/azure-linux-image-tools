@@ -213,7 +213,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 		// Update /boot/grub2/grub.cfg file.
 		err = installutils.CallGrubMkconfig(imageChroot)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrBootGrubMkconfigGeneration, err)
+			return fmt.Errorf("%w:\n%w", ErrBootGrubMkconfigGeneration, err)
 		}
 	} else {
 		// Update grub.cfg file.

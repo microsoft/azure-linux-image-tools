@@ -59,28 +59,28 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 
 	err = validateVerityDependencies(imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: \n%w", ErrVerityPackageDependencyValidation, err)
+		return false, fmt.Errorf("%w:\n%w", ErrVerityPackageDependencyValidation, err)
 	}
 
 	// Integrate systemd veritysetup dracut module into initramfs img.
 	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: \n%w", ErrVerityDracutModuleAdd, err)
+		return false, fmt.Errorf("%w:\n%w", ErrVerityDracutModuleAdd, err)
 	}
 
 	err = updateFstabForVerity(verity, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: \n%w", ErrVerityFstabUpdate, err)
+		return false, fmt.Errorf("%w:\n%w", ErrVerityFstabUpdate, err)
 	}
 
 	err = prepareGrubConfigForVerity(verity, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: \n%w", ErrVerityGrubConfigPrepare, err)
+		return false, fmt.Errorf("%w:\n%w", ErrVerityGrubConfigPrepare, err)
 	}
 
 	err = supportVerityHashSignature(verity, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w: \n%w", ErrVerityHashSignatureSupport, err)
+		return false, fmt.Errorf("%w:\n%w", ErrVerityHashSignatureSupport, err)
 	}
 
 	return true, nil
@@ -90,7 +90,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	fstabFile := filepath.Join(imageChroot.RootDir(), "etc", "fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabFile)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrVerityFstabRead, err)
+		return fmt.Errorf("%w:\n%w", ErrVerityFstabRead, err)
 	}
 
 	// Update fstab entries so that verity mounts point to verity device paths.
@@ -173,7 +173,7 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 	for src, dst := range filesToInstall {
 		err := file.CopyResourceFile(resources.ResourcesFS, src, dst, DracutModuleDirMode, DracutModuleScriptFileMode)
 		if err != nil {
-			return fmt.Errorf("failed to install verity dracut file (%s): \n%w", dst, err)
+			return fmt.Errorf("failed to install verity dracut file (%s):\n%w", dst, err)
 		}
 	}
 

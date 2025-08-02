@@ -129,7 +129,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("%w (script='%s'): \n%w", ErrScriptExecution, scriptLogName, err)
+		return fmt.Errorf("%w (script='%s'):\n%w", ErrScriptExecution, scriptLogName, err)
 	}
 
 	if tempScriptFullPath != "" {

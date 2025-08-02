@@ -40,7 +40,7 @@ func TestImageCustomizerError_Name(t *testing.T) {
 func TestErrorWrapping(t *testing.T) {
 	t.Run("ErrorsAs", func(t *testing.T) {
 		originalErr := NewImageCustomizerError("Test:Operation", "test operation failed")
-		wrappedErr := fmt.Errorf("wrapper: \n%w", originalErr)
+		wrappedErr := fmt.Errorf("wrapper:\n%w", originalErr)
 
 		var customErr *ImageCustomizerError
 		assert.True(t, errors.As(wrappedErr, &customErr))
@@ -50,7 +50,7 @@ func TestErrorWrapping(t *testing.T) {
 
 	t.Run("ErrorsIs", func(t *testing.T) {
 		originalErr := NewImageCustomizerError("Test:Operation", "test operation failed")
-		wrappedErr := fmt.Errorf("wrapper: \n%w", originalErr)
+		wrappedErr := fmt.Errorf("wrapper:\n%w", originalErr)
 
 		assert.True(t, errors.Is(wrappedErr, originalErr))
 	})

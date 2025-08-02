@@ -24,13 +24,13 @@ type ImageFileInfo struct {
 func GetImageFileInfo(inputImageFile string) (ImageFileInfo, error) {
 	stdout, _, err := shell.Execute("qemu-img", "info", "--output", "json", inputImageFile)
 	if err != nil {
-		return ImageFileInfo{}, fmt.Errorf("%w: \n%w", ErrImageFormatCheck, err)
+		return ImageFileInfo{}, fmt.Errorf("%w:\n%w", ErrImageFormatCheck, err)
 	}
 
 	info := ImageFileInfo{}
 	err = json.Unmarshal([]byte(stdout), &info)
 	if err != nil {
-		return ImageFileInfo{}, fmt.Errorf("%w: \n%w", ErrQemuImgInfo, err)
+		return ImageFileInfo{}, fmt.Errorf("%w:\n%w", ErrQemuImgInfo, err)
 	}
 
 	return info, nil

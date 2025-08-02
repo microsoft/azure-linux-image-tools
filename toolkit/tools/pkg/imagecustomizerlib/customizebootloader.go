@@ -38,14 +38,14 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 	case config.OS.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
 		err := hardResetBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrBootloaderHardReset, err)
+			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
 		err := AddKernelCommandLine(ctx, config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrBootloaderKernelCommandLineAdd, err)
+			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
 	}
 
@@ -72,7 +72,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 
 		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrBootloaderSelinuxModeGet, err)
+			return fmt.Errorf("%w:\n%w", ErrBootloaderSelinuxModeGet, err)
 		}
 	}
 
@@ -94,12 +94,12 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	} else {
 		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrBootloaderRootMountIdTypeGet, err)
+			return fmt.Errorf("%w:\n%w", ErrBootloaderRootMountIdTypeGet, err)
 		}
 
 		bootType, err = getImageBootType(imageConnection)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrBootloaderImageBootTypeGet, err)
+			return fmt.Errorf("%w:\n%w", ErrBootloaderImageBootTypeGet, err)
 		}
 	}
 
@@ -107,7 +107,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, config.OS.SELinux,
 		config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrBootloaderDiskConfigure, err)
+		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}
 
 	return nil
@@ -165,7 +165,7 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 
 	mountIdType, mountId, err := parseExtendedSourcePartition(rootFstabEntry.Source)
 	if err != nil {
-		return "", fmt.Errorf("%w: \n%w", ErrBootloaderRootMountSourceParse, err)
+		return "", fmt.Errorf("%w:\n%w", ErrBootloaderRootMountSourceParse, err)
 	}
 
 	rootMountIdType := imagecustomizerapi.MountIdentifierTypeDefault

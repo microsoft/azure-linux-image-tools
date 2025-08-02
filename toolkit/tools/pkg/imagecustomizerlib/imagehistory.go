@@ -73,30 +73,30 @@ func addImageHistoryHelper(ctx context.Context, rootDir string, imageUuid string
 	// Deep copy the config to avoid modifying the original config
 	configCopy, err := deepCopyConfig(config)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrImageHistoryDeepCopy, err)
+		return fmt.Errorf("%w:\n%w", ErrImageHistoryDeepCopy, err)
 	}
 
 	err = modifyConfig(configCopy, baseConfigPath)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrImageHistoryModify, err)
+		return fmt.Errorf("%w:\n%w", ErrImageHistoryModify, err)
 	}
 
 	customizerLoggingDirPath := filepath.Join(rootDir, customizerLoggingDir)
 	err = os.MkdirAll(customizerLoggingDirPath, 0o755)
 	if err != nil {
-		return fmt.Errorf("%w (path='%s'): \n%w", ErrImageHistoryDirectoryCreate, customizerLoggingDirPath, err)
+		return fmt.Errorf("%w (path='%s'):\n%w", ErrImageHistoryDirectoryCreate, customizerLoggingDirPath, err)
 	}
 	imageHistoryFilePath := filepath.Join(customizerLoggingDirPath, historyFileName)
 
 	var allImageHistory []ImageHistory
 	err = readImageHistory(imageHistoryFilePath, &allImageHistory)
 	if err != nil {
-		return fmt.Errorf("%w (file='%s'): \n%w", ErrImageHistoryRead, imageHistoryFilePath, err)
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrImageHistoryRead, imageHistoryFilePath, err)
 	}
 
 	err = writeImageHistory(imageHistoryFilePath, allImageHistory, imageUuid, buildTime, toolVersion, configCopy)
 	if err != nil {
-		return fmt.Errorf("%w (file='%s'): \n%w", ErrImageHistoryWrite, imageHistoryFilePath, err)
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrImageHistoryWrite, imageHistoryFilePath, err)
 	}
 
 	return nil
@@ -105,18 +105,18 @@ func addImageHistoryHelper(ctx context.Context, rootDir string, imageUuid string
 func readImageHistory(imageHistoryFilePath string, allImageHistory *[]ImageHistory) error {
 	exists, err := file.PathExists(imageHistoryFilePath)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrImageHistoryFileCheck, err)
+		return fmt.Errorf("%w:\n%w", ErrImageHistoryFileCheck, err)
 	}
 
 	if exists {
 		file, err := os.ReadFile(imageHistoryFilePath)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrImageHistoryFileRead, err)
+			return fmt.Errorf("%w:\n%w", ErrImageHistoryFileRead, err)
 		}
 
 		err = json.Unmarshal(file, &allImageHistory)
 		if err != nil {
-			return fmt.Errorf("%w: \n%w", ErrImageHistoryUnmarshal, err)
+			return fmt.Errorf("%w:\n%w", ErrImageHistoryUnmarshal, err)
 		}
 	}
 	return nil
@@ -133,12 +133,12 @@ func writeImageHistory(imageHistoryFilePath string, allImageHistory []ImageHisto
 
 	jsonBytes, err := json.MarshalIndent(allImageHistory, "", " ")
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrImageHistoryMarshal, err)
+		return fmt.Errorf("%w:\n%w", ErrImageHistoryMarshal, err)
 	}
 
 	err = file.Write(string(jsonBytes), imageHistoryFilePath)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrImageHistoryFileWrite, err)
+		return fmt.Errorf("%w:\n%w", ErrImageHistoryFileWrite, err)
 	}
 
 	return nil

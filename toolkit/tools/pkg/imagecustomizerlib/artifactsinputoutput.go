@@ -69,7 +69,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	loopback, err := safeloopback.NewLoopback(buildImage)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrArtifactImageConnection, err)
+		return fmt.Errorf("%w:\n%w", ErrArtifactImageConnection, err)
 	}
 	defer loopback.Close()
 
@@ -92,7 +92,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path,
 		systemBootPartitionTmpDir, systemBootPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return fmt.Errorf("%w (partition='%s'): \n%w", ErrArtifactESPPartitionMount, systemBootPartition.Path, err)
+		return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactESPPartitionMount, systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
@@ -117,7 +117,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		ukiDir := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
 		dirEntries, err := os.ReadDir(ukiDir)
 		if err != nil {
-			return fmt.Errorf("%w (directory='%s'): \n%w", ErrArtifactUKIDirectoryRead, ukiDir, err)
+			return fmt.Errorf("%w (directory='%s'):\n%w", ErrArtifactUKIDirectoryRead, ukiDir, err)
 		}
 
 		for _, entry := range dirEntries {
@@ -126,7 +126,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				destPath := filepath.Join(outputDir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
-					return fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+					return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 				}
 
 				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
@@ -149,7 +149,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
@@ -168,7 +168,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
 		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
@@ -192,7 +192,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			destPath := filepath.Join(outputDir, unsignedHashFile)
 			err = file.Write(verity.rootHash, destPath)
 			if err != nil {
-				return fmt.Errorf("%w (name='%s', path='%s'): \n%w", ErrArtifactRootHashDump, verity.name, destPath, err)
+				return fmt.Errorf("%w (name='%s', path='%s'):\n%w", ErrArtifactRootHashDump, verity.name, destPath, err)
 			}
 
 			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
@@ -208,7 +208,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
 	if err != nil {
-		return fmt.Errorf("%w (outputDir='%s'): \n%w", ErrArtifactInjectFilesYamlWrite, outputDir, err)
+		return fmt.Errorf("%w (outputDir='%s'):\n%w", ErrArtifactInjectFilesYamlWrite, outputDir, err)
 	}
 
 	err = systemBootPartitionMount.CleanClose()
@@ -239,12 +239,12 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 
 	yamlBytes, err := yaml.Marshal(&yamlStruct)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrArtifactInjectFilesYamlMarshal, err)
+		return fmt.Errorf("%w:\n%w", ErrArtifactInjectFilesYamlMarshal, err)
 	}
 
 	outputFilePath := filepath.Join(outputDir, "inject-files.yaml")
 	if err := os.WriteFile(outputFilePath, yamlBytes, 0o644); err != nil {
-		return fmt.Errorf("%w (file='%s'): \n%w", ErrArtifactInjectFilesYamlWrite, outputFilePath, err)
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrArtifactInjectFilesYamlWrite, outputFilePath, err)
 	}
 
 	return nil
@@ -260,14 +260,14 @@ func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile 
 	}
 
 	if err := injectConfig.IsValid(); err != nil {
-		return fmt.Errorf("%w: \n%w", ErrArtifactInvalidInjectFilesConfig, err)
+		return fmt.Errorf("%w:\n%w", ErrArtifactInvalidInjectFilesConfig, err)
 	}
 
 	baseConfigPath, _ := filepath.Split(configFile)
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
 	if err != nil {
-		return fmt.Errorf("%w (path='%s'): \n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
+		return fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
 	err = InjectFiles(ctx, buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
@@ -309,7 +309,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
-		return fmt.Errorf("%w: \n%w", ErrArtifactInjectFilesImageConnection, err)
+		return fmt.Errorf("%w:\n%w", ErrArtifactInjectFilesImageConnection, err)
 	}
 	defer loopback.Close()
 
@@ -333,7 +333,7 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 
 			mount, err := safemount.NewMount(partition.Path, partitionsToMountpoints[partitionKey], partition.FileSystemType, 0, "", true)
 			if err != nil {
-				return fmt.Errorf("%w (partition='%s'): \n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
+				return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
 			}
 			defer mount.Close()
 
@@ -344,13 +344,13 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		destPath := filepath.Join(partitionsToMountpoints[partitionKey], item.Destination)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
-			return fmt.Errorf("%w (source='%s', destination='%s'): \n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
+			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 	}
 
 	for _, m := range mountedPartitions {
 		if err := m.CleanClose(); err != nil {
-			return fmt.Errorf("%w (target='%s'): \n%w", ErrArtifactPartitionUnmount, m.Target(), err)
+			return fmt.Errorf("%w (target='%s'):\n%w", ErrArtifactPartitionUnmount, m.Target(), err)
 		}
 	}
 
@@ -368,12 +368,12 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
 			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata)
 		if err != nil {
-			return fmt.Errorf("%w (output='%s'): \n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
+			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}
 	} else {
 		err = ConvertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
 		if err != nil {
-			return fmt.Errorf("%w (output='%s', format='%s'): \n%w", ErrArtifactOutputImageConversion, outputImageFile, detectedImageFormat, err)
+			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion, outputImageFile, detectedImageFormat, err)
 		}
 	}
 
@@ -390,7 +390,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, _, err := connectToExistingImage(ctx,
 		rawImageFile, buildDir, chrootDir, true, true, false)
 	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("%w: \n%w", ErrArtifactImageConnectionForExtraction, err)
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 	}
 	defer imageConnection.Close()
 
@@ -410,7 +410,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	}
 
 	if err := imageConnection.CleanClose(); err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("%w: \n%w", ErrArtifactImageConnectionClose, err)
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionClose, err)
 	}
 
 	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, nil
@@ -422,7 +422,7 @@ func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([random
 	releasePath := filepath.Join(imageConnection.Chroot().RootDir(), ImageCustomizerReleasePath)
 	data, err := file.Read(releasePath)
 	if err != nil {
-		return emptyUuid, "", fmt.Errorf("%w (path='%s'): \n%w", ErrArtifactReleaseFileRead, releasePath, err)
+		return emptyUuid, "", fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactReleaseFileRead, releasePath, err)
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -437,7 +437,7 @@ func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([random
 
 	parsed, err := randomization.ParseUuidString(uuidStr)
 	if err != nil {
-		return emptyUuid, "", fmt.Errorf("%w (IMAGE_UUID='%s'): \n%w", ErrArtifactImageUuidParse, uuidStr, err)
+		return emptyUuid, "", fmt.Errorf("%w (IMAGE_UUID='%s'):\n%w", ErrArtifactImageUuidParse, uuidStr, err)
 	}
 
 	return parsed, uuidStr, nil

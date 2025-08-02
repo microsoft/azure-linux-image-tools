@@ -332,7 +332,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 	// First, check if path points to a directory.
 	isDir, err := file.IsDir(rpmSourcePath)
 	if err != nil {
-		return "", fmt.Errorf("%w (path='%s'): \n%w", ErrRpmSourceFileTypeDetection, rpmSourcePath, err)
+		return "", fmt.Errorf("%w (path='%s'):\n%w", ErrRpmSourceFileTypeDetection, rpmSourcePath, err)
 	}
 
 	if isDir {
