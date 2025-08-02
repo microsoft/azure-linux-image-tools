@@ -86,7 +86,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 			},
 		)
 		if !foundRootFileSystem {
-			return fmt.Errorf("%w", ErrBootloaderRootFilesystemFind)
+			return ErrBootloaderRootFilesystemFind
 		}
 
 		rootMountIdType = rootFileSystem.MountPoint.IdType
@@ -160,7 +160,7 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	}
 
 	if !rootFound {
-		return "", fmt.Errorf("%w", ErrBootloaderRootMountFind)
+		return "", ErrBootloaderRootMountFind
 	}
 
 	mountIdType, mountId, err := parseExtendedSourcePartition(rootFstabEntry.Source)

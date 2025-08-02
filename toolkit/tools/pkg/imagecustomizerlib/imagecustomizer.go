@@ -1487,7 +1487,7 @@ func CheckEnvironmentVars() error {
 	envUser := os.Getenv("USER")
 
 	if envHome != rootHome || (envUser != "" && envUser != rootUser) {
-		return fmt.Errorf("%w", ErrToolNotRunAsRoot)
+		return ErrToolNotRunAsRoot
 	}
 
 	return nil
