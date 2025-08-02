@@ -268,7 +268,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("%w (packages %v):\n%w", ErrPackageInstall, allPackagesToAdd, err)
+		return fmt.Errorf("%w (packages=%v):\n%w", ErrPackageInstall, allPackagesToAdd, err)
 	}
 
 	return nil

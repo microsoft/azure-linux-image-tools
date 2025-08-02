@@ -16,7 +16,7 @@ import (
 
 var (
 	// Partition copy errors
-	ErrPartitionCopyTargetOsDetermination = NewImageCustomizerError("PartitionCopy:TargetOsDetermination", "failed to determine target OS")
+	ErrPartitionCopyTargetOsDetermination = NewImageCustomizerError("PartitionCopy:TargetOsDetermination", "failed to determine target OS of base image")
 	ErrPartitionCopyFilesToNewLayout      = NewImageCustomizerError("PartitionCopy:FilesToNewLayout", "failed to copy files to new partition layout")
 	ErrPartitionCopyFiles                 = NewImageCustomizerError("PartitionCopy:Files", "failed to copy partition files")
 )
@@ -59,7 +59,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {
 	err := copyPartitionFiles(existingImageChroot.RootDir()+"/.", newImageChroot.RootDir())
 	if err != nil {
-		return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrPartitionCopyFilesToNewLayout, existingImageChroot.RootDir(), newImageChroot.RootDir(), err)
+		return fmt.Errorf("%w:\n%w", ErrPartitionCopyFilesToNewLayout, err)
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrPartitionCopyFiles, sourceRoot, targetRoot, err)
+		return fmt.Errorf("%w:\n%w", ErrPartitionCopyFiles, err)
 	}
 
 	return nil

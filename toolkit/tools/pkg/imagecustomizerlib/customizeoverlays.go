@@ -23,9 +23,9 @@ import (
 
 var (
 	// Overlay-related errors
-	ErrAddDracutDriver        = NewImageCustomizerError("Overlays:AddDracutDriver", "failed to add dracut driver")
-	ErrOverlayFstabUpdate     = NewImageCustomizerError("Overlays:FstabUpdate", "failed to update fstab for overlay")
-	ErrOverlayDirectoryCreate = NewImageCustomizerError("Overlays:DirectoryCreate", "failed to create overlay directory")
+	ErrAddDracutDriver          = NewImageCustomizerError("Overlays:AddDracutDriver", "failed to add dracut driver")
+	ErrOverlayFstabUpdate       = NewImageCustomizerError("Overlays:FstabUpdate", "failed to update fstab for overlay")
+	ErrOverlayDirectoriesCreate = NewImageCustomizerError("Overlays:DirectoriesCreate", "failed to create overlay directories")
 )
 
 func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay, selinuxMode imagecustomizerapi.SELinuxMode,
@@ -64,7 +64,7 @@ func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay,
 	// Create necessary directories for overlays
 	err = createOverlayDirectories(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("%w:\n%w", ErrOverlayDirectoryCreate, err)
+		return false, fmt.Errorf("%w:\n%w", ErrOverlayDirectoriesCreate, err)
 	}
 
 	// Add equivalency rules for each overlay

@@ -27,7 +27,6 @@ var (
 	// COSI-related errors
 	ErrCosiDirectoryCreate      = NewImageCustomizerError("COSI:DirectoryCreate", "failed to create COSI directory")
 	ErrCosiBuildFile            = NewImageCustomizerError("COSI:BuildFile", "failed to build COSI file")
-	ErrCosiHashPartitionMissing = NewImageCustomizerError("COSI:HashPartitionMissing", "hash partition missing for verity")
 	ErrCosiMetadataPopulate     = NewImageCustomizerError("COSI:MetadataPopulate", "failed to populate COSI metadata")
 	ErrCosiMetadataMarshal      = NewImageCustomizerError("COSI:MetadataMarshal", "failed to marshal COSI metadata")
 	ErrCosiFileCreate           = NewImageCustomizerError("COSI:FileCreate", "failed to create COSI file")
@@ -136,7 +135,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			if partition.PartUuid == verity.dataPartUuid {
 				hashPartition, exists := partUuidToMetadata[verity.hashPartUuid]
 				if !exists {
-					return fmt.Errorf("%w (uuid='%s')", ErrCosiHashPartitionMissing, verity.hashPartUuid)
+					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
 				}
 
 				metadataImage.Verity = &VerityConfig{

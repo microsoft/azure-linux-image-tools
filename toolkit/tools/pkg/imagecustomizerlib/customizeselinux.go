@@ -98,7 +98,9 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 	// Ensure an SELinux policy has been installed.
 	// Typically, this is provided by the 'selinux-policy' package.
 	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled && !selinuxConfigFileExists {
-		return fmt.Errorf("%w (file='%s'): please ensure an SELinux policy is installed: the '%s' package provides the default policy",
+		return fmt.Errorf("%w (file='%s'):\n"+
+			"please ensure an SELinux policy is installed:\n"+
+			"the '%s' package provides the default policy",
 			ErrSELinuxPolicyMissing, installutils.SELinuxConfigFile, configuration.SELinuxPolicyDefault)
 	}
 

@@ -18,17 +18,16 @@ import (
 
 var (
 	// Bootloader-related errors
-	ErrBootloaderHardReset             = NewImageCustomizerError("Bootloader:HardReset", "failed to hard reset bootloader")
-	ErrBootloaderKernelCommandLineAdd  = NewImageCustomizerError("Bootloader:KernelCommandLineAdd", "failed to add kernel command line")
-	ErrBootloaderSelinuxModeGet        = NewImageCustomizerError("Bootloader:SelinuxModeGet", "failed to get existing SELinux mode")
-	ErrBootloaderRootFilesystemFind    = NewImageCustomizerError("Bootloader:RootFilesystemFind", "failed to find root filesystem (i.e. mount equal to '/')")
-	ErrBootloaderRootMountIdTypeGet    = NewImageCustomizerError("Bootloader:RootMountIdTypeGet", "failed to get image's root mount ID type")
-	ErrBootloaderImageBootTypeGet      = NewImageCustomizerError("Bootloader:ImageBootTypeGet", "failed to get image's boot type")
-	ErrBootloaderDiskConfigure         = NewImageCustomizerError("Bootloader:DiskConfigure", "failed to configure bootloader")
-	ErrBootloaderRootMountFind         = NewImageCustomizerError("Bootloader:RootMountFind", "failed to find root mount (/)")
-	ErrBootloaderRootMountSourceParse  = NewImageCustomizerError("Bootloader:RootMountSourceParse", "failed to parse root (/) mount source")
-	ErrBootloaderVerityRootUnsupported = NewImageCustomizerError("Bootloader:VerityRootUnsupported", "verity root unsupported")
-	ErrBootloaderMountIdUnsupported    = NewImageCustomizerError("Bootloader:MountIdUnsupported", "mount ID type unsupported")
+	ErrBootloaderHardReset              = NewImageCustomizerError("Bootloader:HardReset", "failed to hard reset bootloader")
+	ErrBootloaderKernelCommandLineAdd   = NewImageCustomizerError("Bootloader:KernelCommandLineAdd", "failed to add kernel command line")
+	ErrBootloaderSelinuxModeGet         = NewImageCustomizerError("Bootloader:SelinuxModeGet", "failed to get existing SELinux mode")
+	ErrBootloaderRootFilesystemFind     = NewImageCustomizerError("Bootloader:RootFilesystemFind", "failed to find root filesystem (i.e. mount equal to '/')")
+	ErrBootloaderRootMountIdTypeGet     = NewImageCustomizerError("Bootloader:RootMountIdTypeGet", "failed to get image's root mount ID type")
+	ErrBootloaderImageBootTypeGet       = NewImageCustomizerError("Bootloader:ImageBootTypeGet", "failed to get image's boot type")
+	ErrBootloaderDiskConfigure          = NewImageCustomizerError("Bootloader:DiskConfigure", "failed to configure bootloader")
+	ErrBootloaderRootMountFind          = NewImageCustomizerError("Bootloader:RootMountFind", "failed to find root mount (/)")
+	ErrBootloaderRootMountSourceParse   = NewImageCustomizerError("Bootloader:RootMountSourceParse", "failed to parse root (/) mount source")
+	ErrBootloaderUnsupportedRootMountId = NewImageCustomizerError("Bootloader:UnsupportedRootMountId", "unsupported root mount identifier")
 )
 
 func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
@@ -187,11 +186,11 @@ func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
 			rootMountIdType = imagecustomizerapi.MountIdentifierTypeDefault
 
 		default:
-			return "", fmt.Errorf("%w (identifier='%s')", ErrBootloaderVerityRootUnsupported, rootFstabEntry.Source)
+			return "", fmt.Errorf("%w (identifier='%s')", ErrBootloaderUnsupportedRootMountId, rootFstabEntry.Source)
 		}
 
 	default:
-		return "", fmt.Errorf("%w (identifier='%s')", ErrBootloaderMountIdUnsupported, rootFstabEntry.Source)
+		return "", fmt.Errorf("%w (identifier='%s')", ErrBootloaderUnsupportedRootMountId, rootFstabEntry.Source)
 	}
 
 	return rootMountIdType, nil
