@@ -144,5 +144,5 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
-        name: tests-results-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        name: tests-results-vmtests-imagecustomizer-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
         path: repo/test/vmtests/out

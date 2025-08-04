@@ -18,18 +18,6 @@ def run_image_creator(
     output_image_path: Path,
     build_dir: Path,
 ) -> None:
-    # Validate required files exist before starting
-    if not image_creator_binary_path.exists():
-        raise FileNotFoundError(f"Image creator binary not found: {image_creator_binary_path}")
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    if not tools_tar.exists():
-        raise FileNotFoundError(f"Tools tar file not found: {tools_tar}")
-
-    for rpm_source in rpm_sources:
-        if not rpm_source.exists():
-            raise FileNotFoundError(f"RPM source not found: {rpm_source}")
-
     # Build rpm sources arguments
     rpm_source_args = []
     for rpm_source in rpm_sources:
@@ -71,22 +59,8 @@ def run_image_customizer_binary(
     output_image_format: str,
     build_dir: Path,
 ) -> None:
-    # Validate required files exist before starting
-    if not image_customizer_binary_path.exists():
-        raise FileNotFoundError(f"Image customizer binary not found: {image_customizer_binary_path}")
-    if not input_image_path.exists():
-        raise FileNotFoundError(f"Input image not found: {input_image_path}")
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
-    if not output_image_path.parent.exists():
-        raise FileNotFoundError(f"Output directory not found: {output_image_path.parent}")
-
     # Create build directory if it doesn't exist
     build_dir.mkdir(exist_ok=True, parents=True)
-
-    # rpm sources is an array so create an array with repo_file_path
-    if not repo_file_path.exists():
-        raise FileNotFoundError(f"RPM sources file not found: {repo_file_path}")
 
     args = [
         str(image_customizer_binary_path),

@@ -6,7 +6,7 @@ RUN tdnf update -y && \
    tdnf install -y dnf dnf-plugins-core createrepo_c
 
 RUN dnf download -y --resolve --alldeps --destdir /downloadedrpms \
-   jq golang 
+   jq golang
    
 RUN if [ "${imagecreator}" = "true" ]; then \
     dnf download -y --resolve --alldeps --destdir /downloadedrpms \

@@ -103,7 +103,7 @@ def run_min_change_test(
                 "qemu-img",
                 "create",
                 "-F",
-                output_format,
+                "qcow2",
                 "-f",
                 "qcow2",
                 "-b",

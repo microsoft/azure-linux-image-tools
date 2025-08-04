@@ -107,7 +107,7 @@ test-imagecreator:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests/test_imagecreator.py
+		./vmtests/imagecreator/test_imagecreator.py
 
 .PHONY: run-imagecustomizer
 run-imagecustomizer: image-customizer-container test-imagecustomizer
