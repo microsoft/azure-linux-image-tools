@@ -136,3 +136,21 @@ os:
 ```
 
 Added in v0.7.
+
+## reinitializeVerity [string]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `reinitialize-verity` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
+
+When the base image contains verity partitions, controls whether or not the verity
+partitions can be modified.
+
+Supported options:
+
+- `none`: During OS customization, all verity data partitions are mounted as read-only.
+  The verity hash partitions are left unchanged.
+
+- `all`: During OS customization, all verity data partitions are mounted as read-write.
+  The verity hash partitions will be regenerated.
