@@ -12,10 +12,11 @@ tool, then boot them in VMs to verify they work correctly.
 
 - `test_imagecreator.py` - Main test file containing the Image Creator VM tests
 - `conftest.py` - Pytest configuration and fixtures specific to Image Creator tests
-- `testdata/` - Test configuration files and data
-  - `azurelinux.repo` - RPM repository configuration with disabled GPG verification
-  - `ssh-config.yaml` - ImageCustomizer configuration template for SSH access
 - `../utils/imagecreator.py` - Utility functions for running the Image Creator binary
+
+**Configuration Files:**
+
+- SSH config template: `toolkit/tools/pkg/imagecreatorlib/testdata/ssh-config.yaml` - ImageCustomizer configuration template for SSH access
 
 ## Key Differences from Image Customizer Tests
 
@@ -63,7 +64,7 @@ The binary will be located at `./toolkit/out/tools/imagecreator`.
 Each test:
 
 1. Creates a new image using the Image Creator binary
-2. Customizes the image with SSH access using ImageCustomizer and `testdata/ssh-config.yaml`
+2. Customizes the image with SSH access using ImageCustomizer and `toolkit/tools/pkg/imagecreatorlib/testdata/ssh-config.yaml`
 3. Creates a differencing disk for VM testing
 4. Boots the image in a libvirt VM
 5. Connects via SSH and runs basic validation:
@@ -86,8 +87,7 @@ The test configuration files in `testdata/` can be used for manual testing:
 # Customize it with SSH access  
 ./imagecustomizer customize \
   --image-file test-image.qcow2 \
-  --config-file testdata/ssh-config.yaml \
-  --rpm-source testdata/azurelinux.repo \
+  --config-file ../toolkit/tools/pkg/imagecreatorlib/testdata/ssh-config.yaml \
   --output-image-file customized-image.qcow2
 ```
 

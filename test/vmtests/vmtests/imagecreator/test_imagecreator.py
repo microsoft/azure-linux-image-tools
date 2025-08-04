@@ -27,16 +27,9 @@ IMAGECREATOR_TEST_CONFIGS_DIR = Path(__file__).parent.parent.parent.parent.paren
 )
 
 
-def get_repo_file_path() -> Path:
-    """Get the path to the azurelinux.repo file from testdata."""
-    testdata_dir = Path(__file__).parent.joinpath("testdata")
-    return testdata_dir.joinpath("azurelinux.repo")
-
-
 def create_ssh_config_file(test_temp_dir: Path, username: str, ssh_public_key: str) -> Path:
     """Create a customized SSH config file from the template."""
-    testdata_dir = Path(__file__).parent.joinpath("testdata")
-    template_config_file = testdata_dir.joinpath("ssh-config.yaml")
+    template_config_file = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("ssh-config.yaml")
 
     # Read the template and substitute placeholders
     template_content = template_config_file.read_text()
@@ -106,8 +99,7 @@ def run_image_creator_test(
     customizer_build_dir = test_temp_dir.joinpath("customizer-build")
     customizer_build_dir.mkdir(exist_ok=True)
 
-    # Create repo file and SSH config from testdata
-    repo_file_path = get_repo_file_path()
+    # Create SSH config from testdata
     customizer_config_path_obj = create_ssh_config_file(test_temp_dir, username, ssh_public_key)
     close_list.append(RemoveFileOnClose(customizer_config_path_obj))
 
@@ -115,7 +107,6 @@ def run_image_creator_test(
         image_customizer_binary_path,
         initial_output_image_path,
         customizer_config_path_obj,
-        repo_file_path,
         customized_output_image_path,
         output_format,
         customizer_build_dir,
