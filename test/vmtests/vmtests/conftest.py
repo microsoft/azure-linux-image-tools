@@ -19,7 +19,7 @@ from .utils import libvirt_events_thread
 from .utils.closeable import Closeable
 
 SCRIPT_PATH = Path(__file__).parent
-TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../toolkit/tools/pkg/imagecustomizerlib/testdata")
+TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomizerlib/testdata")
 
 
 @pytest.fixture(scope="session")
@@ -32,7 +32,8 @@ def keep_environment(request: pytest.FixtureRequest) -> Generator[bool, None, No
 def _generate_test_name(request: pytest.FixtureRequest) -> str:
     """Helper function to generate unique test instance names."""
     instance_suffix = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
-    return request.node.name + "-" + instance_suffix
+    node_name = getattr(request.node, "name", "test") or "test"
+    return f"{str(node_name)}-{instance_suffix}"
 
 
 @pytest.fixture(scope="function")

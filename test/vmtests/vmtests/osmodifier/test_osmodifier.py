@@ -4,7 +4,6 @@
 import logging
 import os
 import platform
-import sys
 import tempfile
 from getpass import getuser
 from pathlib import Path
@@ -50,9 +49,9 @@ def setup_vm_with_osmodifier(
     session_close_list: List[Closeable],
 ) -> Tuple[SshClient, Path, Path]:
     if platform.machine() == "x86_64":
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config.yaml")
     else:
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-arm64.yaml")
 
     output_format = "qcow2"
     (ssh_public_key, ssh_private_key_path) = ssh_key
@@ -63,8 +62,6 @@ def setup_vm_with_osmodifier(
         source_boot_type = "legacy"
 
     target_boot_type = source_boot_type
-    if output_format == "iso":
-        target_boot_type = "efi"
 
     output_image_path = session_temp_dir.joinpath("image." + output_format)
     username = getuser()
@@ -214,7 +211,6 @@ def test_modify_kernel_modules(
     """
     ssh_client, _, logs_dir = setup_vm_with_osmodifier
 
-    # Run osmodifier with kernel modules config
     run_osmodifier_with_config(
         setup_vm_with_osmodifier,
         "modules-config.yaml",
@@ -225,7 +221,6 @@ def test_modify_kernel_modules(
     module_load_path = "/etc/modules-load.d/modules-load.conf"
     module_options_path = "/etc/modprobe.d/module-options.conf"
 
-    # Read contents from the VM
     load_content = ssh_client.run(f"cat {module_load_path} || true").stdout
     assert "vfio" in load_content
     assert "mlx5_ib" in load_content
@@ -323,7 +318,7 @@ def test_osmodifier_boot_config(
         logs_dir / "test_boot_config.log",
     )
 
-    grub_cfg = ssh_client.run("cat /boot/grub2/grub.cfg").stdout
+    grub_cfg = ssh_client.run("sudo cat /boot/grub2/grub.cfg").stdout
 
     assert "console=tty0" in grub_cfg
     assert "console=ttyS0" in grub_cfg
@@ -352,5 +347,5 @@ def test_uki_selinux_config(
     )
 
     # Check /etc/selinux/config file
-    selinux_conf = ssh_client.run("cat /etc/selinux/config").stdout
-    assert "SELINUX=permissive" in selinux_conf
+    selinux_conf = ssh_client.run("sudo cat /etc/selinux/config").stdout
+    assert "SELINUX=enforcing" in selinux_conf
