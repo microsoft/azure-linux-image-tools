@@ -10,7 +10,6 @@ from typing import List, Tuple
 
 import libvirt  # type: ignore
 import pytest
-import yaml
 
 from ..utils import local_client
 from ..utils.closeable import Closeable
@@ -38,17 +37,17 @@ def create_ssh_config_file(test_temp_dir: Path, username: str, ssh_public_key: s
     """Create a customized SSH config file from the template."""
     testdata_dir = Path(__file__).parent.joinpath("testdata")
     template_config_file = testdata_dir.joinpath("ssh-config.yaml")
-    
+
     # Read the template and substitute placeholders
     template_content = template_config_file.read_text()
     customized_content = template_content.replace("{{USERNAME}}", username)
     customized_content = customized_content.replace("{{SSH_PUBLIC_KEY}}", ssh_public_key)
-    
+
     # Write to temporary file
     fd, config_path = tempfile.mkstemp(prefix="imagecustomizer-config-", suffix=".yaml", dir=test_temp_dir)
     with open(fd, mode="w") as file:
         file.write(customized_content)
-    
+
     return Path(config_path)
 
 
@@ -273,5 +272,3 @@ def test_create_image_efi_qcow_output(
         close_list,
         image_customizer_binary_path,
     )
-
-
