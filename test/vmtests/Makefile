@@ -15,6 +15,7 @@ MYPY=${VENV_BIN_DIR}/mypy
 TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
+IMAGE_CREATOR_BIN=${TOOLS_BIN_DIR}/imagecreator
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
@@ -68,12 +69,16 @@ check-black:
 ${IMAGE_CUSTOMIZER_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer
 
+.PHONY: ${IMAGE_CREATOR_BIN}
+${IMAGE_CREATOR_BIN}:
+	${MAKE} -C ${TOOLKIT_DIR} go-imagecreator
+
 .PHONY: image-customizer-container
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
 
-.PHONY: test
-test:
+.PHONY: test-imagecustomizer
+test-imagecustomizer:
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--logs-dir="${LOGS_DIR}" \
@@ -87,7 +92,25 @@ test:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests
+		./vmtests/test_min_change.py 
 
-.PHONY: run
-run: image-customizer-container test
+.PHONY: test-imagecreator
+test-imagecreator:
+	${PYTEST} \
+		--image-creator-binary-path="${IMAGE_CREATOR_BIN}" \
+		--rpm-sources="${RPM_SOURCES}" \
+		--tools-tar="${TOOLS_TAR}" \
+		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		./vmtests/imagecreator/test_imagecreator.py
+
+.PHONY: run-imagecustomizer
+run-imagecustomizer: image-customizer-container test-imagecustomizer
+
+.PHONY: run-imagecreator
+run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator

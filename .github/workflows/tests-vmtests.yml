@@ -138,15 +138,15 @@ jobs:
         set -eux
 
         pushd ./repo/test/vmtests
-
+        
         CORE_LEGACY_AZL2=""
         CORE_LEGACY_AZL3=""
         if [ "$HOST_ARCH" == "amd64" ]; then
           CORE_LEGACY_AZL2="../../../azl-core-legacy-2.0/image.vhd"
           CORE_LEGACY_AZL3="../../../azl-core-legacy-3.0/image.vhd"
         fi
-
-        sudo make test \
+        
+        sudo make test-imagecustomizer \
           IMAGE_CUSTOMIZER_CONTAINER_TAG="$CONTAINER_TAG" \
           CORE_EFI_AZL2="../../../azl-core-efi-2.0/image.vhdx" \
           CORE_EFI_AZL3="../../../azl-core-efi-3.0/image.vhdx" \
@@ -160,5 +160,5 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
-        name: tests-results-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        name: tests-results-vmtests-imagecustomizer-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
         path: repo/test/vmtests/out

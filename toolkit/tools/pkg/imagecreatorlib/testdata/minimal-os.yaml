@@ -37,6 +37,8 @@ os:
     - azurelinux-repos
     - azurelinux-rpm-macros
     - bash
+    - ca-certificates
+    - ca-certificates-base
     - dbus
     - dracut-hostonly
     - e2fsprogs
@@ -44,6 +46,7 @@ os:
     - grub2
     - grub2-efi-binary
     - iana-etc
+    - initramfs
     - iproute
     - iputils
     - irqbalance
@@ -63,4 +66,3 @@ os:
     - util-linux
     - zlib
     - kernel
-    - initramfs
