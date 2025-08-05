@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
@@ -51,7 +52,10 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		logger.Log.Infof("Adding user (%s)", user.Name)
 	}
 
+
 	hashedPassword := ""
+	shouldUpdatePassword := false
+
 	if user.Password != nil {
 		passwordIsFile := user.Password.Type == imagecustomizerapi.PasswordTypePlainTextFile ||
 			user.Password.Type == imagecustomizerapi.PasswordTypeHashedFile
@@ -72,12 +76,16 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			password = string(passwordFileContents)
 		}
 
-		hashedPassword = password
-		if !passwordIsHashed {
-			// Hash the password.
-			hashedPassword, err = userutils.HashPassword(password)
-			if err != nil {
-				return err
+		// Only proceed if password is not empty
+		if strings.TrimSpace(password) != "" {
+			shouldUpdatePassword = true
+			hashedPassword = password
+			if !passwordIsHashed {
+				// Hash the password.
+				hashedPassword, err = userutils.HashPassword(password)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -92,10 +100,12 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 				user.HomeDirectory, user.Name)
 		}
 
-		// Update the user's password.
-		err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
-		if err != nil {
-			return err
+		// Only update password if explicitly provided
+		if shouldUpdatePassword {
+			err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		var uidStr string
@@ -109,6 +119,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			return err
 		}
 	}
+
 
 	// Set user's password expiry.
 	if user.PasswordExpiresDays != nil {
