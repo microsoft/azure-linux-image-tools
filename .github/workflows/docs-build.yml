@@ -15,6 +15,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Setup ruby
       uses: ruby/setup-ruby@4a9ddd6f338a97768b8006bf671dfbad383215f4 # v1.207.0
@@ -29,17 +31,21 @@ jobs:
       uses: actions/configure-pages@v5
 
     - name: Build with Jekyll
-      run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
+      run: bundle exec jekyll build --baseurl "$PAGES_PATH"
       working-directory: ./docs
+      env:
+        PAGES_PATH: ${{ steps.pages.outputs.base_path }}
 
     - name: Check links
       run: |
         bundle exec htmlproofer \
           --disable-external \
           --assume_extension '.html' \
-          --swap-urls '^${{ steps.pages.outputs.base_path }}/:/' \
+          --swap-urls "^${PAGES_PATH}/:/" \
           ./_site
       working-directory: ./docs
+      env:
+        PAGES_PATH: ${{ steps.pages.outputs.base_path }}
 
     - name: Upload site assets as artifact
       id: deployment
