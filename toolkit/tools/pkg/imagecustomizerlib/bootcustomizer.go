@@ -11,6 +11,11 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
+var (
+	// Boot customization errors
+	ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
+)
+
 type BootCustomizer struct {
 	// The contents of the /boot/grub2/grub.cfg file.
 	grubCfgContent string
@@ -208,7 +213,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 		// Update /boot/grub2/grub.cfg file.
 		err = installutils.CallGrubMkconfig(imageChroot)
 		if err != nil {
-			return fmt.Errorf("failed to generate grub.cfg via grub2-mkconfig:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrBootGrubMkconfigGeneration, err)
 		}
 	} else {
 		// Update grub.cfg file.
