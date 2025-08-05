@@ -118,6 +118,11 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	if c.Storage.ReinitializeVerity != ReinitializeVerityTypeDefault &&
+		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureReinitializeVerity) {
+		return fmt.Errorf("the 'reinitialize-verity' preview feature must be enabled to use 'storage.reinitializeVerity'")
+	}
+
 	return nil
 }
 

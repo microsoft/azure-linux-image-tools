@@ -86,6 +86,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         path: repo
+        persist-credentials: false
 
     - name: Download base images
       run: |
@@ -93,6 +94,11 @@ jobs:
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+
+        if [ "$HOST_ARCH" == "amd64" ]; then
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
+        fi
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -132,13 +138,23 @@ jobs:
         set -eux
 
         pushd ./repo/test/vmtests
-
+        
+        CORE_LEGACY_AZL2=""
+        CORE_LEGACY_AZL3=""
+        if [ "$HOST_ARCH" == "amd64" ]; then
+          CORE_LEGACY_AZL2="../../../azl-core-legacy-2.0/image.vhd"
+          CORE_LEGACY_AZL3="../../../azl-core-legacy-3.0/image.vhd"
+        fi
+        
         sudo make test-imagecustomizer \
           IMAGE_CUSTOMIZER_CONTAINER_TAG="$CONTAINER_TAG" \
           CORE_EFI_AZL2="../../../azl-core-efi-2.0/image.vhdx" \
           CORE_EFI_AZL3="../../../azl-core-efi-3.0/image.vhdx" \
+          CORE_LEGACY_AZL2="$CORE_LEGACY_AZL2" \
+          CORE_LEGACY_AZL3="$CORE_LEGACY_AZL3" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
       env:
+        HOST_ARCH: ${{ inputs.hostArch }}
         CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
 
     - uses: actions/upload-artifact@v4

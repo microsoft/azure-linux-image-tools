@@ -364,8 +364,8 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, error,
 ) {
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, err := connectToExistingImage(ctx,
-		rawImageFile, buildDir, chrootDir, true, true)
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, _, err := connectToExistingImage(ctx,
+		rawImageFile, buildDir, chrootDir, true, true, false)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("failed to connect to image:\n%w", err)
 	}

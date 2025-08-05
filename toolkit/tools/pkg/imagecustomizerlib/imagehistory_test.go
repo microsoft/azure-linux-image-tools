@@ -39,7 +39,7 @@ func TestAddImageHistory(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test adding the first entry
-	err = addImageHistory(t.Context(), tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistoryHelper(t.Context(), tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
@@ -52,7 +52,7 @@ func TestAddImageHistory(t *testing.T) {
 	// Test adding another entry with a different uuid
 	_, expectedUuid, err = randomization.CreateUuid()
 	assert.NoError(t, err)
-	err = addImageHistory(t.Context(), tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistoryHelper(t.Context(), tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
@@ -61,7 +61,15 @@ func TestAddImageHistory(t *testing.T) {
 	assert.NotEqual(t, allHistory[0].ImageUuid, allHistory[1].ImageUuid, "imageUuid should be different for each entry")
 }
 
-func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, expectedVersion string, expectedDate string, config imagecustomizerapi.Config, historyFilePath string) (allHistory []ImageHistory) {
+func verifyImageHistoryFile(t *testing.T, expectedEntries int, config imagecustomizerapi.Config, rootPath string,
+) (allHistory []ImageHistory) {
+	return verifyHistoryFile(t, expectedEntries, "", ToolVersion, "", config,
+		filepath.Join(rootPath, customizerLoggingDir, historyFileName))
+}
+
+func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, expectedVersion string,
+	expectedDate string, config imagecustomizerapi.Config, historyFilePath string,
+) (allHistory []ImageHistory) {
 	exists, err := file.PathExists(historyFilePath)
 	assert.NoError(t, err, "error checking history file existence")
 	assert.True(t, exists, "history file should exist")
@@ -75,9 +83,13 @@ func verifyHistoryFile(t *testing.T, expectedEntries int, expectedUuid string, e
 
 	// Verify the last entry content
 	entry := allHistory[expectedEntries-1]
-	assert.Equal(t, expectedUuid, entry.ImageUuid, "imageUuid should match")
+	if expectedUuid != "" {
+		assert.Equal(t, expectedUuid, entry.ImageUuid, "imageUuid should match")
+	}
 	assert.Equal(t, expectedVersion, entry.ToolVersion, "toolVersion should match")
-	assert.Equal(t, expectedDate, entry.BuildTime, "buildTime should match")
+	if expectedDate != "" {
+		assert.Equal(t, expectedDate, entry.BuildTime, "buildTime should match")
+	}
 	// Since the config is modified its entirety won't be an exact match; picking one consistent field to verify
 	assert.Equal(t, config.OS.BootLoader.ResetType, entry.Config.OS.BootLoader.ResetType, "config bootloader reset type should match")
 

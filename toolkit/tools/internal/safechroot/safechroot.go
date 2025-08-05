@@ -176,6 +176,11 @@ func (m *MountPoint) GetTarget() string {
 	return m.target
 }
 
+// GetFlags gets the flags of the mount.
+func (m *MountPoint) GetFlags() uintptr {
+	return m.flags
+}
+
 // NewChroot creates a new Chroot struct
 func NewChroot(rootDir string, isExistingDir bool) *Chroot {
 	// get chroot folder

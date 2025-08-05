@@ -155,6 +155,7 @@ os:
         - [options](./configuration/mountpoint.md#options-string)
         - [path](./configuration/mountpoint.md#path-string)
     - [resetPartitionsUuidsType](./configuration/storage.md#resetpartitionsuuidstype-string)
+    - [reinitializeVerity](./configuration/storage.md#reinitializeverity-string)
   - [iso](./configuration/config.md#iso-iso) ([iso type](./configuration/iso.md))
     - [additionalFiles](./configuration/iso.md#additionalfiles-additionalfile)
       - [additionalFile type](./configuration/additionalfile.md)
