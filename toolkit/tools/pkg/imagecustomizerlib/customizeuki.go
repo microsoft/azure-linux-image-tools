@@ -184,6 +184,8 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 }
 
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot, arch string) error {
+	
+	// UKI stub names defined by systemd-boot: https://manpages.debian.org/experimental/systemd-boot-efi/linuxx64.efi.stub.7.en.html
 	var stubFileName string
 	switch arch {
 	case "amd64":
