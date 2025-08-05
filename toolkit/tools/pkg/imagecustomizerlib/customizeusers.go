@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
@@ -56,6 +55,8 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	shouldUpdatePassword := false
 
 	if user.Password != nil {
+		shouldUpdatePassword = true
+
 		passwordIsFile := user.Password.Type == imagecustomizerapi.PasswordTypePlainTextFile ||
 			user.Password.Type == imagecustomizerapi.PasswordTypeHashedFile
 
@@ -75,16 +76,12 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			password = string(passwordFileContents)
 		}
 
-		// Only proceed if password is not empty
-		if strings.TrimSpace(password) != "" {
-			shouldUpdatePassword = true
-			hashedPassword = password
-			if !passwordIsHashed {
-				// Hash the password.
-				hashedPassword, err = userutils.HashPassword(password)
-				if err != nil {
-					return err
-				}
+		hashedPassword = password
+		if !passwordIsHashed {
+			// Hash the password.
+			hashedPassword, err = userutils.HashPassword(password)
+			if err != nil {
+				return err
 			}
 		}
 	}
