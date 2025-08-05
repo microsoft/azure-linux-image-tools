@@ -26,8 +26,7 @@ import (
 
 var (
 	// RPM source mount errors
-	ErrRpmSourceFilePathCheck     = NewImageCustomizerError("RpmSources:FilePathCheck", "failed to check RPM source file path")
-	ErrRpmSourceFileTypeDetection = NewImageCustomizerError("RpmSources:FileTypeDetection", "failed to detect RPM source file type")
+	ErrRpmSourceFileTypeDetection = NewImageCustomizerError("RpmSources:FileTypeDetection", "failed to get type of RPM source")
 	ErrRpmSourceTypeUnknown       = NewImageCustomizerError("RpmSources:TypeUnknown", "unknown RPM source type - must be a .repo file or a directory")
 )
 

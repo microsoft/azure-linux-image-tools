@@ -37,6 +37,7 @@ var (
 	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
 	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
+	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
 
 	tdnfOpLines = []string{
 		"Installing/Updating: ",
@@ -94,7 +95,7 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 		// Mount RPM sources.
 		mounts, err = mountRpmSources(ctx, buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrMountRpmSources, err)
 		}
 		defer mounts.close()
 
