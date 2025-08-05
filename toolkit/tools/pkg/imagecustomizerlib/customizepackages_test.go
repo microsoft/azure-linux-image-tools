@@ -62,6 +62,8 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		"/usr/bin/jq",
 	)
 
+	verifyImageHistoryFile(t, 1, config, imageConnection.Chroot().RootDir())
+
 	err = imageConnection.CleanClose()
 	if !assert.NoError(t, err) {
 		return
@@ -105,6 +107,8 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		"/usr/bin/jq",
 		"/usr/bin/go",
 	)
+
+	verifyImageHistoryFile(t, 2, config, imageConnection.Chroot().RootDir())
 }
 
 func copyRpms(sourceDir string, targetDir string, excludePrefixes []string) error {
@@ -356,6 +360,8 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 		"snapshotTime %s should install jq version %s, but got: %s", snapshotTime, expectedVersion, jqVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
+
+	verifyImageHistoryFile(t, 1, config, imageConnection.Chroot().RootDir())
 }
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
@@ -405,6 +411,8 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 		"snapshotTime %s should install jq version %s, but got: %s", snapshotTimeCLI, expectedVersion, jqVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
+
+	verifyImageHistoryFile(t, 1, config, imageConnection.Chroot().RootDir())
 }
 
 func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
