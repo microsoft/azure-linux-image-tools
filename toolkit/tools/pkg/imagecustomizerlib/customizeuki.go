@@ -63,7 +63,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	}
 
 	// Detect system architecture.
-	_, bootConfig, err := getBootArchConfig()
+	arch, bootConfig, err := getBootArchConfig()
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
-	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot)
+	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, arch)
 	if err != nil {
 		return fmt.Errorf("failed to copy UKI files:\n%w", err)
 	}
@@ -183,10 +183,20 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 	return nil
 }
 
-func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot) error {
+func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot, arch string) error {
+	var stubFileName string
+	switch arch {
+	case "amd64":
+		stubFileName = "linuxx64.efi.stub"
+	case "arm64":
+		stubFileName = "linuxaa64.efi.stub"
+	default:
+		return fmt.Errorf("unsupported architecture: %s", arch)
+	}
+
 	filesToCopy := map[string]string{
-		filepath.Join(imageChroot.RootDir(), "/usr/lib/systemd/boot/efi/linuxx64.efi.stub"): filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub"),
-		filepath.Join(imageChroot.RootDir(), "/etc/os-release"):                             filepath.Join(buildDir, UkiBuildDir, "os-release"),
+		filepath.Join(imageChroot.RootDir(), "/usr/lib/systemd/boot/efi", stubFileName): filepath.Join(buildDir, UkiBuildDir, stubFileName),
+		filepath.Join(imageChroot.RootDir(), "/etc/os-release"):                        filepath.Join(buildDir, UkiBuildDir, "os-release"),
 	}
 
 	for kernel, initramfs := range kernelToInitramfs {
