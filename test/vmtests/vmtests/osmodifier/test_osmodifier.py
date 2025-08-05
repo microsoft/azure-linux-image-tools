@@ -14,19 +14,8 @@ import pytest
 import yaml
 from docker import DockerClient
 
-from ..conftest import (
-    TEST_CONFIGS_DIR,
-    docker_client,
-    image_customizer_container_url,
-    keep_environment,
-    libvirt_conn,
-    libvirt_event_thread,
-    logs_dir,
-    session_close_list,
-    session_instance_name,
-    ssh_key,
-)
-from ..utils import local_client
+from ..conftest import TEST_CONFIGS_DIR
+from ..utils import local_client  # noqa: F401
 from ..utils.closeable import Closeable
 from ..utils.host_utils import get_host_distro
 from ..utils.imagecustomizer import run_image_customizer

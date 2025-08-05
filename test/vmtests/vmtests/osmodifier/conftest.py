@@ -7,17 +7,7 @@ from typing import Generator
 
 import pytest
 
-from ..conftest import (
-    close_list,
-    create_temp_folder,
-    docker_client,
-    image_customizer_container_url,
-    keep_environment,
-    libvirt_conn,
-    libvirt_event_thread,
-    logs_dir,
-    ssh_key,
-)
+from ..conftest import create_temp_folder
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
