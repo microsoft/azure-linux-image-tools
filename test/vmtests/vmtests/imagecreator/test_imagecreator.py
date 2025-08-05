@@ -4,7 +4,6 @@
 import logging
 import os
 import platform
-import tempfile
 from pathlib import Path
 from typing import List, Tuple
 
@@ -13,9 +12,9 @@ import pytest
 
 from ..utils import local_client
 from ..utils.closeable import Closeable
-from ..utils.file_utils import RemoveFileOnClose
 from ..utils.host_utils import get_host_distro
 from ..utils.imagecreator import run_image_creator, run_image_customizer_binary
+from ..utils.imagecustomizer import add_ssh_to_config
 from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from ..utils.libvirt_vm import LibvirtVm
 from ..utils.ssh_client import SshClient
@@ -25,23 +24,6 @@ from ..utils.user_utils import get_username
 IMAGECREATOR_TEST_CONFIGS_DIR = Path(__file__).parent.parent.parent.parent.parent.joinpath(
     "toolkit/tools/pkg/imagecreatorlib/testdata"
 )
-
-
-def create_ssh_config_file(test_temp_dir: Path, username: str, ssh_public_key: str) -> Path:
-    """Create a customized SSH config file from the template."""
-    template_config_file = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("ssh-config.yaml")
-
-    # Read the template and substitute placeholders
-    template_content = template_config_file.read_text()
-    customized_content = template_content.replace("{{USERNAME}}", username)
-    customized_content = customized_content.replace("{{SSH_PUBLIC_KEY}}", ssh_public_key)
-
-    # Write to temporary file
-    fd, config_path = tempfile.mkstemp(prefix="imagecustomizer-config-", suffix=".yaml", dir=test_temp_dir)
-    with open(fd, mode="w") as file:
-        file.write(customized_content)
-
-    return Path(config_path)
 
 
 def run_image_creator_test(
@@ -99,9 +81,9 @@ def run_image_creator_test(
     customizer_build_dir = test_temp_dir.joinpath("customizer-build")
     customizer_build_dir.mkdir(exist_ok=True)
 
-    # Create SSH config from testdata
-    customizer_config_path_obj = create_ssh_config_file(test_temp_dir, username, ssh_public_key)
-    close_list.append(RemoveFileOnClose(customizer_config_path_obj))
+    # Use base SSH config and add SSH user configuration dynamically
+    base_ssh_config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("ssh-base-config.yaml")
+    customizer_config_path_obj = add_ssh_to_config(base_ssh_config_path, username, ssh_public_key, close_list)
 
     run_image_customizer_binary(
         image_customizer_binary_path,

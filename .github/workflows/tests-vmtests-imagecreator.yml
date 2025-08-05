@@ -5,8 +5,6 @@ name: Tests VMTests suite for Image Creator
 
 permissions:
   contents: read
-  # Azure login.
-  id-token: write
 
 on:
   workflow_call:
@@ -30,9 +28,6 @@ jobs:
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
     permissions:
       contents: read
-      # Azure login.
-      id-token: write
-    environment: public
     steps:
     - name: setup go 1.x
       uses: actions/setup-go@v5
@@ -41,6 +36,8 @@ jobs:
 
     - name: Install prerequisites (AZL3)
       if: inputs.hostDistro == 'azl3'
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
       run: |
         set -eux
 
@@ -54,7 +51,7 @@ jobs:
           xfsprogs zstd veritysetup grub2 binutils lsof git
 
         # grub2-pc is only available on x86.
-        if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
+        if [[ "$HOST_ARCH" == "amd64" ]]; then
           sudo tdnf install -y grub2-pc
         fi
 
@@ -64,6 +61,8 @@ jobs:
 
     - name: Install prerequisites (Ubuntu 24.04)
       if: inputs.hostDistro == 'ubuntu2404'
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
       run: |
         set -eux
 
@@ -75,34 +74,22 @@ jobs:
           qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
           xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
-          python3.12-venv python3-pip python3-dev \
+          python3-venv python3-pip python3-dev \
           libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
           qemu-kvm virt-manager
 
         # Install arm64 specific packages
-        if [[ "${{ inputs.hostArch }}" == "arm64" ]]; then
+        if [[ "$HOST_ARCH" == "arm64" ]]; then
           sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
         fi
 
         sudo apt list --installed
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        client-id: ${{ vars.AZURE_CLIENT_ID }}
-        tenant-id: ${{ vars.AZURE_TENANT_ID }}
-        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
     - name: Checkout
       uses: actions/checkout@v4
       with:
         path: repo
-
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: out
 
     - name: Build imagecreator and imagecustomizer
       run: |

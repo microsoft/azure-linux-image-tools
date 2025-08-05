@@ -16,7 +16,9 @@ tool, then boot them in VMs to verify they work correctly.
 
 **Configuration Files:**
 
-- SSH config template: `toolkit/tools/pkg/imagecreatorlib/testdata/ssh-config.yaml` - ImageCustomizer configuration template for SSH access
+- SSH base config: `toolkit/tools/pkg/imagecreatorlib/testdata/ssh-base-config.yaml` - Base
+  ImageCustomizer configuration used with `add_ssh_to_config()` function to add SSH access and
+  VM-friendly settings
 
 ## Key Differences from Image Customizer Tests
 
@@ -34,8 +36,9 @@ tool, then boot them in VMs to verify they work correctly.
 
 ## Configuration
 
-Tests use the `minimal-os.yaml` configuration file from the Image Creator library testdata
-directory. This creates a minimal Azure Linux 3.0 image with essential packages.
+Tests use the `minimal-os.yaml` configuration file from the Image Creator library testdata directory
+for creating the base image. SSH access and VM-friendly settings are added using the
+`ssh-base-config.yaml` file with the `add_ssh_to_config()` function.
 
 ## Running the Tests
 
@@ -63,32 +66,13 @@ The binary will be located at `./toolkit/out/tools/imagecreator`.
 
 Each test:
 
-1. Creates a new image using the Image Creator binary
-2. Customizes the image with SSH access using ImageCustomizer and `toolkit/tools/pkg/imagecreatorlib/testdata/ssh-config.yaml`
+1. Creates a new image using the Image Creator binary with `minimal-os.yaml`
+2. Customizes the image with SSH access using ImageCustomizer and the `add_ssh_to_config()` function
+   with `ssh-base-config.yaml`
 3. Creates a differencing disk for VM testing
 4. Boots the image in a libvirt VM
 5. Connects via SSH and runs basic validation:
    - Checks that the OS is Azure Linux 3.0
    - Verifies essential packages are installed (kernel, systemd, grub2, bash)
    - Validates the system can boot and respond to commands
-
-## Manual Testing
-
-The test configuration files in `testdata/` can be used for manual testing:
-
-```bash
-# Create an image using ImageCreator
-./imagecreator \
-  --config-file ../toolkit/tools/pkg/imagecreatorlib/testdata/minimal-os.yaml \
-  --output-image-file test-image.qcow2 \
-  --output-image-format qcow2 \
-  --rpm-source /path/to/rpm/repo
-
-# Customize it with SSH access  
-./imagecustomizer customize \
-  --image-file test-image.qcow2 \
-  --config-file ../toolkit/tools/pkg/imagecreatorlib/testdata/ssh-config.yaml \
-  --output-image-file customized-image.qcow2
-```
-
-Remember to substitute `{{USERNAME}}` and `{{SSH_PUBLIC_KEY}}` placeholders in `ssh-config.yaml` when using it manually.
+   

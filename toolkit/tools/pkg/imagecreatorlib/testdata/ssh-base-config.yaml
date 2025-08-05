@@ -1,6 +1,6 @@
-# ImageCustomizer configuration for SSH access and network setup
-# This config adds SSH server, creates a user with SSH key access, 
-# and sets up network configuration for VM testing
+# Base ImageCustomizer configuration for adding SSH access to images
+# This config is used by tests to add SSH server and user configuration
+# to images created by ImageCreator.
 
 os:
   additionalFiles:
@@ -26,9 +26,6 @@ os:
       destination: /etc/systemd/network/89-ethernet.network
       permissions: "664"
 
-    - content: "{{USERNAME}} ALL=(ALL) NOPASSWD:ALL"
-      destination: "/etc/sudoers.d/{{USERNAME}}"
-
   bootloader:
     resetType: hard-reset
 
@@ -40,8 +37,6 @@ os:
       - systemd.log_level=debug
 
   packages:
-    install:
-      - openssh-server
     # TODO: Remove this remove operation when switching to the seed image. The minimal image is currently
     # being used and it has dracut-hostonly installed, so it needs to be removed before testing, since it
     # prevents the image from booting in a VM and being tested. Removing the package will cause a rebuild of
@@ -51,36 +46,3 @@ os:
     # Work item: https://dev.azure.com/mariner-org/ECF/_workitems/edit/12153
     remove:
       - dracut-hostonly
-
-  services:
-    enable:
-      - sshd
-
-  users:
-    - name: "{{USERNAME}}"
-      sshPublicKeys:
-        - "{{SSH_PUBLIC_KEY}}"
-
-storage:
-  bootType: efi
-  disks:
-    - partitionTableType: gpt
-      maxSize: 10G
-      partitions:
-        - id: esp
-          type: esp
-          size: 8M
-        - id: rootfs
-          type: root
-          size: grow
-
-  filesystems:
-    - deviceId: esp
-      type: fat32
-      mountPoint:
-        path: /boot/efi
-        options: umask=0077
-    - deviceId: rootfs
-      type: ext4
-      mountPoint:
-        path: /
