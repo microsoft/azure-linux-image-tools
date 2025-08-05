@@ -52,7 +52,6 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		logger.Log.Infof("Adding user (%s)", user.Name)
 	}
 
-
 	hashedPassword := ""
 	shouldUpdatePassword := false
 
