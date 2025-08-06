@@ -347,7 +347,6 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	defer bootPartitionMount.Close()
 
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
-	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
 	// Get mapped kernels and initramfs.
@@ -357,7 +356,7 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	}
 
 	for kernel, initramfs := range kernelToInitramfs {
-		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, stubPath, buildDir,
+		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, bootConfig.ukiEfiStubBinaryPath, buildDir,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {
