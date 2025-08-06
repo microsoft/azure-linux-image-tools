@@ -33,8 +33,8 @@ const (
 func addImageHistory(ctx context.Context, imageChroot *safechroot.Chroot, imageUuid string,
 	baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config,
 ) error {
-	canWriteHistoryFile := isPathOnReadOnlyMount(customizerLoggingDir, imageChroot)
-	if !canWriteHistoryFile {
+	cannotWriteHistoryFile := isPathOnReadOnlyMount(customizerLoggingDir, imageChroot)
+	if cannotWriteHistoryFile {
 		return nil
 	}
 

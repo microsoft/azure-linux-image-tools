@@ -1,0 +1,48 @@
+# Base ImageCustomizer configuration for adding SSH access to images
+# This config is used by tests to add SSH server and user configuration
+# to images created by ImageCreator.
+
+os:
+  additionalFiles:
+    - content: |
+        # SPDX-License-Identifier: MIT-0
+        #
+        # This example config file is installed as part of systemd.
+        # It may be freely copied and edited (following the MIT No Attribution license).
+        #
+        # To use the file, one of the following methods may be used:
+        # 1. add a symlink from /etc/systemd/network to the current location of this file,
+        # 2. copy the file into /etc/systemd/network or one of the other paths checked
+        #    by systemd-networkd and edit it there.
+        # This file should not be edited in place, because it'll be overwritten on upgrades.
+
+        # Enable DHCPv4 and DHCPv6 on all physical ethernet links
+        [Match]
+        Kind=!*
+        Type=ether
+
+        [Network]
+        DHCP=yes
+      destination: /etc/systemd/network/89-ethernet.network
+      permissions: "664"
+
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+      - console=ttyS0,115200
+      - rd.info
+      - log_buf_len=1M
+      - systemd.log_level=debug
+
+  packages:
+    # TODO: Remove this remove operation when switching to the seed image. The minimal image is currently
+    # being used and it has dracut-hostonly installed, so it needs to be removed before testing, since it
+    # prevents the image from booting in a VM and being tested. Removing the package will cause a rebuild of
+    # the initramfs to include drivers necessary to find the root filesystem on the disk. While using the
+    # minimal image, without removing this package, dracut will hang during the boot process waiting for the
+    # root filesystem to be found.
+    # Work item: https://dev.azure.com/mariner-org/ECF/_workitems/edit/12153
+    remove:
+      - dracut-hostonly

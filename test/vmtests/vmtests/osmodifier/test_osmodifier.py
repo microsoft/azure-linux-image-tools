@@ -335,6 +335,5 @@ def test_uki_selinux_config(
         log_path / "test_selinux.log",
     )
 
-    # Check /etc/selinux/config file
     selinux_conf = ssh_client.run("sudo cat /etc/selinux/config").stdout
     assert "SELINUX=enforcing" in selinux_conf

@@ -99,7 +99,17 @@ def run_min_change_test(
         # Create a differencing disk for the VM.
         # This will make it easier to manually debug what is in the image itself and what was set during first boot.
         local_client.run(
-            ["qemu-img", "create", "-F", "qcow2", "-f", "qcow2", "-b", str(output_image_path), str(diff_image_path)],
+            [
+                "qemu-img",
+                "create",
+                "-F",
+                "qcow2",
+                "-f",
+                "qcow2",
+                "-b",
+                str(output_image_path),
+                str(diff_image_path),
+            ],
         ).check_exit_code()
 
         # Ensure VM can write to the disk file.

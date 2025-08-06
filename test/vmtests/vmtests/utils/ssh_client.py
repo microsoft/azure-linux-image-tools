@@ -10,8 +10,7 @@ from pathlib import Path
 from threading import Thread
 from typing import Any, Dict, List, Optional, Union
 
-# CodeQL [SM04242] false positive: Paramiko is used in test-only code, not in production.
-# The warning is acceptable as it does not affect released artifacts.
+# CodeQL [SM04242] Paramiko is used in test-only code, not in production. The warning is acceptable as it does not affect released artifacts.
 from paramiko import AutoAddPolicy, SSHClient
 from paramiko.channel import ChannelFile, ChannelStderrFile
 from paramiko.ssh_exception import NoValidConnectionsError, SSHException

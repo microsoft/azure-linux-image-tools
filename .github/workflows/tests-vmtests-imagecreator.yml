@@ -1,0 +1,141 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Tests VMTests suite for Image Creator
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      hostArch:
+        required: true
+        type: string
+      hostDistro:
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+  ORAS_VERSION: "1.2.3"
+
+jobs:
+  tests-vmtests:
+    name: Tests VMTests suite
+    runs-on:
+    - self-hosted
+    - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
+    permissions:
+      contents: read
+    steps:
+    - name: setup go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
+    - name: Install prerequisites (AZL3)
+      if: inputs.hostDistro == 'azl3'
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
+      run: |
+        set -eux
+
+        # Install all prerequisites in a single batch
+        sudo tdnf install -y \
+          libvirt libvirt-daemon libvirt-daemon-config-network \
+          libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
+          python3-devel edk2-ovmf azure-cli \
+          rpm coreutils util-linux systemd openssl \
+          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+          xfsprogs zstd veritysetup grub2 binutils lsof git
+
+        # grub2-pc is only available on x86.
+        if [[ "$HOST_ARCH" == "amd64" ]]; then
+          sudo tdnf install -y grub2-pc
+        fi
+
+        sudo tdnf list installed
+        sudo systemctl restart libvirtd
+        sudo systemctl status libvirtd
+
+    - name: Install prerequisites (Ubuntu 24.04)
+      if: inputs.hostDistro == 'ubuntu2404'
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
+      run: |
+        set -eux
+
+        sudo apt update -y
+        sudo apt list --installed
+
+        # Install all prerequisites in a single batch
+        sudo apt -y install \
+          qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+          python3-venv python3-pip python3-dev \
+          libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
+          qemu-kvm virt-manager
+
+        # Install arm64 specific packages
+        if [[ "$HOST_ARCH" == "arm64" ]]; then
+          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+        fi
+
+        sudo apt list --installed
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        path: repo
+
+    - name: Build imagecreator and imagecustomizer
+      run: |
+        set -eux
+
+        pushd ./repo/toolkit/
+        
+        # Build imagecreator and imagecustomizer.
+        sudo env "PATH=$PATH" make go-imagecreator go-imagecustomizer
+
+        popd    
+
+    - name: Test setup
+      run: |
+        set -eux
+
+        pushd ./repo/test/vmtests
+
+        # Ensure an ssh key exists.
+        ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+
+        make create-venv
+ 
+    - name: Download RPMS and tools file
+      run: |
+        set -eux
+
+        # Download the test RPM and tools file.
+        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t 3.0 -s true
+
+
+    - name: Run image creator tests
+      run: |
+        set -eux
+
+        pushd ./repo/test/vmtests
+
+        sudo make test-imagecreator \
+          IMAGE_CREATOR_BIN="../../toolkit/out/tools/imagecreator" \
+          TOOLS_TAR="../../toolkit/tools/internal/testutils/testrpms/tools.tar.gz" \
+          RPM_SOURCES="../../toolkit/tools/internal/testutils/testrpms/downloadedrpms/3.0" \
+          IMAGE_CUSTOMIZER_BINARY_PATH="../../toolkit/out/tools/imagecustomizer" \
+          SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: tests-results-vmtests-imagecreator-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        path: repo/test/vmtests/out
