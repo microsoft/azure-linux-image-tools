@@ -74,6 +74,10 @@ ${IMAGE_CUSTOMIZER_BIN}:
 ${IMAGE_CREATOR_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecreator
 
+.PHONY: ${OSMODIFIER_BIN}
+${OSMODIFIER_BIN}:
+	${MAKE} -C ${TOOLKIT_DIR} go-osmodifier
+
 .PHONY: image-customizer-container
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
@@ -93,7 +97,7 @@ test-imagecustomizer:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests/test_min_change.py 
+		./vmtests/imagecustomizer/test_min_change.py
 
 .PHONY: test-imagecreator
 test-imagecreator:
@@ -110,15 +114,8 @@ test-imagecreator:
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/imagecreator/test_imagecreator.py
 
-.PHONY: run-imagecustomizer
-run-imagecustomizer: image-customizer-container test-imagecustomizer
-
-.PHONY: run-imagecreator
-run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator
-
 .PHONY: test-osmodifier
 test-osmodifier:
-	${MAKE} -C ${TOOLKIT_DIR} go-osmodifier
 	${PYTEST} \
 		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
 		--osmodifier-binary="${OSMODIFIER_BIN}" \
@@ -131,3 +128,12 @@ test-osmodifier:
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/osmodifier/test_osmodifier.py
+
+.PHONY: run-imagecustomizer
+run-imagecustomizer: image-customizer-container test-imagecustomizer
+
+.PHONY: run-imagecreator
+run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator
+
+.PHONY: run-osmodifier
+run-osmodifier: ${OSMODIFIER_BIN} test-osmodifier

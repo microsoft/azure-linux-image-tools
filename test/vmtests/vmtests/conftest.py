@@ -22,6 +22,15 @@ SCRIPT_PATH = Path(__file__).parent
 TEST_CONFIGS_DIR = SCRIPT_PATH.joinpath("../../../toolkit/tools/pkg/imagecustomizerlib/testdata")
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
+    parser.addoption("--logs-dir", action="store", help="Path to logs directory")
+    parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
+    parser.addoption(
+        "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
+    )
+
+
 @pytest.fixture(scope="session")
 def keep_environment(request: pytest.FixtureRequest) -> Generator[bool, None, None]:
     flag = request.config.getoption("--keep-environment")
@@ -29,21 +38,20 @@ def keep_environment(request: pytest.FixtureRequest) -> Generator[bool, None, No
     yield flag
 
 
-def _generate_test_name(request: pytest.FixtureRequest) -> str:
-    """Helper function to generate unique test instance names."""
-    instance_suffix = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
-    node_name = getattr(request.node, "name", "test") or "test"
-    return f"{str(node_name)}-{instance_suffix}"
-
-
 @pytest.fixture(scope="function")
 def test_instance_name(request: pytest.FixtureRequest) -> Generator[str, None, None]:
-    yield _generate_test_name(request)
+    yield _generate_test_name(request.node.name)
 
 
 @pytest.fixture(scope="session")
 def session_instance_name(request: pytest.FixtureRequest) -> Generator[str, None, None]:
-    yield _generate_test_name(request)
+    yield _generate_test_name(request.node.name)
+
+
+def _generate_test_name(base_name: str) -> str:
+    """Helper function to generate unique test instance names."""
+    instance_suffix = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
+    return f"{base_name}-{instance_suffix}"
 
 
 # pytest has an in-built fixture called tmp_path. But that uses /tmp, which sits in memory.

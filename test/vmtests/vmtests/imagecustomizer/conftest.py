@@ -1,9 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-import random
 import shutil
-import string
 from pathlib import Path
 from typing import Generator
 
@@ -13,23 +11,10 @@ from ..conftest import create_temp_folder
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--keep-environment", action="store_true", help="Keep the resources created during the test")
     parser.addoption("--core-efi-azl2", action="store", help="Path to input image")
     parser.addoption("--core-efi-azl3", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl2", action="store", help="Path to input image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to input image")
-    parser.addoption("--logs-dir", action="store", help="Path to logs directory")
-    parser.addoption("--image-customizer-container-url", action="store", help="Image Customizer container image URL")
-    parser.addoption(
-        "--ssh-private-key", action="store", help="An SSH private key file to use for authentication with the VMs"
-    )
-
-
-@pytest.fixture(scope="session")
-def keep_environment(request: pytest.FixtureRequest) -> Generator[bool, None, None]:
-    flag = request.config.getoption("--keep-environment")
-    assert isinstance(flag, bool)
-    yield flag
 
 
 @pytest.fixture(scope="session")
@@ -39,12 +24,6 @@ def session_temp_dir(request: pytest.FixtureRequest, keep_environment: bool) -> 
 
     if not keep_environment:
         shutil.rmtree(temp_path)
-
-
-@pytest.fixture(scope="function")
-def test_instance_name(request: pytest.FixtureRequest) -> Generator[str, None, None]:
-    instance_suffix = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
-    yield request.node.name + "-" + instance_suffix
 
 
 @pytest.fixture(scope="session")

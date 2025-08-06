@@ -11,24 +11,8 @@ from ..conftest import create_temp_folder
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption(
-        "--keep-environment",
-        action="store_true",
-        help="Keep the resources created during the test",
-    )
     parser.addoption("--input-image", action="store", help="Path to input image")
     parser.addoption("--osmodifier-binary", action="store", help="Path to osmodifier binary")
-    parser.addoption("--logs-dir", action="store", help="Path to logs directory")
-    parser.addoption(
-        "--ssh-private-key",
-        action="store",
-        help="An SSH private key file to use for authentication with the VMs",
-    )
-    parser.addoption(
-        "--image-customizer-container-url",
-        action="store",
-        help="Image Customizer container image URL",
-    )
 
 
 @pytest.fixture(scope="session")
