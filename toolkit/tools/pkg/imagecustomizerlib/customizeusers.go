@@ -52,7 +52,11 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	}
 
 	hashedPassword := ""
+	shouldUpdatePassword := false
+
 	if user.Password != nil {
+		shouldUpdatePassword = true
+
 		passwordIsFile := user.Password.Type == imagecustomizerapi.PasswordTypePlainTextFile ||
 			user.Password.Type == imagecustomizerapi.PasswordTypeHashedFile
 
@@ -92,10 +96,12 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 				user.HomeDirectory, user.Name)
 		}
 
-		// Update the user's password.
-		err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
-		if err != nil {
-			return err
+		// Only update password if explicitly provided
+		if shouldUpdatePassword {
+			err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		var uidStr string
