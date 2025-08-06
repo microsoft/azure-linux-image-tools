@@ -63,7 +63,11 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	}
 
 	hashedPassword := ""
+	shouldUpdatePassword := false
+
 	if user.Password != nil {
+		shouldUpdatePassword = true
+
 		passwordIsFile := user.Password.Type == imagecustomizerapi.PasswordTypePlainTextFile ||
 			user.Password.Type == imagecustomizerapi.PasswordTypeHashedFile
 
@@ -102,10 +106,12 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			return fmt.Errorf("%w (homeDir='%s', user='%s')", ErrUserCannotSetHomeDirOnExisting, user.HomeDirectory, user.Name)
 		}
 
-		// Update the user's password.
-		err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
-		if err != nil {
-			return fmt.Errorf("%w (user='%s'):\n%w", ErrUserUpdate, user.Name, err)
+		// Only update password if explicitly provided
+		if shouldUpdatePassword {
+			err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
+			if err != nil {
+				return fmt.Errorf("%w (user='%s'):\n%w", ErrUserUpdate, user.Name, err)
+			}
 		}
 	} else {
 		var uidStr string
