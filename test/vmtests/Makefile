@@ -130,4 +130,4 @@ test-osmodifier:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests/vmtests/osmodifier/test_osmodifier.py
+		./vmtests/osmodifier/test_osmodifier.py
