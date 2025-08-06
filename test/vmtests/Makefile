@@ -16,6 +16,7 @@ TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
 IMAGE_CREATOR_BIN=${TOOLS_BIN_DIR}/imagecreator
+OSMODIFIER_BIN=${TOOLS_BIN_DIR}/osmodifier
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
 
@@ -73,6 +74,10 @@ ${IMAGE_CUSTOMIZER_BIN}:
 ${IMAGE_CREATOR_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecreator
 
+.PHONY: ${OSMODIFIER_BIN}
+${OSMODIFIER_BIN}:
+	${MAKE} -C ${TOOLKIT_DIR} go-osmodifier
+
 .PHONY: image-customizer-container
 image-customizer-container: ${IMAGE_CUSTOMIZER_BIN}
 	${TOOLKIT_DIR}/tools/imagecustomizer/container/build-container.sh -t ${IMAGE_CUSTOMIZER_CONTAINER_TAG}
@@ -92,7 +97,7 @@ test-imagecustomizer:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests/test_min_change.py 
+		./vmtests/imagecustomizer/test_min_change.py
 
 .PHONY: test-imagecreator
 test-imagecreator:
@@ -109,8 +114,26 @@ test-imagecreator:
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/imagecreator/test_imagecreator.py
 
+.PHONY: test-osmodifier
+test-osmodifier:
+	${PYTEST} \
+		--image-customizer-container-url="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+		--osmodifier-binary="${OSMODIFIER_BIN}" \
+		--logs-dir="${LOGS_DIR}" \
+		--input-image="${INPUT_IMAGE}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		./vmtests/osmodifier/test_osmodifier.py
+
 .PHONY: run-imagecustomizer
 run-imagecustomizer: image-customizer-container test-imagecustomizer
 
 .PHONY: run-imagecreator
 run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator
+
+.PHONY: run-osmodifier
+run-osmodifier: ${OSMODIFIER_BIN} test-osmodifier
