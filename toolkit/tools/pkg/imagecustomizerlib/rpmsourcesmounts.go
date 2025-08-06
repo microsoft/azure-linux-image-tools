@@ -27,7 +27,7 @@ import (
 var (
 	// RPM source mount errors
 	ErrRpmSourceFileTypeDetection = NewImageCustomizerError("RpmSources:FileTypeDetection", "failed to get type of RPM source")
-	ErrRpmSourceTypeUnknown       = NewImageCustomizerError("RpmSources:TypeUnknown", "unknown RPM source type - must be a .repo file or a directory")
+	ErrRpmSourceTypeUnknown       = NewImageCustomizerError("RpmSources:TypeUnknown", "unknown RPM source type")
 )
 
 const (
@@ -350,7 +350,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 		return "repo", nil
 
 	default:
-		return "", fmt.Errorf("%w (path='%s')", ErrRpmSourceTypeUnknown, rpmSourcePath)
+		return "", fmt.Errorf("%w (path='%s'):\nmust be a .repo file or a directory", ErrRpmSourceTypeUnknown, rpmSourcePath)
 	}
 }
 
