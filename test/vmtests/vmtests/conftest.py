@@ -54,6 +54,15 @@ def _generate_test_name(base_name: str) -> str:
     return f"{base_name}-{instance_suffix}"
 
 
+@pytest.fixture(scope="session")
+def session_temp_dir(request: pytest.FixtureRequest, keep_environment: bool) -> Generator[Path, None, None]:
+    temp_path = create_temp_folder("vmtests-")
+    yield Path(temp_path)
+
+    if not keep_environment:
+        shutil.rmtree(temp_path)
+
+
 # pytest has an in-built fixture called tmp_path. But that uses /tmp, which sits in memory.
 # That can be problematic when dealing with image files, which can be quite large.
 @pytest.fixture(scope="function")
