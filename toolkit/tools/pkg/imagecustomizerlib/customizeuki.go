@@ -307,6 +307,11 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 
 	var err error
 
+	_, bootConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
+
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to image file to provision UKI:\n%w", err)
@@ -342,7 +347,7 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	defer bootPartitionMount.Close()
 
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
-	stubPath := filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub")
+	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
 	// Get mapped kernels and initramfs.
