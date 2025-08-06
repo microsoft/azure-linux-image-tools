@@ -87,7 +87,7 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 		case imagecustomizerapi.ModuleLoadModeDisable:
 			// Disable a module, throw error if options are provided
 			if len(module.Options) > 0 {
-				return fmt.Errorf("%w (%s) at index %d: specify auto or always as loadMode to override setting in base image", ErrModuleOptionsOnDisabled, module.Name, i)
+				return fmt.Errorf("%w (%s) at index %d:\nspecify auto or always as loadMode to override setting in base image", ErrModuleOptionsOnDisabled, module.Name, i)
 			}
 
 			modulesToDisable = append(modulesToDisable, module.Name)
@@ -101,7 +101,7 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 				}
 
 				if disabled {
-					return fmt.Errorf("%w (%s) at index %d: specify auto or always as loadMode to override setting in base image", ErrModuleOptionsOnDisabled, module.Name, i)
+					return fmt.Errorf("%w (%s) at index %d:\nspecify auto or always as loadMode to override setting in base image", ErrModuleOptionsOnDisabled, module.Name, i)
 				}
 
 				if len(module.Options) > 0 {
