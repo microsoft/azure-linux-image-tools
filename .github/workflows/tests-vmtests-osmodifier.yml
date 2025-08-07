@@ -1,0 +1,124 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+name: Tests VMTests suite for OSModifier
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      hostArch:
+        required: true
+        type: string
+      hostDistro:
+        required: true
+        type: string
+      inputImage:
+        description: "Path to the base OS image accessible on the runner"
+        required: true
+        type: string
+
+env:
+  EXPECTED_GO_VERSION: "1.24.1"
+  IMAGE_CUSTOMIZER_CONTAINER_TAG: "imagecustomizer:dev"
+
+jobs:
+  tests-osmodifier:
+    name: Tests OSModifier suite
+    runs-on:
+      - self-hosted
+      - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Setup Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.EXPECTED_GO_VERSION }}"
+
+      - name: Install prerequisites (AZL3)
+        if: inputs.hostDistro == 'azl3'
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
+        run: |
+          set -eux
+          sudo tdnf install -y \
+            libvirt libvirt-daemon libvirt-daemon-config-network \
+            libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
+            python3-devel edk2-ovmf azure-cli \
+            rpm coreutils util-linux systemd openssl \
+            sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+            xfsprogs zstd veritysetup grub2 binutils lsof git docker
+          if [[ "$HOST_ARCH" == "amd64" ]]; then
+            sudo tdnf install -y grub2-pc
+          fi
+          sudo systemctl restart libvirtd
+          sudo systemctl status libvirtd
+
+      - name: Install prerequisites (Ubuntu 24.04)
+        if: inputs.hostDistro == 'ubuntu2404'
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
+        run: |
+          set -eux
+          sudo apt update -y
+          sudo apt -y install \
+            qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+            xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+            python3-venv python3-pip python3-dev \
+            libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
+            qemu-kvm virt-manager docker.io
+          if [[ "$HOST_ARCH" == "arm64" ]]; then
+            sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+          fi
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash || true
+          sudo systemctl restart libvirtd
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - name: Build osmodifier and imagecustomizer
+        run: |
+          set -eux
+          pushd ./repo/toolkit
+          sudo env "PATH=$PATH" make go-osmodifier go-imagecustomizer
+          popd
+
+      - name: Build imagecustomizer container (for VM prep)
+        run: |
+          set -eux
+          pushd ./repo/toolkit
+          ./tools/imagecustomizer/container/build-container.sh -t "${IMAGE_CUSTOMIZER_CONTAINER_TAG}"
+          popd
+
+      - name: Test setup
+        run: |
+          set -eux
+          pushd ./repo/test/vmtests
+          # SSH key for VM access
+          [[ -f ~/.ssh/id_ed25519 ]] || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+          make create-venv
+          popd
+
+      - name: Run OSModifier tests
+        working-directory: repo/test/vmtests
+        run: |
+          set -eux
+          sudo make test-osmodifier \
+            IMAGE_CUSTOMIZER_CONTAINER_TAG="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+            OSMODIFIER_BIN="../../toolkit/out/tools/osmodifier" \
+            INPUT_IMAGE="${{ inputs.inputImage }}" \
+            SSH_PRIVATE_KEY_FILE="$HOME/.ssh/id_ed25519" \
+            LOGS_DIR="./out"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: tests-results-osmodifier-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+          path: repo/test/vmtests/out
