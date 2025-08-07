@@ -314,3 +314,64 @@ func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword st
 
 	return assert.Equal(t, encryptedPassword, strings.TrimSpace(reencryptedPassword))
 }
+
+func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserPassword")
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Create an image with a user that has an initial password.
+	passwordValue := "pass"
+	configWithPassword := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Users: []imagecustomizerapi.User{
+				{
+					Name: "testuser",
+					Password: &imagecustomizerapi.Password{
+						Type:  "plain-text",
+						Value: passwordValue,
+					},
+				},
+			},
+		},
+	}
+
+	err := CustomizeImage(t.Context(), buildDir, testDir, &configWithPassword, baseImage, nil, outImageFilePath, "raw",
+		false, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Run customization again without providing a password.
+	configWithoutPassword := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Users: []imagecustomizerapi.User{
+				{
+					Name:          "testuser",
+					SSHPublicKeys: []string{"ssh-rsa abc123"},
+				},
+			},
+		},
+	}
+
+	err = CustomizeImage(t.Context(), buildDir, testDir, &configWithoutPassword, outImageFilePath, nil, outImageFilePath, "raw",
+		false, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Verify that password was not cleared.
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	shadowEntry, err := userutils.GetShadowFileEntryForUser(imageConnection.Chroot().RootDir(), "testuser")
+	if assert.NoError(t, err) {
+		verifyPassword(t, shadowEntry.EncryptedPassword, passwordValue)
+	}
+}
