@@ -128,7 +128,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
-	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot)
+	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig)
 	if err != nil {
 		return fmt.Errorf("failed to copy UKI files:\n%w", err)
 	}
@@ -183,10 +183,12 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 	return nil
 }
 
-func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot) error {
+func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
+	bootConfig BootFilesArchConfig,
+) error {
 	filesToCopy := map[string]string{
-		filepath.Join(imageChroot.RootDir(), "/usr/lib/systemd/boot/efi/linuxx64.efi.stub"): filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub"),
-		filepath.Join(imageChroot.RootDir(), "/etc/os-release"):                             filepath.Join(buildDir, UkiBuildDir, "os-release"),
+		filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
+		filepath.Join(imageChroot.RootDir(), "/etc/os-release"):               filepath.Join(buildDir, UkiBuildDir, "os-release"),
 	}
 
 	for kernel, initramfs := range kernelToInitramfs {
@@ -305,6 +307,11 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 
 	var err error
 
+	_, bootConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
+
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to image file to provision UKI:\n%w", err)
@@ -340,7 +347,6 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	defer bootPartitionMount.Close()
 
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
-	stubPath := filepath.Join(buildDir, UkiBuildDir, "linuxx64.efi.stub")
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
 
 	// Get mapped kernels and initramfs.
@@ -350,7 +356,7 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	}
 
 	for kernel, initramfs := range kernelToInitramfs {
-		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, stubPath, buildDir,
+		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, bootConfig.ukiEfiStubBinaryPath, buildDir,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {
