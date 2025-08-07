@@ -162,7 +162,7 @@ jobs:
       hostArch: amd64
       hostDistro: ubuntu2404    
 
-  tests-vmtests-imagecreator-ubuntu2404-arm64:
+  tests-vmtests-osmodifier-ubuntu2404-arm64:
     name: VMTests suite osmodifier Ubuntu24.04 ARM64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-arm64
