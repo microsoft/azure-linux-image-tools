@@ -300,7 +300,7 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 }
 
 func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
-	logger.Log.Debugf("Customizing UKI")
+	logger.Log.Infof("Creating UKIs")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki")
 	defer span.End()
@@ -340,6 +340,7 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	defer systemBootPartitionMount.Close()
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
+	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
@@ -356,7 +357,7 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	}
 
 	for kernel, initramfs := range kernelToInitramfs {
-		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, bootConfig.ukiEfiStubBinaryPath, buildDir,
+		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, stubPath, buildDir,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {

@@ -16,7 +16,7 @@ import (
 const (
 	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
 	isoBootloaderDir   = "/efi/boot"
-	ukiEfiStubDir      = "/usr/lib/systemd/boot/efi/"
+	ukiEfiStubDir      = "/usr/lib/systemd/boot/efi"
 
 	bootx64Binary  = "bootx64.efi"
 	bootAA64Binary = "bootaa64.efi"

@@ -52,7 +52,7 @@ jobs:
 
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          sudo tdnf install -y grub2-pc
+          sudo tdnf install -y grub2-pc systemd-ukify
         fi
 
         sudo tdnf list installed
@@ -70,7 +70,7 @@ jobs:
 
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
 
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
