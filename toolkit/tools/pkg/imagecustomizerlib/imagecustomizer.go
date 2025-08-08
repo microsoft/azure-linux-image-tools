@@ -324,19 +324,17 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			errorName := "Unset" // default
+			errorNames := []string{"Unset"} // default
 			if namedErrors := GetAllImageCustomizerErrors(err); len(namedErrors) > 0 {
-				errorNames := make([]string, len(namedErrors))
-				for i, namedErr := range namedErrors {
-					errorNames[i] = namedErr.Name()
+				errorNames = make([]string, len(namedErrors))
+				for i, namedError := range namedErrors {
+					errorNames[i] = namedError.Name()
 				}
-				errorNamesJson, _ := json.Marshal(errorNames)
-				errorName = string(errorNamesJson)
 			}
 			span.SetAttributes(
-				attribute.String("errors.name", errorName),
+				attribute.StringSlice("errors.name", errorNames),
 			)
-			span.SetStatus(codes.Error, errorName)
+			span.SetStatus(codes.Error, errorNames[len(errorNames)-1])
 		}
 		span.End()
 	}()
