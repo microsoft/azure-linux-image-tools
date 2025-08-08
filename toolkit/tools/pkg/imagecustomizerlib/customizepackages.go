@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -204,10 +203,9 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
-	pkgJson, _ := json.Marshal(allPackagesToRemove)
 	span.SetAttributes(
 		attribute.Int("remove_packages_count", len(allPackagesToRemove)),
-		attribute.String("remove_packages", string(pkgJson)),
+		attribute.StringSlice("remove_packages", allPackagesToRemove),
 	)
 	defer span.End()
 
@@ -250,10 +248,9 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
-	pkgJson, _ := json.Marshal(allPackagesToAdd)
 	span.SetAttributes(
 		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
-		attribute.String("packages", string(pkgJson)),
+		attribute.StringSlice("packages", allPackagesToAdd),
 	)
 	defer span.End()
 

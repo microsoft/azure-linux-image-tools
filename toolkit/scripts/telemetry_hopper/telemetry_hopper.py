@@ -169,12 +169,11 @@ def extract_attribute_value(value_proto: Any) -> Optional[Any]:
     }
 
     if value_case == "array_value":
-        # Handle array values by extracting each item using the same mapping
         array_values = []
         for item in value_proto.array_value.values:
-            item_case = item.WhichOneof("value")
-            if item_case in value_mapping:
-                array_values.append(getattr(item, item_case))
+            item_value = extract_attribute_value(item)
+            if item_value is not None:
+                array_values.append(item_value)
         return json.dumps(array_values)
 
     return value_mapping.get(value_case)
