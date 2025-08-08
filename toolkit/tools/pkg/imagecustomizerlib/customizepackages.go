@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,6 +28,16 @@ const (
 )
 
 var (
+	// Package-related errors
+	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh tdnf repo metadata")
+	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
+	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
+	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
+	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
+	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
+	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
+	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
+
 	tdnfOpLines = []string{
 		"Installing/Updating: ",
 		"Removing: ",
@@ -85,7 +94,7 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 		// Mount RPM sources.
 		mounts, err = mountRpmSources(ctx, buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrMountRpmSources, err)
 		}
 		defer mounts.close()
 
@@ -111,13 +120,13 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
 	err = installOrUpdatePackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (packages=%v):\n%w", ErrPackageInstall, config.Packages.Install, err)
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
 	err = installOrUpdatePackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (packages=%v):\n%w", ErrPackageUpdate, config.Packages.Update, err)
 	}
 
 	// Unmount RPM sources.
@@ -160,7 +169,7 @@ func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, to
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPackageRepoMetadataRefresh, err)
 	}
 	return nil
 }
@@ -176,7 +185,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err)
+			return nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidPackageListFile, packageListFilePath, err)
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)
@@ -194,10 +203,9 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
-	pkgJson, _ := json.Marshal(allPackagesToRemove)
 	span.SetAttributes(
 		attribute.Int("remove_packages_count", len(allPackagesToRemove)),
-		attribute.String("remove_packages", string(pkgJson)),
+		attribute.StringSlice("remove_packages", allPackagesToRemove),
 	)
 	defer span.End()
 
@@ -209,7 +217,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
 
 	return nil
@@ -228,7 +236,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to update packages:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
 
 	return nil
@@ -240,10 +248,9 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
-	pkgJson, _ := json.Marshal(allPackagesToAdd)
 	span.SetAttributes(
 		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
-		attribute.String("packages", string(pkgJson)),
+		attribute.StringSlice("packages", allPackagesToAdd),
 	)
 	defer span.End()
 
@@ -259,7 +266,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
 	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
+		return err
 	}
 
 	return nil
@@ -363,7 +370,7 @@ func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chro
 			ErrorStderrLines(1).
 			Execute()
 		if err != nil {
-			return fmt.Errorf("failed to clean tdnf cache:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
 		}
 		return nil
 	})

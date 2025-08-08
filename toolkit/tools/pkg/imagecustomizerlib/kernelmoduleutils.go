@@ -30,6 +30,23 @@ const (
 	moduleOptionsPath  = modprobeConfigDir + "/" + moduleOptionsFileName
 )
 
+var (
+	// Kernel module-related errors
+	ErrModuleRemoveFromDisableList = NewImageCustomizerError("Modules:RemoveFromDisableList", "failed to remove module from the disabled list")
+	ErrModuleOptionsOnDisabled     = NewImageCustomizerError("Modules:OptionsOnDisabled", "cannot add options for disabled module")
+	ErrModuleDisabledCheck         = NewImageCustomizerError("Modules:DisabledCheck", "failed to check if module is disabled")
+	ErrModuleLoadDirCreate         = NewImageCustomizerError("Modules:LoadDirCreate", "failed to create directory for module load configuration")
+	ErrModuleLoadConfigRead        = NewImageCustomizerError("Modules:LoadConfigRead", "failed to read module load configuration")
+	ErrModuleLoadConfigUpdate      = NewImageCustomizerError("Modules:LoadConfigUpdate", "failed to update module load configuration")
+	ErrModuleDisableDirCreate      = NewImageCustomizerError("Modules:DisableDirCreate", "failed to create directory for module disable configuration")
+	ErrModuleDisableConfigRead     = NewImageCustomizerError("Modules:DisableConfigRead", "failed to read module disable configuration")
+	ErrModuleDisableConfigUpdate   = NewImageCustomizerError("Modules:DisableConfigUpdate", "failed to update disable configuration")
+	ErrModuleDisableConfigWrite    = NewImageCustomizerError("Modules:DisableConfigWrite", "failed to write module disable configuration")
+	ErrModuleOptionsDirCreate      = NewImageCustomizerError("Modules:OptionsDirCreate", "failed to create directory for module options configuration")
+	ErrModuleOptionsConfigRead     = NewImageCustomizerError("Modules:OptionsConfigRead", "failed to read module options configuration")
+	ErrModuleOptionsConfigUpdate   = NewImageCustomizerError("Modules:OptionsConfigUpdate", "failed to update module options configuration")
+)
+
 func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.ModuleList, rootDir string) error {
 	var err error
 	var modulesToLoad []string
@@ -48,7 +65,7 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 			// If a module is disabled, remove it. Add the module to modules-load.d/. Write options if provided.
 			err = removeModuleFromDisableList(module.Name, moduleDisableFilePath)
 			if err != nil {
-				return fmt.Errorf("failed to remove module (%s) from the disabled list:\n%w", module.Name, err)
+				return fmt.Errorf("%w (module='%s'):\n%w", ErrModuleRemoveFromDisableList, module.Name, err)
 			}
 			modulesToLoad = append(modulesToLoad, module.Name)
 
@@ -60,7 +77,7 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 			// If a module is disabled, enable it. Write options if provided
 			err = removeModuleFromDisableList(module.Name, moduleDisableFilePath)
 			if err != nil {
-				return fmt.Errorf("failed to remove module (%s) from the disabled list:\n%w", module.Name, err)
+				return fmt.Errorf("%w (module='%s'):\n%w", ErrModuleRemoveFromDisableList, module.Name, err)
 			}
 
 			if len(module.Options) > 0 {
@@ -70,7 +87,7 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 		case imagecustomizerapi.ModuleLoadModeDisable:
 			// Disable a module, throw error if options are provided
 			if len(module.Options) > 0 {
-				return fmt.Errorf("cannot add options for disabled module (%s) at index %d:\nspecify auto or always as loadMode to override setting in base image", module.Name, i)
+				return fmt.Errorf("%w (%s) at index %d:\nspecify auto or always as loadMode to override setting in base image", ErrModuleOptionsOnDisabled, module.Name, i)
 			}
 
 			modulesToDisable = append(modulesToDisable, module.Name)
@@ -80,11 +97,11 @@ func LoadOrDisableModules(ctx context.Context, modules imagecustomizerapi.Module
 			if len(module.Options) > 0 {
 				disabled, err := isModuleDisabled(module.Name, moduleDisableFilePath)
 				if err != nil {
-					return fmt.Errorf("failed to check if (%s) is disabled", module)
+					return fmt.Errorf("%w (%s):\n%w", ErrModuleDisabledCheck, module.Name, err)
 				}
 
 				if disabled {
-					return fmt.Errorf("cannot add options for disabled module (%s) at index %d:\nspecify auto or always as loadMode to override setting in base image", module.Name, i)
+					return fmt.Errorf("%w (%s) at index %d:\nspecify auto or always as loadMode to override setting in base image", ErrModuleOptionsOnDisabled, module.Name, i)
 				}
 
 				if len(module.Options) > 0 {
@@ -125,13 +142,13 @@ func ensureModulesLoaded(moduleNames []string, moduleLoadFilePath string) error 
 	// Ensure the directory exists
 	dir := filepath.Dir(moduleLoadFilePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory for module load configuration: %w", err)
+		return fmt.Errorf("%w:\n%w", ErrModuleLoadDirCreate, err)
 	}
 
 	content, err := os.ReadFile(moduleLoadFilePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to read module load configuration: %w", err)
+			return fmt.Errorf("%w:\n%w", ErrModuleLoadConfigRead, err)
 		}
 		// If the file does not exist, initialize content as empty
 		content = []byte{}
@@ -152,7 +169,7 @@ func ensureModulesLoaded(moduleNames []string, moduleLoadFilePath string) error 
 	if needUpdate {
 		err = os.WriteFile(moduleLoadFilePath, content, 0644)
 		if err != nil {
-			return fmt.Errorf("failed to update module load configuration: %w", err)
+			return fmt.Errorf("%w:\n%w", ErrModuleLoadConfigUpdate, err)
 		}
 	}
 
@@ -163,13 +180,13 @@ func ensureModulesDisabled(moduleNames []string, moduleDisableFilePath string) e
 	// Ensure the directory exists
 	dir := filepath.Dir(moduleDisableFilePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory for module disable configuration: %w", err)
+		return fmt.Errorf("%w:\n%w", ErrModuleDisableDirCreate, err)
 	}
 
 	content, err := os.ReadFile(moduleDisableFilePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return fmt.Errorf("failed to read module disable configuration: %w", err)
+			return fmt.Errorf("%w:\n%w", ErrModuleDisableConfigRead, err)
 		}
 		content = []byte{}
 	}
@@ -191,7 +208,7 @@ func ensureModulesDisabled(moduleNames []string, moduleDisableFilePath string) e
 	if needUpdate {
 		err = os.WriteFile(moduleDisableFilePath, []byte(updatedContent), 0644)
 		if err != nil {
-			return fmt.Errorf("failed to update disable configuration: %w", err)
+			return fmt.Errorf("%w:\n%w", ErrModuleDisableConfigUpdate, err)
 		}
 	}
 
@@ -233,7 +250,7 @@ func removeModuleFromDisableList(moduleName, moduleDisableFilePath string) error
 		lines, err := file.ReadLines(moduleDisableFilePath)
 
 		if err != nil {
-			return fmt.Errorf("failed to write module disable configuration: %w", err)
+			return fmt.Errorf("%w:\n%w", ErrModuleDisableConfigWrite, err)
 		}
 
 		// Filter out the line that contains the module name.
@@ -245,7 +262,7 @@ func removeModuleFromDisableList(moduleName, moduleDisableFilePath string) error
 		}
 
 		if err := file.WriteLines(updatedLines, moduleDisableFilePath); err != nil {
-			return fmt.Errorf("failed to write module disable configuration: %w", err)
+			return fmt.Errorf("%w:\n%w", ErrModuleDisableConfigWrite, err)
 		}
 	}
 
@@ -260,13 +277,13 @@ func updateModulesOptions(optionsMap map[string]map[string]string, moduleOptions
 	// Ensure the directory exists
 	dir := filepath.Dir(moduleOptionsFilePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory for module options configuration: %w", err)
+		return fmt.Errorf("%w:\n%w", ErrModuleOptionsDirCreate, err)
 	}
 
 	// Read the existing content of the file, if it exists
 	content, err := os.ReadFile(moduleOptionsFilePath)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("%w:\n%w", ErrModuleOptionsConfigRead, err)
 	}
 
 	lines := strings.Split(string(content), "\n")
@@ -337,5 +354,9 @@ func updateModulesOptions(optionsMap map[string]map[string]string, moduleOptions
 
 	// Write the updated content back to the file
 	updatedContent := strings.Join(updatedLines, "\n")
-	return os.WriteFile(moduleOptionsFilePath, []byte(updatedContent), 0644)
+	err = os.WriteFile(moduleOptionsFilePath, []byte(updatedContent), 0644)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrModuleOptionsConfigUpdate, err)
+	}
+	return nil
 }

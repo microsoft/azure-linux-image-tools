@@ -16,6 +16,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// Group-related errors
+	ErrGroupExistsCheck            = NewImageCustomizerError("Groups:ExistsCheck", "failed to check if group exists")
+	ErrCannotSetGidOnExistingGroup = NewImageCustomizerError("Groups:SetGidOnExistingGroup", "cannot set GID on a group that already exists")
+	ErrGroupAdd                    = NewImageCustomizerError("Groups:Add", "failed to add group")
+)
+
 func AddOrUpdateGroups(ctx context.Context, groups []imagecustomizerapi.Group,
 	imageChroot safechroot.ChrootInterface,
 ) error {
@@ -44,14 +51,14 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 	// Check if the user already exists.
 	groupExists, err := userutils.GroupExists(group.Name, imageChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (group='%s'):\n%w", ErrGroupExistsCheck, group.Name, err)
 	}
 
 	if groupExists {
 		logger.Log.Infof("Updating group (%s)", group.Name)
 
 		if group.GID != nil {
-			return fmt.Errorf("cannot set GID (%d) on a group (%s) that already exists", *group.GID, group.Name)
+			return fmt.Errorf("%w (GID='%d', group='%s')", ErrCannotSetGidOnExistingGroup, *group.GID, group.Name)
 		}
 	} else {
 		logger.Log.Infof("Adding group (%s)", group.Name)
@@ -64,7 +71,7 @@ func addOrUpdateGroup(group imagecustomizerapi.Group, imageChroot safechroot.Chr
 		// Add the user.
 		err = userutils.AddGroup(group.Name, gidStr, imageChroot)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w (group='%s'):\n%w", ErrGroupAdd, group.Name, err)
 		}
 	}
 

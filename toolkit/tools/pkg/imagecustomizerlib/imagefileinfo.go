@@ -10,6 +10,12 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
+var (
+	// Image file info errors
+	ErrImageFormatCheck = NewImageCustomizerError("ImageInfo:FormatCheck", "failed to check image file's disk format")
+	ErrQemuImgInfo      = NewImageCustomizerError("ImageInfo:QemuImgInfo", "failed to parse qemu-img info JSON")
+)
+
 type ImageFileInfo struct {
 	Format      string `json:"format"`
 	VirtualSize int64  `json:"virtual-size"`
@@ -18,13 +24,13 @@ type ImageFileInfo struct {
 func GetImageFileInfo(inputImageFile string) (ImageFileInfo, error) {
 	stdout, _, err := shell.Execute("qemu-img", "info", "--output", "json", inputImageFile)
 	if err != nil {
-		return ImageFileInfo{}, fmt.Errorf("failed to check image file's disk format:\n%w", err)
+		return ImageFileInfo{}, fmt.Errorf("%w:\n%w", ErrImageFormatCheck, err)
 	}
 
 	info := ImageFileInfo{}
 	err = json.Unmarshal([]byte(stdout), &info)
 	if err != nil {
-		return ImageFileInfo{}, fmt.Errorf("failed to qemu-img info JSON:\n%w", err)
+		return ImageFileInfo{}, fmt.Errorf("%w:\n%w", ErrQemuImgInfo, err)
 	}
 
 	return info, nil

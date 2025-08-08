@@ -24,6 +24,12 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+var (
+	// RPM source mount errors
+	ErrRpmSourceFileTypeDetection = NewImageCustomizerError("RpmSources:FileTypeDetection", "failed to get type of RPM source")
+	ErrRpmSourceTypeUnknown       = NewImageCustomizerError("RpmSources:TypeUnknown", "unknown RPM source type")
+)
+
 const (
 	rpmsMountParentDirInChroot = "/_localrpms"
 )
@@ -325,7 +331,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 	// First, check if path points to a directory.
 	isDir, err := file.IsDir(rpmSourcePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to get type of RPM source (%s):\n%w", rpmSourcePath, err)
+		return "", fmt.Errorf("%w (path='%s'):\n%w", ErrRpmSourceFileTypeDetection, rpmSourcePath, err)
 	}
 
 	if isDir {
@@ -344,7 +350,7 @@ func getRpmSourceFileType(rpmSourcePath string) (string, error) {
 		return "repo", nil
 
 	default:
-		return "", fmt.Errorf("unknown RPM source type (%s):\nmust be a .repo file or a directory", rpmSourcePath)
+		return "", fmt.Errorf("%w (path='%s'):\nmust be a .repo file or a directory", ErrRpmSourceTypeUnknown, rpmSourcePath)
 	}
 }
 

@@ -19,6 +19,17 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// User management errors
+	ErrUserExistsCheck                = NewImageCustomizerError("Users:ExistsCheck", "failed to check if user exists")
+	ErrUserPasswordFileRead           = NewImageCustomizerError("Users:PasswordFileRead", "failed to read password file")
+	ErrUserPasswordHash               = NewImageCustomizerError("Users:PasswordHash", "failed to hash password")
+	ErrUserCannotSetUidOnExisting     = NewImageCustomizerError("Users:CannotSetUidOnExisting", "cannot set UID on a user that already exists")
+	ErrUserCannotSetHomeDirOnExisting = NewImageCustomizerError("Users:CannotSetHomeDirOnExisting", "cannot set home directory on a user that already exists")
+	ErrUserUpdate                     = NewImageCustomizerError("Users:Update", "failed to update user")
+	ErrUserAdd                        = NewImageCustomizerError("Users:Add", "failed to add user")
+)
+
 func AddOrUpdateUsers(ctx context.Context, users []imagecustomizerapi.User, baseConfigPath string, imageChroot safechroot.ChrootInterface) error {
 	if len(users) == 0 {
 		return nil
@@ -42,7 +53,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	// Check if the user already exists.
 	userExists, err := userutils.UserExists(user.Name, imageChroot)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (user='%s'):\n%w", ErrUserExistsCheck, user.Name, err)
 	}
 
 	if userExists {
@@ -70,7 +81,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 
 			passwordFileContents, err := os.ReadFile(passwordFullPath)
 			if err != nil {
-				return fmt.Errorf("failed to read password file (%s): %w", passwordFullPath, err)
+				return fmt.Errorf("%w (file='%s'):\n%w", ErrUserPasswordFileRead, passwordFullPath, err)
 			}
 
 			password = string(passwordFileContents)
@@ -81,26 +92,25 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 			// Hash the password.
 			hashedPassword, err = userutils.HashPassword(password)
 			if err != nil {
-				return err
+				return fmt.Errorf("%w (user='%s'):\n%w", ErrUserPasswordHash, user.Name, err)
 			}
 		}
 	}
 
 	if userExists {
 		if user.UID != nil {
-			return fmt.Errorf("cannot set UID (%d) on a user (%s) that already exists", *user.UID, user.Name)
+			return fmt.Errorf("%w (UID='%d', user='%s')", ErrUserCannotSetUidOnExisting, *user.UID, user.Name)
 		}
 
 		if user.HomeDirectory != "" {
-			return fmt.Errorf("cannot set home directory (%s) on a user (%s) that already exists",
-				user.HomeDirectory, user.Name)
+			return fmt.Errorf("%w (homeDir='%s', user='%s')", ErrUserCannotSetHomeDirOnExisting, user.HomeDirectory, user.Name)
 		}
 
 		// Only update password if explicitly provided
 		if shouldUpdatePassword {
 			err = userutils.UpdateUserPassword(imageChroot.RootDir(), user.Name, hashedPassword)
 			if err != nil {
-				return err
+				return fmt.Errorf("%w (user='%s'):\n%w", ErrUserUpdate, user.Name, err)
 			}
 		}
 	} else {
@@ -112,7 +122,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 		// Add the user.
 		err = userutils.AddUser(user.Name, user.HomeDirectory, user.PrimaryGroup, hashedPassword, uidStr, imageChroot)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w (user='%s'):\n%w", ErrUserAdd, user.Name, err)
 		}
 	}
 
@@ -120,7 +130,7 @@ func addOrUpdateUser(user imagecustomizerapi.User, baseConfigPath string, imageC
 	if user.PasswordExpiresDays != nil {
 		err = installutils.Chage(imageChroot, *user.PasswordExpiresDays, user.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w (user='%s'):\n%w", ErrUserUpdate, user.Name, err)
 		}
 	}
 

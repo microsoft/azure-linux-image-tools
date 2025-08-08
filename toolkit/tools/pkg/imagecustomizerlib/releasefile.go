@@ -13,6 +13,11 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+var (
+	// Release file errors
+	ErrReleaseFileWrite = NewImageCustomizerError("ReleaseFile:Write", "failed to write customizer release file")
+)
+
 const (
 	ImageCustomizerReleasePath = "etc/image-customizer-release"
 )
@@ -34,7 +39,7 @@ func addCustomizerRelease(ctx context.Context, rootDir string, toolVersion strin
 	}
 	err = file.WriteLines(lines, customizerReleaseFilePath)
 	if err != nil {
-		return fmt.Errorf("error writing customizer release file (%s): %w", customizerReleaseFilePath, err)
+		return fmt.Errorf("%w (path='%s'):\n%w", ErrReleaseFileWrite, customizerReleaseFilePath, err)
 	}
 
 	return nil

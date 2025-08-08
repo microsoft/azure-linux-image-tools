@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import json
 import os
 import logging
 import grpc
@@ -159,12 +160,22 @@ class TraceServiceHandler(trace_service_pb2_grpc.TraceServiceServicer):
 def extract_attribute_value(value_proto: Any) -> Optional[Any]:
     """Extract value from protobuf AnyValue."""
     value_case = value_proto.WhichOneof("value")
+
     value_mapping = {
         "string_value": value_proto.string_value,
         "int_value": value_proto.int_value,
         "double_value": value_proto.double_value,
         "bool_value": value_proto.bool_value,
     }
+
+    if value_case == "array_value":
+        array_values = []
+        for item in value_proto.array_value.values:
+            item_value = extract_attribute_value(item)
+            if item_value is not None:
+                array_values.append(item_value)
+        return json.dumps(array_values)
+
     return value_mapping.get(value_case)
 
 

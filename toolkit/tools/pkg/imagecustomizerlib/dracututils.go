@@ -13,6 +13,13 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
+var (
+	// Dracut operation errors
+	ErrDracutConfigWrite  = NewImageCustomizerError("Dracut:ConfigWrite", "failed to write dracut config file")
+	ErrDracutConfigRead   = NewImageCustomizerError("Dracut:ConfigRead", "failed to read dracut config file")
+	ErrDracutConfigAppend = NewImageCustomizerError("Dracut:ConfigAppend", "failed to append to dracut config file")
+)
+
 const (
 	dracutConfigDir = "etc/dracut.conf.d"
 )
@@ -22,13 +29,13 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 		// File does not exist, create and write the lines.
 		err := file.WriteLines(lines, dracutConfigFile)
 		if err != nil {
-			return fmt.Errorf("failed to write to dracut config file (%s):\n%w", dracutConfigFile, err)
+			return fmt.Errorf("%w (file='%s'):\n%w", ErrDracutConfigWrite, dracutConfigFile, err)
 		}
 	} else {
 		// File exists, append the lines.
 		existingLines, err := file.ReadLines(dracutConfigFile)
 		if err != nil {
-			return fmt.Errorf("failed to read existing dracut config file (%s):\n%w", dracutConfigFile, err)
+			return fmt.Errorf("%w (file='%s'):\n%w", ErrDracutConfigRead, dracutConfigFile, err)
 		}
 
 		// Avoid duplicate lines by checking if they already exist.
@@ -49,7 +56,7 @@ func addDracutConfig(dracutConfigFile string, lines []string) error {
 			content := strings.Join(linesToAppend, "\n") + "\n"
 			err = file.Append(content, dracutConfigFile)
 			if err != nil {
-				return fmt.Errorf("failed to append to dracut config file (%s):\n%w", dracutConfigFile, err)
+				return fmt.Errorf("%w (file='%s'):\n%w", ErrDracutConfigAppend, dracutConfigFile, err)
 			}
 		}
 	}

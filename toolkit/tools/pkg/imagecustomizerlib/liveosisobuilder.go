@@ -189,9 +189,9 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 		cleanupErr := os.RemoveAll(isoBuildDir)
 		if cleanupErr != nil {
 			if err != nil {
-				err = fmt.Errorf("%w:\nfailed to clean-up (%s): %w", err, isoBuildDir, cleanupErr)
+				err = fmt.Errorf("%w:\nfailed to clean-up (%s):\n%w", err, isoBuildDir, cleanupErr)
 			} else {
-				err = fmt.Errorf("failed to clean-up (%s): %w", isoBuildDir, cleanupErr)
+				err = fmt.Errorf("failed to clean-up (%s):\n%w", isoBuildDir, cleanupErr)
 			}
 		}
 	}()

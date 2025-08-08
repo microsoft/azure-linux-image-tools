@@ -21,6 +21,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// Overlay-related errors
+	ErrAddDracutDriver          = NewImageCustomizerError("Overlays:AddDracutDriver", "failed to add dracut driver")
+	ErrOverlayFstabUpdate       = NewImageCustomizerError("Overlays:FstabUpdate", "failed to update fstab for overlay")
+	ErrOverlayDirectoriesCreate = NewImageCustomizerError("Overlays:DirectoriesCreate", "failed to create overlay directories")
+)
+
 func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay, selinuxMode imagecustomizerapi.SELinuxMode,
 	imageChroot *safechroot.Chroot,
 ) (bool, error) {
@@ -51,13 +58,13 @@ func enableOverlays(ctx context.Context, overlays *[]imagecustomizerapi.Overlay,
 	overlaysDereference := *overlays
 	err = updateFstabForOverlays(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to update fstab file for overlays:\n%w", err)
+		return false, fmt.Errorf("%w:\n%w", ErrOverlayFstabUpdate, err)
 	}
 
 	// Create necessary directories for overlays
 	err = createOverlayDirectories(overlaysDereference, imageChroot)
 	if err != nil {
-		return false, fmt.Errorf("failed to create overlay directories:\n%w", err)
+		return false, fmt.Errorf("%w:\n%w", ErrOverlayDirectoriesCreate, err)
 	}
 
 	// Add equivalency rules for each overlay
@@ -165,7 +172,7 @@ func createOverlayDirectories(overlays []imagecustomizerapi.Overlay, imageChroot
 		// Iterate over each directory and create it if it doesn't exist.
 		for _, dir := range dirsToCreate {
 			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-				return fmt.Errorf("failed to create directory (%s): %w", dir, err)
+				return fmt.Errorf("failed to create directory (%s):\n%w", dir, err)
 			}
 		}
 	}

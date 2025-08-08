@@ -166,7 +166,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "cannot set home directory (/home/root) on a user (root) that already exists")
+	assert.ErrorContains(t, err, "cannot set home directory on a user that already exists (homeDir='/home/root', user='root')")
 }
 
 func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
@@ -190,7 +190,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "cannot set UID (1) on a user (root) that already exists")
+	assert.ErrorContains(t, err, "cannot set UID on a user that already exists (UID='1', user='root')")
 }
 
 func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
@@ -216,7 +216,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to find SSH public key file (does-not-exist)")
+	assert.ErrorContains(t, err, "failed to find SSH public key file (path='does-not-exist')")
 }
 
 func TestCustomizeImageUsersAddFiles(t *testing.T) {
