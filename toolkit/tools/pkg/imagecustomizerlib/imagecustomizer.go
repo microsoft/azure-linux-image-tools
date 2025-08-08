@@ -60,8 +60,8 @@ var (
 	ErrVerityValidation               = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
 	ErrUnsupportedQemuImageFormat     = NewImageCustomizerError("Validation:UnsupportedQemuImageFormat", "unsupported qemu-img format")
 	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
-	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", "preview feature required to specify package snapshot time")
-	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", "preview feature required to customize verity enabled base image")
+	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
+	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
 	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 
 	// Generic customization errors
@@ -76,12 +76,12 @@ var (
 	ErrConvertImageToFormat    = NewImageCustomizerError("ImageConversion:ConvertToFormat", "failed to convert image file to format")
 
 	// Artifacts errors
-	ErrCreateArtifactsStore      = NewImageCustomizerError("Artifacts:CreateStore", "failed to create artifacts store")
 	ErrExtractPackages           = NewImageCustomizerError("Artifacts:ExtractPackages", "failed to extract installed packages")
 	ErrExtractBootloaderMetadata = NewImageCustomizerError("Artifacts:ExtractBootloaderMetadata", "failed to extract bootloader metadata")
 	ErrCollectOSInfo             = NewImageCustomizerError("Artifacts:CollectOSInfo", "failed to collect OS information")
 
 	// LiveOS errors
+	ErrCreateArtifactsStore  = NewImageCustomizerError("LiveOS:CreateArtifactsStore", "failed to create artifacts store")
 	ErrBuildLiveOSConfig     = NewImageCustomizerError("LiveOS:BuildConfig", "failed to build Live OS configuration")
 	ErrCreateWriteableImage  = NewImageCustomizerError("LiveOS:CreateWriteableImage", "failed to create writeable image")
 	ErrCreateLiveOSArtifacts = NewImageCustomizerError("LiveOS:CreateArtifacts", "failed to create Live OS artifacts")
@@ -91,13 +91,11 @@ var (
 	ErrCheckFilesystems  = NewImageCustomizerError("Filesystem:Check", "failed to check filesystems")
 	ErrStatFile          = NewImageCustomizerError("Filesystem:StatFile", "failed to stat file")
 
-	// Disk/Storage errors
-	ErrConnectToImage    = NewImageCustomizerError("Disk:ConnectToImage", "failed to connect to image file to provision verity")
-	ErrGetDiskSectorSize = NewImageCustomizerError("Disk:GetSectorSize", "failed to get disk sector size")
-	ErrMountPartition    = NewImageCustomizerError("Disk:MountPartition", "failed to mount partition")
-	ErrUpdateDisk        = NewImageCustomizerError("Disk:UpdateDisk", "failed to wait for disk to update")
-
 	// Verity errors
+	ErrVerityImageConnection   = NewImageCustomizerError("Verity:ConnectToImage", "failed to connect to image file to provision verity")
+	ErrGetDiskSectorSize       = NewImageCustomizerError("Verity:GetSectorSize", "failed to get disk sector size")
+	ErrMountPartition          = NewImageCustomizerError("Verity:MountPartition", "failed to mount partition")
+	ErrUpdateDisk              = NewImageCustomizerError("Verity:UpdateDisk", "failed to wait for disk to update")
 	ErrFindVerityDataPartition = NewImageCustomizerError("Verity:FindDataPartition", "failed to find verity data partition")
 	ErrFindVerityHashPartition = NewImageCustomizerError("Verity:FindHashPartition", "failed to find verity hash partition")
 	ErrCalculateRootHash       = NewImageCustomizerError("Verity:CalculateRootHash", "failed to calculate root hash")
@@ -616,8 +614,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		previewFeatureEnabled := slices.Contains(ic.config.PreviewFeatures,
 			imagecustomizerapi.PreviewFeatureReinitializeVerity)
 		if !previewFeatureEnabled {
-			return fmt.Errorf("%w (feature='%s')", ErrVerityPreviewFeatureRequired,
-				imagecustomizerapi.PreviewFeatureReinitializeVerity)
+			return ErrVerityPreviewFeatureRequired
 		}
 	}
 
@@ -1182,7 +1179,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrConnectToImage, err)
+		return nil, fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
 	}
 	defer loopback.Close()
 
@@ -1500,8 +1497,7 @@ func CheckEnvironmentVars() error {
 
 func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature) error {
 	if snapshotTime != "" && !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-		return fmt.Errorf("%w (feature='%s')", ErrPackageSnapshotPreviewRequired,
-			imagecustomizerapi.PreviewFeaturePackageSnapshotTime)
+		return ErrPackageSnapshotPreviewRequired
 	}
 
 	if err := imagecustomizerapi.PackageSnapshotTime(snapshotTime).IsValid(); err != nil {
