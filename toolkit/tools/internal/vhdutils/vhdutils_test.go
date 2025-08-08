@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
 )
@@ -43,10 +44,16 @@ func TestGetVhdFileTypeNoneRaw(t *testing.T) {
 }
 
 func testGetVhdFileTypeHelper(t *testing.T, testName string, expectedVhdFileType VhdFileType, qemuImgArgs []string) {
+	ukifyExists, err := file.CommandExists("qemu-img")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'qemu-img' command is not available")
+	}
+
 	testTempDir := filepath.Join(testsTempDir, testName)
 	testVhdFile := filepath.Join(testTempDir, "test.vhd")
 
-	err := os.MkdirAll(testTempDir, os.ModePerm)
+	err = os.MkdirAll(testTempDir, os.ModePerm)
 	assert.NoError(t, err)
 
 	args := []string{"create", testVhdFile, "1M"}

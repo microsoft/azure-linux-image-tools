@@ -991,7 +991,7 @@ func TestConvertImageToRawFromVhdCurrentSize(t *testing.T) {
 }
 
 func TestConvertImageToRawFromVhdDiskGeometry(t *testing.T) {
-	_, _, err := testConvertImageToRawHelper("TestConvertImageToRawFromVhdDiskGeometry",
+	_, _, err := testConvertImageToRawHelper(t, "TestConvertImageToRawFromVhdDiskGeometry",
 		[]string{"-f", "vpc", "-o", "force_size=off,subformat=fixed"}, 50*diskutils.MiB)
 	assert.ErrorContains(t, err, "rejecting VHD file that uses 'Disk Geometry' based size")
 }
@@ -1002,13 +1002,19 @@ func TestConvertImageToRawFromVhdx(t *testing.T) {
 		imagecustomizerapi.ImageFormatTypeVhdx)
 }
 
-func testConvertImageToRawHelper(testName string, qemuImgArgs []string, diskSize int64,
+func testConvertImageToRawHelper(t *testing.T, testName string, qemuImgArgs []string, diskSize int64,
 ) (string, imagecustomizerapi.ImageFormatType, error) {
+	ukifyExists, err := file.CommandExists("qemu-img")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'qemu-img' command is not available")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	testImageFile := filepath.Join(testTempDir, "test.img")
 	testRawFile := filepath.Join(testTempDir, "test.raw")
 
-	err := os.MkdirAll(testTempDir, os.ModePerm)
+	err = os.MkdirAll(testTempDir, os.ModePerm)
 	if err != nil {
 		return "", "", err
 	}
@@ -1034,7 +1040,7 @@ func testConvertImageToRawSuccess(t *testing.T, testName string, qemuImgArgs []s
 ) {
 	diskSize := int64(50 * diskutils.MiB)
 
-	testRawFile, imageFormatType, err := testConvertImageToRawHelper(testName, qemuImgArgs, diskSize)
+	testRawFile, imageFormatType, err := testConvertImageToRawHelper(t, testName, qemuImgArgs, diskSize)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedImageFormatType, imageFormatType)
 
