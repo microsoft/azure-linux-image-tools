@@ -36,7 +36,9 @@ If verity is enabled in the base image, then:
   [verity](verity.md) API.
 
 - Otherwise, the existing verity settings are reapplied to the image after OS
-  customization.
+  customization, according to the
+  [.storage.reinitializeVerity](storage.md#reinitializeverity-string)
+  setting.
 
   This feature is in preview and may be subject to breaking changes.
   You may enable this feature by adding `reinitialize-verity` to the
