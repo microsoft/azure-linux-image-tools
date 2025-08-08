@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,6 +15,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -980,6 +982,65 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
+}
+
+func TestConvertImageToRawFromVhdCurrentSize(t *testing.T) {
+	testConvertImageToRawSuccess(t, "TestConvertImageToRawFromVhdCurrentSize",
+		[]string{"-f", "vpc", "-o", "force_size=on,subformat=fixed"},
+		imagecustomizerapi.ImageFormatTypeVhd)
+}
+
+func TestConvertImageToRawFromVhdDiskGeometry(t *testing.T) {
+	_, _, err := testConvertImageToRawHelper("TestConvertImageToRawFromVhdDiskGeometry",
+		[]string{"-f", "vpc", "-o", "force_size=off,subformat=fixed"}, 50*diskutils.MiB)
+	assert.ErrorContains(t, err, "rejecting VHD file that uses 'Disk Geometry' based size")
+}
+
+func TestConvertImageToRawFromVhdx(t *testing.T) {
+	testConvertImageToRawSuccess(t, "TestConvertImageToRawFromVhdx",
+		[]string{"-f", "vhdx"},
+		imagecustomizerapi.ImageFormatTypeVhdx)
+}
+
+func testConvertImageToRawHelper(testName string, qemuImgArgs []string, diskSize int64,
+) (string, imagecustomizerapi.ImageFormatType, error) {
+	testTempDir := filepath.Join(tmpDir, testName)
+	testImageFile := filepath.Join(testTempDir, "test.img")
+	testRawFile := filepath.Join(testTempDir, "test.raw")
+
+	err := os.MkdirAll(testTempDir, os.ModePerm)
+	if err != nil {
+		return "", "", err
+	}
+
+	args := []string{"create", testImageFile, fmt.Sprintf("%d", diskSize)}
+	args = append(args, qemuImgArgs...)
+
+	err = shell.ExecuteLive(true, "qemu-img", args...)
+	if err != nil {
+		return "", "", err
+	}
+
+	imageFormatType, err := convertImageToRaw(testImageFile, testRawFile)
+	if err != nil {
+		return "", "", err
+	}
+
+	return testRawFile, imageFormatType, nil
+}
+
+func testConvertImageToRawSuccess(t *testing.T, testName string, qemuImgArgs []string,
+	expectedImageFormatType imagecustomizerapi.ImageFormatType,
+) {
+	diskSize := int64(50 * diskutils.MiB)
+
+	testRawFile, imageFormatType, err := testConvertImageToRawHelper(testName, qemuImgArgs, diskSize)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedImageFormatType, imageFormatType)
+
+	testRawFileStat, err := os.Stat(testRawFile)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(diskSize), testRawFileStat.Size())
 }
 
 func checkFileType(t *testing.T, filePath string, expectedFileType string) {
