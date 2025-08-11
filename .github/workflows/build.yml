@@ -160,7 +160,7 @@ jobs:
     uses: ./.github/workflows/tests-vmtests-osmodifier.yml
     with:
       hostArch: amd64
-      hostDistro: ubuntu2404    
+      hostDistro: ubuntu2404
 
   tests-vmtests-osmodifier-ubuntu2404-arm64:
     name: VMTests suite osmodifier Ubuntu24.04 ARM64
