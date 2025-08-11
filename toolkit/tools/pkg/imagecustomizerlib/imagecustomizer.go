@@ -424,16 +424,16 @@ func convertImageToRaw(inputImageFile string, rawImageFile string) (imagecustomi
 		// The fixed-size VHD format is just a raw disk file with small metadata footer appended to the end.
 		// Unfortunatley, qemu-img doesn't look at the VHD footer when detecting file formats. So, it reports
 		// fixed-sized VHDs as raw disk images. So, manually detect if a raw image is a VHD.
-		vhdFileType, err := vhdutils.GetVhdFileType(inputImageFile)
+		vhdFileType, err := vhdutils.GetVhdFileSizeCalcType(inputImageFile)
 		if err != nil {
 			return "", err
 		}
 
 		switch vhdFileType {
-		case vhdutils.VhdFileTypeDiskGeometry:
+		case vhdutils.VhdFileSizeCalcTypeDiskGeometry:
 			return "", fmt.Errorf("rejecting VHD file that uses 'Disk Geometry' based size:\npass '-o force_size=on' to qemu-img when outputting as 'vpc' (i.e. VHD)")
 
-		case vhdutils.VhdFileTypeCurrentSize:
+		case vhdutils.VhdFileSizeCalcTypeCurrentSize:
 			sourceArg += ",driver=vpc,force_size_calc=current_size"
 			detectedImageFormat = "vpc"
 

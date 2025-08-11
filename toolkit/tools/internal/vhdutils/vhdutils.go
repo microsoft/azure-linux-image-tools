@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	VhdFooterSize    = 512
-	VhdFileSignature = "conectix"
-	VhdFileVersion   = 0x00010000
+	VhdFileFooterSize = 512
+	VhdFileSignature  = "conectix"
+	VhdFileVersion    = 0x00010000
 )
 
-type VhdFooter struct {
+type VhdFileFooter struct {
 	Cookie             [8]byte
 	Features           uint32
 	FileFormatVersion  uint32
@@ -44,22 +44,25 @@ var (
 	ErrVhdWrongFileVersion   = errors.New("VHD footer has unsupported file format version")
 )
 
-type VhdFileType int
+type VhdFileSizeCalcType int
 
 const (
-	VhdFileTypeNone VhdFileType = iota
-	VhdFileTypeCurrentSize
-	VhdFileTypeDiskGeometry
+	// File is not a VHD file.
+	VhdFileSizeCalcTypeNone VhdFileSizeCalcType = iota
+	// VHD uses "Current Size" field to calculate the disk size.
+	VhdFileSizeCalcTypeCurrentSize
+	// VHD uses "Disk Geometry" fields to calculate the disk size.
+	VhdFileSizeCalcTypeDiskGeometry
 )
 
-func GetVhdFileType(filename string) (VhdFileType, error) {
+func GetVhdFileSizeCalcType(filename string) (VhdFileSizeCalcType, error) {
 	footer, err := ParseVhdFileFooter(filename)
 	if errors.Is(err, ErrVhdFileTooSmall) || errors.Is(err, ErrVhdWrongFileSignature) {
 		// Not a VHD file.
-		return VhdFileTypeNone, nil
+		return VhdFileSizeCalcTypeNone, nil
 	}
 	if err != nil {
-		return VhdFileTypeNone, err
+		return VhdFileSizeCalcTypeNone, err
 	}
 
 	creatorApplication := string(footer.CreatorApplication[:])
@@ -80,54 +83,54 @@ func GetVhdFileType(filename string) (VhdFileType, error) {
 	// Whereas, nowadays it is more likely for a VHD to use 'Current Size'.
 	switch creatorApplication {
 	case "vpc ", "vs  ", "qemu":
-		return VhdFileTypeDiskGeometry, nil
+		return VhdFileSizeCalcTypeDiskGeometry, nil
 
 	default:
-		return VhdFileTypeCurrentSize, nil
+		return VhdFileSizeCalcTypeCurrentSize, nil
 	}
 }
 
-func ParseVhdFileFooter(filename string) (VhdFooter, error) {
+func ParseVhdFileFooter(filename string) (VhdFileFooter, error) {
 	fd, err := os.Open(filename)
 	if err != nil {
-		return VhdFooter{}, err
+		return VhdFileFooter{}, err
 	}
 	defer fd.Close()
 
 	stat, err := fd.Stat()
 	if err != nil {
-		return VhdFooter{}, err
+		return VhdFileFooter{}, err
 	}
 
-	if stat.Size() < VhdFooterSize {
-		return VhdFooter{}, ErrVhdFileTooSmall
+	if stat.Size() < VhdFileFooterSize {
+		return VhdFileFooter{}, ErrVhdFileTooSmall
 	}
 
-	_, err = fd.Seek(-VhdFooterSize, io.SeekEnd)
+	_, err = fd.Seek(-VhdFileFooterSize, io.SeekEnd)
 	if err != nil {
-		return VhdFooter{}, err
+		return VhdFileFooter{}, err
 	}
 
-	footerBytes := [VhdFooterSize]byte{}
+	footerBytes := [VhdFileFooterSize]byte{}
 	_, err = fd.Read([]byte(footerBytes[:]))
 	if err != nil {
-		return VhdFooter{}, err
+		return VhdFileFooter{}, err
 	}
 
 	footerReader := bytes.NewReader(footerBytes[:])
 
-	var footer VhdFooter
+	var footer VhdFileFooter
 	err = binary.Read(footerReader, binary.BigEndian, &footer)
 	if err != nil {
-		return VhdFooter{}, err
+		return VhdFileFooter{}, err
 	}
 
 	if string(footer.Cookie[:]) != VhdFileSignature {
-		return VhdFooter{}, ErrVhdWrongFileSignature
+		return VhdFileFooter{}, ErrVhdWrongFileSignature
 	}
 
 	if footer.FileFormatVersion != VhdFileVersion {
-		return VhdFooter{}, ErrVhdWrongFileVersion
+		return VhdFileFooter{}, ErrVhdWrongFileVersion
 	}
 
 	return footer, nil

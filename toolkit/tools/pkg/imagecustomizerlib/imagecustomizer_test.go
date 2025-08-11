@@ -1004,9 +1004,9 @@ func TestConvertImageToRawFromVhdx(t *testing.T) {
 
 func testConvertImageToRawHelper(t *testing.T, testName string, qemuImgArgs []string, diskSize int64,
 ) (string, imagecustomizerapi.ImageFormatType, error) {
-	ukifyExists, err := file.CommandExists("qemu-img")
+	qemuimgExists, err := file.CommandExists("qemu-img")
 	assert.NoError(t, err)
-	if !ukifyExists {
+	if !qemuimgExists {
 		t.Skip("The 'qemu-img' command is not available")
 	}
 

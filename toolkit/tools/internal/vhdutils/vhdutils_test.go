@@ -13,40 +13,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetVhdFileTypeDiskGeometryDynamic(t *testing.T) {
-	testGetVhdFileTypeHelper(t, "TestGetVhdFileTypeDiskGeometryDynamic", VhdFileTypeDiskGeometry,
+func TestGetVhdFileSizeCalcTypeDiskGeometryDynamic(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeDiskGeometryDynamic", VhdFileSizeCalcTypeDiskGeometry,
 		[]string{"-f", "vpc", "-o", "force_size=off,subformat=dynamic"})
 }
 
-func TestGetVhdFileTypeDiskGeometryFixed(t *testing.T) {
-	testGetVhdFileTypeHelper(t, "TestGetVhdFileTypeDiskGeometryFixed", VhdFileTypeDiskGeometry,
+func TestGetVhdFileSizeCalcTypeDiskGeometryFixed(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeDiskGeometryFixed", VhdFileSizeCalcTypeDiskGeometry,
 		[]string{"-f", "vpc", "-o", "force_size=off,subformat=fixed"})
 }
 
-func TestGetVhdFileTypeCurrentSizeDynamic(t *testing.T) {
-	testGetVhdFileTypeHelper(t, "TestGetVhdFileTypeCurrentSizeDynamic", VhdFileTypeCurrentSize,
+func TestGetVhdFileSizeCalcTypeCurrentSizeDynamic(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeCurrentSizeDynamic", VhdFileSizeCalcTypeCurrentSize,
 		[]string{"-f", "vpc", "-o", "force_size=on,subformat=dynamic"})
 }
 
-func TestGetVhdFileTypeCurrentSizeFixed(t *testing.T) {
-	testGetVhdFileTypeHelper(t, "TestGetVhdFileTypeCurrentSizeFixed", VhdFileTypeCurrentSize,
+func TestGetVhdFileSizeCalcTypeCurrentSizeFixed(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeCurrentSizeFixed", VhdFileSizeCalcTypeCurrentSize,
 		[]string{"-f", "vpc", "-o", "force_size=on,subformat=fixed"})
 }
 
-func TestGetVhdFileTypeNoneVhdx(t *testing.T) {
-	testGetVhdFileTypeHelper(t, "TestGetVhdFileTypeNoneVhdx", VhdFileTypeNone,
+func TestGetVhdFileSizeCalcTypeNoneVhdx(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeNoneVhdx", VhdFileSizeCalcTypeNone,
 		[]string{"-f", "vhdx"})
 }
 
-func TestGetVhdFileTypeNoneRaw(t *testing.T) {
-	testGetVhdFileTypeHelper(t, "TestGetVhdFileTypeNoneRaw", VhdFileTypeNone,
+func TestGetVhdFileSizeCalcTypeNoneQcow2(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeNoneQcow2", VhdFileSizeCalcTypeNone,
+		[]string{"-f", "qcow2"})
+}
+
+func TestGetVhdFileSizeCalcTypeNoneRaw(t *testing.T) {
+	testGetVhdFileSizeCalcTypeHelper(t, "TestGetVhdFileSizeCalcTypeNoneRaw", VhdFileSizeCalcTypeNone,
 		[]string{"-f", "raw"})
 }
 
-func testGetVhdFileTypeHelper(t *testing.T, testName string, expectedVhdFileType VhdFileType, qemuImgArgs []string) {
-	ukifyExists, err := file.CommandExists("qemu-img")
+func testGetVhdFileSizeCalcTypeHelper(t *testing.T, testName string, expectedVhdFileSizeCalcType VhdFileSizeCalcType, qemuImgArgs []string) {
+	qemuimgExists, err := file.CommandExists("qemu-img")
 	assert.NoError(t, err)
-	if !ukifyExists {
+	if !qemuimgExists {
 		t.Skip("The 'qemu-img' command is not available")
 	}
 
@@ -62,7 +67,7 @@ func testGetVhdFileTypeHelper(t *testing.T, testName string, expectedVhdFileType
 	err = shell.ExecuteLive(true, "qemu-img", args...)
 	assert.NoError(t, err)
 
-	vhdType, err := GetVhdFileType(testVhdFile)
+	vhdType, err := GetVhdFileSizeCalcType(testVhdFile)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedVhdFileType, vhdType)
+	assert.Equal(t, expectedVhdFileSizeCalcType, vhdType)
 }
