@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -29,6 +28,83 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sys/unix"
+)
+
+var (
+	// Validation errors
+	ErrInvalidOutputFormat            = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
+	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
+	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
+	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
+	ErrInputImageFileRequired         = NewImageCustomizerError("Validation:InputImageFileRequired", "input image file must be specified")
+	ErrInvalidInputImageFileArg       = NewImageCustomizerError("Validation:InvalidInputImageFileArg", "invalid command-line option '--image-file'")
+	ErrInputImageFileNotFile          = NewImageCustomizerError("Validation:InputImageFileNotFile", "input image file is not a file")
+	ErrInvalidInputImageFileConfig    = NewImageCustomizerError("Validation:InvalidInputImageFileConfig", "invalid config file property 'input.image.path'")
+	ErrInvalidAdditionalFilesSource   = NewImageCustomizerError("Validation:InvalidAdditionalFilesSource", "invalid additionalFiles source file")
+	ErrAdditionalFilesSourceNotFile   = NewImageCustomizerError("Validation:AdditionalFilesSourceNotFile", "additionalFiles source file is not a file")
+	ErrInvalidPostCustomizationScript = NewImageCustomizerError("Validation:InvalidPostCustomizationScript", "invalid postCustomization script")
+	ErrInvalidFinalizeScript          = NewImageCustomizerError("Validation:InvalidFinalizeScript", "invalid finalizeCustomization script")
+	ErrScriptNotUnderConfigDir        = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
+	ErrScriptFileNotReadable          = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
+	ErrNoRpmSourcesSpecified          = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
+	ErrOutputImageFileRequired        = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
+	ErrInvalidOutputImageFileArg      = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
+	ErrOutputImageFileIsDirectory     = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
+	ErrInvalidOutputImageFileConfig   = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
+	ErrOutputImageFormatRequired      = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
+	ErrInvalidUser                    = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
+	ErrInvalidSSHPublicKeyFile        = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
+	ErrSSHPublicKeyNotFile            = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
+	ErrVerityValidation               = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
+	ErrUnsupportedQemuImageFormat     = NewImageCustomizerError("Validation:UnsupportedQemuImageFormat", "unsupported qemu-img format")
+	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
+	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
+	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
+	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
+
+	// Generic customization errors
+	ErrGetAbsoluteConfigPath = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
+	ErrCustomizeRawImage     = NewImageCustomizerError("Customizer:CustomizeRawImage", "failed to customize raw image")
+
+	// Image conversion errors
+	ErrConvertInputImage       = NewImageCustomizerError("ImageConversion:ConvertInput", "failed to convert input image to a raw image")
+	ErrConvertToOutputFormat   = NewImageCustomizerError("ImageConversion:ConvertToOutput", "failed to convert customized raw image to output format")
+	ErrDetectImageFormat       = NewImageCustomizerError("ImageConversion:DetectFormat", "failed to detect input image format")
+	ErrConvertImageToRawFormat = NewImageCustomizerError("ImageConversion:ConvertToRawFormat", "failed to convert image file to raw format")
+	ErrConvertImageToFormat    = NewImageCustomizerError("ImageConversion:ConvertToFormat", "failed to convert image file to format")
+
+	// Artifacts errors
+	ErrExtractPackages           = NewImageCustomizerError("Artifacts:ExtractPackages", "failed to extract installed packages")
+	ErrExtractBootloaderMetadata = NewImageCustomizerError("Artifacts:ExtractBootloaderMetadata", "failed to extract bootloader metadata")
+	ErrCollectOSInfo             = NewImageCustomizerError("Artifacts:CollectOSInfo", "failed to collect OS information")
+
+	// LiveOS errors
+	ErrCreateArtifactsStore  = NewImageCustomizerError("LiveOS:CreateArtifactsStore", "failed to create artifacts store")
+	ErrBuildLiveOSConfig     = NewImageCustomizerError("LiveOS:BuildConfig", "failed to build Live OS configuration")
+	ErrCreateWriteableImage  = NewImageCustomizerError("LiveOS:CreateWriteableImage", "failed to create writeable image")
+	ErrCreateLiveOSArtifacts = NewImageCustomizerError("LiveOS:CreateArtifacts", "failed to create Live OS artifacts")
+
+	// Filesystem errors
+	ErrShrinkFilesystems = NewImageCustomizerError("Filesystem:Shrink", "failed to shrink filesystems")
+	ErrCheckFilesystems  = NewImageCustomizerError("Filesystem:Check", "failed to check filesystems")
+	ErrStatFile          = NewImageCustomizerError("Filesystem:StatFile", "failed to stat file")
+
+	// Verity errors
+	ErrVerityImageConnection   = NewImageCustomizerError("Verity:ConnectToImage", "failed to connect to image file to provision verity")
+	ErrGetDiskSectorSize       = NewImageCustomizerError("Verity:GetSectorSize", "failed to get disk sector size")
+	ErrMountPartition          = NewImageCustomizerError("Verity:MountPartition", "failed to mount partition")
+	ErrUpdateDisk              = NewImageCustomizerError("Verity:UpdateDisk", "failed to wait for disk to update")
+	ErrFindVerityDataPartition = NewImageCustomizerError("Verity:FindDataPartition", "failed to find verity data partition")
+	ErrFindVerityHashPartition = NewImageCustomizerError("Verity:FindHashPartition", "failed to find verity hash partition")
+	ErrCalculateRootHash       = NewImageCustomizerError("Verity:CalculateRootHash", "failed to calculate root hash")
+	ErrCompileRootHashRegex    = NewImageCustomizerError("Verity:CompileRootHashRegex", "failed to compile root hash regex")
+	ErrParseRootHash           = NewImageCustomizerError("Verity:ParseRootHash", "failed to parse root hash from veritysetup output")
+	ErrCalculateHashSize       = NewImageCustomizerError("Verity:CalculateHashSize", "failed to calculate hash partition size")
+	ErrShrinkHashPartition     = NewImageCustomizerError("Verity:ShrinkHashPartition", "failed to shrink hash partition")
+	ErrVerifyVerity            = NewImageCustomizerError("Verity:Verify", "failed to verify verity")
+	ErrUpdateKernelArgs        = NewImageCustomizerError("Verity:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
+	ErrUpdateGrubConfig        = NewImageCustomizerError("Verity:UpdateGrubConfig", "failed to update grub config for verity")
 )
 
 const (
@@ -161,7 +237,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("invalid output image format:\n%w", err)
+		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, outputImageFormat, err)
 	}
 
 	if ic.outputImageFormat == "" {
@@ -183,14 +259,14 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
 		if !ic.outputIsIso && !ic.outputIsPxe {
-			return nil, fmt.Errorf("cannot generate output format (%s) from the given input format (%s)", ic.outputImageFormat, ic.inputImageFormat)
+			return nil, fmt.Errorf("%w (output='%s', input='%s')", ErrCannotGenerateOutputFormat, ic.outputImageFormat, ic.inputImageFormat)
 		}
 
 		// While defining a storage configuration can work when the input image is
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
 		if config.CustomizePartitions() {
-			return nil, fmt.Errorf("cannot customize partitions when the input is an iso")
+			return nil, ErrCannotCustomizePartitionsOnIso
 		}
 	}
 
@@ -216,7 +292,7 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
 	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
@@ -247,22 +323,31 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	)
 	defer func() {
 		if err != nil {
-			span.RecordError(fmt.Errorf("image customization failed"))
-			span.SetStatus(codes.Error, "image customization failed")
+			errorNames := []string{"Unset"} // default
+			if namedErrors := GetAllImageCustomizerErrors(err); len(namedErrors) > 0 {
+				errorNames = make([]string, len(namedErrors))
+				for i, namedError := range namedErrors {
+					errorNames[i] = namedError.Name()
+				}
+			}
+			span.SetAttributes(
+				attribute.StringSlice("errors.name", errorNames),
+			)
+			span.SetStatus(codes.Error, errorNames[len(errorNames)-1])
 		}
 		span.End()
 	}()
 
 	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
 	if err != nil {
-		return fmt.Errorf("invalid image config:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
 
 	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
 		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
 		outputImageFormat, outputImageFile, packageSnapshotTime)
 	if err != nil {
-		return fmt.Errorf("invalid parameters:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}
 	defer func() {
 		cleanupErr := cleanUp(imageCustomizerParameters)
@@ -295,7 +380,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	inputIsoArtifacts, err := convertInputImageToWriteableFormat(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("failed to convert input image to a raw image:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrConvertInputImage, err)
 	}
 	defer func() {
 		if inputIsoArtifacts != nil {
@@ -312,7 +397,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("failed to customize raw image:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrCustomizeRawImage, err)
 	}
 
 	if config.Output.Artifacts != nil {
@@ -327,7 +412,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = convertWriteableFormatToOutputImage(ctx, imageCustomizerParameters, inputIsoArtifacts)
 	if err != nil {
-		return fmt.Errorf("failed to convert customized raw image to output format:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrConvertToOutputFormat, err)
 	}
 
 	logger.Log.Infof("Success!")
@@ -369,14 +454,14 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 
 		inputIsoArtifacts, err := createIsoArtifactStoreFromIsoImage(ic.inputImageFile, filepath.Join(ic.buildDirAbs, "from-iso"))
 		if err != nil {
-			return inputIsoArtifacts, fmt.Errorf("failed to create artifacts store from (%s):\n%w", ic.inputImageFile, err)
+			return inputIsoArtifacts, fmt.Errorf("%w (source='%s'):\n%w", ErrCreateArtifactsStore, ic.inputImageFile, err)
 		}
 
 		var liveosConfig LiveOSConfig
 		liveosConfig, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso,
 			ic.config.Pxe, ic.outputImageFormat)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build Live OS configuration:\n%w", err)
+			return nil, fmt.Errorf("%w:\n%w", ErrBuildLiveOSConfig, err)
 		}
 
 		// Check if the user is changing the kdump boot files configuration.
@@ -393,7 +478,7 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 		if rebuildFullOsImage {
 			err = createWriteableImageFromArtifacts(ic.buildDirAbs, inputIsoArtifacts, ic.rawImageFile)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create writeable image:\n%w", err)
+				return nil, fmt.Errorf("%w:\n%w", ErrCreateWriteableImage, err)
 			}
 		}
 
@@ -415,7 +500,7 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 ) (imagecustomizerapi.ImageFormatType, error) {
 	imageInfo, err := GetImageFileInfo(inputImageFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to detect input image (%s) format:\n%w", inputImageFile, err)
+		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrDetectImageFormat, inputImageFile, err)
 	}
 
 	detectedImageFormat := imageInfo.Format
@@ -443,7 +528,7 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to convert image file to raw format:\n%w", err)
+		return "", fmt.Errorf("%w:\n%w", ErrConvertImageToRawFormat, err)
 	}
 
 	format, err := qemuStringtoImageFormatType(detectedImageFormat)
@@ -466,7 +551,7 @@ func qemuStringtoImageFormatType(qemuFormat string) (imagecustomizerapi.ImageFor
 	case "iso":
 		return imagecustomizerapi.ImageFormatTypeIso, nil
 	default:
-		return "", fmt.Errorf("unsupported qemu-img format: %s", qemuFormat)
+		return "", fmt.Errorf("%w: %s", ErrUnsupportedQemuImageFormat, qemuFormat)
 	}
 }
 
@@ -526,8 +611,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		previewFeatureEnabled := slices.Contains(ic.config.PreviewFeatures,
 			imagecustomizerapi.PreviewFeatureReinitializeVerity)
 		if !previewFeatureEnabled {
-			return fmt.Errorf("Please enable the '%s' preview feature to customize a verity enabled base image",
-				imagecustomizerapi.PreviewFeatureReinitializeVerity)
+			return ErrVerityPreviewFeatureRequired
 		}
 	}
 
@@ -540,7 +624,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	if shrinkPartitions {
 		err = shrinkFilesystemsHelper(ctx, ic.rawImageFile, readonlyPartUuids)
 		if err != nil {
-			return fmt.Errorf("failed to shrink filesystems:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 	}
 
@@ -568,7 +652,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	if ic.config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
-			return nil
+			return fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
 		ic.osPackages = osPackages
 		ic.cosiBootMetadata = cosiBootMetadata
@@ -577,7 +661,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	// Check file systems for corruption.
 	err = checkFileSystems(ctx, ic.rawImageFile)
 	if err != nil {
-		return fmt.Errorf("failed to check filesystems:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrCheckFilesystems, err)
 	}
 
 	return nil
@@ -622,7 +706,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 			liveosConfig, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, ic.config.Iso, ic.config.Pxe,
 				ic.outputImageFormat)
 			if err != nil {
-				return fmt.Errorf("failed to build Live OS configuration\n%w", err)
+				return fmt.Errorf("%w:\n%w", ErrBuildLiveOSConfig, err)
 			}
 
 			// Check if the user is changing the kdump boot files configuration.
@@ -642,13 +726,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 			err := createLiveOSFromRaw(ctx, ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
 				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
-				return fmt.Errorf("failed to create Live OS artifacts:\n%w", err)
+				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
 			err := repackageLiveOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
 				inputIsoArtifacts, ic.outputImageFormat, ic.outputImageFile)
 			if err != nil {
-				return fmt.Errorf("failed to create Live OS artifacts:\n%w", err)
+				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		}
 	}
@@ -667,7 +751,7 @@ func ConvertImageFile(inputPath string, outputPath string, format imagecustomize
 
 	err := shell.ExecuteLiveWithErr(1, "qemu-img", qemuImgArgs...)
 	if err != nil {
-		return fmt.Errorf("failed to convert image file to format: %s:\n%w", format, err)
+		return fmt.Errorf("%w (format='%s'):\n%w", ErrConvertImageToFormat, format, err)
 	}
 
 	return nil
@@ -741,21 +825,21 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) error {
 	if inputImageFile == "" && input.Image.Path == "" {
-		return fmt.Errorf("input image file must be specified, either via the command line option '--image-file' or in the config file property 'input.image.path'")
+		return ErrInputImageFileRequired
 	}
 
 	if inputImageFile != "" {
 		if yes, err := file.IsFile(inputImageFile); err != nil {
-			return fmt.Errorf("invalid command-line option '--image-file': '%s'\n%w", inputImageFile, err)
+			return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
-			return fmt.Errorf("invalid command-line option '--image-file': '%s'\nnot a file", inputImageFile)
+			return fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
 	} else {
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
 		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-			return fmt.Errorf("invalid config file property 'input.image.path': '%s'\n%w", input.Image.Path, err)
+			return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
 		} else if !yes {
-			return fmt.Errorf("invalid config file property 'input.image.path': '%s'\nnot a file", input.Image.Path)
+			return fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
 		}
 	}
 
@@ -770,11 +854,11 @@ func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomi
 			sourceFileFullPath := file.GetAbsPathWithBase(baseConfigPath, additionalFile.Source)
 			isFile, err := file.IsFile(sourceFileFullPath)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("invalid additionalFiles source file (%s):\n%w", additionalFile.Source, err))
+				errs = append(errs, fmt.Errorf("%w (source='%s'):\n%w", ErrInvalidAdditionalFilesSource, additionalFile.Source, err))
 			}
 
 			if !isFile {
-				errs = append(errs, fmt.Errorf("invalid additionalFiles source file (%s):\nnot a file",
+				errs = append(errs, fmt.Errorf("%w (source='%s')", ErrAdditionalFilesSourceNotFile,
 					additionalFile.Source))
 			}
 		}
@@ -831,14 +915,14 @@ func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts)
 	for i, script := range scripts.PostCustomization {
 		err := validateScript(baseConfigPath, &script)
 		if err != nil {
-			return fmt.Errorf("invalid postCustomization item at index %d:\n%w", i, err)
+			return fmt.Errorf("%w (index=%d):\n%w", ErrInvalidPostCustomizationScript, i, err)
 		}
 	}
 
 	for i, script := range scripts.FinalizeCustomization {
 		err := validateScript(baseConfigPath, &script)
 		if err != nil {
-			return fmt.Errorf("invalid finalizeCustomization item at index %d:\n%w", i, err)
+			return fmt.Errorf("%w (index=%d):\n%w", ErrInvalidFinalizeScript, i, err)
 		}
 	}
 
@@ -850,7 +934,7 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 		// Ensure that install scripts sit under the config file's parent directory.
 		// This allows the install script to be run in the chroot environment by bind mounting the config directory.
 		if !filepath.IsLocal(script.Path) {
-			return fmt.Errorf("script file (%s) is not under config directory (%s)", script.Path, baseConfigPath)
+			return fmt.Errorf("%w (script='%s', config='%s')", ErrScriptNotUnderConfigDir, script.Path, baseConfigPath)
 		}
 
 		fullPath := filepath.Join(baseConfigPath, script.Path)
@@ -858,7 +942,7 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 		// Verify that the file exists.
 		_, err := os.Stat(fullPath)
 		if err != nil {
-			return fmt.Errorf("couldn't read script file (%s):\n%w", script.Path, err)
+			return fmt.Errorf("%w (script='%s'):\n%w", ErrScriptFileNotReadable, script.Path, err)
 		}
 	}
 
@@ -894,7 +978,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 			config.Packages.UpdateExistingPackages
 
 		if needRpmsSources {
-			return fmt.Errorf("have packages to install or update but no RPM sources were specified")
+			return ErrNoRpmSourcesSpecified
 		}
 	}
 
@@ -911,29 +995,29 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 
 func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, outputImageFile, outputImageFormat string) error {
 	if outputImageFile == "" && output.Image.Path == "" {
-		return fmt.Errorf("output image file must be specified, either via the command line option '--output-image-file' or in the config file property 'output.image.path'")
+		return ErrOutputImageFileRequired
 	}
 
 	// Pxe output format allows the output to be a path.
 	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxeDir && outputImageFormat != string(imagecustomizerapi.ImageFormatTypePxeDir) {
 		if outputImageFile != "" {
 			if isDir, err := file.DirExists(outputImageFile); err != nil {
-				return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\n%w", outputImageFile, err)
+				return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, outputImageFile, err)
 			} else if isDir {
-				return fmt.Errorf("invalid command-line option '--output-image-file': '%s'\nis a directory", outputImageFile)
+				return fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, outputImageFile)
 			}
 		} else {
 			outputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
 			if isDir, err := file.DirExists(outputImageAbsPath); err != nil {
-				return fmt.Errorf("invalid config file property 'output.image.path': '%s'\n%w", output.Image.Path, err)
+				return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputImageFileConfig, output.Image.Path, err)
 			} else if isDir {
-				return fmt.Errorf("invalid config file property 'output.image.path': '%s'\nis a directory", output.Image.Path)
+				return fmt.Errorf("%w (path='%s')", ErrOutputImageFileIsDirectory, output.Image.Path)
 			}
 		}
 	}
 
 	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
-		return fmt.Errorf("output image format must be specified, either via the command line option '--output-image-format' or in the config file property 'output.image.format'")
+		return ErrOutputImageFormatRequired
 	}
 
 	return nil
@@ -943,7 +1027,7 @@ func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error
 	for _, user := range users {
 		err := validateUser(baseConfigPath, user)
 		if err != nil {
-			return fmt.Errorf("invalid user (%s):\n%w", user.Name, err)
+			return fmt.Errorf("%w (user='%s'):\n%w", ErrInvalidUser, user.Name, err)
 		}
 	}
 
@@ -955,10 +1039,10 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 		absPath := file.GetAbsPathWithBase(baseConfigPath, path)
 		isFile, err := file.IsFile(absPath)
 		if err != nil {
-			return fmt.Errorf("failed to find SSH public key file (%s):\n%w", path, err)
+			return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidSSHPublicKeyFile, path, err)
 		}
 		if !isFile {
-			return fmt.Errorf("SSH public key path is not a file (%s)", path)
+			return fmt.Errorf("%w (path='%s')", ErrSSHPublicKeyNotFile, path)
 		}
 	}
 
@@ -994,7 +1078,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 
 	err = validateVerityMountPaths(imageConnection, config, partUuidToFstabEntry, baseImageVerityMetadata)
 	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("verity validation failed:\n%w", err)
+		return nil, nil, nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
 	}
 
 	// Do the actual customizations.
@@ -1044,12 +1128,12 @@ func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to extract installed packages:\n%w", err)
+		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractPackages, err)
 	}
 
 	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to extract bootloader metadata:\n%w", err)
+		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractBootloaderMetadata, err)
 	}
 
 	return osPackages, cosiBootMetadata, nil
@@ -1092,7 +1176,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to image file to provision verity:\n%w", err)
+		return nil, fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
 	}
 	defer loopback.Close()
 
@@ -1103,7 +1187,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 	sectorSize, _, err := diskutils.GetSectorSize(loopback.DevicePath())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get disk's (%s) sector size:\n%w", loopback.DevicePath(), err)
+		return nil, fmt.Errorf("%w (device='%s'):\n%w", ErrGetDiskSectorSize, loopback.DevicePath(), err)
 	}
 
 	verityUpdated := false
@@ -1117,13 +1201,13 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 			dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
 				metadata.dataPartUuid, diskPartitions)
 			if err != nil {
-				return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", metadata.name, err)
+				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityDataPartition, metadata.name, err)
 			}
 
 			hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
 				metadata.hashPartUuid, diskPartitions)
 			if err != nil {
-				return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", metadata.name, err)
+				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityHashPartition, metadata.name, err)
 			}
 
 			// Format hash partition.
@@ -1145,12 +1229,12 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
 			diskPartitions)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find verity (%s) data partition:\n%w", verityConfig.Id, err)
+			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityDataPartition, verityConfig.Id, err)
 		}
 		hashPartition, err := verityIdToPartition(verityConfig.HashDeviceId, verityConfig.HashDevice, partIdToPartUuid,
 			diskPartitions)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find verity (%s) hash partition:\n%w", verityConfig.Id, err)
+			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityHashPartition, verityConfig.Id, err)
 		}
 
 		// Format hash partition.
@@ -1199,10 +1283,10 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		return nil, err
 	}
 
-	deviceNamesJson, _ := json.Marshal(getVerityNames(verityMetadata))
+	deviceNamesJson := getVerityNames(verityMetadata)
 	span.SetAttributes(
 		attribute.Int("verity_count", len(verityMetadata)),
-		attribute.String("verity_device_name", string(deviceNamesJson)),
+		attribute.StringSlice("verity_device_name", deviceNamesJson),
 	)
 
 	return verityMetadata, nil
@@ -1217,25 +1301,25 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		ErrorStderrLines(1).
 		ExecuteCaptureOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to calculate root hash (%s):\n%w", dataPartitionPath, err)
+		return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateRootHash, dataPartitionPath, err)
 	}
 
 	// Extract root hash using regular expressions.
 	rootHashRegex, err := regexp.Compile(`Root hash:\s+([0-9a-fA-F]+)`)
 	if err != nil {
-		return "", fmt.Errorf("failed to compile root hash regex: %w", err)
+		return "", fmt.Errorf("%w:\n%w", ErrCompileRootHashRegex, err)
 	}
 
 	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
 	if len(rootHashMatches) <= 1 {
-		return "", fmt.Errorf("failed to parse root hash from veritysetup output")
+		return "", ErrParseRootHash
 	}
 
 	rootHash := rootHashMatches[1]
 
 	err = diskutils.RefreshPartitions(diskDevicePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to wait for disk (%s) to update:\n%w", diskDevicePath, err)
+		return "", fmt.Errorf("%w (device='%s'):\n%w", ErrUpdateDisk, diskDevicePath, err)
 	}
 
 	if shrinkHashPartition {
@@ -1244,14 +1328,14 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		// is too new for now.
 		hashPartitionSizeInBytes, err := calculateHashFileSizeInBytes(hashPartitionPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to calculate hash partition's (%s) size:\n%w", hashPartitionPath, err)
+			return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateHashSize, hashPartitionPath, err)
 		}
 
 		hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
 
 		err = resizePartition(hashPartitionPath, diskDevicePath, hashPartitionSizeInSectors)
 		if err != nil {
-			return "", fmt.Errorf("failed to shrink hash partition (%s):\n%w", diskDevicePath, err)
+			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
 		}
 
 		// Verify everything is still valid.
@@ -1259,7 +1343,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			Execute()
 		if err != nil {
-			return "", fmt.Errorf("failed to verify verity (%s):\n%w", dataPartitionPath, err)
+			return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrVerifyVerity, dataPartitionPath, err)
 		}
 	}
 
@@ -1283,20 +1367,21 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	// Temporarily mount the partition.
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
+		return fmt.Errorf("%w (partition='%s'):\n%w", ErrMountPartition, bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
+	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
-		return fmt.Errorf("failed to stat file (%s):\n%w", grubCfgFullPath, err)
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
 	}
 
 	if isUki {
 		// UKI is enabled, update kernel cmdline args file.
 		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
 		if err != nil {
-			return fmt.Errorf("failed to update kernel cmdline arguments for verity:\n%w", err)
+			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
 		}
 	}
 
@@ -1305,7 +1390,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	// This will be decoupled once the bootloader project is in place.
 	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
 	if err != nil {
-		return fmt.Errorf("failed to update grub config for verity:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrUpdateGrubConfig, err)
 	}
 
 	err = bootPartitionMount.CleanClose()
@@ -1401,9 +1486,7 @@ func CheckEnvironmentVars() error {
 	envUser := os.Getenv("USER")
 
 	if envHome != rootHome || (envUser != "" && envUser != rootUser) {
-		return fmt.Errorf("tool should be run as root (e.g. by using sudo):\n"+
-			"HOME must be set to '%s' (is '%s') and USER must be set to '%s' or '' (is '%s')",
-			rootHome, envHome, rootUser, envUser)
+		return ErrToolNotRunAsRoot
 	}
 
 	return nil
@@ -1411,12 +1494,11 @@ func CheckEnvironmentVars() error {
 
 func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature) error {
 	if snapshotTime != "" && !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-		return fmt.Errorf("please enable the '%s' preview feature to specify '--package-snapshot-time'",
-			imagecustomizerapi.PreviewFeaturePackageSnapshotTime)
+		return ErrPackageSnapshotPreviewRequired
 	}
 
 	if err := imagecustomizerapi.PackageSnapshotTime(snapshotTime).IsValid(); err != nil {
-		return fmt.Errorf("invalid command-line option '--package-snapshot-time': '%s'\n%w", snapshotTime, err)
+		return fmt.Errorf("%w (time='%s'):\n%w", ErrInvalidPackageSnapshotTime, snapshotTime, err)
 	}
 
 	return nil

@@ -12,6 +12,17 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
 )
 
+var (
+	// Type conversion errors
+	ErrBootTypeInvalid            = NewImageCustomizerError("TypeConversion:BootTypeInvalid", "invalid BootType value")
+	ErrDiskSizeInvalid            = NewImageCustomizerError("TypeConversion:DiskSizeInvalid", "disk size must be multiple of 1 MiB")
+	ErrPartitionTableTypeUnknown  = NewImageCustomizerError("TypeConversion:PartitionTableTypeUnknown", "unknown partition table type")
+	ErrPartitionStartInvalid      = NewImageCustomizerError("TypeConversion:PartitionStartInvalid", "partition start must be multiple of 1 MiB")
+	ErrPartitionEndInvalid        = NewImageCustomizerError("TypeConversion:PartitionEndInvalid", "partition end must be multiple of 1 MiB")
+	ErrMountIdentifierTypeUnknown = NewImageCustomizerError("TypeConversion:MountIdentifierTypeUnknown", "unknown MountIdentifierType value")
+	ErrSelinuxModeUnknown         = NewImageCustomizerError("TypeConversion:SelinuxModeUnknown", "unknown SELinuxMode value")
+)
+
 func bootTypeToImager(bootType imagecustomizerapi.BootType) (string, error) {
 	switch bootType {
 	case imagecustomizerapi.BootTypeEfi:
@@ -21,7 +32,7 @@ func bootTypeToImager(bootType imagecustomizerapi.BootType) (string, error) {
 		return "legacy", nil
 
 	default:
-		return "", fmt.Errorf("invalid BootType value (%s)", bootType)
+		return "", fmt.Errorf("%w (bootType='%s')", ErrBootTypeInvalid, bootType)
 	}
 }
 
@@ -39,7 +50,7 @@ func diskConfigToImager(diskConfig imagecustomizerapi.Disk, fileSystems []imagec
 
 	imagerMaxSize := *diskConfig.MaxSize / diskutils.MiB
 	if *diskConfig.MaxSize%diskutils.MiB != 0 {
-		return configuration.Disk{}, fmt.Errorf("disk max size (%d) must be a multiple of 1 MiB", diskConfig.MaxSize)
+		return configuration.Disk{}, fmt.Errorf("%w (size='%d')", ErrDiskSizeInvalid, *diskConfig.MaxSize)
 	}
 
 	imagerDisk := configuration.Disk{
@@ -57,7 +68,7 @@ func partitionTableTypeToImager(partitionTableType imagecustomizerapi.PartitionT
 		return configuration.PartitionTableTypeGpt, nil
 
 	default:
-		return "", fmt.Errorf("unknown partition table type (%s)", partitionTableType)
+		return "", fmt.Errorf("%w (type='%s')", ErrPartitionTableTypeUnknown, partitionTableType)
 	}
 }
 
@@ -86,13 +97,13 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 
 	imagerStart := *partition.Start / diskutils.MiB
 	if *partition.Start%diskutils.MiB != 0 {
-		return configuration.Partition{}, fmt.Errorf("partition start (%d) must be a multiple of 1 MiB", partition.Start)
+		return configuration.Partition{}, fmt.Errorf("%w (start='%d')", ErrPartitionStartInvalid, *partition.Start)
 	}
 
 	end, _ := partition.GetEnd()
 	imagerEnd := end / diskutils.MiB
 	if end%diskutils.MiB != 0 {
-		return configuration.Partition{}, fmt.Errorf("partition end (%d) must be a multiple of 1 MiB", end)
+		return configuration.Partition{}, fmt.Errorf("%w (end='%d')", ErrPartitionEndInvalid, end)
 	}
 
 	imagerFlags, typeUuid, err := toImagerPartitionFlags(partition.Type)
@@ -183,7 +194,7 @@ func mountIdentifierTypeToImager(mountIdentifierType imagecustomizerapi.MountIde
 		return configuration.MountIdentifierPartLabel, nil
 
 	default:
-		return "", fmt.Errorf("unknown MountIdentifierType value (%s)", mountIdentifierType)
+		return "", fmt.Errorf("%w (type='%s')", ErrMountIdentifierTypeUnknown, mountIdentifierType)
 	}
 }
 
@@ -229,6 +240,6 @@ func selinuxModeToImager(selinuxMode imagecustomizerapi.SELinuxMode) (configurat
 		return configuration.SELinuxForceEnforcing, nil
 
 	default:
-		return "", fmt.Errorf("unknown SELinuxMode value (%s)", selinuxMode)
+		return "", fmt.Errorf("%w (mode='%s')", ErrSelinuxModeUnknown, selinuxMode)
 	}
 }
