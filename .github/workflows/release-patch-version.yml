@@ -24,11 +24,20 @@ jobs:
       publishType: patch
       runFunctionalTests: true
       runVMTests: true
+    permissions:
+      contents: read
+      # Azure login
+      id-token: write
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
     needs:
     - build
+    permissions:
+      # "Keyless" container signing
+      id-token: write
+      # Publish to GHCR.
+      packages: write
 
   publish-release:
     uses: ./.github/workflows/publish-release.yml
@@ -36,9 +45,16 @@ jobs:
       isLatestRelease: ${{ needs.build.outputs.isLatestRelease }}
     needs:
     - build
+    permissions:
+      # Create release tag and publish release.
+      contents: write
 
   publish-github-pages:
     uses: ./.github/workflows/publish-github-pages.yml
     if: ${{ needs.build.outputs.isLatestRelease == 'true' }}
     needs:
     - build
+    permissions:
+      # GitHub pages publish.
+      pages: write
+      id-token: write

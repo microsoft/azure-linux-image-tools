@@ -1,7 +1,6 @@
 name: Build docs
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call: {}

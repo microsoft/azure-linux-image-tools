@@ -3,11 +3,7 @@
 
 name: Open bump version PR
 
-permissions:
-  # Create release branch and publish release.
-  contents: write
-  # Publish PR.
-  #pull-requests: write
+permissions: {}
 
 on:
   workflow_call: {}

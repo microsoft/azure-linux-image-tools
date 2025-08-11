@@ -1,10 +1,6 @@
 name: Publish container to GHCR
 
-permissions:
-  # "Keyless" container signing
-  id-token: write
-  # Publish to GHCR.
-  packages: write
+permissions: {}
 
 on:
   workflow_call: {}

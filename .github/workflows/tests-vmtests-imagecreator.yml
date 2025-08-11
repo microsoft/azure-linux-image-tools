@@ -3,8 +3,7 @@
 
 name: Tests VMTests suite for Image Creator
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call:
