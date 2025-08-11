@@ -25,7 +25,7 @@ on:
         description: Run VMTests suite
         required: true
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build:
