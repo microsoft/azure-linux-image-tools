@@ -23,6 +23,7 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/vhdutils"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -486,7 +487,7 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 	} else {
 		logger.Log.Infof("Creating raw base image: %s", ic.rawImageFile)
 
-		_, err := convertImageToRaw(ic.inputImageFile, ic.inputImageFormat, ic.rawImageFile)
+		_, err := convertImageToRaw(ic.inputImageFile, ic.rawImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -495,9 +496,7 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 	}
 }
 
-func convertImageToRaw(inputImageFile string, inputImageFormat string,
-	rawImageFile string,
-) (imagecustomizerapi.ImageFormatType, error) {
+func convertImageToRaw(inputImageFile string, rawImageFile string) (imagecustomizerapi.ImageFormatType, error) {
 	imageInfo, err := GetImageFileInfo(inputImageFile)
 	if err != nil {
 		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrDetectImageFormat, inputImageFile, err)
@@ -506,24 +505,26 @@ func convertImageToRaw(inputImageFile string, inputImageFormat string,
 	detectedImageFormat := imageInfo.Format
 	sourceArg := fmt.Sprintf("file.filename=%s", qemuImgEscapeOptionValue(inputImageFile))
 
-	// The fixed-size VHD format is just a raw disk file with small metadata footer appended to the end. Unfortunatley,
-	// that footer doesn't contain a file signature (i.e. "magic number"). So, qemu-img can't correctly detect this
-	// format and instead reports fixed-size VHDs as raw images. So, use the filename extension as a hint.
-	if inputImageFormat == "vhd" && detectedImageFormat == "raw" {
-		// Force qemu-img to treat the file as a VHD.
-		detectedImageFormat = "vpc"
-	}
+	if detectedImageFormat == "raw" || detectedImageFormat == "vpc" {
+		// The fixed-size VHD format is just a raw disk file with small metadata footer appended to the end.
+		// Unfortunatley, qemu-img doesn't look at the VHD footer when detecting file formats. So, it reports
+		// fixed-sized VHDs as raw disk images. So, manually detect if a raw image is a VHD.
+		vhdFileType, err := vhdutils.GetVhdFileSizeCalcType(inputImageFile)
+		if err != nil {
+			return "", err
+		}
 
-	if detectedImageFormat == "vpc" {
-		// There are actually two different ways of calculating the disk size of a VHD file. The old method, which is
-		// used by Microsoft Virtual PC, uses the VHD's footer's "Disk Geometry" (cylinder, heads, and sectors per
-		// track/cylinder) fields. Whereas, the new method, which is used by Hyper-V, simply uses the VHD's footer's
-		// "Current Size" field. The qemu-img tool does try to correctly detect which one is being used by looking at
-		// the footer's "Creator Application" field. But if the tool that created the VHD uses a name that qemu-img
-		// doesn't recognize, then the heuristic can pick the wrong one. This seems to be the case for VHDs downloaded
-		// from Azure. For the Image Customizer tool, it is pretty safe to assume all VHDs use the Hyper-V format.
-		// So, force qemu-img to use that format.
-		sourceArg += ",driver=vpc,force_size_calc=current_size"
+		switch vhdFileType {
+		case vhdutils.VhdFileSizeCalcTypeDiskGeometry:
+			return "", fmt.Errorf("rejecting VHD file that uses 'Disk Geometry' based size:\npass '-o force_size=on' to qemu-img when outputting as 'vpc' (i.e. VHD)")
+
+		case vhdutils.VhdFileSizeCalcTypeCurrentSize:
+			sourceArg += ",driver=vpc,force_size_calc=current_size"
+			detectedImageFormat = "vpc"
+
+		default:
+			// Not a VHD file.
+		}
 	}
 
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)

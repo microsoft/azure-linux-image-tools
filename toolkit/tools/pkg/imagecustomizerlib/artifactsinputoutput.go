@@ -292,10 +292,9 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 	if err != nil {
 		return err
 	}
-	inputImageFormat := strings.TrimLeft(filepath.Ext(inputImageFile), ".")
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
-	detectedImageFormat, err := convertImageToRaw(inputImageFile, inputImageFormat, rawImageFile)
+	detectedImageFormat, err := convertImageToRaw(inputImageFile, rawImageFile)
 	if err != nil {
 		return err
 	}
