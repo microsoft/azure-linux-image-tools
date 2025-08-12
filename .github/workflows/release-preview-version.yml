@@ -3,12 +3,7 @@
 
 name: Release (preview)
 
-permissions:
-  contents: read
-  # "Keyless" container signing and Azure login.
-  id-token: write
-  # Publish to GHCR.
-  packages: write
+permissions: {}
 
 on:
   # Allow pipeline to be run manually.

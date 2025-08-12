@@ -3,15 +3,7 @@
 
 name: Release (patch)
 
-permissions:
-  # Push release branch and publish release.
-  contents: write
-  # Publish to GHCR.
-  packages: write
-  # "Keyless" container signing and Azure login.
-  id-token: write
-  # GitHub pages publish.
-  pages: write
+permissions: {}
 
 on:
   # Allow pipeline to be run manually.
