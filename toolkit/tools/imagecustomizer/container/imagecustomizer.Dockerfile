@@ -11,8 +11,10 @@ RUN tdnf update -y && \
       python3 python3-pip jq && \
    tdnf clean all
 
-COPY . /
+COPY usr/local/bin/requirements.txt /usr/local/bin/requirements.txt
 
 # Create virtual environment and install Python dependencies for telemetry
 RUN python3 -m venv /opt/telemetry-venv && \
    /opt/telemetry-venv/bin/pip install --no-cache-dir -r /usr/local/bin/requirements.txt
+
+COPY . /

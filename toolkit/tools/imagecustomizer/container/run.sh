@@ -89,12 +89,16 @@ echo "Pulling OCI artifact: '$OCI_ARTIFACT_PATH'"
 
 ARTIFACT_DIR="/container/base"
 
+# Do not fail if fetching the manifest fails, but instead handle the error gracefully. Also handle the case in which the
+# command succeeds but the manifest is nevertheless empty.
 OCI_MANIFEST_JSON="$(oras manifest fetch "$OCI_ARTIFACT_PATH" 2>/dev/null || echo "")"
 if [[ -z "$OCI_MANIFEST_JSON" ]]; then
     echo "Error: failed to fetch manifest for '$OCI_ARTIFACT_PATH'" >&2
     exit 1
 fi
 
+# jq will return 'null' if the media type is not found, so return empty in that case instead. Then we can check if the
+# media type has been found just by checking if it is empty.
 OCI_MEDIA_TYPE="$(jq -r '.mediaType // empty' <<< "$OCI_MANIFEST_JSON")"
 if [[ -z "$OCI_MEDIA_TYPE" ]]; then
     echo "Error: no media type found in the manifest for '$OCI_ARTIFACT_PATH'" >&2
