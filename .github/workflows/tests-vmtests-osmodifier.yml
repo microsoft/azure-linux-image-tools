@@ -22,12 +22,11 @@ env:
 
 jobs:
   tests-osmodifier:
-    name: Tests OSModifier suite
+    name: Tests VMTests suite
     runs-on:
       - self-hosted
       - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
-    permissions:
-      contents: read
+    permissions: {}
 
     steps:
       - name: Setup Go toolchain
@@ -37,42 +36,29 @@ jobs:
 
       - name: Install prerequisites (AZL3)
         if: inputs.hostDistro == 'azl3'
-        env:
-          HOST_ARCH: ${{ inputs.hostArch }}
         run: |
           set -eux
-          sudo tdnf install -y \
-            libvirt libvirt-daemon libvirt-daemon-config-network \
+
+          sudo tdnf install -y libvirt libvirt-daemon libvirt-daemon-config-network \
             libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
-            python3-devel edk2-ovmf azure-cli \
-            rpm coreutils util-linux systemd openssl \
-            sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-            xfsprogs zstd veritysetup grub2 binutils lsof git docker
-          if [[ "$HOST_ARCH" == "amd64" ]]; then
-            sudo tdnf install -y grub2-pc
-          fi
+            python3-devel edk2-ovmf \
+            azure-cli
+
+          sudo tdnf list installed
+
           sudo systemctl restart libvirtd
           sudo systemctl status libvirtd
 
       - name: Install prerequisites (Ubuntu 24.04)
         if: inputs.hostDistro == 'ubuntu2404'
-        env:
-          HOST_ARCH: ${{ inputs.hostArch }}
         run: |
-          set -eux
-          sudo apt update -y
-          sudo apt -y install \
-            qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-            xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
-            python3-venv python3-pip python3-dev \
-            libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
-            qemu-kvm virt-manager docker.io
-          if [[ "$HOST_ARCH" == "arm64" ]]; then
-            sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
-          fi
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash || true
-          sudo systemctl restart libvirtd
+          set
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Checkout
         uses: actions/checkout@v4
