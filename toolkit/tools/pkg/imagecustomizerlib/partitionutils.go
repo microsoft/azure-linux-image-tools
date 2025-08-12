@@ -463,12 +463,12 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) ([]grubConfigLinuxArg, error) {
 	espPartition, err := findSystemBootPartition(partitions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find ESP partition: %w", err)
+		return nil, fmt.Errorf("failed to find ESP partition:\n%w", err)
 	}
 
 	bootPartition, err := findBootPartitionFromEsp(espPartition, partitions, buildDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find boot partition: %w", err)
+		return nil, fmt.Errorf("failed to find boot partition:\n%w", err)
 	}
 
 	cmdline, err := extractKernelCmdlineFromGrub(bootPartition, buildDir)
@@ -512,12 +512,12 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 
 	tokens, err := grub.TokenizeConfig(firstCmdline)
 	if err != nil {
-		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI: %w", err)
+		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI:\n%w", err)
 	}
 
 	args, err := ParseCommandLineArgs(tokens)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse kernel command-line from UKI: %w", err)
+		return nil, fmt.Errorf("failed to parse kernel command-line from UKI:\n%w", err)
 	}
 
 	err = espPartitionMount.CleanClose()
@@ -567,7 +567,7 @@ func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, er
 	// since objcopy might tamper with signatures or hashes.
 	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp UKI copy: %w", err)
+		return "", fmt.Errorf("failed to create temp UKI copy:\n%w", err)
 	}
 	defer os.Remove(tempCopy.Name())
 
