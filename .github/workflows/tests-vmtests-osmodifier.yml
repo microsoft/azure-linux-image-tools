@@ -103,11 +103,10 @@ jobs:
         id: osmodifier_bin
         run: |
           set -eux
-          # Use the downloaded binary artifact
+
           OSMODIFIER_BIN="out/osmodifier-${{ inputs.hostArch }}/osmodifier"
           [[ -f "$OSMODIFIER_BIN" ]] || { echo "osmodifier binary not found at $OSMODIFIER_BIN"; ls -la out/; exit 1; }
           chmod +x "$OSMODIFIER_BIN"
-          echo "path=$OSMODIFIER_BIN" >> "$GITHUB_OUTPUT"
 
       - name: Download base images
         run: |
