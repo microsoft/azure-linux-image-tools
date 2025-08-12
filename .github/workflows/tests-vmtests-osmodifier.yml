@@ -51,14 +51,30 @@ jobs:
 
       - name: Install prerequisites (Ubuntu 24.04)
         if: inputs.hostDistro == 'ubuntu2404'
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
         run: |
-          set
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          set -eux
+
+          sudo apt update -y
+          sudo apt list --installed
+
+          # Install all prerequisites in a single batch
+          sudo apt -y install \
+            qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+            xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+            python3-venv python3-pip python3-dev \
+            libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
+            qemu-kvm virt-manager
+
+          # Install arm64 specific packages
+          if [[ "$HOST_ARCH" == "arm64" ]]; then
+            sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+          fi
+
+          sudo apt list --installed
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,53 +109,55 @@ jobs:
           chmod +x "$OSMODIFIER_BIN"
           echo "path=$OSMODIFIER_BIN" >> "$GITHUB_OUTPUT"
 
+      - name: Download base images
+        run: |
+          set -eux
+
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
+          AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
+          AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
+
       - name: Setup input image
         id: setup_image
         run: |
           set -eux
+          pushd repo/toolkit/tools
 
-          # Define image paths based on distro and arch
           if [[ "${{ inputs.hostDistro }}" == "azl3" ]]; then
-            if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
-              INPUT_IMAGE="/shared/images/azl3-amd64-base.vhd"
-            else
-              INPUT_IMAGE="/shared/images/azl3-arm64-base.vhd"
-            fi
+            INPUT_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
           else
-            # ubuntu2404
-            if [[ "${{ inputs.hostArch }}" == "amd64" ]]; then
-              INPUT_IMAGE="/shared/images/ubuntu2404-amd64-base.vhd"
-            else
-              INPUT_IMAGE="/shared/images/ubuntu2404-arm64-base.vhd"
-            fi
+            INPUT_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
           fi
 
-          # Verify the image exists
-          [[ -f "$INPUT_IMAGE" ]] || { echo "Input image not found at $INPUT_IMAGE"; exit 1; }
           echo "path=$INPUT_IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Test setup (venv, SSH key)
         run: |
           set -eux
           pushd ./repo/test/vmtests
-          [[ -f ~/.ssh/id_ed25519 ]] || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+
+          ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+
           make create-venv
           popd
 
       - name: Run OSModifier tests
-        working-directory: repo/test/vmtests
         env:
           IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
           OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
           INPUT_IMAGE: ${{ steps.setup_image.outputs.path }}
         run: |
           set -eux
+          pushd ./repo/test/vmtests
+
           sudo make test-osmodifier \
             IMAGE_CUSTOMIZER_CONTAINER_TAG="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
             OSMODIFIER_BIN="${OSMODIFIER_BIN}" \
             INPUT_IMAGE="${INPUT_IMAGE}" \
-            SSH_PRIVATE_KEY_FILE="$HOME/.ssh/id_ed25519" \
-            LOGS_DIR="./out"
+            SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
