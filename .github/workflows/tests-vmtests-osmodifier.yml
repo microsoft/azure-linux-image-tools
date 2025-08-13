@@ -143,9 +143,12 @@ jobs:
           else
             AZL2_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
             AZL3_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
+          fi
 
           echo "azl2_path=$AZL2_IMAGE" >> "$GITHUB_OUTPUT"
           echo "azl3_path=$AZL3_IMAGE" >> "$GITHUB_OUTPUT"
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
 
       - name: Test setup
         run: |
