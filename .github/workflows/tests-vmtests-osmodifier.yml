@@ -120,14 +120,7 @@ jobs:
 
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
-
-          if [ "$HOST_ARCH" == "amd64" ]; then
-            ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
-            ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
-          fi
-
         env:
-          HOST_ARCH: ${{ inputs.hostArch }}
           AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
           AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
@@ -137,18 +130,11 @@ jobs:
           set -eux
           pushd repo/toolkit/tools
 
-          if [ "$HOST_ARCH" == "amd64" ]; then
-            AZL2_IMAGE="../../../azl-core-legacy-2.0/image.vhd"
-            AZL3_IMAGE="../../../azl-core-legacy-3.0/image.vhd"
-          else
-            AZL2_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
-            AZL3_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
-          fi
+          AZL2_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
+          AZL3_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
 
           echo "azl2_path=$AZL2_IMAGE" >> "$GITHUB_OUTPUT"
           echo "azl3_path=$AZL3_IMAGE" >> "$GITHUB_OUTPUT"
-        env:
-          HOST_ARCH: ${{ inputs.hostArch }}
 
       - name: Test setup
         run: |
