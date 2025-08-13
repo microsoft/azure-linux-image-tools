@@ -76,6 +76,13 @@ jobs:
           sudo apt list --installed
           curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        
       - name: Checkout
         uses: actions/checkout@v4
         with:
