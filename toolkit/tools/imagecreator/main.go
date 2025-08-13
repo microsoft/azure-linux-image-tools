@@ -27,6 +27,7 @@ type ImageCreatorCmd struct {
 	ToolsTar          string   `name:"tools-file" help:"Path to tdnf worker tarball" required:""`
 	OutputImageFile   string   `name:"output-image-file" help:"Path to write the customized image to."`
 	OutputImageFormat string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw)" help:"Format of output image." enum:"${imageformat}" default:""`
+	Distro            string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" default:"azurelinux"`
 	exekong.LogFlags
 	PackageSnapshotTime string `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 }
@@ -52,7 +53,7 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
-	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, cli.PackageSnapshotTime)
+	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, cli.Distro, cli.PackageSnapshotTime)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
 	}

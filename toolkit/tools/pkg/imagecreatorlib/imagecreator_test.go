@@ -28,7 +28,7 @@ func TestCreateImageRaw(t *testing.T) {
 	rpmSources := []string{downloadedRpmsRepoFile}
 	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "3.0", true)
 
-	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile, outputImageFilePath, outputImageFormat, "")
+	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile, outputImageFilePath, outputImageFormat, "azurelinux", "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -70,7 +70,7 @@ func TestCreateImageRawNoTar(t *testing.T) {
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "3.0", false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
-	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "", outputImageFilePath, "raw", "")
+	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "", outputImageFilePath, "raw", "azurelinux", "")
 
 	assert.ErrorContains(t, err, "tools tar file is required for image creation")
 }
@@ -83,10 +83,10 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 	// create an empty config file
 	emptyConfigFile := filepath.Join(testDir, "empty-config.yaml")
 
-	err := CreateImageWithConfigFile(t.Context(), buildDir, "", []string{}, "", outputImageFilePath, "raw", "")
+	err := CreateImageWithConfigFile(t.Context(), buildDir, "", []string{}, "", outputImageFilePath, "raw", "azurelinux", "")
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 
-	err = CreateImageWithConfigFile(t.Context(), buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw", "")
+	err = CreateImageWithConfigFile(t.Context(), buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw", "azurelinux", "")
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 }
 
@@ -118,7 +118,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	// Pass the output image file relative to the current working directory through the argument. This will create
 	// the file at the absolute path.
 	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "")
+		outputImageFormat, toolsFile, "azurelinux", "")
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -130,7 +130,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	// Pass the output image file relative to the config file through the config. This will create the file at the
 	// absolute path.
 	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "")
+		outputImageFormat, toolsFile, "azurelinux", "")
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -196,4 +196,35 @@ func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
 	assert.Equal(t, ic.outputImageDir, buildDir)
+}
+
+// Fedora-specific tests
+
+func TestCreateImageRawFedora(t *testing.T) {
+	checkSkipForCreateImage(t, runCreateImageTests)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRawFedora")
+	buildDir := filepath.Join(testTmpDir, "build")
+	partitionsConfigFile := filepath.Join(testDir, "fedora.yaml")
+	outputImageFilePath := filepath.Join(testTmpDir, "fedora-image1.raw")
+	outputImageFormat := "raw"
+
+	// get RPM sources for Fedora 42
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "42", false, true)
+	rpmSources := []string{downloadedRpmsRepoFile}
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "42", true)
+
+	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile, outputImageFilePath, outputImageFormat, "fedora", "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	fileType, err := testutils.GetImageFileType(outputImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "raw", fileType)
+
+	imageInfo, err := imagecustomizerlib.GetImageFileInfo(outputImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "raw", imageInfo.Format)
+	assert.Equal(t, int64(3*diskutils.GiB), imageInfo.VirtualSize)
 }

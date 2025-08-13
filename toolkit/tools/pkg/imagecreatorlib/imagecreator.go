@@ -53,6 +53,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 	toolsTar string,
 	outputImageFile string,
 	outputImageFormat string,
+	distro string,
 	packageSnapshotTime string,
 ) error {
 	var config imagecustomizerapi.Config
@@ -68,7 +69,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, packageSnapshotTime)
+	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, distro, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -78,7 +79,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 
 func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	toolsTar string, packageSnapshotTime string,
+	toolsTar string, distro string, packageSnapshotTime string,
 ) error {
 	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile, outputImageFormat, packageSnapshotTime)
 	if err != nil {
@@ -128,7 +129,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
-		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar)
+		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distro)
 	if err != nil {
 		return err
 	}

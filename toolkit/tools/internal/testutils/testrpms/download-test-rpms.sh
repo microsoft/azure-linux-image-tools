@@ -22,12 +22,20 @@ REPO_NO_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION-nokey.repo"
 
 mkdir -p "$OUT_DIR"
 
+# Copy the YAML configuration files to the Docker build context
+TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
+cp "$TESTDATA_DIR/fedora.yaml" "$DOCKERFILE_DIR/"
+cp "$TESTDATA_DIR/minimal-os.yaml" "$DOCKERFILE_DIR/"
+
 # Build a container image that contains the RPMs.
 docker build \
   --build-arg "baseimage=$CONTAINER_IMAGE" \
   --build-arg "imagecreator=$IMAGE_CREATOR" \
   --tag "$CONTAINER_TAG" \
   "$DOCKERFILE_DIR"
+
+# Clean up the copied YAML files
+rm -f "$DOCKERFILE_DIR/fedora.yaml" "$DOCKERFILE_DIR/minimal-os.yaml"
 
 # Extract the RPM files.
 docker run \
