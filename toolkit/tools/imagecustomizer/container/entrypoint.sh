@@ -26,4 +26,4 @@ if [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRIN
     sleep 1
 fi
 
-exec "$@"
+imagecustomizer "$@"
