@@ -55,31 +55,25 @@ jobs:
 
       - name: Install prerequisites (Ubuntu 24.04)
         if: inputs.hostDistro == 'ubuntu2404'
-        env:
-          HOST_ARCH: ${{ inputs.hostArch }}
         run: |
           set -eux
 
           sudo apt update -y
-          sudo apt list --installed
+          sudo apt -y install python3-venv python3-pip python3-dev \
+              libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
+              qemu-kvm virt-manager
 
-          # Install all prerequisites in a single batch
-          sudo apt -y install \
-            qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-            xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
-            python3-venv python3-pip python3-dev \
-            libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
-            qemu-kvm virt-manager
-
-          # Install arm64 specific packages
+          # Install arm64 specific
           if [[ "$HOST_ARCH" == "arm64" ]]; then
-            sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+            sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
           fi
 
           sudo apt list --installed
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
+ 
       - name: Azure Login
         uses: azure/login@v2
         with:

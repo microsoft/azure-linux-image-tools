@@ -210,14 +210,14 @@ def test_modify_kernel_modules(
     module_load_path = "/etc/modules-load.d/modules-load.conf"
     module_options_path = "/etc/modprobe.d/module-options.conf"
 
-    load_content = ssh_client.run(f"cat {module_load_path} || true").stdout
+    load_content = ssh_client.run(f"sudo cat {module_load_path} || true").stdout
     assert "vfio" in load_content
     assert "mlx5_ib" in load_content
 
-    disabled_content = ssh_client.run(f"cat {module_disabled_path} || true").stdout
+    disabled_content = ssh_client.run(f"sudo cat {module_disabled_path} || true").stdout
     assert "blacklist mousedev" in disabled_content
 
-    options_content = ssh_client.run(f"cat {module_options_path} || true").stdout
+    options_content = ssh_client.run(f"sudo cat {module_options_path} || true").stdout
     assert "options vfio" in options_content
     assert "enable_unsafe_noiommu_mode=Y" in options_content
     assert "disable_vga=Y" in options_content
@@ -238,7 +238,7 @@ def test_update_hostname(
         logs_dir / "test_hostname.log",
     )
 
-    actual_hostname = ssh_client.run("cat /etc/hostname").stdout.strip()
+    actual_hostname = ssh_client.run("sudo cat /etc/hostname").stdout.strip()
     expected_hostname = "testname"
     assert actual_hostname == expected_hostname, f"Expected hostname '{expected_hostname}', got '{actual_hostname}'"
 
