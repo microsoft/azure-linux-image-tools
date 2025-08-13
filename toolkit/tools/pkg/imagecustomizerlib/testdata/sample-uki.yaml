@@ -1,0 +1,64 @@
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 1G
+
+    - id: boot
+      size: 3G
+
+    - id: root
+      size: 3G
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
+  - deviceId: root
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+
+    install:
+    - systemd-boot
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      dd if=/dev/urandom of=/sample.txt bs=600M count=1 iflag=fullblock
+
+      cat >/etc/dracut.conf.d/sample.conf <<EOF
+      install_items+=" /sample.txt "
+      EOF
+
+      dracut --force --regenerate-all

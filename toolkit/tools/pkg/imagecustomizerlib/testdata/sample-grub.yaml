@@ -1,0 +1,15 @@
+os:
+
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      dd if=/dev/urandom of=/sample.txt bs=600M count=1 iflag=fullblock
+
+      cat >/etc/dracut.conf.d/sample.conf <<EOF
+      install_items+=" /sample.txt "
+      EOF
+
+      dracut --force --regenerate-all
