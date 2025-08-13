@@ -211,4 +211,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: osmodifier-${{ inputs.arch }}
-        path: repo/toolkit/out/osmodifier
+        path: repo/toolkit/out/tools/osmodifier
