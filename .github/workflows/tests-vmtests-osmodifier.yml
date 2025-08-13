@@ -120,6 +120,12 @@ jobs:
 
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+
+          if [ "$HOST_ARCH" == "amd64" ]; then
+            ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
+            ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
+          fi
+
         env:
           HOST_ARCH: ${{ inputs.hostArch }}
           AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -131,13 +137,15 @@ jobs:
           set -eux
           pushd repo/toolkit/tools
 
-          if [[ "${{ inputs.hostDistro }}" == "azl3" ]]; then
-            INPUT_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
+          if [ "$HOST_ARCH" == "amd64" ]; then
+            AZL2_IMAGE="../../../azl-core-legacy-2.0/image.vhd"
+            AZL3_IMAGE="../../../azl-core-legacy-3.0/image.vhd"
           else
-            INPUT_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
-          fi
+            AZL2_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
+            AZL3_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
 
-          echo "path=$INPUT_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "azl2_path=$AZL2_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "azl3_path=$AZL3_IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Test setup
         run: |
@@ -150,11 +158,26 @@ jobs:
 
           make create-venv
 
-      - name: Run OSModifier tests
+      - name: Run OSModifier tests - AZL 2.0
         env:
           IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
           OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
-          INPUT_IMAGE: ${{ steps.setup_image.outputs.path }}
+          INPUT_IMAGE: ${{ steps.setup_image.outputs.azl2_path  }}
+        run: |
+          set -eux
+          pushd ./repo/test/vmtests
+
+          sudo make test-osmodifier \
+            IMAGE_CUSTOMIZER_CONTAINER_TAG="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+            OSMODIFIER_BIN="${OSMODIFIER_BIN}" \
+            INPUT_IMAGE="${INPUT_IMAGE}" \
+            SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+
+      - name: Run OSModifier tests - AZL 3.0
+        env:
+          IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
+          OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
+          INPUT_IMAGE: ${{ steps.setup_image.outputs.azl3_path  }}
         run: |
           set -eux
           pushd ./repo/test/vmtests
