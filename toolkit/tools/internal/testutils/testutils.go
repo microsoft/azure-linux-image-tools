@@ -105,12 +105,20 @@ func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, azureLinuxVersion s
 	return downloadedRpmsDir
 }
 
-func GetDownloadedToolsFile(t *testing.T, testutilsDir string, azureLinuxVersion string, imagecreator bool) string {
-	GetDownloadedToolsFile := filepath.Join(testutilsDir, "testrpms/tools.tar.gz")
+func GetDownloadedToolsFile(t *testing.T, testutilsDir string, linuxVersion string, imagecreator bool) string {
+	var toolsFileName string
+	// Use different tools file for Fedora
+	if linuxVersion == "42" {
+		toolsFileName = "tools-fedora.tar.gz"
+	} else {
+		toolsFileName = "tools.tar.gz"
+	}
+
+	GetDownloadedToolsFile := filepath.Join(testutilsDir, "testrpms", toolsFileName)
 	if !assert.FileExists(t, GetDownloadedToolsFile) {
 		t.Logf("test requires downloaded tools file")
 		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t %s -s %t",
-			azureLinuxVersion, imagecreator)
+			linuxVersion, imagecreator)
 		t.FailNow()
 	}
 	return GetDownloadedToolsFile

@@ -712,6 +712,11 @@ func defaultMountPoints() []*MountPoint {
 			fstype: "devpts",
 			data:   "gid=5,mode=620",
 		},
+		{
+			target: "/tmp",
+			fstype: "tmpfs",
+			data:   "mode=1777",
+		},
 	}
 }
 

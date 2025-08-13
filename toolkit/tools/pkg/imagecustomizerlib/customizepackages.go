@@ -23,34 +23,274 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// TODO: Remove this constant to support 4.0 and later releases.
-const (
-	releaseVerCliArg = "--releasever=3.0"
-)
+// packageManager defines the interface for distro-specific package management operations.
+type packageManager interface {
+	// getBinaryName returns the name of the package manager binary (e.g., "tdnf", "dnf", "apt-get")
+	getBinaryName() string
 
-var (
-	tdnfOpLines = []string{
-		"Installing/Updating: ",
-		"Removing: ",
+	// getDownloadRegex returns the regex pattern for parsing download progress lines
+	getDownloadRegex() *regexp.Regexp
+
+	// getTransactionErrorRegex returns the regex pattern for detecting transaction errors
+	getTransactionErrorRegex() *regexp.Regexp
+
+	// getSummaryLines returns the lines that indicate the start of operation summaries
+	getSummaryLines() []string
+
+	// getOpLines returns the prefixes that indicate operation lines
+	getOpLines() []string
+
+	// appendArgsForToolsChroot modifies package manager arguments for tools chroot operations
+	appendArgsForToolsChroot(args []string) []string
+
+	// Package management operations - return command arguments for each operation
+	getInstallCommand(packages []string, extraOptions map[string]string) []string
+	getRemoveCommand(packages []string, extraOptions map[string]string) []string
+	getUpdateAllCommand(extraOptions map[string]string) []string
+	getUpdateCommand(packages []string, extraOptions map[string]string) []string
+	getCleanCommand() []string
+	getRefreshMetadataCommand(extraOptions map[string]string) []string
+
+	// Package manager capabilities
+	requiresMetadataRefresh() bool
+	supportsCacheOnly() bool
+	supportsRepoConfiguration() bool
+}
+
+// Factory function to create package managers based on distro name
+func newPackageManager(distroName string) packageManager {
+	switch distroName {
+	case "azurelinux":
+		return newTdnfPackageManager()
+	case "fedora":
+		return newDnfPackageManager()
+	default:
+		// Default to Azure Linux for backward compatibility
+		return newTdnfPackageManager()
+	}
+}
+
+// removePackagesHelper provides a common implementation for removing packages
+func removePackagesHelper(ctx context.Context, packages []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pm packageManager, repoDir string) error {
+	logger.Log.Infof("Removing packages: %v", packages)
+
+	if len(packages) <= 0 {
+		return nil
 	}
 
-	tdnfSummaryLines = []string{
-		"Installing:",
-		"Upgrading:",
-		"Removing:",
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
+	pkgJson, _ := json.Marshal(packages)
+	span.SetAttributes(
+		attribute.Int("remove_packages_count", len(packages)),
+		attribute.String("remove_packages", string(pkgJson)),
+	)
+	defer span.End()
+
+	// Create extra options map for package manager specific configurations
+	extraOptions := make(map[string]string)
+	if pm.supportsRepoConfiguration() && repoDir != "" {
+		extraOptions["reposdir"] = repoDir
 	}
 
-	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
+	removeArgs := pm.getRemoveCommand(packages, extraOptions)
 
-	// Download log message.
-	// For example:
-	//   jq 6% 15709
-	tdnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+)\s+\d+\%\s+\d+$`)
-)
+	err := callPackageManager(removeArgs, imageChroot, toolsChroot, pm)
+	if err != nil {
+		return fmt.Errorf("failed to remove packages (%v):\n%w", packages, err)
+	}
+
+	return nil
+}
+
+// updateAllPackagesHelper provides a common implementation for updating all packages
+func updateAllPackagesHelper(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pm packageManager, repoDir string) error {
+	logger.Log.Infof("Updating base image packages")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
+	defer span.End()
+
+	// Create extra options map for package manager specific configurations
+	extraOptions := make(map[string]string)
+	if pm.supportsCacheOnly() {
+		extraOptions["cacheonly"] = "true"
+	}
+	if pm.supportsRepoConfiguration() && repoDir != "" {
+		extraOptions["reposdir"] = repoDir
+	}
+
+	updateArgs := pm.getUpdateAllCommand(extraOptions)
+
+	err := callPackageManager(updateArgs, imageChroot, toolsChroot, pm)
+	if err != nil {
+		return fmt.Errorf("failed to update packages:\n%w", err)
+	}
+
+	return nil
+}
+
+// installOrUpdatePackagesHelper provides a common implementation for installing or updating packages
+func installOrUpdatePackagesHelper(ctx context.Context, action string, packages []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pm packageManager, repoDir string) error {
+	if len(packages) <= 0 {
+		return nil
+	}
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
+	pkgJson, _ := json.Marshal(packages)
+	span.SetAttributes(
+		attribute.Int(action+"_packages_count", len(packages)),
+		attribute.String("packages", string(pkgJson)),
+	)
+	defer span.End()
+
+	// Create extra options map for package manager specific configurations
+	extraOptions := make(map[string]string)
+	if pm.supportsCacheOnly() {
+		extraOptions["cacheonly"] = "true"
+	}
+	if pm.supportsRepoConfiguration() && repoDir != "" {
+		extraOptions["reposdir"] = repoDir
+	}
+
+	var installArgs []string
+	if action == "install" {
+		installArgs = pm.getInstallCommand(packages, extraOptions)
+	} else if action == "update" {
+		installArgs = pm.getUpdateCommand(packages, extraOptions)
+	} else {
+		return fmt.Errorf("unsupported action: %s", action)
+	}
+
+	err := callPackageManager(installArgs, imageChroot, toolsChroot, pm)
+	if err != nil {
+		return fmt.Errorf("failed to %s packages (%v):\n%w", action, packages, err)
+	}
+
+	return nil
+}
+
+// cleanCacheHelper provides a common implementation for cleaning package manager cache
+func cleanCacheHelper(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pm packageManager) error {
+	logger.Log.Infof("Cleaning up package manager cache")
+
+	cleanArgs := pm.getCleanCommand()
+
+	pmChroot := imageChroot
+	if toolsChroot != nil {
+		cleanArgs = pm.appendArgsForToolsChroot(cleanArgs)
+		pmChroot = toolsChroot
+	}
+
+	return pmChroot.UnsafeRun(func() error {
+		err := shell.NewExecBuilder(pm.getBinaryName(), cleanArgs...).
+			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Execute()
+		if err != nil {
+			return fmt.Errorf("failed to clean %s cache:\n%w", pm.getBinaryName(), err)
+		}
+		return nil
+	})
+}
+
+// refreshMetadataHelper provides a common implementation for refreshing package metadata
+func refreshMetadataHelper(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pm packageManager, repoDir string) error {
+	if !pm.requiresMetadataRefresh() {
+		logger.Log.Debug("Package manager does not require metadata refresh, skipping")
+		return nil
+	}
+
+	logger.Log.Infof("Refreshing package metadata")
+
+	// Create extra options map for package manager specific configurations
+	extraOptions := make(map[string]string)
+	if pm.supportsRepoConfiguration() && repoDir != "" {
+		extraOptions["reposdir"] = repoDir
+	}
+
+	refreshArgs := pm.getRefreshMetadataCommand(extraOptions)
+
+	pmChroot := imageChroot
+	if toolsChroot != nil {
+		refreshArgs = pm.appendArgsForToolsChroot(refreshArgs)
+		pmChroot = toolsChroot
+	}
+
+	return pmChroot.UnsafeRun(func() error {
+		err := shell.NewExecBuilder(pm.getBinaryName(), refreshArgs...).
+			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Execute()
+		if err != nil {
+			return fmt.Errorf("failed to refresh package metadata:\n%w", err)
+		}
+		return nil
+	})
+}
+
+// callPackageManager executes a package manager command with proper logging and error handling
+func callPackageManager(pmArgs []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pm packageManager) error {
+	pmChroot := imageChroot
+	if toolsChroot != nil {
+		pmArgs = pm.appendArgsForToolsChroot(pmArgs)
+		pmChroot = toolsChroot
+	}
+	if _, err := os.Stat(filepath.Join(pmChroot.RootDir(), customTdnfConfRelPath)); err == nil {
+		pmArgs = append([]string{"--config", "/" + customTdnfConfRelPath}, pmArgs...)
+	}
+
+	lastDownloadPackageSeen := ""
+	inSummary := false
+	seenTransactionErrorMessage := false
+	stdoutCallback := func(line string) {
+		if !seenTransactionErrorMessage {
+			seenTransactionErrorMessage = pm.getTransactionErrorRegex().MatchString(line)
+		}
+
+		switch {
+		case seenTransactionErrorMessage:
+			logger.Log.Warn(line)
+
+		case inSummary && line == "":
+			inSummary = false
+			logger.Log.Trace(line)
+
+		case inSummary:
+			logger.Log.Debug(line)
+
+		case slices.Contains(pm.getSummaryLines(), line):
+			inSummary = true
+			logger.Log.Debug(line)
+
+		case slices.ContainsFunc(pm.getOpLines(), func(opPrefix string) bool { return strings.HasPrefix(line, opPrefix) }):
+			logger.Log.Debug(line)
+
+		default:
+			match := pm.getDownloadRegex().FindStringSubmatch(line)
+			if match != nil {
+				packageName := match[1]
+				if packageName != lastDownloadPackageSeen {
+					lastDownloadPackageSeen = packageName
+					logger.Log.Debug(line)
+					break
+				}
+			}
+
+			logger.Log.Trace(line)
+		}
+	}
+
+	return pmChroot.UnsafeRun(func() error {
+		return shell.NewExecBuilder(pm.getBinaryName(), pmArgs...).
+			StdoutCallback(stdoutCallback).
+			LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Execute()
+	})
+}
 
 func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
+	rpmsSources []string, useBaseImageRpmRepos bool, distroName string, snapshotTime string,
 ) error {
 	var err error
 
@@ -61,17 +301,19 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 		snapshotTime = string(config.Packages.SnapshotTime)
 	}
 
-	tdnfChroot := imageChroot
+	// Create package manager instance based on distro
+	packageManager := newPackageManager(distroName)
+	packageManagerChroot := imageChroot
 	if toolsChroot != nil {
-		tdnfChroot = toolsChroot
+		packageManagerChroot = toolsChroot
 	}
 
-	err = createTempTdnfConfigWithSnapshot(tdnfChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
+	err = createTempTdnfConfigWithSnapshot(packageManagerChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if cleanupErr := cleanupSnapshotTimeConfig(tdnfChroot); cleanupErr != nil && err == nil {
+		if cleanupErr := cleanupSnapshotTimeConfig(packageManagerChroot); cleanupErr != nil && err == nil {
 			err = cleanupErr
 		}
 	}()
@@ -83,39 +325,39 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	var mounts *rpmSourcesMounts
 	if needRpmsSources {
 		// Mount RPM sources.
-		mounts, err = mountRpmSources(ctx, buildDir, tdnfChroot, rpmsSources, useBaseImageRpmRepos)
+		mounts, err = mountRpmSources(ctx, buildDir, packageManagerChroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
 			return err
 		}
 		defer mounts.close()
 
 		// Refresh metadata.
-		err = refreshTdnfMetadata(ctx, imageChroot, toolsChroot)
+		err = refreshMetadataHelper(ctx, imageChroot, toolsChroot, packageManager, rpmsMountParentDirInChroot)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = removePackages(ctx, config.Packages.Remove, imageChroot, toolsChroot)
+	err = removePackagesHelper(ctx, config.Packages.Remove, imageChroot, toolsChroot, packageManager, rpmsMountParentDirInChroot)
 	if err != nil {
 		return err
 	}
 
 	if config.Packages.UpdateExistingPackages {
-		err = updateAllPackages(ctx, imageChroot, toolsChroot)
+		err = updateAllPackagesHelper(ctx, imageChroot, toolsChroot, packageManager, rpmsMountParentDirInChroot)
 		if err != nil {
 			return err
 		}
 	}
 
 	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
-	err = installOrUpdatePackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot)
+	err = installOrUpdatePackagesHelper(ctx, "install", config.Packages.Install, imageChroot, toolsChroot, packageManager, rpmsMountParentDirInChroot)
 	if err != nil {
 		return err
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
-	err = installOrUpdatePackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot)
+	err = installOrUpdatePackagesHelper(ctx, "update", config.Packages.Update, imageChroot, toolsChroot, packageManager, rpmsMountParentDirInChroot)
 	if err != nil {
 		return err
 	}
@@ -129,39 +371,12 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	}
 
 	if needRpmsSources {
-		err = cleanTdnfCache(imageChroot, toolsChroot)
+		err = cleanCacheHelper(imageChroot, toolsChroot, packageManager)
 		if err != nil {
 			return err
 		}
 	}
 
-	return nil
-}
-
-func refreshTdnfMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_tdnf_metadata")
-	defer span.End()
-
-	tdnfArgs := []string{
-		"-v", "check-update", "--refresh", "--assumeyes",
-		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
-	}
-
-	tdnfChroot := imageChroot
-	if toolsChroot != nil {
-		tdnfArgs = appendTdnfArgsForToolsChroot(tdnfArgs)
-		tdnfChroot = toolsChroot
-	}
-
-	err := tdnfChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("tdnf", tdnfArgs...).
-			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
-	if err != nil {
-		return fmt.Errorf("failed to refresh tdnf repo metadata:\n%w", err)
-	}
 	return nil
 }
 
@@ -186,201 +401,11 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 	return allPackages, nil
 }
 
-func removePackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
-	logger.Log.Infof("Removing packages: %v", allPackagesToRemove)
-
-	if len(allPackagesToRemove) <= 0 {
-		return nil
-	}
-
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
-	pkgJson, _ := json.Marshal(allPackagesToRemove)
-	span.SetAttributes(
-		attribute.Int("remove_packages_count", len(allPackagesToRemove)),
-		attribute.String("remove_packages", string(pkgJson)),
-	)
-	defer span.End()
-
-	tdnfRemoveArgs := []string{
-		"-v", "remove", "--assumeyes", "--disablerepo", "*",
-	}
-
-	tdnfRemoveArgs = append(tdnfRemoveArgs, allPackagesToRemove...)
-
-	err := callTdnf(tdnfRemoveArgs, imageChroot, toolsChroot)
-	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
-	}
-
-	return nil
-}
-
-func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
-	logger.Log.Infof("Updating base image packages")
-
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
-	defer span.End()
-
-	tdnfUpdateArgs := []string{
-		"-v", "update", "--assumeyes", "--cacheonly",
-		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
-	}
-
-	err := callTdnf(tdnfUpdateArgs, imageChroot, toolsChroot)
-	if err != nil {
-		return fmt.Errorf("failed to update packages:\n%w", err)
-	}
-
-	return nil
-}
-
-func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
-	if len(allPackagesToAdd) <= 0 {
-		return nil
-	}
-
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
-	pkgJson, _ := json.Marshal(allPackagesToAdd)
-	span.SetAttributes(
-		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
-		attribute.String("packages", string(pkgJson)),
-	)
-	defer span.End()
-
-	// Create tdnf command args.
-	// Note: When using `--repofromdir`, tdnf will not use any default repos and will only use the last
-	// `--repofromdir` specified.
-	tdnfInstallArgs := []string{
-		"-v", action, "--assumeyes", "--cacheonly",
-		"--setopt", fmt.Sprintf("reposdir=%s", rpmsMountParentDirInChroot),
-	}
-
-	tdnfInstallArgs = append(tdnfInstallArgs, allPackagesToAdd...)
-
-	err := callTdnf(tdnfInstallArgs, imageChroot, toolsChroot)
-	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
-	}
-
-	return nil
-}
-
-func callTdnf(tdnfArgs []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
-	tdnfChroot := imageChroot
-	if toolsChroot != nil {
-		tdnfArgs = appendTdnfArgsForToolsChroot(tdnfArgs)
-		tdnfChroot = toolsChroot
-	}
-	if _, err := os.Stat(filepath.Join(tdnfChroot.RootDir(), customTdnfConfRelPath)); err == nil {
-		tdnfArgs = append([]string{"--config", "/" + customTdnfConfRelPath}, tdnfArgs...)
-	}
-
-	lastDownloadPackageSeen := ""
-	inSummary := false
-	seenTransactionErrorMessage := false
-	stdoutCallback := func(line string) {
-		if !seenTransactionErrorMessage {
-			// Check if this line marks the start of a transaction error message.
-			seenTransactionErrorMessage = tdnfTransactionError.MatchString(line)
-		}
-
-		switch {
-		case seenTransactionErrorMessage:
-			// Report all of the transaction error message (i.e. the remainder of stdout) to WARN.
-			logger.Log.Warn(line)
-
-		case inSummary && line == "":
-			// Summary end.
-			inSummary = false
-			logger.Log.Trace(line)
-
-		case inSummary:
-			// Summary continues.
-			logger.Log.Debug(line)
-
-		case slices.Contains(tdnfSummaryLines, line):
-			// Summary start.
-			inSummary = true
-			logger.Log.Debug(line)
-
-		case slices.ContainsFunc(tdnfOpLines, func(opPrefix string) bool { return strings.HasPrefix(line, opPrefix) }):
-			logger.Log.Debug(line)
-
-		default:
-			match := tdnfDownloadRegex.FindStringSubmatch(line)
-			if match != nil {
-				packageName := match[1]
-				if packageName != lastDownloadPackageSeen {
-					// Log the download logs. But only log once per package to avoid spamming the debug logs.
-					lastDownloadPackageSeen = packageName
-					logger.Log.Debug(line)
-					break
-				}
-			}
-
-			logger.Log.Trace(line)
-		}
-	}
-
-	return tdnfChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("tdnf", tdnfArgs...).
-			StdoutCallback(stdoutCallback).
-			LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
-}
-
+// TODO: update this function when adding support for fedora for image customizer
 func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	err := imageChroot.UnsafeRun(func() error {
 		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
 		return err
 	})
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-func cleanTdnfCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot) error {
-	logger.Log.Infof("Cleaning up RPM cache")
-
-	tdnfArgs := []string{
-		"-v", "clean", "all",
-	}
-
-	tdnfChroot := imageChroot
-	if toolsChroot != nil {
-
-		tdnfArgs = appendTdnfArgsForToolsChroot(tdnfArgs)
-		tdnfChroot = toolsChroot
-	}
-
-	// Run all cleanup tasks inside the chroot environment
-	return tdnfChroot.UnsafeRun(func() error {
-		err := shell.NewExecBuilder("tdnf", tdnfArgs...).
-			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-		if err != nil {
-			return fmt.Errorf("failed to clean tdnf cache:\n%w", err)
-		}
-		return nil
-	})
-}
-
-// Update the TDNF arguments to include the release version and install root options for the tools chroot.
-func appendTdnfArgsForToolsChroot(tdnfArgs []string) []string {
-	// Add the release version CLI argument to the TDNF arguments.
-	if !slices.Contains(tdnfArgs, releaseVerCliArg) {
-		tdnfArgs = append(tdnfArgs, releaseVerCliArg)
-	}
-
-	// Add the install root argument for install or update operations.
-	installRootArg := "--installroot=/" + toolsRootImageDir
-	if !slices.Contains(tdnfArgs, installRootArg) {
-		tdnfArgs = append(tdnfArgs, installRootArg)
-	}
-
-	return tdnfArgs
+	return err == nil
 }
