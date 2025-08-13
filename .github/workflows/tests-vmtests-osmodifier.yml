@@ -115,7 +115,7 @@ jobs:
         run: |
           set -eux
 
-          OSMODIFIER_BIN="out/osmodifier-${{ inputs.hostArch }}/osmodifier"
+          OSMODIFIER_BIN="$(realpath out/osmodifier-${{ inputs.hostArch }}/osmodifier)"
           [[ -f "$OSMODIFIER_BIN" ]] || { echo "osmodifier binary not found at $OSMODIFIER_BIN"; ls -la out/; exit 1; }
           chmod +x "$OSMODIFIER_BIN"
           echo "path=$OSMODIFIER_BIN" >> "$GITHUB_OUTPUT"
@@ -145,15 +145,16 @@ jobs:
 
           echo "path=$INPUT_IMAGE" >> "$GITHUB_OUTPUT"
 
-      - name: Test setup (venv, SSH key)
+      - name: Test setup
         run: |
           set -eux
+
           pushd ./repo/test/vmtests
 
+          # Ensure an ssh key exists.
           ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 
           make create-venv
-          popd
 
       - name: Run OSModifier tests
         env:
