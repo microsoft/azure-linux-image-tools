@@ -5,7 +5,6 @@ import logging
 import os
 import platform
 import tempfile
-from getpass import getuser
 from pathlib import Path
 from typing import List, Tuple
 
