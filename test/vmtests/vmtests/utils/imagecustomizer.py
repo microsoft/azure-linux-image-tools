@@ -49,7 +49,6 @@ def run_image_customizer(
     container_output_image_path = container_output_image_dir.joinpath(output_image_path.name)
 
     args = [
-        "imagecustomizer",
         "--image-file",
         str(container_base_image_path),
         "--config-file",

@@ -92,7 +92,6 @@ docker run --rm \
    -v $outputImageDir:$containerOutputDir:z \
    -v /dev:/dev \
    "$containerTag" \
-   imagecustomizer \
       --image-file $containerInputImage \
       --config-file $containerInputConfig \
       --build-dir $containerBuildDir \
