@@ -178,7 +178,6 @@ jobs:
             SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
       - name: Run OSModifier tests - AZL 3.0
-        if: ${{ inputs.hostArch == 'amd64' }}  # Skip ARM64
         env:
           IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
           OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
