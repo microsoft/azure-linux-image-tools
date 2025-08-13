@@ -22,6 +22,7 @@ from ..utils.imagecustomizer import run_image_customizer
 from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from ..utils.libvirt_vm import LibvirtVm
 from ..utils.ssh_client import SshClient
+from ..utils.user_utils import get_username
 
 
 @pytest.fixture(scope="session")
@@ -53,7 +54,7 @@ def setup_vm_with_osmodifier(
     target_boot_type = source_boot_type
 
     output_image_path = session_temp_dir.joinpath("image." + output_format)
-    username = getuser()
+    username = get_username()
 
     run_image_customizer(
         docker_client,
