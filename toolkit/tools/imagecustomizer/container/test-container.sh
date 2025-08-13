@@ -28,8 +28,8 @@ docker run --rm \
     -v "$inputConfigDir":"$containerInputConfigDir":z \
     -v "$outputImageDir":"$containerOutputDir":z \
     -v /dev:/dev \
+    --entrypoint /usr/local/bin/run.sh \
     "$containerTag" \
-    /usr/local/bin/run.sh \
         "3.0.latest" \
         --config-file "$containerInputConfig" \
         --build-dir "$containerBuildDir" \
