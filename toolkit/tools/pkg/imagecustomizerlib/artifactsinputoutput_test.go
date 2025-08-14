@@ -13,7 +13,10 @@ import (
 )
 
 func TestOutputAndInjectArtifacts(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -152,20 +155,20 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// Check the injected files
 	// shim
-	expectedInjectedShim := filepath.Join(imageConnection.Chroot().RootDir(), "EFI", "BOOT", filepath.Base(bootBinary))
+	expectedInjectedShim := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/BOOT", filepath.Base(bootBinary))
 	contains, err := fileContainsMarker(expectedInjectedShim, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected shim to exist:\n%s", expectedInjectedShim)
 
 	// systemd-boot
-	expectedInjectedSystemdBoot := filepath.Join(imageConnection.Chroot().RootDir(), "EFI", "systemd", filepath.Base(systemdBootBinary))
+	expectedInjectedSystemdBoot := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/systemd", filepath.Base(systemdBootBinary))
 	contains, err = fileContainsMarker(expectedInjectedSystemdBoot, marker)
 	assert.NoError(t, err)
 	assert.True(t, contains, "Expected injected systemd-boot to exist:\n%s", expectedInjectedSystemdBoot)
 
 	// UKI(s)
 	for _, src := range ukiFiles {
-		expectedInjectedUKI := filepath.Join(imageConnection.Chroot().RootDir(), "EFI", "Linux", filepath.Base(src))
+		expectedInjectedUKI := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux", filepath.Base(src))
 
 		exists, err = file.PathExists(expectedInjectedUKI)
 		assert.NoError(t, err)
