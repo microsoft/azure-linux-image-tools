@@ -143,3 +143,30 @@ jobs:
     with:
       hostArch: arm64
       hostDistro: ubuntu2404
+
+  tests-vmtests-osmodifier-azl3-amd64:
+    name: VMTests suite osmodifier AZL3 AMD64
+    if: ${{ inputs.runVMTests }}
+    needs: binary-build-amd64
+    uses: ./.github/workflows/tests-vmtests-osmodifier.yml
+    with:
+      hostArch: amd64
+      hostDistro: azl3
+
+  tests-vmtests-osmodifier-ubuntu2404-amd64:
+    name: VMTests suite osmodifier Ubuntu24.04 AMD64
+    if: ${{ inputs.runVMTests }}
+    needs: binary-build-amd64
+    uses: ./.github/workflows/tests-vmtests-osmodifier.yml
+    with:
+      hostArch: amd64
+      hostDistro: ubuntu2404
+
+  tests-vmtests-osmodifier-ubuntu2404-arm64:
+    name: VMTests suite osmodifier Ubuntu24.04 ARM64
+    if: ${{ inputs.runVMTests }}
+    needs: binary-build-arm64
+    uses: ./.github/workflows/tests-vmtests-osmodifier.yml
+    with:
+      hostArch: arm64
+      hostDistro: ubuntu2404
