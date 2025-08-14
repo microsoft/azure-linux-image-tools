@@ -3,10 +3,7 @@
 
 name: Build (dev)
 
-permissions:
-  contents: read
-  # Azure login.
-  id-token: write
+permissions: {}
 
 on:
   pull_request:
@@ -34,3 +31,7 @@ jobs:
       publishType: dev
       runFunctionalTests: ${{ inputs.runFunctionalTests || false }}
       runVMTests: ${{ inputs.runVMTests || false }}
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write

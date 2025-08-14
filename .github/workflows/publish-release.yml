@@ -3,9 +3,7 @@
 
 name: Publish release
 
-permissions:
-  # Create release tag and publish release.
-  contents: write
+permissions: {}
 
 on:
   workflow_call:

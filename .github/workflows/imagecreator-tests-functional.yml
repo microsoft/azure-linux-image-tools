@@ -3,8 +3,7 @@
 
 name: Tests Image Creator functional
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call:

@@ -3,10 +3,7 @@
 
 name: Build (preview)
 
-permissions:
-  contents: read
-  # Azure login.
-  id-token: write
+permissions: {}
 
 on:
   push:
@@ -16,6 +13,10 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
     with:
       publishType: preview
       runFunctionalTests: true

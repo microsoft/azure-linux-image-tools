@@ -3,10 +3,7 @@
 
 name: Tests VMTests suite
 
-permissions:
-  contents: read
-  # Azure login.
-  id-token: write
+permissions: {}
 
 on:
   workflow_call:

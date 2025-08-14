@@ -3,17 +3,7 @@
 
 name: Release (major/minor)
 
-permissions:
-  # Push release branch and publish release.
-  contents: write
-  # Publish to GHCR.
-  packages: write
-  # "Keyless" container signing, Azure login, GitHub pages publish.
-  id-token: write
-  # Publish PR.
-  #pull-requests: write
-  # GitHub pages publish.
-  pages: write
+permissions: {}
 
 on:
   # Allow pipeline to be run manually.
@@ -26,11 +16,20 @@ jobs:
       publishType: official
       runFunctionalTests: true
       runVMTests: true
+    permissions:
+      contents: read
+      # Azure login
+      id-token: write
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
     needs:
     - build
+    permissions:
+      # "Keyless" container signing
+      id-token: write
+      # Publish to GHCR.
+      packages: write
 
   publish-release:
     uses: ./.github/workflows/publish-release.yml
@@ -38,18 +37,33 @@ jobs:
       isLatestRelease: true
     needs:
     - build
+    permissions:
+      # Create release tag and publish release.
+      contents: write
 
   fork-release-branch:
     uses: ./.github/workflows/fork-release-branch.yml
     needs:
     - build
+    permissions:
+      # Create release branch.
+      contents: write
 
   open-bump-version-pr:
     uses: ./.github/workflows/open-bump-version-pr.yml
     needs:
     - build
+    permissions:
+      # Create release branch and publish release.
+      contents: write
+      # Publish PR.
+      #pull-requests: write
 
   publish-github-pages:
     uses: ./.github/workflows/publish-github-pages.yml
     needs:
     - build
+    permissions:
+      # GitHub pages publish.
+      pages: write
+      id-token: write

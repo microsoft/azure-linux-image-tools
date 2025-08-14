@@ -3,8 +3,7 @@
 
 name: Build binary and container for single arch
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call:

@@ -9,6 +9,7 @@ jobs:
   deploy:
     name: Publish GitHub pages
     permissions:
+      # GitHub pages publish.
       pages: write
       id-token: write
     environment:

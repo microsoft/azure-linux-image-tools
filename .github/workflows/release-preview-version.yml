@@ -3,12 +3,7 @@
 
 name: Release (preview)
 
-permissions:
-  contents: read
-  # "Keyless" container signing and Azure login.
-  id-token: write
-  # Publish to GHCR.
-  packages: write
+permissions: {}
 
 on:
   # Allow pipeline to be run manually.
@@ -21,8 +16,17 @@ jobs:
       publishType: preview
       runFunctionalTests: true
       runVMTests: true
+    permissions:
+      contents: read
+      # Azure login
+      id-token: write
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
     needs:
     - build
+    permissions:
+      # "Keyless" container signing
+      id-token: write
+      # Publish to GHCR.
+      packages: write
