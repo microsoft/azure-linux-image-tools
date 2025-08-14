@@ -121,6 +121,7 @@ jobs:
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
         env:
+          HOST_ARCH: ${{ inputs.hostArch }}
           AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
           AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
