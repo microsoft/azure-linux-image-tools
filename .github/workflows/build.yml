@@ -193,6 +193,10 @@ jobs:
     with:
       hostArch: amd64
       hostDistro: azl3
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
 
   tests-vmtests-osmodifier-ubuntu2404-amd64:
     name: VMTests suite osmodifier Ubuntu24.04 AMD64
@@ -202,6 +206,10 @@ jobs:
     with:
       hostArch: amd64
       hostDistro: ubuntu2404
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
 
   tests-vmtests-osmodifier-ubuntu2404-arm64:
     name: VMTests suite osmodifier Ubuntu24.04 ARM64
@@ -211,3 +219,7 @@ jobs:
     with:
       hostArch: arm64
       hostDistro: ubuntu2404
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
