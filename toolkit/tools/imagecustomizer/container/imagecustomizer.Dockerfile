@@ -25,7 +25,6 @@ RUN /opt/telemetry-venv/bin/pip install --no-cache-dir -r /telemetry-requirement
 RUN rm -rf /telemetry-requirements.txt
 
 # Copy all necessary files
-COPY .mariner-toolkit-ignore-dockerenv /
 COPY usr /usr
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

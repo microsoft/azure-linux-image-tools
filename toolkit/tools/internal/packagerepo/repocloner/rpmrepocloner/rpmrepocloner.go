@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repocloner"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repomanager/rpmrepomanager"
@@ -200,14 +199,8 @@ func (r *RpmRepoCloner) initialize(destinationDir, tmpDir, workerTar, existingRp
 		return
 	}
 
-	// Docker-based build doesn't use overlay so repo folder
-	// must be explicitly set to the RPMs cache folder.
-	r.chrootCloneDir = chrootCloneDirContainer
-	r.repoIDCache = repoIDCacheContainer
-	if buildpipeline.IsRegularBuild() {
-		r.chrootCloneDir = chrootCloneDirRegular
-		r.repoIDCache = repoIDCacheRegular
-	}
+	r.chrootCloneDir = chrootCloneDirRegular
+	r.repoIDCache = repoIDCacheRegular
 
 	r.SetEnabledRepos(repoFlagClonerDefault)
 
@@ -542,15 +535,6 @@ func (r *RpmRepoCloner) ConvertDownloadedPackagesIntoRepo() (err error) {
 		logger.Log.Warnf("Failed to validate RPM paths: %s", err)
 		// We treat this as just a warning, not a real error.
 		err = nil
-	}
-
-	if !buildpipeline.IsRegularBuild() {
-		// Docker based build doesn't use overlay so cache repo
-		// must be explicitly initialized
-		err = r.initializeMountedChrootRepo(chrootCloneDirContainer)
-		if err != nil {
-			return
-		}
 	}
 
 	return
