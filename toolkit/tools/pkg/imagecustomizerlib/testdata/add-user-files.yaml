@@ -1,7 +1,7 @@
 os:
   users:
   - name: test
-    uid: 1000
+    uid: 2000
 
   additionalFiles:
   - destination: /home/test/platypus

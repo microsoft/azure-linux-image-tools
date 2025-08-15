@@ -248,8 +248,8 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 	userHomeDirStat, err := os.Stat(userHomeDir)
 	if assert.NoError(t, err) {
 		userHomeDirStatSys := userHomeDirStat.Sys().(*syscall.Stat_t)
-		assert.Equal(t, uint32(1000), userHomeDirStatSys.Uid)
-		assert.Equal(t, uint32(1000), userHomeDirStatSys.Gid)
+		assert.Equal(t, uint32(2000), userHomeDirStatSys.Uid)
+		assert.Equal(t, uint32(2000), userHomeDirStatSys.Gid)
 	}
 
 	// Verity file was copied to image.

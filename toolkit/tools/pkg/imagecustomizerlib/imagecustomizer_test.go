@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
@@ -603,11 +602,19 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 }
 
 func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageKernelCommandLineAddHelper(t, "TestCustomizeImageKernelCommandLineAdd"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageKernelCommandLine")
+	buildDir := filepath.Join(tmpDir, testName)
 	outImageFilePath := filepath.Join(buildDir, "image.vhd")
 
 	// Customize image.
@@ -640,14 +647,7 @@ func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
 		return
 	}
 
-	t.Logf("%s", grub2ConfigFile)
-
-	linuxCommandLineRegex, err := regexp.Compile(`linux .* console=tty0 console=ttyS0 `)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	assert.True(t, linuxCommandLineRegex.Match(grub2ConfigFile))
+	assert.Regexp(t, `linux\s+.*\s+console=tty0 console=ttyS0\s+`, grub2ConfigFile)
 }
 
 func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
