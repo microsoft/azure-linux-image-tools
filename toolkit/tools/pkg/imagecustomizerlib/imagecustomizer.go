@@ -1059,7 +1059,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	readOnlyVerity := config.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rawImageFile, buildDir, "imageroot", true, false, readOnlyVerity)
+		ctx, rawImageFile, buildDir, "imageroot", true, false, readOnlyVerity, false)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -1105,7 +1105,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string,
 ) ([]OsPackage, *CosiBootloader, error) {
 	var err error
-	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false)
+	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false, true)
 	if err != nil {
 		return nil, nil, err
 	}
