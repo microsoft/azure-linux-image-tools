@@ -18,7 +18,7 @@ const (
 
 func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *imageconnection.ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string, distro string,
+	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string, distroConfig DistroConfig,
 ) error {
 	var err error
 
@@ -32,7 +32,7 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 	}
 
 	err = addRemoveAndUpdatePackages(ctx, buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
-		useBaseImageRpmRepos, distro, packageSnapshotTime)
+		useBaseImageRpmRepos, distroConfig, packageSnapshotTime)
 	if err != nil {
 		return err
 	}

@@ -515,10 +515,12 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.rawImageFile = newRawImageFile
 	}
 
+	// TODO: Add support for fedora in image customizer
+	distroConfig := NewDistroConfig("azurelinux")
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx,
 		ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos,
-		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat, "")
+		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat, distroConfig)
 	if err != nil {
 		return err
 	}
@@ -969,7 +971,7 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
-	distro string,
+	distroConfig DistroConfig,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -1001,7 +1003,7 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 
 	// Do the actual customizations.
 	err = doOsCustomizations(ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime, distro)
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime, distroConfig)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.

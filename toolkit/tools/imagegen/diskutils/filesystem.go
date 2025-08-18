@@ -42,7 +42,8 @@ var (
 	// See, the /etc/mke2fs.conf file in an Azure Linux 2.0 image.
 	azl2Ext4Options = ext4Options{
 		BlockSize: 4096,
-		Features: []string{"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
 			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
 		},
 	}
@@ -51,7 +52,8 @@ var (
 	// See, the /etc/mke2fs.conf file in an Azure Linux 3.0 image.
 	azl3Ext4Options = ext4Options{
 		BlockSize: 4096,
-		Features: []string{"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
 			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
 			"orphan_file",
 		},
@@ -69,6 +71,23 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
 	}
 
+	// The default ext4 options used by Fedora 42 (kernel v6.11+)
+	// Based on typical Fedora defaults with modern ext4 features
+	fedora42Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+			"orphan_file",
+		},
+	}
+
+	// The default xfs options used by Fedora 42 (kernel v6.11+)
+	// Based on modern XFS features supported in recent kernels
+	fedora42XfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+	}
+
 	targetOsFileSystemsOptions = map[targetos.TargetOs]fileSystemsOptions{
 		targetos.TargetOsAzureLinux2: {
 			Ext4: azl2Ext4Options,
@@ -77,6 +96,10 @@ var (
 		targetos.TargetOsAzureLinux3: {
 			Ext4: azl3Ext4Options,
 			Xfs:  azl3XfsOptions,
+		},
+		targetos.TargetOsFedora42: {
+			Ext4: fedora42Ext4Options,
+			Xfs:  fedora42XfsOptions,
 		},
 	}
 

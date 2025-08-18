@@ -128,8 +128,11 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
+	// Create distro config from distro name
+	distroConfig := imagecustomizerlib.NewDistroConfig(distro)
+
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
-		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distro)
+		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distroConfig)
 	if err != nil {
 		return err
 	}
