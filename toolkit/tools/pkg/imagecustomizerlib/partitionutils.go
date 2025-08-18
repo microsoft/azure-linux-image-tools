@@ -199,7 +199,7 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 }
 
 func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, readonly bool, readOnlyVerity bool,
+	buildDir string, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
 ) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -210,6 +210,9 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 	verityMetadataList := []verityDeviceMetadata(nil)
 	readonlyPartUuids := []string(nil)
 	for _, fstabEntry := range filteredFstabEntries {
+		if ignoreOverlays && strings.ToLower(fstabEntry.FsType) == "overlay" {
+			continue // Skip overlay entries when requested
+		}
 		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
 		if err != nil {
 			return nil, nil, nil, nil, err

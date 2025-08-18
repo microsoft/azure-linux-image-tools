@@ -24,14 +24,14 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
-	includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
+	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
 ) (*imageconnection.ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
 	defer span.End()
 	imageConnection := imageconnection.NewImageConnection()
 
 	partUuidToMountPath, verityMetadata, readonlyPartUuids, err := connectToExistingImageHelper(imageConnection,
-		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity)
+		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, nil, nil, err
@@ -42,6 +42,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
+	ignoreOverlays bool,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -65,7 +66,7 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	}
 
 	mountPoints, partUuidToFstabEntry, verityMetadata, readonlyPartUuids, err := fstabEntriesToMountPoints(fstabEntries,
-		partitions, buildDir, readonly, readOnlyVerity)
+		partitions, buildDir, readonly, readOnlyVerity, ignoreOverlays)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
@@ -259,7 +260,7 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageco
 		return nil, "", err
 	}
 
-	mountPoints, _, _, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir, false, false)
+	mountPoints, _, _, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir, false, false, false)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
 	}
