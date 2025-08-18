@@ -1846,13 +1846,10 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	}
 
 	// Find the type of policy we want to label with
-	selinuxConfigPath := filepath.Join(installChroot.RootDir(), SELinuxConfigFile)
-	stdout, stderr, err := shell.Execute("sed", "-n", "s/^SELINUXTYPE=\\(.*\\)$/\\1/p", selinuxConfigPath)
+	selinuxType, err := selinuxGetPolicyType(installChroot)
 	if err != nil {
-		err = fmt.Errorf("failed to find an SELINUXTYPE in (%s):\n%w\n%v", selinuxConfigPath, err, stderr)
-		return
+		return err
 	}
-	selinuxType := strings.TrimSpace(stdout)
 	fileContextPath := fmt.Sprintf(fileContextBasePath, selinuxType)
 
 	targetRootPath := "/mnt/_bindmountroot"
@@ -1916,6 +1913,48 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	}
 
 	return
+}
+
+// In theory, installing the SELinux package should trigger a build of the SELinux policy files.
+// But Azure Linux 3.0 has a bug in the selinux-policy package (v2.20240226-11 and below) where this doesn't happen.
+// So, detect this case and manually trigger the rebuild.
+func SELinuxBuildPolicyIfMissing(installChroot safechroot.ChrootInterface) error {
+	selinuxType, err := selinuxGetPolicyType(installChroot)
+	if err != nil {
+		return err
+	}
+
+	policyKernPath := filepath.Join(installChroot.RootDir(), "/var/lib/selinux", selinuxType, "active/policy.kern")
+	exists, err := file.PathExists(policyKernPath)
+	if err != nil {
+		return fmt.Errorf("failed to check if SELinux policy.kern file exists (%s):\n%w", policyKernPath, err)
+	}
+
+	if exists {
+		// Policy already built.
+		// Nothing to do.
+		return nil
+	}
+
+	err = installChroot.UnsafeRun(func() error {
+		return shell.ExecuteLiveWithErr(1, "semodule", "--build", "--noreload", "--store", selinuxType)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to build SELinux policy:\n%w", err)
+	}
+
+	return nil
+}
+
+func selinuxGetPolicyType(installChroot safechroot.ChrootInterface) (string, error) {
+	selinuxConfigPath := filepath.Join(installChroot.RootDir(), SELinuxConfigFile)
+	stdout, stderr, err := shell.Execute("sed", "-n", "s/^SELINUXTYPE=\\(.*\\)$/\\1/p", selinuxConfigPath)
+	if err != nil {
+		err = fmt.Errorf("failed to find an SELINUXTYPE in (%s):\n%w\n%v", selinuxConfigPath, err, stderr)
+		return "", err
+	}
+	selinuxType := strings.TrimSpace(stdout)
+	return selinuxType, nil
 }
 
 func sed(find, replace, delimiter, file string) (err error) {

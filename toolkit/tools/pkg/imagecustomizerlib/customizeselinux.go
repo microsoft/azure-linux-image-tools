@@ -80,6 +80,11 @@ func handleSELinux(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMo
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
 
+	err = installutils.SELinuxBuildPolicyIfMissing(imageChroot)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, err
+	}
+
 	return selinuxMode, nil
 }
 
