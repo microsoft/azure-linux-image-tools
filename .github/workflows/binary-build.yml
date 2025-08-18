@@ -166,7 +166,7 @@ jobs:
         PUBLISH_TYPE: ${{ inputs.publishType }}
 
     - name: Setup Notation CLI
-      uses: notaryproject/notation-action/setup@v1
+      uses: notaryproject/notation-action/setup@b6fee73110795d6793253c673bd723f12bcf9bbb # v1.2.2
 
     - name: Build container
       run: |
