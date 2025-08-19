@@ -3,8 +3,7 @@
 
 name: Tests Image Creator functional
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call:
@@ -67,7 +66,7 @@ jobs:
           xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: repo
         persist-credentials: false

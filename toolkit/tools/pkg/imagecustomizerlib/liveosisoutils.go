@@ -16,6 +16,7 @@ import (
 const (
 	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
 	isoBootloaderDir   = "/efi/boot"
+	ukiEfiStubDir      = "/usr/lib/systemd/boot/efi"
 
 	bootx64Binary  = "bootx64.efi"
 	bootAA64Binary = "bootaa64.efi"
@@ -28,6 +29,9 @@ const (
 
 	systemdBootx64Binary  = "systemd-bootx64.efi"
 	systemdBootAA64Binary = "systemd-bootaa64.efi"
+
+	ukiEfiStubx64Binary  = "linuxx64.efi.stub"
+	ukiEfiStubAA64Binary = "linuxaa64.efi.stub"
 
 	grubCfgDir     = "/boot/grub2"
 	isoGrubCfg     = "grub.cfg"
@@ -78,6 +82,8 @@ type BootFilesArchConfig struct {
 	osEspGrubNoPrefixBinaryPath string
 	isoBootBinaryPath           string
 	isoGrubBinaryPath           string
+	ukiEfiStubBinary            string
+	ukiEfiStubBinaryPath        string
 }
 
 var (
@@ -92,6 +98,8 @@ var (
 			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
 			isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64Binary,
 			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
+			ukiEfiStubBinary:            ukiEfiStubx64Binary,
+			ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
 		},
 		"arm64": {
 			bootBinary:                  bootAA64Binary,
@@ -103,6 +111,8 @@ var (
 			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
 			isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64Binary,
 			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
+			ukiEfiStubBinary:            ukiEfiStubAA64Binary,
+			ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
 		},
 	}
 )

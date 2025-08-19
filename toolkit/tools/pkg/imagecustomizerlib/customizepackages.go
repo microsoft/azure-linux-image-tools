@@ -19,6 +19,36 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+var (
+	// Package-related errors
+	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh tdnf repo metadata")
+	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
+	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
+	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
+	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
+	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
+	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
+	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
+
+	tdnfOpLines = []string{
+		"Installing/Updating: ",
+		"Removing: ",
+	}
+
+	tdnfSummaryLines = []string{
+		"Installing:",
+		"Upgrading:",
+		"Removing:",
+	}
+
+	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
+
+	// Download log message.
+	// For example:
+	//   jq 6% 15709
+	tdnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+)\s+\d+\%\s+\d+$`)
+)
+
 // executePackageManagerCommand runs a package manager command with proper chroot handling
 func executePackageManagerCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
 	pmChroot := imageChroot
@@ -53,12 +83,14 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 	// Build command arguments directly
 	args := []string{"-v", action, "--assumeyes", "--cacheonly"}
 
+
 	repoDir := distroConfig.getPackageSourceDir()
 	if repoDir != "" {
 		args = append(args, "--setopt=reposdir="+repoDir)
 	}
 
 	args = append(args, allPackagesToAdd...)
+
 
 	if toolsChroot != nil {
 		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
@@ -118,7 +150,7 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 
 	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
 	return nil
 }

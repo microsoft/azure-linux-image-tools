@@ -3,10 +3,7 @@
 
 name: Tests functional
 
-permissions:
-  contents: read
-  # Azure login.
-  id-token: write
+permissions: {}
 
 on:
   workflow_call:
@@ -52,7 +49,7 @@ jobs:
 
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          sudo tdnf install -y grub2-pc
+          sudo tdnf install -y grub2-pc systemd-ukify
         fi
 
         sudo tdnf list installed
@@ -70,19 +67,19 @@ jobs:
 
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
+          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
 
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
     - name: Azure Login
-      uses: azure/login@v2
+      uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: repo
         persist-credentials: false

@@ -94,7 +94,7 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 	// Open the COSI file
 	cosiFile, err := os.Open(cosiFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open COSI file: %w", err)
+		return nil, fmt.Errorf("failed to open COSI file:\n%w", err)
 	}
 	defer cosiFile.Close()
 
@@ -105,7 +105,7 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error reading tar: %w", err)
+			return nil, fmt.Errorf("error reading tar:\n%w", err)
 		}
 
 		// Skip directories
@@ -136,45 +136,45 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 		outputDir := filepath.Dir(outputFilePath)
 		err = os.MkdirAll(outputDir, os.ModePerm)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create output directory: %w", err)
+			return nil, fmt.Errorf("failed to create output directory:\n%w", err)
 		}
 
 		// Create the .zst file
 		zstFile, err := os.Create(zstFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open .zst file: %w", err)
+			return nil, fmt.Errorf("failed to open .zst file:\n%w", err)
 		}
 		defer zstFile.Close()
 
 		// Create the output file
 		outFile, err := os.Create(outputFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create output file: %w", err)
+			return nil, fmt.Errorf("failed to create output file:\n%w", err)
 		}
 		defer outFile.Close()
 
 		// Extract .zst file from tarball.
 		_, err = io.Copy(zstFile, tarReader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract file from tarball: %w", err)
+			return nil, fmt.Errorf("failed to extract file from tarball:\n%w", err)
 		}
 
 		// Prepare file to be read back.
 		_, err = zstFile.Seek(0, 0)
 		if err != nil {
-			return nil, fmt.Errorf("failed to seek to origin of zst file: %w", err)
+			return nil, fmt.Errorf("failed to seek to origin of zst file:\n%w", err)
 		}
 
 		// Create a new zstd reader
 		zstReader, err := zstd.NewReader(zstFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create zstd reader: %w", err)
+			return nil, fmt.Errorf("failed to create zstd reader:\n%w", err)
 		}
 		defer zstReader.Close()
 
 		// Decompress the .zst file and write to the output file
 		if _, err := io.Copy(outFile, zstReader); err != nil {
-			return nil, fmt.Errorf("failed to decompress and write to output file: %w", err)
+			return nil, fmt.Errorf("failed to decompress and write to output file:\n%w", err)
 		}
 
 		extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)

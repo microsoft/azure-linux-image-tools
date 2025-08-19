@@ -189,16 +189,16 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 		cleanupErr := os.RemoveAll(isoBuildDir)
 		if cleanupErr != nil {
 			if err != nil {
-				err = fmt.Errorf("%w:\nfailed to clean-up (%s): %w", err, isoBuildDir, cleanupErr)
+				err = fmt.Errorf("%w:\nfailed to clean-up (%s):\n%w", err, isoBuildDir, cleanupErr)
 			} else {
-				err = fmt.Errorf("failed to clean-up (%s): %w", isoBuildDir, cleanupErr)
+				err = fmt.Errorf("failed to clean-up (%s):\n%w", isoBuildDir, cleanupErr)
 			}
 		}
 	}()
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
 	rawImageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
-		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/)
+		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false /*ignoreOverlays*/)
 	if err != nil {
 		return err
 	}

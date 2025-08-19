@@ -154,3 +154,5 @@ Supported options:
 
 - `all`: During OS customization, all verity data partitions are mounted as read-write.
   The verity hash partitions will be regenerated.
+
+Added in v0.17.

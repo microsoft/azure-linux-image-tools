@@ -80,9 +80,21 @@ func TestCustomizeImageOverlays(t *testing.T) {
 }
 
 func TestCustomizeImageOverlaysSELinux(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageOverlaysSELinuxHelper(t, "TestCustomizeImageOverlaysSELinux"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageOverlaysSELinux")
+func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	if baseImageInfo.Version == baseImageVersionAzl3 {
+		t.Skip("Azure Linux 3.0 is missing policy.kern file")
+	}
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, testName)
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "overlays-selinux.yaml")

@@ -1,0 +1,23 @@
+os:
+  kernelCommandLine:
+    extraCommandLine:
+      - console=tty0
+      - console=ttyS0
+
+  overlays:
+    - lowerDir: /etc
+      upperDir: /var/overlays/etc/upper
+      workDir: /var/overlays/etc/work
+      partition:
+        id: /dev/sda2
+        
+  verity:
+    id: verityroot
+    name: root
+    dataDevice: /dev/mapper/root
+    hashDevice: /dev/mapper/roothash
+
+  selinux:
+    mode: permissive
+
+  rootDevice: /dev/sda1

@@ -17,6 +17,20 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
 )
 
+var (
+	// Partition extraction errors
+	ErrPartitionExtractAbsolutePath      = NewImageCustomizerError("PartitionExtract:AbsolutePath", "failed to get absolute path")
+	ErrPartitionExtractIntegrityCheck    = NewImageCustomizerError("PartitionExtract:IntegrityCheck", "failed to check file system integrity")
+	ErrPartitionExtractStatFile          = NewImageCustomizerError("PartitionExtract:StatFile", "failed to stat file")
+	ErrPartitionExtractUnsupportedFormat = NewImageCustomizerError("PartitionExtract:UnsupportedFormat", "unsupported partition format")
+	ErrPartitionExtractMetadataConstruct = NewImageCustomizerError("PartitionExtract:MetadataConstruct", "failed to construct partition metadata")
+	ErrPartitionExtractRemoveRawFile     = NewImageCustomizerError("PartitionExtract:RemoveRawFile", "failed to remove raw file")
+	ErrPartitionExtractRemoveTempFile    = NewImageCustomizerError("PartitionExtract:RemoveTempFile", "failed to remove temp file")
+	ErrPartitionExtractCopyBlockDevice   = NewImageCustomizerError("PartitionExtract:CopyBlockDevice", "failed to copy block device")
+	ErrPartitionExtractCompress          = NewImageCustomizerError("PartitionExtract:Compress", "failed to compress partition")
+	ErrPartitionExtractOpenFile          = NewImageCustomizerError("PartitionExtract:OpenFile", "failed to open partition file")
+)
+
 type outputPartitionMetadata struct {
 	PartitionNum      int    `json:"partitionnum"`     // Example: 1
 	PartitionFilename string `json:"filename"`         // Example: image_1.raw.zst
@@ -67,20 +81,20 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 
 		partitionFullFilePath, err := filepath.Abs(partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get absolute path (%s):\n%w", partitionFilepath, err)
+			return nil, fmt.Errorf("%w (path='%s'):\n%w", ErrPartitionExtractAbsolutePath, partitionFilepath, err)
 		}
 
 		// Sanity check the partition file.
 		err = checkFileSystemFile(partition.FileSystemType, partitionFullFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check file system integrity (%s):\n%w", partitionFilepath, err)
+			return nil, fmt.Errorf("%w (path='%s'):\n%w", ErrPartitionExtractIntegrityCheck, partitionFilepath, err)
 		}
 
 		// Get uncompressed size for raw files
 		var uncompressedPartitionFileSize uint64
 		stat, err := os.Stat(partitionFullFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to stat raw file %s: %w", partitionFilepath, err)
+			return nil, fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractStatFile, partitionFilepath, err)
 		}
 		uncompressedPartitionFileSize = uint64(stat.Size())
 
@@ -93,12 +107,12 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 				return nil, err
 			}
 		default:
-			return nil, fmt.Errorf("unsupported partition format (supported: raw, raw-zst): %s", partitionFormat)
+			return nil, fmt.Errorf("%w (format='%s', supported: raw, raw-zst)", ErrPartitionExtractUnsupportedFormat, partitionFormat)
 		}
 
 		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to construct partition metadata:\n%w", err)
+			return nil, fmt.Errorf("%w (partition=%d, file='%s'):\n%w", ErrPartitionExtractMetadataConstruct, partitionNum, partitionFilepath, err)
 		}
 		partitionMetadata.UncompressedSize = uncompressedPartitionFileSize
 		partitionMetadataOutput = append(partitionMetadataOutput, partitionMetadata)
@@ -120,7 +134,7 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	// Remove raw file since output partition format is raw-zst
 	err = os.Remove(partitionRawFilepath)
 	if err != nil {
-		return "", fmt.Errorf("failed to remove raw file %s:\n%w", partitionRawFilepath, err)
+		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractRemoveRawFile, partitionRawFilepath, err)
 	}
 	// Create a skippable frame containing the metadata and prepend the frame to the partition file
 	partitionFilepath, err = addSkippableFrame(tempPartitionFilepath, skippableFrameMetadata, partitionFilename, outDir)
@@ -130,7 +144,7 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	// Remove temp partition file
 	err = os.Remove(tempPartitionFilepath)
 	if err != nil {
-		return "", fmt.Errorf("failed to remove temp file %s:\n%w", tempPartitionFilepath, err)
+		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractRemoveTempFile, tempPartitionFilepath, err)
 	}
 	return partitionFilepath, nil
 }
@@ -152,7 +166,7 @@ func copyBlockDeviceToFile(outDir, devicePath, name string) (filename string, er
 
 	err = shell.ExecuteLive(squashErrors, "dd", ddArgs...)
 	if err != nil {
-		return "", fmt.Errorf("failed to copy block device into file:\n%w", err)
+		return "", fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrPartitionExtractCopyBlockDevice, devicePath, fullPath, err)
 	}
 
 	return fullPath, nil
@@ -163,7 +177,7 @@ func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath strin
 	// Using -f to overwrite a file with same name if it exists.
 	err = shell.ExecuteLive(true, "zstd", "-f", "-9", "-T0", partitionRawFilepath, "-o", outputPartitionFilepath)
 	if err != nil {
-		return fmt.Errorf("failed to compress %s with zstd:\n%w", partitionRawFilepath, err)
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractCompress, partitionRawFilepath, err)
 	}
 
 	return nil
@@ -174,7 +188,7 @@ func addSkippableFrame(tempPartitionFilepath string, skippableFrameMetadata [Ski
 	// Open tempPartitionFile for reading
 	tempPartitionFile, err := os.OpenFile(tempPartitionFilepath, os.O_RDWR, os.ModePerm)
 	if err != nil {
-		return "", fmt.Errorf("failed to open partition file %s:\n%w", tempPartitionFilepath, err)
+		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractOpenFile, tempPartitionFilepath, err)
 	}
 	// Create a skippable frame
 	skippableFrame := createSkippableFrame(SkippableFrameMagicNumber, SkippableFramePayloadSize, skippableFrameMetadata)

@@ -229,7 +229,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to customize raw image")
-	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
+	assert.ErrorContains(t, err, "failed to install packages (packages=[gcc])")
 }
 
 func TestCustomizeImagePackagesUrlSource(t *testing.T) {
@@ -291,13 +291,13 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *imageconnection.Image
 	fullPath := filepath.Join(imageConnection.Chroot().RootDir(), dirPath)
 	err := filepath.WalkDir(fullPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("Failed to access path (%s): %w", path, err)
+			return fmt.Errorf("Failed to access path (%s):\n%w", path, err)
 		}
 		// Ignore files in the local-repo folder if the base image version is 2.0
 		if !(strings.Contains(path, "local-repo") && baseImageInfo.Version == baseImageVersionAzl2) {
 			fileInfo, err := os.Stat(path)
 			if err != nil {
-				return fmt.Errorf("failed to get file info for %s: %w", path, err)
+				return fmt.Errorf("failed to get file info for %s:\n%w", path, err)
 			}
 			if !fileInfo.IsDir() {
 				// Append the file to the existingFiles array
@@ -444,13 +444,13 @@ func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, p
 	err := imageConnection.Chroot().UnsafeRun(func() error {
 		out, _, err := shell.Execute("rpm", "-q", pkgName)
 		if err != nil {
-			return fmt.Errorf("failed to query rpm: %w", err)
+			return fmt.Errorf("failed to query rpm:\n%w", err)
 		}
 		versionOutput = strings.TrimSpace(out)
 		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to get version of %s in chroot: %w", pkgName, err)
+		return "", fmt.Errorf("failed to get version of %s in chroot:\n%w", pkgName, err)
 	}
 
 	return versionOutput, nil

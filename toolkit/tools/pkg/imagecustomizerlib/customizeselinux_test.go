@@ -188,7 +188,7 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 
 	switch baseImageInfo.Variant {
 	case baseImageVariantCoreEfi:
-		assert.ErrorContains(t, err, "SELinux is enabled but the (/etc/selinux/config) file is missing")
+		assert.ErrorContains(t, err, "SELinux is enabled but policy file is missing (file='/etc/selinux/config')")
 		assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
 		assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
 

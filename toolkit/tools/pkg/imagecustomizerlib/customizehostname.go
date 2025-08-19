@@ -14,6 +14,11 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+var (
+	// Hostname-related errors
+	ErrHostnameWrite = NewImageCustomizerError("Hostname:Write", "failed to write hostname file")
+)
+
 func UpdateHostname(ctx context.Context, hostname string, imageChroot safechroot.ChrootInterface) error {
 	if hostname == "" {
 		return nil
@@ -27,7 +32,7 @@ func UpdateHostname(ctx context.Context, hostname string, imageChroot safechroot
 	hostnameFilePath := filepath.Join(imageChroot.RootDir(), "etc/hostname")
 	err := file.Write(hostname, hostnameFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to write hostname file: %w", err)
+		return fmt.Errorf("%w:\n%w", ErrHostnameWrite, err)
 	}
 
 	return nil

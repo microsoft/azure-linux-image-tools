@@ -14,11 +14,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	// Partition copy errors
+	ErrPartitionCopyTargetOsDetermination = NewImageCustomizerError("PartitionCopy:TargetOsDetermination", "failed to determine target OS of base image")
+	ErrPartitionCopyFilesToNewLayout      = NewImageCustomizerError("PartitionCopy:FilesToNewLayout", "failed to copy files to new partition layout")
+	ErrPartitionCopyFiles                 = NewImageCustomizerError("PartitionCopy:Files", "failed to copy partition files")
+)
+
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	buildImageFile string, newBuildImageFile string,
 ) (map[string]string, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
-		true, false)
+		true, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +33,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 
 	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine target OS of base image:\n%w", err)
+		return nil, fmt.Errorf("%w:\n%w", ErrPartitionCopyTargetOsDetermination, err)
 	}
 
 	diskConfig := config.Storage.Disks[0]
@@ -52,7 +59,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 func copyFilesIntoNewDisk(existingImageChroot *safechroot.Chroot, newImageChroot *safechroot.Chroot) error {
 	err := copyPartitionFiles(existingImageChroot.RootDir()+"/.", newImageChroot.RootDir())
 	if err != nil {
-		return fmt.Errorf("failed to copy files into new partition layout:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPartitionCopyFilesToNewLayout, err)
 	}
 	return nil
 }
@@ -79,7 +86,7 @@ func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool
 		ErrorStderrLines(1).
 		Execute()
 	if err != nil {
-		return fmt.Errorf("failed to copy files:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPartitionCopyFiles, err)
 	}
 
 	return nil

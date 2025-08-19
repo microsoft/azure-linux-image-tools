@@ -3,11 +3,7 @@
 
 name: Open bump version PR
 
-permissions:
-  # Create release branch and publish release.
-  contents: write
-  # Publish PR.
-  #pull-requests: write
+permissions: {}
 
 on:
   workflow_call: {}
@@ -23,7 +19,7 @@ jobs:
       #pull-requests: write
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: repo
         persist-credentials: true

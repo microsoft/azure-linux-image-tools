@@ -32,6 +32,11 @@ But it can also be an Azure Linux image that has been customized.
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
 
+Note: Image Customizer will reject VHD files created by `qemu-img` unless the
+`-o force_size=on` option was passed. Without this option, `qemu-img` will
+likely change the size of the disk (to a non-multiple of 1 MiB), which can cause
+problems when trying to upload the disk to Azure.
+
 If verity is enabled in the base image, then:
 
 - If the partitions are recustomized using the
@@ -41,7 +46,9 @@ If verity is enabled in the base image, then:
   [verity](../api/configuration/verity.md) API.
 
 - Otherwise, the existing verity settings are reapplied to the image after OS
-  customization.
+  customization, according to the
+  [.storage.reinitializeVerity](./configuration/storage.md#reinitializeverity-string)
+  setting.
 
   This feature is in preview and may be subject to breaking changes.
   You may enable this feature by adding `reinitialize-verity` to the

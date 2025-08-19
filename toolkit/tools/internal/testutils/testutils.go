@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
@@ -137,10 +136,6 @@ func GetDownloadedRpmsRepoFile(t *testing.T, testutilsDir string, azureLinuxVers
 }
 
 func CheckSkipForCustomizeImageRequirements(t *testing.T) {
-	if !buildpipeline.IsRegularBuild() {
-		t.Skip("loopback block device not available")
-	}
-
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}

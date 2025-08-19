@@ -166,7 +166,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "cannot set home directory (/home/root) on a user (root) that already exists")
+	assert.ErrorContains(t, err, "cannot set home directory on a user that already exists (homeDir='/home/root', user='root')")
 }
 
 func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
@@ -190,7 +190,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "cannot set UID (1) on a user (root) that already exists")
+	assert.ErrorContains(t, err, "cannot set UID on a user that already exists (UID='1', user='root')")
 }
 
 func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
@@ -216,7 +216,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to find SSH public key file (does-not-exist)")
+	assert.ErrorContains(t, err, "failed to find SSH public key file (path='does-not-exist')")
 }
 
 func TestCustomizeImageUsersAddFiles(t *testing.T) {
@@ -248,8 +248,8 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 	userHomeDirStat, err := os.Stat(userHomeDir)
 	if assert.NoError(t, err) {
 		userHomeDirStatSys := userHomeDirStat.Sys().(*syscall.Stat_t)
-		assert.Equal(t, uint32(1000), userHomeDirStatSys.Uid)
-		assert.Equal(t, uint32(1000), userHomeDirStatSys.Gid)
+		assert.Equal(t, uint32(2000), userHomeDirStatSys.Uid)
+		assert.Equal(t, uint32(2000), userHomeDirStatSys.Gid)
 	}
 
 	// Verity file was copied to image.
@@ -313,4 +313,65 @@ func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword st
 	}
 
 	return assert.Equal(t, encryptedPassword, strings.TrimSpace(reencryptedPassword))
+}
+
+func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserPassword")
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Create an image with a user that has an initial password.
+	passwordValue := "pass"
+	configWithPassword := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Users: []imagecustomizerapi.User{
+				{
+					Name: "testuser",
+					Password: &imagecustomizerapi.Password{
+						Type:  "plain-text",
+						Value: passwordValue,
+					},
+				},
+			},
+		},
+	}
+
+	err := CustomizeImage(t.Context(), buildDir, testDir, &configWithPassword, baseImage, nil, outImageFilePath, "raw",
+		false, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Run customization again without providing a password.
+	configWithoutPassword := imagecustomizerapi.Config{
+		OS: &imagecustomizerapi.OS{
+			Users: []imagecustomizerapi.User{
+				{
+					Name:          "testuser",
+					SSHPublicKeys: []string{"ssh-rsa abc123"},
+				},
+			},
+		},
+	}
+
+	err = CustomizeImage(t.Context(), buildDir, testDir, &configWithoutPassword, outImageFilePath, nil, outImageFilePath, "raw",
+		false, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Verify that password was not cleared.
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	shadowEntry, err := userutils.GetShadowFileEntryForUser(imageConnection.Chroot().RootDir(), "testuser")
+	if assert.NoError(t, err) {
+		verifyPassword(t, shadowEntry.EncryptedPassword, passwordValue)
+	}
 }

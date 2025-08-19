@@ -11,7 +11,6 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
@@ -26,10 +25,6 @@ const (
 func TestResourceBusy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Short mode enabled")
-	}
-
-	if !buildpipeline.IsRegularBuild() {
-		t.Skip("loopback block device not available")
 	}
 
 	if os.Geteuid() != 0 {

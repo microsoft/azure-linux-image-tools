@@ -79,10 +79,10 @@ var (
 	}
 
 	defaultBaseImagePriorityList = []testBaseImageInfo{
-		testBaseImageAzl2CoreEfi,
-		testBaseImageAzl2BareMetal,
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
+		testBaseImageAzl2CoreEfi,
+		testBaseImageAzl2BareMetal,
 	}
 )
 

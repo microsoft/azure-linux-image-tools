@@ -3,8 +3,7 @@
 
 name: Build binary and container for single arch
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call:
@@ -32,7 +31,7 @@ jobs:
       isLatestRelease: ${{ steps.build.outputs.isLatestRelease }}
     steps:
     - name: checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: repo
         # Patch releases need the full history to find the latest tag.
@@ -167,7 +166,7 @@ jobs:
         PUBLISH_TYPE: ${{ inputs.publishType }}
 
     - name: Setup Notation CLI
-      uses: notaryproject/notation-action/setup@v1
+      uses: notaryproject/notation-action/setup@b6fee73110795d6793253c673bd723f12bcf9bbb # v1.2.2
 
     - name: Build container
       run: |
@@ -206,3 +205,9 @@ jobs:
       with:
         name: imagecreator-binary-${{ inputs.arch }}
         path: repo/toolkit/out/imagecreator.tar.gz
+
+    - name: Upload osmodifier artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: osmodifier-${{ inputs.arch }}
+        path: repo/toolkit/out/tools/osmodifier

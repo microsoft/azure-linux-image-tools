@@ -3,8 +3,7 @@
 
 name: Tests VMTests suite for Image Creator
 
-permissions:
-  contents: read
+permissions: {}
 
 on:
   workflow_call:
@@ -87,9 +86,10 @@ jobs:
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: repo
+        persist-credentials: false
 
     - name: Build imagecreator and imagecustomizer
       run: |
