@@ -114,7 +114,7 @@ func GetDownloadedToolsFile(t *testing.T, testutilsDir string, linuxVersion stri
 		toolsFileName = "tools.tar.gz"
 	}
 
-	GetDownloadedToolsFile := filepath.Join(testutilsDir, "testrpms", toolsFileName)
+	GetDownloadedToolsFile := filepath.Join(testutilsDir, "testrpms", "build", toolsFileName)
 	if !assert.FileExists(t, GetDownloadedToolsFile) {
 		t.Logf("test requires downloaded tools file")
 		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t %s -s %t",

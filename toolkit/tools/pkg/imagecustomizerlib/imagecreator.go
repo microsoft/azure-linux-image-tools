@@ -18,7 +18,7 @@ import (
 
 func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool,
-	imageUuidStr string, packageSnapshotTime string, tarFile string, distroConfig DistroConfig,
+	imageUuidStr string, packageSnapshotTime string, tarFile string, distroConfig distroHandler,
 ) (map[string]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Customizing OS image with config file %s", baseConfigPath)
 
@@ -80,7 +80,7 @@ func doOsCustomizationsImageCreator(
 	imageUuid string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	packageSnapshotTime string,
-	distroConfig DistroConfig,
+	distroConfig distroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)

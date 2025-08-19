@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,59 +20,75 @@ import (
 )
 
 // executePackageManagerCommand runs a package manager command with proper chroot handling
-func executePackageManagerCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, isToolsCommand bool, distroConfig DistroConfig) error {
+func executePackageManagerCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
 	pmChroot := imageChroot
-	if toolsChroot != nil && isToolsCommand {
+	if toolsChroot != nil {
 		pmChroot = toolsChroot
 	}
 
-	// Add package manager specific config file if available
-	if distroConfig.GetConfigFile() != "" && distroConfig.GetPackageType() == "rpm" {
-		if _, err := os.Stat(filepath.Join(pmChroot.RootDir(), distroConfig.GetConfigFile())); err == nil {
-			args = append([]string{"--config", "/" + distroConfig.GetConfigFile()}, args...)
-		}
+	if _, err := os.Stat(filepath.Join(pmChroot.RootDir(), distroConfig.getConfigFile())); err == nil {
+		args = append([]string{"--config", "/" + distroConfig.getConfigFile()}, args...)
 	}
 
 	return pmChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(distroConfig.GetPackageManagerBinary(), args...).
+		return shell.NewExecBuilder(distroConfig.getPackageManagerBinary(), args...).
 			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
 			Execute()
 	})
 }
 
-func installOrUpdatePackages(ctx context.Context, operation string, packages []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig DistroConfig, repoDir string) error {
-	if len(packages) == 0 {
+func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
+	if len(allPackagesToAdd) == 0 {
 		return nil
 	}
 
-	// Build command arguments directly based on distro and operation
-	var args []string
-	useToolsChroot := toolsChroot != nil
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
+	span.SetAttributes(
+		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
+		attribute.StringSlice("packages", allPackagesToAdd),
+	)
+	defer span.End()
 
-	if operation == "install" {
-		args = buildInstallArgs(distroConfig, packages, repoDir, useToolsChroot)
-	} else {
-		args = buildUpdateArgs(distroConfig, packages, repoDir, useToolsChroot)
+	// Build command arguments directly
+	args := []string{"-v", action, "--assumeyes", "--cacheonly"}
+
+	repoDir := distroConfig.getPackageSourceDir()
+	if repoDir != "" {
+		args = append(args, "--setopt=reposdir="+repoDir)
 	}
 
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, useToolsChroot, distroConfig)
+	args = append(args, allPackagesToAdd...)
+
+	if toolsChroot != nil {
+		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+	}
+
+	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", operation, packages, err)
+		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
 	}
 	return nil
 }
 
 // updateAllPackages updates all packages using the appropriate package manager
-func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig DistroConfig, repoDir string) error {
-	logger.Log.Infof("Updating base image packages")
-
+func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
 	defer span.End()
 
-	useToolsChroot := toolsChroot != nil
-	args := buildUpdateAllArgs(distroConfig, repoDir, useToolsChroot)
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, useToolsChroot, distroConfig)
+	// Build command arguments directly
+	args := []string{"-v", "update", "--assumeyes", "--cacheonly"}
+
+	repoDir := distroConfig.getPackageSourceDir()
+	if repoDir != "" {
+		args = append(args, "--setopt=reposdir="+repoDir)
+	}
+
+	if toolsChroot != nil {
+		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+	}
+
+	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
 		return fmt.Errorf("failed to update packages:\n%w", err)
 	}
@@ -81,49 +96,71 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 }
 
 // removePackages removes packages using the appropriate package manager
-func removePackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig DistroConfig, repoDir string) error {
-	if len(packages) <= 0 {
+func removePackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
+	if len(allPackagesToRemove) <= 0 {
 		return nil
 	}
 
-	logger.Log.Infof("Removing packages: %v", packages)
-
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
-	pkgJson, _ := json.Marshal(packages)
 	span.SetAttributes(
-		attribute.Int("remove_packages_count", len(packages)),
-		attribute.String("remove_packages", string(pkgJson)),
+		attribute.Int("remove_packages_count", len(allPackagesToRemove)),
+		attribute.StringSlice("remove_packages", allPackagesToRemove),
 	)
 	defer span.End()
 
-	useToolsChroot := toolsChroot != nil
-	args := buildRemoveArgs(distroConfig, packages, useToolsChroot)
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, useToolsChroot, distroConfig)
+	// Build command arguments directly
+	args := []string{"-v", "remove", "--assumeyes", "--disablerepo", "*"}
+	args = append(args, allPackagesToRemove...)
+
+	if toolsChroot != nil {
+		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+	}
+
+	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to remove packages (%v):\n%w", packages, err)
+		return fmt.Errorf("failed to remove packages (%v):\n%w", allPackagesToRemove, err)
 	}
 	return nil
 }
 
 // refreshPackageMetadata refreshes package metadata
-func refreshPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig DistroConfig, repoDir string) error {
+func refreshPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_metadata")
+	defer span.End()
+
 	logger.Log.Infof("Refreshing package metadata")
 
-	useToolsChroot := toolsChroot != nil
-	args := buildRefreshMetadataArgs(distroConfig, repoDir, useToolsChroot)
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, useToolsChroot, distroConfig)
+	args := []string{
+		"-v", "check-update", "--refresh", "--assumeyes",
+	}
+
+	repoDir := distroConfig.getPackageSourceDir()
+	if repoDir != "" {
+		args = append(args, "--setopt=reposdir="+repoDir)
+	}
+
+	if toolsChroot != nil {
+		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+	}
+
+	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
 		return fmt.Errorf("failed to refresh package metadata:\n%w", err)
 	}
 	return nil
 }
 
-func cleanCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig DistroConfig) error {
-	useToolsChroot := toolsChroot != nil
-	args := buildCleanCacheArgs(distroConfig, useToolsChroot)
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, useToolsChroot, distroConfig)
+func cleanCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
+	// Build command arguments directly
+	args := []string{"-v", "clean", "all"}
+
+	if toolsChroot != nil {
+		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+	}
+
+	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to clean %s cache:\n%w", distroConfig.GetPackageManagerBinary(), err)
+		return fmt.Errorf("failed to clean %s cache:\n%w", distroConfig.getPackageManagerBinary(), err)
 	}
 	return nil
 }
@@ -131,10 +168,8 @@ func cleanCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, 
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
 func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, distroConfig DistroConfig, snapshotTime string,
+	rpmsSources []string, useBaseImageRpmRepos bool, distroConfig distroHandler, snapshotTime string,
 ) error {
-	var err error
-
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
 	defer span.End()
 
@@ -142,90 +177,8 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 		snapshotTime = string(config.Packages.SnapshotTime)
 	}
 
-	packageManagerChroot := imageChroot
-	if toolsChroot != nil {
-		packageManagerChroot = toolsChroot
-	}
-
-	if distroConfig.GetDistroName() == "azurelinux" {
-		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if cleanupErr := cleanupSnapshotTimeConfig(packageManagerChroot); cleanupErr != nil && err == nil {
-				err = cleanupErr
-			}
-		}()
-	}
-	// Note: For Fedora, we use the existing generic config file without creating custom DNF config
-	// Note: The 'validatePackageLists' function read the PackageLists files and merged them into the inline package lists.
-	needPackageSources := len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 ||
-		config.Packages.UpdateExistingPackages
-
-	var mounts *rpmSourcesMounts
-	if needPackageSources && distroConfig.GetPackageType() == "rpm" {
-		// Mount RPM sources (only for RPM-based systems).
-		mounts, err = mountRpmSources(ctx, buildDir, packageManagerChroot, rpmsSources, useBaseImageRpmRepos)
-		if err != nil {
-			return err
-		}
-		defer mounts.close()
-
-		// Refresh metadata.
-		err = refreshPackageMetadata(ctx, imageChroot, toolsChroot, distroConfig, distroConfig.GetPackageSourceDir())
-		if err != nil {
-			return err
-		}
-
-	} else if needPackageSources && distroConfig.GetPackageType() == "deb" {
-		// Future: APT repository setup would go here
-		// For APT-based systems, we would:
-		// 1. Set up /etc/apt/sources.list or sources.list.d/
-		// 2. Run apt-get update
-		return fmt.Errorf("APT-based package management not yet implemented")
-	}
-
-	err = removePackages(ctx, config.Packages.Remove, imageChroot, toolsChroot, distroConfig, distroConfig.GetPackageSourceDir())
-	if err != nil {
-		return err
-	}
-
-	if config.Packages.UpdateExistingPackages {
-		err = updateAllPackages(ctx, imageChroot, toolsChroot, distroConfig, distroConfig.GetPackageSourceDir())
-		if err != nil {
-			return err
-		}
-	}
-
-	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
-	err = installOrUpdatePackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot, distroConfig, distroConfig.GetPackageSourceDir())
-	if err != nil {
-		return err
-	}
-
-	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
-	err = installOrUpdatePackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot, distroConfig, distroConfig.GetPackageSourceDir())
-	if err != nil {
-		return err
-	}
-
-	// Unmount package sources.
-	if mounts != nil {
-		err = mounts.close()
-		if err != nil {
-			return err
-		}
-	}
-
-	if needPackageSources {
-		err = cleanCache(imageChroot, toolsChroot, distroConfig)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	// Delegate the entire package management workflow to the distribution-specific implementation
+	return distroConfig.managePackages(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime)
 }
 
 func collectPackagesList(baseConfigPath string, packageLists []string, packages []string) ([]string, error) {
@@ -249,26 +202,14 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 	return allPackages, nil
 }
 
-// isPackageInstalled checks if a package is installed using the appropriate package manager
-func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string, distroName ...string) bool {
-	var actualDistroName string
-	if len(distroName) > 0 {
-		actualDistroName = distroName[0]
-	} else {
-		actualDistroName = detectDistroName(imageChroot)
-	}
-
-	distroConfig := NewDistroConfig(actualDistroName)
-
+// TODO remove this after adding fedora support for image customizer
+func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	err := imageChroot.UnsafeRun(func() error {
-		if distroConfig.GetPackageType() == "rpm" {
-			_, _, err := shell.Execute(distroConfig.GetPackageManagerBinary(), "info", packageName, "--repo", "@system")
-			return err
-		} else {
-			// Future: APT-based commands would go here
-			// _, _, err := shell.Execute("dpkg", "-l", packageName)
-			return fmt.Errorf("package type %s not yet supported for package check", distroConfig.GetPackageType())
-		}
+		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
+		return err
 	})
-	return err == nil
+	if err != nil {
+		return false
+	}
+	return true
 }

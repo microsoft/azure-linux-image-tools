@@ -1,127 +1,186 @@
 package imagecustomizerlib
 
-// AzureLinuxDistroConfig implements DistroConfig for Azure Linux
-type AzureLinuxDistroConfig struct{}
+import (
+	"context"
+	"fmt"
 
-func (d *AzureLinuxDistroConfig) GetPackageManagerBinary() string { return "tdnf" }
-func (d *AzureLinuxDistroConfig) GetPackageType() string          { return "rpm" }
-func (d *AzureLinuxDistroConfig) GetReleaseVersion() string       { return "3.0" }
-func (d *AzureLinuxDistroConfig) UsesCacheOnly() bool             { return true }
-func (d *AzureLinuxDistroConfig) UsesInstallRoot() bool           { return true }
-func (d *AzureLinuxDistroConfig) GetConfigFile() string           { return customTdnfConfRelPath }
-func (d *AzureLinuxDistroConfig) GetDistroName() string           { return "azurelinux" }
-func (d *AzureLinuxDistroConfig) GetPackageSourceDir() string     { return rpmsMountParentDirInChroot }
+	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+)
 
-// FedoraDistroConfig implements DistroConfig for Fedora
-type FedoraDistroConfig struct{}
+// azureLinuxDistroConfig implements distroHandler for Azure Linux
+type azureLinuxDistroConfig struct {
+	version string
+}
 
-func (d *FedoraDistroConfig) GetPackageManagerBinary() string { return "dnf" }
-func (d *FedoraDistroConfig) GetPackageType() string          { return "rpm" }
-func (d *FedoraDistroConfig) GetReleaseVersion() string       { return "42" }
-func (d *FedoraDistroConfig) UsesCacheOnly() bool             { return false }
-func (d *FedoraDistroConfig) UsesInstallRoot() bool           { return true }
-func (d *FedoraDistroConfig) GetConfigFile() string           { return "etc/dnf/dnf.conf" }
-func (d *FedoraDistroConfig) GetDistroName() string           { return "fedora" }
-func (d *FedoraDistroConfig) GetPackageSourceDir() string     { return rpmsMountParentDirInChroot }
+func (d *azureLinuxDistroConfig) getPackageManagerBinary() string { return "tdnf" }
+func (d *azureLinuxDistroConfig) getPackageType() PackageType     { return packageTypeRPM }
+func (d *azureLinuxDistroConfig) getReleaseVersion() string {
+	if d.version != "" {
+		return d.version
+	}
+	return "3.0" // default version
+}
+func (d *azureLinuxDistroConfig) getConfigFile() string       { return customTdnfConfRelPath }
+func (d *azureLinuxDistroConfig) getDistroName() DistroName   { return distroNameAzureLinux }
+func (d *azureLinuxDistroConfig) getPackageSourceDir() string { return rpmsMountParentDirInChroot }
 
-// Helper functions for building package manager command arguments
-func buildInstallArgs(distroConfig DistroConfig, packages []string, repoDir string, useToolsChroot bool) []string {
-	args := []string{"install", "--assumeyes"}
+// fedoraDistroConfig implements distroHandler for Fedora
+type fedoraDistroConfig struct {
+	version string
+}
 
-	// Add distro-specific flags
-	if distroConfig.UsesCacheOnly() {
-		args = append(args, "--cacheonly")
+func (d *fedoraDistroConfig) getPackageManagerBinary() string { return "dnf" }
+func (d *fedoraDistroConfig) getPackageType() PackageType     { return packageTypeRPM }
+func (d *fedoraDistroConfig) getReleaseVersion() string {
+	if d.version != "" {
+		return d.version
+	}
+	return "42" // default version
+}
+func (d *fedoraDistroConfig) getConfigFile() string       { return "etc/dnf/dnf.conf" }
+func (d *fedoraDistroConfig) getDistroName() DistroName   { return distroNameFedora }
+func (d *fedoraDistroConfig) getPackageSourceDir() string { return rpmsMountParentDirInChroot }
+
+// managePackagesRpm provides a shared implementation for RPM-based package management
+func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string, distroConfig distroHandler,
+) error {
+	var err error
+
+	packageManagerChroot := imageChroot
+	if toolsChroot != nil {
+		packageManagerChroot = toolsChroot
 	}
 
+	// Setup distribution-specific configuration if needed
+	if distroConfig.getDistroName() == distroNameAzureLinux {
+		// Setup Azure Linux specific TDNF configuration with snapshot
+		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if cleanupErr := cleanupSnapshotTimeConfig(packageManagerChroot); cleanupErr != nil && err == nil {
+				err = cleanupErr
+			}
+		}()
+	}
+
+	needPackageSources := len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 ||
+		config.Packages.UpdateExistingPackages
+
+	var mounts *rpmSourcesMounts
+	if needPackageSources {
+		// Mount RPM sources
+		mounts, err = mountRpmSources(ctx, buildDir, packageManagerChroot, rpmsSources, useBaseImageRpmRepos)
+		if err != nil {
+			return err
+		}
+		defer mounts.close()
+
+		// Refresh metadata
+		err = refreshPackageMetadata(ctx, imageChroot, toolsChroot, distroConfig)
+		if err != nil {
+			return err
+		}
+
+		// Prefill cache for Fedora
+		if distroConfig.getDistroName() == distroNameFedora {
+			err = prefillDnfCache(ctx, config.Packages.Install, config.Packages.Update, imageChroot, toolsChroot, distroConfig)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Execute package operations
+	err = removePackages(ctx, config.Packages.Remove, imageChroot, toolsChroot, distroConfig)
+	if err != nil {
+		return err
+	}
+
+	if config.Packages.UpdateExistingPackages {
+		err = updateAllPackages(ctx, imageChroot, toolsChroot, distroConfig)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = installOrUpdatePackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot, distroConfig)
+	if err != nil {
+		return err
+	}
+
+	err = installOrUpdatePackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot, distroConfig)
+	if err != nil {
+		return err
+	}
+
+	// Cleanup
+	if mounts != nil {
+		err = mounts.close()
+		if err != nil {
+			return err
+		}
+	}
+
+	if needPackageSources {
+		err = cleanCache(imageChroot, toolsChroot, distroConfig)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// managePackages handles the complete package management workflow for Azure Linux
+func (d *azureLinuxDistroConfig) managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
+) error {
+	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d)
+}
+
+// managePackages handles the complete package management workflow for Fedora
+func (d *fedoraDistroConfig) managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
+) error {
+	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d)
+}
+
+// prefillDnfCache downloads packages to DNF cache for offline installation
+func prefillDnfCache(ctx context.Context, installPackages []string, updatePackages []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, distroConfig distroHandler) error {
+	allPackages := append(installPackages, updatePackages...)
+	if len(allPackages) == 0 {
+		return nil
+	}
+
+	logger.Log.Infof("Pre-filling DNF cache for packages: %v", allPackages)
+
+	args := []string{"-v", "install", "--assumeyes", "--downloadonly"}
+
+	repoDir := distroConfig.getPackageSourceDir()
 	if repoDir != "" {
 		args = append(args, "--setopt=reposdir="+repoDir)
 	}
 
-	args = append(args, packages...)
+	// Enable keepcache to ensure packages are stored in cache
+	args = append(args, "--setopt=keepcache=1")
 
-	if useToolsChroot && distroConfig.UsesInstallRoot() {
-		args = append([]string{"--releasever=" + distroConfig.GetReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+	if toolsChroot != nil {
+		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
-	return args
-}
+	args = append(args, allPackages...)
 
-func buildUpdateArgs(distroConfig DistroConfig, packages []string, repoDir string, useToolsChroot bool) []string {
-	args := []string{"update", "--assumeyes"}
-
-	// Add distro-specific flags
-	if distroConfig.UsesCacheOnly() {
-		args = append(args, "--cacheonly")
+	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
+	if err != nil {
+		return fmt.Errorf("failed to prefill DNF cache for packages (%v):\n%w", allPackages, err)
 	}
-
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
-
-	args = append(args, packages...)
-
-	if useToolsChroot && distroConfig.UsesInstallRoot() {
-		args = append([]string{"--releasever=" + distroConfig.GetReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
-	}
-
-	return args
-}
-
-func buildRemoveArgs(distroConfig DistroConfig, packages []string, useToolsChroot bool) []string {
-	args := []string{"remove", "--assumeyes", "--disablerepo", "*"}
-	args = append(args, packages...)
-
-	if useToolsChroot && distroConfig.UsesInstallRoot() {
-		args = append([]string{"--releasever=" + distroConfig.GetReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
-	}
-
-	return args
-}
-
-func buildUpdateAllArgs(distroConfig DistroConfig, repoDir string, useToolsChroot bool) []string {
-	args := []string{"update", "--assumeyes"}
-
-	// Add distro-specific flags
-	if distroConfig.UsesCacheOnly() {
-		args = append(args, "--cacheonly")
-	}
-
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
-
-	if useToolsChroot && distroConfig.UsesInstallRoot() {
-		args = append([]string{"--releasever=" + distroConfig.GetReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
-	}
-
-	return args
-}
-
-func buildCleanCacheArgs(distroConfig DistroConfig, useToolsChroot bool) []string {
-	args := []string{"clean", "all"}
-
-	if useToolsChroot && distroConfig.UsesInstallRoot() {
-		args = append([]string{"--releasever=" + distroConfig.GetReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
-	}
-
-	return args
-}
-
-func buildRefreshMetadataArgs(distroConfig DistroConfig, repoDir string, useToolsChroot bool) []string {
-	args := []string{"makecache"}
-
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
-
-	// For Fedora, ensure cache is kept after makecache
-	if distroConfig.GetDistroName() == "fedora" {
-		args = append(args, "--setopt=keepcache=1")
-	}
-
-	if useToolsChroot && distroConfig.UsesInstallRoot() {
-		args = append([]string{"--releasever=" + distroConfig.GetReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
-	}
-
-	return args
+	return nil
 }

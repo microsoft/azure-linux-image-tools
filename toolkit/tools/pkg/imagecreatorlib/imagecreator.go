@@ -54,6 +54,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 	outputImageFile string,
 	outputImageFormat string,
 	distro string,
+	distroVersion string,
 	packageSnapshotTime string,
 ) error {
 	var config imagecustomizerapi.Config
@@ -69,7 +70,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, distro, packageSnapshotTime)
+	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 
 func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	toolsTar string, distro string, packageSnapshotTime string,
+	toolsTar string, distro string, distroVersion string, packageSnapshotTime string,
 ) error {
 	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile, outputImageFormat, packageSnapshotTime)
 	if err != nil {
@@ -118,8 +119,13 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	logger.Log.Infof("Creating new image with parameters: %+v\n", imageCreatorParameters)
 
-	// TODO: Get the target OS from the config or command line argument
-	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(targetos.TargetOsAzureLinux3, imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
+	// Determine target OS from distro and distro version
+	targetOs, err := getTargetOs(distro, distroVersion)
+	if err != nil {
+		return fmt.Errorf("failed to determine target OS: %w", err)
+	}
+
+	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(targetOs, imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
 		imageCreatorParameters.buildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err
@@ -128,8 +134,8 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
-	// Create distro config from distro name
-	distroConfig := imagecustomizerlib.NewDistroConfig(distro)
+	// Create distro config from distro name and version
+	distroConfig := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
 
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
 		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distroConfig)
@@ -211,4 +217,23 @@ func createImageCreatorParameters(buildDir string,
 	ic.packageSnapshotTime = packageSnapshotTime
 
 	return ic, nil
+}
+
+// getTargetOs returns the appropriate TargetOs based on distro and version
+func getTargetOs(distro string, distroVersion string) (targetos.TargetOs, error) {
+	switch distro {
+	case "azurelinux":
+		switch distroVersion {
+		case "2.0":
+			return targetos.TargetOsAzureLinux2, nil
+		case "3.0":
+			return targetos.TargetOsAzureLinux3, nil
+		default:
+			return targetos.TargetOsAzureLinux3, fmt.Errorf("unsupported Azure Linux version: %s, defaulting to 3.0", distroVersion)
+		}
+	case "fedora":
+		return targetos.TargetOsFedora42, nil
+	default:
+		return targetos.TargetOsAzureLinux3, fmt.Errorf("unsupported distro: %s, defaulting to Azure Linux 3.0", distro)
+	}
 }

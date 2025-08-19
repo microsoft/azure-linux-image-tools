@@ -30,12 +30,15 @@ do
 done
 
 # Determine the tools file name based on the image version
+BUILD_DIR="$SCRIPT_DIR/build"
+mkdir -p "$BUILD_DIR"
+
 case "${IMAGE_VERSION}" in
   42)
-    TOOLS_FILE="$SCRIPT_DIR/tools-fedora.tar.gz"
+    TOOLS_FILE="$BUILD_DIR/tools-fedora.tar.gz"
     ;;
   *)
-    TOOLS_FILE="$SCRIPT_DIR/tools.tar.gz"
+    TOOLS_FILE="$BUILD_DIR/tools.tar.gz"
     ;;
 esac
 
