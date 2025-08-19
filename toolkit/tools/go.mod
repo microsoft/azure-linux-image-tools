@@ -3,7 +3,7 @@ module github.com/microsoft/azurelinux/toolkit/tools
 go 1.24.1
 
 require (
-	github.com/alecthomas/kong v1.10.0
+	github.com/alecthomas/kong v1.12.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/cavaliercoder/go-cpio v0.0.0-20180626203310-925f9528c45e
 	github.com/fatih/color v1.18.0
