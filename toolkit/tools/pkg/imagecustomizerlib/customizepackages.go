@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -30,19 +29,6 @@ var (
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
 	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
 	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
-
-	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
-	dnfTransactionError  = regexp.MustCompile(`^Error: .+`)
-
-	// Download log message for TDNF.
-	// For example:
-	//   jq 6% 15709
-	tdnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+)\s+\d+\%\s+\d+$`)
-
-	// Download log message for DNF.
-	// For example:
-	//   curl-7.68.0-1.fc42.x86_64.rpm                   1.2 MB/s | 355 kB     00:00
-	dnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+(?:\.[a-zA-Z0-9_]+)*\.rpm)\s+.*\d+.*[kMG]B/s.*\|\s*\d+`)
 )
 
 // executePackageManagerCommand runs a package manager command with proper chroot handling
