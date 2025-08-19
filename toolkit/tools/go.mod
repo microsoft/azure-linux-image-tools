@@ -17,7 +17,7 @@ require (
 	go.opentelemetry.io/contrib/exporters/autoexport v0.61.0
 	go.opentelemetry.io/otel v1.36.0
 	go.opentelemetry.io/otel/sdk v1.36.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.35.0
 	gonum.org/v1/gonum v0.16.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.67.0
