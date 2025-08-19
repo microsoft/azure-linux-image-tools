@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -30,23 +31,18 @@ var (
 	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
 	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
 
-	tdnfOpLines = []string{
-		"Installing/Updating: ",
-		"Removing: ",
-	}
-
-	tdnfSummaryLines = []string{
-		"Installing:",
-		"Upgrading:",
-		"Removing:",
-	}
-
 	tdnfTransactionError = regexp.MustCompile(`^Found \d+ problems$`)
+	dnfTransactionError  = regexp.MustCompile(`^Error: .+`)
 
-	// Download log message.
+	// Download log message for TDNF.
 	// For example:
 	//   jq 6% 15709
 	tdnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+)\s+\d+\%\s+\d+$`)
+
+	// Download log message for DNF.
+	// For example:
+	//   curl-7.68.0-1.fc42.x86_64.rpm                   1.2 MB/s | 355 kB     00:00
+	dnfDownloadRegex = regexp.MustCompile(`^\s*([a-zA-Z0-9\-._+]+(?:\.[a-zA-Z0-9_]+)*\.rpm)\s+.*\d+.*[kMG]B/s.*\|\s*\d+`)
 )
 
 // executePackageManagerCommand runs a package manager command with proper chroot handling
@@ -60,9 +56,13 @@ func executePackageManagerCommand(args []string, imageChroot *safechroot.Chroot,
 		args = append([]string{"--config", "/" + distroConfig.getConfigFile()}, args...)
 	}
 
+	// Use distribution-specific output callback
+	stdoutCallback := distroConfig.createOutputCallback()
+
 	return pmChroot.UnsafeRun(func() error {
 		return shell.NewExecBuilder(distroConfig.getPackageManagerBinary(), args...).
-			LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+			StdoutCallback(stdoutCallback).
+			LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
 			Execute()
 	})
@@ -83,7 +83,6 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 	// Build command arguments directly
 	args := []string{"-v", action, "--assumeyes", "--cacheonly"}
 
-
 	repoDir := distroConfig.getPackageSourceDir()
 	if repoDir != "" {
 		args = append(args, "--setopt=reposdir="+repoDir)
@@ -91,14 +90,17 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 
 	args = append(args, allPackagesToAdd...)
 
-
 	if toolsChroot != nil {
 		args = append([]string{"--releasever=" + distroConfig.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
 	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to %s packages (%v):\n%w", action, allPackagesToAdd, err)
+		if action == "install" {
+			return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, allPackagesToAdd, err)
+		} else {
+			return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, allPackagesToAdd, err)
+		}
 	}
 	return nil
 }
@@ -122,7 +124,7 @@ func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, tool
 
 	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to update packages:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
 	return nil
 }
@@ -177,7 +179,7 @@ func refreshPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
 
 	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to refresh package metadata:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrPackageRepoMetadataRefresh, err)
 	}
 	return nil
 }
@@ -192,7 +194,7 @@ func cleanCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, 
 
 	err := executePackageManagerCommand(args, imageChroot, toolsChroot, distroConfig)
 	if err != nil {
-		return fmt.Errorf("failed to clean %s cache:\n%w", distroConfig.getPackageManagerBinary(), err)
+		return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
 	}
 	return nil
 }
@@ -224,7 +226,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read package list file (%s):\n%w", packageListFilePath, err)
+			return nil, fmt.Errorf("%w (%s):\n%w", ErrInvalidPackageListFile, packageListFilePath, err)
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)

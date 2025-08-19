@@ -40,6 +40,9 @@ type distroHandler interface {
 	// Package source handling
 	getPackageSourceDir() string
 
+	// Distribution-specific logging and output handling
+	createOutputCallback() func(string)
+
 	// Package management operations
 	managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
