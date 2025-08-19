@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -22,6 +23,10 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	assert.NoError(t, err)
 	if !ukifyExists {
 		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts")
