@@ -10,7 +10,15 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 )
 
-// PackageType represents the type of package manager
+// PackageManagerType represents the type of package manager
+type PackageManagerType string
+
+const (
+	packageManagerTDNF PackageManagerType = "tdnf"
+	packageManagerDNF  PackageManagerType = "dnf"
+)
+
+// PackageType represents the type of package format
 type PackageType string
 
 const (
@@ -26,22 +34,34 @@ const (
 	distroNameFedora     DistroName = "fedora"
 )
 
-// distroHandler represents the interface for distribution-specific configuration
-type distroHandler interface {
+// packageManagerHandler represents the interface for package manager implementation details
+type packageManagerHandler interface {
 	// Package manager configuration
 	getPackageManagerBinary() string
 	getPackageType() PackageType
 	getReleaseVersion() string
 	getConfigFile() string
+	getPackageSourceDir() string
 
+	// Package manager specific output handling
+	createOutputCallback() func(string)
+}
+
+// rpmPackageManagerHandler represents the interface for RPM-based package managers (TDNF, DNF)
+type rpmPackageManagerHandler interface {
+	packageManagerHandler
+
+	// RPM-specific functionality is already covered by packageManagerHandler
+	// This interface exists to enforce type safety for RPM-only operations
+}
+
+// distroHandler represents the interface for distribution-specific configuration
+type distroHandler interface {
 	// Distribution identification
 	getDistroName() DistroName
 
-	// Package source handling
-	getPackageSourceDir() string
-
-	// Distribution-specific logging and output handling
-	createOutputCallback() func(string)
+	// Get the package manager for this distribution
+	getPackageManager() packageManagerHandler
 
 	// Package management operations
 	managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
@@ -53,10 +73,22 @@ type distroHandler interface {
 func NewDistroHandler(distroName string, version string) distroHandler {
 	switch distroName {
 	case string(distroNameFedora):
-		return &fedoraDistroConfig{version: version}
+		return newFedoraDistroConfig(version, packageManagerDNF)
 	case string(distroNameAzureLinux):
 		fallthrough
 	default:
-		return &azureLinuxDistroConfig{version: version}
+		return newAzureLinuxDistroConfig(version, packageManagerTDNF)
+	}
+}
+
+// NewDistroHandlerWithPackageManager creates a distro handler with specific package manager
+func NewDistroHandlerWithPackageManager(distroName string, version string, pmType PackageManagerType) distroHandler {
+	switch distroName {
+	case string(distroNameFedora):
+		return newFedoraDistroConfig(version, pmType)
+	case string(distroNameAzureLinux):
+		fallthrough
+	default:
+		return newAzureLinuxDistroConfig(version, pmType)
 	}
 }
