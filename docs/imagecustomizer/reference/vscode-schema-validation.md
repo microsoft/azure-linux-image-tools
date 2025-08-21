@@ -2,6 +2,7 @@
 title: API Schema for VSCode
 parent: Reference
 nav_order: 3
+sidebar_position: 3
 ---
 
 # Enabling VS Code Configuration Validation for Image Customizer

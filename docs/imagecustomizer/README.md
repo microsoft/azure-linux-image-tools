@@ -1,6 +1,7 @@
 ---
 title: Image Customizer
 nav_order: 2
+sidebar_position: 2
 has_toc: false
 ---
 
@@ -56,9 +57,9 @@ other Linux distributions as well.
 - [Things to Avoid](./concepts/things-to-avoid.md) - Best practices to ensure a
   smooth customization experience
 - API Documentation:
-  - [CLI](./api/cli.md) - Learn about the available command-line interface
+  - [CLI](./api/cli/index.md) - Learn about the available command-line interface
     commands for Image Customizer
-  - [Configuration](./api/configuration.md) - Understand how to configure Image
+  - [Configuration](./api/configuration/index.md) - Understand how to configure Image
     Customizer to suit your needs
 
 ## Telemetry 

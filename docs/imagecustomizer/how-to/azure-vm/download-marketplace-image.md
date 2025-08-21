@@ -1,7 +1,7 @@
 ---
 title: Download Marketplace Image
-parent: Create Azure VM
-nav_order: 1
+nav_order: 2
+sidebar_position: 2
 has_toc: false
 ---
 
