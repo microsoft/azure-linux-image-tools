@@ -17,8 +17,22 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// executePackageManagerCommand runs a package manager command with proper chroot handling
-func executePackageManagerCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+// rpmPackageManagerHandler represents the interface for RPM-based package managers (TDNF, DNF)
+type rpmPackageManagerHandler interface {
+	// Package manager configuration
+	getPackageManagerBinary() string
+	getReleaseVersion() string
+	getConfigFile() string
+
+	// Package manager specific output handling
+	createOutputCallback() func(string)
+
+	// Package manager specific cache options for install/update operations
+	getCacheOnlyOptions() []string
+}
+
+// executeRpmPackageManagerCommand runs a package manager command with proper chroot handling
+func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
 	pmChroot := imageChroot
 	if toolsChroot != nil {
 		pmChroot = toolsChroot
@@ -40,7 +54,7 @@ func executePackageManagerCommand(args []string, imageChroot *safechroot.Chroot,
 	})
 }
 
-func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
 	if len(allPackagesToAdd) == 0 {
 		return nil
 	}
@@ -55,10 +69,9 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 	// Build command arguments directly
 	args := []string{"-v", action, "--assumeyes", "--cacheonly"}
 
-	repoDir := pmHandler.getPackageSourceDir()
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
+	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot) // Add package manager specific cache options (e.g., DNF cache metadata options)
+	cacheOptions := pmHandler.getCacheOnlyOptions()
+	args = append(args, cacheOptions...)
 
 	args = append(args, allPackagesToAdd...)
 
@@ -66,7 +79,7 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		if action == "install" {
 			return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, allPackagesToAdd, err)
@@ -77,32 +90,31 @@ func installOrUpdatePackages(ctx context.Context, action string, allPackagesToAd
 	return nil
 }
 
-// updateAllPackages updates all packages using the appropriate package manager
-func updateAllPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+// updateAllRpmPackages updates all packages using the appropriate package manager
+func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
 	defer span.End()
 
 	// Build command arguments directly
 	args := []string{"-v", "update", "--assumeyes", "--cacheonly"}
 
-	repoDir := pmHandler.getPackageSourceDir()
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
+	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot) // Add package manager specific cache options (e.g., DNF cache metadata options)
+	cacheOptions := pmHandler.getCacheOnlyOptions()
+	args = append(args, cacheOptions...)
 
 	if toolsChroot != nil {
 		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
 	return nil
 }
 
-// removePackages removes packages using the appropriate package manager
-func removePackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+// removeRpmPackages removes packages using the appropriate package manager
+func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
 	if len(allPackagesToRemove) <= 0 {
 		return nil
 	}
@@ -122,41 +134,36 @@ func removePackages(ctx context.Context, allPackagesToRemove []string, imageChro
 		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, allPackagesToRemove, err)
 	}
 	return nil
 }
 
-// refreshPackageMetadata refreshes package metadata
-func refreshPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+// refreshRpmPackageMetadata refreshes package metadata
+func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_metadata")
 	defer span.End()
 
 	logger.Log.Infof("Refreshing package metadata")
 
-	args := []string{
-		"-v", "check-update", "--refresh", "--assumeyes",
-	}
+	args := []string{"-v", "check-update", "--refresh", "--assumeyes"}
 
-	repoDir := pmHandler.getPackageSourceDir()
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
+	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
 	if toolsChroot != nil {
 		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageRepoMetadataRefresh, err)
 	}
 	return nil
 }
 
-func cleanCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func cleanRpmCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
 	// Build command arguments directly
 	args := []string{"-v", "clean", "all"}
 
@@ -164,41 +171,9 @@ func cleanCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, 
 		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
 	}
 
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
-	}
-	return nil
-}
-
-// prefillDnfCache downloads packages to DNF cache for offline installation
-func prefillDnfCache(ctx context.Context, installPackages []string, updatePackages []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
-	allPackages := append(installPackages, updatePackages...)
-	if len(allPackages) == 0 {
-		return nil
-	}
-
-	logger.Log.Infof("Pre-filling DNF cache for packages: %v", allPackages)
-
-	args := []string{"-v", "install", "--assumeyes", "--downloadonly"}
-
-	repoDir := pmHandler.getPackageSourceDir()
-	if repoDir != "" {
-		args = append(args, "--setopt=reposdir="+repoDir)
-	}
-
-	// Enable keepcache to ensure packages are stored in cache
-	args = append(args, "--setopt=keepcache=1")
-
-	if toolsChroot != nil {
-		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
-	}
-
-	args = append(args, allPackages...)
-
-	err := executePackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
-	if err != nil {
-		return fmt.Errorf("failed to prefill DNF cache for packages (%v):\n%w", allPackages, err)
 	}
 	return nil
 }

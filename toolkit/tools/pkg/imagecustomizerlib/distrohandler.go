@@ -8,6 +8,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
 
 // PackageManagerType represents the type of package manager
@@ -34,34 +35,15 @@ const (
 	distroNameFedora     DistroName = "fedora"
 )
 
-// packageManagerHandler represents the interface for package manager implementation details
-type packageManagerHandler interface {
-	// Package manager configuration
-	getPackageManagerBinary() string
-	getPackageType() PackageType
-	getReleaseVersion() string
-	getConfigFile() string
-	getPackageSourceDir() string
-
-	// Package manager specific output handling
-	createOutputCallback() func(string)
-}
-
-// rpmPackageManagerHandler represents the interface for RPM-based package managers (TDNF, DNF)
-type rpmPackageManagerHandler interface {
-	packageManagerHandler
-
-	// RPM-specific functionality is already covered by packageManagerHandler
-	// This interface exists to enforce type safety for RPM-only operations
-}
-
 // distroHandler represents the interface for distribution-specific configuration
 type distroHandler interface {
 	// Distribution identification
 	getDistroName() DistroName
 
 	// Get the package manager for this distribution
-	getPackageManager() packageManagerHandler
+	getPackageManager() rpmPackageManagerHandler
+
+	GetTargetOs() targetos.TargetOs
 
 	// Package management operations
 	managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
@@ -75,9 +57,9 @@ func NewDistroHandler(distroName string, version string) distroHandler {
 	case string(distroNameFedora):
 		return newFedoraDistroConfig(version, packageManagerDNF)
 	case string(distroNameAzureLinux):
-		fallthrough
-	default:
 		return newAzureLinuxDistroConfig(version, packageManagerTDNF)
+	default:
+		panic("unsupported distro name: " + distroName)
 	}
 }
 
@@ -87,8 +69,8 @@ func NewDistroHandlerWithPackageManager(distroName string, version string, pmTyp
 	case string(distroNameFedora):
 		return newFedoraDistroConfig(version, pmType)
 	case string(distroNameAzureLinux):
-		fallthrough
-	default:
 		return newAzureLinuxDistroConfig(version, pmType)
+	default:
+		panic("unsupported distro name: " + distroName)
 	}
 }

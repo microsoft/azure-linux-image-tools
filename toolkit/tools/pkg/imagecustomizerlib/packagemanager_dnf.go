@@ -16,17 +16,17 @@ type dnfPackageManager struct {
 }
 
 func newDnfPackageManager(version string) *dnfPackageManager {
-	if version == "" {
-		version = "42" // default version for Fedora
-	}
 	return &dnfPackageManager{version: version}
 }
 
 func (pm *dnfPackageManager) getPackageManagerBinary() string { return "dnf" }
-func (pm *dnfPackageManager) getPackageType() PackageType     { return packageTypeRPM }
 func (pm *dnfPackageManager) getReleaseVersion() string       { return pm.version }
 func (pm *dnfPackageManager) getConfigFile() string           { return "etc/dnf/dnf.conf" }
-func (pm *dnfPackageManager) getPackageSourceDir() string     { return rpmsMountParentDirInChroot }
+
+// getCacheOnlyOptions returns DNF-specific cache options for install/update operations
+func (pm *dnfPackageManager) getCacheOnlyOptions() []string {
+	return []string{"--setopt=cacheonly=metadata"}
+}
 
 // DNF-specific constants and output handling
 const (

@@ -17,17 +17,17 @@ type tdnfPackageManager struct {
 }
 
 func newTdnfPackageManager(version string) *tdnfPackageManager {
-	if version == "" {
-		version = "3.0" // default version for Azure Linux
-	}
 	return &tdnfPackageManager{version: version}
 }
 
 func (pm *tdnfPackageManager) getPackageManagerBinary() string { return "tdnf" }
-func (pm *tdnfPackageManager) getPackageType() PackageType     { return packageTypeRPM }
 func (pm *tdnfPackageManager) getReleaseVersion() string       { return pm.version }
 func (pm *tdnfPackageManager) getConfigFile() string           { return customTdnfConfRelPath }
-func (pm *tdnfPackageManager) getPackageSourceDir() string     { return rpmsMountParentDirInChroot }
+
+// getCacheOnlyOptions returns TDNF-specific cache options for install/update operations
+func (pm *tdnfPackageManager) getCacheOnlyOptions() []string {
+	return nil // TDNF doesn't need additional cache options
+}
 
 // TDNF-specific constants and output handling
 const (
