@@ -22,58 +22,11 @@ REPO_NO_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$IMAGE_VERSION-nokey.repo"
 
 mkdir -p "$OUT_DIR"
 
-# Determine which Dockerfile to use and extract package list based on the base image
-TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
-DOCKERFILE_NAME="Dockerfile"
-PACKAGE_LIST=""
-
-if [[ "$CONTAINER_IMAGE" == *"fedora"* ]]; then
-  DOCKERFILE_NAME="Dockerfile.fedora"
-  echo "Using Fedora-specific Dockerfile"
-  # Extract packages from fedora.yaml
-  if command -v python3 >/dev/null 2>&1; then
-    PACKAGE_LIST=$(python3 -c "
-import yaml
-import sys
-try:
-    with open('$TESTDATA_DIR/fedora.yaml', 'r') as f:
-        data = yaml.safe_load(f)
-        packages = data.get('os', {}).get('packages', {}).get('install', [])
-        print(' '.join(packages))
-except Exception as e:
-    print('', file=sys.stderr)
-")
-  fi
-elif [[ "$CONTAINER_IMAGE" == *"azurelinux"* ]] || [[ "$CONTAINER_IMAGE" == *"mariner"* ]]; then
-  DOCKERFILE_NAME="Dockerfile.azurelinux"
-  echo "Using Azure Linux-specific Dockerfile"
-  # Extract packages from minimal-os.yaml
-  if command -v python3 >/dev/null 2>&1; then
-    PACKAGE_LIST=$(python3 -c "
-import yaml
-import sys
-try:
-    with open('$TESTDATA_DIR/minimal-os.yaml', 'r') as f:
-        data = yaml.safe_load(f)
-        packages = data.get('os', {}).get('packages', {}).get('install', [])
-        print(' '.join(packages))
-except Exception as e:
-    print('', file=sys.stderr)
-")
-  fi
-else
-  echo "Warning: Could not determine distribution from image name '$CONTAINER_IMAGE', using default Dockerfile"
-fi
-
-echo "Package list: $PACKAGE_LIST"
-
 # Build a container image that contains the RPMs.
 docker build \
   --build-arg "baseimage=$CONTAINER_IMAGE" \
   --build-arg "imagecreator=$IMAGE_CREATOR" \
-  --build-arg "package_list=$PACKAGE_LIST" \
   --tag "$CONTAINER_TAG" \
-  --file "$DOCKERFILE_DIR/$DOCKERFILE_NAME" \
   "$DOCKERFILE_DIR"
 
 # Extract the RPM files.

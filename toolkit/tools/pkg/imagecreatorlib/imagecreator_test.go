@@ -197,34 +197,3 @@ func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
 	assert.Equal(t, ic.outputImageDir, buildDir)
 }
-
-// Fedora-specific tests
-
-func TestCreateImageRawFedora(t *testing.T) {
-	checkSkipForCreateImage(t, runCreateImageTests)
-
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRawFedora")
-	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "fedora.yaml")
-	outputImageFilePath := filepath.Join(testTmpDir, "fedora-image1.raw")
-	outputImageFormat := "raw"
-
-	// get RPM sources for Fedora 42
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "42", false, true)
-	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "42", true)
-
-	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile, outputImageFilePath, outputImageFormat, "fedora", "42", "")
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	fileType, err := testutils.GetImageFileType(outputImageFilePath)
-	assert.NoError(t, err)
-	assert.Equal(t, "raw", fileType)
-
-	imageInfo, err := imagecustomizerlib.GetImageFileInfo(outputImageFilePath)
-	assert.NoError(t, err)
-	assert.Equal(t, "raw", imageInfo.Format)
-	assert.Equal(t, int64(3*diskutils.GiB), imageInfo.VirtualSize)
-}
