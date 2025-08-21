@@ -65,7 +65,7 @@ The container is published to both:
     ```
 
    For documentation on the supported configuration options, see:
-   [Supported configuration](../api/configuration/index.md)
+   [Supported configuration](../api/configuration/configuration.md)
 
 3. Run the Image Customizer container. Here is a sample command to run it: 
 
@@ -105,7 +105,7 @@ The container is published to both:
 
     - `imagecustomizer`: Specifies the executable to run within the container.
 
-    Image Customizer options ([CLI API](../api/cli/index.md)):
+    Image Customizer options ([CLI API](../api/cli/cli.md)):
 
     - `--image-file "/mnt/staging/image.vhdx"`: Use the host's `$HOME/staging/image.vhdx`
       file as the input image.
@@ -144,6 +144,6 @@ run-container.sh \
 
 ## Next Steps
 
-- Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm/index.md)
-- Learn more about the [Image Customizer command line](../api/cli/index.md)
-- Learn more about the [Image Customizer config options](../api/configuration/index.md)
+- Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm/azure-vm.md)
+- Learn more about the [Image Customizer command line](../api/cli/cli.md)
+- Learn more about the [Image Customizer config options](../api/configuration/configuration.md)

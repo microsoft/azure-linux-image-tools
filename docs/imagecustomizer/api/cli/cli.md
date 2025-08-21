@@ -102,7 +102,7 @@ The file path of the YAML (or JSON) configuration file that specifies how to cus
 the image.
 
 For documentation on the supported configuration options, see:
-[Image Customizer configuration](../configuration/index.md)
+[Image Customizer configuration](../configuration/configuration.md)
 
 Added in v0.3.
 
