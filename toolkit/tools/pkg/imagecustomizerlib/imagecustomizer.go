@@ -601,12 +601,10 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.rawImageFile = newRawImageFile
 	}
 
-	// TODO: Add support for fedora in image customizer
-	distroHandler := NewDistroHandler(string(distroNameAzureLinux), "3.0")
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx,
 		ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos,
-		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat, distroHandler)
+		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat)
 	if err != nil {
 		return err
 	}
@@ -1056,7 +1054,6 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
 	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
-	distroHandler distroHandler,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -1070,6 +1067,12 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	defer imageConnection.Close()
 
 	osRelease, err := extractOSRelease(imageConnection)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
+	// Create distro handler based on the detected OS from the image
+	distroHandler, err := NewDistroHandlerFromImageConnection(imageConnection)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

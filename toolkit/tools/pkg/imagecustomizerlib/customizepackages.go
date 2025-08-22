@@ -54,7 +54,7 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 		var packageList imagecustomizerapi.PackageList
 		err = imagecustomizerapi.UnmarshalAndValidateYamlFile(packageListFilePath, &packageList)
 		if err != nil {
-			return nil, fmt.Errorf("%w (%s):\n%w", ErrInvalidPackageListFile, packageListFilePath, err)
+			return nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidPackageListFile, packageListFilePath, err)
 		}
 
 		allPackages = append(allPackages, packageList.Packages...)
@@ -64,7 +64,6 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 	return allPackages, nil
 }
 
-// TODO remove this after adding fedora support for image customizer
 func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	err := imageChroot.UnsafeRun(func() error {
 		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")

@@ -18,7 +18,7 @@ import (
 // managePackagesRpm provides a shared implementation for RPM-based package management
 func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string, distroHandler distroHandler,
+	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string, pmHandler rpmPackageManagerHandler,
 ) error {
 	var err error
 
@@ -26,9 +26,6 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	if toolsChroot != nil {
 		packageManagerChroot = toolsChroot
 	}
-
-	// Get package manager from distribution config
-	pmHandler := distroHandler.getPackageManager()
 
 	// Validate that snapshot time is only used with package managers that support it
 	if snapshotTime != "" && !pmHandler.supportsSnapshotTime() {

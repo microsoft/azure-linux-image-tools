@@ -17,26 +17,11 @@ type azureLinuxDistroHandler struct {
 	packageManager rpmPackageManagerHandler
 }
 
-func newAzureLinuxDistroHandler(version string, packageManagerType PackageManagerType) *azureLinuxDistroHandler {
-	var pm rpmPackageManagerHandler
-	switch packageManagerType {
-	case packageManagerDNF:
-		pm = newDnfPackageManager(version)
-	case packageManagerTDNF:
-		pm = newTdnfPackageManager(version)
-	default:
-		panic("unsupported package manager type for Azure Linux: " + string(packageManagerType))
-	}
-
+func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
 	return &azureLinuxDistroHandler{
 		version:        version,
-		packageManager: pm,
+		packageManager: newTdnfPackageManager(version),
 	}
-}
-
-func (d *azureLinuxDistroHandler) getDistroName() DistroName { return distroNameAzureLinux }
-func (d *azureLinuxDistroHandler) getPackageManager() rpmPackageManagerHandler {
-	return d.packageManager
 }
 
 func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
@@ -55,5 +40,5 @@ func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir s
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {
-	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d)
+	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d.packageManager)
 }

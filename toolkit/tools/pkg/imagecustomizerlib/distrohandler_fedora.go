@@ -17,24 +17,12 @@ type fedoraDistroHandler struct {
 	packageManager rpmPackageManagerHandler
 }
 
-func newFedoraDistroHandler(version string, packageManagerType PackageManagerType) *fedoraDistroHandler {
-	var pm rpmPackageManagerHandler
-	switch packageManagerType {
-	case packageManagerDNF:
-		pm = newDnfPackageManager(version)
-	default:
-		panic("unsupported package manager type for Fedora: " + string(packageManagerType))
-	}
-
+func newFedoraDistroHandler(version string) *fedoraDistroHandler {
 	return &fedoraDistroHandler{
 		version:        version,
-		packageManager: pm,
+		packageManager: newDnfPackageManager(version),
 	}
 }
-
-func (d *fedoraDistroHandler) getDistroName() DistroName { return distroNameFedora }
-
-func (d *fedoraDistroHandler) getPackageManager() rpmPackageManagerHandler { return d.packageManager }
 
 func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 	switch d.version {
@@ -50,5 +38,5 @@ func (d *fedoraDistroHandler) managePackages(ctx context.Context, buildDir strin
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {
-	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d)
+	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d.packageManager)
 }

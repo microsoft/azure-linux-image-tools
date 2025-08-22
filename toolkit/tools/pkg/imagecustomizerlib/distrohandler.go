@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
@@ -22,11 +23,6 @@ const (
 // PackageType represents the type of package format
 type PackageType string
 
-const (
-	packageTypeRPM PackageType = "rpm"
-	packageTypeDeb PackageType = "deb"
-)
-
 // DistroName represents the distribution name
 type DistroName string
 
@@ -37,9 +33,6 @@ const (
 
 // distroHandler represents the interface for distribution-specific configuration
 type distroHandler interface {
-	// Get the package manager for this distribution
-	getPackageManager() rpmPackageManagerHandler
-
 	GetTargetOs() targetos.TargetOs
 
 	// Package management operations
@@ -48,13 +41,37 @@ type distroHandler interface {
 		rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string) error
 }
 
-// NewDistroHandler creates the appropriate distro handler with version support
+// NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
+func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) distroHandler {
+	switch targetOs {
+	case targetos.TargetOsFedora42:
+		return newFedoraDistroHandler("42")
+	case targetos.TargetOsAzureLinux2:
+		return newAzureLinuxDistroHandler("2.0")
+	case targetos.TargetOsAzureLinux3:
+		return newAzureLinuxDistroHandler("3.0")
+	default:
+		panic("unsupported target OS: " + string(targetOs))
+	}
+}
+
+// NewDistroHandlerFromImageConnection detects the OS from the image and creates the appropriate handler
+func NewDistroHandlerFromImageConnection(imageConnection *imageconnection.ImageConnection) (distroHandler, error) {
+	targetOs, err := targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDistroHandlerFromTargetOs(targetOs), nil
+}
+
+// NewDistroHandler creates the appropriate distro handler with version support (legacy)
 func NewDistroHandler(distroName string, version string) distroHandler {
 	switch distroName {
 	case string(distroNameFedora):
-		return newFedoraDistroHandler(version, packageManagerDNF)
+		return newFedoraDistroHandler(version)
 	case string(distroNameAzureLinux):
-		return newAzureLinuxDistroHandler(version, packageManagerTDNF)
+		return newAzureLinuxDistroHandler(version)
 	default:
 		panic("unsupported distro name: " + distroName)
 	}
