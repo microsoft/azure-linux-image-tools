@@ -29,6 +29,11 @@ func (pm *tdnfPackageManager) getCacheOnlyOptions() []string {
 	return nil // TDNF doesn't need additional cache options
 }
 
+// supportsSnapshotTime returns whether TDNF supports snapshot time functionality
+func (pm *tdnfPackageManager) supportsSnapshotTime() bool {
+	return true // TDNF supports snapshot time for Azure Linux
+}
+
 // TDNF-specific constants and output handling
 const (
 	tdnfTransactionErrorPattern = `^Found \d+ problems$`

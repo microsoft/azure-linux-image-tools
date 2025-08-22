@@ -11,13 +11,13 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
 
-// fedoraDistroConfig implements distroHandler for Fedora
-type fedoraDistroConfig struct {
+// fedoraDistroHandler implements distroHandler for Fedora
+type fedoraDistroHandler struct {
 	version        string
 	packageManager rpmPackageManagerHandler
 }
 
-func newFedoraDistroConfig(version string, packageManagerType PackageManagerType) *fedoraDistroConfig {
+func newFedoraDistroHandler(version string, packageManagerType PackageManagerType) *fedoraDistroHandler {
 	var pm rpmPackageManagerHandler
 	switch packageManagerType {
 	case packageManagerDNF:
@@ -26,16 +26,17 @@ func newFedoraDistroConfig(version string, packageManagerType PackageManagerType
 		panic("unsupported package manager type for Fedora: " + string(packageManagerType))
 	}
 
-	return &fedoraDistroConfig{
+	return &fedoraDistroHandler{
 		version:        version,
 		packageManager: pm,
 	}
 }
 
-func (d *fedoraDistroConfig) getDistroName() DistroName                   { return distroNameFedora }
-func (d *fedoraDistroConfig) getPackageManager() rpmPackageManagerHandler { return d.packageManager }
+func (d *fedoraDistroHandler) getDistroName() DistroName { return distroNameFedora }
 
-func (d *fedoraDistroConfig) GetTargetOs() targetos.TargetOs {
+func (d *fedoraDistroHandler) getPackageManager() rpmPackageManagerHandler { return d.packageManager }
+
+func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 	switch d.version {
 	case "42":
 		return targetos.TargetOsFedora42
@@ -45,7 +46,7 @@ func (d *fedoraDistroConfig) GetTargetOs() targetos.TargetOs {
 }
 
 // managePackages handles the complete package management workflow for Fedora
-func (d *fedoraDistroConfig) managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+func (d *fedoraDistroHandler) managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {

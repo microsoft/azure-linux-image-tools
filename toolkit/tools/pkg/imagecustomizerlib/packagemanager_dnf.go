@@ -28,6 +28,11 @@ func (pm *dnfPackageManager) getCacheOnlyOptions() []string {
 	return []string{"--setopt=cacheonly=metadata"}
 }
 
+// supportsSnapshotTime returns whether DNF supports snapshot time functionality
+func (pm *dnfPackageManager) supportsSnapshotTime() bool {
+	return false // DNF does not support snapshot time for Fedora
+}
+
 // DNF-specific constants and output handling
 const (
 	dnfDownloadPattern = `^\s*([a-zA-Z0-9\-._+]+(?:\.[a-zA-Z0-9_]+)*\.rpm)\s+.*\d+.*[kMG]B/s.*\|\s*\d+`

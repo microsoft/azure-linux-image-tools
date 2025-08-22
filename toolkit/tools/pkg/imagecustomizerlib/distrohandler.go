@@ -37,9 +37,6 @@ const (
 
 // distroHandler represents the interface for distribution-specific configuration
 type distroHandler interface {
-	// Distribution identification
-	getDistroName() DistroName
-
 	// Get the package manager for this distribution
 	getPackageManager() rpmPackageManagerHandler
 
@@ -55,21 +52,9 @@ type distroHandler interface {
 func NewDistroHandler(distroName string, version string) distroHandler {
 	switch distroName {
 	case string(distroNameFedora):
-		return newFedoraDistroConfig(version, packageManagerDNF)
+		return newFedoraDistroHandler(version, packageManagerDNF)
 	case string(distroNameAzureLinux):
-		return newAzureLinuxDistroConfig(version, packageManagerTDNF)
-	default:
-		panic("unsupported distro name: " + distroName)
-	}
-}
-
-// NewDistroHandlerWithPackageManager creates a distro handler with specific package manager
-func NewDistroHandlerWithPackageManager(distroName string, version string, pmType PackageManagerType) distroHandler {
-	switch distroName {
-	case string(distroNameFedora):
-		return newFedoraDistroConfig(version, pmType)
-	case string(distroNameAzureLinux):
-		return newAzureLinuxDistroConfig(version, pmType)
+		return newAzureLinuxDistroHandler(version, packageManagerTDNF)
 	default:
 		panic("unsupported distro name: " + distroName)
 	}

@@ -11,13 +11,13 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 )
 
-// azureLinuxDistroConfig implements distroHandler for Azure Linux
-type azureLinuxDistroConfig struct {
+// azureLinuxDistroHandler implements distroHandler for Azure Linux
+type azureLinuxDistroHandler struct {
 	version        string
 	packageManager rpmPackageManagerHandler
 }
 
-func newAzureLinuxDistroConfig(version string, packageManagerType PackageManagerType) *azureLinuxDistroConfig {
+func newAzureLinuxDistroHandler(version string, packageManagerType PackageManagerType) *azureLinuxDistroHandler {
 	var pm rpmPackageManagerHandler
 	switch packageManagerType {
 	case packageManagerDNF:
@@ -28,18 +28,18 @@ func newAzureLinuxDistroConfig(version string, packageManagerType PackageManager
 		panic("unsupported package manager type for Azure Linux: " + string(packageManagerType))
 	}
 
-	return &azureLinuxDistroConfig{
+	return &azureLinuxDistroHandler{
 		version:        version,
 		packageManager: pm,
 	}
 }
 
-func (d *azureLinuxDistroConfig) getDistroName() DistroName { return distroNameAzureLinux }
-func (d *azureLinuxDistroConfig) getPackageManager() rpmPackageManagerHandler {
+func (d *azureLinuxDistroHandler) getDistroName() DistroName { return distroNameAzureLinux }
+func (d *azureLinuxDistroHandler) getPackageManager() rpmPackageManagerHandler {
 	return d.packageManager
 }
 
-func (d *azureLinuxDistroConfig) GetTargetOs() targetos.TargetOs {
+func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 	switch d.version {
 	case "2.0":
 		return targetos.TargetOsAzureLinux2
@@ -51,7 +51,7 @@ func (d *azureLinuxDistroConfig) GetTargetOs() targetos.TargetOs {
 }
 
 // managePackages handles the complete package management workflow for Azure Linux
-func (d *azureLinuxDistroConfig) managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
 ) error {

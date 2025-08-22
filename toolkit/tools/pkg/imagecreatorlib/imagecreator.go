@@ -119,9 +119,9 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Creating new image with parameters: %+v\n", imageCreatorParameters)
 
 	// Create distro config from distro name and version
-	distroConfig := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
+	distroHandler := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
 
-	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(distroConfig.GetTargetOs(), imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
+	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(distroHandler.GetTargetOs(), imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
 		imageCreatorParameters.buildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
-		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distroConfig)
+		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distroHandler)
 	if err != nil {
 		return err
 	}
