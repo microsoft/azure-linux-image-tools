@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -80,51 +79,39 @@ func TestCloseShouldRemoveRoot(t *testing.T) {
 	err = chroot.Close(defaultLeaveOnDisk)
 	assert.NoError(t, err)
 
-	// when Docker based pipeline:
-	// - chroot name are static and pre-defined
-	// - chroot folders are re-cycled
 	_, err = os.Stat(chrootDir)
-	if buildpipeline.IsRegularBuild() {
-		assert.True(t, os.IsNotExist(err))
-	} else {
-		assert.True(t, !os.IsNotExist(err))
-	}
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestCloseShouldLeaveRootOnRequest(t *testing.T) {
-	if buildpipeline.IsRegularBuild() {
-		// this test only apply to "regular build" pipeline
-		const leaveOnDisk = true
+	// this test only apply to "regular build" pipeline
+	const leaveOnDisk = true
 
-		extraMountPoints := []*MountPoint{}
-		extraDirectories := []string{}
+	extraMountPoints := []*MountPoint{}
+	extraDirectories := []string{}
 
-		dir := filepath.Join(t.TempDir(), "TestCloseShouldLeaveRootOnRequest")
-		chroot := NewChroot(dir, isExistingDir)
+	dir := filepath.Join(t.TempDir(), "TestCloseShouldLeaveRootOnRequest")
+	chroot := NewChroot(dir, isExistingDir)
 
-		err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-		assert.NoError(t, err)
+	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
+	assert.NoError(t, err)
 
-		err = chroot.Close(leaveOnDisk)
-		assert.NoError(t, err)
+	err = chroot.Close(leaveOnDisk)
+	assert.NoError(t, err)
 
-		_, err = os.Stat(dir)
-		assert.True(t, !os.IsNotExist(err))
+	_, err = os.Stat(dir)
+	assert.True(t, !os.IsNotExist(err))
 
-		// Since the chroot dir will be left on disk but unmounted,
-		// manually clean it up.
-		err = os.RemoveAll(dir)
-		assert.NoError(t, err)
-	}
+	// Since the chroot dir will be left on disk but unmounted,
+	// manually clean it up.
+	err = os.RemoveAll(dir)
+	assert.NoError(t, err)
 }
 
 func TestRootDirShouldReturnRootDir(t *testing.T) {
-	if buildpipeline.IsRegularBuild() {
-		// this test only apply to "regular build" pipeline
-		dir := filepath.Join(t.TempDir(), "TestRootDirShouldReturnRootDir")
-		chroot := NewChroot(dir, isExistingDir)
-		assert.Equal(t, dir, chroot.RootDir())
-	}
+	dir := filepath.Join(t.TempDir(), "TestRootDirShouldReturnRootDir")
+	chroot := NewChroot(dir, isExistingDir)
+	assert.Equal(t, dir, chroot.RootDir())
 }
 
 func TestRunShouldReturnCorrectError(t *testing.T) {
@@ -215,48 +202,42 @@ func TestInitializeShouldExtractTar(t *testing.T) {
 }
 
 func TestInitializeShouldCreateCustomMountPoints(t *testing.T) {
-	if buildpipeline.IsRegularBuild() {
-		// this test only apply to "regular build" pipeline
-		const expectedFile = "/custom-mount/testfile.txt"
+	const expectedFile = "/custom-mount/testfile.txt"
 
-		extraDirectories := []string{}
-		srcMount := filepath.Join(testDir, "testmount")
-		extraMountPoints := []*MountPoint{
-			NewMountPoint(srcMount, "custom-mount", "", BindMountPointFlags, emptyPath),
-		}
-
-		dir := filepath.Join(t.TempDir(), "TestInitializeShouldCreateCustomMountPoints")
-		chroot := NewChroot(dir, isExistingDir)
-
-		err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-		assert.NoError(t, err)
-		defer chroot.Close(defaultLeaveOnDisk)
-
-		fullPath := filepath.Join(dir, expectedFile)
-		_, err = os.Stat(fullPath)
-		assert.True(t, !os.IsNotExist(err))
+	extraDirectories := []string{}
+	srcMount := filepath.Join(testDir, "testmount")
+	extraMountPoints := []*MountPoint{
+		NewMountPoint(srcMount, "custom-mount", "", BindMountPointFlags, emptyPath),
 	}
+
+	dir := filepath.Join(t.TempDir(), "TestInitializeShouldCreateCustomMountPoints")
+	chroot := NewChroot(dir, isExistingDir)
+
+	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
+	assert.NoError(t, err)
+	defer chroot.Close(defaultLeaveOnDisk)
+
+	fullPath := filepath.Join(dir, expectedFile)
+	_, err = os.Stat(fullPath)
+	assert.True(t, !os.IsNotExist(err))
 }
 
 func TestInitializeShouldCleanupOnBadMountPoint(t *testing.T) {
-	if buildpipeline.IsRegularBuild() {
-		// this test only apply to "regular build" pipeline
-		const invalidMountPointSource = "@"
+	const invalidMountPointSource = "@"
 
-		extraDirectories := []string{}
-		extraMountPoints := []*MountPoint{
-			NewMountPoint(invalidMountPointSource, "custom-mount", "", emptyFlags, emptyPath),
-		}
-
-		dir := filepath.Join(t.TempDir(), "TestInitializeShouldCleanupOnBadMountPoint")
-		chroot := NewChroot(dir, isExistingDir)
-
-		err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-		assert.Error(t, err)
-
-		_, err = os.Stat(dir)
-		assert.True(t, os.IsNotExist(err))
+	extraDirectories := []string{}
+	extraMountPoints := []*MountPoint{
+		NewMountPoint(invalidMountPointSource, "custom-mount", "", emptyFlags, emptyPath),
 	}
+
+	dir := filepath.Join(t.TempDir(), "TestInitializeShouldCleanupOnBadMountPoint")
+	chroot := NewChroot(dir, isExistingDir)
+
+	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
+	assert.Error(t, err)
+
+	_, err = os.Stat(dir)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestInitializeShouldCreateExtraDirectories(t *testing.T) {

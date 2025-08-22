@@ -31,7 +31,7 @@ jobs:
       isLatestRelease: ${{ steps.build.outputs.isLatestRelease }}
     steps:
     - name: checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         path: repo
         # Patch releases need the full history to find the latest tag.
@@ -117,6 +117,24 @@ jobs:
         make create-venv
         make check
 
+    - name: Check workflows
+      if: inputs.arch == 'amd64'
+      run: |
+        set -eux
+
+        curl -sSL https://github.com/zizmorcore/zizmor/releases/download/v1.12.1/zizmor-x86_64-unknown-linux-gnu.tar.gz -o zizmor-x86_64-unknown-linux-gnu.tar.gz
+
+        tarHash="$(sha256sum zizmor-x86_64-unknown-linux-gnu.tar.gz | cut -d ' ' -f 1)"
+        if [ "$tarHash" != "d73cd379078cae18d5439ce1f8716d30de5a4d2d29cac62cfbe01e6a8251fe0e" ]; then
+          echo "Bad zizmor tarball"
+          exit 1
+        fi
+
+        tar -xf zizmor-x86_64-unknown-linux-gnu.tar.gz
+        ./zizmor --gh-token "$GITHUB_TOKEN" ./repo/
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Build binary
       id: build
       run: |
@@ -166,7 +184,7 @@ jobs:
         PUBLISH_TYPE: ${{ inputs.publishType }}
 
     - name: Setup Notation CLI
-      uses: notaryproject/notation-action/setup@v1
+      uses: notaryproject/notation-action/setup@b6fee73110795d6793253c673bd723f12bcf9bbb # v1.2.2
 
     - name: Build container
       run: |

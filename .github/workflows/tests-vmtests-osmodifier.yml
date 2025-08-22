@@ -72,19 +72,20 @@ jobs:
           HOST_ARCH: ${{ inputs.hostArch }}
  
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
         
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: repo
+          persist-credentials: false
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: out
 
@@ -93,7 +94,7 @@ jobs:
         run: |
           set -eux
 
-          CONTAINER_TAR_PATH="out/container-${{ inputs.hostArch }}/imagecustomizer.tar.gz"
+          CONTAINER_TAR_PATH="out/container-$HOST_ARCH/imagecustomizer.tar.gz"
           DOCKER_OUTPUT=$(sudo docker image load -i "$CONTAINER_TAR_PATH" 2>&1)
           CONTAINER_TAG=$(echo $DOCKER_OUTPUT | awk '{print $3}')
 
@@ -106,10 +107,12 @@ jobs:
         run: |
           set -eux
 
-          OSMODIFIER_BIN="$(realpath out/osmodifier-${{ inputs.hostArch }}/osmodifier)"
+          OSMODIFIER_BIN="$(realpath out/osmodifier-$HOST_ARCH/osmodifier)"
           [[ -f "$OSMODIFIER_BIN" ]] || { echo "osmodifier binary not found at $OSMODIFIER_BIN"; ls -la out/; exit 1; }
           chmod +x "$OSMODIFIER_BIN"
           echo "path=$OSMODIFIER_BIN" >> "$GITHUB_OUTPUT"
+        env:
+          HOST_ARCH: ${{ inputs.hostArch }}
 
       - name: Download base images
         run: |

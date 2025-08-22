@@ -25,7 +25,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 	buildImageFile string, newBuildImageFile string,
 ) (map[string]string, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
-		true, false)
+		true, false, false)
 	if err != nil {
 		return nil, err
 	}

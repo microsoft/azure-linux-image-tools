@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/processes"
@@ -183,25 +182,10 @@ func (m *MountPoint) GetFlags() uintptr {
 
 // NewChroot creates a new Chroot struct
 func NewChroot(rootDir string, isExistingDir bool) *Chroot {
-	// get chroot folder
-	chrootDir, err := buildpipeline.GetChrootDir(rootDir)
-	if err != nil {
-		logger.Log.Panicf("Failed to get chroot dir - %s", err.Error())
-		return nil
-	}
-
 	// create new safechroot
 	c := new(Chroot)
-	c.rootDir = chrootDir
-	if buildpipeline.IsRegularBuild() {
-		c.isExistingDir = isExistingDir
-	} else {
-		// Docker based pipeline recycle chroot =>
-		// - chroot always exists
-		// - chroot must be cleaned-up before being used
-		c.isExistingDir = true
-		buildpipeline.CleanupDockerChroot(c.rootDir)
-	}
+	c.rootDir = rootDir
+	c.isExistingDir = isExistingDir
 	return c
 }
 
@@ -253,19 +237,11 @@ func (c *Chroot) Initialize(tarPath string, extraDirectories []string, extraMoun
 	// overwrite an existing directory when isExistingDir is set to false.
 	defer func() {
 		if err != nil {
-			if buildpipeline.IsRegularBuild() {
-				// mount/unmount is only supported in regular pipeline
-				// Best effort cleanup in case mountpoint creation failed mid-way through. We will not try again so treat as final attempt.
-				cleanupErr := c.unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
-				if cleanupErr != nil {
-					logger.Log.Warnf("Failed to cleanup chroot (%s) during failed initialization:\n%s", c.rootDir, cleanupErr)
-				}
-			} else {
-				// release chroot dir
-				cleanupErr := buildpipeline.ReleaseChrootDir(c.rootDir)
-				if cleanupErr != nil {
-					logger.Log.Warnf("Failed to release chroot (%s) during failed initialization:\n%s", c.rootDir, cleanupErr)
-				}
+			// mount/unmount is only supported in regular pipeline
+			// Best effort cleanup in case mountpoint creation failed mid-way through. We will not try again so treat as final attempt.
+			cleanupErr := c.unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
+			if cleanupErr != nil {
+				logger.Log.Warnf("Failed to cleanup chroot (%s) during failed initialization:\n%s", c.rootDir, cleanupErr)
 			}
 		}
 	}()
@@ -288,42 +264,39 @@ func (c *Chroot) Initialize(tarPath string, extraDirectories []string, extraMoun
 		}
 	}
 
-	// mount is only supported in regular pipeline
-	if buildpipeline.IsRegularBuild() {
-		// Create kernel mountpoints
-		allMountPoints := []*MountPoint{}
+	// Create kernel mountpoints
+	allMountPoints := []*MountPoint{}
 
-		for _, mountPoint := range extraMountPoints {
-			if mountPoint.mountBeforeDefaults {
-				allMountPoints = append(allMountPoints, mountPoint)
-			}
+	for _, mountPoint := range extraMountPoints {
+		if mountPoint.mountBeforeDefaults {
+			allMountPoints = append(allMountPoints, mountPoint)
 		}
-
-		if includeDefaultMounts {
-			allMountPoints = append(allMountPoints, defaultMountPoints()...)
-		}
-
-		for _, mountPoint := range extraMountPoints {
-			if !mountPoint.mountBeforeDefaults {
-				allMountPoints = append(allMountPoints, mountPoint)
-			}
-		}
-
-		// Assign to `c.mountPoints` now since `Initialize` will call `unmountAndRemove` if an error occurs.
-		c.mountPoints = allMountPoints
-		c.includeDefaultMounts = includeDefaultMounts
-
-		// Mount with the original unsorted order. Assumes the order of mounts is important.
-		err = c.createMountPoints()
-		if err != nil {
-			err = fmt.Errorf("failed to create mountpoints for chroot:\n%w", err)
-			return
-		}
-
-		// Mark this chroot as initialized, allowing it to be cleaned up on SIGTERM
-		// if requested.
-		activeChroots = append(activeChroots, c)
 	}
+
+	if includeDefaultMounts {
+		allMountPoints = append(allMountPoints, defaultMountPoints()...)
+	}
+
+	for _, mountPoint := range extraMountPoints {
+		if !mountPoint.mountBeforeDefaults {
+			allMountPoints = append(allMountPoints, mountPoint)
+		}
+	}
+
+	// Assign to `c.mountPoints` now since `Initialize` will call `unmountAndRemove` if an error occurs.
+	c.mountPoints = allMountPoints
+	c.includeDefaultMounts = includeDefaultMounts
+
+	// Mount with the original unsorted order. Assumes the order of mounts is important.
+	err = c.createMountPoints()
+	if err != nil {
+		err = fmt.Errorf("failed to create mountpoints for chroot:\n%w", err)
+		return
+	}
+
+	// Mark this chroot as initialized, allowing it to be cleaned up on SIGTERM
+	// if requested.
+	activeChroots = append(activeChroots, c)
 
 	return
 }
@@ -499,46 +472,41 @@ func (c *Chroot) Close(leaveOnDisk bool) (err error) {
 	activeChrootsMutex.Lock()
 	defer activeChrootsMutex.Unlock()
 
-	if buildpipeline.IsRegularBuild() {
-		index := -1
-		for i, chroot := range activeChroots {
-			if chroot == c {
-				index = i
-				break
-			}
+	index := -1
+	for i, chroot := range activeChroots {
+		if chroot == c {
+			index = i
+			break
 		}
+	}
 
-		if index < 0 {
-			// Already closed.
-			return
-		}
+	if index < 0 {
+		// Already closed.
+		return
+	}
 
-		// Stops processes that are running inside the chroot (e.g. gpg-agent).
-		// This is to avoid leaving folders like /dev mounted when the chroot folder is forcefully deleted in cleanup.
-		err = c.stopRunningProcesses()
-		if err != nil {
-			// Don't want to leave a stale root if GPG components fail to exit. Logging a Warn and letting close continue...
-			logger.Log.Warnf("Failed to stop running processes while tearing down the (%s) chroot:\n%s", c.rootDir, err)
-		}
+	// Stops processes that are running inside the chroot (e.g. gpg-agent).
+	// This is to avoid leaving folders like /dev mounted when the chroot folder is forcefully deleted in cleanup.
+	err = c.stopRunningProcesses()
+	if err != nil {
+		// Don't want to leave a stale root if GPG components fail to exit. Logging a Warn and letting close continue...
+		logger.Log.Warnf("Failed to stop running processes while tearing down the (%s) chroot:\n%s", c.rootDir, err)
+	}
 
-		// mount is only supported in regular pipeline
-		err = c.unmountAndRemove(leaveOnDisk, unmountTypeNormal)
-		if err != nil {
-			logger.Log.Warnf("Chroot cleanup failed, will retry with lazy unmount. Error: %s", err)
-			err = c.unmountAndRemove(leaveOnDisk, unmountTypeLazy)
-		}
-		if err == nil {
-			const emptyLen = 0
-			// Remove this chroot from the list of active ones since it has now been cleaned up.
-			// Create a new slice that is -1 capacity of the current activeChroots.
-			newActiveChroots := make([]*Chroot, emptyLen, len(activeChroots)-1)
-			newActiveChroots = append(newActiveChroots, activeChroots[:index]...)
-			newActiveChroots = append(newActiveChroots, activeChroots[index+1:]...)
-			activeChroots = newActiveChroots
-		}
-	} else {
-		// release chroot dir
-		err = buildpipeline.ReleaseChrootDir(c.rootDir)
+	// mount is only supported in regular pipeline
+	err = c.unmountAndRemove(leaveOnDisk, unmountTypeNormal)
+	if err != nil {
+		logger.Log.Warnf("Chroot cleanup failed, will retry with lazy unmount. Error: %s", err)
+		err = c.unmountAndRemove(leaveOnDisk, unmountTypeLazy)
+	}
+	if err == nil {
+		const emptyLen = 0
+		// Remove this chroot from the list of active ones since it has now been cleaned up.
+		// Create a new slice that is -1 capacity of the current activeChroots.
+		newActiveChroots := make([]*Chroot, emptyLen, len(activeChroots)-1)
+		newActiveChroots = append(newActiveChroots, activeChroots[:index]...)
+		newActiveChroots = append(newActiveChroots, activeChroots[index+1:]...)
+		activeChroots = newActiveChroots
 	}
 
 	return
@@ -593,18 +561,16 @@ func cleanupAllChroots() {
 
 	// mount is only supported in regular pipeline
 	failedToUnmount := false
-	if buildpipeline.IsRegularBuild() {
-		// Cleanup chroots in LIFO order incase any are interdependent (e.g. nested safe chroots)
-		logger.Log.Info("Cleaning up all active chroots")
-		for i := len(activeChroots) - 1; i >= 0; i-- {
-			logger.Log.Infof("Cleaning up chroot (%s)", activeChroots[i].rootDir)
-			err := activeChroots[i].unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
-			// Perform best effort cleanup: unmount as many chroots as possible,
-			// even if one fails.
-			if err != nil {
-				logger.Log.Errorf("Failed to unmount chroot (%s)", activeChroots[i].rootDir)
-				failedToUnmount = true
-			}
+	// Cleanup chroots in LIFO order incase any are interdependent (e.g. nested safe chroots)
+	logger.Log.Info("Cleaning up all active chroots")
+	for i := len(activeChroots) - 1; i >= 0; i-- {
+		logger.Log.Infof("Cleaning up chroot (%s)", activeChroots[i].rootDir)
+		err := activeChroots[i].unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
+		// Perform best effort cleanup: unmount as many chroots as possible,
+		// even if one fails.
+		if err != nil {
+			logger.Log.Errorf("Failed to unmount chroot (%s)", activeChroots[i].rootDir)
+			failedToUnmount = true
 		}
 	}
 

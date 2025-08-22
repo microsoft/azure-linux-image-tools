@@ -8,17 +8,12 @@ import (
 	"testing"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/buildpipeline"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoopbackCloseWithOpenFileHandle(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Short mode enabled")
-	}
-
-	if !buildpipeline.IsRegularBuild() {
-		t.Skip("loopback block device not available")
 	}
 
 	if os.Geteuid() != 0 {

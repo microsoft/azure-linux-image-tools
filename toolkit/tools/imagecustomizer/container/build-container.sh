@@ -93,7 +93,6 @@ cp "$telemetryScript" "${stagingBinDir}"
 cp "$entrypointScript" "${stagingBinDir}"
 
 cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.txt
-touch "${containerStagingFolder}"/.mariner-toolkit-ignore-dockerenv
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
