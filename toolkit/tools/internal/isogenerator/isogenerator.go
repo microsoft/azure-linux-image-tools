@@ -88,7 +88,7 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId)
+		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId, "-iso-level", "3")
 
 	if enableBiosBoot {
 		mkisofsArgs = append(mkisofsArgs,
