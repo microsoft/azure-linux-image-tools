@@ -53,7 +53,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-       xfsprogs zstd veritysetup grub2 binutils lsof
+       xfsprogs zstd veritysetup grub2 binutils lsof systemd-ukify
      ```
 
      - On x86_64, to install libraries for BIOS booting, additionally run:
@@ -64,17 +64,6 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
 
        Note: arm64 machines only support UEFI, so the `grub2-pc` package is only needed
        when building x86_64 images.
-
-     - For Azure Linux 3.0 on x86_64, to install the `ukify` tool, additionally run:
-
-       ```bash
-       sudo tdnf install -y systemd-ukify
-       ```
-
-       Note: The `ukify` tool is only available in Azure Linux 3.0 on x86_64 machines. So, you
-       will only be able to use the [UKI API](../api/configuration/uki.md) when running
-       Image Customizer directly in that environment. However, using the
-       [Image Customizer container](../quick-start/quick-start.md) in other environments should work.
 
 4. Add executable permissions using `chmod +x imagecustomizer`.
 

@@ -45,11 +45,11 @@ jobs:
         sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
           sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
           xfsprogs zstd veritysetup grub2 binutils lsof \
-          git azure-cli
+          git azure-cli systemd-ukify
 
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          sudo tdnf install -y grub2-pc systemd-ukify
+          sudo tdnf install -y grub2-pc
         fi
 
         sudo tdnf list installed
