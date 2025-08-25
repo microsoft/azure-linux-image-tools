@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
@@ -108,6 +109,12 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
+	// Clear systemd state files that should be unique to each instance
+	err = clearSystemdState(imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to clear systemd state:\n%w", err)
+	}
+
 	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
@@ -121,9 +128,70 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	return nil
+}
+
+// clearSystemdState clears the systemd state files that should be unique to each instance of the image.
+// This is based on https://systemd.io/BUILDING_IMAGES/. Primarily, this function will ensure that
+// /etc/machine-id is configured correctly, and that random seed and credential files are removed if they exist.
+// For Image Creator, we disable systemd firstboot by default (set machine-id to empty) since Azure Linux
+// has traditionally not used firstboot mechanisms.
+func clearSystemdState(imageChroot *safechroot.Chroot) error {
+	const (
+		machineIDFile      = "/etc/machine-id"
+		machineIDContent   = "" // Empty for disabled firstboot
+		machineIDFilePerms = 0o444
+	)
+
+	// These state files are very unlikely to be present, but we should be thorough and check for them.
+	// See https://systemd.io/BUILDING_IMAGES/ for more information.
+	otherFilesToRemove := []string{
+		"/var/lib/systemd/random-seed",
+		"/boot/efi/loader/random-seed",
+		"/var/lib/systemd/credential.secret",
+	}
+
+	logger.Log.Debug("Configuring systemd state files")
+
+	// The systemd package will create this file, but if it's not installed, we need to create it.
+	machineIDPath := filepath.Join(imageChroot.RootDir(), machineIDFile)
+	exists, err := file.PathExists(machineIDPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if machine-id exists: %w", err)
+	}
+
+	if !exists {
+		logger.Log.Debug("Creating empty machine-id file")
+		err = file.Create(machineIDPath, machineIDFilePerms)
+		if err != nil {
+			return fmt.Errorf("failed to create empty machine-id: %w", err)
+		}
+	}
+
+	// Set machine-id to empty (disables systemd firstboot)
+	logger.Log.Debug("Disabling systemd firstboot")
+	err = file.Write(machineIDContent, machineIDPath)
+	if err != nil {
+		return fmt.Errorf("failed to write empty machine-id: %w", err)
+	}
+
+	// These files should not be present in the image, but per https://systemd.io/BUILDING_IMAGES/ we should
+	// be thorough and double-check.
+	for _, filePath := range otherFilesToRemove {
+		fullPath := filepath.Join(imageChroot.RootDir(), filePath)
+		exists, err = file.PathExists(fullPath)
+		if err != nil {
+			return fmt.Errorf("failed to check if systemd state file (%s) exists: %w", filePath, err)
+		}
+
+		// Do an explicit check for existence so we can log the file removal.
+		if exists {
+			logger.Log.Debugf("Removing systemd state file (%s)", filePath)
+			err = file.RemoveFileIfExists(fullPath)
+			if err != nil {
+				return fmt.Errorf("failed to remove systemd state file (%s): %w", filePath, err)
+			}
+		}
 	}
 
 	return nil
