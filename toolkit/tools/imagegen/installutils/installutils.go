@@ -596,7 +596,7 @@ func PopulateInstallRoot(installChroot *safechroot.Chroot, packagesToInstall []s
 	}
 
 	// Configure machine-id and other systemd state files
-	err = clearSystemdState(installChroot, config.EnableSystemdFirstboot)
+	err = ClearSystemdState(installChroot, config.EnableSystemdFirstboot)
 	if err != nil {
 		err = fmt.Errorf("failed to clean systemd files:\n%w", err)
 		return
@@ -853,12 +853,12 @@ func calculateTotalPackages(packages []string, installRoot string) (installedPac
 	return
 }
 
-// clearSystemdState clears the systemd state files that should be unique to each instance of the image. This is
+// ClearSystemdState clears the systemd state files that should be unique to each instance of the image. This is
 // based on https://systemd.io/BUILDING_IMAGES/. Primarily, this function will ensure that /etc/machine-id is configured
 // correctly, and that random seed and credential files are removed if they exist.
 // - installChroot is the chroot to modify
 // - enableSystemdFirstboot will set the machine-id file to "uninitialized" if true, and "" if false
-func clearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot bool) (err error) {
+func ClearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot bool) (err error) {
 	const (
 		machineIDFile         = "/etc/machine-id"
 		machineIDFirstBootOn  = "uninitialized\n"

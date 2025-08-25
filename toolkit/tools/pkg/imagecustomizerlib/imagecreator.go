@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
@@ -106,6 +107,14 @@ func doOsCustomizationsImageCreator(
 
 	if err = handleBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
 		return err
+	}
+
+	// Clear systemd state files that should be unique to each instance
+	// For Image Creator, we disable systemd firstboot by default since Azure Linux
+	// has traditionally not used firstboot mechanisms.
+	err = installutils.ClearSystemdState(imageChroot, false)
+	if err != nil {
+		return fmt.Errorf("failed to clear systemd state:\n%w", err)
 	}
 
 	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
