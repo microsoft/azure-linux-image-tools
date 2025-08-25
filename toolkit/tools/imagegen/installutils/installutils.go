@@ -1836,7 +1836,7 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 			switch fsType {
 			case "ext2", "ext3", "ext4", "xfs":
 				listOfMountsToLabel = append(listOfMountsToLabel, mount)
-			case "fat32", "fat16", "vfat", "tmpfs", "devtmpfs", "proc", "sysfs", "devpts":
+			case "fat32", "fat16", "vfat":
 				logger.Log.Debugf("SELinux will not label mount at (%s) of type (%s), skipping", mount, fsType)
 			default:
 				err = fmt.Errorf("unknown fsType (%s) for mount (%s), cannot configure SELinux", fsType, mount)

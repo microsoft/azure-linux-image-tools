@@ -763,7 +763,7 @@ func getNonSpecialChrootMountPoints(imageChroot *safechroot.Chroot) []*safechroo
 	return sliceutils.FindMatches(imageChroot.GetMountPoints(),
 		func(mountPoint *safechroot.MountPoint) bool {
 			switch mountPoint.GetTarget() {
-			case "/dev", "/proc", "/sys", "/run", "/dev/pts":
+			case "/dev", "/proc", "/sys", "/run", "/dev/pts", "/tmp":
 				// Skip special directories.
 				return false
 
