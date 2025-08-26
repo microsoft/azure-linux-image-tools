@@ -20,7 +20,7 @@ env:
 
 jobs:
   tests-osmodifier:
-    name: Tests VMTests suite
+    name: Tests VMTests OSModifier suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
     runs-on:
       - self-hosted
       - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
