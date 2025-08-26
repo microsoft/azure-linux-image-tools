@@ -21,7 +21,7 @@ env:
 
 jobs:
   tests-functional:
-    name: Functional test suite
+    name: Functional test suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
