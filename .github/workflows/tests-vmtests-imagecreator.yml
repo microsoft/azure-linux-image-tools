@@ -41,7 +41,7 @@ jobs:
         set -eux
 
         sudo tdnf list installed
-        sudo lsof /var/lib/rpm/.rpm.lock
+        sudo lsof /var/lib/rpm/.rpm.lock || true
 
         # Install all prerequisites in a single batch
         sudo tdnf install -y \
