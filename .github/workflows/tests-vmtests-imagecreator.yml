@@ -40,7 +40,6 @@ jobs:
       run: |
         set -eux
 
-        sudo tdnf list installed
         sudo lsof /var/lib/rpm/.rpm.lock || true
 
         # Install all prerequisites in a single batch
