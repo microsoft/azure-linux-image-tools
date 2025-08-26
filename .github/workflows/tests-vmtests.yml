@@ -113,7 +113,7 @@ jobs:
 
         CONTAINER_TAR_PATH="out/container-$HOST_ARCH/imagecustomizer.tar.gz"
         DOCKER_OUTPUT=$(sudo docker image load -i "$CONTAINER_TAR_PATH" 2>&1)
-        CONTAINER_TAG=$(echo $DOCKER_OUTPUT | awk '{print $3}')
+        CONTAINER_TAG=$(echo "$DOCKER_OUTPUT" | grep "Loaded image: " | awk '{print $3}')
 
         echo "containerTag=$CONTAINER_TAG" >> "$GITHUB_OUTPUT"
       env:
