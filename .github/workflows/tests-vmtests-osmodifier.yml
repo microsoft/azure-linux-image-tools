@@ -40,6 +40,9 @@ jobs:
         run: |
           set -eux
 
+          sudo tdnf list installed
+          sudo lsof /var/lib/rpm/.rpm.lock
+
           sudo tdnf install -y libvirt libvirt-daemon libvirt-daemon-config-network \
             libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
             python3-devel edk2-ovmf \

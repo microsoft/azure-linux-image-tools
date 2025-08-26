@@ -40,6 +40,9 @@ jobs:
       run: |
         set -eux
 
+        sudo tdnf list installed
+        sudo lsof /var/lib/rpm/.rpm.lock
+
         # Install all prerequisites in a single batch
         sudo tdnf install -y \
           libvirt libvirt-daemon libvirt-daemon-config-network \
