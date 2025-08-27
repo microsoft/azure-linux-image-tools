@@ -718,6 +718,11 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 
 		rebuildFullOsImage := ic.customizeOSPartitions || inputIsoArtifacts == nil || convertInitramfsType || kdumpBootFileChanging
 
+		isoVolumeId, err := generateIsoLabel()
+		if err != nil {
+			return fmt.Errorf("failed to generate ISO label.\n%w", err)
+		}
+
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
 			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
@@ -725,13 +730,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, ic *ImageCustomize
 				requestedSELinuxMode = ic.config.OS.SELinux.Mode
 			}
 			err := createLiveOSFromRaw(ctx, ic.buildDirAbs, ic.configPath, inputIsoArtifacts, requestedSELinuxMode,
-				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, ic.outputImageFile)
+				ic.config.Iso, ic.config.Pxe, ic.rawImageFile, ic.outputImageFormat, isoVolumeId, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
 			err := repackageLiveOS(ic.buildDirAbs, ic.configPath, ic.config.Iso, ic.config.Pxe,
-				inputIsoArtifacts, ic.outputImageFormat, ic.outputImageFile)
+				inputIsoArtifacts, ic.outputImageFormat, isoVolumeId, ic.outputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}

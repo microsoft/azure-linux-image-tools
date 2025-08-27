@@ -129,7 +129,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 }
 
 func createLiveOSFromRaw(ctx context.Context, buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
-	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
+	isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType, volumeId string,
 	outputPath string,
 ) (err error) {
 	logger.Log.Infof("Creating Live OS artifacts using customized full OS image")
@@ -139,7 +139,7 @@ func createLiveOSFromRaw(ctx context.Context, buildDir, baseConfigPath string, i
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = createLiveOSFromRawHelper(ctx, buildDir, baseConfigPath, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, outputPath)
+	err = createLiveOSFromRawHelper(ctx, buildDir, baseConfigPath, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, volumeId, outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
 	}
@@ -148,7 +148,7 @@ func createLiveOSFromRaw(ctx context.Context, buildDir, baseConfigPath string, i
 }
 
 func repackageLiveOS(isoBuildDir string, baseConfigPath string, isoConfig *imagecustomizerapi.Iso, pxeConfig *imagecustomizerapi.Pxe,
-	inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, outputPath string,
+	inputArtifactsStore *IsoArtifactsStore, outputFormat imagecustomizerapi.ImageFormatType, volumeId string, outputPath string,
 ) error {
 	logger.Log.Infof("Creating Live OS artifacts using input ISO image")
 
@@ -157,7 +157,7 @@ func repackageLiveOS(isoBuildDir string, baseConfigPath string, isoConfig *image
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = repackageLiveOSHelper(isoBuildDir, baseConfigPath, liveosConfig, inputArtifactsStore, outputFormat, outputPath)
+	err = repackageLiveOSHelper(isoBuildDir, baseConfigPath, liveosConfig, inputArtifactsStore, outputFormat, volumeId, outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
 	}
@@ -181,7 +181,7 @@ func isIsoBootImageNeeded(outputFormat imagecustomizerapi.ImageFormatType, initr
 }
 
 func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
-	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
+	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType, volumeId string,
 	outputPath string,
 ) (err error) {
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
@@ -265,7 +265,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, volumeId, liveosConfig.initramfsType, disableSELinux,
 		updatedSavedConfigs, getKernelVersions(artifactsStore.files), artifactsStore.files.isoGrubCfgPath,
 		artifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
@@ -318,7 +318,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, artifactsStore.files,
-			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, volumeId, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}
@@ -335,7 +335,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir, baseConfigPath str
 }
 
 func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConfig LiveOSConfig, inputArtifactsStore *IsoArtifactsStore,
-	outputFormat imagecustomizerapi.ImageFormatType, outputPath string,
+	outputFormat imagecustomizerapi.ImageFormatType, volumeId string, outputPath string,
 ) error {
 	// Note that in this ISO build flow, there is no os configuration, and hence
 	// no selinux configuration. So, we will set it to default (i.e. unspecified)
@@ -358,7 +358,7 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	disableSELinux := false
 
 	// Update grub.cfg
-	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, volumeId, liveosConfig.initramfsType, disableSELinux,
 		updatedSavedConfigs, getKernelVersions(inputArtifactsStore.files), inputArtifactsStore.files.isoGrubCfgPath,
 		inputArtifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
@@ -369,7 +369,7 @@ func repackageLiveOSHelper(isoBuildDir string, baseConfigPath string, liveosConf
 	switch outputFormat {
 	case imagecustomizerapi.ImageFormatTypeIso:
 		err := createIsoImage(isoBuildDir, baseConfigPath, liveosConfig.initramfsType, inputArtifactsStore.files,
-			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, outputPath)
+			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles, volumeId, outputPath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image\n%w", err)
 		}

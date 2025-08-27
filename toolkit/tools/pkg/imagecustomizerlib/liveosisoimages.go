@@ -416,7 +416,7 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 
 func createIsoImage(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType, filesStore *IsoFilesStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	outputImagePath string) error {
+	volumeId string, outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "iso-staging")
 
 	err := stageLiveOSFiles(initramfsType, imagecustomizerapi.ImageFormatTypeIso, filesStore,
@@ -427,7 +427,7 @@ func createIsoImage(buildDir string, baseConfigPath string, initramfsType imagec
 
 	biosBootEnabled := false
 	biosFilesDirPath := ""
-	err = isogenerator.BuildIsoImage(stagingDir, biosBootEnabled, biosFilesDirPath, outputImagePath)
+	err = isogenerator.BuildIsoImage(stagingDir, biosBootEnabled, biosFilesDirPath, volumeId, outputImagePath)
 	if err != nil {
 		return fmt.Errorf("failed to create (%s) using the (%s) folder:\n%w", outputImagePath, stagingDir, err)
 	}
