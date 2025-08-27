@@ -5,7 +5,6 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
@@ -126,8 +125,6 @@ func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagec
 	if err != nil {
 		return "", fmt.Errorf("failed to update the kernel arguments with the LiveOS configuration and user configuration in the live OS grub.cfg:\n%w", err)
 	}
-
-	inputContentString = strings.Replace(inputContentString, "timeout=0", "timeout=10", 1)
 
 	return inputContentString, nil
 }
