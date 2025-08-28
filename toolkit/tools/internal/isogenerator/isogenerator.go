@@ -71,7 +71,7 @@ func GenerateIso(config IsoGenConfig) error {
 	}
 
 	err = BuildIsoImage(config.StagingDirPath, config.EnableBiosBoot, config.IsoOsFilesDirPath,
-		DefaultVolumeId, config.OutputFilePath)
+		config.OutputFilePath)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func GenerateIso(config IsoGenConfig) error {
 	return nil
 }
 
-func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, volumeId string, outputImagePath string) error {
+func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
 	logger.Log.Infof("Creating ISO image: %s", outputImagePath)
 
 	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
@@ -88,7 +88,7 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", volumeId)
+		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId)
 
 	if enableBiosBoot {
 		mkisofsArgs = append(mkisofsArgs,
