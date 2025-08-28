@@ -88,7 +88,10 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId)
+		"-R", "-l", "-D",
+		"-iso-level", "3", "-udf", "-allow-limited-size", // allow files larger than 4GB.
+		"-J", "-joliet-long",
+		"-o", outputImagePath, "-V", DefaultVolumeId)
 
 	if enableBiosBoot {
 		mkisofsArgs = append(mkisofsArgs,
