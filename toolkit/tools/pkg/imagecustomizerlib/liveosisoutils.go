@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
 	"golang.org/x/sys/unix"
@@ -241,12 +239,4 @@ func extractIsoImageContents(buildDir string, isoImageFile string, isoExpansionF
 	}
 
 	return nil
-}
-
-func generateIsoLabel() (string, error) {
-	_, isoVolumeId, err := randomization.CreateUuid()
-	if err != nil {
-		return "", err
-	}
-	return strings.ReplaceAll(isoVolumeId, "-", ""), nil
 }
