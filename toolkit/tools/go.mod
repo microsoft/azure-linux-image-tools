@@ -13,7 +13,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6
 	github.com/moby/sys/mountinfo v0.7.2
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/exporters/autoexport v0.62.0
 	go.opentelemetry.io/otel v1.37.0
 	go.opentelemetry.io/otel/sdk v1.37.0
