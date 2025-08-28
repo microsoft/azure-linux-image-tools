@@ -1,0 +1,11 @@
+previewFeatures:
+- reinitialize-verity
+
+storage:
+  reinitializeVerity: none
+
+os:
+  additionalFiles:
+  - content: |
+      cat, dog, elephant, squirrel
+    destination: /var/animals.txt

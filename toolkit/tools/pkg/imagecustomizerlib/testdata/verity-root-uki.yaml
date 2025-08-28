@@ -1,0 +1,87 @@
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 250M
+
+    - id: boot
+      size: 250M
+
+    - id: root
+      size: 1G
+
+    - id: roothash
+      size: 100M
+
+    - id: var
+      size: 1G
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+
+    install:
+    - openssh-server
+    - veritysetup
+    - systemd-boot
+    - device-mapper
+
+  users:
+  - name: root
+    password:
+      type: plain-text
+      value: hello
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Move SSH host keys off of the read-only / partition to /var
+      mkdir -p /var/ssh
+      ln -sr /var/ssh /etc/ssh
