@@ -41,18 +41,29 @@ jobs:
         set -eux
 
         # Install all prerequisites in a single batch
-        sudo tdnf install -y \
-          libvirt libvirt-daemon libvirt-daemon-config-network \
-          libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
-          python3-devel edk2-ovmf azure-cli \
-          rpm coreutils util-linux systemd openssl \
-          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-          xfsprogs zstd veritysetup grub2 binutils lsof git
-
+        PACKAGES="libvirt libvirt-daemon libvirt-daemon-config-network \
+            libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
+            python3-devel edk2-ovmf azure-cli \
+            rpm coreutils util-linux systemd openssl \
+            sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+            xfsprogs zstd veritysetup grub2 binutils lsof git"
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          sudo tdnf install -y grub2-pc
+          PACKAGES+=" grub2-pc"
         fi
+
+        # Run a retry loop to handle transient networking issues and background RPM installs.
+        for ((i = 1; ; i++)); do
+          sudo tdnf install -y $PACKAGES \
+            && break \
+            || err=$?
+
+          if [ "$i" == 5 ]; then
+            exit $err
+          fi
+
+          sleep 5
+        done
 
         sudo tdnf list installed
         sudo systemctl restart libvirtd

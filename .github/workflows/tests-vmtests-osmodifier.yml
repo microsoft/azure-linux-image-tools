@@ -40,10 +40,23 @@ jobs:
         run: |
           set -eux
 
-          sudo tdnf install -y libvirt libvirt-daemon libvirt-daemon-config-network \
-            libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
-            python3-devel edk2-ovmf \
-            azure-cli
+          PACKAGES="libvirt libvirt-daemon libvirt-daemon-config-network \
+              libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
+              python3-devel edk2-ovmf \
+              azure-cli"
+
+          # Run a retry loop to handle transient networking issues and background RPM installs.
+          for ((i = 1; ; i++)); do
+            sudo tdnf install -y $PACKAGES \
+              && break \
+              || err=$?
+
+            if [ "$i" == 5 ]; then
+              exit $err
+            fi
+
+            sleep 5
+          done
 
           sudo tdnf list installed
 
