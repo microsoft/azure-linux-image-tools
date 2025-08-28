@@ -88,7 +88,10 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 
 	mkisofsArgs = append(mkisofsArgs,
 		// General mkisofs parameters.
-		"-R", "-l", "-D", "-J", "-joliet-long", "-o", outputImagePath, "-V", DefaultVolumeId)
+		"-R", "-l", "-D",
+		"-iso-level", "3", "-udf", "-allow-limited-size", // allow files larger than 4GB.
+		"-J", "-joliet-long",
+		"-o", outputImagePath, "-V", DefaultVolumeId)
 
 	if enableBiosBoot {
 		mkisofsArgs = append(mkisofsArgs,
@@ -106,6 +109,33 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 
 	// Note: mkisofs has a noisy stderr.
 	err := shell.ExecuteLive(true /*squashErrors*/, "mkisofs", mkisofsArgs...)
+	if err != nil {
+		return fmt.Errorf("failed to generate ISO using mkisofs:\n%w", err)
+	}
+
+	return nil
+}
+
+func BuildIsoImageXorriso(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
+	logger.Log.Infof("Creating ISO image: %s", outputImagePath)
+
+	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
+	// Mkisofs requires all argument paths to be relative to the input directory.
+	xorrisoArgs := []string{}
+
+	xorrisoArgs = append(xorrisoArgs,
+		"-outdev", outputImagePath,
+		"-volid", DefaultVolumeId,
+		"-rockridge", "on",
+		"-joliet", "on", "-joliet_long", "on",
+		"-udf", "on", "-allow_limited_size", "on", "-iso_level", "3", // allow files larger than 4GiB.
+		"-map", stagingPath, "/",
+		"-boot_image", "any", "keep",
+		"-boot_image", "isolinux", "efi_path=boot/grub2/efiboot.img",
+	)
+
+	// Note: mkisofs has a noisy stderr.
+	err := shell.ExecuteLive(true /*squashErrors*/, "xorriso ", xorrisoArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to generate ISO using mkisofs:\n%w", err)
 	}
