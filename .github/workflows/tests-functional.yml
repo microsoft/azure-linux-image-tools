@@ -46,23 +46,14 @@ jobs:
             sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
             xfsprogs zstd veritysetup grub2 binutils lsof \
             git azure-cli"
+
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          PACKAGES+=" grub2-pc systemd-ukify"
+            PACKAGES+=" grub2-pc systemd-ukify"
         fi
 
-        # Run a retry loop to handle transient networking issues and background RPM installs.
-        for ((i = 1; ; i++)); do
-          sudo tdnf install -y $PACKAGES \
-            && break \
-            || err=$?
-
-          if [ "$i" == 5 ]; then
-            exit $err
-          fi
-
-          sleep 5
-        done
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+            tdnf install -y $PACKAGES
 
         sudo tdnf list installed
       env:

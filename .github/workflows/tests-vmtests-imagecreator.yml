@@ -33,6 +33,12 @@ jobs:
       with:
         go-version: "${{ env.EXPECTED_GO_VERSION }}"
 
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        path: repo
+        persist-credentials: false
+
     - name: Install prerequisites (AZL3)
       if: inputs.hostDistro == 'azl3'
       env:
@@ -47,23 +53,14 @@ jobs:
             rpm coreutils util-linux systemd openssl \
             sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
             xfsprogs zstd veritysetup grub2 binutils lsof git"
+
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          PACKAGES+=" grub2-pc"
+            PACKAGES+=" grub2-pc"
         fi
 
-        # Run a retry loop to handle transient networking issues and background RPM installs.
-        for ((i = 1; ; i++)); do
-          sudo tdnf install -y $PACKAGES \
-            && break \
-            || err=$?
-
-          if [ "$i" == 5 ]; then
-            exit $err
-          fi
-
-          sleep 5
-        done
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+            tdnf install -y $PACKAGES
 
         sudo tdnf list installed
         sudo systemctl restart libvirtd
@@ -95,12 +92,6 @@ jobs:
 
         sudo apt list --installed
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-    - name: Checkout
-      uses: actions/checkout@v5
-      with:
-        path: repo
-        persist-credentials: false
 
     - name: Build imagecreator and imagecustomizer
       run: |
