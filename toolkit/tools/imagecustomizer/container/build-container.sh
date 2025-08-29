@@ -76,21 +76,23 @@ telemetryScript="$enlistmentRoot/toolkit/scripts/telemetry_hopper/telemetry_hopp
 telemetryRequirements="$enlistmentRoot/toolkit/scripts/telemetry_hopper/requirements.txt"
 entrypointScript="$scriptDir/entrypoint.sh"
 
-stagingBinDir="${containerStagingFolder}/usr/local/bin"
-stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
+stagingBinDir="${containerStagingFolder}/usr/bin"
+stagingLibDir="${containerStagingFolder}/usr/lib/imagecustomizer"
+stagingLicensesDir="${containerStagingFolder}/usr/share/licenses"
 
 dockerFile="$scriptDir/imagecustomizer.Dockerfile"
 runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
+mkdir -p "${stagingLibDir}"
 mkdir -p "${stagingLicensesDir}"
 
 cp "$exeFile" "${stagingBinDir}"
-cp "$runScriptPath" "${stagingBinDir}"
+cp "$runScriptPath" "${stagingLibDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
-cp "$telemetryScript" "${stagingBinDir}"
-cp "$entrypointScript" "${stagingBinDir}"
+cp "$telemetryScript" "${stagingLibDir}"
+cp "$entrypointScript" "${stagingLibDir}"
 
 cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.txt
 

@@ -28,7 +28,7 @@ docker run --rm \
     -v "$inputConfigDir":"$containerInputConfigDir":z \
     -v "$outputImageDir":"$containerOutputDir":z \
     -v /dev:/dev \
-    --entrypoint /usr/local/bin/run.sh \
+    --entrypoint /usr/lib/imagecustomizer/run.sh \
     "$containerTag" \
         "3.0.latest" \
         --config-file "$containerInputConfig" \
