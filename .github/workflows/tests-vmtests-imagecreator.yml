@@ -59,7 +59,7 @@ jobs:
             PACKAGES+=" grub2-pc"
         fi
 
-        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
             tdnf install -y $PACKAGES
 
         sudo tdnf list installed
