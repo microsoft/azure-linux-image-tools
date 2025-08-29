@@ -360,26 +360,15 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string) erro
 	if err != nil {
 		return err
 	}
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
-	if err != nil {
-		return err
-	}
 
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("failed to mount esp partition (%s):\n%w", bootPartition.Path, err)
+		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
-	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
-	if err != nil {
-		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
-	}
-	defer bootPartitionMount.Close()
-
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
@@ -404,11 +393,6 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string) erro
 	}
 
 	err = systemBootPartitionMount.CleanClose()
-	if err != nil {
-		return err
-	}
-
-	err = bootPartitionMount.CleanClose()
 	if err != nil {
 		return err
 	}
