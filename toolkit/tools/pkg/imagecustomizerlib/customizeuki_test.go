@@ -211,14 +211,9 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 		return nil, false
 	}
 
-	ukiFilesChecksums := make(map[string]string)
-	for _, ukiFile := range ukiFiles {
-		checksum, err := file.GenerateSHA256(ukiFile)
-		if !assert.NoError(t, err) {
-			return nil, false
-		}
-
-		ukiFilesChecksums[ukiFile] = checksum
+	ukiFilesChecksums := calculateUkiFileChecksums(t, ukiFiles)
+	if ukiFilesChecksums == nil {
+		return nil, false
 	}
 
 	if expectedUkiFilesChecksums != nil {
@@ -324,14 +319,9 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 		return nil, false
 	}
 
-	ukiFilesChecksums := make(map[string]string)
-	for _, ukiFile := range ukiFiles {
-		checksum, err := file.GenerateSHA256(ukiFile)
-		if !assert.NoError(t, err) {
-			return nil, false
-		}
-
-		ukiFilesChecksums[ukiFile] = checksum
+	ukiFilesChecksums := calculateUkiFileChecksums(t, ukiFiles)
+	if ukiFilesChecksums == nil {
+		return nil, false
 	}
 
 	if expectedUkiFilesChecksums != nil {
@@ -342,4 +332,19 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 	}
 
 	return ukiFilesChecksums, true
+}
+
+// calculateUkiFileChecksums generates SHA256 checksums for a list of UKI files.
+// Returns nil if any error occurs during checksum calculation.
+func calculateUkiFileChecksums(t *testing.T, ukiFiles []string) map[string]string {
+	ukiFilesChecksums := make(map[string]string)
+	for _, ukiFile := range ukiFiles {
+		checksum, err := file.GenerateSHA256(ukiFile)
+		if !assert.NoError(t, err) {
+			return nil
+		}
+		ukiFilesChecksums[ukiFile] = checksum
+	}
+
+	return ukiFilesChecksums
 }

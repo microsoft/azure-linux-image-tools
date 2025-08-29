@@ -80,12 +80,6 @@ os:
     - systemd-boot
     - device-mapper
 
-  users:
-  - name: root
-    password:
-      type: plain-text
-      value: hello
-
 scripts:
   postCustomization:
   - content: |
