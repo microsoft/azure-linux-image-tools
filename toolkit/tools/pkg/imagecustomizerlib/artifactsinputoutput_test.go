@@ -181,6 +181,42 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	}
 }
 
+func TestOutputAndInjectArtifactsCosi(t *testing.T) {
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	}
+
+	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts")
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	originalConfigFile := filepath.Join(testDir, "artifacts-output.yaml")
+	configFile := filepath.Join(testTempDir, "artifacts-output.yaml")
+	outputArtifactsDir := filepath.Join(testTempDir, "output")
+
+	// Copy test config to the temp dir so it's isolated
+	err = file.Copy(originalConfigFile, configFile)
+	assert.NoError(t, err)
+
+	// Customize image
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+}
+
 func appendMarker(path string, marker string) error {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {

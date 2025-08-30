@@ -306,6 +306,24 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		outputImageFile = inputImageFile
 	}
 
+	err = injectFilesIntoImage(buildDir, baseConfigPath, rawImageFile, metadata)
+	if err != nil {
+		return err
+	}
+
+	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile)
+	if err != nil {
+		return err
+	}
+
+	logger.Log.Infof("Success!")
+
+	return nil
+}
+
+func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile string,
+	metadata []imagecustomizerapi.InjectArtifactMetadata,
+) error {
 	loopback, err := safeloopback.NewLoopback(rawImageFile)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrArtifactInjectFilesImageConnection, err)
@@ -358,10 +376,22 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 		return err
 	}
 
+	return nil
+}
+
+func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
+	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string,
+) error {
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, err := prepareImageConversionData(ctx, rawImageFile, buildDir, "imageroot")
+		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
+			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
 		if err != nil {
 			return err
+		}
+
+		err = shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
@@ -370,13 +400,12 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}
 	} else {
-		err = ConvertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
+		err := ConvertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
 		if err != nil {
-			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion, outputImageFile, detectedImageFormat, err)
+			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion, outputImageFile,
+				detectedImageFormat, err)
 		}
 	}
-
-	logger.Log.Infof("Success!")
 
 	return nil
 }
@@ -384,35 +413,38 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
 	chrootDir string,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
-	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, error,
+	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, _, err := connectToExistingImage(ctx,
-		rawImageFile, buildDir, chrootDir, true, true, false, false)
+	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(ctx,
+		rawImageFile, buildDir, chrootDir, true, true, true, true)
 	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
+		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 	defer imageConnection.Close()
 
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
 	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
 	imageUuid, imageUuidStr, err := extractImageUUID(imageConnection)
 	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, err
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
 	if err := imageConnection.CleanClose(); err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionClose, err)
+		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionClose, err)
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, nil
+	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr,
+		cosiBootMetadata, readonlyPartUuids, nil
 }
 
 func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([randomization.UuidSize]byte, string, error) {
