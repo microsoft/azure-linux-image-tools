@@ -71,10 +71,10 @@ clean-go-tools:
 	rm -rf $(TOOL_BINS_DIR)
 	rm -rf $(BUILD_DIR)/tools
 
-go_ldflags := 	-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.ToolkitVersion=$(RELEASE_VERSION) \
-				-X github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib.ToolVersion=$(image_customizer_full_version) \
-				-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.DistroNameAbbreviation=$(DIST_NAME_ABRV) \
-				-X github.com/microsoft/azurelinux/toolkit/tools/internal/exe.DistroMajorVersion=$(dist_major_version_number)
+go_ldflags := 	-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exe.ToolkitVersion=$(RELEASE_VERSION) \
+				-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib.ToolVersion=$(image_customizer_full_version) \
+				-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exe.DistroNameAbbreviation=$(DIST_NAME_ABRV) \
+				-X github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exe.DistroMajorVersion=$(dist_major_version_number)
 
 # Conditionally include license-scan dependency based on SKIP_LICENSE_SCAN flag
 ifeq ($(SKIP_LICENSE_SCAN),y)

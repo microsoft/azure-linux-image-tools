@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 type Config struct {
