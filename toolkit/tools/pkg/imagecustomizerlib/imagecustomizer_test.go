@@ -1049,6 +1049,35 @@ func testConvertImageToRawSuccess(t *testing.T, testName string, qemuImgArgs []s
 	assert.Equal(t, int64(diskSize), testRawFileStat.Size())
 }
 
+func TestCustomizeImageBaseImageMissing(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageMissing")
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-config.yaml")
+	baseImage := filepath.Join(testTmpDir, "missing.qcow2")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "no such file or directory")
+}
+
+func TestCustomizeImageBaseImageInvalid(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageInvalid")
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-config.yaml")
+	baseImage := configFile
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "failed to open image file:")
+	assert.ErrorContains(t, err, "image does not contain a partition table")
+}
+
 func checkFileType(t *testing.T, filePath string, expectedFileType string) {
 	fileType, err := testutils.GetImageFileType(filePath)
 	assert.NoError(t, err)

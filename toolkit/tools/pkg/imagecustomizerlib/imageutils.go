@@ -34,7 +34,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays)
 	if err != nil {
 		imageConnection.Close()
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, fmt.Errorf("failed to open image file:\n%w", err)
 	}
 
 	return imageConnection, partUuidToMountPath, verityMetadata, readonlyPartUuids, nil
@@ -48,6 +48,15 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	partitionTable, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to read image's partition table:\n%w", err)
+	}
+
+	if partitionTable == nil {
+		return nil, nil, nil, fmt.Errorf("image does not contain a partition table")
 	}
 
 	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
