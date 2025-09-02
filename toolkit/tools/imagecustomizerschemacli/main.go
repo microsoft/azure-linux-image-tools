@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/invopop/jsonschema"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

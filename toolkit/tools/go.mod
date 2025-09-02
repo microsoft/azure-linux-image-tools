@@ -1,4 +1,4 @@
-module github.com/microsoft/azurelinux/toolkit/tools
+module github.com/microsoft/azure-linux-image-tools/toolkit/tools
 
 go 1.24.1
 

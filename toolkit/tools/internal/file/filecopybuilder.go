@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 )
 
 type FileCopyBuilder struct {

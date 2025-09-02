@@ -6,7 +6,7 @@ package imagecustomizerapi
 import (
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/stretchr/testify/assert"
 )
 

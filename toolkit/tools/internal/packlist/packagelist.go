@@ -6,7 +6,7 @@ package packagelist
 import (
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
 )
 
 // ParsePackageList will parse a string of packages.

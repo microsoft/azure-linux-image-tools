@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 )
 
 const (
