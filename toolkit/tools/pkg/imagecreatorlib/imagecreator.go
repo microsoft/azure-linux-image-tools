@@ -13,7 +13,6 @@ import (
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
 )
 
@@ -53,6 +52,8 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 	toolsTar string,
 	outputImageFile string,
 	outputImageFormat string,
+	distro string,
+	distroVersion string,
 	packageSnapshotTime string,
 ) error {
 	var config imagecustomizerapi.Config
@@ -68,7 +69,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, packageSnapshotTime)
+	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -78,7 +79,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 
 func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	toolsTar string, packageSnapshotTime string,
+	toolsTar string, distro string, distroVersion string, packageSnapshotTime string,
 ) error {
 	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile, outputImageFormat, packageSnapshotTime)
 	if err != nil {
@@ -117,8 +118,10 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	logger.Log.Infof("Creating new image with parameters: %+v\n", imageCreatorParameters)
 
-	// TODO: Get the target OS from the config or command line argument
-	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(targetos.TargetOsAzureLinux3, imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
+	// Create distro config from distro name and version
+	distroHandler := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
+
+	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(distroHandler.GetTargetOs(), imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
 		imageCreatorParameters.buildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err
@@ -128,7 +131,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
-		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar)
+		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distroHandler)
 	if err != nil {
 		return err
 	}
