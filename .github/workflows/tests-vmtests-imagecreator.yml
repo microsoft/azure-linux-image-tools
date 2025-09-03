@@ -131,7 +131,7 @@ jobs:
 
         sudo make test-imagecreator \
           IMAGE_CREATOR_BIN="../../toolkit/out/tools/imagecreator" \
-          TOOLS_TAR="../../toolkit/tools/internal/testutils/testrpms/tools.tar.gz" \
+          TOOLS_TAR="../../toolkit/tools/internal/testutils/testrpms/build/tools.tar.gz" \
           RPM_SOURCES="../../toolkit/tools/internal/testutils/testrpms/downloadedrpms/3.0" \
           IMAGE_CUSTOMIZER_BINARY_PATH="../../toolkit/out/tools/imagecustomizer" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
