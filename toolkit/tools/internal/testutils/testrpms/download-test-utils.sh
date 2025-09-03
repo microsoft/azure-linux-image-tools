@@ -9,8 +9,9 @@ AZURELINUX_3_CONTAINER_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
 IMAGE_VERSION="2.0"
 
 IMAGE_CREATOR="false"
-TOOLS_FILE="$SCRIPT_DIR/tools.tar.gz"
 
+mkdir -p $SCRIPT_DIR/build
+TOOLS_FILE="$SCRIPT_DIR/build/tools.tar.gz"
 
 while getopts "s:t:" flag
 do
