@@ -11,12 +11,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/isogenerator"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/isogenerator"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/jsonutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 const (

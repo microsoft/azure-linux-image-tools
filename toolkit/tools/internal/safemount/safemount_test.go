@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/moby/sys/mountinfo"
 	"github.com/stretchr/testify/assert"
 )

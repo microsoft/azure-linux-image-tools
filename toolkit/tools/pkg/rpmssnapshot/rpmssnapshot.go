@@ -11,12 +11,12 @@ import (
 	"regexp"
 	"runtime"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repocloner"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/rpm"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/simpletoolchroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/jsonutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/packagerepo/repocloner"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/rpm"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/simpletoolchroot"
 )
 
 const (

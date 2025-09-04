@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
 // OS defines how each system present on the image is supposed to be configured.

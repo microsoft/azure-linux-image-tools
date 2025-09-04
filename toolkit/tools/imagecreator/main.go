@@ -12,12 +12,12 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/exekong"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/ptrutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecreatorlib"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exekong"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecreatorlib"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
 type ImageCreatorCmd struct {

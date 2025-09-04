@@ -6,7 +6,7 @@ package pkgjson
 import (
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/versioncompare"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/versioncompare"
 	"github.com/stretchr/testify/assert"
 )
 

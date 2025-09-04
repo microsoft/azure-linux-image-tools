@@ -19,12 +19,12 @@ RUN tdnf update -y && \
    tdnf clean all
 
 # Create virtual environment and install Python dependencies for telemetry
-RUN python3 -m venv /opt/telemetry-venv
-COPY telemetry-requirements.txt /telemetry-requirements.txt
-RUN /opt/telemetry-venv/bin/pip install --no-cache-dir -r /telemetry-requirements.txt
-RUN rm -rf /telemetry-requirements.txt
+RUN python3 -m venv /usr/lib/imagecustomizer/telemetry-venv
+COPY telemetry-requirements.txt /usr/lib/imagecustomizer/telemetry-requirements.txt
+RUN /usr/lib/imagecustomizer/telemetry-venv/bin/pip install --no-cache-dir -r /usr/lib/imagecustomizer/telemetry-requirements.txt
+RUN rm -rf /usr/lib/imagecustomizer/telemetry-requirements.txt
 
 # Copy all necessary files
 COPY usr /usr
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/usr/lib/imagecustomizer/entrypoint.sh"]

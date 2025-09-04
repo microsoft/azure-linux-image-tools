@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/versioncompare"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/jsonutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/versioncompare"
 )
 
 const (

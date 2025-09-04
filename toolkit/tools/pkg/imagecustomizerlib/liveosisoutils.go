@@ -8,8 +8,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"golang.org/x/sys/unix"
 )
 

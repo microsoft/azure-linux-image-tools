@@ -75,8 +75,6 @@ def run_image_customizer(
         "AZURE_MONITOR_CONNECTION_STRING": AZURE_CONN_STR,
     }
 
-    entrypoint = "/usr/local/bin/entrypoint.sh"
-
     container_run(
         docker_client,
         image_customizer_container_url,
@@ -85,7 +83,6 @@ def run_image_customizer(
         privileged=True,
         volumes=volumes,
         environment=environment,
-        entrypoint=entrypoint,
     )
 
 

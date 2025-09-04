@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/userutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
 )
 
