@@ -98,8 +98,8 @@ cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.t
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
-    echo "Removing grub2-pc and systemd-ukify from Dockerfile for arm64"
-    sed -i 's/\<grub2-pc systemd-ukify\>//g' "$dockerFile"
+    echo "Removing grub2-pc from Dockerfile for arm64"
+    sed -i 's/\<grub2-pc\>//g' "$dockerFile"
 fi
 
 # list all staged files
