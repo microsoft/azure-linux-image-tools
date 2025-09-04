@@ -39,7 +39,7 @@ jobs:
         persist-credentials: false
 
     - name: setup go 1.x
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: "${{ env.EXPECTED_GO_VERSION }}"
       id: go
