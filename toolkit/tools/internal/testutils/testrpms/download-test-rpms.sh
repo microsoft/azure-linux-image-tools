@@ -3,12 +3,12 @@
 set -e
 CONTAINER_IMAGE="$1"
 IMAGE_VERSION="$2"
-IMAGE_CREATOR="$3"
+PACKAGE_LIST="$3"
 
 # Check if the required arguments are provided
-if [[ -z "$CONTAINER_IMAGE" || -z "$IMAGE_VERSION" || -z "$IMAGE_CREATOR" ]]; then
-  echo "Usage: $0 <container_image> <image_version> <image_creator>"
-  echo "Example: $0 mcr.microsoft.com/azurelinux/base/core:3.0 3.0 true"
+if [[ -z "$CONTAINER_IMAGE" || -z "$IMAGE_VERSION" || -z "$PACKAGE_LIST" ]]; then
+  echo "Usage: $0 <container_image> <image_version> <package_list>"
+  echo "Example: $0 mcr.microsoft.com/azurelinux/base/core:3.0 3.0 'pkg1 pkg2 pkg3'"
   exit 1
 fi
 
@@ -25,7 +25,7 @@ mkdir -p "$OUT_DIR"
 # Build a container image that contains the RPMs.
 docker build \
   --build-arg "baseimage=$CONTAINER_IMAGE" \
-  --build-arg "imagecreator=$IMAGE_CREATOR" \
+  --build-arg "package_list=$PACKAGE_LIST" \
   --tag "$CONTAINER_TAG" \
   "$DOCKERFILE_DIR"
 
