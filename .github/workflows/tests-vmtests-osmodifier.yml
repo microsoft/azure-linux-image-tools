@@ -31,7 +31,7 @@ jobs:
     environment: public
     steps:
       - name: Setup Go toolchain
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "${{ env.EXPECTED_GO_VERSION }}"
 
