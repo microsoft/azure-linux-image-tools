@@ -82,35 +82,32 @@ func GenerateIso(config IsoGenConfig) error {
 func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
 	logger.Log.Infof("Creating ISO image: %s", outputImagePath)
 
-	// For detailed parameter explanation see: https://linux.die.net/man/8/mkisofs.
-	// Mkisofs requires all argument paths to be relative to the input directory.
-	mkisofsArgs := []string{}
+	args := []string{}
 
-	mkisofsArgs = append(mkisofsArgs,
-		// General mkisofs parameters.
+	args = append(args,
+		// General genisoimage parameters.
 		"-R", "-l", "-D",
-		"-iso-level", "3", "-udf", "-allow-limited-size", // allow files larger than 4GB.
+		"-iso-level", "3", "-udf", "-allow-limited-size", // allow files larger than 4GiB.
 		"-J", "-joliet-long",
 		"-o", outputImagePath, "-V", DefaultVolumeId)
 
 	if enableBiosBoot {
-		mkisofsArgs = append(mkisofsArgs,
+		args = append(args,
 			// BIOS bootloader, params suggested by https://wiki.syslinux.org/wiki/index.php?title=ISOLINUX.
 			"-b", filepath.Join(isoOsFilesDirPath, "isolinux.bin"),
 			"-c", filepath.Join(isoOsFilesDirPath, "boot.cat"),
 			"-no-emul-boot", "-boot-load-size", "4", "-boot-info-table")
 	}
 
-	mkisofsArgs = append(mkisofsArgs,
+	args = append(args,
 		// UEFI bootloader.
 		"-eltorito-alt-boot", "-e", efiBootImgPathRelativeToIsoRoot, "-no-emul-boot",
 		// Directory to convert to an ISO.
 		stagingPath)
 
-	// Note: mkisofs has a noisy stderr.
-	err := shell.ExecuteLive(true /*squashErrors*/, "mkisofs", mkisofsArgs...)
+	err := shell.ExecuteLive(true /*squashErrors*/, "genisoimage", args...)
 	if err != nil {
-		return fmt.Errorf("failed to generate ISO using mkisofs:\n%w", err)
+		return fmt.Errorf("failed to generate ISO using genisoimage:\n%w", err)
 	}
 
 	return nil
