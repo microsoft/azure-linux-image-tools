@@ -68,25 +68,20 @@ if [ "$IMAGE_CREATOR" = "true" ]; then
 
   # Extract package list from config file
   CONFIG_PATH="$TESTDATA_DIR/$CONFIG_FILE"
-  if [[ -f "$CONFIG_PATH" ]]; then
-    PACKAGE_LIST=$(python3 "$SCRIPT_DIR/extract_packages.py" "$CONFIG_PATH")
-    echo "Package list from $CONFIG_FILE: $PACKAGE_LIST"
-  else
+  if [[ ! -f "$CONFIG_PATH" ]]; then
     echo "Error: Config file '$CONFIG_PATH' not found"
     echo "Expected config file at: $CONFIG_PATH"
     exit 1
   fi
+  
+  PACKAGE_LIST=$(python3 "$SCRIPT_DIR/extract_packages.py" "$CONFIG_PATH")
+  echo "Package list from $CONFIG_FILE: $PACKAGE_LIST"
 else
   echo "Skipping tools file creation and package extraction."
 fi
 
 # Combine with common testing packages
-COMMON_PACKAGES="jq golang"
-if [[ -n "$PACKAGE_LIST" ]]; then
-    FINAL_PACKAGE_LIST="$COMMON_PACKAGES $PACKAGE_LIST"
-else
-    FINAL_PACKAGE_LIST="$COMMON_PACKAGES"
-fi
+FINAL_PACKAGE_LIST="jq golang $PACKAGE_LIST"
 
 echo "Final package list: $FINAL_PACKAGE_LIST"
 
