@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
@@ -287,6 +288,15 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 
 	var config imagecustomizerapi.Config
 
+	if logger.Log == nil {
+		var logFlags logger.LogFlags
+		logFlags.LogColor = ptrutils.PtrTo("auto")
+		logFlags.LogFile = ptrutils.PtrTo("")
+		logFlags.LogLevel = ptrutils.PtrTo("info")
+		logger.InitBestEffort(&logFlags)
+		logger.Log.Infof("Initialized Image Customizer logging system.")
+	}
+
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
 		return err
@@ -321,6 +331,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) (err error) {
+
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
 		attribute.String("output_image_format", string(outputImageFormat)),
