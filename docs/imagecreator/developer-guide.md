@@ -1,6 +1,7 @@
 ---
 parent: Image Creator
 nav_order: 5
+sidebar_position: 5
 ---
 
 # Developers guide

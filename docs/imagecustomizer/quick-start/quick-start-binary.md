@@ -3,6 +3,7 @@ title: Quick Start - Binary
 parent: Quick Start
 grand_parent: Image Customizer
 nav_order: 1
+sidebar_position: 1
 ---
 
 # Using the Image Customizer Binary
@@ -17,7 +18,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
 ## Instructions
 
 1. Download an Azure Linux VHDX image file. 
-   - You can [download a marketplace image from Azure](../how-to/download-marketplace-image.md). 
+   - You can [download a marketplace image from Azure](../how-to/azure-vm/download-marketplace-image.md). 
    - You can also download and build one from the [Azure Linux repo](https://github.com/microsoft/azurelinux).
 
 2. Create a customization config file.
@@ -32,7 +33,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
     ```
 
    For documentation on the supported configuration options, see:
-   [Supported configuration](../api/configuration.md)
+   [Supported configuration](../api/configuration/configuration.md)
 
 3. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
@@ -86,7 +87,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
    - `<config-file.yaml>`: The configuration file created in Step 2.
 
    For a description of all the command line options, see:
-   [Image Customizer command line](../api/cli.md)
+   [Image Customizer command line](../api/cli/cli.md)
 
    Note: If you are running in WSL (Windows Subsystem for Linux), then you should place
    the `--build-dir` directory in the native Linux filesystem (e.g. `~/build`) instead
@@ -104,6 +105,6 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
 
 ## Next Steps
 
-- Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm.md)
-- Learn more about the [Image Customizer command line](../api/cli.md)
-- Learn more about the [Image Customizer config options](../api/configuration.md)
+- Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm/azure-vm.md)
+- Learn more about the [Image Customizer command line](../api/cli/cli.md)
+- Learn more about the [Image Customizer config options](../api/configuration/configuration.md)

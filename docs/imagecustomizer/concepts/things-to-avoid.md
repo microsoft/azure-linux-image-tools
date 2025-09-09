@@ -1,6 +1,7 @@
 ---
 parent: Concepts
 nav_order: 5
+sidebar_position: 5
 ---
 
 # Things to avoid

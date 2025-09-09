@@ -2,6 +2,7 @@
 parent: Image Customizer
 title: Concepts
 nav_order: 3
+sidebar_position: 3
 has_toc: false
 ---
 
@@ -15,4 +16,4 @@ following scenarios:
 * Live OS: What is a Live OS? More details in [Live OS](./liveos.md)
 * ISO: Live-ISO creation. More details in [ISO Support](./iso.md)
 * PXE: Creating a PXE bootable image. More details in [PXE Support](./pxe.md)
-* Verity protected images: [Guidelines for creating a verity-protected root filesystem](./verity.md)
+* Verity protected images: [Guidelines for creating a verity-protected root filesystem](./verity/verity.md)

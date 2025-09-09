@@ -2,6 +2,7 @@
 title: Create Verity and UKI image
 parent: How To
 nav_order: 9
+sidebar_position: 4
 ---
 
 # Create image with both verity and UKI
@@ -171,6 +172,6 @@ the future.
 
 ## Links
 
-- [Verity Image Recommendations](../concepts/verity.md)
+- [Verity Image Recommendations](../concepts/verity/verity.md)
 - [Verity API](../api/configuration/verity.md)
 - [UKI API](../api/configuration/uki.md)
