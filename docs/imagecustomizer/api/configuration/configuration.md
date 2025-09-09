@@ -3,6 +3,7 @@ title: Configuration
 parent: API
 grand_parent: Image Customizer
 nav_order: 2
+sidebar_position: 2
 has_toc: false
 ---
 

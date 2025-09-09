@@ -2,6 +2,7 @@
 parent: Concepts
 title: Live OS
 nav_order: 2
+sidebar_position: 2
 ---
 
 # Image Customizer Live OS Support
