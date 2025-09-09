@@ -3,6 +3,7 @@ title: Command line
 parent: API
 grand_parent: Image Customizer
 nav_order: 1
+sidebar_position: 1
 ---
 
 # Image Customizer command line
