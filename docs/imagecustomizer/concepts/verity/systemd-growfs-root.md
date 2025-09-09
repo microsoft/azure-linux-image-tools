@@ -1,7 +1,6 @@
 ---
 title: systemd-growfs-root
 parent: Verity Image Recommendations
-sidebar_position: 5
 ---
 
 # Verity and systemd-growfs-root

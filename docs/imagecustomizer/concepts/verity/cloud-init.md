@@ -1,7 +1,6 @@
 ---
 title: cloud-init
 parent: Verity Image Recommendations
-sidebar_position: 2
 ---
 
 # Verity and cloud-init

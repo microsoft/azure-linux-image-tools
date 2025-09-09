@@ -1,7 +1,6 @@
 ---
 parent: Reference
 nav_order: 1
-sidebar_position: 1
 ---
 
 # Building custom packages
