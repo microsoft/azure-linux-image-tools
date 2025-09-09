@@ -14,36 +14,17 @@ jobs:
       with:
         persist-credentials: false
 
-    - name: Setup ruby
-      uses: ruby/setup-ruby@efbf473cab83af4468e8606cc33eca9281bb213f # v1.256.0
+    - uses: actions/setup-node@v4
       with:
-        ruby-version: '3.3'
-        bundler-cache: true # runs 'bundle install' and caches installed gems automatically
-        cache-version: 0 # Increment this number if you need to re-download cached gems
-        working-directory: ./docs
+        node-version: 20.x
 
-    - name: Setup pages
-      id: pages
-      uses: actions/configure-pages@v5
-
-    - name: Build with Jekyll
-      run: bundle exec jekyll build --baseurl "$PAGES_PATH"
-      working-directory: ./docs
-      env:
-        PAGES_PATH: ${{ steps.pages.outputs.base_path }}
-
-    - name: Check links
+    - name: Build website
       run: |
-        bundle exec htmlproofer \
-          --disable-external \
-          --assume_extension '.html' \
-          --swap-urls "^${PAGES_PATH}/:/" \
-          ./_site
-      working-directory: ./docs
-      env:
-        PAGES_PATH: ${{ steps.pages.outputs.base_path }}
-    - name: Upload site assets as artifact
-      id: deployment
+        cd website
+        npm ci
+        npm run build
+
+    - name: Upload website artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: ./docs/_site
+        path: ./website/build
