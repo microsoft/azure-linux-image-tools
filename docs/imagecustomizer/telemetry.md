@@ -2,6 +2,7 @@
 title: Telemetry
 parent: Image Customizer
 nav_order: 7
+sidebar_position: 7
 ---
 
 # Telemetry in Image Customizer

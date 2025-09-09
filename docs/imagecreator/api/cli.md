@@ -3,6 +3,7 @@ title: Command line
 parent: API
 grand_parent: Image Creator
 nav_order: 3
+sidebar_position: 3
 ---
 
 # Image Creator command line

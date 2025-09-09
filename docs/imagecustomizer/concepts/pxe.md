@@ -2,6 +2,7 @@
 parent: Concepts
 title: PXE Support
 nav_order: 4
+sidebar_position: 4
 ---
 
 # Image Customizer PXE Support

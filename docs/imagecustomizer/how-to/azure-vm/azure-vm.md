@@ -2,6 +2,7 @@
 title: Create Azure VM
 parent: How To
 nav_order: 2
+sidebar_position: 1
 has_toc: false
 ---
 

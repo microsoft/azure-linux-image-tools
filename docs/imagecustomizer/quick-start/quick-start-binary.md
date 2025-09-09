@@ -3,6 +3,7 @@ title: Quick Start - Binary
 parent: Quick Start
 grand_parent: Image Customizer
 nav_order: 1
+sidebar_position: 1
 ---
 
 # Using the Image Customizer Binary
