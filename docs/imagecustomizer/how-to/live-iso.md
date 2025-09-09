@@ -2,6 +2,7 @@
 title: Create LiveOS ISO
 parent: How To
 nav_order: 9
+sidebar_position: 3
 ---
 
 # Create a LiveOS ISO and run it in a VM
@@ -127,6 +128,6 @@ needing to install the OS.
 ## Links
 
 - [LiveOS ISO Support](../concepts/iso.md)
-- [--output-image-format CLI parameter](../api/cli.md#--output-image-formatformat)
+- [--output-image-format CLI parameter](../api/cli/cli.md#--output-image-formatformat)
 - [ISO configuration API](../api/configuration/iso.md)
  

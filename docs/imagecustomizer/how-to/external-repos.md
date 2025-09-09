@@ -2,6 +2,7 @@
 title: Install/Update Packages from External Repos
 parent: How To
 nav_order: 7
+sidebar_position: 2
 ---
 
 # Install/Update Packages from External Repos
@@ -15,7 +16,7 @@ using Image Customizer. The example below demonstrates installing Kubernetes
 1. Download the Base Image
 
    Have the image under customization ready. For using marketplace image, see
-   [Downloading marketplace image](./download-marketplace-image.md)
+   [Downloading marketplace image](./azure-vm/download-marketplace-image.md)
 
 2. Prepare the Repository Configuration
 

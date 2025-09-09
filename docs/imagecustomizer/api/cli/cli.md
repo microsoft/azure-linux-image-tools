@@ -3,6 +3,7 @@ title: Command line
 parent: API
 grand_parent: Image Customizer
 nav_order: 1
+sidebar_position: 1
 ---
 
 # Image Customizer command line
@@ -21,7 +22,7 @@ Added in v0.3.
 
 ## --image-file=FILE-PATH
 
-Required, unless [input.image.path](./configuration/inputImage.md#path-string) is
+Required, unless [input.image.path](../configuration/inputImage.md#path-string) is
 provided in the configuration file. If both `input.image.path` and
 `--image-file` are provided, then the `--image-file` value is used.
 
@@ -40,26 +41,26 @@ problems when trying to upload the disk to Azure.
 If verity is enabled in the base image, then:
 
 - If the partitions are recustomized using the
-  [disks](../api/configuration/storage.md#disks-disk) API, then the existing verity
+  [disks](../configuration/storage.md#disks-disk) API, then the existing verity
   settings are thrown away.
   New verity settings can be configured with the
-  [verity](../api/configuration/verity.md) API.
+  [verity](../configuration/verity.md) API.
 
 - Otherwise, the existing verity settings are reapplied to the image after OS
   customization, according to the
-  [.storage.reinitializeVerity](./configuration/storage.md#reinitializeverity-string)
+  [.storage.reinitializeVerity](../configuration/storage.md#reinitializeverity-string)
   setting.
 
   This feature is in preview and may be subject to breaking changes.
   You may enable this feature by adding `reinitialize-verity` to the
-  [previewfeatures](./configuration/config.md#previewfeatures-string) API.
+  [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v0.3.
 
 ## --output-image-file=FILE-PATH
 
 Required, unless
-[output.image.path](./configuration/outputImage.md#path-string) is
+[output.image.path](../configuration/outputImage.md#path-string) is
 provided in the configuration file. If both `output.image.path` and
 `--output-image-file` are provided, then the `--output-image-file` value
 is used.
@@ -77,21 +78,21 @@ Added in v0.15.
 ## --output-image-format=FORMAT
 
 Required, unless
-[output.image.format](./configuration/outputImage.md#format-string) is
+[output.image.format](../configuration/outputImage.md#format-string) is
 provided in the configuration file. If both `output.image.format` and
 `--output-image-format` are provided, then the `--output-image-format`
 value is used.
 
 The image format of the final customized image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, pxe-dir, pxe-tar, and [cosi](./cosi.md).
+Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, pxe-dir, pxe-tar, and [cosi](../cosi.md).
 
 The vhd-fixed option outputs a fixed size VHD image. This is the required format for
 VMs in Azure.
 
 When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
-[Image Customizer ISO Support](../concepts/iso.md).
+[Image Customizer ISO Support](../../concepts/iso.md).
 
 ## --config-file=FILE-PATH
 
@@ -101,7 +102,7 @@ The file path of the YAML (or JSON) configuration file that specifies how to cus
 the image.
 
 For documentation on the supported configuration options, see:
-[Image Customizer configuration](./configuration.md)
+[Image Customizer configuration](../configuration/configuration.md)
 
 Added in v0.3.
 
@@ -134,7 +135,7 @@ Can be one of:
   The repo file will only be used during image customization and will not be added to
   the image.
   If you want to add the repo file to the image, then use use
-  [additionalFiles](../api/configuration/os.md#additionalfiles-additionalfile) to place
+  [additionalFiles](../configuration/os.md#additionalfiles-additionalfile) to place
   the repo file under the `/etc/yum.repos.d` directory.
 
 This option can be specified multiple times.
@@ -143,10 +144,10 @@ RPM sources are specified in the order or priority from lowest to highest.
 If `--disable-base-image-rpm-repos` is not specified, then the in-built RPM repos are
 given the lowest priority.
 
-See, [Building custom packages](../reference/building-packages.md) for a guide on how to
+See, [Building custom packages](../../reference/building-packages.md) for a guide on how to
 build your own packages for Azure Linux.
 
-See, [Cloning an RPM repo](../reference/clone-rpm-repo.md) for how to clone or download
+See, [Cloning an RPM repo](../../reference/clone-rpm-repo.md) for how to clone or download
 RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
@@ -176,7 +177,7 @@ Added in v0.3.
 
 Injects files into a disk image using an injection configuration.
 
-See [inject-files subcommand](./cli/inject-files.md) for full documentation.
+See [inject-files subcommand](./inject-files.md) for full documentation.
 
 ## --package-snapshot-time
 
@@ -191,6 +192,6 @@ Supports:
 - A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
 
 You may enable this feature by adding `package-snapshot-time` to the
-[previewfeatures](./configuration/config.md#previewfeatures-string) API.
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v0.15.

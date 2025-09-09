@@ -1,6 +1,7 @@
 ---
 parent: Reference
 nav_order: 2
+sidebar_position: 2
 ---
 
 # Cloning an RPM repo
