@@ -1,7 +1,6 @@
 ---
 title: sshd
 parent: Verity Image Recommendations
-sidebar_position: 4
 ---
 
 # Verity and sshd

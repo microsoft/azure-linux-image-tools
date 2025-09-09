@@ -2,7 +2,6 @@
 parent: Concepts
 title: ISO Support
 nav_order: 3
-sidebar_position: 3
 ---
 
 # Image Customizer Live OS ISO Support

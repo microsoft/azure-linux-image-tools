@@ -2,7 +2,6 @@
 title: Create Verity and UKI image
 parent: How To
 nav_order: 9
-sidebar_position: 4
 ---
 
 # Create image with both verity and UKI

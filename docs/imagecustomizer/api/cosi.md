@@ -2,7 +2,6 @@
 parent: API
 grand_parent: Image Customizer
 nav_order: 3
-sidebar_position: 3
 ---
 
 # Composable Operating System Image (COSI) Specification

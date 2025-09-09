@@ -2,7 +2,6 @@
 title: Create LiveOS ISO
 parent: How To
 nav_order: 9
-sidebar_position: 3
 ---
 
 # Create a LiveOS ISO and run it in a VM

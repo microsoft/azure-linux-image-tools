@@ -12,7 +12,7 @@ currently hosts **Image Customizer**, a robust image customization tool.
 
 It is a tool that supports multiple formats and customizations features. Full
 list can be found in [supported
-operations](docs/imagecustomizer/api/configuration/index.md)
+operations](docs/imagecustomizer/api/configuration/configuration.md)
 
 
 ## Getting Started

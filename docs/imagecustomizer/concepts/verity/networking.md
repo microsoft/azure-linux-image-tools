@@ -1,7 +1,6 @@
 ---
 title: Networking
 parent: Verity Image Recommendations
-sidebar_position: 3
 ---
 
 # Verity and Networking
