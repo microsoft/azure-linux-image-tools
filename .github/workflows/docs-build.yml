@@ -1,7 +1,10 @@
 name: Build docs
+
 permissions: {}
+
 on:
   workflow_call: {}
+
 jobs:
   build-docs:
     name: jekyll github pages build
@@ -42,6 +45,7 @@ jobs:
       working-directory: ./docs
       env:
         PAGES_PATH: ${{ steps.pages.outputs.base_path }}
+
     - name: Upload site assets as artifact
       id: deployment
       uses: actions/upload-pages-artifact@v3
