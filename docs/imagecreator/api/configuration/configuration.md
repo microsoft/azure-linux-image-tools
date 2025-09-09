@@ -3,7 +3,6 @@ parent: API
 grand_parent: Image Creator
 title : Configuration
 nav_order: 2
-sidebar_position: 1
 has_toc: false
 ---
 
