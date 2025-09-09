@@ -87,8 +87,14 @@ endif
 # Tool specific pre-requisites are tracked via $(go-util): $(shell find...) dynamic variable defined above
 $(TOOL_BINS_DIR)/%: $(go_common_files) $(license_scan_dependency)
 	cd $(TOOLS_DIR)/$* && \
-		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$(BUILD_DIR)/tools/$*.test_coverage ./... && \
-		CGO_ENABLED=0 go build \
+		go test \
+			-ldflags="$(go_ldflags)" \
+			-test.short \
+			-covermode=atomic \
+			-coverprofile=$(BUILD_DIR)/tools/$*.test_coverage \
+			./... && \
+		CGO_ENABLED=0 \
+		go build \
 			-ldflags="$(go_ldflags)" \
 			$(if $(filter y,$(BUILD_TOOLS_NONPROD)),,-tags prod) \
 			-o $(TOOL_BINS_DIR)
@@ -96,7 +102,12 @@ $(TOOL_BINS_DIR)/%: $(go_common_files) $(license_scan_dependency)
 # Runs tests for common components
 $(BUILD_DIR)/tools/internal.test_coverage: $(go_internal_files) $(go_imagegen_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag
 	cd $(TOOLS_DIR)/$* && \
-		go test -ldflags="$(go_ldflags)" -test.short -covermode=atomic -coverprofile=$@ ./...
+		go test \
+			-ldflags="$(go_ldflags)" \
+			-test.short \
+			-covermode=atomic \
+			-coverprofile=$@ \
+			./...
 
 .PHONY: imagecustomizer-targz
 imagecustomizer-targz: go-imagecustomizer $(license_scan_dependency)
@@ -154,7 +165,14 @@ go-fmt-all:
 # Formats the test coverage for the tools
 .PHONY: $(BUILD_DIR)/tools/all_tools.coverage
 $(BUILD_DIR)/tools/all_tools.coverage: $(call shell_real_build_only, find $(TOOLS_DIR)/ -type f -name '*.go') $(STATUS_FLAGS_DIR)/got_go_deps.flag
-	cd $(TOOLS_DIR) && go test -ldflags="$(go_ldflags)" -coverpkg=./... -test.short -covermode=atomic -coverprofile=$@ ./...
+	cd $(TOOLS_DIR) && \
+		go test \
+			-ldflags="$(go_ldflags)" \
+			-coverpkg=./... \
+			-test.short \
+			-covermode=atomic \
+			-coverprofile=$@ \
+			./...
 $(test_coverage_report): $(BUILD_DIR)/tools/all_tools.coverage
 	cd $(TOOLS_DIR) && go tool cover -html=$(BUILD_DIR)/tools/all_tools.coverage -o $@
 ##help:target:go-test-coverage=Run and publish test coverage for all go tools.
