@@ -28,7 +28,7 @@ recommended to use Image Customizer on top of the seed image produced by Image C
 - API Documentation:
   - [CLI](./api/cli.md) - Learn about the available command-line interface
     commands for Image Creator
-  - [Configuration](./api/configuration.md) - Understand how to configure Image
+  - [Configuration](./api/configuration/configuration.md) - Understand how to configure Image
     Creator to suit your needs
 
 ## Help and Feedback

@@ -14,14 +14,14 @@ Contains the options for provisioning disks, partitions, and file systems.
 You should specify the disks, partitions and filesystems for creating a image these cannot be empty.
 
 For supported fields in the storage level of the configuration refer to
-[schema](../../api/configuration.md#schema-overview)
+[schema](../../api/configuration/configuration.md#schema-overview)
 
 ## os [[os](../../../imagecustomizer/api/configuration/os.md)]
 
 Contains the configuration options for the OS.
 
 For supported fields in the os level of the configuration refer to
-[schema](../../api/configuration.md#schema-overview)
+[schema](../../api/configuration/configuration.md#schema-overview)
 
 Example:
 
@@ -56,7 +56,7 @@ Supported options:
 
 - `package-snapshot-time`: Enables snapshot-based package filtering during image
   customization. This allows specifying a cutoff timestamp using the
-  [`--package-snapshot-time`](../../../imagecustomizer/api/cli.md#--package-snapshot-time) CLI option or
+  [`--package-snapshot-time`](../../../imagecustomizer/api/cli/cli.md#--package-snapshot-time) CLI option or
   [`os.packages.snapshotTime`](../../../imagecustomizer/api/configuration/packages.md#snapshottime-string) API field.
   If both are provided, the CLI value takes precedence.
 

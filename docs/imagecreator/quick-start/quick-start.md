@@ -57,7 +57,7 @@ nav_order: 1
    ```
 
    For documentation on the supported configuration options, see:
-   [Supported configuration](../api/configuration.md)
+   [Supported configuration](../api/configuration/configuration.md)
 
 2. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
@@ -149,4 +149,4 @@ nav_order: 1
 ## Next Steps
 
 - Learn more about the [Image creator command line](../api/cli.md)
-- Learn more about the [Image creator config options](../api/configuration.md)
+- Learn more about the [Image creator config options](../api/configuration/configuration.md)

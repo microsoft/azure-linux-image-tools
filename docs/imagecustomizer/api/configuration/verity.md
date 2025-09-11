@@ -13,7 +13,7 @@ Note: The [filesystem](./filesystem.md) item pointing to this verity device, mus
 include the `ro` option in the [mountPoint.options](./mountpoint.md#options-string).
 
 There are multiple ways to configure a verity enabled image. For
-recommendations, see [Verity Image Recommendations](../../concepts/verity.md).
+recommendations, see [Verity Image Recommendations](../../concepts/verity/verity.md).
 
 Example of enabling root Verity:
 
