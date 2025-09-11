@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"go.opentelemetry.io/otel"
 )
 

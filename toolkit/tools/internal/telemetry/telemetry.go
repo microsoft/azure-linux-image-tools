@@ -6,8 +6,8 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
 	autoexport "go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

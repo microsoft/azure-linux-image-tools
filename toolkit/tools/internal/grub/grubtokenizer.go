@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/filescanner"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/filescanner"
 )
 
 // TokenizeConfigFile parses a grub config file into tokens.

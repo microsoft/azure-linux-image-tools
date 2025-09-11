@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 )
 
 // Disk holds the disk partitioning, formatting and size information.

@@ -13,17 +13,17 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/osinfo"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/randomization"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/vhdutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -65,8 +65,11 @@ var (
 	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 
 	// Generic customization errors
-	ErrGetAbsoluteConfigPath = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
-	ErrCustomizeRawImage     = NewImageCustomizerError("Customizer:CustomizeRawImage", "failed to customize raw image")
+	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
+	ErrCustomizeOs              = NewImageCustomizerError("Customizer:CustomizeOs", "failed to customize OS")
+	ErrCustomizeProvisionVerity = NewImageCustomizerError("Customizer:ProvisionVerity", "failed to provision verity")
+	ErrCustomizeCreateUkis      = NewImageCustomizerError("Customizer:CreateUkis", "failed to create UKIs")
+	ErrCustomizeOutputArtifacts = NewImageCustomizerError("Customizer:OutputArtifacts", "failed to output artifacts")
 
 	// Image conversion errors
 	ErrConvertInputImage       = NewImageCustomizerError("ImageConversion:ConvertInput", "failed to convert input image to a raw image")
@@ -398,7 +401,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	err = customizeOSContents(ctx, imageCustomizerParameters)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrCustomizeRawImage, err)
+		return err
 	}
 
 	if config.Output.Artifacts != nil {
@@ -407,7 +410,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		err = outputArtifacts(ctx, config.Output.Artifacts.Items, outputDir, imageCustomizerParameters.buildDirAbs,
 			imageCustomizerParameters.rawImageFile, imageCustomizerParameters.verityMetadata)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
 		}
 	}
 
@@ -605,7 +608,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos,
 		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
 
 	if len(baseImageVerityMetadata) > 0 {
@@ -634,16 +637,16 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		verityMetadata, err := customizeVerityImageHelper(ctx, ic.buildDirAbs, ic.config, ic.rawImageFile, partIdToPartUuid,
 			shrinkPartitions, ic.baseImageVerityMetadata, readonlyPartUuids)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
 
 		ic.verityMetadata = verityMetadata
 	}
 
 	if ic.config.OS.Uki != nil {
-		err = createUki(ctx, ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
+		err = createUki(ctx, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}
 	}
 

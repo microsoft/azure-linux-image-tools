@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/kernelversion"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/targetos"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/version"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/kernelversion"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 )
 
 // When calling mkfs, the default options change depending on the host OS you are running on and typically match

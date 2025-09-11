@@ -13,11 +13,11 @@ import (
 
 	"github.com/cavaliercoder/go-cpio"
 	"github.com/klauspost/pgzip"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 const (

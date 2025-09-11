@@ -76,28 +76,30 @@ telemetryScript="$enlistmentRoot/toolkit/scripts/telemetry_hopper/telemetry_hopp
 telemetryRequirements="$enlistmentRoot/toolkit/scripts/telemetry_hopper/requirements.txt"
 entrypointScript="$scriptDir/entrypoint.sh"
 
-stagingBinDir="${containerStagingFolder}/usr/local/bin"
-stagingLicensesDir="${containerStagingFolder}/usr/local/share/licenses"
+stagingBinDir="${containerStagingFolder}/usr/bin"
+stagingLibDir="${containerStagingFolder}/usr/lib/imagecustomizer"
+stagingLicensesDir="${containerStagingFolder}/usr/share/licenses"
 
 dockerFile="$scriptDir/imagecustomizer.Dockerfile"
 runScriptPath="$scriptDir/run.sh"
 
 # stage those files that need to be in the container
 mkdir -p "${stagingBinDir}"
+mkdir -p "${stagingLibDir}"
 mkdir -p "${stagingLicensesDir}"
 
 cp "$exeFile" "${stagingBinDir}"
-cp "$runScriptPath" "${stagingBinDir}"
+cp "$runScriptPath" "${stagingLibDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
-cp "$telemetryScript" "${stagingBinDir}"
-cp "$entrypointScript" "${stagingBinDir}"
+cp "$telemetryScript" "${stagingLibDir}"
+cp "$entrypointScript" "${stagingLibDir}"
 
 cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.txt
 
 # azl doesn't support grub2-pc for arm64, hence remove it from dockerfile
 if [ "$ARCH" == "arm64" ]; then
-    echo "Removing grub2-pc and systemd-ukify from Dockerfile for arm64"
-    sed -i 's/\<grub2-pc systemd-ukify\>//g' "$dockerFile"
+    echo "Removing grub2-pc from Dockerfile for arm64"
+    sed -i 's/\<grub2-pc\>//g' "$dockerFile"
 fi
 
 # list all staged files

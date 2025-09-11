@@ -5,12 +5,18 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"go.opentelemetry.io/otel"
+)
+
+var (
+	ErrPartitionsCustomize  = NewImageCustomizerError("Partitions:Customize", "failed to customize partitions")
+	ErrPartitionsResetUuids = NewImageCustomizerError("Partitions:ResetUuids", "failed to reset partition UUIDs")
 )
 
 func customizePartitions(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
@@ -31,7 +37,7 @@ func customizePartitions(ctx context.Context, buildDir string, baseConfigPath st
 			buildImageFile, newBuildImageFile)
 		if err != nil {
 			os.Remove(newBuildImageFile)
-			return false, "", nil, err
+			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsCustomize, err)
 		}
 
 		return true, newBuildImageFile, partIdToPartUuid, nil
@@ -39,7 +45,7 @@ func customizePartitions(ctx context.Context, buildDir string, baseConfigPath st
 	case config.Storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
 		err := resetPartitionsUuids(ctx, buildImageFile, buildDir)
 		if err != nil {
-			return false, "", nil, err
+			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
 		}
 
 		return true, buildImageFile, nil, nil

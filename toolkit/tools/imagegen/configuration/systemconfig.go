@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 // SystemConfig defines how each system present on the image is supposed to be configured.

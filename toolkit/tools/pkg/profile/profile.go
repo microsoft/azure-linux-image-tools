@@ -7,7 +7,7 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/exe"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exe"
 )
 
 type Profiler struct {

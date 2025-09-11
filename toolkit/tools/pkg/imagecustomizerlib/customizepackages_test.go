@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -228,7 +228,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to customize raw image")
+	assert.ErrorContains(t, err, "failed to customize OS")
 	assert.ErrorContains(t, err, "failed to install packages (packages=[gcc])")
 }
 

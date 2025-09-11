@@ -21,7 +21,7 @@ env:
 
 jobs:
   tests-functional:
-    name: Functional test suite
+    name: Functional test suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
@@ -36,21 +36,30 @@ jobs:
       with:
         go-version: "${{ env.EXPECTED_GO_VERSION }}"
 
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        path: repo
+        persist-credentials: false
+
     - name: Install prerequisites (AZL3)
       if: inputs.hostDistro == 'azl3'
       run: |
         set -eux
 
         # Install Image Customizer prerequisities.
-        sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-          xfsprogs zstd veritysetup grub2 binutils lsof \
-          git azure-cli
+        PACKAGES="qemu-img rpm coreutils util-linux systemd openssl \
+            sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+            xfsprogs zstd veritysetup grub2 binutils lsof \
+            git azure-cli systemd-ukify"
 
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          sudo tdnf install -y grub2-pc systemd-ukify
+            PACKAGES+=" grub2-pc"
         fi
+
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
+            tdnf install -y $PACKAGES
 
         sudo tdnf list installed
       env:
@@ -77,12 +86,6 @@ jobs:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-    - name: Checkout
-      uses: actions/checkout@v5
-      with:
-        path: repo
-        persist-credentials: false
 
     - name: Download base images
       run: |

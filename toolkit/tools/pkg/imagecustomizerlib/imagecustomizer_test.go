@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -1047,6 +1047,47 @@ func testConvertImageToRawSuccess(t *testing.T, testName string, qemuImgArgs []s
 	testRawFileStat, err := os.Stat(testRawFile)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(diskSize), testRawFileStat.Size())
+}
+
+func TestCustomizeImageBaseImageMissing(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
+	qemuimgExists, err := file.CommandExists("qemu-img")
+	assert.NoError(t, err)
+	if !qemuimgExists {
+		t.Skip("The 'qemu-img' command is not available")
+	}
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageMissing")
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-config.yaml")
+	baseImage := filepath.Join(testTmpDir, "missing.qcow2")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "no such file or directory")
+}
+
+func TestCustomizeImageBaseImageInvalid(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
+	qemuimgExists, err := file.CommandExists("qemu-img")
+	assert.NoError(t, err)
+	if !qemuimgExists {
+		t.Skip("The 'qemu-img' command is not available")
+	}
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageInvalid")
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-config.yaml")
+	baseImage := configFile
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "failed to open image file:")
+	assert.ErrorContains(t, err, "image does not contain a partition table")
 }
 
 func checkFileType(t *testing.T, filePath string, expectedFileType string) {
