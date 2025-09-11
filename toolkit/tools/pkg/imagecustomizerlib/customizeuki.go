@@ -40,17 +40,23 @@ var (
 )
 
 const (
-	BootDir               = "boot"
-	EspDir                = "boot/efi"
-	DefaultGrubCfgPath    = "grub2/grub.cfg"
-	KernelCmdlineArgsJson = "kernel-cmdline-args.json"
-	KernelPrefix          = "vmlinuz-"
-	UkiBuildDir           = "UkiBuildDir"
-	UkiOutputDir          = "EFI/Linux"
+	BootDir            = "boot"
+	EspDir             = "boot/efi"
+	DefaultGrubCfgPath = "grub2/grub.cfg"
+	UkiKernelInfoJson  = "uki-kernel-info.json"
+	KernelPrefix       = "vmlinuz-"
+	UkiBuildDir        = "UkiBuildDir"
+	UkiOutputDir       = "EFI/Linux"
 )
 
 // Matches UKI filenames like "vmlinuz-<version>.efi"
 var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
+
+// UkiKernelInfo holds both command line arguments and initramfs name for a UKI kernel
+type UkiKernelInfo struct {
+	Cmdline   string `json:"cmdline"`
+	Initramfs string `json:"initramfs"`
+}
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
 	var err error
@@ -154,9 +160,22 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
 
-	// Dump kernel command line arguments to a file in buildDir.
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
-	err = writeKernelCmdlineArgsFile(cmdlineFilePath, kernelToArgs)
+	// Combine kernel-to-initramfs mapping and kernel command line arguments into a single structure.
+	kernelInfo := make(map[string]UkiKernelInfo)
+	for kernel, initramfs := range kernelToInitramfs {
+		cmdline, exists := kernelToArgs[kernel]
+		if !exists {
+			return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+		}
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   cmdline,
+			Initramfs: initramfs,
+		}
+	}
+
+	// Dump kernel information to a file in buildDir.
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrUKICmdlineFileWrite, cmdlineFilePath, err)
 	}
@@ -313,7 +332,7 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 	return kernelToInitramfs, nil
 }
 
-func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string, buildImageFile string) error {
+func createUki(ctx context.Context, buildDir string, buildImageFile string) error {
 	logger.Log.Infof("Creating UKIs")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki")
@@ -341,37 +360,26 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	if err != nil {
 		return err
 	}
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
-	if err != nil {
-		return err
-	}
 
 	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return fmt.Errorf("failed to mount esp partition (%s):\n%w", bootPartition.Path, err)
+		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
 
-	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
-	if err != nil {
-		return fmt.Errorf("failed to mount partition (%s):\n%w", bootPartition.Path, err)
-	}
-	defer bootPartitionMount.Close()
-
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
-	// Get mapped kernels and initramfs.
-	kernelToInitramfs, err := getKernelToInitramfsMap(bootPartitionTmpDir, uki.Kernels)
+	// Read the kernel information (kernels, initramfs, and command line args) from the file created during prepareUki.
+	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
 	if err != nil {
 		return err
 	}
 
-	for kernel, initramfs := range kernelToInitramfs {
-		err := buildUki(kernel, initramfs, cmdlineFilePath, osSubreleaseFullPath, stubPath, buildDir,
+	for kernel, info := range kernelInfo {
+		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, buildDir,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {
@@ -385,11 +393,6 @@ func createUki(ctx context.Context, uki *imagecustomizerapi.Uki, buildDir string
 	}
 
 	err = systemBootPartitionMount.CleanClose()
-	if err != nil {
-		return err
-	}
-
-	err = bootPartitionMount.CleanClose()
 	if err != nil {
 		return err
 	}
@@ -450,7 +453,7 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 	return kernelToArgsString, nil
 }
 
-func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubreleaseFullPath string,
+func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFullPath string,
 	stubPath string, buildDir string, systemBootPartitionTmpDir string,
 ) error {
 	kernelVersion, err := getKernelVersion(kernel)
@@ -458,17 +461,6 @@ func buildUki(kernel string, initramfs string, cmdlineFilePath string, osSubrele
 		return err
 	}
 	configFilePath := filepath.Join(buildDir, UkiBuildDir, fmt.Sprintf("ukify_%s.conf", kernelVersion))
-
-	kernelToArgs, err := readKernelCmdlineArgsFile(cmdlineFilePath)
-	if err != nil {
-		return err
-	}
-
-	// Get the arguments for the current kernel.
-	kernelArgs, ok := kernelToArgs[kernel]
-	if !ok {
-		return fmt.Errorf("no kernel cmdline arguments found for kernel (%s)", kernel)
-	}
 
 	// Create the INI file.
 	cfg := ini.Empty()
@@ -535,21 +527,24 @@ func cleanupUkiBuildDir(buildDir string) error {
 }
 
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, KernelCmdlineArgsJson)
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
-	kernelToArgs, err := readKernelCmdlineArgsFile(cmdlineFilePath)
+	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
 	if err != nil {
 		return err
 	}
 
 	// Append newArgs.
-	newArgsStr := strings.Join(newArgs, " ")
-	for kernel, args := range kernelToArgs {
-		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(args), strings.TrimSpace(newArgsStr))
-		kernelToArgs[kernel] = updatedArgs
+	newArgsStr := GrubArgsToString(newArgs)
+	for kernel, info := range kernelInfo {
+		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(info.Cmdline), strings.TrimSpace(newArgsStr))
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   updatedArgs,
+			Initramfs: info.Initramfs,
+		}
 	}
 
-	err = writeKernelCmdlineArgsFile(cmdlineFilePath, kernelToArgs)
+	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
 	if err != nil {
 		return err
 	}
@@ -566,30 +561,30 @@ func getKernelVersion(kernelName string) (string, error) {
 	return kernelVersion, nil
 }
 
-func readKernelCmdlineArgsFile(filePath string) (map[string]string, error) {
+func readUkiKernelInfoFile(filePath string) (map[string]UkiKernelInfo, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read kernel cmdline args file at (%s):\n%w", filePath, err)
+		return nil, fmt.Errorf("failed to read kernel info file at (%s):\n%w", filePath, err)
 	}
 
-	var kernelToArgs map[string]string
-	err = json.Unmarshal(content, &kernelToArgs)
+	var kernelInfo map[string]UkiKernelInfo
+	err = json.Unmarshal(content, &kernelInfo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse kernel cmdline args file at (%s):\n%w", filePath, err)
+		return nil, fmt.Errorf("failed to parse kernel info file at (%s):\n%w", filePath, err)
 	}
 
-	return kernelToArgs, nil
+	return kernelInfo, nil
 }
 
-func writeKernelCmdlineArgsFile(filePath string, kernelToArgs map[string]string) error {
-	content, err := json.MarshalIndent(kernelToArgs, "", "  ")
+func writeUkiKernelInfoFile(filePath string, kernelInfo map[string]UkiKernelInfo) error {
+	content, err := json.MarshalIndent(kernelInfo, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to serialize kernel cmdline args to JSON:\n%w", err)
+		return fmt.Errorf("failed to serialize kernel info to JSON:\n%w", err)
 	}
 
 	err = os.WriteFile(filePath, content, 0o644)
 	if err != nil {
-		return fmt.Errorf("failed to write kernel cmdline args file at (%s):\n%w", filePath, err)
+		return fmt.Errorf("failed to write kernel info file at (%s):\n%w", filePath, err)
 	}
 
 	return nil

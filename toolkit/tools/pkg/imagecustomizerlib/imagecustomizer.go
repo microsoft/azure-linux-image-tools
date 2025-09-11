@@ -644,7 +644,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	}
 
 	if ic.config.OS.Uki != nil {
-		err = createUki(ctx, ic.config.OS.Uki, ic.buildDirAbs, ic.rawImageFile)
+		err = createUki(ctx, ic.buildDirAbs, ic.rawImageFile)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}
