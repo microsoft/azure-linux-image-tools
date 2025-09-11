@@ -274,8 +274,10 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption)
 
 	// Verify extra command line
-	for _, kernelArgs := range kernelArgsList {
-		assert.Regexp(t, fmt.Sprintf(` %s( |$)`, regexp.QuoteMeta(extraCommandLine)), kernelArgs)
+	if extraCommandLine != "" {
+		for _, kernelArgs := range kernelArgsList {
+			assert.Regexp(t, fmt.Sprintf(` %s( |$)`, regexp.QuoteMeta(extraCommandLine)), kernelArgs)
+		}
 	}
 }
 

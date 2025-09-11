@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -112,8 +114,8 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	cosiFilePath := filepath.Join(testTempDir, "image.cosi")
-	originalConfigFile := filepath.Join(testDir, "artifacts-output.yaml")
-	configFile := filepath.Join(testTempDir, "artifacts-output.yaml")
+	originalConfigFile := filepath.Join(testDir, "artifacts-output-verity.yaml")
+	configFile := filepath.Join(testTempDir, "artifacts-output-verity.yaml")
 	outputArtifactsDir := filepath.Join(testTempDir, "output")
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 
@@ -138,13 +140,41 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 
 	// Connect to image.
 	partitionsPaths, err := extractPartitionsFromCosi(cosiFilePath, testTempDir)
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 3) {
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 5) {
 		return
 	}
 
 	espPartitionPath := filepath.Join(testTempDir, "image_1.raw")
-	//bootPartitionPath := filepath.Join(testTempDir, "image_2.raw")
-	//rootPartitionPath := filepath.Join(testTempDir, "image_3.raw")
+	bootPartitionPath := filepath.Join(testTempDir, "image_2.raw")
+	rootPartitionPath := filepath.Join(testTempDir, "image_3.raw")
+	rootHashPartitionPath := filepath.Join(testTempDir, "image_4.raw")
+	varPartitionPath := filepath.Join(testTempDir, "image_5.raw")
+
+	espStat, err := os.Stat(espPartitionPath)
+	assert.NoError(t, err)
+
+	bootStat, err := os.Stat(bootPartitionPath)
+	assert.NoError(t, err)
+
+	rootStat, err := os.Stat(rootPartitionPath)
+	assert.NoError(t, err)
+
+	rootHashStat, err := os.Stat(rootHashPartitionPath)
+	assert.NoError(t, err)
+
+	varStat, err := os.Stat(varPartitionPath)
+	assert.NoError(t, err)
+
+	// Check partition sizes.
+	assert.Equal(t, int64(500*diskutils.MiB), espStat.Size())
+	assert.Equal(t, int64(2*diskutils.GiB), rootStat.Size())
+	assert.Equal(t, int64(100*diskutils.MiB), rootHashStat.Size())
+
+	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
+	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
+	// were picked by observing values seen during test and adding a good buffer.
+	assert.Greater(t, int64(150*diskutils.MiB), bootStat.Size())
+	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
 
 	espDevice, err := safeloopback.NewLoopback(espPartitionPath)
 	if !assert.NoError(t, err) {
@@ -159,7 +189,17 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	}
 	defer espMount.Close()
 
+	rootUuid, _, err := shell.Execute("blkid", "--probe", "-s", "UUID", "-o", "value", rootPartitionPath)
+	assert.NoError(t, err)
+	rootUuid = strings.TrimSpace(rootUuid)
+
+	rootHashUuid, _, err := shell.Execute("blkid", "--probe", "-s", "UUID", "-o", "value", rootHashPartitionPath)
+	assert.NoError(t, err)
+	rootHashUuid = strings.TrimSpace(rootHashUuid)
+
 	verifyInjectedFiles(t, espMountPath, espFiles)
+	verifyVerityUki(t, espMountPath, rootPartitionPath, rootHashPartitionPath, "UUID="+rootUuid, "UUID="+rootHashUuid,
+		"root", buildDir, "", "restart-on-corruption")
 }
 
 func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string) []string {
