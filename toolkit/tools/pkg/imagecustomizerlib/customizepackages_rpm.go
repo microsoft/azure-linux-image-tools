@@ -44,7 +44,10 @@ func managePackagesRpm(
 	// Setup distribution-specific configuration if needed
 	if pmHandler.supportsSnapshotTime() && snapshotTime != "" {
 		// Setup Azure Linux specific TDNF configuration with snapshot
-		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, imagecustomizerapi.PackageSnapshotTime(snapshotTime))
+		err = createTempTdnfConfigWithSnapshot(
+			packageManagerChroot,
+			imagecustomizerapi.PackageSnapshotTime(snapshotTime),
+		)
 		if err != nil {
 			return err
 		}
@@ -249,7 +252,9 @@ func removeRpmPackages(
 	args = append(args, allPackagesToRemove...)
 
 	if toolsChroot != nil {
-		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+		args = append(
+			[]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir},
+			args...)
 	}
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)

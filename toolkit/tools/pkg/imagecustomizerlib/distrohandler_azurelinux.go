@@ -47,5 +47,16 @@ func (d *azureLinuxDistroHandler) managePackages(
 	useBaseImageRpmRepos bool,
 	snapshotTime string,
 ) error {
-	return managePackagesRpm(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime, d.packageManager)
+	return managePackagesRpm(
+		ctx,
+		buildDir,
+		baseConfigPath,
+		config,
+		imageChroot,
+		toolsChroot,
+		rpmsSources,
+		useBaseImageRpmRepos,
+		snapshotTime,
+		d.packageManager,
+	)
 }
