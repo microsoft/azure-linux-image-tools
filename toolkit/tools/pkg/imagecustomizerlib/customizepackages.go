@@ -28,9 +28,17 @@ var (
 )
 
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
-func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, distroHandler distroHandler, snapshotTime string,
+func addRemoveAndUpdatePackages(
+	ctx context.Context,
+	buildDir string,
+	baseConfigPath string,
+	config *imagecustomizerapi.OS,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	rpmsSources []string,
+	useBaseImageRpmRepos bool,
+	distroHandler distroHandler,
+	snapshotTime string,
 ) error {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
 	defer span.End()
@@ -40,7 +48,8 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	}
 
 	// Delegate the entire package management workflow to the distribution-specific implementation
-	return distroHandler.managePackages(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos, snapshotTime)
+	return distroHandler.managePackages(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot,
+		rpmsSources, useBaseImageRpmRepos, snapshotTime)
 }
 
 func collectPackagesList(baseConfigPath string, packageLists []string, packages []string) ([]string, error) {

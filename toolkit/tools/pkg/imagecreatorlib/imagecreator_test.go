@@ -28,7 +28,8 @@ func TestCreateImageRaw(t *testing.T) {
 	rpmSources := []string{downloadedRpmsRepoFile}
 	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "3.0", true)
 
-	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
+	err := CreateImageWithConfigFile(
+		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
 		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "")
 	if !assert.NoError(t, err) {
 		return
@@ -44,8 +45,9 @@ func TestCreateImageRaw(t *testing.T) {
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
 
 	// Customize image to vhd.
-	err = imagecustomizerlib.CustomizeImageWithConfigFile(t.Context(), buildDir, noChangeConfigFile, outputImageFilePath,
-		rpmSources, vhdFixedImageFilePath, "vhd", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = imagecustomizerlib.CustomizeImageWithConfigFile(
+		t.Context(), buildDir, noChangeConfigFile, outputImageFilePath, rpmSources,
+		vhdFixedImageFilePath, "vhd", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -121,8 +123,8 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the output image file relative to the current working directory through the argument.
 	// This will create the file at the absolute path.
-	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile, outputImageFormat,
-		toolsFile, "azurelinux", "3.0", "")
+	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+		outputImageFormat, toolsFile, "azurelinux", "3.0", "")
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -133,8 +135,8 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	// Pass the output image file relative to the config file through the config. This will create
 	// the file at the absolute path.
-	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile, outputImageFormat,
-		toolsFile, "azurelinux", "3.0", "")
+	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+		outputImageFormat, toolsFile, "azurelinux", "3.0", "")
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)

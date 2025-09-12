@@ -1090,8 +1090,10 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime, distroHandler)
+	err = doOsCustomizations(
+		ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr,
+		partUuidToFstabEntry, packageSnapshotTime, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.

@@ -104,7 +104,8 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 			logger.Log.Debug(line)
 
 		// DNF download progress
-		case strings.Contains(trimmedLine, "MB/s") && (strings.Contains(trimmedLine, ".rpm") || strings.Contains(trimmedLine, "kB")):
+		case strings.Contains(trimmedLine, "MB/s") &&
+			(strings.Contains(trimmedLine, ".rpm") || strings.Contains(trimmedLine, "kB")):
 			match := dnfDownloadRegex.FindStringSubmatch(line)
 			if match != nil && len(match) > 1 {
 				packageName := match[1]
@@ -147,14 +148,16 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 			logger.Log.Debug(line)
 
 		// DNF metadata operations
-		case strings.Contains(trimmedLine, "metadata") && (strings.Contains(trimmedLine, "downloading") || strings.Contains(trimmedLine, "using")):
+		case strings.Contains(trimmedLine, "metadata") &&
+			(strings.Contains(trimmedLine, "downloading") || strings.Contains(trimmedLine, "using")):
 			logger.Log.Debug(line)
 
 		case strings.HasPrefix(trimmedLine, "Last metadata expiration check:"):
 			logger.Log.Debug(line)
 
 		// DNF progress indicators
-		case strings.Contains(trimmedLine, "[") && strings.Contains(trimmedLine, "]") && strings.Contains(trimmedLine, "%"):
+		case strings.Contains(trimmedLine, "[") &&
+			strings.Contains(trimmedLine, "]") && strings.Contains(trimmedLine, "%"):
 			logger.Log.Debug(line)
 
 		// DNF completion messages

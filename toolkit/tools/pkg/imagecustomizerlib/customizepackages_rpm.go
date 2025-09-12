@@ -16,9 +16,17 @@ import (
 )
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
-func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string, pmHandler rpmPackageManagerHandler,
+func managePackagesRpm(
+	ctx context.Context,
+	buildDir string,
+	baseConfigPath string,
+	config *imagecustomizerapi.OS,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	rpmsSources []string,
+	useBaseImageRpmRepos bool,
+	snapshotTime string,
+	pmHandler rpmPackageManagerHandler,
 ) error {
 	var err error
 
@@ -29,7 +37,8 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 
 	// Validate that snapshot time is only used with package managers that support it
 	if snapshotTime != "" && !pmHandler.supportsSnapshotTime() {
-		return fmt.Errorf("%w: package manager %s does not support snapshot time", ErrSnapshotTimeNotSupported, pmHandler.getPackageManagerBinary())
+		return fmt.Errorf("%w: package manager %s does not support snapshot time",
+			ErrSnapshotTimeNotSupported, pmHandler.getPackageManagerBinary())
 	}
 
 	// Setup distribution-specific configuration if needed
@@ -108,7 +117,12 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 }
 
 // executeRpmPackageManagerCommand runs a package manager command with proper chroot handling
-func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func executeRpmPackageManagerCommand(
+	args []string,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	pmHandler rpmPackageManagerHandler,
+) error {
 	pmChroot := imageChroot
 	if toolsChroot != nil {
 		pmChroot = toolsChroot
@@ -130,7 +144,14 @@ func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chro
 	})
 }
 
-func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesToAdd []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func installOrUpdateRpmPackages(
+	ctx context.Context,
+	action string,
+	allPackagesToAdd []string,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	pmHandler rpmPackageManagerHandler,
+) error {
 	if len(allPackagesToAdd) == 0 {
 		return nil
 	}
@@ -154,7 +175,10 @@ func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesT
 	args = append(args, allPackagesToAdd...)
 
 	if toolsChroot != nil {
-		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+		args = append([]string{
+			"--releasever=" + pmHandler.getReleaseVersion(),
+			"--installroot=/" + toolsRootImageDir,
+		}, args...)
 	}
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
@@ -169,7 +193,12 @@ func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesT
 }
 
 // updateAllRpmPackages updates all packages using the appropriate package manager
-func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func updateAllRpmPackages(
+	ctx context.Context,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	pmHandler rpmPackageManagerHandler,
+) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
 	defer span.End()
 
@@ -183,7 +212,10 @@ func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot, t
 	args = append(args, cacheOptions...)
 
 	if toolsChroot != nil {
-		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+		args = append([]string{
+			"--releasever=" + pmHandler.getReleaseVersion(),
+			"--installroot=/" + toolsRootImageDir,
+		}, args...)
 	}
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
@@ -194,7 +226,13 @@ func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot, t
 }
 
 // removeRpmPackages removes packages using the appropriate package manager
-func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func removeRpmPackages(
+	ctx context.Context,
+	allPackagesToRemove []string,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	pmHandler rpmPackageManagerHandler,
+) error {
 	if len(allPackagesToRemove) <= 0 {
 		return nil
 	}
@@ -222,7 +260,12 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 }
 
 // refreshRpmPackageMetadata refreshes package metadata
-func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func refreshRpmPackageMetadata(
+	ctx context.Context,
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	pmHandler rpmPackageManagerHandler,
+) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_metadata")
 	defer span.End()
 
@@ -233,7 +276,10 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
 	if toolsChroot != nil {
-		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+		args = append([]string{
+			"--releasever=" + pmHandler.getReleaseVersion(),
+			"--installroot=/" + toolsRootImageDir,
+		}, args...)
 	}
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
@@ -243,12 +289,19 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	return nil
 }
 
-func cleanRpmCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler) error {
+func cleanRpmCache(
+	imageChroot *safechroot.Chroot,
+	toolsChroot *safechroot.Chroot,
+	pmHandler rpmPackageManagerHandler,
+) error {
 	// Build command arguments directly
 	args := []string{"-v", "clean", "all"}
 
 	if toolsChroot != nil {
-		args = append([]string{"--releasever=" + pmHandler.getReleaseVersion(), "--installroot=/" + toolsRootImageDir}, args...)
+		args = append([]string{
+			"--releasever=" + pmHandler.getReleaseVersion(),
+			"--installroot=/" + toolsRootImageDir,
+		}, args...)
 	}
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
