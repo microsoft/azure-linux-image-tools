@@ -425,7 +425,8 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 }
 
 func isKdumpBootFilesConfigChanging(requestedKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
-	inputKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType) bool {
+	inputKdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
+) bool {
 	// If the requested kdump boot files is nil, it means that the user did not
 	// specify a kdump boot files configuration, so it is definitely not changing
 	// when compared to the previous run.
@@ -1073,6 +1074,12 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 		return nil, nil, nil, "", err
 	}
 
+	// Create distro handler based on the detected OS from the image
+	distroHandler, err := NewDistroHandlerFromImageConnection(imageConnection)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
 	imageConnection.Chroot().UnsafeRun(func() error {
 		distro, version := osinfo.GetDistroAndVersion()
 		logger.Log.Infof("Base OS distro: %s", distro)
@@ -1086,8 +1093,10 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
-		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr, partUuidToFstabEntry, packageSnapshotTime)
+	err = doOsCustomizations(
+		ctx, buildDir, baseConfigPath, config, imageConnection, rpmsSources,
+		useBaseImageRpmRepos, partitionsCustomized, imageUuidStr,
+		partUuidToFstabEntry, packageSnapshotTime, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
