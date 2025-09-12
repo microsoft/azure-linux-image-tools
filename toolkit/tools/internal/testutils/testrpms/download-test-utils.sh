@@ -45,16 +45,47 @@ esac
 
 set -x
 
-# call the script to create the tools file if requested
+# Declarative configuration
+TESTDATA_DIR="$SCRIPT_DIR/../../../pkg/imagecreatorlib/testdata"
+DISTRO="azurelinux"
+CONFIG_FILE="minimal-os.yaml"
+
+# Initialize package list
+PACKAGE_LIST=""
+
+# Handle tools file creation and package extraction for imagecreator testing
 if [ "$IMAGE_CREATOR" = "true" ]; then
   echo "Creating tools file: $TOOLS_FILE"
   $SCRIPT_DIR/create-tools-file.sh "$CONTAINER_IMAGE" "$TOOLS_FILE"
   echo "Tools file created successfully."
+
+  # Check for python3 availability
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "Error: python3 is required but not found in PATH"
+    echo "Please install python3 to extract package lists from config files"
+    exit 1
+  fi
+
+  # Extract package list from config file
+  CONFIG_PATH="$TESTDATA_DIR/$CONFIG_FILE"
+  if [[ ! -f "$CONFIG_PATH" ]]; then
+    echo "Error: Config file '$CONFIG_PATH' not found"
+    echo "Expected config file at: $CONFIG_PATH"
+    exit 1
+  fi
+  
+  PACKAGE_LIST=$(python3 "$SCRIPT_DIR/extract_packages.py" "$CONFIG_PATH")
+  echo "Package list from $CONFIG_FILE: $PACKAGE_LIST"
 else
-  echo "Skipping tools file creation."
+  echo "Skipping tools file creation and package extraction."
 fi
 
-# call the script to download the rpms
-echo "Downloading test rpms for Azure Linux version: $IMAGE_VERSION"
-$SCRIPT_DIR/download-test-rpms.sh "$CONTAINER_IMAGE"  "$IMAGE_VERSION" "$IMAGE_CREATOR" 
-echo "Test rpms downloaded successfully."
+# Combine with common testing packages
+FINAL_PACKAGE_LIST="jq golang $PACKAGE_LIST"
+
+echo "Final package list: $FINAL_PACKAGE_LIST"
+
+# Download the RPMs
+echo "Downloading test RPMs for $DISTRO version: $IMAGE_VERSION"
+$SCRIPT_DIR/download-test-rpms.sh "$CONTAINER_IMAGE" "$IMAGE_VERSION" "$FINAL_PACKAGE_LIST"
+echo "Test RPMs downloaded successfully."
