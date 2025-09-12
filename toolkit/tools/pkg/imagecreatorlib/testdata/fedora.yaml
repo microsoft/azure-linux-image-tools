@@ -3,16 +3,13 @@ storage:
   disks:
   - partitionTableType: gpt
 
-    maxSize: 3G
     partitions:
     - id: boot
       type: esp
-      start: 1M
-      end: 15M
+      size: 15M
 
     - id: rootfs
-      start: 15M
-
+      size: 3G
 
   bootType: efi
 

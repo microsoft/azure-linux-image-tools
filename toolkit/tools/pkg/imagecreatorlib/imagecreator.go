@@ -69,7 +69,8 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile, outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
+	err = createNewImage(ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile,
+		outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -81,7 +82,8 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	toolsTar string, distro string, distroVersion string, packageSnapshotTime string,
 ) error {
-	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile, outputImageFormat, packageSnapshotTime)
+	err := validateConfig(ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
+		outputImageFormat, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -121,7 +123,8 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	// Create distro config from distro name and version
 	distroHandler := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
 
-	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(distroHandler.GetTargetOs(), imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
+	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(distroHandler.GetTargetOs(),
+		imageCreatorParameters.rawImageFile, diskConfig, imageCreatorParameters.config.Storage.FileSystems,
 		imageCreatorParameters.buildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err
@@ -130,8 +133,11 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", imageCreatorParameters.imageUuidStr)
 
-	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config, imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources,
-		false, imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime, imageCreatorParameters.toolsTar, distroHandler)
+	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx,
+		imageCreatorParameters.buildDirAbs, imageCreatorParameters.configPath, imageCreatorParameters.config,
+		imageCreatorParameters.rawImageFile, imageCreatorParameters.rpmsSources, false,
+		imageCreatorParameters.imageUuidStr, imageCreatorParameters.packageSnapshotTime,
+		imageCreatorParameters.toolsTar, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -143,7 +149,8 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	logger.Log.Infof("Writing: %s", imageCreatorParameters.outputImageFile)
 
-	err = imagecustomizerlib.ConvertImageFile(imageCreatorParameters.rawImageFile, imageCreatorParameters.outputImageFile, imageCreatorParameters.outputImageFormat)
+	err = imagecustomizerlib.ConvertImageFile(imageCreatorParameters.rawImageFile,
+		imageCreatorParameters.outputImageFile, imageCreatorParameters.outputImageFormat)
 	if err != nil {
 		return err
 	}

@@ -54,7 +54,9 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
-	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources, cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, cli.Distro, cli.DistroVersion, cli.PackageSnapshotTime)
+	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources,
+		cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, cli.Distro, cli.DistroVersion,
+		cli.PackageSnapshotTime)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
 	}
