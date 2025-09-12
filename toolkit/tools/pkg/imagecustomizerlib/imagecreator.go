@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/installutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
 func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
