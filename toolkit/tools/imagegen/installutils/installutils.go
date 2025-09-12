@@ -17,22 +17,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/configuration"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/jsonutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/packagerepo/repocloner"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/pkgjson"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/resources"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/retry"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safemount"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/shell"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/tdnf"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/timestamp"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/userutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/jsonutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/packagerepo/repocloner"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/pkgjson"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/retry"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/tdnf"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -1457,7 +1457,7 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 }
 
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
-	squashErrors := false
+	squashErrors := true
 
 	ReportActionf("Running grub2-mkconfig...")
 	err = installChroot.UnsafeRun(func() error {

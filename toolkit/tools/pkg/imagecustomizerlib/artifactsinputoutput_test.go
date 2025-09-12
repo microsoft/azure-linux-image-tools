@@ -3,12 +3,13 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/file"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,6 +23,10 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	assert.NoError(t, err)
 	if !ukifyExists {
 		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts")

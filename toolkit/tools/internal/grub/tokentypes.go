@@ -6,7 +6,7 @@ package grub
 import (
 	"fmt"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/filescanner"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/filescanner"
 )
 
 // The type of a token.

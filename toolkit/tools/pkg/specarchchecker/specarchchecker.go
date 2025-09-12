@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/logger"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/rpm"
-	simpletoolchroot "github.com/microsoft/azurelinux/toolkit/tools/pkg/simpletoolchroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/rpm"
+	simpletoolchroot "github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/simpletoolchroot"
 )
 
 type ArchChecker struct {

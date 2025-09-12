@@ -6,8 +6,8 @@ package imageconnection
 import (
 	"fmt"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 )
 
 type ImageConnection struct {

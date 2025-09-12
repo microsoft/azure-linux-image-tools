@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"golang.org/x/sys/unix"
 )
 

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azurelinux/toolkit/tools/pkg/imagecustomizerlib"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
 func validateSupportedFields(c *imagecustomizerapi.Config) error {

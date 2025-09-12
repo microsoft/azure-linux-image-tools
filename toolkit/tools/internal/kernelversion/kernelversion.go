@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/version"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 	"golang.org/x/sys/unix"
 )
 

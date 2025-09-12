@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/microsoft/azurelinux/toolkit/tools/internal/envfile"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 )
 
 type TargetOs string

@@ -7,7 +7,13 @@ permissions: {}
 
 on:
   # Allow pipeline to be run manually.
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      noPublishRelease:
+        description: Do not publish release (only fork the release branch)
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -23,6 +29,7 @@ jobs:
 
   publish-container:
     uses: ./.github/workflows/publish-container.yml
+    if: ${{ !(inputs.noPublishRelease || false) }}
     needs:
     - build
     permissions:
@@ -33,6 +40,7 @@ jobs:
 
   publish-release:
     uses: ./.github/workflows/publish-release.yml
+    if: ${{ !(inputs.noPublishRelease || false) }}
     with:
       isLatestRelease: true
     needs:
@@ -61,6 +69,7 @@ jobs:
 
   publish-github-pages:
     uses: ./.github/workflows/publish-github-pages.yml
+    if: ${{ !(inputs.noPublishRelease || false) }}
     needs:
     - build
     permissions:

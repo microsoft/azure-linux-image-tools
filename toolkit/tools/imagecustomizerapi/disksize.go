@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/invopop/jsonschema"
-	"github.com/microsoft/azurelinux/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"gopkg.in/yaml.v3"
 )
 

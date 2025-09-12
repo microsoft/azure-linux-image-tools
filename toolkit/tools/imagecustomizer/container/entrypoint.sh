@@ -21,8 +21,8 @@ if [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRIN
     export OTEL_PORT=4317
     export OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
     export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:${OTEL_PORT}"
-    
-    /opt/telemetry-venv/bin/python /usr/local/bin/telemetry_hopper.py --port $OTEL_PORT > /var/log/image_customizer_telemetry.log 2>&1 || true &
+
+    /usr/lib/imagecustomizer/telemetry-venv/bin/python /usr/lib/imagecustomizer/telemetry_hopper.py --port $OTEL_PORT > /var/log/image_customizer_telemetry.log 2>&1 || true &
     sleep 1
 fi
 
