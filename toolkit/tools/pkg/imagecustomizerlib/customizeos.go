@@ -142,7 +142,8 @@ func doOsCustomizations(
 		return err
 	}
 
-	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization",
+		imageChroot)
 	if err != nil {
 		return err
 	}

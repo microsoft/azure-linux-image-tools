@@ -47,16 +47,8 @@ type ImageCreatorParameters struct {
 	osRelease            string
 }
 
-func CreateImageWithConfigFile(
-	ctx context.Context,
-	buildDir string,
-	configFile string,
-	rpmsSources []string,
-	toolsTar string,
-	outputImageFile string,
-	outputImageFormat string,
-	distro string,
-	distroVersion string,
+func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string, rpmsSources []string,
+	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
 	packageSnapshotTime string,
 ) error {
 	var config imagecustomizerapi.Config
@@ -82,18 +74,9 @@ func CreateImageWithConfigFile(
 	return nil
 }
 
-func createNewImage(
-	ctx context.Context,
-	buildDir string,
-	baseConfigPath string,
-	config imagecustomizerapi.Config,
-	rpmsSources []string,
-	outputImageFile string,
-	outputImageFormat string,
-	toolsTar string,
-	distro string,
-	distroVersion string,
-	packageSnapshotTime string,
+func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
+	distroVersion string, packageSnapshotTime string,
 ) error {
 	err := validateConfig(
 		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
@@ -175,10 +158,9 @@ func createNewImage(
 	return nil
 }
 
-func createImageCreatorParameters(buildDir string,
-	configPath string, config *imagecustomizerapi.Config,
-	rpmsSources []string,
-	outputImageFormat string, outputImageFile string, packageSnapshotTime string, toolsTar string,
+func createImageCreatorParameters(buildDir string, configPath string, config *imagecustomizerapi.Config,
+	rpmsSources []string, outputImageFormat string, outputImageFile string, packageSnapshotTime string,
+	toolsTar string,
 ) (*ImageCreatorParameters, error) {
 	ic := &ImageCreatorParameters{}
 
