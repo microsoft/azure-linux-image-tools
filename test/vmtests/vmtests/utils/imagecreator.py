@@ -17,6 +17,8 @@ def run_image_creator(
     output_image_format: str,
     output_image_path: Path,
     build_dir: Path,
+    distro: str,
+    version: str,
 ) -> None:
     # Build rpm sources arguments
     rpm_source_args = []
@@ -37,6 +39,10 @@ def run_image_creator(
         str(output_image_path),
         "--log-level",
         "debug",
+        "--distro",
+        distro,
+        "--distro-version",
+        version,
     ] + rpm_source_args
 
     logging.info(f"Starting image creation with imagecreator...")
