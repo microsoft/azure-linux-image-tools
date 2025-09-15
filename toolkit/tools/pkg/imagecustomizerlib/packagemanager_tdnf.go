@@ -24,6 +24,9 @@ func (pm *tdnfPackageManager) getPackageManagerBinary() string { return "tdnf" }
 func (pm *tdnfPackageManager) getReleaseVersion() string       { return pm.version }
 func (pm *tdnfPackageManager) getConfigFile() string           { return customTdnfConfRelPath }
 
+// getVerbosityOption returns the package manager-specific verbosity flag
+func (pm *tdnfPackageManager) getVerbosityOption() string { return "-v" }
+
 // getCacheOnlyOptions returns TDNF-specific cache options for install/update operations
 func (pm *tdnfPackageManager) getCacheOnlyOptions() []string {
 	return nil // TDNF doesn't need additional cache options

@@ -9,6 +9,7 @@ type rpmPackageManagerHandler interface {
 	getPackageManagerBinary() string
 	getReleaseVersion() string
 	getConfigFile() string
+	getVerbosityOption() string
 
 	// Package manager specific output handling
 	createOutputCallback() func(string)

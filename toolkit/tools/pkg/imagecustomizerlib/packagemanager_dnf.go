@@ -23,6 +23,9 @@ func (pm *dnfPackageManager) getPackageManagerBinary() string { return "dnf" }
 func (pm *dnfPackageManager) getReleaseVersion() string       { return pm.version }
 func (pm *dnfPackageManager) getConfigFile() string           { return "etc/dnf/dnf.conf" }
 
+// getVerbosityOption returns the package manager-specific verbosity flag
+func (pm *dnfPackageManager) getVerbosityOption() string { return "--setopt=debuglevel=10" }
+
 // getCacheOnlyOptions returns DNF-specific cache options for install/update operations
 func (pm *dnfPackageManager) getCacheOnlyOptions() []string {
 	return []string{"--setopt=cacheonly=metadata"}
