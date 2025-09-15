@@ -19,7 +19,7 @@ import (
 
 func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool,
-	imageUuidStr string, packageSnapshotTime string, tarFile string,
+	imageUuidStr string, packageSnapshotTime string, tarFile string, distroHandler distroHandler,
 ) (map[string]diskutils.FstabEntry, string, error) {
 	logger.Log.Debugf("Customizing OS image with config file %s", baseConfigPath)
 
@@ -41,7 +41,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, base
 	// Do the actual customizations.
 	err = doOsCustomizationsImageCreator(ctx, buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, imageUuidStr,
-		partUuidToFstabEntry, packageSnapshotTime)
+		partUuidToFstabEntry, packageSnapshotTime, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -81,6 +81,7 @@ func doOsCustomizationsImageCreator(
 	imageUuid string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry,
 	packageSnapshotTime string,
+	distroHandler distroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)
@@ -93,7 +94,7 @@ func doOsCustomizationsImageCreator(
 	if err = addRemoveAndUpdatePackages(
 		ctx,
 		buildDir, baseConfigPath, config.OS, imageChroot, toolsChroot, rpmsSources,
-		useBaseImageRpmRepos, packageSnapshotTime); err != nil {
+		useBaseImageRpmRepos, distroHandler, packageSnapshotTime); err != nil {
 		return err
 	}
 

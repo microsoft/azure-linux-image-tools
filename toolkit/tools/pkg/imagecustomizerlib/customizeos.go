@@ -16,9 +16,11 @@ const (
 	buildTimeFormat = "2006-01-02T15:04:05Z"
 )
 
-func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	imageConnection *imageconnection.ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry, packageSnapshotTime string,
+func doOsCustomizations(
+	ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+	imageConnection *imageconnection.ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool,
+	partitionsCustomized bool, imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	packageSnapshotTime string, distroHandler distroHandler,
 ) error {
 	var err error
 
@@ -31,8 +33,8 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(ctx, buildDir, baseConfigPath, config.OS, imageChroot, nil, rpmsSources,
-		useBaseImageRpmRepos, packageSnapshotTime)
+	err = addRemoveAndUpdatePackages(ctx, buildDir, baseConfigPath, config.OS, imageChroot, nil,
+		rpmsSources, useBaseImageRpmRepos, distroHandler, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,8 @@ func doOsCustomizations(ctx context.Context, buildDir string, baseConfigPath str
 		return err
 	}
 
-	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization",
+		imageChroot)
 	if err != nil {
 		return err
 	}

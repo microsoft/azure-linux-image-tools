@@ -15,6 +15,7 @@ type TargetOs string
 const (
 	TargetOsAzureLinux2 TargetOs = "azl2"
 	TargetOsAzureLinux3 TargetOs = "azl3"
+	TargetOsFedora42    TargetOs = "fedora42"
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {

@@ -1,0 +1,52 @@
+
+storage:
+  disks:
+  - partitionTableType: gpt
+
+    partitions:
+    - id: boot
+      type: esp
+      size: 15M
+
+    - id: rootfs
+      size: 3G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: boot
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+    - coreutils
+    - dosfstools
+    - e2fsprogs
+    - glibc
+    - policycoreutils
+    - python3
+    - rpm
+    - selinux-policy-targeted
+    - systemd
+    - xz
+    - dracut-config-generic
+    - ca-certificates
+    - efibootmgr
+    - grub2-efi-x64
+    - initial-setup
+    - libxkbcommon
+    - shim-x64
+    - kernel
+
