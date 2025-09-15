@@ -229,7 +229,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to customize OS")
-	assert.ErrorContains(t, err, "failed to install packages (packages=[gcc])")
+	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }
 
 func TestCustomizeImagePackagesUrlSource(t *testing.T) {
