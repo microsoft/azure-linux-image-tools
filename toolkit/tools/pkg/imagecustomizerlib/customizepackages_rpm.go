@@ -151,7 +151,7 @@ func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesT
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{"-v", action, "--assumeyes", "--cacheonly"}
+	args := []string{pmHandler.getVerbosityOption(), action, "--assumeyes", "--cacheonly"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -187,7 +187,7 @@ func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{"-v", "update", "--assumeyes", "--cacheonly"}
+	args := []string{pmHandler.getVerbosityOption(), "update", "--assumeyes", "--cacheonly"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -225,7 +225,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{"-v", "remove", "--assumeyes", "--disablerepo", "*"}
+	args := []string{pmHandler.getVerbosityOption(), "remove", "--assumeyes", "--disablerepo", "*"}
 	args = append(args, allPackagesToRemove...)
 
 	if toolsChroot != nil {
@@ -250,7 +250,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 	logger.Log.Infof("Refreshing package metadata")
 
-	args := []string{"-v", "check-update", "--refresh", "--assumeyes"}
+	args := []string{pmHandler.getVerbosityOption(), "check-update", "--refresh", "--assumeyes"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -272,7 +272,7 @@ func cleanRpmCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroo
 	pmHandler rpmPackageManagerHandler,
 ) error {
 	// Build command arguments directly
-	args := []string{"-v", "clean", "all"}
+	args := []string{pmHandler.getVerbosityOption(), "clean", "all"}
 
 	if toolsChroot != nil {
 		args = append([]string{
