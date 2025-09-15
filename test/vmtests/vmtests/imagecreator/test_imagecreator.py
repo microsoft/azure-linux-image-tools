@@ -39,6 +39,8 @@ def run_image_creator_test(
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
     image_customizer_binary_path: Path,
+    distro: str,
+    version: str,
 ) -> None:
 
     (ssh_public_key, ssh_private_key_path) = ssh_key
@@ -72,6 +74,8 @@ def run_image_creator_test(
         output_format,
         initial_output_image_path,
         build_dir,
+        distro,
+        version,
     )
 
     # Step 1.5: Run imagecustomizer to add SSH configuration
@@ -214,7 +218,7 @@ def run_basic_checks(
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
-def test_create_image_efi_qcow_output(
+def test_create_image_efi_qcow_output_azurelinux(
     image_creator_binary_path: Path,
     rpm_sources: List[Path],
     tools_tar: Path,
@@ -229,7 +233,7 @@ def test_create_image_efi_qcow_output(
     config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("minimal-os.yaml")
     output_format = "qcow2"
     # debug message
-    logging.debug("Running test_create_image_efi_qcow_output")
+    logging.debug("Running test_create_image_efi_qcow_output_azurelinux")
 
     run_image_creator_test(
         image_creator_binary_path,
@@ -244,4 +248,6 @@ def test_create_image_efi_qcow_output(
         libvirt_conn,
         close_list,
         image_customizer_binary_path,
+        "azurelinux",
+        "3.0",
     )
