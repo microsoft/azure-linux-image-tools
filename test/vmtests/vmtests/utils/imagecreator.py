@@ -57,6 +57,8 @@ def run_image_customizer_binary(
     output_image_path: Path,
     output_image_format: str,
     build_dir: Path,
+    distro: str,
+    version: str,
 ) -> None:
     # Create build directory if it doesn't exist
     build_dir.mkdir(exist_ok=True, parents=True)
@@ -74,6 +76,10 @@ def run_image_customizer_binary(
         str(output_image_path),
         "--output-image-format",
         output_image_format,
+        "--distro",
+        distro,
+        "--distro-version",
+        version,
         "--log-level",
         "debug",
     ]
