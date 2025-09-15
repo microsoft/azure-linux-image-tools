@@ -6,7 +6,7 @@ const { sprintf } = require('sprintf-js');
 const FeatureList = [
   {
     title: 'Image Customizer',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    // Svg: require('@site/static/img/image_customizer.svg').default,
     to: './docs/imagecustomizer/',
     description: (
       <>
@@ -16,7 +16,7 @@ const FeatureList = [
   },
   {
     title: 'Image Creator',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    // Svg: require('@site/static/img/image_createor.svg').default,
     to: './docs/imagecreator/',
     description: (
       <>
@@ -30,9 +30,6 @@ function Feature({ Svg, title, description, to, featureRowClass }) {
   return (
     <div className={clsx(featureRowClass)}>
       <a href={to} className={styles.noUnderlineLink}>
-        <div className="text--center">
-          <Svg className={styles.featureSvg} role="img" />
-        </div>
         <div className="text--center padding-horiz--md">
           <Heading as="h3">{title}</Heading>
           <p>{description}</p>

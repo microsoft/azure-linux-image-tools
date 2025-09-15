@@ -12,7 +12,7 @@ import { themes as prismThemes } from 'prism-react-renderer';
 const config = {
   title: 'Azure Linux Image Tools',
   tagline: 'Tools for building Azure Linux images',
-  favicon: 'img/favicon.ico',
+  // favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
@@ -68,13 +68,13 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       // Replace with your project's social card
-      image: 'img/docusaurus-social-card.jpg',
+      // image: 'img/image-tools-social-card.jpg',
       navbar: {
         title: 'Azure Linux Image Tools',
-        logo: {
-          alt: 'Azure Linux Image Tools Logo',
-          src: 'img/logo.svg',
-        },
+        // logo: {
+        //   alt: 'Azure Linux Image Tools Logo',
+        //   src: 'img/logo.svg',
+        // },
         items: [
           {
             type: 'doc',
