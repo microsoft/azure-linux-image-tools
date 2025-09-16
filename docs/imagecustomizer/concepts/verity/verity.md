@@ -1,5 +1,6 @@
 ---
-nav_order: 1
+parent: Concepts
+nav_order: 5
 ---
 
 # Verity Image Recommendations
