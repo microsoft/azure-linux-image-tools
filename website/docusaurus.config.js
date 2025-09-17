@@ -12,7 +12,6 @@ import { themes as prismThemes } from 'prism-react-renderer';
 const config = {
   title: 'Azure Linux Image Tools',
   tagline: 'Tools for building Azure Linux images',
-  // favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
@@ -24,7 +23,6 @@ const config = {
   baseUrl: '/azure-linux-image-tools/',
 
   // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
   organizationName: 'Microsoft', // Usually your GitHub org/user name.
   projectName: 'azure-linux-image-tools', // Usually your repo name.
 
@@ -63,14 +61,8 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      // Replace with your project's social card
-      // image: 'img/image-tools-social-card.jpg',
       navbar: {
         title: 'Azure Linux Image Tools',
-        // logo: {
-        //   alt: 'Azure Linux Image Tools Logo',
-        //   src: 'img/logo.svg',
-        // },
         items: [
           {
             type: 'doc',
@@ -108,23 +100,6 @@ const config = {
             ],
           },
           {
-            title: 'Community',
-            items: [
-              // {
-              //   label: 'Stack Overflow',
-              //   href: 'https://stackoverflow.com/questions/tagged/azure-linux-image-tools',
-              // },
-              // {
-              //   label: 'Discord',
-              //   href: 'https://discordapp.com/invite/azure-linux-image-tools',
-              // },
-              // {
-              //   label: 'X',
-              //   href: 'https://x.com/azure-linux-image-tools',
-              // },
-            ],
-          },
-          {
             title: 'More',
             items: [
               {
@@ -134,7 +109,6 @@ const config = {
             ],
           },
         ],
-        // copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
       },
       prism: {
         theme: prismThemes.github,

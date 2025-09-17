@@ -6,7 +6,6 @@ const { sprintf } = require('sprintf-js');
 const FeatureList = [
   {
     title: 'Image Customizer',
-    // Svg: require('@site/static/img/image_customizer.svg').default,
     to: './docs/imagecustomizer/',
     description: (
       <>
@@ -16,7 +15,6 @@ const FeatureList = [
   },
   {
     title: 'Image Creator',
-    // Svg: require('@site/static/img/image_createor.svg').default,
     to: './docs/imagecreator/',
     description: (
       <>
