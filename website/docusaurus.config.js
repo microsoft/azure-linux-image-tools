@@ -20,12 +20,8 @@ const config = {
   },
 
   // When GitHub Pages is public
-  // url: 'https://microsoft.github.io',
-  // baseUrl: '/azure-linux-image-tools/',
-
-  // While GitHub Pages is private
-  url: 'https://vigilant-adventure-5jnm363.pages.github.io/',
-  baseUrl: '/',
+  url: 'https://microsoft.github.io',
+  baseUrl: '/azure-linux-image-tools/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
