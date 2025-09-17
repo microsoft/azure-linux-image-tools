@@ -1,7 +1,7 @@
 ---
 title: Image Customizer
 nav_order: 2
-sidebar_position: 0
+sidebar_position: 1
 has_toc: false
 ---
 
