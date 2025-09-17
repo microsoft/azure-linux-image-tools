@@ -18,7 +18,7 @@ jobs:
         persist-credentials: false
 
     - name: Setup ruby
-      uses: ruby/setup-ruby@efbf473cab83af4468e8606cc33eca9281bb213f # v1.256.0
+      uses: ruby/setup-ruby@3fee6763234110473bd57dd4595c5199fce2c510 # v1.258.0
       with:
         ruby-version: '3.3'
         bundler-cache: true # runs 'bundle install' and caches installed gems automatically
@@ -48,6 +48,6 @@ jobs:
 
     - name: Upload site assets as artifact
       id: deployment
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v4
       with:
         path: ./docs/_site
