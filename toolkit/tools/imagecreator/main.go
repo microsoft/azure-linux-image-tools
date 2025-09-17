@@ -34,8 +34,8 @@ type ImageCreatorCmd struct {
 }
 
 // GetDistribution validates and returns a distribution from the CLI args
-func (c *ImageCreatorCmd) getDistribution() (*imagecustomizerapi.Distribution, error) {
-	dist := &imagecustomizerapi.Distribution{
+func (c *ImageCreatorCmd) getDistribution() (*imagecreatorlib.Distribution, error) {
+	dist := &imagecreatorlib.Distribution{
 		Name:    c.Distro,
 		Version: c.DistroVersion,
 	}
