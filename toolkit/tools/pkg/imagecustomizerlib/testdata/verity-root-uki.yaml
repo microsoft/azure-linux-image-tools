@@ -79,3 +79,19 @@ scripts:
       # Move SSH host keys off of the read-only / partition to /var
       mkdir -p /var/ssh
       ln -sr /var/ssh /etc/ssh
+      
+      # Move resolv.conf off of the read-only / partition to /var
+      # This ensures that future customizations can modify resolv.conf
+      mkdir -p /var/etc
+      if [ -f /etc/resolv.conf ]; then
+        # Copy existing resolv.conf to /var/etc if it's not already a symlink
+        if [ ! -L /etc/resolv.conf ]; then
+          cp /etc/resolv.conf /var/etc/resolv.conf
+          rm /etc/resolv.conf
+          ln -sf /var/etc/resolv.conf /etc/resolv.conf
+        fi
+      else
+        # Create empty resolv.conf in /var/etc and symlink to it
+        touch /var/etc/resolv.conf
+        ln -sf /var/etc/resolv.conf /etc/resolv.conf
+      fi
