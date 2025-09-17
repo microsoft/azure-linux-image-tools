@@ -1,4 +1,4 @@
-default: build
+default: start
 
 .PHONY: serve
 serve:
@@ -8,4 +8,9 @@ serve:
 build:
 	npm ci
 	npm run build
+
+.PHONY: start
+start:
+	npm ci
+	npm run start
 
