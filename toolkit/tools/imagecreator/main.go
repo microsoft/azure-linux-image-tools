@@ -33,6 +33,18 @@ type ImageCreatorCmd struct {
 	PackageSnapshotTime string `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 }
 
+// GetDistribution validates and returns a distribution from the CLI args
+func (c *ImageCreatorCmd) getDistribution() (*imagecustomizerapi.Distribution, error) {
+	dist := &imagecustomizerapi.Distribution{
+		Name:    c.Distro,
+		Version: c.DistroVersion,
+	}
+	if err := dist.Validate(); err != nil {
+		return nil, err
+	}
+	return dist, nil
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -60,7 +72,7 @@ func main() {
 	}
 
 	err = imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources,
-		cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, dist.name, dist.version,
+		cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, dist.Name, dist.Version,
 		cli.PackageSnapshotTime)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
