@@ -1,7 +1,7 @@
 ---
 title: Image Creator
 nav_order: 3
-sidebar_position: 2
+sidebar_position: 3
 has_toc: false
 ---
 
