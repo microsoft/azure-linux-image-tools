@@ -10,7 +10,7 @@ const FeatureList = [
     to: './docs/imagecustomizer/',
     description: (
       <>
-        Azure Linux Image Customizer is great for customizing Azure Linux images.
+        Leverage existing generic Azure Linux images with Image Customizer to create customized images for your particular scenario.
       </>
     ),
   },
@@ -20,7 +20,7 @@ const FeatureList = [
     to: './docs/imagecreator/',
     description: (
       <>
-        Azure Linux Image Creator is great for creating Azure Linux images.
+        Build Azure Linux operating system images from scratch with Image Creator.
       </>
     ),
   },
