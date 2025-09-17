@@ -1,6 +1,7 @@
 ---
 title: var Partition
 parent: Verity Image Recommendations
+sidebar_position: 6
 ---
 
 # Verity and `/var` Partition

@@ -2,6 +2,7 @@
 title: Quick Start
 parent: Image Creator
 nav_order: 1
+sidebar_position: 1
 
 ---
 

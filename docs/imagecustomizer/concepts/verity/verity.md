@@ -1,6 +1,7 @@
 ---
 parent: Concepts
 nav_order: 6
+sidebar_position: 1
 ---
 
 # Verity Image Recommendations
