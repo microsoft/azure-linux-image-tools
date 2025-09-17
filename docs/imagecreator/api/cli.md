@@ -63,7 +63,7 @@ The file path of the YAML (or JSON) configuration file that specifies the config
 to be created.
 
 For documentation on the supported configuration options, see:
-[Image Creator configuration](./configuration.md)
+[Image Creator configuration](./configuration/configuration.md)
 
 ## --rpm-source=PATH
 

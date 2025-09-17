@@ -40,7 +40,7 @@ In particular, these scripts run after:
 2. The temporary `/etc/resolv.conf` file has been deleted,
 
 but before the conversion to the requested output type.
-(See, [Operation ordering](../configuration.md#operation-ordering) for details.)
+(See, [Operation ordering](./configuration.md#operation-ordering) for details.)
 
 Most scripts should be added to [postCustomization](#postcustomization-script).
 Only add scripts to [finalizeCustomization](#finalizecustomization-script) if you want

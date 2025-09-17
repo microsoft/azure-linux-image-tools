@@ -16,7 +16,7 @@ image:
 
 ## path [string]
 
-Required, unless [--image-file](../cli.md#--image-filefile-path) is
+Required, unless [--image-file](../cli/cli.md#--image-filefile-path) is
 provided on the command line. If both `--image-file` and
 `input.image.path` are provided, then the value of `--image-file` is used.
 

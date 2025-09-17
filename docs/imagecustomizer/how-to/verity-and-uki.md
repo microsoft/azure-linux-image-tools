@@ -171,6 +171,6 @@ the future.
 
 ## Links
 
-- [Verity Image Recommendations](../concepts/verity.md)
+- [Verity Image Recommendations](../concepts/verity/verity.md)
 - [Verity API](../api/configuration/verity.md)
 - [UKI API](../api/configuration/uki.md)

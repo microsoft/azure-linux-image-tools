@@ -18,7 +18,7 @@ This file is typically generated automatically by Prism when the
 is named `inject-files.yaml` and placed under the specified output directory.
 You can modify this file if needed (e.g., to add IPE policies or customize
 destinations), or you may also create this file from scratch. And later use it
-with the [`inject-files` CLI command](../cli.md#inject-files) to perform the
+with the [`inject-files` CLI command](../cli/cli.md#inject-files) to perform the
 injection.
 
 Example:
