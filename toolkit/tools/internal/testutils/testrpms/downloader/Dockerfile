@@ -3,7 +3,8 @@ FROM ${baseimage}
 ARG package_list=""
 
 # Install necessary tools for package downloading
-RUN tdnf update -y && tdnf install -y dnf dnf-plugins-core createrepo_c
+RUN (tdnf update -y && tdnf install -y dnf dnf-plugins-core createrepo_c) || \
+    (dnf update -y && dnf install -y dnf-plugins-core createrepo_c)
 
 # Download packages specified in package_list
 RUN if [ -n "${package_list}" ]; then \
