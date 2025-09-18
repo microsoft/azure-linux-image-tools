@@ -24,9 +24,9 @@ func TestCreateImageRaw(t *testing.T) {
 	vhdFixedImageFilePath := filepath.Join(testTmpDir, "image2.vhd")
 
 	// get RPM sources
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "3.0", false, true)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "3.0", true)
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", "3.0", true)
 
 	err := CreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
@@ -70,7 +70,7 @@ func TestCreateImageRawNoTar(t *testing.T) {
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 
 	// get RPM sources
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "3.0", false, true)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
@@ -106,8 +106,8 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	err := imagecustomizerapi.UnmarshalYamlFile(ConfigPath, &config)
 	assert.NoError(t, err)
 
-	rpmSources := []string{testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "3.0", false, true)}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "3.0", true)
+	rpmSources := []string{testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)}
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", "3.0", true)
 	outputImageFileAbsolute := filepath.Join(buildDir, "image1.raw")
 
 	cwd, err := os.Getwd()
