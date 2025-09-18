@@ -2,6 +2,8 @@ package imagecreatorlib
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -31,12 +33,13 @@ func (d *Distribution) Validate() error {
 	supportedDistros := imagecustomizerapi.GetSupportedDistros()
 	validVersions, exists := supportedDistros[d.Name]
 	if !exists {
-		distros := make([]string, 0, len(supportedDistros))
+		// Get sorted list of supported distributions
+		distros := slices.Collect(maps.Keys(supportedDistros))
 		for d := range supportedDistros {
 			distros = append(distros, string(d))
 		}
-		return fmt.Errorf("%w: Supported distributions are: %s",
-			ErrUnsupportedDistribution, strings.Join(distros, ", "))
+		return fmt.Errorf("%w (%q)\nsupported distributions are: (%s)",
+			ErrUnsupportedDistribution, d.Name, strings.Join(distros, ", "))
 	}
 
 	// Validate version
@@ -45,6 +48,6 @@ func (d *Distribution) Validate() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%w: %q. Supported versions for %q are: %s",
+	return fmt.Errorf("%w (%q)\nsupported versions for %q distro are: (%s)",
 		ErrUnsupportedVersion, d.Version, d.Name, strings.Join(validVersions, ", "))
 }

@@ -48,7 +48,7 @@ type ImageCreatorParameters struct {
 }
 
 func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string, rpmsSources []string,
-	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
+	toolsTar string, outputImageFile string, outputImageFormat string, distro Distribution,
 	packageSnapshotTime string,
 ) error {
 	var config imagecustomizerapi.Config
@@ -66,7 +66,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 
 	err = createNewImage(
 		ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile,
-		outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
+		outputImageFormat, toolsTar, distro, packageSnapshotTime)
 	if err != nil {
 		return err
 	}
@@ -75,10 +75,15 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 }
 
 func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
-	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
-	distroVersion string, packageSnapshotTime string,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro Distribution,
+	packageSnapshotTime string,
 ) error {
-	err := validateConfig(
+	err := distro.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid distribution arguments:\n%w", err)
+	}
+
+	err = validateConfig(
 		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
 		outputImageFormat, packageSnapshotTime)
 	if err != nil {
@@ -119,7 +124,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Creating new image with parameters: %+v\n", imageCreatorParameters)
 
 	// Create distro config from distro name and version
-	distroHandler := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
+	distroHandler := imagecustomizerlib.NewDistroHandler(distro.Name, distro.Version)
 
 	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(
 		distroHandler.GetTargetOs(), imageCreatorParameters.rawImageFile,
