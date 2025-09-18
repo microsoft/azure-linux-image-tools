@@ -5,6 +5,17 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
+)
+
+var (
+	// ErrUnsupportedDistribution indicates an unsupported Linux distribution
+	ErrUnsupportedDistribution = imagecustomizerlib.NewImageCustomizerError("Distribution:UnsupportedDistribution",
+		"unsupported distro")
+
+	// ErrUnsupportedVersion indicates an unsupported version for a given distribution
+	ErrUnsupportedVersion = imagecustomizerlib.NewImageCustomizerError("Distribution:UnsupportedVersion",
+		"unsupported distro-version")
 )
 
 // distribution represents a supported Linux distribution and version combination
@@ -24,8 +35,8 @@ func (d *Distribution) Validate() error {
 		for d := range supportedDistros {
 			distros = append(distros, string(d))
 		}
-		return fmt.Errorf("unsupported distribution %q. Supported distributions are: %s",
-			d.Name, strings.Join(distros, ", "))
+		return fmt.Errorf("%w: Supported distributions are: %s",
+			ErrUnsupportedDistribution, strings.Join(distros, ", "))
 	}
 
 	// Validate version
@@ -34,6 +45,6 @@ func (d *Distribution) Validate() error {
 			return nil
 		}
 	}
-	return fmt.Errorf("unsupported version %q for distribution %q. Supported versions: %s",
-		d.Version, d.Name, strings.Join(validVersions, ", "))
+	return fmt.Errorf("%w: %q. Supported versions for %q are: %s",
+		ErrUnsupportedVersion, d.Version, d.Name, strings.Join(validVersions, ", "))
 }
