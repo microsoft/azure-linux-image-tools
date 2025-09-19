@@ -86,8 +86,9 @@ func isZstFile(firstBytes []byte) bool {
 	return magicNumber == 0xFD2FB528 || (magicNumber >= 0x184D2A50 && magicNumber <= 0x184D2A5F)
 }
 
-func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, azureLinuxVersion string, imagecreator bool) string {
-	downloadedRpmsDir := filepath.Join(testutilsDir, "testrpms/downloadedrpms", azureLinuxVersion)
+func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, distro string, distroVersion string, imagecreator bool,
+) string {
+	downloadedRpmsDir := filepath.Join(testutilsDir, "testrpms/downloadedrpms", distro, distroVersion)
 	dirExists, err := file.DirExists(downloadedRpmsDir)
 	if !assert.NoErrorf(t, err, "cannot access downloaded RPMs dir (%s)", downloadedRpmsDir) {
 		t.FailNow()
@@ -96,34 +97,38 @@ func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, azureLinuxVersion s
 		// log the downloadedRpmsDir
 		t.Logf("downloadedRpmsDir: %s", downloadedRpmsDir)
 		t.Logf("test requires offline RPMs")
-		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t %s -s %t",
-			azureLinuxVersion, imagecreator)
+		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t %s -s %t -d %s",
+			distroVersion, imagecreator, distro)
 		t.FailNow()
 	}
 
 	return downloadedRpmsDir
 }
 
-func GetDownloadedToolsFile(t *testing.T, testutilsDir string, azureLinuxVersion string, imagecreator bool) string {
-	GetDownloadedToolsFile := filepath.Join(testutilsDir, "testrpms/build/tools.tar.gz")
-	if !assert.FileExists(t, GetDownloadedToolsFile) {
-		t.Logf("test requires downloaded tools file")
+func GetDownloadedToolsFile(t *testing.T, testutilsDir string, distro string, distroVersion string, imagecreator bool,
+) string {
+	toolsFileName := fmt.Sprintf("tools-%s-%s.tar.gz", distro, distroVersion)
+	toolsFilePath := filepath.Join(testutilsDir, "testrpms/build", toolsFileName)
+	if !assert.FileExists(t, toolsFilePath) {
+		t.Logf("test requires downloaded tools file: %s", toolsFileName)
 		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t %s -s %t",
-			azureLinuxVersion, imagecreator)
+			distroVersion, imagecreator)
 		t.FailNow()
 	}
-	return GetDownloadedToolsFile
+	return toolsFilePath
 }
 
-func GetDownloadedRpmsRepoFile(t *testing.T, testutilsDir string, azureLinuxVersion string, withGpgKey bool, imagecreator bool) string {
-	dir := GetDownloadedRpmsDir(t, testutilsDir, azureLinuxVersion, imagecreator)
+func GetDownloadedRpmsRepoFile(t *testing.T, testutilsDir string, distro string, distroVersion string, withGpgKey bool,
+	imagecreator bool,
+) string {
+	dir := GetDownloadedRpmsDir(t, testutilsDir, distro, distroVersion, imagecreator)
 
 	suffix := "nokey"
 	if withGpgKey {
 		suffix = "withkey"
 	}
 
-	repoFile := filepath.Join(dir, "../", fmt.Sprintf("rpms-%s-%s.repo", azureLinuxVersion, suffix))
+	repoFile := filepath.Join(dir, "../../", fmt.Sprintf("rpms-%s-%s-%s.repo", distro, distroVersion, suffix))
 	return repoFile
 }
 

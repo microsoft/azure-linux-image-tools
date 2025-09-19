@@ -24,7 +24,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddOfflineDir")
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
-	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, "2.0", false)
+	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, "azurelinux", "2.0", false)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -153,7 +153,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "2.0", withGpgKey, false)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "2.0", withGpgKey, false)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	buildDir := filepath.Join(testTmpDir, "build")
