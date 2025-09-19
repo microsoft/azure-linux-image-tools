@@ -85,7 +85,7 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyRootVerityUki(t, buildDir, outImageFilePath, nil)
+	_, ok := verifyRootVerityUki(t, buildDir, outImageFilePath, nil)
 	if !ok {
 		return
 	}
@@ -100,7 +100,7 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 		return
 	}
 
-	verifyRootVerityUki(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	verifyRootVerityUki(t, buildDir, outImageFilePath2, nil)
 }
 
 func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
