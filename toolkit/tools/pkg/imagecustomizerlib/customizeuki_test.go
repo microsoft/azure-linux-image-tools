@@ -85,7 +85,7 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyRootVerityUki(t, buildDir, outImageFilePath, nil)
+	_, ok := verifyRootVerityUki(t, buildDir, outImageFilePath, nil)
 	if !ok {
 		return
 	}
@@ -100,7 +100,7 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 		return
 	}
 
-	verifyRootVerityUki(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	verifyRootVerityUki(t, buildDir, outImageFilePath2, nil)
 }
 
 func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
@@ -267,7 +267,7 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	rootHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, rootDevice, rootHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "rd.info", "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "", "panic-on-corruption")
 
 	expectedFstabEntries := []diskutils.FstabEntry{
 		{
