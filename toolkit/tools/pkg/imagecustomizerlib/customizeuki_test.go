@@ -267,7 +267,7 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	rootHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, rootDevice, rootHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "rd.info", "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "", "panic-on-corruption")
 
 	expectedFstabEntries := []diskutils.FstabEntry{
 		{
