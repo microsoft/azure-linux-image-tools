@@ -438,9 +438,20 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
 
-	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
+	// Define verity-related arguments that should be replaced (not appended)
+	// These are the arguments that verity reinitialization would change
+	verityArgsToRemove := []string{
+		"roothash",
+		"usrhash",
+		"systemd.verity_root_data",
+		"systemd.verity_root_hash",
+		"systemd.verity_usr_data",
+		"systemd.verity_usr_hash",
+	}
+
+	err = updateKernelArgsInUkiCmdlineFile(buildDir, verityArgsToRemove, newArgs)
 	if err != nil {
-		return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+		return fmt.Errorf("failed to update verity kernel arguments in UKI cmdline file:\n%w", err)
 	}
 
 	return nil

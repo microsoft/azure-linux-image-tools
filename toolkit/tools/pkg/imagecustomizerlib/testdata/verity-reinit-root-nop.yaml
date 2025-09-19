@@ -1,10 +1,13 @@
 previewFeatures:
 - reinitialize-verity
+- uki
 
 storage:
-  reinitializeVerity: none
+  reinitializeVerity: all
 
 os:
+  uki:
+    kernels: auto
   additionalFiles:
   - content: |
       cat, dog, elephant, squirrel

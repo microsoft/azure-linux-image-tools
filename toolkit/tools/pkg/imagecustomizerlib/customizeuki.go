@@ -526,7 +526,19 @@ func cleanupUkiBuildDir(buildDir string) error {
 	return nil
 }
 
-func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
+// UkiKernelArg represents a parsed kernel command-line argument for UKI
+type UkiKernelArg struct {
+	// The full arg string.
+	Arg string
+	// The name of the argument.
+	Name string
+	// The value of the argument.
+	Value string
+}
+
+// updateKernelArgsInUkiCmdlineFile updates kernel command line arguments in the UKI kernel info file
+// by removing specified arguments and adding new ones, similar to updateKernelCommandLineArgsAll for grub
+func updateKernelArgsInUkiCmdlineFile(buildDir string, argsToRemove []string, newArgs []string) error {
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
 	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
@@ -534,12 +546,22 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 		return err
 	}
 
-	// Append newArgs.
-	newArgsStr := GrubArgsToString(newArgs)
+	// Update each kernel's command line with new args and removed old args
 	for kernel, info := range kernelInfo {
-		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(info.Cmdline), strings.TrimSpace(newArgsStr))
+		// Parse existing command line arguments
+		args, err := parseUkiKernelArgs(info.Cmdline)
+		if err != nil {
+			return fmt.Errorf("failed to parse kernel args for kernel (%s): %w", kernel, err)
+		}
+
+		// Update the command line by removing old args and adding new ones
+		updatedCmdline, err := updateUkiKernelArgsHelper(info.Cmdline, args, argsToRemove, newArgs)
+		if err != nil {
+			return fmt.Errorf("failed to update kernel args for kernel (%s): %w", kernel, err)
+		}
+
 		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedArgs,
+			Cmdline:   updatedCmdline,
 			Initramfs: info.Initramfs,
 		}
 	}
@@ -550,6 +572,93 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	}
 
 	return nil
+}
+
+// parseUkiKernelArgs parses a kernel command line string into structured arguments
+func parseUkiKernelArgs(cmdline string) ([]UkiKernelArg, error) {
+	args := []UkiKernelArg{}
+
+	// Split the command line by spaces, handling quoted arguments
+	fields := strings.Fields(cmdline)
+
+	for _, field := range fields {
+		// Handle quoted arguments by removing quotes
+		field = strings.Trim(field, "\"'")
+
+		name, value, hasEquals := strings.Cut(field, "=")
+		if !hasEquals {
+			// Argument without value (like "quiet")
+			value = ""
+		}
+
+		arg := UkiKernelArg{
+			Arg:   field,
+			Name:  name,
+			Value: value,
+		}
+		args = append(args, arg)
+	}
+
+	return args, nil
+}
+
+// findMatchingUkiArgs filters UKI args to only those that match the provided names
+func findMatchingUkiArgs(args []UkiKernelArg, names []string) []UkiKernelArg {
+	matching := []UkiKernelArg{}
+
+	for _, arg := range args {
+		for _, name := range names {
+			if arg.Name == name {
+				matching = append(matching, arg)
+				break
+			}
+		}
+	}
+
+	return matching
+}
+
+// updateUkiKernelArgsHelper rebuilds a command line string with specified args removed and new args added
+func updateUkiKernelArgsHelper(cmdline string, args []UkiKernelArg, argsToRemove []string, newArgs []string) (string, error) {
+	newArgsStr := GrubArgsToString(newArgs)
+	foundArgs := findMatchingUkiArgs(args, argsToRemove)
+
+	// If no args to remove, just append new args
+	if len(foundArgs) == 0 {
+		if len(newArgs) > 0 {
+			return fmt.Sprintf("%s %s", strings.TrimSpace(cmdline), strings.TrimSpace(newArgsStr)), nil
+		}
+		return cmdline, nil
+	}
+
+	// Rebuild command line with matching args removed
+	fields := strings.Fields(cmdline)
+	var newFields []string
+
+	for _, field := range fields {
+		field = strings.Trim(field, "\"'")
+		name, _, _ := strings.Cut(field, "=")
+
+		// Check if this field should be removed
+		shouldRemove := false
+		for _, removeArg := range argsToRemove {
+			if name == removeArg {
+				shouldRemove = true
+				break
+			}
+		}
+
+		if !shouldRemove {
+			newFields = append(newFields, field)
+		}
+	}
+
+	// Add new arguments
+	if len(newArgs) > 0 {
+		newFields = append(newFields, newArgs...)
+	}
+
+	return strings.Join(newFields, " "), nil
 }
 
 func getKernelVersion(kernelName string) (string, error) {
