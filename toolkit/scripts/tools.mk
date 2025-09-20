@@ -17,7 +17,7 @@ license-scan:
 
 # The version as held in the go.mod file (a line like 'go 1.19'). Add "go" to the front of the version number
 # so that it matches the output of 'go version' (e.g. 'go1.19').
-go_min_version = go$(shell grep -E '^go [0-9]+\.[0-9]+' $(TOOLS_DIR)/go.mod | awk '{print $$2}')
+go_min_version = go$(shell grep -E '^go [0-9]+\.[0-9]+' $(PROJECT_ROOT)/go.mod | awk '{print $$2}')
 
 # Check if the go version is high enough to build the tools. The 'sort' command is used to compare the versions
 # (with -V which sorts by version number). If the lowest version in the sort is the same as the minimum version, then
@@ -39,7 +39,7 @@ go_tool_list = \
 # For each utility "util", create a "out/tools/util" target which references code in "tools/util/"
 go_tool_targets = $(foreach target,$(go_tool_list),$(TOOL_BINS_DIR)/$(target))
 # Common files to monitor for all go targets
-go_module_files = $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum
+go_module_files = $(PROJECT_ROOT)/go.mod $(PROJECT_ROOT)/go.sum
 go_internal_files = $(shell find $(TOOLS_DIR)/internal/ -type f -name '*.go')
 go_pkg_files = $(shell find $(TOOLS_DIR)/pkg/ -type f -name '*.go')
 go_common_files = $(go_module_files) $(go_internal_files) $(go_pkg_files) $(go_scheduler_files) $(STATUS_FLAGS_DIR)/got_go_deps.flag $(BUILD_DIR)/tools/internal.test_coverage
@@ -144,7 +144,7 @@ go-tidy-all: go-mod-tidy go-fmt-all
 ##help:target:go-mod-tidy=Tidy the go module files.
 # Updates the go module file
 go-mod-tidy:
-	rm -f $(TOOLS_DIR)/go.sum
+	rm -f $(PROJECT_ROOT)/go.sum
 	cd $(TOOLS_DIR) && go mod tidy
 ##help:target:go-fmt-all=Auto format all `*.go` files.
 # Runs go fmt inside each matching directory

@@ -52,10 +52,10 @@ jobs:
       run: |
         set -x
 
-        if grep -q "go $EXPECTED_GO_VERSION" ./repo/toolkit/tools/go.mod; then
+        if grep -q "go $EXPECTED_GO_VERSION" ./repo/go.mod; then
           echo "go.mod has correct version ($EXPECTED_GO_VERSION)"
         else
-          actual_version="$(grep -E '^go [0-9]+\.[0-9]+' ./repo/toolkit/tools/go.mod)"
+          actual_version="$(grep -E '^go [0-9]+\.[0-9]+' ./repo/go.mod)"
           echo "go.mod has bad version expected:$EXPECTED_GO_VERSION, found: $actual_version"
           echo "UPDATE ./github/workflows/go-test-coverage.yml AND prerequisite documentation if minimum go version changed"
           exit 1
@@ -80,12 +80,12 @@ jobs:
 
         pushd repo/toolkit
         sudo env "PATH=$PATH" make go-mod-tidy
-        modchanges=$(git diff tools/go.mod)
-        sumchanges=$(git diff tools/go.sum)
+        modchanges=$(git diff ../go.mod)
+        sumchanges=$(git diff ../go.sum)
         if [ -n "$modchanges$sumchanges" ]; then
           echo Module files out of date!
-          git diff tools/go.mod
-          git diff tools/go.sum
+          git diff ../go.mod
+          git diff ../go.sum
           exit 1
         fi
 
