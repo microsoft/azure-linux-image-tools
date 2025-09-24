@@ -794,6 +794,12 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 		return nil, nil, nil, "", err
 	}
 
+	err = checkForGrubXfsSparseFiles(imageConnection)
+	if err != nil {
+		err = fmt.Errorf("failed while checking for GRUB + xfs + sparse files problem:\n%w", err)
+		return nil, nil, nil, "", err
+	}
+
 	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, nil, nil, "", err
@@ -926,6 +932,60 @@ func CheckEnvironmentVars() error {
 
 	if envHome != rootHome || (envUser != "" && envUser != rootUser) {
 		return ErrToolNotRunAsRoot
+	}
+
+	return nil
+}
+
+// GRUB doesn't support reading sparse files on xfs partitions.
+// So, if /boot is on an xfs partition, make sure none of the files that GRUB needs to read are sparse.
+func checkForGrubXfsSparseFiles(imageConnection *imageconnection.ImageConnection) error {
+	bootMount := getMountOfPath("/boot", imageConnection.Chroot())
+
+	if bootMount.GetFSType() != "xfs" {
+		// The /boot directory is not on an xfs partition.
+		return nil
+	}
+
+	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot())
+	if err != nil {
+		return fmt.Errorf("failed to detect bootloader type:\n%w", err)
+	}
+
+	if bootloaderType != BootloaderTypeGrub {
+		// Bootloader is not GRUB.
+		return nil
+	}
+
+	bootDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot")
+	bootDirFiles, err := os.ReadDir(bootDir)
+	if err != nil {
+		return fmt.Errorf("failed to read /boot directory:\n%w", err)
+	}
+
+	for _, bootDirFile := range bootDirFiles {
+		if bootDirFile.IsDir() {
+			continue
+		}
+
+		path := filepath.Join(bootDir, bootDirFile.Name())
+		chrootPath := filepath.Join("/boot", bootDirFile.Name())
+
+		// GRUB primarily needs to read the kernel and initramfs files.
+		isFileReadByGrub := strings.HasPrefix(bootDirFile.Name(), vmLinuzPrefix) ||
+			strings.HasPrefix(bootDirFile.Name(), initramfsPrefix) ||
+			strings.HasPrefix(bootDirFile.Name(), initrdPrefix)
+
+		if isFileReadByGrub {
+			isSparse, err := file.IsFileSparse(path)
+			if err != nil {
+				return fmt.Errorf("failed to check if file is sparse (%s):\n%w", chrootPath, err)
+			}
+
+			if isSparse {
+				return fmt.Errorf("GRUB cannot read sparse files on xfs partitions (%s)", chrootPath)
+			}
+		}
 	}
 
 	return nil
