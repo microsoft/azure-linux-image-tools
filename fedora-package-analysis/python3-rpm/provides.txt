@@ -1,0 +1,7 @@
+python3.13dist(rpm) = 4.20.1
+python3.13-rpm = 4.20.1-1.fc42
+python3dist(rpm) = 4.20.1
+python3-rpm = 4.20.1-1.fc42
+python3-rpm(x86-64) = 4.20.1-1.fc42
+python-rpm = 4.20.1-1.fc42
+rpm-python3 = 4.20.1-1.fc42

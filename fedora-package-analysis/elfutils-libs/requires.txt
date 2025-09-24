@@ -1,0 +1,35 @@
+default-yama-scope
+elfutils-libelf(x86-64) = 0.193-2.fc42
+libbz2.so.1()(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.15)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libdw.so.1()(64bit)
+libdw.so.1(ELFUTILS_0.167)(64bit)
+libelf.so.1()(64bit)
+libelf.so.1(ELFUTILS_1.0)(64bit)
+libelf.so.1(ELFUTILS_1.1.1)(64bit)
+libelf.so.1(ELFUTILS_1.3)(64bit)
+libelf.so.1(ELFUTILS_1.4)(64bit)
+libelf.so.1(ELFUTILS_1.5)(64bit)
+libelf.so.1(ELFUTILS_1.6)(64bit)
+libelf.so.1(ELFUTILS_1.7)(64bit)
+liblzma.so.5()(64bit)
+liblzma.so.5(XZ_5.0)(64bit)
+libz.so.1()(64bit)
+libz.so.1(ZLIB_1.2.2.3)(64bit)
+libzstd.so.1()(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

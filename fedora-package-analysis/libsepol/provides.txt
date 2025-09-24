@@ -1,0 +1,8 @@
+libsepol = 3.8-1.fc42
+libsepol.so.2()(64bit)
+libsepol.so.2(LIBSEPOL_1.0)(64bit)
+libsepol.so.2(LIBSEPOL_1.1)(64bit)
+libsepol.so.2(LIBSEPOL_3.0)(64bit)
+libsepol.so.2(LIBSEPOL_3.4)(64bit)
+libsepol.so.2(LIBSEPOL_3.6)(64bit)
+libsepol(x86-64) = 3.8-1.fc42

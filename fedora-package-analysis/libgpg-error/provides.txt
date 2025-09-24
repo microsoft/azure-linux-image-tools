@@ -1,0 +1,4 @@
+libgpg-error = 1.51-2.fc42
+libgpg-error.so.0()(64bit)
+libgpg-error.so.0(GPG_ERROR_1.0)(64bit)
+libgpg-error(x86-64) = 1.51-2.fc42

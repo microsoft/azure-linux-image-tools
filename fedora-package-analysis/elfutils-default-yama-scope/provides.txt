@@ -1,0 +1,2 @@
+default-yama-scope
+elfutils-default-yama-scope = 0.193-2.fc42

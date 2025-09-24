@@ -1,0 +1,3 @@
+ima-evm-utils-libs = 1.6.2-4.fc42
+ima-evm-utils-libs(x86-64) = 1.6.2-4.fc42
+libimaevm.so.5()(64bit)

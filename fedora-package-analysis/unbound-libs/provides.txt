@@ -1,0 +1,6 @@
+config(unbound-libs) = 1.23.1-1.fc42
+group(unbound)
+libunbound.so.8()(64bit)
+unbound-libs = 1.23.1-1.fc42
+unbound-libs(x86-64) = 1.23.1-1.fc42
+user(unbound) = dSB1bmJvdW5kIC0gIlVuYm91bmQgRE5TIHJlc29sdmVyIiAvdmFyL2xpYi91bmJvdW5kIC9zYmluL25vbG9naW4A

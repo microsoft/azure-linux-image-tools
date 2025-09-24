@@ -1,0 +1,9 @@
+libuuid = 2.40.4-7.fc42
+libuuid.so.1()(64bit)
+libuuid.so.1(UUID_1.0)(64bit)
+libuuid.so.1(UUID_2.20)(64bit)
+libuuid.so.1(UUID_2.31)(64bit)
+libuuid.so.1(UUID_2.36)(64bit)
+libuuid.so.1(UUID_2.40)(64bit)
+libuuid.so.1(UUIDD_PRIVATE)(64bit)
+libuuid(x86-64) = 2.40.4-7.fc42

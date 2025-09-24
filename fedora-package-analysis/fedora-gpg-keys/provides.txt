@@ -1,0 +1,1 @@
+fedora-gpg-keys = 42-1

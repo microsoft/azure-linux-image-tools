@@ -1,0 +1,12 @@
+/bin/dmesg
+/bin/kill
+/bin/more
+/bin/mount
+/bin/umount
+hardlink = 1:1.3-9
+/sbin/blkid
+/sbin/blockdev
+/sbin/fsck
+/usr/sbin/fsck
+util-linux-core = 2.40.4-7.fc42
+util-linux-core(x86-64) = 2.40.4-7.fc42

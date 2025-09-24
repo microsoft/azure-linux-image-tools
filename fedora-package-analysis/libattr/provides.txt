@@ -1,0 +1,8 @@
+config(libattr) = 2.5.2-5.fc42
+libattr = 2.5.2-5.fc42
+libattr.so.1()(64bit)
+libattr.so.1(ATTR_1.0)(64bit)
+libattr.so.1(ATTR_1.1)(64bit)
+libattr.so.1(ATTR_1.2)(64bit)
+libattr.so.1(ATTR_1.3)(64bit)
+libattr(x86-64) = 2.5.2-5.fc42

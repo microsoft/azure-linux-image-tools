@@ -1,0 +1,3 @@
+libseccomp = 2.5.5-2.fc41
+libseccomp.so.2()(64bit)
+libseccomp(x86-64) = 2.5.5-2.fc41

@@ -1,0 +1,8 @@
+bundled(libb2) = 0.98.1
+bundled(mimalloc) = 2.12
+libpython3.13.so.1.0()(64bit)
+libpython3.so()(64bit)
+python3.13-libs = 3.13.7-1.fc42
+python3-libs = 3.13.7-1.fc42
+python3-libs(x86-64) = 3.13.7-1.fc42
+python-libs = 3.13.7-1.fc42

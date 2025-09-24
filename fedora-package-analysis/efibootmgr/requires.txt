@@ -1,0 +1,1 @@
+package efibootmgr is not installed

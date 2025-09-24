@@ -1,0 +1,5 @@
+libbrotli = 1.1.0-6.fc42
+libbrotlicommon.so.1()(64bit)
+libbrotlidec.so.1()(64bit)
+libbrotlienc.so.1()(64bit)
+libbrotli(x86-64) = 1.1.0-6.fc42

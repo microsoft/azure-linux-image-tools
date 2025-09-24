@@ -1,0 +1,39 @@
+/bin/sh
+dbus-common
+libaudit.so.1()(64bit)
+libcap-ng.so.0()(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.10)(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.16)(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.28)(64bit)
+libc.so.6(GLIBC_2.3.2)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.7)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_2.9)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libexpat.so.1()(64bit)
+libgcc_s.so.1()(64bit)
+libgcc_s.so.1(GCC_3.0)(64bit)
+libgcc_s.so.1(GCC_3.3.1)(64bit)
+libm.so.6()(64bit)
+libm.so.6(GLIBC_2.2.5)(64bit)
+libselinux.so.1()(64bit)
+libselinux.so.1(LIBSELINUX_1.0)(64bit)
+libsystemd.so.0()(64bit)
+libsystemd.so.0(LIBSYSTEMD_209)(64bit)
+libsystemd.so.0(LIBSYSTEMD_221)(64bit)
+libsystemd.so.0(LIBSYSTEMD_237)(64bit)
+libsystemd.so.0(LIBSYSTEMD_243)(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)
+shadow-utils

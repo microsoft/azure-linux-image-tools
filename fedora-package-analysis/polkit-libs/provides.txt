@@ -1,0 +1,4 @@
+libpolkit-agent-1.so.0()(64bit)
+libpolkit-gobject-1.so.0()(64bit)
+polkit-libs = 126-3.fc42.1
+polkit-libs(x86-64) = 126-3.fc42.1

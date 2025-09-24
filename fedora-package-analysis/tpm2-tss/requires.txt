@@ -1,0 +1,29 @@
+/bin/sh
+libcrypto.so.3()(64bit)
+libcrypto.so.3(OPENSSL_3.0.0)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libjson-c.so.5()(64bit)
+libjson-c.so.5(JSONC_0.14)(64bit)
+libtss2-esys.so.0()(64bit)
+libtss2-mu.so.0()(64bit)
+libtss2-sys.so.1()(64bit)
+libtss2-tctildr.so.0()(64bit)
+libtss2-tcti-spi-helper.so.0()(64bit)
+libusb-1.0.so.0()(64bit)
+libuuid.so.1()(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)
+shadow-utils

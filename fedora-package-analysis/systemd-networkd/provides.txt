@@ -1,0 +1,5 @@
+config(systemd-networkd) = 257.9-2.fc42
+group(systemd-network)
+systemd-networkd = 257.9-2.fc42
+systemd-networkd(x86-64) = 257.9-2.fc42
+user(systemd-network) = dSBzeXN0ZW1kLW5ldHdvcmsgMTkyICJzeXN0ZW1kIE5ldHdvcmsgTWFuYWdlbWVudCIA

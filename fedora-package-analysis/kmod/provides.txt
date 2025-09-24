@@ -1,0 +1,11 @@
+kmod = 33-3.fc42
+kmod(x86-64) = 33-3.fc42
+module-init-tools = 4.0-1
+pkgconfig(kmod) = 33
+/sbin/modprobe
+/usr/sbin/depmod
+/usr/sbin/insmod
+/usr/sbin/lsmod
+/usr/sbin/modinfo
+/usr/sbin/modprobe
+/usr/sbin/rmmod

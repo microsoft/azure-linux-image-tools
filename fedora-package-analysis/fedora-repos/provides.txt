@@ -1,0 +1,3 @@
+config(fedora-repos) = 42-1
+fedora-repos = 42-1
+fedora-repos(42) = 1

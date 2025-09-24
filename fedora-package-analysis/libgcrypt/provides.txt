@@ -1,0 +1,4 @@
+libgcrypt = 1.11.0-5.fc42
+libgcrypt.so.20()(64bit)
+libgcrypt.so.20(GCRYPT_1.6)(64bit)
+libgcrypt(x86-64) = 1.11.0-5.fc42

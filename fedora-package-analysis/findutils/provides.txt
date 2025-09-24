@@ -1,0 +1,4 @@
+/bin/find
+bundled(gnulib)
+findutils = 1:4.10.0-5.fc42
+findutils(x86-64) = 1:4.10.0-5.fc42

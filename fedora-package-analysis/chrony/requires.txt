@@ -1,0 +1,1 @@
+package chrony is not installed

@@ -1,0 +1,5 @@
+curl = 8.11.1-6.fc42
+curl-full = 8.11.1-6.fc42
+curl-minimal = 8.11.1-6.fc42
+curl(x86-64) = 8.11.1-6.fc42
+webclient

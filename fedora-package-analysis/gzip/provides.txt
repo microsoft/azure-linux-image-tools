@@ -1,0 +1,6 @@
+/bin/gunzip
+/bin/gzip
+/bin/zcat
+bundled(gnulib)
+gzip = 1.13-3.fc42
+gzip(x86-64) = 1.13-3.fc42

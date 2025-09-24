@@ -1,0 +1,6 @@
+python3.13-dbus = 1.3.2-9.fc42
+python3.13dist(dbus-python) = 1.3.2
+python3-dbus = 1.3.2-9.fc42
+python3-dbus(x86-64) = 1.3.2-9.fc42
+python3dist(dbus-python) = 1.3.2
+python-dbus = 1.3.2-9.fc42

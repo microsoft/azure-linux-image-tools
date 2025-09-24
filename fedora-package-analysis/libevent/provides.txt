@@ -1,0 +1,7 @@
+libevent = 2.1.12-15.fc42
+libevent-2.1.so.7()(64bit)
+libevent_core-2.1.so.7()(64bit)
+libevent_extra-2.1.so.7()(64bit)
+libevent_openssl-2.1.so.7()(64bit)
+libevent_pthreads-2.1.so.7()(64bit)
+libevent(x86-64) = 2.1.12-15.fc42

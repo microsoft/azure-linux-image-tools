@@ -1,0 +1,92 @@
+config(setup) = 2.15.0-13.fc42
+group(adm)
+group(adm) = ZyBhZG0gNAAA
+group(audio)
+group(audio) = ZyBhdWRpbyA2MwAA
+group(bin)
+group(bin) = ZyBiaW4gMQAA
+group(cdrom)
+group(cdrom) = ZyBjZHJvbSAxMQAA
+group(clock)
+group(clock) = ZyBjbG9jayAxMDMA
+group(daemon)
+group(daemon) = ZyBkYWVtb24gMgAA
+group(dialout)
+group(dialout) = ZyBkaWFsb3V0IDE4
+group(disk)
+group(disk) = ZyBkaXNrIDYA
+group(floppy)
+group(floppy) = ZyBmbG9wcHkgMTkA
+group(ftp)
+group(ftp) = ZyBmdHAgNTAA
+group(games)
+group(games) = ZyBnYW1lcyAyMAAA
+group(halt)
+group(input)
+group(input) = ZyBpbnB1dCAxMDQA
+group(kmem)
+group(kmem) = ZyBrbWVtIDkA
+group(kvm)
+group(kvm) = ZyBrdm0gMzYA
+group(lock)
+group(lock) = ZyBsb2NrIDU0
+group(lp)
+group(lp) = ZyBscCA3
+group(mail)
+group(mail) = ZyBtYWlsIDEy
+group(man)
+group(man) = ZyBtYW4gMTUA
+group(mem)
+group(mem) = ZyBtZW0gOAAA
+group(nobody)
+group(nobody) = ZyBub2JvZHkgNjU1MzQA
+group(operator)
+group(render)
+group(render) = ZyByZW5kZXIgMTA1
+group(root)
+group(root) = ZyByb290IDAA
+group(sgx)
+group(sgx) = ZyBzZ3ggMTA2
+group(shutdown)
+group(sync)
+group(sys)
+group(sys) = ZyBzeXMgMwAA
+group(tape)
+group(tape) = ZyB0YXBlIDMz
+group(tty)
+group(tty) = ZyB0dHkgNQAA
+group(users)
+group(users) = ZyB1c2VycyAxMDAA
+group(utmp)
+group(utmp) = ZyB1dG1wIDIy
+group(video)
+group(video) = ZyB2aWRlbyAzOQAA
+group(wheel)
+group(wheel) = ZyB3aGVlbCAxMAAA
+setup = 2.15.0-13.fc42
+user(adm)
+user(adm) = dSBhZG0gMzo0ICJhZG0iIC92YXIvYWRtIC0A
+user(bin)
+user(bin) = dSBiaW4gMToxICJiaW4iIC9iaW4gLQAA
+user(daemon)
+user(daemon) = dSBkYWVtb24gMjoyICJkYWVtb24iIC9zYmluIC0A
+user(ftp)
+user(ftp) = dSBmdHAgMTQ6NTAgIkZUUCBVc2VyIiAvdmFyL2Z0cCAt
+user(games)
+user(games) = dSBnYW1lcyAxMjoxMDAgImdhbWVzIiAvdXNyL2dhbWVzIC0A
+user(halt)
+user(halt) = dSBoYWx0IDc6MCAiaGFsdCIgL3NiaW4gL3NiaW4vaGFsdAAA
+user(lp)
+user(lp) = dSBscCA0OjcgImxwIiAvdmFyL3Nwb29sL2xwZCAt
+user(mail)
+user(mail) = dSBtYWlsIDg6MTIgIm1haWwiIC92YXIvc3Bvb2wvbWFpbCAt
+user(nobody)
+user(nobody) = dSBub2JvZHkgNjU1MzQ6NjU1MzQgIktlcm5lbCBPdmVyZmxvdyBVc2VyIiAtIC0A
+user(operator)
+user(operator) = dSBvcGVyYXRvciAxMTowICJvcGVyYXRvciIgL3Jvb3QgLQAA
+user(root)
+user(root) = dSByb290IDA6MCAiU3VwZXIgVXNlciIgL3Jvb3QgL2Jpbi9iYXNo
+user(shutdown)
+user(shutdown) = dSBzaHV0ZG93biA2OjAgInNodXRkb3duIiAvc2JpbiAvc2Jpbi9zaHV0ZG93bgAA
+user(sync)
+user(sync) = dSBzeW5jIDU6MCAic3luYyIgL3NiaW4gL2Jpbi9zeW5j

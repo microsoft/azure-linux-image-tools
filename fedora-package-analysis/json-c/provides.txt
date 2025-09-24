@@ -1,0 +1,9 @@
+json-c = 0.18-2.fc42
+json-c(x86-64) = 0.18-2.fc42
+libjson-c.so.5()(64bit)
+libjson-c.so.5(JSONC_0.14)(64bit)
+libjson-c.so.5(JSONC_0.15)(64bit)
+libjson-c.so.5(JSONC_0.16)(64bit)
+libjson-c.so.5(JSONC_0.17)(64bit)
+libjson-c.so.5(JSONC_0.18)(64bit)
+libjson-c.so.5(JSONC_PRIVATE)(64bit)

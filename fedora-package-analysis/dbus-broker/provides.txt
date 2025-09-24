@@ -1,0 +1,2 @@
+dbus-broker = 36-6.fc42
+dbus-broker(x86-64) = 36-6.fc42

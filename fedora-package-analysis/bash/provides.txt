@@ -1,0 +1,5 @@
+bash = 5.2.37-1.fc42
+bash(x86-64) = 5.2.37-1.fc42
+/bin/bash
+/bin/sh
+config(bash) = 5.2.37-1.fc42

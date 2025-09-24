@@ -1,0 +1,4 @@
+libpopt.so.0()(64bit)
+libpopt.so.0(LIBPOPT_0)(64bit)
+popt = 1.19-8.fc42
+popt(x86-64) = 1.19-8.fc42

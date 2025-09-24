@@ -1,0 +1,1 @@
+package lvm2-libs is not installed

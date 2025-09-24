@@ -1,0 +1,5 @@
+config(libpwquality) = 1.4.5-12.fc42
+libpwquality = 1.4.5-12.fc42
+libpwquality.so.1()(64bit)
+libpwquality.so.1(LIBPWQUALITY_1.0)(64bit)
+libpwquality(x86-64) = 1.4.5-12.fc42

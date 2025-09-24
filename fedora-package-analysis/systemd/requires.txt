@@ -1,0 +1,88 @@
+/bin/sh
+config(systemd) = 257.9-2.fc42
+coreutils
+dbus >= 1.9.18
+filesystem(unmerged-sbin-symlinks)
+grep
+libacl.so.1()(64bit)
+libacl.so.1(ACL_1.0)(64bit)
+libaudit.so.1()(64bit)
+libblkid.so.1()(64bit)
+libblkid.so.1(BLKID_2.15)(64bit)
+libblkid.so.1(BLKID_2.17)(64bit)
+libblkid.so.1(BLKID_2.18)(64bit)
+libblkid.so.1(BLKID_2.30)(64bit)
+(libbpf >= 2:1.4.7 if libbpf)
+libcap.so.2()(64bit)
+libcrypto.so.3()(64bit)
+libcrypto.so.3(OPENSSL_3.0.0)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.10)(64bit)
+libc.so.6(GLIBC_2.11)(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.16)(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.22)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.25)(64bit)
+libc.so.6(GLIBC_2.26)(64bit)
+libc.so.6(GLIBC_2.27)(64bit)
+libc.so.6(GLIBC_2.28)(64bit)
+libc.so.6(GLIBC_2.30)(64bit)
+libc.so.6(GLIBC_2.3.2)(64bit)
+libc.so.6(GLIBC_2.32)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.35)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.36)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.41)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.5)(64bit)
+libc.so.6(GLIBC_2.6)(64bit)
+libc.so.6(GLIBC_2.7)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_2.9)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libfdisk.so.1()(64bit)
+libfdisk.so.1(FDISK_2.26)(64bit)
+libgcc_s.so.1()(64bit)
+libgcc_s.so.1(GCC_3.0)(64bit)
+libgcc_s.so.1(GCC_3.3.1)(64bit)
+libmount.so.1()(64bit)
+libmount.so.1(MOUNT_2.19)(64bit)
+libmount.so.1(MOUNT_2.20)(64bit)
+libmount.so.1(MOUNT_2.22)(64bit)
+libmount.so.1(MOUNT_2.23)(64bit)
+libmount.so.1(MOUNT_2.26)(64bit)
+libm.so.6()(64bit)
+libm.so.6(GLIBC_2.2.5)(64bit)
+libm.so.6(GLIBC_2.29)(64bit)
+libm.so.6(GLIBC_2.39)(64bit)
+libpam.so.0()(64bit)
+libpam.so.0(LIBPAM_1.0)(64bit)
+libseccomp.so.2()(64bit)
+libselinux.so.1()(64bit)
+libselinux.so.1(LIBSELINUX_1.0)(64bit)
+libsystemd-core-257.9-2.fc42.so()(64bit)
+libsystemd-core-257.9-2.fc42.so(SD_SHARED)(64bit)
+libsystemd-shared-257.9-2.fc42.so()(64bit)
+libsystemd-shared-257.9-2.fc42.so(SD_SHARED)(64bit)
+openssl-libs
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rpmlib(RichDependencies) <= 4.12.0-1
+rpmlib(TildeInVersions) <= 4.10.0-1
+rtld(GNU_HASH)
+systemd-libs(x86-64) = 257.9-2.fc42
+systemd-pam(x86-64) = 257.9-2.fc42
+(systemd-rpm-macros = 257.9-2.fc42 if rpm-build)
+systemd-shared(x86-64) = 257.9-2.fc42
+/usr/bin/bash
+/usr/bin/sh
+/usr/bin/systemd-sysusers
+(util-linux-core or util-linux)

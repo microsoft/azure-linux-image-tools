@@ -1,0 +1,3 @@
+bzip2-libs = 1.0.8-20.fc42
+bzip2-libs(x86-64) = 1.0.8-20.fc42
+libbz2.so.1()(64bit)

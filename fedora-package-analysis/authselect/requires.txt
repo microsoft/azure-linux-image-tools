@@ -1,0 +1,24 @@
+authselect-libs(x86-64) = 1.5.1-1.fc42
+/bin/sh
+libauthselect.so.4()(64bit)
+libauthselect.so.4(AUTHSELECT_1.0.1)(64bit)
+libauthselect.so.4(AUTHSELECT_1.0.2)(64bit)
+libauthselect.so.4(AUTHSELECT_1.0.3)(64bit)
+libauthselect.so.4(AUTHSELECT_1.1.0)(64bit)
+libauthselect.so.4(AUTHSELECT_1.2.3)(64bit)
+libauthselect.so.4(AUTHSELECT_1.6.0)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libpopt.so.0()(64bit)
+libpopt.so.0(LIBPOPT_0)(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

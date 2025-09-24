@@ -1,0 +1,3 @@
+librpmbuild.so.10()(64bit)
+rpm-build-libs = 4.20.1-1.fc42
+rpm-build-libs(x86-64) = 4.20.1-1.fc42

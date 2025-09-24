@@ -1,0 +1,2 @@
+rpm-plugin-systemd-inhibit = 4.20.1-1.fc42
+rpm-plugin-systemd-inhibit(x86-64) = 4.20.1-1.fc42

@@ -1,0 +1,35 @@
+device-mapper-libs = :1.02.204-3.fc42
+filesystem(unmerged-sbin-symlinks)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_2.9)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libdevmapper.so.1.02()(64bit)
+libdevmapper.so.1.02(Base)(64bit)
+libdevmapper.so.1.02(DM_1_02_103)(64bit)
+libdevmapper.so.1.02(DM_1_02_104)(64bit)
+libdevmapper.so.1.02(DM_1_02_105)(64bit)
+libdevmapper.so.1.02(DM_1_02_106)(64bit)
+libdevmapper.so.1.02(DM_1_02_107)(64bit)
+libdevmapper.so.1.02(DM_1_02_129)(64bit)
+libdevmapper.so.1.02(DM_1_02_131)(64bit)
+libdevmapper.so.1.02(DM_1_02_138)(64bit)
+libdevmapper.so.1.02(DM_1_02_181)(64bit)
+libdevmapper.so.1.02(DM_1_02_197)(64bit)
+libdevmapper.so.1.02(DM_1_02_97)(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rpmlib(TildeInVersions) <= 4.10.0-1
+rtld(GNU_HASH)
+systemd >= 256~rc1
+/usr/bin/bash
+util-linux-core >= 2.24

@@ -1,0 +1,4 @@
+libp11-kit.so.0()(64bit)
+libp11-kit.so.0(LIBP11_KIT_1.0)(64bit)
+p11-kit = 0.25.8-1.fc42
+p11-kit(x86-64) = 0.25.8-1.fc42

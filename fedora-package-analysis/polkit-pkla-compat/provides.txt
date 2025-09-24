@@ -1,0 +1,3 @@
+config(polkit-pkla-compat) = 0.1-30.fc42
+polkit-pkla-compat = 0.1-30.fc42
+polkit-pkla-compat(x86-64) = 0.1-30.fc42

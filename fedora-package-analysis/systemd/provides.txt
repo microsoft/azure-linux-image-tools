@@ -1,0 +1,25 @@
+/bin/systemctl
+config(systemd) = 257.9-2.fc42
+group(systemd-journal) = ZyBzeXN0ZW1kLWpvdXJuYWwgMTkwIC0A
+group(systemd-oom)
+libsystemd-core-257.9-2.fc42.so()(64bit)
+libsystemd-core-257.9-2.fc42.so(SD_SHARED)(64bit)
+pkgconfig(systemd) = 257
+pkgconfig(udev) = 257
+/sbin/shutdown
+syslog
+systemd = 257.9-2.fc42
+systemd-shutdown = 257.9-2.fc42
+systemd-sysv = 206
+systemd-tmpfiles = 257.9-2.fc42
+systemd-units = 257.9-2.fc42
+systemd(x86-64) = 257.9-2.fc42
+system-setup-keyboard = 0.9
+user(systemd-oom) = dSBzeXN0ZW1kLW9vbSAtICJzeXN0ZW1kIFVzZXJzcGFjZSBPT00gS2lsbGVyIgAA
+/usr/sbin/halt
+/usr/sbin/init
+/usr/sbin/poweroff
+/usr/sbin/reboot
+/usr/sbin/runlevel
+/usr/sbin/shutdown
+/usr/sbin/telinit

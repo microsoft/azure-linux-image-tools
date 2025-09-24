@@ -1,0 +1,8 @@
+config(openldap) = 2.6.10-1.fc42
+liblber.so.2()(64bit)
+liblber.so.2(OPENLDAP_2.200)(64bit)
+libldap.so.2()(64bit)
+libldap.so.2(OPENLDAP_2.200)(64bit)
+libslapi.so.2()(64bit)
+openldap = 2.6.10-1.fc42
+openldap(x86-64) = 2.6.10-1.fc42

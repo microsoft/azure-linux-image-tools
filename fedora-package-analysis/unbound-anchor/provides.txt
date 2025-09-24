@@ -1,0 +1,3 @@
+config(unbound-anchor) = 1.23.1-1.fc42
+unbound-anchor = 1.23.1-1.fc42
+unbound-anchor(x86-64) = 1.23.1-1.fc42

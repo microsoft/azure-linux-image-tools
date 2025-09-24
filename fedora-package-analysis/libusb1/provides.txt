@@ -1,0 +1,5 @@
+libusb-1.0.so.0()(64bit)
+libusb1 = 1.0.29-4.fc42
+libusb1(x86-64) = 1.0.29-4.fc42
+libusbx = 1.0.29-4.fc42
+mingw-libusbx = 1.0.29-4.fc42

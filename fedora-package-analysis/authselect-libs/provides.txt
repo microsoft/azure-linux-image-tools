@@ -1,0 +1,9 @@
+authselect-libs = 1.5.1-1.fc42
+authselect-libs(x86-64) = 1.5.1-1.fc42
+libauthselect.so.4()(64bit)
+libauthselect.so.4(AUTHSELECT_1.0.1)(64bit)
+libauthselect.so.4(AUTHSELECT_1.0.2)(64bit)
+libauthselect.so.4(AUTHSELECT_1.0.3)(64bit)
+libauthselect.so.4(AUTHSELECT_1.1.0)(64bit)
+libauthselect.so.4(AUTHSELECT_1.2.3)(64bit)
+libauthselect.so.4(AUTHSELECT_1.6.0)(64bit)

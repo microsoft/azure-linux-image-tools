@@ -1,0 +1,42 @@
+basesystem
+config(glibc) = 2.41-11.fc42
+filesystem(unmerged-sbin-symlinks)
+glibc-common = 2.41-11.fc42
+(glibc-gconv-extra(x86-64) = 2.41-11.fc42 if redhat-rpm-config)
+glibc-langpack = 2.41-11.fc42
+ld-linux-x86-64.so.2()(64bit)
+ld-linux-x86-64.so.2(GLIBC_2.2.5)(64bit)
+ld-linux-x86-64.so.2(GLIBC_2.35)(64bit)
+ld-linux-x86-64.so.2(GLIBC_2.3)(64bit)
+ld-linux-x86-64.so.2(GLIBC_PRIVATE)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.28)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.36)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libc.so.6(GLIBC_PRIVATE)(64bit)
+libgcc(x86-64)
+libm.so.6()(64bit)
+libm.so.6(GLIBC_2.2.5)(64bit)
+libm.so.6(GLIBC_2.27)(64bit)
+libm.so.6(GLIBC_2.29)(64bit)
+libm.so.6(GLIBC_2.32)(64bit)
+libm.so.6(GLIBC_2.35)(64bit)
+libm.so.6(GLIBC_2.39)(64bit)
+libresolv.so.2()(64bit)
+rpmlib(BuiltinLuaScripts) <= 4.2.2-1
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PartialHardlinkSets) <= 4.0.4-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rpmlib(RichDependencies) <= 4.12.0-1
+rtld(GNU_HASH)

@@ -1,0 +1,29 @@
+dnf4 = 4.23.0-1.fc42
+dnf-command(alias)
+dnf-command(autoremove)
+dnf-command(check-update)
+dnf-command(clean)
+dnf-command(distro-sync)
+dnf-command(downgrade)
+dnf-command(group)
+dnf-command(history)
+dnf-command(info)
+dnf-command(install)
+dnf-command(list)
+dnf-command(makecache)
+dnf-command(mark)
+dnf-command(provides)
+dnf-command(reinstall)
+dnf-command(remove)
+dnf-command(repolist)
+dnf-command(repoquery)
+dnf-command(repository-packages)
+dnf-command(search)
+dnf-command(updateinfo)
+dnf-command(upgrade)
+dnf-command(upgrade-to)
+python3.13dist(dnf) = 4.23
+python3.13-dnf = 4.23.0-1.fc42
+python3dist(dnf) = 4.23
+python3-dnf = 4.23.0-1.fc42
+python-dnf = 4.23.0-1.fc42

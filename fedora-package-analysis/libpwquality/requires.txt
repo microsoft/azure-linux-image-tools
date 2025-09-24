@@ -1,0 +1,22 @@
+config(libpwquality) = 1.4.5-12.fc42
+libcrack.so.2()(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libpam.so.0()(64bit)
+libpam.so.0(LIBPAM_1.0)(64bit)
+libpam.so.0(LIBPAM_EXTENSION_1.0)(64bit)
+libpam.so.0(LIBPAM_EXTENSION_1.1.1)(64bit)
+libpwquality.so.1()(64bit)
+libpwquality.so.1(LIBPWQUALITY_1.0)(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

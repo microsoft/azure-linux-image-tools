@@ -1,0 +1,7 @@
+config(setup) = 2.15.0-13.fc42
+rpmlib(BuiltinLuaScripts) <= 4.2.2-1
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+system-release

@@ -1,0 +1,25 @@
+libcrypto.so.3()(64bit)
+libcrypto.so.3(OPENSSL_3.0.0)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.15)(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.25)(64bit)
+libc.so.6(GLIBC_2.27)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.7)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libgssapi_krb5.so.2()(64bit)
+libgssapi_krb5.so.2(gssapi_krb5_2_MIT)(64bit)
+libssh-config = 0.11.3-1.fc42
+libz.so.1()(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

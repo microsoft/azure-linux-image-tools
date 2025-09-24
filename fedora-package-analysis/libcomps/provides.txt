@@ -1,0 +1,3 @@
+libcomps = 0.1.22-1.fc42
+libcomps.so.0()(64bit)
+libcomps(x86-64) = 0.1.22-1.fc42

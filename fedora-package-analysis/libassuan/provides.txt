@@ -1,0 +1,4 @@
+libassuan = 2.5.7-3.fc42
+libassuan.so.0()(64bit)
+libassuan.so.0(LIBASSUAN_1.0)(64bit)
+libassuan(x86-64) = 2.5.7-3.fc42

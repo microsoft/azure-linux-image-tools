@@ -1,0 +1,4 @@
+libsystemd-shared-257.9-2.fc42.so()(64bit)
+libsystemd-shared-257.9-2.fc42.so(SD_SHARED)(64bit)
+systemd-shared = 257.9-2.fc42
+systemd-shared(x86-64) = 257.9-2.fc42

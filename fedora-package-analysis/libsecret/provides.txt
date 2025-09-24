@@ -1,0 +1,4 @@
+bundled(egglib)
+libsecret = 0.21.7-1.fc42
+libsecret-1.so.0()(64bit)
+libsecret(x86-64) = 0.21.7-1.fc42

@@ -1,0 +1,5 @@
+bundled(gnulib)
+coreutils = 9.6-5.fc42
+coreutils-full = 9.6-5.fc42
+coreutils(x86-64) = 9.6-5.fc42
+libstdbuf.so()(64bit)

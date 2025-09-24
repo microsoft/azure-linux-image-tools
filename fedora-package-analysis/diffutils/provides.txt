@@ -1,0 +1,3 @@
+bundled(gnulib)
+diffutils = 3.12-1.fc42
+diffutils(x86-64) = 3.12-1.fc42

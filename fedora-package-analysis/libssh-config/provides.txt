@@ -1,0 +1,2 @@
+config(libssh-config) = 0.11.3-1.fc42
+libssh-config = 0.11.3-1.fc42

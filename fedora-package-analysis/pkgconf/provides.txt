@@ -1,0 +1,4 @@
+pkgconf = 2.3.0-2.fc42
+pkgconfig(pkgconf) = 2.3.0
+pkgconf(x86-64) = 2.3.0-2.fc42
+rpm_macro(pkgconfig_personalitydir)

@@ -1,0 +1,4 @@
+libltdl.so.7()(64bit)
+libtool-libs = 2.5.4-4.fc42
+libtool-ltdl = 2.5.4-4.fc42
+libtool-ltdl(x86-64) = 2.5.4-4.fc42

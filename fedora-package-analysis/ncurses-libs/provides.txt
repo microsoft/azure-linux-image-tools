@@ -1,0 +1,12 @@
+libform.so.6()(64bit)
+libformw.so.6()(64bit)
+libmenu.so.6()(64bit)
+libmenuw.so.6()(64bit)
+libncurses.so.6()(64bit)
+libncursesw.so.6()(64bit)
+libpanel.so.6()(64bit)
+libpanelw.so.6()(64bit)
+libtic.so.6()(64bit)
+libtinfo.so.6()(64bit)
+ncurses-libs = 6.5-5.20250125.fc42
+ncurses-libs(x86-64) = 6.5-5.20250125.fc42

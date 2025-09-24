@@ -1,0 +1,8 @@
+libhogweed.so.6()(64bit)
+libhogweed.so.6(HOGWEED_6)(64bit)
+libhogweed.so.6(HOGWEED_INTERNAL_6_10)(64bit)
+libnettle.so.8()(64bit)
+libnettle.so.8(NETTLE_8)(64bit)
+libnettle.so.8(NETTLE_INTERNAL_8_10)(64bit)
+nettle = 3.10.1-1.fc42
+nettle(x86-64) = 3.10.1-1.fc42

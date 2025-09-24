@@ -1,0 +1,27 @@
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libgcc_s.so.1()(64bit)
+libgcc_s.so.1(GCC_3.0)(64bit)
+libgcc_s.so.1(GCC_3.3.1)(64bit)
+libsystemd.so.0()(64bit)
+libsystemd.so.0(LIBSYSTEMD_209)(64bit)
+libsystemd.so.0(LIBSYSTEMD_214)(64bit)
+libsystemd.so.0(LIBSYSTEMD_219)(64bit)
+libsystemd.so.0(LIBSYSTEMD_227)(64bit)
+libsystemd.so.0(LIBSYSTEMD_229)(64bit)
+libsystemd.so.0(LIBSYSTEMD_230)(64bit)
+libsystemd.so.0(LIBSYSTEMD_233)(64bit)
+libsystemd.so.0(LIBSYSTEMD_245)(64bit)
+libsystemd.so.0(LIBSYSTEMD_246)(64bit)
+python(abi) = 3.13
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PartialHardlinkSets) <= 4.0.4-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

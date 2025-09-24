@@ -1,0 +1,3 @@
+liblz4.so.1()(64bit)
+lz4-libs = 1.10.0-2.fc42
+lz4-libs(x86-64) = 1.10.0-2.fc42

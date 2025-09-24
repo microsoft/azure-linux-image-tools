@@ -1,0 +1,5 @@
+filesystem = 3.18-47.fc42
+filesystem-afs = 3.18-47.fc42
+filesystem(merged-sbin) = 1
+filesystem(unmerged-sbin-symlinks) = 1
+filesystem(x86-64) = 3.18-47.fc42

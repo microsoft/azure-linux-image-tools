@@ -1,0 +1,2 @@
+gnupg2-smime = 2.4.7-2.fc42
+gnupg2-smime(x86-64) = 2.4.7-2.fc42

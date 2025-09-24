@@ -1,0 +1,5 @@
+libcap = 2.73-2.fc42
+libcap.so.2()(64bit)
+libcap(x86-64) = 2.73-2.fc42
+libpsx.so.2()(64bit)
+/usr/sbin/setcap

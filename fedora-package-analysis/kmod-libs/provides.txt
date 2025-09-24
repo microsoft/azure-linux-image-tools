@@ -1,0 +1,8 @@
+kmod-libs = 33-3.fc42
+kmod-libs(x86-64) = 33-3.fc42
+libkmod.so.2()(64bit)
+libkmod.so.2(LIBKMOD_22)(64bit)
+libkmod.so.2(LIBKMOD_30)(64bit)
+libkmod.so.2(LIBKMOD_33)(64bit)
+libkmod.so.2(LIBKMOD_5)(64bit)
+libkmod.so.2(LIBKMOD_6)(64bit)

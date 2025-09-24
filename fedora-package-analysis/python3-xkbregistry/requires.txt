@@ -1,0 +1,1 @@
+package python3-xkbregistry is not installed

@@ -1,0 +1,15 @@
+libsmartcols = 2.40.4-7.fc42
+libsmartcols.so.1()(64bit)
+libsmartcols.so.1(SMARTCOLS_2.25)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.27)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.28)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.29)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.30)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.31)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.33)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.34)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.35)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.38)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.39)(64bit)
+libsmartcols.so.1(SMARTCOLS_2.40)(64bit)
+libsmartcols(x86-64) = 2.40.4-7.fc42

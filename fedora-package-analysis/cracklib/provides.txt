@@ -1,0 +1,3 @@
+cracklib = 2.9.11-7.fc42
+cracklib(x86-64) = 2.9.11-7.fc42
+libcrack.so.2()(64bit)

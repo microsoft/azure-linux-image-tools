@@ -1,0 +1,28 @@
+ld-linux-x86-64.so.2()(64bit)
+ld-linux-x86-64.so.2(GLIBC_2.3)(64bit)
+libcrypto.so.3()(64bit)
+libcrypto.so.3(OPENSSL_3.0.0)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.18)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.25)(64bit)
+libc.so.6(GLIBC_2.28)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libgcc_s.so.1()(64bit)
+libgcc_s.so.1(GCC_3.0)(64bit)
+libgcc_s.so.1(GCC_3.3)(64bit)
+libgcc_s.so.1(GCC_4.2.0)(64bit)
+libm.so.6()(64bit)
+libm.so.6(GLIBC_2.38)(64bit)
+libssl.so.3()(64bit)
+libssl.so.3(OPENSSL_3.0.0)(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

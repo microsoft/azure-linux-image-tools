@@ -1,0 +1,12 @@
+elfutils-libelf = 0.193-2.fc42
+elfutils-libelf(x86-64) = 0.193-2.fc42
+libelf.so.1()(64bit)
+libelf.so.1(ELFUTILS_1.0)(64bit)
+libelf.so.1(ELFUTILS_1.1.1)(64bit)
+libelf.so.1(ELFUTILS_1.1)(64bit)
+libelf.so.1(ELFUTILS_1.2)(64bit)
+libelf.so.1(ELFUTILS_1.3)(64bit)
+libelf.so.1(ELFUTILS_1.4)(64bit)
+libelf.so.1(ELFUTILS_1.5)(64bit)
+libelf.so.1(ELFUTILS_1.6)(64bit)
+libelf.so.1(ELFUTILS_1.7)(64bit)

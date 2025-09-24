@@ -1,0 +1,5 @@
+libcurl = 8.11.1-6.fc42
+libcurl-full = 8.11.1-6.fc42
+libcurl-full(x86-64) = 8.11.1-6.fc42
+libcurl.so.4()(64bit)
+libcurl(x86-64) = 8.11.1-6.fc42

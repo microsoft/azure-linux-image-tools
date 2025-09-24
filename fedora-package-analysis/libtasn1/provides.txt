@@ -1,0 +1,6 @@
+bundled(gnulib) = 20130324
+libtasn1 = 4.20.0-1.fc42
+libtasn1.so.6()(64bit)
+libtasn1.so.6(LIBTASN1_0_3)(64bit)
+libtasn1.so.6(LIBTASN1_4_16_0)(64bit)
+libtasn1(x86-64) = 4.20.0-1.fc42

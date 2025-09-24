@@ -1,0 +1,7 @@
+group(polkitd)
+PolicyKit = 0.11
+polkit = 126-3.fc42.1
+polkit-desktop-policy = 0.103
+polkit-js-engine = 126-3.fc42.1
+polkit(x86-64) = 126-3.fc42.1
+user(polkitd) = dSBwb2xraXRkIDExNCAiVXNlciBmb3IgcG9sa2l0ZCIgLyAvc2Jpbi9ub2xvZ2lu

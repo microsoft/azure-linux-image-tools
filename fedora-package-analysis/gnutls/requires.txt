@@ -1,0 +1,36 @@
+crypto-policies
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.17)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.25)(64bit)
+libc.so.6(GLIBC_2.3.2)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.7)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libgmp.so.10()(64bit)
+libhogweed.so.6()(64bit)
+libhogweed.so.6(HOGWEED_6)(64bit)
+libidn2.so.0()(64bit)
+libidn2.so.0(IDN2_0.0.0)(64bit)
+libnettle.so.8()(64bit)
+libnettle.so.8(NETTLE_8)(64bit)
+libp11-kit.so.0()(64bit)
+libp11-kit.so.0(LIBP11_KIT_1.0)(64bit)
+libtasn1 >= 4.3
+libtasn1.so.6()(64bit)
+libtasn1.so.6(LIBTASN1_0_3)(64bit)
+libunistring.so.5()(64bit)
+nettle >= 3.10
+p11-kit-trust
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

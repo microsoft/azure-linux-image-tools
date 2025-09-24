@@ -1,0 +1,5 @@
+python3.13dist(six) = 1.17
+python3.13-six = 1.17.0-2.fc42
+python3dist(six) = 1.17
+python3-six = 1.17.0-2.fc42
+python-six = 1.17.0-2.fc42

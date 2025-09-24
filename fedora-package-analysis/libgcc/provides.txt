@@ -1,0 +1,18 @@
+libgcc = 15.2.1-1.fc42
+libgcc_s.so.1()(64bit)
+libgcc_s.so.1(GCC_12.0.0)(64bit)
+libgcc_s.so.1(GCC_13.0.0)(64bit)
+libgcc_s.so.1(GCC_14.0.0)(64bit)
+libgcc_s.so.1(GCC_3.0)(64bit)
+libgcc_s.so.1(GCC_3.3.1)(64bit)
+libgcc_s.so.1(GCC_3.3)(64bit)
+libgcc_s.so.1(GCC_3.4.2)(64bit)
+libgcc_s.so.1(GCC_3.4.4)(64bit)
+libgcc_s.so.1(GCC_3.4)(64bit)
+libgcc_s.so.1(GCC_4.0.0)(64bit)
+libgcc_s.so.1(GCC_4.2.0)(64bit)
+libgcc_s.so.1(GCC_4.3.0)(64bit)
+libgcc_s.so.1(GCC_4.7.0)(64bit)
+libgcc_s.so.1(GCC_4.8.0)(64bit)
+libgcc_s.so.1(GCC_7.0.0)(64bit)
+libgcc(x86-64) = 15.2.1-1.fc42

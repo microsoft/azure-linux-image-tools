@@ -1,0 +1,3 @@
+librpm_sequoia.so.1()(64bit)
+rpm-sequoia = 1.7.0-5.fc42
+rpm-sequoia(x86-64) = 1.7.0-5.fc42

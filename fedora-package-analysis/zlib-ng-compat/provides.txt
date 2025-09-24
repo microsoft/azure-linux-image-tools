@@ -1,0 +1,19 @@
+libz.so.1()(64bit)
+libz.so.1(ZLIB_1.2.0.2)(64bit)
+libz.so.1(ZLIB_1.2.0)(64bit)
+libz.so.1(ZLIB_1.2.0.8)(64bit)
+libz.so.1(ZLIB_1.2.12)(64bit)
+libz.so.1(ZLIB_1.2.2.3)(64bit)
+libz.so.1(ZLIB_1.2.2.4)(64bit)
+libz.so.1(ZLIB_1.2.2)(64bit)
+libz.so.1(ZLIB_1.2.3.3)(64bit)
+libz.so.1(ZLIB_1.2.3.4)(64bit)
+libz.so.1(ZLIB_1.2.3.5)(64bit)
+libz.so.1(ZLIB_1.2.5.1)(64bit)
+libz.so.1(ZLIB_1.2.5.2)(64bit)
+libz.so.1(ZLIB_1.2.7.1)(64bit)
+libz.so.1(ZLIB_1.2.9)(64bit)
+zlib = 1.3.1
+zlib-ng-compat = 2.2.5-2.fc42
+zlib-ng-compat(x86-64) = 2.2.5-2.fc42
+zlib(x86-64) = 1.3.1

@@ -1,0 +1,7 @@
+config(libsemanage) = 3.8.1-2.fc42
+libsemanage = 3.8.1-2.fc42
+libsemanage.so.2()(64bit)
+libsemanage.so.2(LIBSEMANAGE_1.0)(64bit)
+libsemanage.so.2(LIBSEMANAGE_1.1)(64bit)
+libsemanage.so.2(LIBSEMANAGE_3.4)(64bit)
+libsemanage(x86-64) = 3.8.1-2.fc42

@@ -1,0 +1,8 @@
+python3.13dist(systemd-python) = 235
+python3.13-systemd = 235-13.fc42
+python3dist(systemd-python) = 235
+python3-systemd = 235-13.fc42
+python3-systemd(x86-64) = 235-13.fc42
+python-systemd = 235-13.fc42
+systemd-python3 = 235-13.fc42
+systemd-python3(x86-64) = 235-13.fc42

@@ -1,0 +1,6 @@
+audit-libs = 4.1.1-1.fc42
+audit-libs(x86-64) = 4.1.1-1.fc42
+config(audit-libs) = 4.1.1-1.fc42
+libaudit.so.1()(64bit)
+libauparse.so.0()(64bit)
+libauplugin.so.1()(64bit)

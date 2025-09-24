@@ -1,0 +1,4 @@
+python3.13-hawkey = 0.74.0-1.fc42
+python3-hawkey = 0.74.0-1.fc42
+python3-hawkey(x86-64) = 0.74.0-1.fc42
+python-hawkey = 0.74.0-1.fc42

@@ -1,0 +1,935 @@
+Missing Package Source RPM Mapping
+==================================
+
+alternatives
+	chkconfig-1.32-1.fc42.src.rpmchkconfig-1.33-1.fc42
+amd-gpu-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+amd-ucode-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+anaconda-core
+	anaconda-42.27.12-1.fc42.src.rpmanaconda-42.27.13-1.fc42
+anaconda-tui
+	anaconda-42.27.12-1.fc42.src.rpmanaconda-42.27.13-1.fc42
+apr
+	apr-1.7.5-2.fc42.src.rpmapr-1.7.6-3.fc42
+apr-util
+	apr-util-1.6.3-22.fc42
+apr-util-lmdb
+	apr-util-1.6.3-22.fc42
+apr-util-openssl
+	apr-util-1.6.3-22.fc42
+atheros-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+audit-libs
+	audit-4.0.3-2.fc42.src.rpmaudit-4.1.1-1.fc42
+augeas-libs
+	augeas-1.14.2-0.4.20250324git4dffa3d.fc42
+authselect
+	authselect-1.5.1-1.fc42
+authselect-libs
+	authselect-1.5.1-1.fc42
+basesystem
+	basesystem-11-22.fc42
+bash
+	bash-5.2.37-1.fc42
+binutils
+	binutils-2.44-3.fc42.src.rpmbinutils-2.44-6.fc42
+blivet-data
+	python-blivet-3.12.1-2.fc42.src.rpmpython-blivet-3.12.1-3.fc42
+brcmfmac-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+btrfs-progs
+	btrfs-progs-6.14-1.fc42.src.rpmbtrfs-progs-6.16.1-1.fc42
+bubblewrap
+	bubblewrap-0.10.0-1.fc42
+bzip2-libs
+	bzip2-1.0.8-20.fc42
+ca-certificates
+	ca-certificates-2024.2.69_v8.0.401-5.fc42.src.rpmca-certificates-2025.2.80_v9.0.304-1.0.fc42
+chrony
+	chrony-4.6.1-2.fc42.src.rpmchrony-4.8-1.fc42
+cirrus-audio-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+composefs-libs
+	composefs-1.0.8-2.fc42
+coreutils
+	coreutils-9.6-2.fc42.src.rpmcoreutils-9.6-5.fc42
+coreutils-common
+	coreutils-9.6-2.fc42.src.rpmcoreutils-9.6-5.fc42
+coreutils-single
+	coreutils-9.6-2.fc42.src.rpmcoreutils-9.6-5.fc42
+cpio
+	cpio-2.15-4.fc42
+cpp
+	gcc-15.0.1-0.11.fc42.src.rpmgcc-15.2.1-1.fc42
+cracklib
+	cracklib-2.9.11-7.fc42
+cracklib-dicts
+	cracklib-2.9.11-7.fc42
+crypto-policies
+	crypto-policies-20250214-1.gitff7551b.fc42.src.rpmcrypto-policies-20250707-1.gitad370a8.fc42
+crypto-policies-scripts
+	crypto-policies-20250214-1.gitff7551b.fc42.src.rpmcrypto-policies-20250707-1.gitad370a8.fc42
+cryptsetup-libs
+	cryptsetup-2.7.5-2.fc42.src.rpmcryptsetup-2.8.1-1.fc42
+curl
+	curl-8.11.1-4.fc42.src.rpmcurl-8.11.1-5.fc42
+cyrus-sasl-lib
+	cyrus-sasl-2.1.28-30.fc42
+dbus
+	dbus-1.16.0-3.fc42
+dbus-broker
+	dbus-broker-36-5.fc42.src.rpmdbus-broker-36-6.fc42
+dbus-common
+	dbus-1.16.0-3.fc42
+dbus-daemon
+	dbus-1.16.0-3.fc42
+dbus-libs
+	dbus-1.16.0-3.fc42
+dbus-tools
+	dbus-1.16.0-3.fc42
+dconf
+	dconf-0.40.0-15.fc42
+device-mapper
+	lvm2-2.03.30-3.fc42
+device-mapper-event
+	lvm2-2.03.30-3.fc42
+device-mapper-event-libs
+	lvm2-2.03.30-3.fc42
+device-mapper-libs
+	lvm2-2.03.30-3.fc42
+device-mapper-multipath
+	device-mapper-multipath-0.10.0-5.fc42
+device-mapper-multipath-libs
+	device-mapper-multipath-0.10.0-5.fc42
+device-mapper-persistent-data
+	device-mapper-persistent-data-1.1.0-3.fc42
+diffutils
+	diffutils-3.10-9.fc42.src.rpmdiffutils-3.12-1.fc42
+dnf-data
+	dnf-4.23.0-1.fc42
+dosfstools
+	dosfstools-4.2-15.fc42
+dracut
+	dracut-105-2.fc42.src.rpmdracut-107-2.fc42
+dracut-config-generic
+	dracut-105-2.fc42.src.rpmdracut-107-2.fc42
+duktape
+	duktape-2.7.0-9.fc42
+e2fsprogs
+	e2fsprogs-1.47.2-3.fc42
+e2fsprogs-libs
+	e2fsprogs-1.47.2-3.fc42
+efibootmgr
+	efibootmgr-18-9.fc42
+efi-filesystem
+	efi-rpm-macros-6-2.fc42.src.rpmefi-rpm-macros-6-3.fc42
+efivar-libs
+	efivar-39-8.fc42
+elfutils-debuginfod-client
+	elfutils-0.192-9.fc42.src.rpmelfutils-0.193-2.fc42
+elfutils-default-yama-scope
+	elfutils-0.192-9.fc42.src.rpmelfutils-0.193-2.fc42
+elfutils-libelf
+	elfutils-0.192-9.fc42.src.rpmelfutils-0.193-2.fc42
+elfutils-libs
+	elfutils-0.192-9.fc42.src.rpmelfutils-0.193-2.fc42
+emacs-filesystem
+	emacs-filesystem-30.0-4.fc42
+expat
+	expat-2.7.1-1.fc42
+fedora-gpg-keys
+	fedora-repos-42-1
+fedora-release
+	fedora-release-42-25.src.rpmfedora-release-42-30
+fedora-release-common
+	fedora-release-42-25.src.rpmfedora-release-42-30
+fedora-release-identity-basic
+	fedora-release-42-25.src.rpmfedora-release-42-30
+fedora-repos
+	fedora-repos-42-1
+file
+	file-5.46-1.fc42.src.rpmfile-5.46-3.fc42
+file-libs
+	file-5.46-1.fc42.src.rpmfile-5.46-3.fc42
+filesystem
+	filesystem-3.18-36.fc42.src.rpmfilesystem-3.18-47.fc42
+findutils
+	findutils-4.10.0-5.fc42
+flatpak-libs
+	flatpak-1.16.0-2.fc42.src.rpmflatpak-1.16.1-1.fc42
+fmt
+	fmt-11.1.4-1.fc42
+fuse3-libs
+	fuse3-3.16.2-5.fc42
+gawk
+	gawk-5.3.1-1.fc42
+gawk-all-langpacks
+	gawk-5.3.1-1.fc42
+gcc
+	gcc-15.0.1-0.11.fc42.src.rpmgcc-15.2.1-1.fc42
+gdbm
+	gdbm-1.23-9.fc42
+gdbm-libs
+	gdbm-1.23-9.fc42
+gettext-envsubst
+	gettext-0.23.1-2.fc42
+gettext-libs
+	gettext-0.23.1-2.fc42
+gettext-runtime
+	gettext-0.23.1-2.fc42
+git
+	git-2.49.0-1.fc42.src.rpmgit-2.51.0-2.fc42
+git-core
+	git-2.49.0-1.fc42.src.rpmgit-2.51.0-2.fc42
+git-core-doc
+	git-2.49.0-1.fc42.src.rpmgit-2.51.0-2.fc42
+glib2
+	glib2-2.84.0-1.fc42.src.rpmglib2-2.84.4-1.fc42
+glibc
+	glibc-2.41-1.fc42.src.rpmglibc-2.41-11.fc42
+glibc-all-langpacks
+	glibc-2.41-1.fc42.src.rpmglibc-2.41-11.fc42
+glibc-common
+	glibc-2.41-1.fc42.src.rpmglibc-2.41-11.fc42
+glibc-devel
+	glibc-2.41-1.fc42.src.rpmglibc-2.41-11.fc42
+glibc-gconv-extra
+	glibc-2.41-1.fc42.src.rpmglibc-2.41-11.fc42
+glibc-minimal-langpack
+	glibc-2.41-1.fc42.src.rpmglibc-2.41-11.fc42
+gmp
+	gmp-6.3.0-4.fc42
+gnupg2
+	gnupg2-2.4.7-2.fc42
+gnupg2-smime
+	gnupg2-2.4.7-2.fc42
+gnutls
+	gnutls-3.8.10-1.fc42.src.rpmgnutls-3.8.9-3.fc42
+gobject-introspection
+	gobject-introspection-1.84.0-1.fc42
+go-filesystem
+	go-rpm-macros-3.6.0-6.fc42.src.rpmgo-rpm-macros-3.8.0-1.fc42
+golang
+	golang-1.24.1-1.fc42.src.rpmgolang-1.24.7-1.fc42
+golang-bin
+	golang-1.24.1-1.fc42.src.rpmgolang-1.24.7-1.fc42
+golang-src
+	golang-1.24.1-1.fc42.src.rpmgolang-1.24.7-1.fc42
+gpgme
+	gpgme-1.24.2-1.fc42.src.rpmgpgme-1.24.3-1.fc42
+grep
+	grep-3.11-10.fc42
+groff-base
+	groff-1.23.0-8.fc42
+grub2-common
+	grub2-2.12-28.fc42.src.rpmgrub2-2.12-32.fc42
+grub2-efi-x64
+	grub2-2.12-28.fc42.src.rpmgrub2-2.12-32.fc42
+grub2-tools
+	grub2-2.12-28.fc42.src.rpmgrub2-2.12-32.fc42
+grub2-tools-minimal
+	grub2-2.12-28.fc42.src.rpmgrub2-2.12-32.fc42
+grubby
+	grubby-8.40-82.fc42
+gzip
+	gzip-1.13-3.fc42
+hiredis
+	hiredis-1.2.0-6.fc42
+ima-evm-utils-libs
+	ima-evm-utils-1.6.2-4.fc42
+initial-setup
+	initial-setup-0.3.101-2.fc42
+intel-audio-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+intel-gpu-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+iputils
+	iputils-20240905-3.fc42.src.rpmiputils-20250605-1.fc42
+jansson
+	jansson-2.14-2.fc42
+jq
+	jq-1.7.1-11.fc42
+json-c
+	json-c-0.18-2.fc42
+json-glib
+	json-glib-1.10.6-2.fc42
+kbd
+	kbd-2.7.1-3.fc42
+kbd-legacy
+	kbd-2.7.1-3.fc42
+kbd-misc
+	kbd-2.7.1-3.fc42
+kernel
+	kernel-6.14.0-63.fc42.src.rpmkernel-6.16.7-200.fc42
+kernel-core
+	kernel-6.14.0-63.fc42.src.rpmkernel-6.16.7-200.fc42
+kernel-headers
+	kernel-headers-6.14.0-63.fc42.src.rpmkernel-headers-6.16.2-200.fc42
+kernel-modules
+	kernel-6.14.0-63.fc42.src.rpmkernel-6.16.7-200.fc42
+kernel-modules-core
+	kernel-6.14.0-63.fc42.src.rpmkernel-6.16.7-200.fc42
+keyutils-libs
+	keyutils-1.6.3-5.fc42
+kmod
+	kmod-33-3.fc42
+kmod-libs
+	kmod-33-3.fc42
+kpartx
+	device-mapper-multipath-0.10.0-5.fc42
+krb5-libs
+	krb5-1.21.3-5.fc42.src.rpmkrb5-1.21.3-6.fc42
+langtable
+	langtable-0.0.68-4.fc42.src.rpmlangtable-0.0.69-1.fc42
+less
+	less-668-2.fc42.src.rpmless-679-1.fc42
+libacl
+	acl-2.3.2-3.fc42
+libaio
+	libaio-0.3.111-21.fc42
+libarchive
+	libarchive-3.7.7-4.fc42.src.rpmlibarchive-3.8.1-1.fc42
+libassuan
+	libassuan-2.5.7-3.fc42
+libattr
+	attr-2.5.2-5.fc42
+libb2
+	libb2-0.98.1-13.fc42
+libblkid
+	util-linux-2.40.4-7.fc42
+libblockdev
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-btrfs
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-crypto
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-dm
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-fs
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-loop
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-lvm
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-mdraid
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-mpath
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-nvme
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-part
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-swap
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libblockdev-utils
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+libbpf
+	libbpf-1.5.0-2.fc42
+libbrotli
+	brotli-1.1.0-6.fc42
+libbytesize
+	libbytesize-2.11-100.fc42
+libcap
+	libcap-2.73-2.fc42
+libcap-ng
+	libcap-ng-0.8.5-4.fc42
+libcbor
+	libcbor-0.11.0-3.fc42
+libcom_err
+	e2fsprogs-1.47.2-3.fc42
+libcomps
+	libcomps-0.1.21-5.fc42.src.rpmlibcomps-0.1.22-1.fc42
+libcurl
+	curl-8.11.1-4.fc42.src.rpmcurl-8.11.1-5.fc42
+libdaemon
+	libdaemon-0.14-31.fc42
+libdnf
+	libdnf-0.74.0-1.fc42
+libdnf5
+	dnf5-5.2.12.0-1.fc42.src.rpmdnf5-5.2.16.0-1.fc42
+libeconf
+	libeconf-0.7.6-1.fc42.src.rpmlibeconf-0.7.6-2.fc42
+libedit
+	libedit-3.1-55.20250104cvs.fc42
+libevent
+	libevent-2.1.12-15.fc42
+libfdisk
+	util-linux-2.40.4-7.fc42
+libffi
+	libffi-3.4.6-5.fc42
+libfido2
+	libfido2-1.15.0-3.fc42
+libfsverity
+	fsverity-utils-1.6-2.fc42
+libgcc
+	gcc-15.0.1-0.11.fc42.src.rpmgcc-15.2.1-1.fc42
+libgcrypt
+	libgcrypt-1.11.0-5.fc42
+libgomp
+	gcc-15.0.1-0.11.fc42.src.rpmgcc-15.2.1-1.fc42
+libgpg-error
+	libgpg-error-1.51-2.fc42
+libidn2
+	libidn2-2.3.8-1.fc42
+libkcapi
+	libkcapi-1.5.0-5.fc42
+libkcapi-hasher
+	libkcapi-1.5.0-5.fc42
+libkcapi-hmaccalc
+	libkcapi-1.5.0-5.fc42
+libksba
+	libksba-1.6.7-3.fc42
+libmodulemd
+	libmodulemd-2.15.0-16.fc42.src.rpmlibmodulemd-2.15.2-1.fc42
+libmount
+	util-linux-2.40.4-7.fc42
+libmpc
+	libmpc-1.3.1-7.fc42
+libndp
+	libndp-1.9-3.fc42
+libnghttp2
+	nghttp2-1.64.0-3.fc42
+libnl3
+	libnl3-3.11.0-3.fc42
+libnl3-cli
+	libnl3-3.11.0-3.fc42
+libnsl2
+	libnsl2-2.0.1-3.fc42
+libnvme
+	libnvme-1.12-1.fc42.src.rpmlibnvme-1.15-2.fc42
+libpkgconf
+	pkgconf-2.3.0-2.fc42
+libpsl
+	libpsl-0.21.5-5.fc42
+libpwquality
+	libpwquality-1.4.5-12.fc42
+librepo
+	librepo-1.19.0-3.fc42.src.rpmlibrepo-1.20.0-1.fc42
+libreport
+	libreport-2.17.15-5.fc42
+libreport-anaconda
+	libreport-2.17.15-5.fc42
+libreport-cli
+	libreport-2.17.15-5.fc42
+libreport-filesystem
+	libreport-2.17.15-5.fc42
+libreport-plugin-bugzilla
+	libreport-2.17.15-5.fc42
+libreport-plugin-reportuploader
+	libreport-2.17.15-5.fc42
+libreport-web
+	libreport-2.17.15-5.fc42
+libseccomp
+	libseccomp-2.5.5-2.fc41
+libsecret
+	libsecret-0.21.7-1.fc42
+libselinux
+	libselinux-3.8-1.fc42.src.rpmlibselinux-3.8-2.fc42
+libselinux-utils
+	libselinux-3.8-1.fc42.src.rpmlibselinux-3.8-2.fc42
+libsemanage
+	libsemanage-3.8-1.fc42.src.rpmlibsemanage-3.8.1-2.fc42
+libsepol
+	libsepol-3.8-1.fc42
+libserf
+	libserf-1.3.10-9.fc42
+libsmartcols
+	util-linux-2.40.4-7.fc42
+libsolv
+	libsolv-0.7.31-5.fc42.src.rpmlibsolv-0.7.34-1.fc42
+libss
+	e2fsprogs-1.47.2-3.fc42
+libssh
+	libssh-0.11.1-4.fc42.src.rpmlibssh-0.11.3-1.fc42
+libssh-config
+	libssh-0.11.1-4.fc42.src.rpmlibssh-0.11.3-1.fc42
+libstdc++
+	gcc-15.0.1-0.11.fc42.src.rpmgcc-15.2.1-1.fc42
+libtasn1
+	libtasn1-4.20.0-1.fc42
+libteam
+	libteam-1.32-11.fc42
+libtextstyle
+	gettext-0.23.1-2.fc42
+libtirpc
+	libtirpc-1.3.6-1.rc3.fc42.2.src.rpmlibtirpc-1.3.7-0.fc42
+libtool-ltdl
+	libtool-2.5.4-4.fc42
+libunistring
+	libunistring-1.1-9.fc42
+libusb1
+	libusb1-1.0.28-2.fc42.src.rpmlibusb1-1.0.29-4.fc42
+libuuid
+	util-linux-2.40.4-7.fc42
+libverto
+	libverto-0.3.2-10.fc42
+libwayland-client
+	wayland-1.23.0-3.fc42.src.rpmwayland-1.24.0-1.fc42
+libXau
+	libXau-1.0.12-2.fc42
+libxcrypt
+	libxcrypt-4.4.38-6.fc42.src.rpmlibxcrypt-4.4.38-7.fc42
+libxcrypt-devel
+	libxcrypt-4.4.38-6.fc42.src.rpmlibxcrypt-4.4.38-7.fc42
+libxkbcommon
+	libxkbcommon-1.8.1-1.fc42
+libxml2
+	libxml2-2.12.10-1.fc42
+libyaml
+	libyaml-0.2.5-16.fc42
+libzstd
+	zstd-1.5.7-1.fc42
+linux-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+linux-firmware-whence
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+lmdb-libs
+	lmdb-0.9.33-3.fc42
+lsof
+	lsof-4.98.0-7.fc42
+lua-libs
+	lua-5.4.7-3.fc42.src.rpmlua-5.4.8-1.fc42
+lvm2
+	lvm2-2.03.30-3.fc42
+lvm2-libs
+	lvm2-2.03.30-3.fc42
+lz4-libs
+	lz4-1.10.0-2.fc42
+lzo
+	lzo-2.10-14.fc42
+make
+	make-4.4.1-10.fc42
+malcontent-libs
+	malcontent-0.13.0-2.fc42
+mdadm
+	mdadm-4.3-7.fc42.src.rpmmdadm-4.3-8.fc42
+memstrack
+	memstrack-0.2.5-6.fc42
+mercurial
+	mercurial-6.9.1-2.fc42.src.rpmmercurial-6.9.5-1.fc42
+mkpasswd
+	whois-5.5.20-5.fc42.src.rpmwhois-5.6.4-1.fc42
+mokutil
+	mokutil-0.7.1-5.fc42
+mpdecimal
+	mpdecimal-4.0.0-2.fc42.src.rpmmpdecimal-4.0.1-1.fc42
+mpfr
+	mpfr-4.2.2-1.fc42
+mt7xxx-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+ncurses
+	ncurses-6.5-5.20250125.fc42
+ncurses-base
+	ncurses-6.5-5.20250125.fc42
+ncurses-libs
+	ncurses-6.5-5.20250125.fc42
+nettle
+	nettle-3.10.1-1.fc42
+NetworkManager
+	NetworkManager-1.52.0-1.fc42.src.rpmNetworkManager-1.52.1-1.fc42
+NetworkManager-libnm
+	NetworkManager-1.52.0-1.fc42.src.rpmNetworkManager-1.52.1-1.fc42
+NetworkManager-team
+	NetworkManager-1.52.0-1.fc42.src.rpmNetworkManager-1.52.1-1.fc42
+npth
+	npth-1.8-2.fc42
+nspr
+	nss-3.109.0-1.fc42.src.rpmnss-3.115.1-1.fc42
+nss
+	nss-3.109.0-1.fc42.src.rpmnss-3.115.1-1.fc42
+nss-softokn
+	nss-3.109.0-1.fc42.src.rpmnss-3.115.1-1.fc42
+nss-softokn-freebl
+	nss-3.109.0-1.fc42.src.rpmnss-3.115.1-1.fc42
+nss-sysinit
+	nss-3.109.0-1.fc42.src.rpmnss-3.115.1-1.fc42
+nss-util
+	nss-3.109.0-1.fc42.src.rpmnss-3.115.1-1.fc42
+nvidia-gpu-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+nxpwireless-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+oniguruma
+	oniguruma-6.9.10-2.fc42
+openldap
+	openldap-2.6.10-1.fc42.src.rpmopenldap-2.6.9-3.fc42
+openssh
+	openssh-9.9p1-10.fc42.src.rpmopenssh-9.9p1-11.fc42
+openssh-clients
+	openssh-9.9p1-10.fc42.src.rpmopenssh-9.9p1-11.fc42
+openssl-libs
+	openssl-3.2.4-3.fc42.src.rpmopenssl-3.2.4-4.fc42
+os-prober
+	os-prober-1.81-9.fc42
+ostree-libs
+	ostree-2025.2-2.fc42.src.rpmostree-2025.6-1.fc42
+p11-kit
+	p11-kit-0.25.5-5.fc42.src.rpmp11-kit-0.25.8-1.fc42
+p11-kit-trust
+	p11-kit-0.25.5-5.fc42.src.rpmp11-kit-0.25.8-1.fc42
+pam
+	pam-1.7.0-4.fc42.src.rpmpam-1.7.0-6.fc42
+pam-libs
+	pam-1.7.0-4.fc42.src.rpmpam-1.7.0-6.fc42
+parted
+	parted-3.6-11.fc42
+pcre2
+	pcre2-10.45-1.fc42
+pcre2-syntax
+	pcre2-10.45-1.fc42
+pcsc-lite
+	pcsc-lite-2.3.1-2.fc42
+pcsc-lite-ccid
+	pcsc-lite-ccid-1.6.1-3.fc42
+pcsc-lite-libs
+	pcsc-lite-2.3.1-2.fc42
+perl-AutoLoader
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-B
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-base
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Carp
+	perl-Carp-1.54-512.fc42
+perl-Class-Struct
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-constant
+	perl-constant-1.33-513.fc42
+perl-Data-Dumper
+	perl-Data-Dumper-2.189-513.fc42
+perl-Digest
+	perl-Digest-1.20-512.fc42
+perl-Digest-MD5
+	perl-Digest-MD5-2.59-6.fc42
+perl-DynaLoader
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Encode
+	perl-Encode-3.21-512.fc42
+perl-Errno
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Error
+	perl-Error-0.17030-1.fc42
+perl-Exporter
+	perl-Exporter-5.78-512.fc42
+perl-Fcntl
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-File-Basename
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-File-Find
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-FileHandle
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-File-Path
+	perl-File-Path-2.18-512.fc42
+perl-File-stat
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-File-Temp
+	perl-File-Temp-0.231.100-512.fc42
+perl-Getopt-Long
+	perl-Getopt-Long-2.58-3.fc42
+perl-Getopt-Std
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Git
+	git-2.49.0-1.fc42.src.rpmgit-2.51.0-2.fc42
+perl-HTTP-Tiny
+	perl-HTTP-Tiny-0.090-2.fc42
+perl-if
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-interpreter
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-IO
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-IO-Socket-IP
+	perl-IO-Socket-IP-0.43-2.fc42
+perl-IO-Socket-SSL
+	perl-IO-Socket-SSL-2.089-2.fc42
+perl-IPC-Open3
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-lib
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-libnet
+	perl-libnet-3.15-513.fc42
+perl-libs
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-locale
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-MIME-Base32
+	perl-MIME-Base32-1.303-23.fc42
+perl-MIME-Base64
+	perl-MIME-Base64-3.16-512.fc42
+perl-mro
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-NDBM_File
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Net-SSLeay
+	perl-Net-SSLeay-1.94-8.fc42
+perl-overload
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-overloading
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-parent
+	perl-parent-0.244-2.fc42
+perl-PathTools
+	perl-PathTools-3.91-513.fc42
+perl-Pod-Escapes
+	perl-Pod-Escapes-1.07-512.fc42
+perl-podlators
+	perl-podlators-6.0.2-3.fc42
+perl-Pod-Perldoc
+	perl-Pod-Perldoc-3.28.01-513.fc42
+perl-Pod-Simple
+	perl-Pod-Simple-3.45-512.fc42
+perl-Pod-Usage
+	perl-Pod-Usage-2.05-1.fc42
+perl-POSIX
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Scalar-List-Utils
+	perl-Scalar-List-Utils-1.68-2.fc42.src.rpmperl-Scalar-List-Utils-1.70-1.fc42
+perl-SelectSaver
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Socket
+	perl-Socket-2.038-512.fc42
+perl-Storable
+	perl-Storable-3.32-512.fc42
+perl-Symbol
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+perl-Term-ANSIColor
+	perl-Term-ANSIColor-5.01-513.fc42
+perl-Term-Cap
+	perl-Term-Cap-1.18-512.fc42
+perl-TermReadKey
+	perl-TermReadKey-2.38-24.fc42
+perl-Text-ParseWords
+	perl-Text-ParseWords-3.31-512.fc42
+perl-Text-Tabs+Wrap
+	perl-Text-Tabs+Wrap-2024.001-512.fc42
+perl-Time-Local
+	perl-Time-Local-1.350-512.fc42
+perl-URI
+	perl-URI-5.31-2.fc42
+perl-vars
+	perl-5.40.1-515.fc42.src.rpmperl-5.40.3-519.fc42
+pigz
+	pigz-2.8-6.fc42
+pinentry
+	pinentry-1.3.1-3.fc42
+pkcs11-provider
+	pkcs11-provider-1.0-1.fc42
+pkgconf
+	pkgconf-2.3.0-2.fc42
+pkgconf-m4
+	pkgconf-2.3.0-2.fc42
+pkgconf-pkg-config
+	pkgconf-2.3.0-2.fc42
+policycoreutils
+	policycoreutils-3.8-1.fc42
+polkit
+	polkit-126-2.fc42.src.rpmpolkit-126-3.fc42.1
+polkit-libs
+	polkit-126-2.fc42.src.rpmpolkit-126-3.fc42.1
+polkit-pkla-compat
+	polkit-pkla-compat-0.1-30.fc42
+popt
+	popt-1.19-8.fc42
+procps-ng
+	procps-ng-4.0.4-6.fc42
+protobuf-c
+	protobuf-c-1.5.0-4.fc41.src.rpmprotobuf-c-1.5.1-1.fc42
+publicsuffix-list-dafsa
+	publicsuffix-list-20250116-1.fc42.src.rpmpublicsuffix-list-20250616-1.fc42
+python3
+	python3.13-3.13.2-2.fc42.src.rpmpython3.13-3.13.7-1.fc42
+python3-blivet
+	python-blivet-3.12.1-2.fc42.src.rpmpython-blivet-3.12.1-3.fc42
+python3-blockdev
+	libblockdev-3.3.0-3.fc42.src.rpmlibblockdev-3.3.1-2.fc42
+python3-bytesize
+	libbytesize-2.11-100.fc42
+python3-cffi
+	python-cffi-1.17.1-2.fc42
+python3-charset-normalizer
+	python-charset-normalizer-3.4.1-3.fc42
+python3-crypt-r
+	python-crypt-r-3.13.1-4.fc42
+python3-dasbus
+	python-dasbus-1.7-9.fc42
+python3-dbus
+	dbus-python-1.3.2-9.fc42
+python3-dnf
+	dnf-4.23.0-1.fc42
+python3-gobject-base
+	pygobject3-3.50.0-3.fc42
+python3-hawkey
+	libdnf-0.74.0-1.fc42
+python3-idna
+	python-idna-3.10-2.fc42
+python3-iso639
+	python-iso639-0.1.4-28.fc42
+python3-kickstart
+	pykickstart-3.62-1.fc42
+python3-langtable
+	langtable-0.0.68-4.fc42.src.rpmlangtable-0.0.69-1.fc42
+python3-libcomps
+	libcomps-0.1.21-5.fc42.src.rpmlibcomps-0.1.22-1.fc42
+python3-libdnf
+	libdnf-0.74.0-1.fc42
+python3-libmount
+	util-linux-2.40.4-7.fc42
+python3-libreport
+	libreport-2.17.15-5.fc42
+python3-libs
+	python3.13-3.13.2-2.fc42.src.rpmpython3.13-3.13.7-1.fc42
+python3-libselinux
+	libselinux-3.8-1.fc42.src.rpmlibselinux-3.8-2.fc42
+python3-meh
+	python-meh-0.52-4.fc42
+python3-pid
+	python-pid-2.2.3-24.fc42
+python3-ply
+	python-ply-3.11-26.fc42
+python3-productmd
+	python-productmd-1.43-2.fc42.src.rpmpython-productmd-1.45-3.fc42
+python3-pwquality
+	libpwquality-1.4.5-12.fc42
+python3-pycparser
+	python-pycparser-2.20-19.fc42
+python3-pyparted
+	pyparted-3.13.0-8.fc42
+python3-pysocks
+	python-pysocks-1.7.1-26.fc42
+python3-pyudev
+	python-pyudev-0.24.3-4.fc42
+python3-requests
+	python-requests-2.32.3-4.fc42.src.rpmpython-requests-2.32.4-1.fc42
+python3-requests-file
+	python-requests-file-2.0.0-5.fc42
+python3-requests-ftp
+	python-requests-ftp-0.3.1-36.fc42
+python3-rpm
+	rpm-4.20.1-1.fc42
+python3-satyr
+	satyr-0.43-5.fc42
+python3-simpleline
+	python-simpleline-1.9.0-13.fc42
+python3-six
+	python-six-1.17.0-2.fc42
+python3-systemd
+	python-systemd-235-13.fc42
+python3-unbound
+	unbound-1.22.0-14.fc42.src.rpmunbound-1.23.1-1.fc42
+python3-urllib3
+	python-urllib3-2.3.0-2.fc42
+python3-urllib3+socks
+	python-urllib3-2.3.0-2.fc42
+python3-xkbregistry
+	python-xkbregistry-0.3-4.fc42
+python-pip-wheel
+	python-pip-24.3.1-2.fc42
+python-unversioned-command
+	python3.13-3.13.2-2.fc42.src.rpmpython3.13-3.13.7-1.fc42
+qcom-wwan-firmware
+	linux-firmware-20250808-1.fc42
+qrencode-libs
+	qrencode-4.1.1-10.fc42
+readline
+	readline-8.2-13.fc42
+realtek-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+rpm
+	rpm-4.20.1-1.fc42
+rpm-build-libs
+	rpm-4.20.1-1.fc42
+rpm-libs
+	rpm-4.20.1-1.fc42
+rpm-plugin-audit
+	rpm-4.20.1-1.fc42
+rpm-plugin-selinux
+	rpm-4.20.1-1.fc42
+rpm-plugin-systemd-inhibit
+	rpm-4.20.1-1.fc42
+rpm-sequoia
+	rust-rpm-sequoia-1.7.0-5.fc42
+rpm-sign-libs
+	rpm-4.20.1-1.fc42
+satyr
+	satyr-0.43-5.fc42
+sed
+	sed-4.9-4.fc42
+selinux-policy
+	selinux-policy-41.34-1.fc42.src.rpmselinux-policy-42.8-1.fc42
+selinux-policy-targeted
+	selinux-policy-41.34-1.fc42.src.rpmselinux-policy-42.8-1.fc42
+setup
+	setup-2.15.0-13.fc42
+shadow-utils
+	shadow-utils-4.17.4-1.fc42
+shim-x64
+	shim-15.8-3
+sqlite-libs
+	sqlite-3.47.2-2.fc42
+subversion
+	subversion-1.14.5-14.fc42
+subversion-libs
+	subversion-1.14.5-14.fc42
+systemd
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-libs
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-networkd
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-pam
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-resolved
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-shared
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-standalone-sysusers
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-sysusers
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+systemd-udev
+	systemd-257.3-7.fc42.src.rpmsystemd-257.9-2.fc42
+teamd
+	libteam-1.32-11.fc42
+tiwilink-firmware
+	linux-firmware-20250311-1.fc42.src.rpmlinux-firmware-20250808-1.fc42
+tpm2-tools
+	tpm2-tools-5.7-3.fc42
+tpm2-tss
+	tpm2-tss-4.1.3-6.fc42
+tpm2-tss-fapi
+	tpm2-tss-4.1.3-6.fc42
+tzdata
+	tzdata-2025b-1.fc42
+unbound-anchor
+	unbound-1.22.0-14.fc42.src.rpmunbound-1.23.1-1.fc42
+unbound-libs
+	unbound-1.22.0-14.fc42.src.rpmunbound-1.23.1-1.fc42
+userspace-rcu
+	userspace-rcu-0.15.0-1.fc42
+utf8proc
+	utf8proc-2.10.0-1.fc42
+util-linux
+	util-linux-2.40.4-7.fc42
+util-linux-core
+	util-linux-2.40.4-7.fc42
+volume_key-libs
+	volume_key-0.3.12-24.fc42
+whois-nls
+	whois-5.5.20-5.fc42.src.rpmwhois-5.6.4-1.fc42
+xkeyboard-config
+	xkeyboard-config-2.44-1.fc42
+xmlrpc-c
+	xmlrpc-c-1.60.04-3.fc42
+xmlrpc-c-client
+	xmlrpc-c-1.60.04-3.fc42
+xz
+	xz-5.6.3-3.fc42.src.rpmxz-5.8.1-2.fc42
+xz-libs
+	xz-5.6.3-3.fc42.src.rpmxz-5.8.1-2.fc42
+zchunk-libs
+	zchunk-1.5.1-2.fc42
+zlib-ng-compat
+	zlib-ng-2.2.4-3.fc42.src.rpmzlib-ng-2.2.5-2.fc42

@@ -1,0 +1,9 @@
+libsolv = 0.7.34-1.fc42
+libsolvext.so.1()(64bit)
+libsolvext.so.1(SOLV_1.0)(64bit)
+libsolv.so.1()(64bit)
+libsolv.so.1(SOLV_1.0)(64bit)
+libsolv.so.1(SOLV_1.1)(64bit)
+libsolv.so.1(SOLV_1.2)(64bit)
+libsolv.so.1(SOLV_1.3)(64bit)
+libsolv(x86-64) = 0.7.34-1.fc42

@@ -1,0 +1,22 @@
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libgcc_s.so.1()(64bit)
+libgcc_s.so.1(GCC_3.0)(64bit)
+libgcc_s.so.1(GCC_3.3.1)(64bit)
+libstdc++.so.6()(64bit)
+libstdc++.so.6(CXXABI_1.3)(64bit)
+libstdc++.so.6(CXXABI_1.3.9)(64bit)
+libstdc++.so.6(GLIBCXX_3.4.11)(64bit)
+libstdc++.so.6(GLIBCXX_3.4.21)(64bit)
+libstdc++.so.6(GLIBCXX_3.4.30)(64bit)
+libstdc++.so.6(GLIBCXX_3.4)(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

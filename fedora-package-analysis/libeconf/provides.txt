@@ -1,0 +1,10 @@
+libeconf = 0.7.6-2.fc42
+libeconf.so.0()(64bit)
+libeconf.so.0(LIBECONF_0.2)(64bit)
+libeconf.so.0(LIBECONF_0.3)(64bit)
+libeconf.so.0(LIBECONF_0.4)(64bit)
+libeconf.so.0(LIBECONF_0.5)(64bit)
+libeconf.so.0(LIBECONF_0.6)(64bit)
+libeconf.so.0(LIBECONF_0.7)(64bit)
+libeconf.so.0(LIBECONF_ALPHA)(64bit)
+libeconf(x86-64) = 0.7.6-2.fc42

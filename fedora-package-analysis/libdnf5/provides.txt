@@ -1,0 +1,4 @@
+config(libdnf5) = 5.2.16.0-1.fc42
+libdnf5 = 5.2.16.0-1.fc42
+libdnf5.so.2()(64bit)
+libdnf5(x86-64) = 5.2.16.0-1.fc42

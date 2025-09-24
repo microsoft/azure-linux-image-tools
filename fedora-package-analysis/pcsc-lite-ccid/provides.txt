@@ -1,0 +1,8 @@
+bundled(simclist) = 1.6
+ccid = 1.6.1-3.fc42
+config(pcsc-lite-ccid) = 1.6.1-3.fc42
+libccid.so()(64bit)
+libccidtwin.so()(64bit)
+pcsc-ifd-handler
+pcsc-lite-ccid = 1.6.1-3.fc42
+pcsc-lite-ccid(x86-64) = 1.6.1-3.fc42

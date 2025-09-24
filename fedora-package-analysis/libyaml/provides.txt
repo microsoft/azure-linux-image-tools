@@ -1,0 +1,3 @@
+libyaml = 0.2.5-16.fc42
+libyaml-0.so.2()(64bit)
+libyaml(x86-64) = 0.2.5-16.fc42

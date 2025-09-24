@@ -1,0 +1,5 @@
+bundled(sljit)
+libpcre2-8.so.0()(64bit)
+libpcre2-posix.so.3()(64bit)
+pcre2 = 10.45-1.fc42
+pcre2(x86-64) = 10.45-1.fc42

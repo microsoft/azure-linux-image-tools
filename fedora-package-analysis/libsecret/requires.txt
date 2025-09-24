@@ -1,0 +1,21 @@
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libgio-2.0.so.0()(64bit)
+libglib-2.0.so.0()(64bit)
+libgnutls.so.30()(64bit)
+libgnutls.so.30(GNUTLS_3_4)(64bit)
+libgnutls.so.30(GNUTLS_3_6_13)(64bit)
+libgnutls.so.30(GNUTLS_3_6_3)(64bit)
+libgnutls.so.30(GNUTLS_3_8_2)(64bit)
+libgobject-2.0.so.0()(64bit)
+libsecret-1.so.0()(64bit)
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

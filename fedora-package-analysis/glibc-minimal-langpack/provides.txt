@@ -1,0 +1,3 @@
+glibc-langpack = 2.41-11.fc42
+glibc-minimal-langpack = 2.41-11.fc42
+glibc-minimal-langpack(x86-64) = 2.41-11.fc42

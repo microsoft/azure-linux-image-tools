@@ -1,0 +1,4 @@
+libnpth.so.0()(64bit)
+libnpth.so.0(NPTH_1.0)(64bit)
+npth = 1.8-2.fc42
+npth(x86-64) = 1.8-2.fc42

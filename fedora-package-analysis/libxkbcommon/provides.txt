@@ -1,0 +1,11 @@
+libxkbcommon = 1.8.1-1.fc42
+libxkbcommon.so.0()(64bit)
+libxkbcommon.so.0(V_0.5.0)(64bit)
+libxkbcommon.so.0(V_0.6.0)(64bit)
+libxkbcommon.so.0(V_0.7.0)(64bit)
+libxkbcommon.so.0(V_0.8.0)(64bit)
+libxkbcommon.so.0(V_1.0.0)(64bit)
+libxkbcommon.so.0(V_1.6.0)(64bit)
+libxkbcommon(x86-64) = 1.8.1-1.fc42
+libxkbregistry.so.0()(64bit)
+libxkbregistry.so.0(V_1.0.0)(64bit)

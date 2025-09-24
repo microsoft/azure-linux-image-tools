@@ -1,0 +1,5 @@
+dbus-libs = 1:1.16.0-3.fc42
+dbus-libs(x86-64) = 1:1.16.0-3.fc42
+libdbus-1.so.3()(64bit)
+libdbus-1.so.3(LIBDBUS_1_3)(64bit)
+libdbus-1.so.3(LIBDBUS_PRIVATE_1.16.0)(64bit)

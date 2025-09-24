@@ -1,0 +1,45 @@
+audit-libs >= 1.6.5
+config(shadow-utils) = 2:4.17.4-1.fc42
+filesystem(unmerged-sbin-symlinks)
+libacl.so.1()(64bit)
+libacl.so.1(ACL_1.1)(64bit)
+libaudit.so.1()(64bit)
+libcrypt.so.2()(64bit)
+libcrypt.so.2(XCRYPT_2.0)(64bit)
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.10)(64bit)
+libc.so.6(GLIBC_2.14)(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.25)(64bit)
+libc.so.6(GLIBC_2.26)(64bit)
+libc.so.6(GLIBC_2.33)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.34)(64bit)
+libc.so.6(GLIBC_2.3)(64bit)
+libc.so.6(GLIBC_2.36)(64bit)
+libc.so.6(GLIBC_2.38)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_2.6)(64bit)
+libc.so.6(GLIBC_2.7)(64bit)
+libc.so.6(GLIBC_2.8)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libeconf.so.0()(64bit)
+libeconf.so.0(LIBECONF_0.2)(64bit)
+libeconf.so.0(LIBECONF_0.4)(64bit)
+libpam_misc.so.0()(64bit)
+libpam_misc.so.0(LIBPAM_MISC_1.0)(64bit)
+libpam.so.0()(64bit)
+libpam.so.0(LIBPAM_1.0)(64bit)
+libselinux >= 1.25.2-1
+libselinux.so.1()(64bit)
+libselinux.so.1(LIBSELINUX_1.0)(64bit)
+libsemanage.so.2()(64bit)
+libsemanage.so.2(LIBSEMANAGE_1.0)(64bit)
+pam-libs
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileCaps) <= 4.6.1-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)
+setup

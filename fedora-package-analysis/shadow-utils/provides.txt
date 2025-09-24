@@ -1,0 +1,12 @@
+config(shadow-utils) = 2:4.17.4-1.fc42
+passwd = 0.80-18
+shadow = 2:4.17.4-1.fc42
+shadow-utils = 2:4.17.4-1.fc42
+shadow-utils(x86-64) = 2:4.17.4-1.fc42
+/usr/sbin/adduser
+/usr/sbin/groupadd
+/usr/sbin/groupdel
+/usr/sbin/groupmod
+/usr/sbin/useradd
+/usr/sbin/userdel
+/usr/sbin/usermod

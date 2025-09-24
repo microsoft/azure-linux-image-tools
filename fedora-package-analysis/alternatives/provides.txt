@@ -1,0 +1,4 @@
+alternatives = 1.33-1.fc42
+alternatives(x86-64) = 1.33-1.fc42
+/usr/sbin/alternatives
+/usr/sbin/update-alternatives

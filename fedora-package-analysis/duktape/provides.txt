@@ -1,0 +1,4 @@
+duktape = 2.7.0-9.fc42
+duktape(x86-64) = 2.7.0-9.fc42
+libduktaped.so.207()(64bit)
+libduktape.so.207()(64bit)

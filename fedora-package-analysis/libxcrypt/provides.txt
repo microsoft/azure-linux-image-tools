@@ -1,0 +1,6 @@
+libcrypt.so.2()(64bit)
+libcrypt.so.2(XCRYPT_2.0)(64bit)
+libcrypt.so.2(XCRYPT_4.3)(64bit)
+libcrypt.so.2(XCRYPT_4.4)(64bit)
+libxcrypt = 4.4.38-7.fc42
+libxcrypt(x86-64) = 4.4.38-7.fc42

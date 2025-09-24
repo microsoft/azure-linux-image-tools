@@ -1,0 +1,15 @@
+libfdisk = 2.40.4-7.fc42
+libfdisk.so.1()(64bit)
+libfdisk.so.1(FDISK_2.26)(64bit)
+libfdisk.so.1(FDISK_2.27)(64bit)
+libfdisk.so.1(FDISK_2.28)(64bit)
+libfdisk.so.1(FDISK_2.29)(64bit)
+libfdisk.so.1(FDISK_2.30)(64bit)
+libfdisk.so.1(FDISK_2.31)(64bit)
+libfdisk.so.1(FDISK_2.32)(64bit)
+libfdisk.so.1(FDISK_2.33)(64bit)
+libfdisk.so.1(FDISK_2.35)(64bit)
+libfdisk.so.1(FDISK_2.36)(64bit)
+libfdisk.so.1(FDISK_2.38)(64bit)
+libfdisk.so.1(FDISK_2.40)(64bit)
+libfdisk(x86-64) = 2.40.4-7.fc42

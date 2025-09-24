@@ -1,0 +1,1 @@
+package atheros-firmware is not installed

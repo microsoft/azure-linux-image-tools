@@ -1,0 +1,5 @@
+/bin/awk
+/bin/gawk
+gawk = 5.3.1-1.fc42
+gawk(abi) = 4.0
+gawk(x86-64) = 5.3.1-1.fc42

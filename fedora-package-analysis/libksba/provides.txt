@@ -1,0 +1,5 @@
+libksba = 1.6.7-3.fc42
+libksba.so.8()(64bit)
+libksba.so.8(KSBA_0.9)(64bit)
+libksba.so.8(KSBA_PRIVATE_TESTS)(64bit)
+libksba(x86-64) = 1.6.7-3.fc42

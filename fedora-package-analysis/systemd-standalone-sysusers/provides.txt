@@ -1,0 +1,3 @@
+systemd-standalone-sysusers = 257.9-2.fc42
+systemd-standalone-sysusers(x86-64) = 257.9-2.fc42
+systemd-sysusers = 257.9-2.fc42

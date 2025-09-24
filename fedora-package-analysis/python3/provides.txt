@@ -1,0 +1,6 @@
+python3.13 = 3.13.7-1.fc42
+python313 = 3.13.7-1.fc42
+python3.13(x86-64) = 3.13.7-1.fc42
+python3 = 3.13.7-1.fc42
+python3(x86-64) = 3.13.7-1.fc42
+python(abi) = 3.13

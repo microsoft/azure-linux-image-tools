@@ -1,0 +1,3 @@
+libverto = 0.3.2-10.fc42
+libverto.so.1()(64bit)
+libverto(x86-64) = 0.3.2-10.fc42

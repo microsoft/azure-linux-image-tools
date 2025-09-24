@@ -1,0 +1,1 @@
+package grub2-tools is not installed

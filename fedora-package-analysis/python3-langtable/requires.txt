@@ -1,0 +1,1 @@
+package python3-langtable is not installed

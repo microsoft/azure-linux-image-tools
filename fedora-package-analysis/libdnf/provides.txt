@@ -1,0 +1,3 @@
+libdnf = 0.74.0-1.fc42
+libdnf.so.2()(64bit)
+libdnf(x86-64) = 0.74.0-1.fc42

@@ -1,0 +1,3 @@
+libcbor = 0.11.0-3.fc42
+libcbor.so.0.11()(64bit)
+libcbor(x86-64) = 0.11.0-3.fc42

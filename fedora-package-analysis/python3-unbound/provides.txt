@@ -1,0 +1,4 @@
+python3.13-unbound = 1.23.1-1.fc42
+python3-unbound = 1.23.1-1.fc42
+python3-unbound(x86-64) = 1.23.1-1.fc42
+python-unbound = 1.23.1-1.fc42

@@ -1,0 +1,1 @@
+package kpartx is not installed

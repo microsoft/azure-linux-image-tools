@@ -1,0 +1,13 @@
+keyutils-libs = 1.6.3-5.fc42
+keyutils-libs(x86-64) = 1.6.3-5.fc42
+libkeyutils.so.1()(64bit)
+libkeyutils.so.1(KEYUTILS_0.3)(64bit)
+libkeyutils.so.1(KEYUTILS_1.0)(64bit)
+libkeyutils.so.1(KEYUTILS_1.10)(64bit)
+libkeyutils.so.1(KEYUTILS_1.3)(64bit)
+libkeyutils.so.1(KEYUTILS_1.4)(64bit)
+libkeyutils.so.1(KEYUTILS_1.5)(64bit)
+libkeyutils.so.1(KEYUTILS_1.6)(64bit)
+libkeyutils.so.1(KEYUTILS_1.7)(64bit)
+libkeyutils.so.1(KEYUTILS_1.8)(64bit)
+libkeyutils.so.1(KEYUTILS_1.9)(64bit)

@@ -1,0 +1,6 @@
+libacl = 2.3.2-3.fc42
+libacl.so.1()(64bit)
+libacl.so.1(ACL_1.0)(64bit)
+libacl.so.1(ACL_1.1)(64bit)
+libacl.so.1(ACL_1.2)(64bit)
+libacl(x86-64) = 2.3.2-3.fc42

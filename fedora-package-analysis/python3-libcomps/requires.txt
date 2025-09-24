@@ -1,0 +1,16 @@
+libcomps.so.0()(64bit)
+libcomps(x86-64) = 0.1.22-1.fc42
+libc.so.6()(64bit)
+libc.so.6(GLIBC_2.2.5)(64bit)
+libc.so.6(GLIBC_2.3.4)(64bit)
+libc.so.6(GLIBC_2.4)(64bit)
+libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
+libpython3.13.so.1.0()(64bit)
+libz.so.1()(64bit)
+python(abi) = 3.13
+rpmlib(CompressedFileNames) <= 3.0.4-1
+rpmlib(FileDigests) <= 4.6.0-1
+rpmlib(PartialHardlinkSets) <= 4.0.4-1
+rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+rpmlib(PayloadIsZstd) <= 5.4.18-1
+rtld(GNU_HASH)

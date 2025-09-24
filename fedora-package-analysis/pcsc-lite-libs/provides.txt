@@ -1,0 +1,4 @@
+libpcsclite_real.so.1()(64bit)
+libpcsclite.so.1()(64bit)
+pcsc-lite-libs = 2.3.1-2.fc42
+pcsc-lite-libs(x86-64) = 2.3.1-2.fc42

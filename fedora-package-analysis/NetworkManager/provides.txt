@@ -1,0 +1,1 @@
+package NetworkManager is not installed

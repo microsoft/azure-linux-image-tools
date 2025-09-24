@@ -1,0 +1,1 @@
+package libreport-anaconda is not installed

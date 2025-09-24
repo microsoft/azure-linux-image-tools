@@ -1,0 +1,5 @@
+libprotobuf-c.so.1()(64bit)
+libprotobuf-c.so.1(LIBPROTOBUF_C_1.0.0)(64bit)
+libprotobuf-c.so.1(LIBPROTOBUF_C_1.3.0)(64bit)
+protobuf-c = 1.5.1-1.fc42
+protobuf-c(x86-64) = 1.5.1-1.fc42

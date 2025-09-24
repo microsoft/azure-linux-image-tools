@@ -1,0 +1,7 @@
+libselinux = 3.8-3.fc42
+libselinux.so.1()(64bit)
+libselinux.so.1(LIBSELINUX_1.0)(64bit)
+libselinux.so.1(LIBSELINUX_3.4)(64bit)
+libselinux.so.1(LIBSELINUX_3.5)(64bit)
+libselinux.so.1(LIBSELINUX_3.8)(64bit)
+libselinux(x86-64) = 3.8-3.fc42

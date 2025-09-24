@@ -1,0 +1,4 @@
+hiredis = 1.2.0-6.fc42
+hiredis(x86-64) = 1.2.0-6.fc42
+libhiredis.so.1.1.0()(64bit)
+libhiredis_ssl.so.1.1.0()(64bit)

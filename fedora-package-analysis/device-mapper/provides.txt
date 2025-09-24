@@ -1,0 +1,2 @@
+device-mapper = 1.02.204-3.fc42
+device-mapper(x86-64) = 1.02.204-3.fc42

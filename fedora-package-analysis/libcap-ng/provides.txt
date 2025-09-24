@@ -1,0 +1,4 @@
+libcap-ng = 0.8.5-4.fc42
+libcap-ng.so.0()(64bit)
+libcap-ng(x86-64) = 0.8.5-4.fc42
+libdrop_ambient.so.0()(64bit)

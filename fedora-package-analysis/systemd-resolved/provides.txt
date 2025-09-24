@@ -1,0 +1,5 @@
+config(systemd-resolved) = 257.9-2.fc42
+group(systemd-resolve)
+systemd-resolved = 257.9-2.fc42
+systemd-resolved(x86-64) = 257.9-2.fc42
+user(systemd-resolve) = dSBzeXN0ZW1kLXJlc29sdmUgMTkzICJzeXN0ZW1kIFJlc29sdmVyIgAA

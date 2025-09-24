@@ -1,0 +1,4 @@
+libhistory.so.8()(64bit)
+libreadline.so.8()(64bit)
+readline = 8.2-13.fc42
+readline(x86-64) = 8.2-13.fc42

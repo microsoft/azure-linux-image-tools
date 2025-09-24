@@ -1,0 +1,4 @@
+/bin/sed
+bundled(gnulib)
+sed = 4.9-4.fc42
+sed(x86-64) = 4.9-4.fc42

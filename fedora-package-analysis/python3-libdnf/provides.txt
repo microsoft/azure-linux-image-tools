@@ -1,0 +1,6 @@
+python3.13dist(libdnf) = 0.74
+python3.13-libdnf = 0.74.0-1.fc42
+python3dist(libdnf) = 0.74
+python3-libdnf = 0.74.0-1.fc42
+python3-libdnf(x86-64) = 0.74.0-1.fc42
+python-libdnf = 0.74.0-1.fc42

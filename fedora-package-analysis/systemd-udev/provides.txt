@@ -1,0 +1,18 @@
+config(systemd-udev) = 257.9-2.fc42
+group(systemd-coredump)
+group(systemd-timesync)
+libcryptsetup-token-systemd-fido2.so()(64bit)
+libcryptsetup-token-systemd-fido2.so(CRYPTSETUP_TOKEN_1.0)(64bit)
+libcryptsetup-token-systemd-pkcs11.so()(64bit)
+libcryptsetup-token-systemd-pkcs11.so(CRYPTSETUP_TOKEN_1.0)(64bit)
+libcryptsetup-token-systemd-tpm2.so()(64bit)
+libcryptsetup-token-systemd-tpm2.so(CRYPTSETUP_TOKEN_1.0)(64bit)
+systemd-repart = 257.9-2.fc42
+systemd-udev = 257.9-2.fc42
+systemd-udev(x86-64) = 257.9-2.fc42
+u2f-hidraw-policy = 1.0.2-40
+udev = 257.9
+udev(x86-64) = 257.9
+user(systemd-coredump) = dSBzeXN0ZW1kLWNvcmVkdW1wIC0gInN5c3RlbWQgQ29yZSBEdW1wZXIi
+user(systemd-timesync) = dSBzeXN0ZW1kLXRpbWVzeW5jIC0gInN5c3RlbWQgVGltZSBTeW5jaHJvbml6YXRpb24i
+/usr/sbin/udevadm

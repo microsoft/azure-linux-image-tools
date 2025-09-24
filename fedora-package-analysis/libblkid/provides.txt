@@ -1,0 +1,17 @@
+libblkid = 2.40.4-7.fc42
+libblkid.so.1()(64bit)
+libblkid.so.1(BLKID_1.0)(64bit)
+libblkid.so.1(BLKID_2.15)(64bit)
+libblkid.so.1(BLKID_2.17)(64bit)
+libblkid.so.1(BLKID_2.18)(64bit)
+libblkid.so.1(BLKID_2.20)(64bit)
+libblkid.so.1(BLKID_2.21)(64bit)
+libblkid.so.1(BLKID_2.23)(64bit)
+libblkid.so.1(BLKID_2.25)(64bit)
+libblkid.so.1(BLKID_2.30)(64bit)
+libblkid.so.1(BLKID_2_31)(64bit)
+libblkid.so.1(BLKID_2_36)(64bit)
+libblkid.so.1(BLKID_2_37)(64bit)
+libblkid.so.1(BLKID_2_39)(64bit)
+libblkid.so.1(BLKID_2_40)(64bit)
+libblkid(x86-64) = 2.40.4-7.fc42

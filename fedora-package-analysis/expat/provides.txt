@@ -1,0 +1,3 @@
+expat = 2.7.2-1.fc42
+expat(x86-64) = 2.7.2-1.fc42
+libexpat.so.1()(64bit)

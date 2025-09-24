@@ -1,0 +1,1 @@
+package golang-bin is not installed

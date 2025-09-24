@@ -1,0 +1,2 @@
+ca-certificates = 2025.2.80_v9.0.304-1.0.fc42
+config(ca-certificates) = 2025.2.80_v9.0.304-1.0.fc42

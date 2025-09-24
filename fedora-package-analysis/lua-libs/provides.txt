@@ -1,0 +1,4 @@
+liblua-5.4.so()(64bit)
+lua(abi) = 5.4
+lua-libs = 5.4.8-1.fc42
+lua-libs(x86-64) = 5.4.8-1.fc42

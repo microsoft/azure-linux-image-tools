@@ -1,0 +1,4 @@
+cppformat = 11.1.4-1.fc42
+fmt = 11.1.4-1.fc42
+fmt(x86-64) = 11.1.4-1.fc42
+libfmt.so.11()(64bit)

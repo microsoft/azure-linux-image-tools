@@ -1,0 +1,6 @@
+config(gnupg2) = 2.4.7-2.fc42
+dirmngr = 2.4.7-2.fc42
+gnupg2 = 2.4.7-2.fc42
+gnupg = 2.4.7-2.fc42
+gnupg2(x86-64) = 2.4.7-2.fc42
+gpg = 2.4.7-2.fc42

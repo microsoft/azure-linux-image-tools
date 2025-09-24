@@ -1,0 +1,8 @@
+config(pam) = 1.7.0-6.fc42
+pam = 1.7.0-6.fc42
+pam(x86-64) = 1.7.0-6.fc42
+rpm_macro(_pam_confdir)
+rpm_macro(_pam_libdir)
+rpm_macro(_pam_moduledir)
+rpm_macro(_pam_secconfdir)
+rpm_macro(_pam_vendordir)

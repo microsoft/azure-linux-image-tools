@@ -1,0 +1,14 @@
+bundled(cmph)
+bundled(dirent)
+bundled(gnulib)
+bundled(gvdb)
+bundled(libcharset)
+bundled(xdgmime)
+glib2 = 2.84.4-1.fc42
+glib2(x86-64) = 2.84.4-1.fc42
+libgio-2.0.so.0()(64bit)
+libgirepository-2.0.so.0()(64bit)
+libglib-2.0.so.0()(64bit)
+libgmodule-2.0.so.0()(64bit)
+libgobject-2.0.so.0()(64bit)
+libgthread-2.0.so.0()(64bit)

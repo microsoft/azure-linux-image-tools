@@ -1,0 +1,3 @@
+libpkgconf = 2.3.0-2.fc42
+libpkgconf.so.5()(64bit)
+libpkgconf(x86-64) = 2.3.0-2.fc42

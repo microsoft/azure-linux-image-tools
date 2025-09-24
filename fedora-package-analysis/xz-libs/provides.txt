@@ -1,0 +1,10 @@
+liblzma.so.5()(64bit)
+liblzma.so.5(XZ_5.0)(64bit)
+liblzma.so.5(XZ_5.1.2alpha)(64bit)
+liblzma.so.5(XZ_5.2.2)(64bit)
+liblzma.so.5(XZ_5.2)(64bit)
+liblzma.so.5(XZ_5.4)(64bit)
+liblzma.so.5(XZ_5.6.0)(64bit)
+liblzma.so.5(XZ_5.8)(64bit)
+xz-libs = 1:5.8.1-2.fc42
+xz-libs(x86-64) = 1:5.8.1-2.fc42

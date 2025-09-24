@@ -1,0 +1,1 @@
+package amd-gpu-firmware is not installed

@@ -1,0 +1,5 @@
+bundled(simclist) = 1.6
+metainfo()
+metainfo(fr.apdu.pcsclite.metainfo.xml)
+pcsc-lite = 2.3.1-2.fc42
+pcsc-lite(x86-64) = 2.3.1-2.fc42

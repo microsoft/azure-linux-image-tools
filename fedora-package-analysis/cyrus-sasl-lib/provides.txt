@@ -1,0 +1,5 @@
+cyrus-sasl-lib = 2.1.28-30.fc42
+cyrus-sasl-lib(x86-64) = 2.1.28-30.fc42
+libanonymous.so.3()(64bit)
+libsasl2.so.3()(64bit)
+libsasldb.so.3()(64bit)

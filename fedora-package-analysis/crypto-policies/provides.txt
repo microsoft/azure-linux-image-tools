@@ -1,0 +1,2 @@
+config(crypto-policies) = 20250707-1.gitad370a8.fc42
+crypto-policies = 20250707-1.gitad370a8.fc42

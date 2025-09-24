@@ -1,0 +1,12 @@
+config(fedora-release-common) = 42-30
+fedora-release-common = 42-30
+rpm_macro(dist)
+rpm_macro(dist_bug_report_url)
+rpm_macro(distcore)
+rpm_macro(dist_debuginfod_url)
+rpm_macro(dist_home_url)
+rpm_macro(dist_name)
+rpm_macro(dist_purl_namespace)
+rpm_macro(dist_vendor)
+rpm_macro(fc42)
+rpm_macro(fedora)

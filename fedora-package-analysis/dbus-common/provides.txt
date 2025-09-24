@@ -1,0 +1,4 @@
+config(dbus-common) = 1:1.16.0-3.fc42
+dbus-common = 1:1.16.0-3.fc42
+group(dbus)
+user(dbus) = dSBkYnVzIDgxICJTeXN0ZW0gTWVzc2FnZSBCdXMiIC0gLQAA

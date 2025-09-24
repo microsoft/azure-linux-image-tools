@@ -1,0 +1,1 @@
+package mt7xxx-firmware is not installed

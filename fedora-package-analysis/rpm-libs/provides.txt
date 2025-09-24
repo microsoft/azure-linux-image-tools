@@ -1,0 +1,4 @@
+librpmio.so.10()(64bit)
+librpm.so.10()(64bit)
+rpm-libs = 4.20.1-1.fc42
+rpm-libs(x86-64) = 4.20.1-1.fc42

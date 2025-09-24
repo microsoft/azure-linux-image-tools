@@ -1,0 +1,7 @@
+bundled(gnulib)
+libidn2 = 2.3.8-1.fc42
+libidn2.so.0()(64bit)
+libidn2.so.0(IDN2_0.0.0)(64bit)
+libidn2.so.0(IDN2_2.1.0)(64bit)
+libidn2.so.0(IDN2_2.3.5)(64bit)
+libidn2(x86-64) = 2.3.8-1.fc42

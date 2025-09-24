@@ -1,0 +1,1 @@
+package gettext-runtime is not installed

@@ -1,0 +1,1 @@
+publicsuffix-list-dafsa = 20250616-1.fc42

@@ -1,0 +1,7 @@
+libffi = 3.4.6-5.fc42
+libffi.so.8()(64bit)
+libffi.so.8(LIBFFI_BASE_8.0)(64bit)
+libffi.so.8(LIBFFI_CLOSURE_8.0)(64bit)
+libffi.so.8(LIBFFI_COMPLEX_8.0)(64bit)
+libffi.so.8(LIBFFI_GO_CLOSURE_8.0)(64bit)
+libffi(x86-64) = 3.4.6-5.fc42

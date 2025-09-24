@@ -1,0 +1,19 @@
+group(tss)
+libtss2-esys.so.0()(64bit)
+libtss2-mu.so.0()(64bit)
+libtss2-policy.so.0()(64bit)
+libtss2-rc.so.0()(64bit)
+libtss2-sys.so.1()(64bit)
+libtss2-tcti-cmd.so.0()(64bit)
+libtss2-tcti-device.so.0()(64bit)
+libtss2-tcti-i2c-helper.so.0()(64bit)
+libtss2-tctildr.so.0()(64bit)
+libtss2-tcti-mssim.so.0()(64bit)
+libtss2-tcti-pcap.so.0()(64bit)
+libtss2-tcti-spidev.so.0()(64bit)
+libtss2-tcti-spi-helper.so.0()(64bit)
+libtss2-tcti-spi-ltt2go.so.0()(64bit)
+libtss2-tcti-swtpm.so.0()(64bit)
+tpm2-tss = 4.1.3-6.fc42
+tpm2-tss(x86-64) = 4.1.3-6.fc42
+user(tss) = dSB0c3MgNTkgIkFjY291bnQgdXNlZCBmb3IgVFBNIGFjY2VzcyIgLSAt
