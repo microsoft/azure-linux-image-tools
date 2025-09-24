@@ -122,9 +122,21 @@ const config = {
             {
               redirects: [
                 {
+                  to: '/imagecustomizer/',
+                  from: ['/imagecustomizer/README'],
+                },
+                {
                   to: '/imagecustomizer/quick-start/',
                   from: ['/imagecustomizer/quick-start/quick-start'],
-                }
+                },
+                {
+                  to: '/imagecustomizer/concepts/',
+                  from: ['/imagecustomizer/concepts/README'],
+                },
+                {
+                  to: '/imagecreator/',
+                  from: ['/imagecreator/README'],
+                },
               ],
             },
         ],
