@@ -126,6 +126,10 @@ const config = {
                   from: ['/imagecustomizer/README'],
                 },
                 {
+                  to: '/imagecustomizer/how-to/azure-vm/download-marketplace-image/',
+                  from: ['/imagecustomizer/how-to/download-marketplace-image'],
+                },
+                {
                   to: '/imagecustomizer/quick-start/',
                   from: ['/imagecustomizer/quick-start/quick-start'],
                 },
@@ -136,6 +140,10 @@ const config = {
                 {
                   to: '/imagecreator/',
                   from: ['/imagecreator/README'],
+                },
+                {
+                  to: '/imagecreator/quick-start/',
+                  from: ['/imagecreator/quick-start/quick-start'],
                 },
               ],
             },
