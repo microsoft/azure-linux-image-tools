@@ -120,6 +120,12 @@ const config = {
         [
             '@docusaurus/plugin-client-redirects',
             {
+              redirects: [
+                {
+                  to: '/imagecustomizer/quick-start/',
+                  from: ['/imagecustomizer/quick-start/quick-start'],
+                }
+              ],
             },
         ],
     ],
