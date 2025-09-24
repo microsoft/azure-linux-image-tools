@@ -1,6 +1,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"slices"
@@ -9,8 +10,10 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -20,6 +23,30 @@ var (
 	ErrFilesystemE2fsckResize  = NewImageCustomizerError("Filesystem:E2fsckResize", "failed to check filesystem with e2fsck")
 	ErrFilesystemResize2fs     = NewImageCustomizerError("Filesystem:Resize2fs", "failed to resize filesystem with resize2fs")
 )
+
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
+	defer span.End()
+
+	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
+	if err != nil {
+		return err
+	}
+	defer imageLoopback.Close()
+
+	// Shrink the filesystems.
+	err = shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids)
+	if err != nil {
+		return err
+	}
+
+	err = imageLoopback.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error {
 	logger.Log.Infof("Shrinking filesystems")
