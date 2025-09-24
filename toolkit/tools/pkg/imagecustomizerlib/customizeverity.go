@@ -6,7 +6,9 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -17,8 +19,13 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var (
@@ -29,6 +36,20 @@ var (
 	ErrVerityGrubConfigPrepare           = NewImageCustomizerError("Verity:GrubConfigPrepare", "failed to prepare grub config for verity")
 	ErrVerityHashSignatureSupport        = NewImageCustomizerError("Verity:HashSignatureSupport", "failed to add verity hash signature support")
 	ErrVerityFstabRead                   = NewImageCustomizerError("Verity:FstabRead", "failed to read fstab")
+	ErrVerityImageConnection             = NewImageCustomizerError("Verity:ConnectToImage", "failed to connect to image file to provision verity")
+	ErrGetDiskSectorSize                 = NewImageCustomizerError("Verity:GetSectorSize", "failed to get disk sector size")
+	ErrMountPartition                    = NewImageCustomizerError("Verity:MountPartition", "failed to mount partition")
+	ErrUpdateDisk                        = NewImageCustomizerError("Verity:UpdateDisk", "failed to wait for disk to update")
+	ErrFindVerityDataPartition           = NewImageCustomizerError("Verity:FindDataPartition", "failed to find verity data partition")
+	ErrFindVerityHashPartition           = NewImageCustomizerError("Verity:FindHashPartition", "failed to find verity hash partition")
+	ErrCalculateRootHash                 = NewImageCustomizerError("Verity:CalculateRootHash", "failed to calculate root hash")
+	ErrCompileRootHashRegex              = NewImageCustomizerError("Verity:CompileRootHashRegex", "failed to compile root hash regex")
+	ErrParseRootHash                     = NewImageCustomizerError("Verity:ParseRootHash", "failed to parse root hash from veritysetup output")
+	ErrCalculateHashSize                 = NewImageCustomizerError("Verity:CalculateHashSize", "failed to calculate hash partition size")
+	ErrShrinkHashPartition               = NewImageCustomizerError("Verity:ShrinkHashPartition", "failed to shrink hash partition")
+	ErrVerifyVerity                      = NewImageCustomizerError("Verity:Verify", "failed to verify verity")
+	ErrUpdateKernelArgs                  = NewImageCustomizerError("Verity:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
+	ErrUpdateGrubConfig                  = NewImageCustomizerError("Verity:UpdateGrubConfig", "failed to update grub config for verity")
 )
 
 const (
@@ -545,4 +566,242 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 		return diskutils.PartitionInfo{}, fmt.Errorf("partition not found (%s=%s)", ref.IdType, ref.Id)
 	}
 	return partition, nil
+}
+
+func customizeVerityImageHelper(ctx context.Context, buildDir string, config *imagecustomizerapi.Config,
+	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
+	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
+) ([]verityDeviceMetadata, error) {
+	logger.Log.Infof("Provisioning verity")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "provision_verity")
+	defer span.End()
+
+	verityMetadata := []verityDeviceMetadata(nil)
+
+	loopback, err := safeloopback.NewLoopback(buildImageFile)
+	if err != nil {
+		return nil, fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
+	}
+	defer loopback.Close()
+
+	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	if err != nil {
+		return nil, err
+	}
+
+	sectorSize, _, err := diskutils.GetSectorSize(loopback.DevicePath())
+	if err != nil {
+		return nil, fmt.Errorf("%w (device='%s'):\n%w", ErrGetDiskSectorSize, loopback.DevicePath(), err)
+	}
+
+	verityUpdated := false
+
+	for _, metadata := range baseImageVerity {
+		newMetadata := metadata
+
+		readonly := slices.Contains(readonlyPartUuids, metadata.dataPartUuid)
+		if !readonly {
+			// Find partitions.
+			dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
+				metadata.dataPartUuid, diskPartitions)
+			if err != nil {
+				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityDataPartition, metadata.name, err)
+			}
+
+			hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
+				metadata.hashPartUuid, diskPartitions)
+			if err != nil {
+				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityHashPartition, metadata.name, err)
+			}
+
+			// Format hash partition.
+			rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
+				shrinkHashPartition, sectorSize)
+			if err != nil {
+				return nil, err
+			}
+
+			newMetadata.rootHash = rootHash
+			verityUpdated = true
+		}
+
+		verityMetadata = append(verityMetadata, newMetadata)
+	}
+
+	for _, verityConfig := range config.Storage.Verity {
+		// Extract the partition block device path.
+		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
+			diskPartitions)
+		if err != nil {
+			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityDataPartition, verityConfig.Id, err)
+		}
+		hashPartition, err := verityIdToPartition(verityConfig.HashDeviceId, verityConfig.HashDevice, partIdToPartUuid,
+			diskPartitions)
+		if err != nil {
+			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityHashPartition, verityConfig.Id, err)
+		}
+
+		// Format hash partition.
+		rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
+			shrinkHashPartition, sectorSize)
+		if err != nil {
+			return nil, err
+		}
+
+		metadata := verityDeviceMetadata{
+			name:                  verityConfig.Name,
+			rootHash:              rootHash,
+			dataPartUuid:          dataPartition.PartUuid,
+			hashPartUuid:          hashPartition.PartUuid,
+			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
+			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
+			corruptionOption:      verityConfig.CorruptionOption,
+			hashSignaturePath:     verityConfig.HashSignaturePath,
+		}
+		verityMetadata = append(verityMetadata, metadata)
+		verityUpdated = true
+	}
+
+	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
+	err = diskutils.RefreshPartitions(loopback.DevicePath())
+	if err != nil {
+		return nil, err
+	}
+
+	if verityUpdated {
+		diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
+		if err != nil {
+			return nil, err
+		}
+
+		// Update kernel args.
+		isUki := config.OS.Uki != nil
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = loopback.CleanClose()
+	if err != nil {
+		return nil, err
+	}
+
+	deviceNamesJson := getVerityNames(verityMetadata)
+	span.SetAttributes(
+		attribute.Int("verity_count", len(verityMetadata)),
+		attribute.StringSlice("verity_device_name", deviceNamesJson),
+	)
+
+	return verityMetadata, nil
+}
+
+func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartitionPath string, shrinkHashPartition bool,
+	sectorSize uint64,
+) (string, error) {
+	// Write hash partition.
+	verityOutput, _, err := shell.NewExecBuilder("veritysetup", "format", dataPartitionPath, hashPartitionPath).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateRootHash, dataPartitionPath, err)
+	}
+
+	// Extract root hash using regular expressions.
+	rootHashRegex, err := regexp.Compile(`Root hash:\s+([0-9a-fA-F]+)`)
+	if err != nil {
+		return "", fmt.Errorf("%w:\n%w", ErrCompileRootHashRegex, err)
+	}
+
+	rootHashMatches := rootHashRegex.FindStringSubmatch(verityOutput)
+	if len(rootHashMatches) <= 1 {
+		return "", ErrParseRootHash
+	}
+
+	rootHash := rootHashMatches[1]
+
+	err = diskutils.RefreshPartitions(diskDevicePath)
+	if err != nil {
+		return "", fmt.Errorf("%w (device='%s'):\n%w", ErrUpdateDisk, diskDevicePath, err)
+	}
+
+	if shrinkHashPartition {
+		// Calculate the size of the hash partition from it's superblock.
+		// In newer `veritysetup` versions, `veritysetup format` returns the size in its output. But that feature
+		// is too new for now.
+		hashPartitionSizeInBytes, err := calculateHashFileSizeInBytes(hashPartitionPath)
+		if err != nil {
+			return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateHashSize, hashPartitionPath, err)
+		}
+
+		hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
+
+		err = resizePartition(hashPartitionPath, diskDevicePath, hashPartitionSizeInSectors)
+		if err != nil {
+			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
+		}
+
+		// Verify everything is still valid.
+		err = shell.NewExecBuilder("veritysetup", "verify", dataPartitionPath, hashPartitionPath, rootHash).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			Execute()
+		if err != nil {
+			return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrVerifyVerity, dataPartitionPath, err)
+		}
+	}
+
+	return rootHash, nil
+}
+
+func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
+	verityMetadata []verityDeviceMetadata, isUki bool,
+) error {
+	systemBootPartition, err := findSystemBootPartition(diskPartitions)
+	if err != nil {
+		return err
+	}
+
+	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	if err != nil {
+		return err
+	}
+
+	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
+	// Temporarily mount the partition.
+	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
+	if err != nil {
+		return fmt.Errorf("%w (partition='%s'):\n%w", ErrMountPartition, bootPartition.Path, err)
+	}
+	defer bootPartitionMount.Close()
+
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
+	_, err = os.Stat(grubCfgFullPath)
+	if err != nil {
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
+	}
+
+	if isUki {
+		// UKI is enabled, update kernel cmdline args file.
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
+		}
+	}
+
+	// Temporarily always update grub.cfg for verity, even when UKI is used.
+	// Since grub dependencies are still kept under /boot and won't be cleaned.
+	// This will be decoupled once the bootloader project is in place.
+	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrUpdateGrubConfig, err)
+	}
+
+	err = bootPartitionMount.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
