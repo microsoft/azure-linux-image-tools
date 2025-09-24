@@ -105,7 +105,7 @@ jobs:
         pushd repo/toolkit/tools
 
         # Download the test RPM files.
-        ./internal/testutils/testrpms/download-test-utils.sh
+        ./internal/testutils/testrpms/download-test-utils.sh -t 2.0 
 
         mkdir -p out/testResults
 
