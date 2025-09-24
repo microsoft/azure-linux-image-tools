@@ -3,6 +3,7 @@ layout: default
 title: Home
 nav_order: 1
 sidebar_position: 1
+slug: /
 ---
 
 # Azure Linux Image Tools

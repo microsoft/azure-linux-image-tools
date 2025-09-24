@@ -44,7 +44,7 @@ const config = {
       ({
         docs: {
           path: '../docs',
-          routeBasePath: '/docs/',
+          routeBasePath: '/',
           sidebarPath: './sidebars.js',
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
@@ -91,11 +91,11 @@ const config = {
             items: [
               {
                 label: 'Image Customizer',
-                to: '/docs/imagecustomizer',
+                to: '/imagecustomizer',
               },
               {
                 label: 'Image Creator',
-                to: '/docs/imagecreator',
+                to: '/imagecreator',
               },
             ],
           },
@@ -115,6 +115,15 @@ const config = {
         darkTheme: prismThemes.dracula,
       },
     }),
+
+    plugins: [
+        [
+            '@docusaurus/plugin-client-redirects',
+            {
+            },
+        ],
+    ],
+
   themes: [
     [
       require.resolve("@easyops-cn/docusaurus-search-local"),
