@@ -816,7 +816,7 @@ func isDigit(c byte) bool {
 
 // formatSinglePartition formats the given partition to the type specified in the partition configuration
 func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partDevPath string,
-	partition configuration.Partition,
+	partition configuration.Partition, isXBootLdrPartition bool,
 ) (fsType string, err error) {
 	const (
 		totalAttempts = 5
