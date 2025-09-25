@@ -1,0 +1,40 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      type: root
+      size: 1G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: xfs
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      KERNEL_FILE=$(find /boot -name 'vmlinuz*' | grep -m 1 .)
+      KERNEL_FILE_SIZE=$(du --bytes "$KERNEL_FILE" | cut -d $'\t' -f 1)
+      NEW_FILE_SIZE=$(( $KERNEL_FILE_SIZE + 52428800 ))
+
+      truncate --size "$NEW_FILE_SIZE" "$KERNEL_FILE"
