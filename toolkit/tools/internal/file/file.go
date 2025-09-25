@@ -18,7 +18,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"golang.org/x/sys/unix"
 )
 
 // IsDir check if a given file path is a directory.
@@ -447,26 +446,4 @@ func CommandExists(name string) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func IsFileSparse(name string) (bool, error) {
-	fd, err := os.Open(name)
-	if err != nil {
-		return false, err
-	}
-	defer fd.Close()
-
-	stat, err := fd.Stat()
-	if err != nil {
-		return false, err
-	}
-
-	holeOffset, err := fd.Seek(0, unix.SEEK_HOLE)
-	if err != nil {
-		return false, err
-	}
-
-	// If there are no holes, then 'holeOffset' will point to the end of the file.
-	isSparse := holeOffset < stat.Size()
-	return isSparse, nil
 }

@@ -11,13 +11,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func getMountOfPath(chrootPath string, imageChroot *safechroot.Chroot) *safechroot.MountPoint {
+func isPathOnReadOnlyMount(chrootPath string, imageChroot *safechroot.Chroot) bool {
 	mostSpecificMount := (*safechroot.MountPoint)(nil)
 
 	mounts := imageChroot.GetMountPoints()
 	for _, mount := range mounts {
 		relativePath, err := filepath.Rel(mount.GetTarget(), chrootPath)
-		if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, "../") {
+		if err != nil || strings.HasPrefix(relativePath, "../") {
 			// Path is not relative to the mount.
 			continue
 		}
@@ -26,12 +26,6 @@ func getMountOfPath(chrootPath string, imageChroot *safechroot.Chroot) *safechro
 			mostSpecificMount = mount
 		}
 	}
-
-	return mostSpecificMount
-}
-
-func isPathOnReadOnlyMount(chrootPath string, imageChroot *safechroot.Chroot) bool {
-	mostSpecificMount := getMountOfPath(chrootPath, imageChroot)
 
 	if mostSpecificMount == nil {
 		return false
