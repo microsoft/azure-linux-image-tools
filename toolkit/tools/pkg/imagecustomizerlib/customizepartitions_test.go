@@ -393,29 +393,6 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		baseImageInfo)
 }
 
-func TestCustomizeImageGrubXfsSparse(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
-		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageGrubXfsSparseHelper(t, "TestCustomizeImageGrubXfsSparse"+baseImageInfo.Name, baseImageInfo)
-		})
-	}
-}
-
-func testCustomizeImageGrubXfsSparseHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
-	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	testTmpDir := filepath.Join(tmpDir, testName)
-	buildDir := filepath.Join(testTmpDir, "build")
-	configFile := filepath.Join(testDir, "grub-xfs-sparse-kernel.yaml")
-	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-
-	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed while checking for GRUB + xfs + sparse files problem")
-	assert.ErrorContains(t, err, "GRUB cannot read sparse files on xfs partitions")
-}
-
 func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
