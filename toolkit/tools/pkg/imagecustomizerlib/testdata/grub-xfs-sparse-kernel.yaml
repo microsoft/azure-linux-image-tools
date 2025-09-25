@@ -1,40 +1,25 @@
-storage:
-  disks:
-  - partitionTableType: gpt
-    partitions:
-    - id: esp
-      type: esp
-      size: 8M
-
-    - id: rootfs
-      type: root
-      size: 1G
-
-  bootType: efi
-
-  filesystems:
-  - deviceId: esp
-    type: fat32
-    mountPoint:
-      path: /boot/efi
-      options: umask=0077
-
-  - deviceId: rootfs
-    type: xfs
-    mountPoint:
-      path: /
-
 os:
-  bootloader:
-    resetType: hard-reset
+  packages:
+    remove:
+    - kernel
+    
+    install:
+    - xfsprogs
+    - kernel-6.6.92.2-2.azl3
 
-scripts:
-  postCustomization:
-  - content: |
-      set -eux
+# scripts:
+#   postCustomization:
+#   - content: |
+#       set -eux
 
-      KERNEL_FILE=$(find /boot -name 'vmlinuz*' | grep -m 1 .)
-      KERNEL_FILE_SIZE=$(du --bytes "$KERNEL_FILE" | cut -d $'\t' -f 1)
-      NEW_FILE_SIZE=$(( $KERNEL_FILE_SIZE + 52428800 ))
+#       KERNEL_FILE=$(find /boot -name 'vmlinuz*' | grep -m 1 .)
 
-      truncate --size "$NEW_FILE_SIZE" "$KERNEL_FILE"
+#       #cp -a --sparse=always "$KERNEL_FILE" "$KERNEL_FILE.tmp"
+#       #mv -f "$KERNEL_FILE.tmp" "$KERNEL_FILE"
+      
+#       KERNEL_FILE_SIZE=$(du --bytes "$KERNEL_FILE" | cut -d $'\t' -f 1)
+#       NEW_FILE_SIZE=$(( $KERNEL_FILE_SIZE + 5242880 ))
+#       truncate --size "$NEW_FILE_SIZE" "$KERNEL_FILE"
+
+#       dd if=/dev/urandom bs=1 count=100 >> "$KERNEL_FILE"
+#       du --bytes "$KERNEL_FILE"

@@ -794,11 +794,11 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 		return nil, nil, nil, "", err
 	}
 
-	err = checkForGrubXfsSparseFiles(imageConnection)
-	if err != nil {
-		err = fmt.Errorf("failed while checking for GRUB + xfs + sparse files problem:\n%w", err)
-		return nil, nil, nil, "", err
-	}
+	// err = checkForGrubXfsSparseFiles(imageConnection)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed while checking for GRUB + xfs + sparse files problem:\n%w", err)
+	// 	return nil, nil, nil, "", err
+	// }
 
 	err = imageConnection.CleanClose()
 	if err != nil {

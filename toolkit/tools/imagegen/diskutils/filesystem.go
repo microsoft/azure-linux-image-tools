@@ -68,7 +68,7 @@ var (
 	// The default xfs options used by an Azure Linux 3.0 image (kernel v6.6)
 	// See, the /usr/share/xfsprogs/mkfs/lts_6.6.conf file.
 	azl3XfsOptions = xfsOptions{
-		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
 	// The default ext4 options used by Fedora 42 (kernel v6.11+)
