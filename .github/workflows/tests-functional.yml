@@ -121,12 +121,16 @@ jobs:
 
         FAILED=0
 
+        df -h
+
         sudo env "PATH=$PATH" go test -v \
           -coverprofile=out/testResults/api.cov -covermode count \
           ./imagecustomizerapi \
           2>&1 \
           | tee out/testResults/api.txt \
           || FAILED=$(( $FAILED | 1 ))
+
+        df -h
 
         sudo env "PATH=$PATH" go test -v \
           -coverprofile=out/testResults/lib.cov -covermode count \
@@ -138,6 +142,8 @@ jobs:
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))
+
+        df -h
 
         exit $FAILED
 
