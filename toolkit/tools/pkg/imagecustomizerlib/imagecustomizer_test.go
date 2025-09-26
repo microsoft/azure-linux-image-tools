@@ -47,8 +47,11 @@ func TestCustomizeImageEmptyConfig(t *testing.T) {
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageEmptyConfig")
-	outImageFilePath := filepath.Join(buildDir, "image.vhd")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageEmptyConfig")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.vhd")
 
 	// Customize image.
 	err = CustomizeImage(t.Context(), buildDir, buildDir, &imagecustomizerapi.Config{}, baseImage, nil, outImageFilePath,
@@ -66,6 +69,8 @@ func TestCustomizeImageVhd(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageVhd")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	partitionsConfigFile := filepath.Join(testDir, "partitions-config.yaml")
 	noChangeConfigFile := filepath.Join(testDir, "partitions-config.yaml")
@@ -164,6 +169,7 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	inputImageFile := inputImageFileReal
 	rpmSources := []string{}
 	outputImageFile := "out/image.vhdx"
+	defer os.Remove(outputImageFile)
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
 	useBaseImageRpmRepos := false
 	packageSnapshotTime := ""
@@ -338,7 +344,10 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	cwd, err := os.Getwd()
 	assert.NoError(t, err)
 
-	buildDir := filepath.Join(tmpDir, "TestValidateOutput_AcceptsValidPaths")
+	testTempDir := filepath.Join(tmpDir, "TestValidateOutput_AcceptsValidPaths")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
 	err = os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
 
@@ -484,16 +493,19 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 }
 
 func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileSelection")
-	baseConfigPath := buildDir
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileSelection")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	baseConfigPath := testTempDir
 	config := &imagecustomizerapi.Config{}
 
-	inputImageFileFake := filepath.Join(buildDir, "doesnotexist.xxx")
+	inputImageFileFake := filepath.Join(testTempDir, "doesnotexist.xxx")
 	inputImageFileReal, _ := checkSkipForCustomizeDefaultImage(t)
 
 	inputImageFile := inputImageFileReal
 	rpmSources := []string{}
-	outputImageFile := filepath.Join(buildDir, "image.vhd")
+	outputImageFile := filepath.Join(testTempDir, "image.vhd")
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
 	useBaseImageRpmRepos := false
 	packageSnapshotTime := ""
@@ -533,11 +545,14 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 }
 
 func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileAsRelativePathOnCommandLine")
-	baseConfigPath := buildDir
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImage_InputImageFileAsRelativePathOnCommandLine")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	baseConfigPath := testTempDir
 	config := &imagecustomizerapi.Config{}
 
-	inputImageFileAbsoluteFake := filepath.Join(buildDir, "doesnotexist.xxx")
+	inputImageFileAbsoluteFake := filepath.Join(testTempDir, "doesnotexist.xxx")
 	inputImageFileReal, _ := checkSkipForCustomizeDefaultImage(t)
 
 	inputImageFileAbsoluteReal, err := filepath.Abs(inputImageFileReal)
@@ -557,7 +572,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 
 	inputImageFile := inputImageFileRelativeToCwdReal
 	rpmSources := []string{}
-	outputImageFile := filepath.Join(buildDir, "image.vhd")
+	outputImageFile := filepath.Join(testTempDir, "image.vhd")
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
 	useBaseImageRpmRepos := false
 	packageSnapshotTime := ""
@@ -651,14 +666,17 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 }
 
 func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileSelection")
-	baseConfigPath := buildDir
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileSelection")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	baseConfigPath := testTmpDir
 	config := &imagecustomizerapi.Config{}
 	inputImageFile, _ := checkSkipForCustomizeDefaultImage(t)
 	rpmSources := []string{}
 
-	outputImageFileAsArgument := filepath.Join(buildDir, "image-as-arg.vhd")
-	outputImageFilePathAsConfig := filepath.Join(buildDir, "image-as-config.vhd")
+	outputImageFileAsArgument := filepath.Join(testTmpDir, "image-as-arg.vhd")
+	outputImageFilePathAsConfig := filepath.Join(testTmpDir, "image-as-config.vhd")
 
 	outputImageFile := outputImageFileAsArgument
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
@@ -699,13 +717,16 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 }
 
 func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileAsRelativePathOnCommandLine")
-	baseConfigPath := buildDir
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFileAsRelativePath")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	baseConfigPath := testTmpDir
 	config := &imagecustomizerapi.Config{}
 	inputImageFile, _ := checkSkipForCustomizeDefaultImage(t)
 	rpmSources := []string{}
 
-	outputImageFileAbsolute := filepath.Join(buildDir, "image.vhdx")
+	outputImageFileAbsolute := filepath.Join(testTmpDir, "image.vhdx")
 
 	cwd, err := os.Getwd()
 	assert.NoError(t, err)
@@ -745,8 +766,11 @@ func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
 func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFormatSelection")
-	outputImageFile := filepath.Join(buildDir, "image.dat")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFormatSelection")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outputImageFile := filepath.Join(testTmpDir, "image.raw")
 	outputImageFormatAsArg := "vhd"
 	outputImageFormatAsConfig := "vhdx"
 
@@ -759,7 +783,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 			},
 		},
 	}
-	err := CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, "", "",
+	err := CustomizeImage(t.Context(), buildDir, testTmpDir, config, baseImage, nil, "", "",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -771,7 +795,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 
 	// Pass the output image format only through the argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
-	err = CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
+	err = CustomizeImage(t.Context(), buildDir, testTmpDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -783,7 +807,7 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 
 	// Pass the output image format through both the config and the argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
-	err = CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, "", outputImageFormatAsArg,
+	err = CustomizeImage(t.Context(), buildDir, testTmpDir, config, baseImage, nil, "", outputImageFormatAsArg,
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFile)
@@ -791,10 +815,13 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 }
 
 func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_InputImageFileSelection")
-	inputImageFileAsArg := filepath.Join(buildDir, "image-as-arg.vhdx")
-	inputImageFileIsoAsArg := filepath.Join(buildDir, "image-as-arg.iso")
-	inputImageFileAsConfig := filepath.Join(buildDir, "image-as-config.vhdx")
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_InputImageFileSelection")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	inputImageFileAsArg := filepath.Join(testTmpDir, "image-as-arg.vhdx")
+	inputImageFileIsoAsArg := filepath.Join(testTmpDir, "image-as-arg.iso")
+	inputImageFileAsConfig := filepath.Join(testTmpDir, "image-as-config.vhdx")
 
 	err := os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
@@ -868,10 +895,13 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 }
 
 func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFileSelection")
-	outputImageFilePathAsArg := filepath.Join(buildDir, "image-as-arg.vhd")
-	outputImageFilePathAsConfig := filepath.Join(buildDir, "image-as-config.vhd")
-	inputImageFile := filepath.Join(buildDir, "image.vhd")
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFileSelection")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outputImageFilePathAsArg := filepath.Join(testTmpDir, "image-as-arg.vhd")
+	outputImageFilePathAsConfig := filepath.Join(testTmpDir, "image-as-config.vhd")
+	inputImageFile := filepath.Join(testTmpDir, "image.vhd")
 
 	err := os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
@@ -901,7 +931,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
-	assert.Equal(t, ic.outputImageDir, buildDir)
+	assert.Equal(t, ic.outputImageDir, testTmpDir)
 
 	// Pass the output image file only as an argument.
 	config.Output.Image.Path = ""
@@ -912,7 +942,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
-	assert.Equal(t, ic.outputImageDir, buildDir)
+	assert.Equal(t, ic.outputImageDir, testTmpDir)
 
 	// Pass the output image file in both the config and as an argument.
 	config.Output.Image.Path = outputImageFilePathAsConfig
@@ -923,12 +953,15 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
-	assert.Equal(t, ic.outputImageDir, buildDir)
+	assert.Equal(t, ic.outputImageDir, testTmpDir)
 }
 
 func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFormatSelection")
-	inputImageFile := filepath.Join(buildDir, "base.dat")
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFormatSelection")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	inputImageFile := filepath.Join(testTmpDir, "base.dat")
 	outputImageFormatAsArg := "vhd"
 	outputImageFormatAsConfig := "vhdx"
 
@@ -943,7 +976,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	useBaseImageRpmRepos := false
 	rpmsSources := []string{}
 	outputImageFormat := ""
-	outputImageFile := filepath.Join(buildDir, "image.vhd")
+	outputImageFile := filepath.Join(testTmpDir, "image.vhd")
 	packageSnapshotTime := ""
 
 	// The output image format is not specified in the config or as an
@@ -1059,6 +1092,8 @@ func TestCustomizeImageBaseImageMissing(t *testing.T) {
 	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageMissing")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "partitions-config.yaml")
 	baseImage := filepath.Join(testTmpDir, "missing.qcow2")
@@ -1079,6 +1114,8 @@ func TestCustomizeImageBaseImageInvalid(t *testing.T) {
 	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageInvalid")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "partitions-config.yaml")
 	baseImage := configFile

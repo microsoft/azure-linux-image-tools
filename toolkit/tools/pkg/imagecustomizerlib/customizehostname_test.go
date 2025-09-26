@@ -18,7 +18,10 @@ func TestUpdateHostname(t *testing.T) {
 	}
 
 	// Setup environment.
-	proposedDir := filepath.Join(tmpDir, "TestUpdateHostname")
+	testTmpDir := filepath.Join(tmpDir, "TestUpdateHostname")
+	defer os.RemoveAll(testTmpDir)
+
+	proposedDir := testTmpDir
 	chroot := safechroot.NewChroot(proposedDir, false)
 	err := chroot.Initialize("", []string{}, []*safechroot.MountPoint{}, false)
 	assert.NoError(t, err)
@@ -42,6 +45,8 @@ func TestCustomizeImageHostname(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageHostname")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "hostname-config.yaml")
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")

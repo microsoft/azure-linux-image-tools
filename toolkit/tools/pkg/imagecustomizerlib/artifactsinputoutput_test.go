@@ -38,6 +38,8 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	originalConfigFile := filepath.Join(testDir, "artifacts-output.yaml")
@@ -111,6 +113,8 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputAndInjectArtifacts")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	cosiFilePath := filepath.Join(testTempDir, "image.cosi")

@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -30,6 +31,8 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageUsrVerityUki")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
@@ -74,6 +77,8 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageRootVerityUki")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "verity-root-uki.yaml")

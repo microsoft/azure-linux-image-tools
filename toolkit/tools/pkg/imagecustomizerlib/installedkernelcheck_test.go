@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,6 +15,8 @@ func TestCustomizeImageMissingKernel(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageMissingKernel")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "no-kernel-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")

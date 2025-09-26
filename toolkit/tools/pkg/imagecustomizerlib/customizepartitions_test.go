@@ -32,6 +32,8 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageI
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "partitions-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -124,6 +126,8 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePartitionsSizeOnly")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "partitions-size-only-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -207,6 +211,8 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	legacybootConfigFile := filepath.Join(testDir, "legacyboot-config.yaml")
 	efiConfigFile := filepath.Join(testDir, "partitions-config.yaml")
@@ -281,7 +287,10 @@ func TestCustomizeImageKernelCommandLine(t *testing.T) {
 func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	buildDir := filepath.Join(tmpDir, testName)
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "extracommandline-config.yaml")
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
@@ -317,6 +326,8 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "newpartitionsuuids-config.yaml")
 	tempRawBaseImage := filepath.Join(testTmpDir, "baseImage.raw")

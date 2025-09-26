@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,6 +20,8 @@ func TestCustomizeImageOverlays(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageOverlays")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "overlays-config.yaml")
@@ -95,6 +98,8 @@ func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, base
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "overlays-selinux.yaml")

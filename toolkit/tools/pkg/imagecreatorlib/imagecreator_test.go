@@ -16,6 +16,8 @@ func TestCreateImageRaw(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRaw")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	partitionsConfigFile := filepath.Join(testDir, "minimal-os.yaml")
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
@@ -65,6 +67,8 @@ func TestCreateImageRawNoTar(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRaw")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	partitionsConfigFile := filepath.Join(testDir, "minimal-os.yaml")
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
@@ -81,6 +85,8 @@ func TestCreateImageRawNoTar(t *testing.T) {
 
 func TestCreateImageEmptyConfig(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRaw")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 
@@ -99,8 +105,11 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
 
-	buildDir := filepath.Join(tmpDir, "TestCreateImage_OutputImageFileAsRelativePathOnCommandLine")
-	baseConfigPath := buildDir
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImage_OutputImageFileAsRelativePathOnCommandLine")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	baseConfigPath := testTmpDir
 	ConfigPath := filepath.Join(testDir, "minimal-os.yaml")
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(ConfigPath, &config)
@@ -146,10 +155,13 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
 
-	buildDir := filepath.Join(tmpDir, "TestCreateImageCreatorParameters_OutputImageFileSelection")
-	outputImageFilePathAsArg := filepath.Join(buildDir, "image-as-arg.raw")
-	outputImageFilePathAsConfig := filepath.Join(buildDir, "image-as-config.raw")
-	toolsfile := filepath.Join(buildDir, "tools.tar.gz")
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCreatorParameters_OutputImageFileSelection")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outputImageFilePathAsArg := filepath.Join(testTmpDir, "image-as-arg.raw")
+	outputImageFilePathAsConfig := filepath.Join(testTmpDir, "image-as-config.raw")
+	toolsfile := filepath.Join(testTmpDir, "tools.tar.gz")
 
 	err := os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
@@ -177,7 +189,7 @@ func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
 	assert.Equal(t, ic.outputImageBase, "image-as-config")
-	assert.Equal(t, ic.outputImageDir, buildDir)
+	assert.Equal(t, ic.outputImageDir, testTmpDir)
 	assert.Equal(t, ic.toolsTar, toolsfile)
 
 	// Pass the output image file only as an argument.
@@ -190,7 +202,7 @@ func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
-	assert.Equal(t, ic.outputImageDir, buildDir)
+	assert.Equal(t, ic.outputImageDir, testTmpDir)
 
 	// Pass the output image file in both the config and as an argument.
 	config.Output.Image.Path = outputImageFilePathAsConfig
@@ -201,5 +213,5 @@ func TestCreateImageCreatorParameters_OutputImageFileSelection(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageBase, "image-as-arg")
-	assert.Equal(t, ic.outputImageDir, buildDir)
+	assert.Equal(t, ic.outputImageDir, testTmpDir)
 }

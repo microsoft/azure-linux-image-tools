@@ -17,6 +17,8 @@ func TestCustomizeImageResolvConfDelete(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfDelete")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -54,6 +56,8 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfRestoreFile")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -125,6 +129,8 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfRestoreSymlink")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -188,6 +194,8 @@ func TestCustomizeImageResolvConfNewSymlink(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfNewSymlink")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 

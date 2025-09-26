@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -15,6 +16,8 @@ func TestCustomizeImageGroupsExistingGid(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageGroupExistingGid")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "user-group-root-gid.yaml")
@@ -29,6 +32,8 @@ func TestCustomizeImageGroupsNewGid(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageGroupNewGid")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "user-group-new-gid.yaml")
@@ -62,6 +67,8 @@ func TestCustomizeImageGroupsNew(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageGroupNew")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "user-group-new.yaml")

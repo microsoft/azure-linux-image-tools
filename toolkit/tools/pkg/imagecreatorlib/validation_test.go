@@ -49,7 +49,11 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	cwd, err := os.Getwd()
 	assert.NoError(t, err)
 
-	buildDir := filepath.Join(tmpDir, "TestValidateOutput_AcceptsValidPaths")
+	testTmpDir := filepath.Join(tmpDir, "TestValidateOutput_AcceptsValidPaths")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := testTmpDir
+
 	err = os.MkdirAll(buildDir, os.ModePerm)
 	assert.NoError(t, err)
 

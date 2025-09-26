@@ -254,8 +254,10 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	configFile := filepath.Join(testDir, "consume-space.yaml")
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
+	defer os.RemoveAll(testTempDir)
+
+	configFile := filepath.Join(testDir, "consume-space.yaml")
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 
@@ -348,6 +350,8 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageExtractEmptyPartition")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	configFile := filepath.Join(testDir, "partitions-unformatted-partition.yaml")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")

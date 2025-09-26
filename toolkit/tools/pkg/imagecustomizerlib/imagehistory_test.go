@@ -24,9 +24,10 @@ func createTestConfig(configFilePath string, t *testing.T) imagecustomizerapi.Co
 }
 
 func TestAddImageHistory(t *testing.T) {
-	tempDir := filepath.Join(tmpDir, "TestAddImageHistory")
+	testTmpDir := filepath.Join(tmpDir, "TestAddImageHistory")
+	defer os.RemoveAll(testTmpDir)
 
-	historyDir := filepath.Join(tempDir, customizerLoggingDir)
+	historyDir := filepath.Join(testTmpDir, customizerLoggingDir)
 	historyFilePath := filepath.Join(historyDir, historyFileName)
 	config := createTestConfig("imagehistory-config.yaml", t)
 	// Serialize the config before calling addImageHistory
@@ -39,7 +40,7 @@ func TestAddImageHistory(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test adding the first entry
-	err = addImageHistoryHelper(t.Context(), tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	verifyHistoryFile(t, 1, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
@@ -52,7 +53,7 @@ func TestAddImageHistory(t *testing.T) {
 	// Test adding another entry with a different uuid
 	_, expectedUuid, err = randomization.CreateUuid()
 	assert.NoError(t, err)
-	err = addImageHistoryHelper(t.Context(), tempDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
+	err = addImageHistoryHelper(t.Context(), testTmpDir, expectedUuid, testDir, expectedVersion, expectedDate, &config)
 	assert.NoError(t, err, "addImageHistory should not return an error")
 
 	allHistory := verifyHistoryFile(t, 2, expectedUuid, expectedVersion, expectedDate, config, historyFilePath)
