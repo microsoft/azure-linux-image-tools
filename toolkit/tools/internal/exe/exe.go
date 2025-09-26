@@ -5,46 +5,9 @@
 package exe
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
-
-// ToolkitVersion specifies the version of the toolkit and the reported version of all tools in it.
-var ToolkitVersion = ""
-
-// DistroNameAbbreviation is the short form of the distro used for conditional tests (i.e. 'azl')
-var DistroNameAbbreviation = "default_dist"
-
-// DistroMajorVersion is the major version of the distro used for conditional tests (i.e. 3)
-var DistroMajorVersion = "1"
-
-// InputFlag registers an input flag for k with documentation doc and returns the passed value
-func InputFlag(k *kingpin.Application, doc string) *string {
-	return k.Flag("input", doc).Required().ExistingFile()
-}
-
-// InputStringFlag registers an input flag for k with documentation doc and returns the passed value
-func InputStringFlag(k *kingpin.Application, doc string) *string {
-	return k.Flag("input", doc).Required().String()
-}
-
-// InputDirFlag registers an input flag for k with documentation doc and returns the passed value
-func InputDirFlag(k *kingpin.Application, doc string) *string {
-	return k.Flag("dir", doc).Required().ExistingDir()
-}
-
-// OutputFlag registers an output flag for k with documentation doc and returns the passed value
-func OutputFlag(k *kingpin.Application, doc string) *string {
-	return k.Flag("output", doc).Required().String()
-}
-
-// OutputDirFlag registers an output flag for k with documentation doc and returns the passed value
-func OutputDirFlag(k *kingpin.Application, doc string) *string {
-	return k.Flag("output-dir", doc).Required().String()
-}
 
 func SetupLogFlags(k *kingpin.Application) *logger.LogFlags {
 	lf := &logger.LogFlags{}
@@ -52,17 +15,6 @@ func SetupLogFlags(k *kingpin.Application) *logger.LogFlags {
 	lf.LogFile = k.Flag(logger.FileFlag, logger.FileFlagHelp).String()
 	lf.LogLevel = k.Flag(logger.LevelsFlag, logger.LevelsHelp).PlaceHolder(logger.LevelsPlaceholder).Enum(logger.Levels()...)
 	return lf
-}
-
-// PlaceHolderize takes a list of available inputs and returns a corresponding placeholder
-func PlaceHolderize(thing []string) string {
-	return fmt.Sprintf("(%s)", strings.Join(thing, "|"))
-}
-
-// ParseListArgument takes a user provided string list that is white-space seperated
-// and returns a slice of the split elements, removing any empty elements and extra whitespace.
-func ParseListArgument(input string) []string {
-	return strings.Fields(input)
 }
 
 type ProfileFlags struct {

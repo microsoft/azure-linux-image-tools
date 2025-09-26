@@ -136,30 +136,6 @@ func NewPreDefaultsMountPoint(source, target, fstype string, flags uintptr, data
 	}
 }
 
-// NewOverlayMountPoint creates a new MountPoint struct and extra directories slice configured for a given overlay
-func NewOverlayMountPoint(chrootDir, source, target, lowerDir, upperDir, workDir string) (mountPoint *MountPoint, extaDirsNeeds []string) {
-	const (
-		overlayFlags  = 0
-		overlayFsType = "overlay"
-	)
-
-	upperDirInChroot := filepath.Join(chrootDir, upperDir)
-	workDirInChroot := filepath.Join(chrootDir, workDir)
-
-	overlayData := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerDir, upperDirInChroot, workDirInChroot)
-
-	extaDirsNeeds = []string{upperDir, workDir}
-	mountPoint = &MountPoint{
-		source: source,
-		target: target,
-		fstype: overlayFsType,
-		flags:  overlayFlags,
-		data:   overlayData,
-	}
-
-	return
-}
-
 // GetSource gets the source device of the mount.
 func (m *MountPoint) GetSource() string {
 	return m.source

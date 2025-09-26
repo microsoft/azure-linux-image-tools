@@ -226,13 +226,6 @@ func TestFailsOnNilCtx(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNilContext)
 
 	//lint:ignore SA1012 We intentionally want to test the error case of a nil context
-	_, err = RunWithDefaultDownloadBackoff(nil, func() error {
-		return nil
-	})
-	assert.NotNil(t, err)
-	assert.ErrorIs(t, err, ErrNilContext)
-
-	//lint:ignore SA1012 We intentionally want to test the error case of a nil context
 	_, err = RunWithExpBackoff(nil, func() error {
 		return nil
 	}, 1, time.Second, 2.0)

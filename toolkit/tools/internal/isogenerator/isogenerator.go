@@ -5,14 +5,8 @@ package isogenerator
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
 
-	"github.com/cavaliercoder/go-cpio"
-	"github.com/klauspost/pgzip"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -25,59 +19,6 @@ const (
 	efiBootImgPathRelativeToIsoRoot = "boot/grub2/efiboot.img"
 	initrdEFIBootDirectoryPath      = "boot/efi/EFI/BOOT"
 )
-
-type IsoGenConfig struct {
-	// Directory where temporary files can be stored.
-	BuildDirPath string
-	// Directory where to stage ISO files.
-	// If the directory exists, any existing files will be included in the ISO.
-	StagingDirPath string
-	// The path of the initrd file to use in the ISO.
-	InitrdPath string
-	// Enable legacy boot.
-	// Note: This isn't useful unless some additional assets are included in 'StagingDirPath'.
-	EnableBiosBoot bool
-	// The directory in the ISO where the following files will be written to:
-	// - initrd.img
-	// - vmlinuz
-	// - isolinux.bin (for BIOS boot)
-	// - boot.cat (for BIOS boot)
-	IsoOsFilesDirPath string
-	// The path where the ISO file will be written.
-	OutputFilePath string
-}
-
-type isoGenInfo struct {
-	Config         IsoGenConfig
-	EfiBootImgPath string
-}
-
-func GenerateIso(config IsoGenConfig) error {
-	err := os.MkdirAll(config.StagingDirPath, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to create ISO staging directory (%s):\n%w", config.StagingDirPath, err)
-	}
-
-	efiBootImgPath := filepath.Join(config.StagingDirPath, efiBootImgPathRelativeToIsoRoot)
-
-	info := isoGenInfo{
-		Config:         config,
-		EfiBootImgPath: efiBootImgPath,
-	}
-
-	err = prepareIsoBootLoaderFilesAndFolders(info)
-	if err != nil {
-		return err
-	}
-
-	err = BuildIsoImage(config.StagingDirPath, config.EnableBiosBoot, config.IsoOsFilesDirPath,
-		config.OutputFilePath)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath string, outputImagePath string) error {
 	logger.Log.Infof("Creating ISO image: %s", outputImagePath)
@@ -111,35 +52,6 @@ func BuildIsoImage(stagingPath string, enableBiosBoot bool, isoOsFilesDirPath st
 	}
 
 	return nil
-}
-
-// prepareIsoBootLoaderFilesAndFolders copies the files required by the ISO's bootloader
-func prepareIsoBootLoaderFilesAndFolders(info isoGenInfo) (err error) {
-	err = setUpIsoGrub2Bootloader(info)
-	if err != nil {
-		return err
-	}
-
-	err = createVmlinuzImage(info)
-	if err != nil {
-		return err
-	}
-
-	err = copyInitrd(info)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// copyInitrd copies a pre-built initrd into the isolinux folder.
-func copyInitrd(info isoGenInfo) error {
-	initrdDestinationPath := filepath.Join(info.Config.StagingDirPath, info.Config.IsoOsFilesDirPath, "initrd.img")
-
-	logger.Log.Debugf("Copying initrd from '%s'.", info.Config.InitrdPath)
-
-	return file.Copy(info.Config.InitrdPath, initrdDestinationPath)
 }
 
 func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath string, outputImagePath string) (err error) {
@@ -216,68 +128,6 @@ func BuildIsoBootImage(buildDir string, sourceShimPath string, sourceGrubPath st
 	return nil
 }
 
-func setUpIsoGrub2Bootloader(info isoGenInfo) (err error) {
-
-	extractedShimDir, err := os.MkdirTemp(info.Config.BuildDirPath, "extracted-shim")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary folder for extracting the shim:\n%w", err)
-	}
-	defer os.RemoveAll(extractedShimDir)
-
-	shimFileName := ""
-	grubFileName := ""
-	switch runtime.GOARCH {
-	case "arm64":
-		shimFileName = "bootaa64.efi"
-		grubFileName = "grubaa64.efi"
-	case "amd64":
-		shimFileName = "bootx64.efi"
-		grubFileName = "grubx64.efi"
-	default:
-		return fmt.Errorf("failed to determine shim/grub efi file names. Unsupported host architecture (%s)", runtime.GOARCH)
-	}
-
-	// Extract the shim/grub binaries.
-	shimPath, grubPath, err := extractShimFromInitrd(info.Config.InitrdPath, extractedShimDir, shimFileName, grubFileName)
-	if err != nil {
-		return err
-	}
-
-	// Pack the extracted shim/grub binaries into the iso boot image.
-	err = BuildIsoBootImage(info.Config.BuildDirPath, shimPath, grubPath, info.EfiBootImgPath)
-	if err != nil {
-		return nil
-	}
-
-	// Copy the extracted shim/grub binaries to the Rufus workaround folder.
-	err = ApplyRufusWorkaround(shimPath, grubPath, info.Config.StagingDirPath)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func extractShimFromInitrd(initrdPath, outputDir, bootBootloaderFile, grubBootloaderFile string,
-) (buildDirBootEFIFilePath string, buildDirGrubEFIFilePath string, err error) {
-
-	initrdBootBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, bootBootloaderFile)
-	buildDirBootEFIFilePath = filepath.Join(outputDir, bootBootloaderFile)
-	err = extractFromInitrdAndCopy(initrdPath, initrdBootBootloaderFilePath, buildDirBootEFIFilePath)
-	if err != nil {
-		return "", "", err
-	}
-
-	initrdGrubBootloaderFilePath := filepath.Join(initrdEFIBootDirectoryPath, grubBootloaderFile)
-	buildDirGrubEFIFilePath = filepath.Join(outputDir, grubBootloaderFile)
-	err = extractFromInitrdAndCopy(initrdPath, initrdGrubBootloaderFilePath, buildDirGrubEFIFilePath)
-	if err != nil {
-		return "", "", err
-	}
-
-	return buildDirBootEFIFilePath, buildDirGrubEFIFilePath, nil
-}
-
 // Rufus ISO-to-USB converter has a limitation where it will only copy the boot<arch>64.efi binary from a given efi*.img
 // archive into the standard UEFI EFI/BOOT folder instead of extracting the whole archive as per the El Torito ISO
 // specification.
@@ -304,71 +154,5 @@ func ApplyRufusWorkaround(sourceShimPath, sourceGrubPath, stagingPath string) (e
 		return fmt.Errorf("failed to copy (%s) to (%s):\n%w", sourceGrubPath, targetGrubPath, err)
 	}
 
-	return nil
-}
-
-// createVmlinuzImage builds the 'vmlinuz' file containing the Linux kernel
-// ran by the ISO bootloader.
-func createVmlinuzImage(info isoGenInfo) error {
-	const bootKernelFile = "boot/vmlinuz"
-
-	vmlinuzFilePath := filepath.Join(info.Config.StagingDirPath, info.Config.IsoOsFilesDirPath, "vmlinuz")
-
-	// In order to select the correct kernel for isolinux, open the initrd archive
-	// and extract the vmlinuz file in it. An initrd is a gzip of a cpio archive.
-	//
-	return extractFromInitrdAndCopy(info.Config.InitrdPath, bootKernelFile, vmlinuzFilePath)
-}
-
-func extractFromInitrdAndCopy(initrdPath, srcFileName, destFilePath string) (err error) {
-	// Setup a series of io readers: initrd file -> parallelized gzip -> cpio
-
-	logger.Log.Debugf("Searching for (%s) in initrd (%s) and copying to (%s)", srcFileName, initrdPath, destFilePath)
-
-	initrdFile, err := os.Open(initrdPath)
-	if err != nil {
-		return err
-	}
-	defer initrdFile.Close()
-
-	gzipReader, err := pgzip.NewReader(initrdFile)
-	if err != nil {
-		return err
-	}
-	cpioReader := cpio.NewReader(gzipReader)
-
-	for {
-		// Search through the headers until the source file is found
-		var hdr *cpio.Header
-		hdr, err = cpioReader.Next()
-		if err == io.EOF {
-			return fmt.Errorf("did not find (%s) in initrd (%s)", srcFileName, initrdPath)
-		}
-		if err != nil {
-			return err
-		}
-
-		if strings.HasPrefix(hdr.Name, srcFileName) {
-			logger.Log.Debugf("Found source file (%s) in initrd", srcFileName)
-			// Source file found, copy it to destination
-			err = os.MkdirAll(filepath.Dir(destFilePath), os.ModePerm)
-			if err != nil {
-				return err
-			}
-
-			dstFile, err := os.Create(destFilePath)
-			if err != nil {
-				return err
-			}
-			defer dstFile.Close()
-
-			logger.Log.Debugf("Copying (%s) to (%s)", srcFileName, destFilePath)
-			_, err = io.Copy(dstFile, cpioReader)
-			if err != nil {
-				return err
-			}
-			break
-		}
-	}
 	return nil
 }

@@ -10,14 +10,6 @@ import (
 	"time"
 )
 
-const (
-	// With 8 attempts (7 retries) and a backoff factor of 2 seconds the total time spent retrying will be approximately:
-	// 0 + 1 + 2 + 4 + 8 + 16 + 32 + 64 = 127 seconds (2 min, 7 sec)
-	DefaultDownloadBackoffBase   = 2.0
-	DefaultDownloadRetryAttempts = 8
-	DefaultDownloadRetryDuration = time.Second
-)
-
 var (
 	ErrNilContext     = fmt.Errorf("retry nil context")
 	ErrRetryCancelled = fmt.Errorf("retry cancelled")
@@ -105,14 +97,6 @@ func RunWithLinearBackoff(ctx context.Context, function func() error, attempts i
 	return runWithBackoffInternal(ctx, function, func(failCount int) time.Duration {
 		return calculateLinearDelay(failCount, sleep)
 	}, attempts)
-}
-
-// RunWithDefaultDownloadBackoff runs function up to 'DefaultDownloadRetryAttempts' times, waiting 'DefaultDownloadBackoffBase^(i-1)' seconds before
-// each i-th attempt. An optional context can be provided to cancel the retry loop immediately.
-//
-// The function is meant as a default for network download operations.
-func RunWithDefaultDownloadBackoff(ctx context.Context, function func() error) (wasCancelled bool, err error) {
-	return RunWithExpBackoff(ctx, function, DefaultDownloadRetryAttempts, DefaultDownloadRetryDuration, DefaultDownloadBackoffBase)
 }
 
 // RunWithExpBackoff runs function up to 'attempts' times, waiting 'backoffExponentBase^(i-1) * sleep' duration before

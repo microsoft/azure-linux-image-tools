@@ -7,7 +7,6 @@ package diskutils
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -33,63 +32,6 @@ type EncryptedRootDevice struct {
 	HostKeyFile string
 }
 
-// AddDefaultKeyfile adds a LUKS keyfile for initramfs unlock
-// - keyFileDir is the directory to make the keyfile in
-// - devPath is the path of the encrypted LUKS device
-// - encrypt is the encryption settings
-func AddDefaultKeyfile(keyFileDir, devPath string, encrypt configuration.RootEncryption) (fullKeyPath string, err error) {
-	fullKeyPath, err = createDefaultKeyFile(keyFileDir)
-	if err != nil {
-		err = fmt.Errorf("failed to create default keyfile:\n%w", err)
-		return
-	}
-
-	_, stderr, err := shell.ExecuteWithStdin(encrypt.Password, "cryptsetup", "luksAddKey", devPath, fullKeyPath)
-	if err != nil {
-		err = fmt.Errorf("failed to add keyfile to encrypted devce:\n%v\n%w", stderr, err)
-		return
-	}
-
-	err = os.Chmod(fullKeyPath, 000)
-	if err != nil {
-		err = fmt.Errorf("failed to change permissions on keyfile:\n%v\n%w", stderr, err)
-		return
-	}
-
-	return
-}
-
-// CleanupEncryptedDisks performs cleanup work
-func CleanupEncryptedDisks(encryptedRoot EncryptedRootDevice, isOfflineInstall bool) (err error) {
-	err = deleteDefaultKeyFile(encryptedRoot.HostKeyFile)
-	if err != nil {
-		logger.Log.Warnf("Unable to delete default keyfile: %v", err)
-	}
-
-	// Order matters for below functions
-	err = deactivateLVM()
-	if err != nil {
-		err = fmt.Errorf("failed to deactive LVM:\n%w", err)
-		return
-	}
-
-	err = closeEncryptedDisks()
-	if err != nil {
-		err = fmt.Errorf("failed to close encrypted disks:\n%w", err)
-		return
-	}
-
-	if isOfflineInstall {
-		err = restartLVMetadataService()
-		if err != nil {
-			err = fmt.Errorf("failed to restart lvm metadata service:\n%w", err)
-			return
-		}
-	}
-
-	return
-}
-
 // IsEncryptedDevice checks if a given device is a luks or LVM encrypted device
 // - devicePath is the device to check
 func IsEncryptedDevice(devicePath string) (result bool) {
@@ -105,12 +47,6 @@ func IsEncryptedDevice(devicePath string) (result bool) {
 		return
 	}
 
-	return
-}
-
-// GetLuksMappingName returns the device name under /dev/mapepr
-func GetLuksMappingName(uuid string) (mappingName string) {
-	mappingName = fmt.Sprintf("%v%v", mappingEncryptedPrefix, uuid)
 	return
 }
 
@@ -177,69 +113,6 @@ func encryptRootPartition(partDevPath string, partition configuration.Partition,
 	_, stderr, err = shell.Execute("mkfs", "-t", partition.FsType, fullMappedPath)
 	if err != nil {
 		err = fmt.Errorf("failed to mkfs for partition (%v):\n%v\n%w", partDevPath, stderr, err)
-	}
-
-	return
-}
-
-func createDefaultKeyFile(keyFileDir string) (fullPath string, err error) {
-	const (
-		defaultBs     = "bs=512"
-		defaultCount  = "count=4"
-		defaultIf     = "if=/dev/urandom"
-		outFilePrefix = "of="
-		defaultConv   = "conv=excl"
-		defaultIflag  = "iflag=fullblock"
-	)
-	fullPath = filepath.Join(keyFileDir, defaultKeyFileName)
-	outFile := fmt.Sprintf("%v%v", outFilePrefix, fullPath)
-
-	// Create keyfile filled with random bytes
-	ddArgs := []string{
-		defaultBs,
-		defaultCount,
-		defaultIf,
-		outFile,
-		defaultConv,
-		defaultIflag,
-	}
-	_, stderr, err := shell.Execute("dd", ddArgs...)
-	if err != nil {
-		logger.Log.Warnf("Unable to create default keyfile: %v", stderr)
-		return
-	}
-
-	return
-}
-
-func deleteDefaultKeyFile(hostKeyFile string) (err error) {
-	_, stderr, err := shell.Execute("rm", hostKeyFile)
-	if err != nil {
-		err = fmt.Errorf("failed to delete default keyfile:\n%v\n%w", stderr, err)
-		return
-	}
-
-	return
-}
-
-func closeEncryptedDisks() (err error) {
-	stdout, stderr, err := shell.Execute("dmsetup", "info", "-c", "-o", "Name", "--noheadings")
-	if err != nil {
-		err = fmt.Errorf("failed to run dmsetup:\n%v\n%w", stderr, err)
-		return
-	}
-
-	mappedDevices := strings.Split(stdout, "\n")
-
-	for _, device := range mappedDevices {
-		if strings.HasPrefix(device, mappingEncryptedPrefix) {
-			logger.Log.Infof("Closing Encrypted Device: %v", device)
-			_, stderr, err := shell.Execute("cryptsetup", "close", device)
-			if err != nil {
-				err = fmt.Errorf("failed to close encrypted disk:\n%v\n%w", stderr, err)
-				return err
-			}
-		}
 	}
 
 	return

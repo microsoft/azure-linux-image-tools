@@ -139,118 +139,8 @@ const (
 )
 
 var (
-	sizeAndUnitRegexp = regexp.MustCompile(`(\d+)((Ki?|Mi?|Gi?|Ti?)?B)`)
 	diskDevPathRegexp = regexp.MustCompile(`^/dev/(\w+)$`)
-
-	unitToBytes = map[string]uint64{
-		"B":   B,
-		"KB":  KB,
-		"MB":  MB,
-		"GB":  GB,
-		"TB":  TB,
-		"KiB": KiB,
-		"MiB": MiB,
-		"GiB": GiB,
-		"TiB": TiB,
-	}
 )
-
-// BytesToSizeAndUnit takes a number of bytes and returns friendly representation of a size (for example 100GB).
-func BytesToSizeAndUnit(bytes uint64) string {
-	var (
-		unitSize  uint64
-		unitCount uint64
-		unitName  string
-	)
-
-	sizes := []uint64{B, KiB, MiB, GiB, TiB}
-
-	// Default to unit "Bytes" to handle the case where bytes is 0
-	unitSize = B
-
-	for _, unit := range sizes {
-		if bytes >= unit {
-			unitSize = unit
-		}
-	}
-
-	for unit, unitBytes := range unitToBytes {
-		if unitBytes == unitSize {
-			unitName = unit
-			break
-		}
-	}
-
-	unitCount = bytes / unitSize
-
-	return fmt.Sprintf("%d%s", unitCount, unitName)
-}
-
-// SizeAndUnitToBytes takes a friendly representation of a size (for example 100GB) and return the number of bytes it represents.
-func SizeAndUnitToBytes(sizeAndUnit string) (bytes uint64, err error) {
-	const (
-		sizeIndex = 1
-		unitIndex = 2
-	)
-
-	// Match size and unit.  Examples: 2GB, 512MiB
-	matches := sizeAndUnitRegexp.FindAllStringSubmatch(sizeAndUnit, -1)
-
-	// must be at least one match
-	if len(matches) == 0 || len(matches[0]) <= 2 {
-		err = fmt.Errorf("sizeAndUnit must contain a number and a unit type")
-		return
-	}
-	match := matches[0]
-
-	sizeString := match[sizeIndex]
-	unit := match[unitIndex]
-
-	size, err := strconv.ParseUint(sizeString, 10, 64)
-	if err != nil {
-		return
-	}
-
-	if unitBytes, ok := unitToBytes[unit]; ok {
-		bytes = size * unitBytes
-	} else {
-		err = fmt.Errorf("unknown unit type (%s)", unit)
-		return
-	}
-
-	return
-}
-
-// ApplyRawBinaries applies all raw binaries described in disk configuration to the specified disk
-func ApplyRawBinaries(diskDevPath string, disk configuration.Disk) (err error) {
-	rawBinaries := disk.RawBinaries
-
-	for idx := range rawBinaries {
-		rawBinary := rawBinaries[idx]
-		err = ApplyRawBinary(diskDevPath, rawBinary)
-		if err != nil {
-			return err
-		}
-	}
-	return
-}
-
-// ApplyRawBinary applies a single raw binary at offset (seek) with blocksize to the specified disk
-func ApplyRawBinary(diskDevPath string, rawBinary configuration.RawBinary) (err error) {
-	ddArgs := []string{
-		fmt.Sprintf("if=%s", rawBinary.BinPath),   // Input file.
-		fmt.Sprintf("of=%s", diskDevPath),         // Output file.
-		fmt.Sprintf("bs=%d", rawBinary.BlockSize), // Size of one copied block.
-		fmt.Sprintf("seek=%d", rawBinary.Seek),    // Block number to start copying in the output file at.
-		"conv=notrunc",                            // Prevent truncation.
-	}
-
-	_, stderr, err := shell.Execute("dd", ddArgs...)
-	if err != nil {
-		err = fmt.Errorf("failed to apply raw binary with dd:\n%v\n%w", stderr, err)
-	}
-	return
-}
 
 // CreateEmptyDisk creates an empty raw disk in the given working directory as described in disk configuration
 func CreateEmptyDisk(workDirPath, diskName string, maxSize uint64) (diskFilePath string, err error) {
@@ -287,16 +177,6 @@ func SetupLoopbackDevice(diskFilePath string) (devicePath string, err error) {
 	devicePath = strings.TrimSpace(stdout)
 	logger.Log.Debugf("Created loopback device at device path: %v", devicePath)
 	return
-}
-
-// BlockOnDiskIO waits until all outstanding operations against a disk complete.
-func BlockOnDiskIO(diskDevPath string) (err error) {
-	maj, min, err := GetDiskIds(diskDevPath)
-	if err != nil {
-		return
-	}
-
-	return BlockOnDiskIOByIds(diskDevPath, maj, min)
 }
 
 func GetDiskIds(diskDevPath string) (maj string, min string, err error) {
@@ -881,52 +761,6 @@ func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partD
 		logger.Log.Debugf("No filesystem type specified. Ignoring for partition: %v", partDevPath)
 	default:
 		return fsType, fmt.Errorf("unrecognized filesystem format: %v", fsType)
-	}
-
-	return
-}
-
-// SystemBlockDevices returns all block devices on the host system.
-func SystemBlockDevices() (systemDevices []SystemBlockDevice, err error) {
-	const (
-		scsiDiskMajorNumber      = "8"
-		mmcBlockMajorNumber      = "179"
-		virtualDiskMajorNumber   = "252,253,254"
-		blockExtendedMajorNumber = "259"
-	)
-
-	blockDeviceMajorNumbers := []string{scsiDiskMajorNumber, mmcBlockMajorNumber, virtualDiskMajorNumber, blockExtendedMajorNumber}
-	includeFilter := strings.Join(blockDeviceMajorNumbers, ",")
-	rawDiskOutput, stderr, err := shell.Execute("lsblk", "-d", "--bytes", "-I", includeFilter, "-n", "--json", "--output", "NAME,SIZE,MODEL")
-	if err != nil {
-		err = fmt.Errorf("%v\n%w", stderr, err)
-		return
-	}
-
-	var blockDevices blockDevicesOutput
-	if rawDiskOutput != "" {
-		err = json.Unmarshal([]byte(rawDiskOutput), &blockDevices)
-		if err != nil {
-			return
-		}
-	}
-
-	if len(blockDevices.Devices) <= 0 {
-		err = fmt.Errorf("failed to find supported disks:\n%w", err)
-		return
-	}
-
-	systemDevices = make([]SystemBlockDevice, len(blockDevices.Devices))
-
-	for i, disk := range blockDevices.Devices {
-		systemDevices[i].DevicePath = fmt.Sprintf("/dev/%s", disk.Name)
-
-		systemDevices[i].RawDiskSize, err = strconv.ParseUint(disk.Size.String(), 10, 64)
-		if err != nil {
-			return
-		}
-
-		systemDevices[i].Model = strings.TrimSpace(disk.Model)
 	}
 
 	return
