@@ -20,7 +20,10 @@ func TestAddCustomizerRelease(t *testing.T) {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
 
-	proposedDir := filepath.Join(tmpDir, "TestAddCustomizerRelease")
+	testTempDir := filepath.Join(tmpDir, "TestAddCustomizerRelease")
+	defer os.RemoveAll(testTempDir)
+
+	proposedDir := testTempDir
 
 	err := os.MkdirAll(filepath.Join(proposedDir, "etc"), os.ModePerm)
 	assert.NoError(t, err)

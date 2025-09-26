@@ -22,6 +22,7 @@ import (
 
 func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddOfflineDir")
+	defer os.RemoveAll(testTmpDir)
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, "azurelinux", "2.0", false)
@@ -150,6 +151,7 @@ func TestCustomizeImagePackagesAddOfflineLocalRepoNoGpgKey(t *testing.T) {
 
 func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName string, withGpgKey bool) {
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
 
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
@@ -184,6 +186,8 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUpdate")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -220,6 +224,8 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesDiskSpace")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -237,6 +243,8 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUrlSource")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -268,6 +276,8 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesBadRepo")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -315,6 +325,7 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *imageconnection.Image
 
 func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+	defer os.RemoveAll(testTmpDir)
 
 	baseImageInfo := testBaseImageAzl3CoreEfi
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
@@ -366,6 +377,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+	defer os.RemoveAll(testTmpDir)
 
 	baseImageInfo := testBaseImageAzl3CoreEfi
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
@@ -417,6 +429,7 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 
 func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails")
+	defer os.RemoveAll(testTmpDir)
 
 	baseImageInfo := testBaseImageAzl3CoreEfi
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)

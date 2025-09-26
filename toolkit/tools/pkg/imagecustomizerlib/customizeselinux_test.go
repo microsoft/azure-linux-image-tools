@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -27,6 +28,8 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -121,6 +124,8 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -171,6 +176,8 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageSELinuxNoPolicy")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.qcow2")
 

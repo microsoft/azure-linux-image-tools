@@ -34,6 +34,8 @@ func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "verity-config.yaml")
@@ -120,6 +122,8 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
@@ -343,6 +347,8 @@ func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageI
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, "verity-usr-config.yaml")
@@ -424,6 +430,8 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	stage1ConfigFile := filepath.Join(testDir, "verity-2stage-prepare.yaml")
 	stage2ConfigFile := filepath.Join(testDir, "verity-2stage-enable.yaml")
@@ -467,6 +475,8 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	stage1ConfigFile := filepath.Join(testDir, "verity-config.yaml")
 	stage2aConfigFile := filepath.Join(testDir, "verity-reinit.yaml")
@@ -514,6 +524,8 @@ func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, base
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	stage1ConfigFile := filepath.Join(testDir, "verity-usr-config.yaml")
 	stage2ConfigFile := filepath.Join(testDir, "verity-reinit.yaml")

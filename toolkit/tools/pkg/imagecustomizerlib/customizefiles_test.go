@@ -20,7 +20,10 @@ func TestCopyAdditionalFiles(t *testing.T) {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
 
-	proposedDir := filepath.Join(tmpDir, "TestCopyAdditionalFiles")
+	testTempDir := filepath.Join(tmpDir, "TestCopyAdditionalFiles")
+	defer os.RemoveAll(testTempDir)
+
+	proposedDir := testTempDir
 	chroot := safechroot.NewChroot(proposedDir, false)
 	baseConfigPath := testDir
 
@@ -75,6 +78,8 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFiles")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "addfiles-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -121,6 +126,8 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFilesInfiniteFile")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "infinite-file-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -137,7 +144,10 @@ func TestCopyAdditionalDirs(t *testing.T) {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
 
-	proposedDir := filepath.Join(tmpDir, "TestCopyAdditionalDirs")
+	testTmpDir := filepath.Join(tmpDir, "TestCopyAdditionalDirs")
+	defer os.RemoveAll(testTmpDir)
+
+	proposedDir := testTmpDir
 	chroot := safechroot.NewChroot(proposedDir, false)
 	baseConfigPath := testDir
 
@@ -197,6 +207,8 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirs")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "adddirs-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
@@ -226,6 +238,8 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsInfiniteFile")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 

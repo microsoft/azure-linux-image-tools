@@ -433,6 +433,8 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 	baseImage := *baseImageInfo.Param
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
@@ -552,6 +554,8 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 	baseImage := *baseImageInfo.Param
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
@@ -615,6 +619,8 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 	baseImage := *baseImageInfo.Param
 
 	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
@@ -656,6 +662,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
@@ -715,6 +723,8 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs2")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
@@ -771,6 +781,8 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs3")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
@@ -794,6 +806,8 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 	}
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe1")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
 	pxeBootstrapUrl := "http://my-pxe-server-1/" + defaultIsoImageName
@@ -817,6 +831,8 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe2")
+	defer os.RemoveAll(testTempDir)
+
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "pxe-artifacts.tar.gz")
 
@@ -844,8 +860,11 @@ func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
 func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	buildDir := filepath.Join(tmpDir, testName)
-	outImageFilePath := filepath.Join(buildDir, defaultIsoImageName)
+	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 	shimPackage := "shim"
 
 	// For arm64 and baseImageVersionAzl2, the shim package is shim-unsigned.
@@ -873,8 +892,11 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	buildDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
-	outImageFilePath := filepath.Join(buildDir, defaultIsoImageName)
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
 	config := &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{

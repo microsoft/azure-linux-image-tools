@@ -17,6 +17,8 @@ func TestCustomizeImageRunScripts(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageRunScripts")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "runscripts-writefiles-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")

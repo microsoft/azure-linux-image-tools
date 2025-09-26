@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -24,6 +25,8 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 

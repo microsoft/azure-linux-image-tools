@@ -15,7 +15,10 @@ import (
 )
 
 func TestLoadOrDisableModules(t *testing.T) {
-	rootDir := filepath.Join(tmpDir, "TestLoadOrDisableModules")
+	testTmpDir := filepath.Join(tmpDir, "TestLoadOrDisableModules")
+	defer os.RemoveAll(testTmpDir)
+
+	rootDir := testTmpDir
 	modules := []imagecustomizerapi.Module{
 		{
 			Name:     "module1",
@@ -118,7 +121,10 @@ func TestLoadOrDisableModules(t *testing.T) {
 }
 
 func TestEnsureModulesLoaded(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestEnsureModulesLoaded")
+	testTmpDir := filepath.Join(tmpDir, "TestEnsureModulesLoaded")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := testTmpDir
 	modulesLoadPath := filepath.Join(buildDir, modulesLoadConfigDir)
 	moduleLoadFilePath := filepath.Join(modulesLoadPath, moduleLoadFileName)
 
@@ -153,7 +159,10 @@ func TestEnsureModulesLoaded(t *testing.T) {
 }
 
 func TestEnsureModulesDisabled(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestEnsureModulesDisabled")
+	testTmpDir := filepath.Join(tmpDir, "TestEnsureModulesDisabled")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := testTmpDir
 	modprobePath := filepath.Join(buildDir, modprobeConfigDir)
 	moduleDisableFilePath := filepath.Join(modprobePath, moduleDisabledFileName)
 	err := os.MkdirAll(modprobePath, os.ModePerm)
@@ -185,7 +194,10 @@ func TestEnsureModulesDisabled(t *testing.T) {
 }
 
 func TestRemoveModuleFromDisableList(t *testing.T) {
-	buildDir := filepath.Join(tmpDir, "TestRemoveModuleFromDisableList")
+	testTmpDir := filepath.Join(tmpDir, "TestRemoveModuleFromDisableList")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := testTmpDir
 	modprobePath := filepath.Join(buildDir, modprobeConfigDir)
 	moduleDisableFilePath := filepath.Join(modprobePath, moduleDisabledFileName)
 	err := os.MkdirAll(modprobePath, os.ModePerm)
@@ -222,6 +234,8 @@ func TestCustomizeImageKernelModules(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageKernelModules")
+	defer os.RemoveAll(testTmpDir)
+
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "modules-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
