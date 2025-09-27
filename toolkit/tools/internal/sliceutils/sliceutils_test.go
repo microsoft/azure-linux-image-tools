@@ -8,62 +8,12 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/pkgjson"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
 	logger.InitStderrLog()
 	os.Exit(m.Run())
-}
-
-func TestPackageVersSetToSliceShouldCreateEmptySliceFromNil(t *testing.T) {
-	outputSlice := SetToSlice[*pkgjson.PackageVer](nil)
-
-	assert.NotNil(t, outputSlice)
-	assert.Empty(t, outputSlice)
-}
-
-func TestPackageVersSetToSliceShouldCreateEmptySliceFromEmptySet(t *testing.T) {
-	outputSlice := SetToSlice(map[*pkgjson.PackageVer]bool{})
-
-	assert.NotNil(t, outputSlice)
-	assert.Empty(t, outputSlice)
-}
-
-func TestPackageVersSetToSliceShouldReturnValuesForAllTrueElementsInSet(t *testing.T) {
-	existingPackageVer := &pkgjson.PackageVer{Name: "A"}
-	missingPackageVer := &pkgjson.PackageVer{Name: "X"}
-	inputSet := map[*pkgjson.PackageVer]bool{
-		existingPackageVer: true,
-		missingPackageVer:  false,
-	}
-	outputSlice := SetToSlice(inputSet)
-
-	assert.NotNil(t, outputSlice)
-	assert.Len(t, outputSlice, 1)
-	assert.Contains(t, outputSlice, existingPackageVer)
-	assert.NotContains(t, outputSlice, missingPackageVer)
-}
-
-func TestPackageVersShouldMatch(t *testing.T) {
-	packageVer1 := &pkgjson.PackageVer{Name: "A"}
-	packageVer2 := &pkgjson.PackageVer{Name: "A"}
-
-	assert.True(t, PackageVerMatch(packageVer1, packageVer2))
-}
-
-func TestPackageVersShouldNotMatch(t *testing.T) {
-	packageVer1 := &pkgjson.PackageVer{Name: "A"}
-	packageVer2 := &pkgjson.PackageVer{Name: "B"}
-
-	assert.False(t, PackageVerMatch(packageVer1, packageVer2))
-}
-
-func TestPackageVerShouldNotMatchNil(t *testing.T) {
-	packageVer1 := &pkgjson.PackageVer{Name: "A"}
-
-	assert.False(t, PackageVerMatch(packageVer1, nil))
 }
 
 func TestStringShouldMatch(t *testing.T) {

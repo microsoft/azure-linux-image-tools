@@ -96,23 +96,3 @@ func createLogicalVolume(extents, groupName, volumeName string) (err error) {
 
 	return
 }
-
-func deactivateLVM() (err error) {
-	_, stderr, err := shell.Execute("vgchange", "-a", "n", encryptGroupName)
-	if err != nil {
-		logger.Log.Warnf("Unable to deactivate volume group: %v", stderr)
-		return
-	}
-
-	return
-}
-
-func restartLVMetadataService() (err error) {
-	_, stderr, err := shell.Execute("systemctl", "restart", "lvm2-lvmetad.service")
-	if err != nil {
-		logger.Log.Warnf("Unable to restart lvm2-lvmetad.service: %v", stderr)
-		return
-	}
-
-	return
-}

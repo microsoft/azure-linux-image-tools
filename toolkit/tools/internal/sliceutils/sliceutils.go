@@ -5,8 +5,6 @@ package sliceutils
 
 import (
 	"reflect"
-
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/pkgjson"
 )
 
 // NotFound value is returned by Find(), if a given value is not present in the slice.
@@ -48,15 +46,6 @@ func StringMatch(expected, given interface{}) bool {
 	}
 
 	return expected.(string) == given.(string)
-}
-
-// PackageVerMatch is intended to be used with "Contains" and "Find" for slices of *pkgjson.PackageVers.
-func PackageVerMatch(expected, given interface{}) bool {
-	if checkValid, checkResult := nilCheck(expected, given); checkValid {
-		return checkResult
-	}
-
-	return reflect.DeepEqual(expected.(*pkgjson.PackageVer), given.(*pkgjson.PackageVer))
 }
 
 // SetToSlice converts a map[K]bool to a slice containing the map's keys, iff the key's value is true.
