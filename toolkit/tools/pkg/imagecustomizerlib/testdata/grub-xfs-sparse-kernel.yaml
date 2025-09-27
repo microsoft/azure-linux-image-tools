@@ -7,6 +7,12 @@ os:
     - xfsprogs
     - kernel-6.6.92.2-2.azl3
 
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      sha256sum /boot/vmlinuz-6.6.92.2-2.azl3
+
 # scripts:
 #   postCustomization:
 #   - content: |
