@@ -12,25 +12,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
-// PackageManagerType represents the type of package manager
-type PackageManagerType string
-
-const (
-	packageManagerTDNF PackageManagerType = "tdnf"
-	packageManagerDNF  PackageManagerType = "dnf"
-)
-
-// PackageType represents the type of package format
-type PackageType string
-
-// DistroName represents the distribution name
-type DistroName string
-
-const (
-	distroNameAzureLinux DistroName = "azurelinux"
-	distroNameFedora     DistroName = "fedora"
-)
-
 // distroHandler represents the interface for distribution-specific configuration
 type distroHandler interface {
 	GetTargetOs() targetos.TargetOs
@@ -68,9 +49,9 @@ func NewDistroHandlerFromImageConnection(imageConnection *imageconnection.ImageC
 // NewDistroHandler creates the appropriate distro handler with version support (legacy)
 func NewDistroHandler(distroName string, version string) distroHandler {
 	switch distroName {
-	case string(distroNameFedora):
+	case string(imagecustomizerapi.DistroNameFedora):
 		return newFedoraDistroHandler(version)
-	case string(distroNameAzureLinux):
+	case string(imagecustomizerapi.DistroNameAzureLinux):
 		return newAzureLinuxDistroHandler(version)
 	default:
 		panic("unsupported distro name: " + distroName)
