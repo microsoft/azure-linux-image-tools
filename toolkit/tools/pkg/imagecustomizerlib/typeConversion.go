@@ -96,12 +96,6 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		},
 	)
 
-	_, hasXBootLdrPartition := sliceutils.FindValueFunc(fileSystems,
-		func(fileSystem imagecustomizerapi.FileSystem) bool {
-			return fileSystem.MountPoint != nil && fileSystem.MountPoint.Path == "/boot"
-		},
-	)
-
 	imagerStart := *partition.Start / diskutils.MiB
 	if *partition.Start%diskutils.MiB != 0 {
 		return configuration.Partition{}, fmt.Errorf("%w (start='%d')", ErrPartitionStartInvalid, *partition.Start)
@@ -118,13 +112,7 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		return configuration.Partition{}, err
 	}
 
-	isBootPartition := false
-	if fileSystem.MountPoint != nil {
-		mountPath := fileSystem.MountPoint.Path
-		isBootPartition = (mountPath == "/boot" ||
-			strings.HasPrefix(mountPath, "/boot/") ||
-			(mountPath == "/" && !hasXBootLdrPartition))
-	}
+	isBootPartition := calcIsBootPartition(fileSystem, fileSystems)
 
 	imagerPartition := configuration.Partition{
 		ID:              partition.Id,
@@ -137,6 +125,25 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		IsBootPartition: isBootPartition,
 	}
 	return imagerPartition, nil
+}
+
+func calcIsBootPartition(fileSystem imagecustomizerapi.FileSystem, fileSystems []imagecustomizerapi.FileSystem) bool {
+	_, hasXBootLdrPartition := sliceutils.FindValueFunc(fileSystems,
+		func(fileSystem imagecustomizerapi.FileSystem) bool {
+			return fileSystem.MountPoint != nil && fileSystem.MountPoint.Path == "/boot"
+		},
+	)
+
+	if fileSystem.MountPoint == nil {
+		return false
+	}
+
+	mountPath := fileSystem.MountPoint.Path
+	isBootPartition := (mountPath == "/boot" || // /boot partition
+		strings.HasPrefix(mountPath, "/boot/") || // /boot subdirectory partition
+		(mountPath == "/" && !hasXBootLdrPartition)) // Root partition with no separate /boot partition
+
+	return isBootPartition
 }
 
 func toImagerPartitionFlags(partitionType imagecustomizerapi.PartitionType,
