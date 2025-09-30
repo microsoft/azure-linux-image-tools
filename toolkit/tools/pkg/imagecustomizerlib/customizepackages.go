@@ -16,13 +16,13 @@ import (
 
 var (
 	// Package-related errors
-	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh tdnf repo metadata")
+	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh repo metadata")
 	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
 	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
 	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
 	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
-	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean tdnf cache")
+	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean cache")
 	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
 	ErrSnapshotTimeNotSupported   = NewImageCustomizerError("Packages:SnapshotTimeNotSupported", "snapshot time is not supported")
 )
