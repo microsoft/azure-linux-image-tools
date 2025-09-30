@@ -28,26 +28,23 @@ type Distribution struct {
 
 // Validate ensures the distribution and version combination is supported
 func (d *Distribution) Validate() error {
-	// Get supported versions for this distribution
-
+	// Get all supported distributions and their versions
 	supportedDistros := imagecustomizerapi.GetSupportedDistros()
+
+	// Check if the distribution is supported
 	validVersions, exists := supportedDistros[d.Name]
 	if !exists {
-		// Get sorted list of supported distributions
+		// Get list of supported distributions
 		distros := slices.Collect(maps.Keys(supportedDistros))
-		for d := range supportedDistros {
-			distros = append(distros, string(d))
-		}
 		return fmt.Errorf("%w (%q)\nsupported distributions are: (%s)",
 			ErrUnsupportedDistribution, d.Name, strings.Join(distros, ", "))
 	}
 
-	// Validate version
-	for _, v := range validVersions {
-		if v == d.Version {
-			return nil
-		}
+	// Check if the version is supported for this distribution
+	if slices.Contains(validVersions, d.Version) {
+		return nil
 	}
+
 	return fmt.Errorf("%w (%q)\nsupported versions for %q distro are: (%s)",
 		ErrUnsupportedVersion, d.Version, d.Name, strings.Join(validVersions, ", "))
 }
