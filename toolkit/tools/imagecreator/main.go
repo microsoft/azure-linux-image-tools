@@ -24,7 +24,7 @@ type ImageCreatorCmd struct {
 	BuildDir          string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	ConfigFile        string   `name:"config-file" help:"Path of the image creator config file." required:""`
 	RpmSources        []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs." required:""`
-	ToolsTar          string   `name:"tools-file" help:"Path to tdnf worker tarball" required:""`
+	ToolsTar          string   `name:"tools-file" help:"Path to tdnf/dnf worker tarball" required:""`
 	OutputImageFile   string   `name:"output-image-file" help:"Path to write the customized image to."`
 	OutputImageFormat string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw)" help:"Format of output image." enum:"${imageformat}" default:""`
 	Distro            string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" default:"azurelinux"`
