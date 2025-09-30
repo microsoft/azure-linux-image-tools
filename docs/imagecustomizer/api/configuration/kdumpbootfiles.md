@@ -1,5 +1,6 @@
 ---
 parent: Configuration
+ancestor: Image Customizer
 ---
 
 # kdumpBootFiles [string]
@@ -15,7 +16,7 @@ formats (iso and pxe).
 The kdump boot files include:
 
 - a crashdump initramfs image named `initramfs-<kernel-version>kdump.img`.
-- a kernel named  `vmlinuz-<kernel-version>` - where its version matches that of
+- a kernel named `vmlinuz-<kernel-version>` - where its version matches that of
   the `initramfs-<kernel-version>kdump.img`.
 
 By default, the Image Customizer tool removes the `/boot` folder from the full
