@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
@@ -95,6 +96,12 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		},
 	)
 
+	_, hasXBootLdrPartition := sliceutils.FindValueFunc(fileSystems,
+		func(fileSystem imagecustomizerapi.FileSystem) bool {
+			return fileSystem.MountPoint != nil && fileSystem.MountPoint.Path == "/boot"
+		},
+	)
+
 	imagerStart := *partition.Start / diskutils.MiB
 	if *partition.Start%diskutils.MiB != 0 {
 		return configuration.Partition{}, fmt.Errorf("%w (start='%d')", ErrPartitionStartInvalid, *partition.Start)
@@ -111,14 +118,23 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		return configuration.Partition{}, err
 	}
 
+	isBootPartition := false
+	if fileSystem.MountPoint != nil {
+		mountPath := fileSystem.MountPoint.Path
+		isBootPartition = (mountPath == "/boot" ||
+			strings.HasPrefix(mountPath, "/boot/") ||
+			(mountPath == "/" && !hasXBootLdrPartition))
+	}
+
 	imagerPartition := configuration.Partition{
-		ID:       partition.Id,
-		FsType:   string(fileSystem.Type),
-		Name:     partition.Label,
-		Start:    uint64(imagerStart),
-		End:      uint64(imagerEnd),
-		Flags:    imagerFlags,
-		TypeUUID: typeUuid,
+		ID:              partition.Id,
+		FsType:          string(fileSystem.Type),
+		Name:            partition.Label,
+		Start:           uint64(imagerStart),
+		End:             uint64(imagerEnd),
+		Flags:           imagerFlags,
+		TypeUUID:        typeUuid,
+		IsBootPartition: isBootPartition,
 	}
 	return imagerPartition, nil
 }
