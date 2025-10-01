@@ -39,6 +39,7 @@ var (
 	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
 	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
 	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
+	ErrFedora42PreviewFeatureRequired = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -552,9 +553,9 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.config.OS = &imagecustomizerapi.OS{}
 	}
 
-	err := validateTargetOs(ctx, ic.buildDirAbs, ic.inputImageFile, ic.config)
+	err := validateTargetOs(ctx, ic.buildDirAbs, ic.rawImageFile, ic.config)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to validate the target OS:\n%w", err)
 	}
 
 	// Customize the partitions.
@@ -958,8 +959,7 @@ func validateTargetOs(ctx context.Context, buildDir string, buildImageFile strin
 	// Check if Fedora 42 is being used and if it has the required preview feature
 	if targetOs == targetos.TargetOsFedora42 {
 		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
-			return fmt.Errorf("the '%s' preview feature must be enabled to customize Fedora 42 images",
-				imagecustomizerapi.PreviewFeatureFedora42)
+			return ErrFedora42PreviewFeatureRequired
 		}
 	}
 
