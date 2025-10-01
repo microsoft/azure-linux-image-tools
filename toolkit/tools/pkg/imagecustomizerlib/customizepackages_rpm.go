@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -128,11 +129,18 @@ func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chro
 	stdoutCallback := pmHandler.createOutputCallback()
 
 	return pmChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
+		err := shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
 			StdoutCallback(stdoutCallback).
 			LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
 			Execute()
+
+		// For DNF/TDNF, exit code 100 means updates are available
+		if err != nil && strings.Contains(err.Error(), "exit status 100") {
+			logger.Log.Debugf("Package updates are available (exit code 100)")
+			return nil
+		}
+		return err
 	})
 }
 
