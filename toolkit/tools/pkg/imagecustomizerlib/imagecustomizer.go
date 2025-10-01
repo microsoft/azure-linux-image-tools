@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -322,6 +323,11 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 			}
 		}
 	}()
+
+	err = validateTargetOs(ctx, imageCustomizerParameters.buildDirAbs, imageCustomizerParameters.inputImageFile, config)
+	if err != nil {
+		return err
+	}
 
 	err = CheckEnvironmentVars()
 	if err != nil {
@@ -926,6 +932,31 @@ func CheckEnvironmentVars() error {
 
 	if envHome != rootHome || (envUser != "" && envUser != rootUser) {
 		return ErrToolNotRunAsRoot
+	}
+
+	return nil
+}
+
+// validateTargetOs checks if the current distro/version is supported and has the required preview features enabled
+func validateTargetOs(ctx context.Context, buildDir string, buildImageFile string, config *imagecustomizerapi.Config) error {
+	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
+		true, false, false)
+	if err != nil {
+		return err
+	}
+	defer existingImageConnection.Close()
+
+	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
+	if err != nil {
+		return fmt.Errorf("failed to determine the target OS: %w", err)
+	}
+
+	// Check if Fedora 42 is being used and if it has the required preview feature
+	if targetOs == targetos.TargetOsFedora42 {
+		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use Fedora 42",
+				imagecustomizerapi.PreviewFeatureFedora42)
+		}
 	}
 
 	return nil

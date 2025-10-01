@@ -25,12 +25,15 @@ const (
 
 	// PreviewFeatureKdumpBootFiles enables support for crash dump configuration.
 	PreviewFeatureKdumpBootFiles PreviewFeature = "kdump-boot-files"
+
+	// PreviewFeatureFedora42 enables support for Fedora 42 images.
+	PreviewFeatureFedora42 PreviewFeature = "fedora-42"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles:
+		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)
