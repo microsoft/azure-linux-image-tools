@@ -31,6 +31,7 @@ var (
 	// Validation errors
 	ErrInvalidOutputFormat            = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
 	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotValidateTargetOS         = NewImageCustomizerError("Validation:CannotValidateTargetOS", "cannot validate target OS of the base image")
 	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
 	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
 	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
@@ -555,7 +556,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 
 	err := validateTargetOs(ctx, ic.buildDirAbs, ic.rawImageFile, ic.config)
 	if err != nil {
-		return fmt.Errorf("failed to validate the target OS:\n%w", err)
+		return fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
 
 	// Customize the partitions.
