@@ -543,11 +543,11 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	resolvedConfig, err := LoadHierarchicalConfig(ic.configPath)
+	resolvedConfig, err := LoadHierarchicalConfig(ic.config, ic.configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load hierarchical config:\n%w", err)
 	}
-	ic.config = resolvedConfig
+	ic.config = resolvedConfig.Config
 
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is

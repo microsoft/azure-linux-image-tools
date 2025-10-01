@@ -2,6 +2,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"path/filepath"
 	"strings"
 
@@ -10,111 +11,137 @@ import (
 
 // ResolvedConfig represents a chain of hierarchical configs along with resolved fields.
 type ResolvedConfig struct {
-	Input  *imagecustomizerapi.Input
-	Output *imagecustomizerapi.Output
+	// This is the merged config (after resolving overrides, merged fields, etc.)
+	Config *imagecustomizerapi.Config
 
 	// The raw inheritance chain: [base1, base2, ..., current]
 	InheritanceChain []*imagecustomizerapi.Config
 }
 
-// LoadHierarchicalConfig loads a config with its inheritance chain and resolves override fields
-func LoadHierarchicalConfig(configPath string) (*ResolvedConfig, error) {
+func LoadHierarchicalConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := loadConfigRecursive(configPath, visited, pathStack)
+	// Build inheritance chain depth-first: [base1, base2, ..., current]
+	configChain, err := buildInheritanceChain(cfg, baseDir, visited, pathStack)
 	if err != nil {
 		return nil, err
 	}
 
 	resolved := &ResolvedConfig{
 		InheritanceChain: configChain,
+		Config: &imagecustomizerapi.Config{
+			Input: imagecustomizerapi.Input{
+				Image: imagecustomizerapi.InputImage{},
+			},
+			Output: imagecustomizerapi.Output{
+				Image: imagecustomizerapi.OutputImage{},
+			},
+		},
 	}
 
-	// Optionally resolve fields like `.output.path`, `.iso.label`, etc.
-	resolved.resolveOverrideFields()
+	resolved.Resolve()
+
+	data, err := yaml.Marshal(resolved.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resolved config: %w", err)
+	}
+	fmt.Printf("ffffffffffffffffff:\n%s\n", string(data))
 
 	return resolved, nil
 }
 
-// loadConfigRecursive recursively loads base configs in DFS order.
-func loadConfigRecursive(configPath string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
-	absPath, err := filepath.Abs(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve absolute path of %s: %w", configPath, err)
-	}
-
-	if visited[absPath] {
-		return nil, fmt.Errorf("cyclic dependency detected: %v -> %s", pathStack, absPath)
-	}
-
-	visited[absPath] = true
-	pathStack = append(pathStack, absPath)
-
-	var config imagecustomizerapi.Config
-	err = imagecustomizerapi.UnmarshalYamlFile(absPath, &config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config file %s:\n%w", absPath, err)
-	}
-
-	// Recursively load base configs
+// buildInheritanceChain recursively builds the chain when starting from a Config struct.
+func buildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
 	var chain []*imagecustomizerapi.Config
-	for _, base := range config.BaseConfigs {
-		basePath := filepath.Join(filepath.Dir(absPath), base.Path)
-		baseChain, err := loadConfigRecursive(basePath, visited, pathStack)
+
+	for _, base := range cfg.BaseConfigs {
+		basePath := filepath.Join(baseDir, base.Path)
+		absPath, err := filepath.Abs(basePath)
 		if err != nil {
 			return nil, err
 		}
-		chain = append(chain, baseChain...)
+
+		if visited[absPath] {
+			return nil, fmt.Errorf("cycle detected in baseConfigs: %v -> %s", pathStack, absPath)
+		}
+
+		visited[absPath] = true
+		pathStack = append(pathStack, absPath)
+
+		// Load base file into struct
+		var baseCfg imagecustomizerapi.Config
+		if err := imagecustomizerapi.UnmarshalYamlFile(absPath, &baseCfg); err != nil {
+			return nil, fmt.Errorf("failed to load base config %s: %w", absPath, err)
+		}
+
+		// Recurse into base config
+		subChain, err := buildInheritanceChain(&baseCfg, filepath.Dir(absPath), visited, pathStack)
+		if err != nil {
+			return nil, err
+		}
+
+		chain = append(chain, subChain...)
 	}
 
-	// Add the current config last (after all its bases)
-	chain = append(chain, &config)
+	// Add the current config at the end
+	chain = append(chain, cfg)
+
 	return chain, nil
 }
 
-// resolveOverrideFields resolves all fields that use the 'current overrides base' merge strategy.
+func (r *ResolvedConfig) Resolve() {
+	r.resolveOverrideFields()
+	r.resolveMergeFields()
+}
+
 func (r *ResolvedConfig) resolveOverrideFields() {
-	// Iterate from base -> current
 	for _, cfg := range r.InheritanceChain {
-		// .output.artifacts.path
-		if val := strings.TrimSpace(cfg.Output.Artifacts.Path); val != "" {
-			r.Output.Artifacts.Path = val
+		if val := strings.TrimSpace(cfg.Input.Image.Path); val != "" {
+			r.Config.Input.Image.Path = val
 		}
+
 		// .output.image.path
 		if val := strings.TrimSpace(cfg.Output.Image.Path); val != "" {
-			r.Output.Image.Path = val
+			r.Config.Output.Image.Path = val
 		}
 		// .output.image.format
 		if val := strings.TrimSpace(string(cfg.Output.Image.Format)); val != "" {
-			r.Output.Image.Format = imagecustomizerapi.ImageFormatType(val)
+			r.Config.Output.Image.Format = imagecustomizerapi.ImageFormatType(val)
 		}
 	}
 }
 
-// NewResolvedConfig takes a fully ordered inheritance chain (base first, current last)
-// and resolves the final effective configuration for completely overridden fields.
-func NewResolvedConfig(chain []*imagecustomizerapi.Config) (*ResolvedConfig, error) {
-	if len(chain) == 0 {
-		return nil, fmt.Errorf("config chain is empty")
+// resolveMergeFields handles fields that require merging (lists/maps).
+func (r *ResolvedConfig) resolveMergeFields() {
+	for _, cfg := range r.InheritanceChain {
+		// .output.artifacts.items → merge
+		r.Config.Output.Artifacts.Items = mergeArtifacts(
+			r.Config.Output.Artifacts.Items,
+			cfg.Output.Artifacts.Items,
+		)
+	}
+}
+
+func mergeArtifacts(base, current []imagecustomizerapi.OutputArtifactsItemType) []imagecustomizerapi.OutputArtifactsItemType {
+	seen := make(map[imagecustomizerapi.OutputArtifactsItemType]bool)
+	var merged []imagecustomizerapi.OutputArtifactsItemType
+
+	// Add base items first
+	for _, item := range base {
+		if !seen[item] {
+			merged = append(merged, item)
+			seen[item] = true
+		}
 	}
 
-	// Apply complete override fields: take the LAST non-nil occurrence
-	var resolvedInput *imagecustomizerapi.Input
-	var resolvedOutput *imagecustomizerapi.Output
-
-	for _, cfg := range chain {
-		if cfg.Input == (imagecustomizerapi.Input{}) {
-			resolvedInput = &cfg.Input
-		}
-		if cfg.Output == (imagecustomizerapi.Output{}) {
-			resolvedOutput = &cfg.Output
+	// Add current items
+	for _, item := range current {
+		if !seen[item] {
+			merged = append(merged, item)
+			seen[item] = true
 		}
 	}
 
-	return &ResolvedConfig{
-		Input:            resolvedInput,
-		Output:           resolvedOutput,
-		InheritanceChain: chain,
-	}, nil
+	return merged
 }
