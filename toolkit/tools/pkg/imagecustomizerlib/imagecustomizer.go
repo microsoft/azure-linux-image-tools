@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -30,6 +31,7 @@ var (
 	// Validation errors
 	ErrInvalidOutputFormat            = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
 	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotValidateTargetOS         = NewImageCustomizerError("Validation:CannotValidateTargetOS", "cannot validate target OS of the base image")
 	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
 	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
 	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
@@ -38,6 +40,7 @@ var (
 	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
 	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
 	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
+	ErrFedora42PreviewFeatureRequired = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -551,6 +554,11 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.config.OS = &imagecustomizerapi.OS{}
 	}
 
+	err := validateTargetOs(ctx, ic.buildDirAbs, ic.rawImageFile, ic.config)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
+	}
+
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, ic.buildDirAbs,
 		ic.configPath, ic.config, ic.rawImageFile)
@@ -926,6 +934,34 @@ func CheckEnvironmentVars() error {
 
 	if envHome != rootHome || (envUser != "" && envUser != rootUser) {
 		return ErrToolNotRunAsRoot
+	}
+
+	return nil
+}
+
+// validateTargetOs checks if the current distro/version is supported and has the required preview
+// features enabled
+func validateTargetOs(ctx context.Context, buildDir string, buildImageFile string,
+	config *imagecustomizerapi.Config,
+) error {
+	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir,
+		"imageroot", false /* include-default-mounts */, true, /* read-only */
+		false /* read-only-verity */, false /* ignore-overlays */)
+	if err != nil {
+		return err
+	}
+	defer existingImageConnection.Close()
+
+	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
+	if err != nil {
+		return fmt.Errorf("failed to determine the target OS:\n%w", err)
+	}
+
+	// Check if Fedora 42 is being used and if it has the required preview feature
+	if targetOs == targetos.TargetOsFedora42 {
+		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+			return ErrFedora42PreviewFeatureRequired
+		}
 	}
 
 	return nil
