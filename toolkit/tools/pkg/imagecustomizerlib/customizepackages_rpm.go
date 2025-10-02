@@ -2,8 +2,10 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -263,6 +265,12 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
+		// For DNF/TDNF check-update, exit code 100 means updates are available
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 100 {
+			logger.Log.Debugf("Package updates are available (exit code 100)")
+			return nil
+		}
 		return fmt.Errorf("%w:\n%w", ErrPackageRepoMetadataRefresh, err)
 	}
 	return nil
