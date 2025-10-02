@@ -138,7 +138,11 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	err := ValidateConfig(t.Context(), testDir, config, "" /*inputImageFile*/, nil, "./out/image.vhdx", "vhdx", true, "", false)
+	err := ValidateConfig(t.Context(), testDir, config, false,
+		ImageCustomizerOptions{
+			OutputImageFile:   "./out/image.vhdx",
+			OutputImageFormat: "vhdx",
+		})
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "input image file must be specified")
 }
@@ -148,7 +152,11 @@ func TestValidateConfig_CallsValidateInput_NewImage(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	err := ValidateConfig(t.Context(), testDir, config, "" /*inputImageFile*/, nil, "./out/image.raw", "raw", true, "", true)
+	err := ValidateConfig(t.Context(), testDir, config, true,
+		ImageCustomizerOptions{
+			OutputImageFile:   "./out/image.raw",
+			OutputImageFormat: "raw",
+		})
 	assert.NoError(t, err)
 }
 
@@ -166,127 +174,136 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	inputImageFileRealRelativeConfig, err := filepath.Rel(baseConfigPath, inputImageFileReal)
 	assert.NoError(t, err)
 
-	inputImageFile := inputImageFileReal
-	rpmSources := []string{}
 	outputImageFile := "out/image.vhdx"
 	defer os.Remove(outputImageFile)
-	outputImageFormat := filepath.Ext(outputImageFile)[1:]
-	useBaseImageRpmRepos := false
-	packageSnapshotTime := ""
+
+	options := ImageCustomizerOptions{
+		InputImageFile:    inputImageFileReal,
+		OutputImageFile:   outputImageFile,
+		OutputImageFormat: filepath.Ext(outputImageFile)[1:],
+	}
 
 	// The input image file can be specified as an argument without being specified in the config.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	inputImageFile = inputImageFileRealRelativeCwd
+	options.InputImageFile = inputImageFileRealRelativeCwd
 
 	// The input image file specified as an argument can be relative to the current working directory.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	inputImageFile = inputImageFileFake
+	options.InputImageFile = inputImageFileFake
 
 	// The input image file, specified as an argument, must be a file.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 
-	inputImageFile = ""
+	options.InputImageFile = ""
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified in the config without being specified as an argument.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileRealRelativeConfig
 
 	// The input image file specified in the config can be relative to the bash config path.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file, specified in the config, must be a file.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 
-	inputImageFile = inputImageFileReal
+	options.InputImageFile = inputImageFileReal
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified both as an argument and in the config.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file can even be invalid in the config if it is specified as an argument.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 }
 
 func TestValidateConfigValidAdditionalFiles(t *testing.T) {
-	err := ValidateConfig(t.Context(), testDir, &imagecustomizerapi.Config{
-		OS: &imagecustomizerapi.OS{
-			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
-				{
-					Source:      "files/a.txt",
-					Destination: "/a.txt",
+	err := ValidateConfig(t.Context(), testDir,
+		&imagecustomizerapi.Config{
+			OS: &imagecustomizerapi.OS{
+				AdditionalFiles: imagecustomizerapi.AdditionalFileList{
+					{
+						Source:      "files/a.txt",
+						Destination: "/a.txt",
+					},
+				},
+			},
+			Input: imagecustomizerapi.Input{
+				Image: imagecustomizerapi.InputImage{
+					Path: "testimages/empty.vhdx",
 				},
 			},
 		},
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: "testimages/empty.vhdx",
-			},
-		},
-	}, "", nil, "./out/image.vhdx", "vhdx", true, "", false)
+		false,
+		ImageCustomizerOptions{
+			OutputImageFile:   "./out/image.vhdx",
+			OutputImageFormat: "vhdx",
+		})
 	assert.NoError(t, err)
 }
 
 func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
-	err := ValidateConfig(t.Context(), testDir, &imagecustomizerapi.Config{
-		OS: &imagecustomizerapi.OS{
-			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
-				{
-					Source:      "files/missing_a.txt",
-					Destination: "/a.txt",
+	err := ValidateConfig(t.Context(), testDir,
+		&imagecustomizerapi.Config{
+			OS: &imagecustomizerapi.OS{
+				AdditionalFiles: imagecustomizerapi.AdditionalFileList{
+					{
+						Source:      "files/missing_a.txt",
+						Destination: "/a.txt",
+					},
 				},
 			},
-		},
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: "testimages/empty.vhdx",
+			Input: imagecustomizerapi.Input{
+				Image: imagecustomizerapi.InputImage{
+					Path: "testimages/empty.vhdx",
+				},
 			},
-		},
-	}, "", nil, "./out/image.vhdx", "vhdx", true, "", false)
+		}, false,
+		ImageCustomizerOptions{
+			OutputImageFile:   "./out/image.vhdx",
+			OutputImageFormat: "vhdx",
+		})
 	assert.Error(t, err)
 }
 
 func TestValidateConfigdditionalFilesIsDir(t *testing.T) {
-	err := ValidateConfig(t.Context(), testDir, &imagecustomizerapi.Config{
-		OS: &imagecustomizerapi.OS{
-			AdditionalFiles: imagecustomizerapi.AdditionalFileList{
-				{
-					Source:      "files",
-					Destination: "/a.txt",
+	err := ValidateConfig(t.Context(), testDir,
+		&imagecustomizerapi.Config{
+			OS: &imagecustomizerapi.OS{
+				AdditionalFiles: imagecustomizerapi.AdditionalFileList{
+					{
+						Source:      "files",
+						Destination: "/a.txt",
+					},
 				},
 			},
-		},
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: "testimages/empty.vhdx",
+			Input: imagecustomizerapi.Input{
+				Image: imagecustomizerapi.InputImage{
+					Path: "testimages/empty.vhdx",
+				},
 			},
-		},
-	}, "", nil, "./out/image.vhdx", "vhdx", true, "", false)
+		}, false,
+		ImageCustomizerOptions{
+			OutputImageFile:   "./out/image.vhdx",
+			OutputImageFormat: "vhdx",
+		})
 	assert.Error(t, err)
 }
 
@@ -326,16 +343,12 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 			},
 		},
 	}
-	inputImageFile := ""
-	rpmSources := []string{}
-	outputImageFile := ""
-	outputImageFormat := string(imagecustomizerapi.ImageFormatTypeNone)
-	useBaseImageRpmRepos := false
-	packageSnapshotTime := ""
+	options := ImageCustomizerOptions{
+		OutputImageFormat: string(imagecustomizerapi.ImageFormatTypeNone),
+	}
 
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
-	err := ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err := ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "output image file must be specified")
 }
@@ -359,10 +372,10 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 			},
 		},
 	}
-	inputImageFile := ""
-	rpmSources := []string{}
 
-	outputImageDir := filepath.Join(buildDir, "out")
+	options := ImageCustomizerOptions{}
+
+	outputImageDir := filepath.Join(testTempDir, "out")
 	err = os.MkdirAll(outputImageDir, os.ModePerm)
 	assert.NoError(t, err)
 	outputImageDirRelativeCwd, err := filepath.Rel(cwd, outputImageDir)
@@ -384,111 +397,95 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	outputImageFileExistsRelativeConfig, err := filepath.Rel(baseConfigPath, outputImageFileExists)
 	assert.NoError(t, err)
 
-	outputImageFile := outputImageFileNew
-	outputImageFormat := filepath.Ext(outputImageFile)[1:]
-	useBaseImageRpmRepos := false
-	packageSnapshotTime := ""
+	options.OutputImageFile = outputImageFileNew
+	options.OutputImageFormat = filepath.Ext(options.OutputImageFile)[1:]
 
 	// The output image file can be sepcified as an argument without being in specified the config.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	outputImageFile = outputImageFileNewRelativeCwd
+	options.OutputImageFile = outputImageFileNewRelativeCwd
 
 	// The output image file can be specified as an argument relative to the current working directory.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	outputImageFile = outputImageDir
+	options.OutputImageFile = outputImageDir
 
 	// The output image file, specified as an argument, must not be a directory.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
-	outputImageFile = outputImageDirRelativeCwd
+	options.OutputImageFile = outputImageDirRelativeCwd
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
-	outputImageFile = outputImageFileExists
+	options.OutputImageFile = outputImageFileExists
 
 	// The output image file, specified as an argument, may be a file that already exists.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	outputImageFile = outputImageFileExistsRelativeCwd
+	options.OutputImageFile = outputImageFileExistsRelativeCwd
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	outputImageFile = ""
+	options.OutputImageFile = ""
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file cab be specified in the config without being specified as an argument.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileNewRelativeConfig
 
 	// The output image file can be specified in the config relative to the base config path.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file, specified in the config, must not be a directory.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageDirRelativeConfig
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageFileExists
 
 	// The output image file, specified in the config, may be a file that already exists.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileExistsRelativeConfig
 
 	// The above is also true for relative paths.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
-	outputImageFile = outputImageFileNew
+	options.OutputImageFile = outputImageFileNew
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file can be specified both as an argument and in the config.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file can even be invalid in the config if it is specified as an argument.
-	err = ValidateConfig(t.Context(), baseConfigPath, config, inputImageFile, rpmSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
 	assert.NoError(t, err)
 }
 
@@ -836,7 +833,6 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Pass the input image file only in the config.
-	inputImageFile := ""
 	configPath := "config.yaml"
 	config := &imagecustomizerapi.Config{
 		Input: imagecustomizerapi.Input{
@@ -845,15 +841,14 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 			},
 		},
 	}
-	useBaseImageRpmRepos := false
-	rpmsSources := []string{}
-	outputImageFormat := "vhdx"
-	outputImageFile := "out/image.vhdx"
-	packageSnapshotTime := ""
+	options := ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		OutputImageFormat: "vhdx",
+		OutputImageFile:   "out/image.vhdx",
+	}
 
 	// The input image file should be set to the value in the config.
-	ic, err := createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err := createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileAsConfig)
 	assert.Equal(t, ic.inputImageFormat, "vhdx")
@@ -861,11 +856,10 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 
 	// Pass the input image file only as an argument.
 	config.Input.Image.Path = ""
-	inputImageFile = inputImageFileAsArg
+	options.InputImageFile = inputImageFileAsArg
 
 	// The input image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
 	assert.Equal(t, ic.inputImageFormat, "vhdx")
@@ -875,19 +869,17 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	config.Input.Image.Path = inputImageFileAsConfig
 
 	// The input image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
 	assert.Equal(t, ic.inputImageFormat, "vhdx")
 	assert.False(t, ic.inputIsIso)
 
 	// Pass in an ISO to test that inputIsIso is set correctly.
-	inputImageFile = inputImageFileIsoAsArg
-	outputImageFormat = "iso"
-	outputImageFile = "out/image.iso"
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	options.InputImageFile = inputImageFileIsoAsArg
+	options.OutputImageFormat = "iso"
+	options.OutputImageFile = "out/image.iso"
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.inputImageFile, inputImageFileIsoAsArg)
 	assert.Equal(t, ic.inputImageFormat, "iso")
@@ -911,15 +903,14 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	configPath := "config.yaml"
 	config := &imagecustomizerapi.Config{}
-	useBaseImageRpmRepos := false
-	rpmsSources := []string{}
-	outputImageFormat := "vhd"
-	outputImageFile := ""
-	packageSnapshotTime := ""
+
+	options := ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		OutputImageFormat: "vhd",
+	}
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
-	ic, err := createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err := createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, "")
 
@@ -927,19 +918,17 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	config.Output.Image.Path = outputImageFilePathAsConfig
 
 	// The output image file should be set to the value in the config.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
 	assert.Equal(t, ic.outputImageDir, testTmpDir)
 
 	// Pass the output image file only as an argument.
 	config.Output.Image.Path = ""
-	outputImageFile = outputImageFilePathAsArg
+	options.OutputImageFile = outputImageFilePathAsArg
 
 	// The output image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageDir, testTmpDir)
@@ -949,8 +938,7 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
 	assert.Equal(t, ic.outputImageDir, testTmpDir)
@@ -973,16 +961,15 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 
 	configPath := "config.yaml"
 	config := &imagecustomizerapi.Config{}
-	useBaseImageRpmRepos := false
-	rpmsSources := []string{}
-	outputImageFormat := ""
-	outputImageFile := filepath.Join(testTmpDir, "image.vhd")
-	packageSnapshotTime := ""
+
+	options := ImageCustomizerOptions{
+		BuildDir:        buildDir,
+		OutputImageFile: filepath.Join(testTmpDir, "image.vhd"),
+	}
 
 	// The output image format is not specified in the config or as an
 	// argument, so the output image format will be empty.
-	ic, err := createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err := createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatTypeNone)
 
@@ -990,19 +977,17 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
 
 	// The output image file should be set to the value in the config.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig))
 
 	// Pass the output image format only as an argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
-	outputImageFormat = outputImageFormatAsArg
+	options.OutputImageFormat = outputImageFormatAsArg
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 
@@ -1011,8 +996,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	ic, err = createImageCustomizerParameters(t.Context(), buildDir, inputImageFile, configPath, config, useBaseImageRpmRepos,
-		rpmsSources, outputImageFormat, outputImageFile, packageSnapshotTime)
+	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
 	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 }

@@ -96,6 +96,16 @@ const (
 // The value of this string is inserted during compilation via a linker flag.
 var ToolVersion = ""
 
+type ImageCustomizerOptions struct {
+	BuildDir             string
+	InputImageFile       string
+	RpmsSources          []string
+	OutputImageFile      string
+	OutputImageFormat    string
+	UseBaseImageRpmRepos bool
+	PackageSnapshotTime  string
+}
+
 type ImageCustomizerParameters struct {
 	// build dirs
 	buildDirAbs string
@@ -147,11 +157,8 @@ type verityDeviceMetadata struct {
 	hashSignaturePath     string
 }
 
-func createImageCustomizerParameters(ctx context.Context, buildDir string,
-	inputImageFile string,
-	configPath string, config *imagecustomizerapi.Config,
-	useBaseImageRpmRepos bool, rpmsSources []string,
-	outputImageFormat string, outputImageFile string, packageSnapshotTime string,
+func createImageCustomizerParameters(ctx context.Context, configPath string, config *imagecustomizerapi.Config,
+	options ImageCustomizerOptions,
 ) (*ImageCustomizerParameters, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_image_customizer_parameters")
 	defer span.End()
@@ -159,7 +166,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
-	buildDirAbs, err := filepath.Abs(buildDir)
+	buildDirAbs, err := filepath.Abs(options.BuildDir)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +174,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	ic.buildDirAbs = buildDirAbs
 
 	// input image
-	ic.inputImageFile = inputImageFile
+	ic.inputImageFile = options.InputImageFile
 	if ic.inputImageFile == "" && config.Input.Image.Path != "" {
 		ic.inputImageFile = file.GetAbsPathWithBase(configPath, config.Input.Image.Path)
 	}
@@ -190,10 +197,10 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		len(config.Scripts.PostCustomization) > 0 ||
 		len(config.Scripts.FinalizeCustomization) > 0
 
-	ic.useBaseImageRpmRepos = useBaseImageRpmRepos
-	ic.rpmsSources = rpmsSources
+	ic.useBaseImageRpmRepos = options.UseBaseImageRpmRepos
+	ic.rpmsSources = options.RpmsSources
 
-	err = ValidateRpmSources(rpmsSources)
+	err = ValidateRpmSources(options.RpmsSources)
 	if err != nil {
 		return nil, err
 	}
@@ -202,16 +209,16 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
 
 	// output image
-	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
+	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, outputImageFormat, err)
+		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, options.OutputImageFormat, err)
 	}
 
 	if ic.outputImageFormat == "" {
 		ic.outputImageFormat = config.Output.Image.Format
 	}
 
-	ic.outputImageFile = outputImageFile
+	ic.outputImageFile = options.OutputImageFile
 	if ic.outputImageFile == "" && config.Output.Image.Path != "" {
 		ic.outputImageFile = file.GetAbsPathWithBase(configPath, config.Output.Image.Path)
 	}
@@ -237,7 +244,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		}
 	}
 
-	ic.packageSnapshotTime = packageSnapshotTime
+	ic.packageSnapshotTime = options.PackageSnapshotTime
 
 	return ic, nil
 }
@@ -246,6 +253,18 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
+	return CustomizeImageWithConfigFileOptions(ctx, configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       inputImageFile,
+		RpmsSources:          rpmsSources,
+		OutputImageFile:      outputImageFile,
+		OutputImageFormat:    outputImageFormat,
+		UseBaseImageRpmRepos: useBaseImageRpmRepos,
+		PackageSnapshotTime:  packageSnapshotTime,
+	})
+}
+
+func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string, options ImageCustomizerOptions) error {
 	var err error
 
 	var config imagecustomizerapi.Config
@@ -262,8 +281,7 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
-	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime)
+	err = CustomizeImageOptions(ctx, absBaseConfigPath, &config, options)
 	if err != nil {
 		return err
 	}
@@ -280,13 +298,27 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
-	rpmsSources []string, outputImageFile string, outputImageFormat string,
+func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
+) (err error) {
+	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       inputImageFile,
+		RpmsSources:          rpmsSources,
+		OutputImageFile:      outputImageFile,
+		OutputImageFormat:    outputImageFormat,
+		UseBaseImageRpmRepos: useBaseImageRpmRepos,
+		PackageSnapshotTime:  packageSnapshotTime,
+	})
+}
+
+func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+	options ImageCustomizerOptions,
 ) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
-		attribute.String("output_image_format", string(outputImageFormat)),
+		attribute.String("output_image_format", string(options.OutputImageFormat)),
 	)
 	defer func() {
 		if err != nil {
@@ -305,14 +337,12 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		span.End()
 	}()
 
-	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
-		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
-		outputImageFormat, outputImageFile, packageSnapshotTime)
+	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, baseConfigPath, config, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}

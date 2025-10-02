@@ -113,8 +113,16 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 }
 
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
-		cmd.RpmSources, cmd.OutputImageFile, cmd.OutputImageFormat, !cmd.DisableBaseImageRpmRepos, cmd.PackageSnapshotTime)
+	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
+		imagecustomizerlib.ImageCustomizerOptions{
+			BuildDir:             cmd.BuildDir,
+			InputImageFile:       cmd.InputImageFile,
+			RpmsSources:          cmd.RpmSources,
+			OutputImageFile:      cmd.OutputImageFile,
+			OutputImageFormat:    cmd.OutputImageFormat,
+			UseBaseImageRpmRepos: !cmd.DisableBaseImageRpmRepos,
+			PackageSnapshotTime:  cmd.PackageSnapshotTime,
+		})
 	if err != nil {
 		return err
 	}
