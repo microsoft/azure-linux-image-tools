@@ -81,8 +81,13 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	// TODO: Validate for distro and release
-	err = imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config,
-		"", rpmsSources, outputImageFile, outputImageFormat, false, packageSnapshotTime, true)
+	err = imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config, true,
+		imagecustomizerlib.ImageCustomizerOptions{
+			RpmsSources:         rpmsSources,
+			OutputImageFile:     outputImageFile,
+			OutputImageFormat:   outputImageFormat,
+			PackageSnapshotTime: packageSnapshotTime,
+		})
 	if err != nil {
 		return err
 	}
