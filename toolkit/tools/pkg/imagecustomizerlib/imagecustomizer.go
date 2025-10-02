@@ -133,6 +133,7 @@ type ImageCustomizerParameters struct {
 	osRelease            string
 	osPackages           []OsPackage
 	cosiBootMetadata     *CosiBootloader
+	targetOS             targetos.TargetOs
 }
 
 type verityDeviceMetadata struct {
@@ -554,14 +555,17 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.config.OS = &imagecustomizerapi.OS{}
 	}
 
-	err := validateTargetOs(ctx, ic.buildDirAbs, ic.rawImageFile, ic.config)
+	targetOS, err := validateTargetOs(ctx, ic.buildDirAbs, ic.rawImageFile, ic.config)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
 
+	// Save target OS information
+	ic.targetOS = targetOS
+
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, ic.buildDirAbs,
-		ic.configPath, ic.config, ic.rawImageFile)
+		ic.configPath, ic.config, ic.rawImageFile, ic.targetOS)
 	if err != nil {
 		return err
 	}
@@ -574,7 +578,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx,
 		ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos,
-		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat)
+		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat, ic.targetOS)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
@@ -752,7 +756,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 
 func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
+	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType, targetOS targetos.TargetOs,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -770,11 +774,8 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 		return nil, nil, nil, "", err
 	}
 
-	// Create distro handler based on the detected OS from the image
-	distroHandler, err := NewDistroHandlerFromImageConnection(imageConnection)
-	if err != nil {
-		return nil, nil, nil, "", err
-	}
+	// Create distro handler using the target OS determined earlier
+	distroHandler := NewDistroHandlerFromTargetOs(targetOS)
 
 	imageConnection.Chroot().UnsafeRun(func() error {
 		distro, version := osinfo.GetDistroAndVersion()
@@ -940,29 +941,29 @@ func CheckEnvironmentVars() error {
 }
 
 // validateTargetOs checks if the current distro/version is supported and has the required preview
-// features enabled
+// features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, buildDir string, buildImageFile string,
 	config *imagecustomizerapi.Config,
-) error {
+) (targetos.TargetOs, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
 		false /* read-only-verity */, false /* ignore-overlays */)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer existingImageConnection.Close()
 
 	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
 	if err != nil {
-		return fmt.Errorf("failed to determine the target OS:\n%w", err)
+		return "", fmt.Errorf("failed to determine the target OS:\n%w", err)
 	}
 
 	// Check if Fedora 42 is being used and if it has the required preview feature
 	if targetOs == targetos.TargetOsFedora42 {
 		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
-			return ErrFedora42PreviewFeatureRequired
+			return targetOs, ErrFedora42PreviewFeatureRequired
 		}
 	}
 
-	return nil
+	return targetOs, nil
 }
