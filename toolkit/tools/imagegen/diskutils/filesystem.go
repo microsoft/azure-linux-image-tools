@@ -33,8 +33,12 @@ type xfsOptions struct {
 }
 
 type fileSystemsOptions struct {
+	// The ext4 options to use.
 	Ext4 ext4Options
-	Xfs  xfsOptions
+	// The xfs options to use.
+	Xfs xfsOptions
+	// The xfs options to use for the partition that contains the /boot directory.
+	BootXfs xfsOptions
 }
 
 var (
@@ -71,6 +75,11 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
 	}
 
+	// GRUB 2.06 doesn't support 'nrext64'.
+	azl3BootXfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
+	}
+
 	// The default ext4 options used by Fedora 42 (kernel v6.11+)
 	// Based on typical Fedora defaults with modern ext4 features
 	fedora42Ext4Options = ext4Options{
@@ -90,16 +99,19 @@ var (
 
 	targetOsFileSystemsOptions = map[targetos.TargetOs]fileSystemsOptions{
 		targetos.TargetOsAzureLinux2: {
-			Ext4: azl2Ext4Options,
-			Xfs:  azl2XfsOptions,
+			Ext4:    azl2Ext4Options,
+			Xfs:     azl2XfsOptions,
+			BootXfs: azl2XfsOptions,
 		},
 		targetos.TargetOsAzureLinux3: {
-			Ext4: azl3Ext4Options,
-			Xfs:  azl3XfsOptions,
+			Ext4:    azl3Ext4Options,
+			Xfs:     azl3XfsOptions,
+			BootXfs: azl3BootXfsOptions,
 		},
 		targetos.TargetOsFedora42: {
-			Ext4: fedora42Ext4Options,
-			Xfs:  fedora42XfsOptions,
+			Ext4:    fedora42Ext4Options,
+			Xfs:     fedora42XfsOptions,
+			BootXfs: fedora42XfsOptions,
 		},
 	}
 
@@ -180,7 +192,11 @@ var (
 	mkfsXfsVersionRegex = regexp.MustCompile(`^mkfs\.xfs version (\d+)\.(\d+)\.(\d+)$`)
 )
 
-func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string) ([]string, error) {
+// Params:
+// - targetOs: The OS the filesystem is being created for.
+// - filesystemType: The requested filesystem type.
+// - isBootPartition: Will the partition contain the /boot directory?
+func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool) ([]string, error) {
 	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host kernel version:\n%w", err)
@@ -205,7 +221,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string) ([]
 		return options, nil
 
 	case "xfs":
-		options, err := getXfsFileSystemOptions(hostKernelVersion, options)
+		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition)
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +266,8 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 	return args, nil
 }
 
-func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+) ([]string, error) {
 	mkfsXfsVersion, err := getMkfsXfsVersion()
 	if err != nil {
 		return nil, err
@@ -263,6 +280,11 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 		return nil, fmt.Errorf("mkfs.xfs version (%s) is too new (max: %s)", mkfsXfsVersion, maxMkfsXfsVersion)
 	}
 
+	xfsOptions := options.Xfs
+	if isBootPartition {
+		xfsOptions = options.BootXfs
+	}
+
 	metadataArgs := []string(nil)
 	inodeArgs := []string(nil)
 	namingArgs := []string(nil)
@@ -270,7 +292,7 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 	// Unlike mkfs.ext4, mkfs.xfs doesn't have a mechanism to disable all features.
 	// So, explictly set every feature flag.
 	for feature, requiredVersion := range xfsFeaturesSupport {
-		enableFeature := sliceutils.ContainsValue(options.Xfs.Features, feature)
+		enableFeature := sliceutils.ContainsValue(xfsOptions.Features, feature)
 
 		if requiredVersion.Gt(hostKernelVersion) {
 			// Feature is not supported on build host kernel.

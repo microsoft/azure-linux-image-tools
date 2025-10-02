@@ -28,6 +28,8 @@ type Partition struct {
 	Start     uint64          `json:"Start"`
 	Flags     []PartitionFlag `json:"Flags"`
 	Artifacts []Artifact      `json:"Artifacts"`
+	// If the partition will contain pre-kernel/initramfs boot resources (e.g. /boot partition).
+	IsBootPartition bool `json:"IsBootPartition"`
 }
 
 // HasFlag returns true if a given partition has a specific flag set.

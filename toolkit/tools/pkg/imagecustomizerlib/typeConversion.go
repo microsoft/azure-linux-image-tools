@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
@@ -111,16 +112,38 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		return configuration.Partition{}, err
 	}
 
+	isBootPartition := calcIsBootPartition(fileSystem, fileSystems)
+
 	imagerPartition := configuration.Partition{
-		ID:       partition.Id,
-		FsType:   string(fileSystem.Type),
-		Name:     partition.Label,
-		Start:    uint64(imagerStart),
-		End:      uint64(imagerEnd),
-		Flags:    imagerFlags,
-		TypeUUID: typeUuid,
+		ID:              partition.Id,
+		FsType:          string(fileSystem.Type),
+		Name:            partition.Label,
+		Start:           uint64(imagerStart),
+		End:             uint64(imagerEnd),
+		Flags:           imagerFlags,
+		TypeUUID:        typeUuid,
+		IsBootPartition: isBootPartition,
 	}
 	return imagerPartition, nil
+}
+
+func calcIsBootPartition(fileSystem imagecustomizerapi.FileSystem, fileSystems []imagecustomizerapi.FileSystem) bool {
+	_, hasXBootLdrPartition := sliceutils.FindValueFunc(fileSystems,
+		func(fileSystem imagecustomizerapi.FileSystem) bool {
+			return fileSystem.MountPoint != nil && fileSystem.MountPoint.Path == "/boot"
+		},
+	)
+
+	if fileSystem.MountPoint == nil {
+		return false
+	}
+
+	mountPath := fileSystem.MountPoint.Path
+	isBootPartition := (mountPath == "/boot" || // /boot partition
+		strings.HasPrefix(mountPath, "/boot/") || // /boot subdirectory partition
+		(mountPath == "/" && !hasXBootLdrPartition)) // Root partition with no separate /boot partition
+
+	return isBootPartition
 }
 
 func toImagerPartitionFlags(partitionType imagecustomizerapi.PartitionType,

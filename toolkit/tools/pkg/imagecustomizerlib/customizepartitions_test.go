@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/kernelversion"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
@@ -120,6 +121,20 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	assert.Equal(t, uint64(99*diskutils.MiB), partitions[2].SizeInBytes)
 	assert.Equal(t, uint64(1940*diskutils.MiB), partitions[3].SizeInBytes)
 	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes)
+
+	// Check filesystem features
+	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
+	assert.NoError(t, err)
+
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2:
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", false)
+
+	case baseImageVersionAzl3:
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", hostKernelVersion.Ge([]int{5, 19}))
+	}
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
@@ -404,6 +419,65 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		baseImageInfo)
 }
 
+func TestCustomizeImagePartitionsXfsBoot(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsXfsBootHelper(t, "TestCustomizeImagePartitionsXfsBoot"+baseImageInfo.Name,
+				baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-xfs-boot.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   2,
+			Path:           "/",
+			FileSystemType: "xfs",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "read partition table")
+
+	// Check filesystem features
+	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
+	assert.NoError(t, err)
+
+	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
+
+	// The /boot directory is on an XFS partition.
+	// Hence 'nrext64' should be disabled since GRUB 2.06 doesn't support it.
+	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", false)
+}
+
 func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
@@ -512,4 +586,27 @@ func getDiskPartitionsMap(devicePath string) (map[int]diskutils.PartitionInfo, e
 	}
 
 	return partitionsMap, nil
+}
+
+func verifyXfsFeature(t *testing.T, partition string, feature string, enabled bool) {
+	// For example: " attr=2,"
+	featureRegexp, err := regexp.Compile(fmt.Sprintf(`\s+%s=(\w+)(\s|,|$)`, regexp.QuoteMeta(feature)))
+	assert.NoError(t, err)
+
+	stdout, _, err := shell.Execute("xfs_info", partition)
+	assert.NoError(t, err)
+
+	matches := featureRegexp.FindStringSubmatch(stdout)
+	if matches == nil {
+		// Feature not found.
+		// Xfsprogs is probably too old.
+		return
+	}
+
+	value := matches[1]
+	if enabled {
+		assert.Equal(t, "1", value)
+	} else {
+		assert.Equal(t, "0", value)
+	}
 }

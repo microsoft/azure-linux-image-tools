@@ -459,7 +459,8 @@ func CreatePartitions(targetOs targetos.TargetOs, diskDevPath string, disk confi
 			return partDevPathMap, partIDToFsTypeMap, encryptedRoot, err
 		}
 
-		partFsType, err := formatSinglePartition(targetOs, diskDevPath, partDevPath, partition)
+		partFsType, err := formatSinglePartition(targetOs, diskDevPath, partDevPath, partition,
+			partition.IsBootPartition)
 		if err != nil {
 			err = fmt.Errorf("failed to format partition:\n%w", err)
 			return partDevPathMap, partIDToFsTypeMap, encryptedRoot, err
@@ -696,7 +697,7 @@ func isDigit(c byte) bool {
 
 // formatSinglePartition formats the given partition to the type specified in the partition configuration
 func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partDevPath string,
-	partition configuration.Partition,
+	partition configuration.Partition, isBootPartition bool,
 ) (fsType string, err error) {
 	const (
 		totalAttempts = 5
@@ -714,7 +715,7 @@ func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partD
 			fsType = "vfat"
 		}
 
-		mkfsOptions, err := getFileSystemOptions(targetOs, fsType)
+		mkfsOptions, err := getFileSystemOptions(targetOs, fsType, isBootPartition)
 		if err != nil {
 			err = fmt.Errorf("failed to get mkfs args for filesystem type (%s) and target os (%s):\n%w", fsType,
 				targetOs, err)
