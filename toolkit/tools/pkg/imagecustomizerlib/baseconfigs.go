@@ -2,27 +2,23 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-// ResolvedConfig represents a chain of hierarchical configs along with resolved fields.
+// ResolvedConfig represents a resolved config and chain of base configs.
 type ResolvedConfig struct {
-	// This is the merged config (after resolving overrides, merged fields, etc.)
 	Config *imagecustomizerapi.Config
 
-	// The raw inheritance chain: [base1, base2, ..., current]
 	InheritanceChain []*imagecustomizerapi.Config
 }
 
-func LoadHierarchicalConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
+func LoadBaseConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	// Build inheritance chain depth-first: [base1, base2, ..., current]
 	configChain, err := buildInheritanceChain(cfg, baseDir, visited, pathStack)
 	if err != nil {
 		return nil, err
@@ -36,22 +32,18 @@ func LoadHierarchicalConfig(cfg *imagecustomizerapi.Config, baseDir string) (*Re
 			},
 			Output: imagecustomizerapi.Output{
 				Image: imagecustomizerapi.OutputImage{},
+				Artifacts: &imagecustomizerapi.Artifacts{
+					Items: []imagecustomizerapi.OutputArtifactsItemType{},
+				},
 			},
 		},
 	}
 
 	resolved.Resolve()
 
-	data, err := yaml.Marshal(resolved.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal resolved config: %w", err)
-	}
-	fmt.Printf("ffffffffffffffffff:\n%s\n", string(data))
-
 	return resolved, nil
 }
 
-// buildInheritanceChain recursively builds the chain when starting from a Config struct.
 func buildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
 	var chain []*imagecustomizerapi.Config
 
@@ -97,6 +89,7 @@ func (r *ResolvedConfig) Resolve() {
 
 func (r *ResolvedConfig) resolveOverrideFields() {
 	for _, cfg := range r.InheritanceChain {
+		// .input.image.path
 		if val := strings.TrimSpace(cfg.Input.Image.Path); val != "" {
 			r.Config.Input.Image.Path = val
 		}
@@ -105,17 +98,22 @@ func (r *ResolvedConfig) resolveOverrideFields() {
 		if val := strings.TrimSpace(cfg.Output.Image.Path); val != "" {
 			r.Config.Output.Image.Path = val
 		}
+
 		// .output.image.format
 		if val := strings.TrimSpace(string(cfg.Output.Image.Format)); val != "" {
 			r.Config.Output.Image.Format = imagecustomizerapi.ImageFormatType(val)
 		}
+
+		// .output.image.artifacts.path
+		if val := strings.TrimSpace(cfg.Output.Artifacts.Path); val != "" {
+			r.Config.Output.Artifacts.Path = val
+		}
 	}
 }
 
-// resolveMergeFields handles fields that require merging (lists/maps).
 func (r *ResolvedConfig) resolveMergeFields() {
 	for _, cfg := range r.InheritanceChain {
-		// .output.artifacts.items → merge
+		// .output.artifacts.items
 		r.Config.Output.Artifacts.Items = mergeArtifacts(
 			r.Config.Output.Artifacts.Items,
 			cfg.Output.Artifacts.Items,

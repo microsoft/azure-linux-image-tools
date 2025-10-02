@@ -25,12 +25,15 @@ const (
 
 	// PreviewFeatureKdumpBootFiles enables support for crash dump configuration.
 	PreviewFeatureKdumpBootFiles PreviewFeature = "kdump-boot-files"
+
+	// PreviewFeatureBaseConfigs enables support for base configuration.
+	PreviewFeatureBaseConfigs PreviewFeature = "base-configs"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles:
+		PreviewFeatureKdumpBootFiles, PreviewFeatureBaseConfigs:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

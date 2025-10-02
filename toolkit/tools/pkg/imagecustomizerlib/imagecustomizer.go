@@ -543,9 +543,9 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	resolvedConfig, err := LoadHierarchicalConfig(ic.config, ic.configPath)
+	resolvedConfig, err := LoadBaseConfig(ic.config, ic.configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load hierarchical config:\n%w", err)
+		return fmt.Errorf("failed to load base config:\n%w", err)
 	}
 	ic.config = resolvedConfig.Config
 
