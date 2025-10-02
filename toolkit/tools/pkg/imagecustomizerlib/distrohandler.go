@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -53,16 +52,6 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) distroHandler {
 	default:
 		panic("unsupported target OS: " + string(targetOs))
 	}
-}
-
-// NewDistroHandlerFromImageConnection detects the OS from the image and creates the appropriate handler
-func NewDistroHandlerFromImageConnection(imageConnection *imageconnection.ImageConnection) (distroHandler, error) {
-	targetOs, err := targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
-	if err != nil {
-		return nil, err
-	}
-
-	return NewDistroHandlerFromTargetOs(targetOs), nil
 }
 
 // NewDistroHandler creates the appropriate distro handler with version support (legacy)

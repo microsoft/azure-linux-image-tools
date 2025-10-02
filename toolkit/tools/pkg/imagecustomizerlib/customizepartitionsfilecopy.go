@@ -22,7 +22,7 @@ var (
 )
 
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	buildImageFile string, newBuildImageFile string,
+	buildImageFile string, newBuildImageFile string, targetOS targetos.TargetOs,
 ) (map[string]string, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
 		true, false, false)
@@ -31,18 +31,13 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 	}
 	defer existingImageConnection.Close()
 
-	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
-	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrPartitionCopyTargetOsDetermination, err)
-	}
-
 	diskConfig := config.Storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := CreateNewImage(targetOs, newBuildImageFile, diskConfig, config.Storage.FileSystems,
+	partIdToPartUuid, err := CreateNewImage(targetOS, newBuildImageFile, diskConfig, config.Storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
 		return nil, err
