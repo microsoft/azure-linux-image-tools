@@ -5,7 +5,7 @@ import logging
 import os
 import platform
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import libvirt  # type: ignore
 import pytest
@@ -14,7 +14,7 @@ from ..utils import local_client
 from ..utils.closeable import Closeable
 from ..utils.host_utils import get_host_distro
 from ..utils.imagecreator import run_image_creator, run_image_customizer_binary
-from ..utils.imagecustomizer import add_ssh_to_config
+from ..utils.imagecustomizer import add_preview_features_to_config, add_ssh_to_config
 from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from ..utils.libvirt_vm import LibvirtVm
 from ..utils.ssh_client import SshClient
@@ -24,6 +24,27 @@ from ..utils.user_utils import get_username
 IMAGECREATOR_TEST_CONFIGS_DIR = Path(__file__).parent.parent.parent.parent.parent.joinpath(
     "toolkit/tools/pkg/imagecreatorlib/testdata"
 )
+
+# Common packages that should be present in all distributions
+COMMON_PACKAGES = ["kernel", "systemd", "bash"]
+
+# Distribution-specific configuration
+DISTRO_CONFIGS: Dict[str, Dict[str, Any]] = {
+    "fedora": {
+        "os_release": {
+            "ID": "fedora",
+            "VERSION_ID": "42",
+        },
+        "packages": COMMON_PACKAGES + ["grub2-efi-x64"],
+    },
+    "azurelinux": {
+        "os_release": {
+            "ID": "azurelinux",
+            "VERSION_ID": "3.0",
+        },
+        "packages": COMMON_PACKAGES + ["grub2"],
+    },
+}
 
 
 def run_image_creator_test(
@@ -88,6 +109,10 @@ def run_image_creator_test(
     # Use base SSH config and add SSH user configuration dynamically
     base_ssh_config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("ssh-base-config.yaml")
     customizer_config_path_obj = add_ssh_to_config(base_ssh_config_path, username, ssh_public_key, close_list)
+
+    # Add Fedora preview features if needed
+    if distro.lower() == "fedora":
+        customizer_config_path_obj = add_preview_features_to_config(customizer_config_path_obj, "fedora-42", close_list)
 
     run_image_customizer_binary(
         image_customizer_binary_path,
@@ -189,32 +214,63 @@ def run_image_creator_test(
         logging.info(f"SSH connection established successfully!")
         # Run the test
         logging.info(f"Running basic checks on the VM")
-        run_basic_checks(ssh_client, test_temp_dir)
+        run_basic_checks(ssh_client, test_temp_dir, distro)
         logging.info(f"Basic checks completed successfully!")
+
+
+def verify_packages(ssh_client: SshClient, packages_to_check: List[str]) -> None:
+    """Verify that specified packages are present in the system.
+
+    Args:
+        ssh_client: SSH client connected to the target system
+        packages_to_check: List of package names to verify
+    """
+    for package in packages_to_check:
+        ssh_client.run(f"rpm -q {package}").check_exit_code()
+
+
+def verify_os_release(os_release_text: str, expected_values: Dict[str, str]) -> None:
+    """Verify os-release content matches expected values.
+
+    Args:
+        os_release_text: Content of os-release file
+        expected_values: Dictionary of key-value pairs to verify
+    """
+    for key, value in expected_values.items():
+        expected = f"{key}={value}"
+        assert expected in os_release_text, f"Expected '{expected}' in os-release, but not found"
 
 
 def run_basic_checks(
     ssh_client: SshClient,
     test_temp_dir: Path,
+    distro: str,
 ) -> None:
+    """Run basic checks for the specified distribution.
 
+    Args:
+        ssh_client: SSH client for running commands
+        test_temp_dir: Temporary directory for test artifacts
+        distro: Distribution name (must be a key in DISTRO_CONFIGS)
+    """
+    if distro not in DISTRO_CONFIGS:
+        raise ValueError(f"Unsupported distribution: {distro}")
+
+    config = DISTRO_CONFIGS[distro]
+
+    # Check kernel cmdline
     ssh_client.run("cat /proc/cmdline").check_exit_code()
 
+    # Get and verify os-release
     os_release_path = test_temp_dir.joinpath("os-release")
     ssh_client.get_file(Path("/etc/os-release"), os_release_path)
 
     with open(os_release_path, "r") as os_release_fd:
         os_release_text = os_release_fd.read()
+        verify_os_release(os_release_text, config["os_release"])
 
-        # Since imagecreator creates new images, we expect Azure Linux 3.0
-        assert "ID=azurelinux" in os_release_text
-        assert 'VERSION_ID="3.0"' in os_release_text
-
-    # Check that essential packages are installed
-    ssh_client.run("rpm -q kernel").check_exit_code()
-    ssh_client.run("rpm -q systemd").check_exit_code()
-    ssh_client.run("rpm -q grub2").check_exit_code()
-    ssh_client.run("rpm -q bash").check_exit_code()
+    # Check required packages
+    verify_packages(ssh_client, config["packages"])
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")

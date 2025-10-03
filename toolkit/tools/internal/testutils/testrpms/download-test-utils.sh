@@ -5,7 +5,13 @@ SCRIPT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 
 AZURELINUX_2_CONTAINER_IMAGE="mcr.microsoft.com/cbl-mariner/base/core:2.0"
 AZURELINUX_3_CONTAINER_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
-FEDORA_42_CONTAINER_IMAGE="registry.fedoraproject.org/fedora:42"
+
+# Use ACR image in CI, public registry for local development
+if [ "${CI:-}" = "true" ]; then
+    FEDORA_42_CONTAINER_IMAGE="martimusexternal.azurecr.io/fedora/fedora:42"
+else
+    FEDORA_42_CONTAINER_IMAGE="registry.fedoraproject.org/fedora:42"
+fi
 
 DISTRO="azurelinux"
 DISTRO_VERSION="3.0"
