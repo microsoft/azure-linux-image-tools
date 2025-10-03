@@ -45,6 +45,15 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "BaseConfig": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BootLoader": {
       "properties": {
         "resetType": {
@@ -82,6 +91,12 @@
         },
         "output": {
           "$ref": "#/$defs/Output"
+        },
+        "baseConfigs": {
+          "items": {
+            "$ref": "#/$defs/BaseConfig"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
