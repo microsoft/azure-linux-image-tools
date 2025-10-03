@@ -119,8 +119,10 @@ jobs:
       run: |
         set -eux
 
-        # Download the test RPM and tools file.
-        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t 3.0 -s true
+        # Download the test RPM and tools file for azurelinux
+        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+        # Download the test RPM and tools file for fedora
+        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true
 
 
     - name: Run image creator tests
@@ -129,12 +131,19 @@ jobs:
 
         pushd ./repo/test/vmtests
 
-        sudo make test-imagecreator \
+        sudo make test-imagecreator-azurelinux \
           IMAGE_CREATOR_BIN="../../toolkit/out/tools/imagecreator" \
           TOOLS_TAR="../../toolkit/tools/internal/testutils/testrpms/build/tools-azurelinux-3.0.tar.gz" \
           RPM_SOURCES="../../toolkit/tools/internal/testutils/testrpms/downloadedrpms/azurelinux/3.0" \
           IMAGE_CUSTOMIZER_BINARY_PATH="../../toolkit/out/tools/imagecustomizer" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+
+        sudo make test-imagecreator-fedora \
+          IMAGE_CREATOR_BIN="../../toolkit/out/tools/imagecreator" \
+          TOOLS_TAR="../../toolkit/tools/internal/testutils/testrpms/build/tools-fedora-42.tar.gz" \
+          RPM_SOURCES="../../toolkit/tools/internal/testutils/testrpms/downloadedrpms/fedora/42" \
+          IMAGE_CUSTOMIZER_BINARY_PATH="../../toolkit/out/tools/imagecustomizer" \
+          SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519  
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}

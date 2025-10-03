@@ -99,21 +99,6 @@ test-imagecustomizer:
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/imagecustomizer/test_min_change.py
 
-.PHONY: test-imagecreator
-test-imagecreator:
-	${PYTEST} \
-		--image-creator-binary-path="${IMAGE_CREATOR_BIN}" \
-		--rpm-sources="${RPM_SOURCES}" \
-		--tools-tar="${TOOLS_TAR}" \
-		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
-		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
-		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
-		--show-capture=all \
-		--tb=short \
-		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests/imagecreator/test_imagecreator.py
-
 .PHONY: test-osmodifier
 test-osmodifier:
 	${PYTEST} \
@@ -132,8 +117,38 @@ test-osmodifier:
 .PHONY: run-imagecustomizer
 run-imagecustomizer: image-customizer-container test-imagecustomizer
 
+.PHONY: test-imagecreator-azurelinux
+test-imagecreator-azurelinux:
+	${PYTEST} \
+		--image-creator-binary-path="${IMAGE_CREATOR_BIN}" \
+		--rpm-sources="${RPM_SOURCES}" \
+		--tools-tar="${TOOLS_TAR}" \
+		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		./vmtests/imagecreator/test_imagecreator.py
+
+.PHONY: test-imagecreator-fedora
+test-imagecreator-fedora:
+	${PYTEST} \
+		--image-creator-binary-path="${IMAGE_CREATOR_BIN}" \
+		--rpm-sources="${RPM_SOURCES}" \
+		--tools-tar="${TOOLS_TAR}" \
+		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
+		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
+		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		--log-cli-level=DEBUG \
+		--show-capture=all \
+		--tb=short \
+		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		./vmtests/imagecreator/test_imagecreator_fedora.py
+
 .PHONY: run-imagecreator
-run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator
+run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator-azurelinux test-imagecreator-fedora
 
 .PHONY: run-osmodifier
 run-osmodifier: ${OSMODIFIER_BIN} test-osmodifier

@@ -89,6 +89,11 @@ def run_image_creator_test(
     base_ssh_config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("ssh-base-config.yaml")
     customizer_config_path_obj = add_ssh_to_config(base_ssh_config_path, username, ssh_public_key, close_list)
 
+    # add previewFeatures section if distro is Fedora
+    if distro.lower() == "fedora":
+        with open(customizer_config_path_obj, "a") as config_fd:
+            config_fd.write("\npreviewFeatures:\n  - fedora-42\n")  # Assuming Fedora 42 for this test
+
     run_image_customizer_binary(
         image_customizer_binary_path,
         initial_output_image_path,
@@ -185,19 +190,37 @@ def run_image_creator_test(
     logging.info(f"Attempting to connect to VM via SSH")
     logging.info(f"Username: {username}")
 
-    with vm.create_ssh_client(ssh_private_key_path, test_temp_dir, username) as ssh_client:
-        logging.info(f"SSH connection established successfully!")
-        # Run the test
-        logging.info(f"Running basic checks on the VM")
-        run_basic_checks(ssh_client, test_temp_dir)
-        logging.info(f"Basic checks completed successfully!")
+    try:
+        with vm.create_ssh_client(ssh_private_key_path, test_temp_dir, username) as ssh_client:
+            logging.info("SSH connection established successfully!")
+            # Test SSH connectivity and shell access
+            result = ssh_client.run("whoami")
+            if result.exit_code != 0:
+                logging.error("Failed to execute basic SSH command")
+                logging.error(f"Command output: {result.stdout}")
+                logging.error(f"Command error: {result.stderr}")
+                raise RuntimeError("SSH connection test failed")
+
+            # Run the test
+            logging.info("Running basic checks on the VM")
+            run_basic_checks(ssh_client, test_temp_dir)
+            logging.info("Basic checks completed successfully!")
+    except Exception as e:
+        logging.error(f"Failed to establish or verify SSH connection: {str(e)}")
+        logging.error("VM Console output:")
+        with open(vm_console_log_file_path, "r") as f:
+            logging.error(f.read())
+        raise
 
 
 def run_basic_checks(
     ssh_client: SshClient,
     test_temp_dir: Path,
 ) -> None:
+    """Run basic checks on the VM to verify the OS installation.
 
+    The checks are distro-specific based on the os-release file content.
+    """
     ssh_client.run("cat /proc/cmdline").check_exit_code()
 
     os_release_path = test_temp_dir.joinpath("os-release")
@@ -205,16 +228,57 @@ def run_basic_checks(
 
     with open(os_release_path, "r") as os_release_fd:
         os_release_text = os_release_fd.read()
+        logging.info("OS Release content:")
+        logging.info(os_release_text)
 
-        # Since imagecreator creates new images, we expect Azure Linux 3.0
-        assert "ID=azurelinux" in os_release_text
-        assert 'VERSION_ID="3.0"' in os_release_text
+        # Determine which distro we're testing
+        if "ID=fedora" in os_release_text:
+            # Fedora specific checks
+            assert "ID=fedora" in os_release_text
+            assert 'VERSION="42 (Adams)"' in os_release_text
+        elif "ID=azurelinux" in os_release_text:
+            # Azure Linux specific checks
+            assert "ID=azurelinux" in os_release_text
+            assert 'VERSION_ID="3.0"' in os_release_text
+        else:
+            raise AssertionError(f"Unknown distribution found in os-release:\n{os_release_text}")
 
-    # Check that essential packages are installed
-    ssh_client.run("rpm -q kernel").check_exit_code()
-    ssh_client.run("rpm -q systemd").check_exit_code()
-    ssh_client.run("rpm -q grub2").check_exit_code()
-    ssh_client.run("rpm -q bash").check_exit_code()
+    # Check that essential packages are installed - common for both distros
+    logging.info("Checking essential packages...")
+
+    # Check packages one by one with error logging
+    packages_to_check = ["kernel", "systemd", "bash"]
+    for package in packages_to_check:
+        logging.info(f"Checking package: {package}")
+        result = ssh_client.run(f"rpm -q {package}")
+        try:
+            result.check_exit_code()
+        except Exception as e:
+            logging.error(f"Failed to verify package {package}: {str(e)}")
+            logging.error(f"Command output: {result.stdout}")
+            logging.error(f"Command error: {result.stderr}")
+            raise
+
+    # Special handling for grub2 as package name might differ between distros
+    logging.info("Checking bootloader packages...")
+    if "ID=fedora" in os_release_text:
+        # Fedora might use grub2-pc or grub2-efi
+        try:
+            result = ssh_client.run("rpm -q grub2-efi-x64")
+            result.check_exit_code()
+        except Exception:
+            logging.warning("grub2-efi-x64 not found, trying grub2-pc...")
+            result = ssh_client.run("rpm -q grub2-pc")
+            try:
+                result.check_exit_code()
+            except Exception as e:
+                logging.error(f"Failed to find any grub2 package: {str(e)}")
+                logging.error(f"Command error: {result.stderr}")
+                raise
+    else:
+        # Azure Linux check
+        result = ssh_client.run("rpm -q grub2")
+        result.check_exit_code()
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
