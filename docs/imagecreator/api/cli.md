@@ -26,6 +26,25 @@ Specifies the path to a tools file in `.tar.gz` format.
 This file should contain the TDNF tar package (or an equivalent), which is used to manage package
 dependencies and facilitate installation workflows.
 
+## --distro
+
+Required.
+
+Specifies the distribution (distro) of the image to be built.
+
+Supported values: `azurelinux`, `fedora`.
+
+## --distro-version
+
+Required.
+
+Specifies the distro version of the image to be built.
+
+Supported versions:
+
+- For `azurelinux`: `2.0`, `3.0`
+- For `fedora`: `42`
+
 ## --output-image-file=FILE-PATH
 
 Required, unless

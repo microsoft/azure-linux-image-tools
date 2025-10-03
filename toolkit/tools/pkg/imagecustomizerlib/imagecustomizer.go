@@ -19,6 +19,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -30,6 +31,7 @@ var (
 	// Validation errors
 	ErrInvalidOutputFormat            = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
 	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotValidateTargetOS         = NewImageCustomizerError("Validation:CannotValidateTargetOS", "cannot validate target OS of the base image")
 	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
 	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
 	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
@@ -38,6 +40,7 @@ var (
 	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
 	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
 	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
+	ErrFedora42PreviewFeatureRequired = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -93,6 +96,16 @@ const (
 // The value of this string is inserted during compilation via a linker flag.
 var ToolVersion = ""
 
+type ImageCustomizerOptions struct {
+	BuildDir             string
+	InputImageFile       string
+	RpmsSources          []string
+	OutputImageFile      string
+	OutputImageFormat    string
+	UseBaseImageRpmRepos bool
+	PackageSnapshotTime  string
+}
+
 type ImageCustomizerParameters struct {
 	// build dirs
 	buildDirAbs string
@@ -130,6 +143,10 @@ type ImageCustomizerParameters struct {
 	osRelease            string
 	osPackages           []OsPackage
 	cosiBootMetadata     *CosiBootloader
+	targetOS             targetos.TargetOs
+
+	// For future migration: fields to be read from resolvedConfig instead of config
+	resolvedConfig *ResolvedConfig
 }
 
 type verityDeviceMetadata struct {
@@ -143,11 +160,8 @@ type verityDeviceMetadata struct {
 	hashSignaturePath     string
 }
 
-func createImageCustomizerParameters(ctx context.Context, buildDir string,
-	inputImageFile string,
-	configPath string, config *imagecustomizerapi.Config,
-	useBaseImageRpmRepos bool, rpmsSources []string,
-	outputImageFormat string, outputImageFile string, packageSnapshotTime string,
+func createImageCustomizerParameters(ctx context.Context, configPath string, config *imagecustomizerapi.Config,
+	options ImageCustomizerOptions,
 ) (*ImageCustomizerParameters, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_image_customizer_parameters")
 	defer span.End()
@@ -155,7 +169,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	ic := &ImageCustomizerParameters{}
 
 	// working directories
-	buildDirAbs, err := filepath.Abs(buildDir)
+	buildDirAbs, err := filepath.Abs(options.BuildDir)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +177,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	ic.buildDirAbs = buildDirAbs
 
 	// input image
-	ic.inputImageFile = inputImageFile
+	ic.inputImageFile = options.InputImageFile
 	if ic.inputImageFile == "" && config.Input.Image.Path != "" {
 		ic.inputImageFile = file.GetAbsPathWithBase(configPath, config.Input.Image.Path)
 	}
@@ -186,10 +200,10 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		len(config.Scripts.PostCustomization) > 0 ||
 		len(config.Scripts.FinalizeCustomization) > 0
 
-	ic.useBaseImageRpmRepos = useBaseImageRpmRepos
-	ic.rpmsSources = rpmsSources
+	ic.useBaseImageRpmRepos = options.UseBaseImageRpmRepos
+	ic.rpmsSources = options.RpmsSources
 
-	err = ValidateRpmSources(rpmsSources)
+	err = ValidateRpmSources(options.RpmsSources)
 	if err != nil {
 		return nil, err
 	}
@@ -198,16 +212,16 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
 
 	// output image
-	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
+	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
 	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, outputImageFormat, err)
+		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, options.OutputImageFormat, err)
 	}
 
 	if ic.outputImageFormat == "" {
 		ic.outputImageFormat = config.Output.Image.Format
 	}
 
-	ic.outputImageFile = outputImageFile
+	ic.outputImageFile = options.OutputImageFile
 	if ic.outputImageFile == "" && config.Output.Image.Path != "" {
 		ic.outputImageFile = file.GetAbsPathWithBase(configPath, config.Output.Image.Path)
 	}
@@ -233,7 +247,7 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 		}
 	}
 
-	ic.packageSnapshotTime = packageSnapshotTime
+	ic.packageSnapshotTime = options.PackageSnapshotTime
 
 	return ic, nil
 }
@@ -242,6 +256,18 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
+	return CustomizeImageWithConfigFileOptions(ctx, configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       inputImageFile,
+		RpmsSources:          rpmsSources,
+		OutputImageFile:      outputImageFile,
+		OutputImageFormat:    outputImageFormat,
+		UseBaseImageRpmRepos: useBaseImageRpmRepos,
+		PackageSnapshotTime:  packageSnapshotTime,
+	})
+}
+
+func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string, options ImageCustomizerOptions) error {
 	var err error
 
 	var config imagecustomizerapi.Config
@@ -258,8 +284,7 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
-	err = CustomizeImage(ctx, buildDir, absBaseConfigPath, &config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat,
-		useBaseImageRpmRepos, packageSnapshotTime)
+	err = CustomizeImageOptions(ctx, absBaseConfigPath, &config, options)
 	if err != nil {
 		return err
 	}
@@ -276,13 +301,27 @@ func cleanUp(ic *ImageCustomizerParameters) error {
 	return nil
 }
 
-func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string,
-	rpmsSources []string, outputImageFile string, outputImageFormat string,
+func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
+) (err error) {
+	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       inputImageFile,
+		RpmsSources:          rpmsSources,
+		OutputImageFile:      outputImageFile,
+		OutputImageFormat:    outputImageFormat,
+		UseBaseImageRpmRepos: useBaseImageRpmRepos,
+		PackageSnapshotTime:  packageSnapshotTime,
+	})
+}
+
+func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+	options ImageCustomizerOptions,
 ) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
-		attribute.String("output_image_format", string(outputImageFormat)),
+		attribute.String("output_image_format", string(options.OutputImageFormat)),
 	)
 	defer func() {
 		if err != nil {
@@ -301,14 +340,12 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		span.End()
 	}()
 
-	err = ValidateConfig(ctx, baseConfigPath, config, inputImageFile, rpmsSources, outputImageFile, outputImageFormat, useBaseImageRpmRepos, packageSnapshotTime, false)
+	err = ValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, buildDir, inputImageFile,
-		baseConfigPath, config, useBaseImageRpmRepos, rpmsSources,
-		outputImageFormat, outputImageFile, packageSnapshotTime)
+	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, baseConfigPath, config, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}
@@ -540,7 +577,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	resolvedConfig, err := loadBaseConfig(ic.config, ic.configPath)
+	resolvedConfig, err := resolveBaseConfigs(ic.config, ic.configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load base config:\n%w", err)
 	}
@@ -561,9 +598,17 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 		ic.config.OS = &imagecustomizerapi.OS{}
 	}
 
+	targetOS, err := validateTargetOs(ctx, ic.buildDirAbs, ic.rawImageFile, ic.config)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
+	}
+
+	// Save target OS information
+	ic.targetOS = targetOS
+
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, ic.buildDirAbs,
-		ic.configPath, ic.config, ic.rawImageFile)
+		ic.configPath, ic.config, ic.rawImageFile, ic.targetOS)
 	if err != nil {
 		return err
 	}
@@ -576,7 +621,7 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx,
 		ic.buildDirAbs, ic.configPath, ic.config, ic.rawImageFile, ic.rpmsSources, ic.useBaseImageRpmRepos,
-		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat)
+		partitionsCustomized, ic.imageUuidStr, ic.packageSnapshotTime, ic.outputImageFormat, ic.targetOS)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
@@ -754,7 +799,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 
 func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType,
+	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType, targetOS targetos.TargetOs,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -772,11 +817,8 @@ func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath s
 		return nil, nil, nil, "", err
 	}
 
-	// Create distro handler based on the detected OS from the image
-	distroHandler, err := NewDistroHandlerFromImageConnection(imageConnection)
-	if err != nil {
-		return nil, nil, nil, "", err
-	}
+	// Create distro handler using the target OS determined earlier
+	distroHandler := NewDistroHandlerFromTargetOs(targetOS)
 
 	imageConnection.Chroot().UnsafeRun(func() error {
 		distro, version := osinfo.GetDistroAndVersion()
@@ -939,4 +981,32 @@ func CheckEnvironmentVars() error {
 	}
 
 	return nil
+}
+
+// validateTargetOs checks if the current distro/version is supported and has the required preview
+// features enabled. Returns the detected target OS.
+func validateTargetOs(ctx context.Context, buildDir string, buildImageFile string,
+	config *imagecustomizerapi.Config,
+) (targetos.TargetOs, error) {
+	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir,
+		"imageroot", false /* include-default-mounts */, true, /* read-only */
+		false /* read-only-verity */, false /* ignore-overlays */)
+	if err != nil {
+		return "", err
+	}
+	defer existingImageConnection.Close()
+
+	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
+	if err != nil {
+		return "", fmt.Errorf("failed to determine the target OS:\n%w", err)
+	}
+
+	// Check if Fedora 42 is being used and if it has the required preview feature
+	if targetOs == targetos.TargetOsFedora42 {
+		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+			return targetOs, ErrFedora42PreviewFeatureRequired
+		}
+	}
+
+	return targetOs, nil
 }

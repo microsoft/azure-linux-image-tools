@@ -288,7 +288,7 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to refresh tdnf repo metadata")
+	assert.ErrorIs(t, err, ErrPackageRepoMetadataRefresh)
 }
 
 func ensureTdnfCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageConnection, dirPath string,

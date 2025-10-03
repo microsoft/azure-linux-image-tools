@@ -2,14 +2,13 @@ package imagecustomizerlib
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
+
 	"path/filepath"
-	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-func loadBaseConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
+func resolveBaseConfigs(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
@@ -19,12 +18,6 @@ func loadBaseConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedCo
 	}
 
 	resolved := NewResolvedConfig(configChain)
-
-	data, err := yaml.Marshal(resolved)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal resolved config: %w", err)
-	}
-	fmt.Printf("ffffffffffffffffff:\n%s\n", string(data))
 
 	return resolved, nil
 }
@@ -72,25 +65,25 @@ func BuildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visit
 }
 
 func resolveOverrideFields(chain []*imagecustomizerapi.Config, target *ResolvedConfig) {
-	for _, cfg := range chain {
-		// .input.image.path
-		if val := strings.TrimSpace(cfg.Input.Image.Path); val != "" {
-			target.InputImagePath = val
+	for _, config := range chain {
+		if config.Input.Image != (imagecustomizerapi.InputImage{}) && config.Input.Image.Path != "" {
+			// .input.image.path
+			target.InputImagePath = config.Input.Image.Path
 		}
 
-		// .output.image.path
-		if val := strings.TrimSpace(cfg.Output.Image.Path); val != "" {
-			target.OutputImagePath = val
-		}
-
-		// .output.image.format
-		if val := strings.TrimSpace(string(cfg.Output.Image.Format)); val != "" {
-			target.OutputImageFormat = imagecustomizerapi.ImageFormatType(val)
-		}
-
-		// .output.image.artifacts.path
-		if val := strings.TrimSpace(cfg.Output.Artifacts.Path); val != "" {
-			target.OutputArtifactsPath = val
+		if config.Output != (imagecustomizerapi.Output{}) {
+			// .output.image.path
+			if config.Output.Image != (imagecustomizerapi.OutputImage{}) && config.Output.Image.Path != "" {
+				target.OutputImagePath = config.Output.Image.Path
+			}
+			// .output.image.format
+			if config.Output.Image != (imagecustomizerapi.OutputImage{}) && config.Output.Image.Format != "" {
+				target.OutputImageFormat = config.Output.Image.Format
+			}
+			// .output.image.artifacts.path
+			if config.Output.Artifacts != nil && config.Output.Artifacts.Path != "" {
+				target.OutputArtifactsPath = config.Output.Artifacts.Path
+			}
 		}
 	}
 }
@@ -98,9 +91,11 @@ func resolveOverrideFields(chain []*imagecustomizerapi.Config, target *ResolvedC
 func resolveMergeFields(chain []*imagecustomizerapi.Config, target *ResolvedConfig) {
 	for _, cfg := range chain {
 		// .output.artifacts.items
-		target.OutputArtifactsItems = mergeOutputArtifactTypes(
-			target.OutputArtifactsItems, cfg.Output.Artifacts.Items,
-		)
+		if cfg.Output != (imagecustomizerapi.Output{}) && cfg.Output.Artifacts != nil && len(cfg.Output.Artifacts.Items) > 0 {
+			target.OutputArtifactsItems = mergeOutputArtifactTypes(
+				target.OutputArtifactsItems, cfg.Output.Artifacts.Items,
+			)
+		}
 	}
 }
 

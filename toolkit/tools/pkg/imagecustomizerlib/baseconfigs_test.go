@@ -66,8 +66,8 @@ func TestBaseConfigsOutput(t *testing.T) {
 
 	resolved := imagecustomizerlib.NewResolvedConfig(chain)
 
-	if resolved.InputImagePath != "output-image-2.vhdx" {
-		t.Errorf("expected output path is output-image-2.vhdx, got %s", resolved.InputImagePath)
+	if resolved.OutputImagePath != "output-image-2.vhdx" {
+		t.Errorf("expected output path is output-image-2.vhdx, got %s", resolved.OutputImagePath)
 	}
 
 	if resolved.OutputArtifactsPath != "./artifacts-2" {

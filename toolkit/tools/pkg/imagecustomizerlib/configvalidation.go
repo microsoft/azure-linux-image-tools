@@ -40,8 +40,8 @@ var (
 	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 )
 
-func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, inputImageFile string, rpmsSources []string,
-	outputImageFile, outputImageFormat string, useBaseImageRpmRepos bool, packageSnapshotTime string, newImage bool,
+func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, newImage bool,
+	options ImageCustomizerOptions,
 ) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
@@ -52,7 +52,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		err = validateInput(baseConfigPath, config.Input, inputImageFile)
+		err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = validateOsConfig(baseConfigPath, config.OS, rpmsSources, useBaseImageRpmRepos)
+	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
@@ -73,12 +73,12 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return err
 	}
 
-	err = validateOutput(baseConfigPath, config.Output, outputImageFile, outputImageFormat)
+	err = validateOutput(baseConfigPath, config.Output, options.OutputImageFile, options.OutputImageFormat)
 	if err != nil {
 		return err
 	}
 
-	if err := validateSnapshotTimeInput(packageSnapshotTime, config.PreviewFeatures); err != nil {
+	if err := validateSnapshotTimeInput(options.PackageSnapshotTime, config.PreviewFeatures); err != nil {
 		return err
 	}
 

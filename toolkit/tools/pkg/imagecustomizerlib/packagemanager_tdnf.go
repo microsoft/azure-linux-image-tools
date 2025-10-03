@@ -20,7 +20,7 @@ func newTdnfPackageManager(version string) *tdnfPackageManager {
 	return &tdnfPackageManager{version: version}
 }
 
-func (pm *tdnfPackageManager) getPackageManagerBinary() string { return "tdnf" }
+func (pm *tdnfPackageManager) getPackageManagerBinary() string { return string(packageManagerTDNF) }
 func (pm *tdnfPackageManager) getReleaseVersion() string       { return pm.version }
 func (pm *tdnfPackageManager) getConfigFile() string           { return customTdnfConfRelPath }
 

@@ -46,6 +46,15 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in /etc/os-release", versionId)
 		}
 
+	case "fedora":
+		switch versionId {
+		case "42":
+			return TargetOsFedora42, nil
+
+		default:
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in /etc/os-release", versionId)
+		}
+
 	default:
 		return "", fmt.Errorf("unknown ID (%s) in /etc/os-release", distroId)
 	}
