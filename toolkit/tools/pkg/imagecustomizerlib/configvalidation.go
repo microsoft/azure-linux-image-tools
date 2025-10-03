@@ -86,23 +86,28 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 }
 
 func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) error {
-	if inputImageFile == "" && input.Image.Path == "" {
+	if inputImageFile == "" && input.Image.Path == "" && input.Image.Oci == nil {
 		return ErrInputImageFileRequired
 	}
 
-	if inputImageFile != "" {
+	switch {
+	case inputImageFile != "":
 		if yes, err := file.IsFile(inputImageFile); err != nil {
 			return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
 			return fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
-	} else {
+
+	case input.Image.Path != "":
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
 		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
 			return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
 		} else if !yes {
 			return fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
 		}
+
+	case input.Image.Oci != nil:
+		// No extra validation needed.
 	}
 
 	return nil
