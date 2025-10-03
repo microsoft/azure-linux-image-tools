@@ -126,7 +126,7 @@ func (c *Config) IsValid() (err error) {
 
 	if c.BaseConfigs != nil {
 		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureBaseConfigs) {
-			return fmt.Errorf("the 'base-configs' preview feature must be enabled to use 'baseConfigs'")
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'baseConfigs'", PreviewFeatureBaseConfigs)
 		}
 
 		err = c.BaseConfigs.IsValid()

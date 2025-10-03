@@ -130,8 +130,6 @@ type ImageCustomizerParameters struct {
 	osRelease            string
 	osPackages           []OsPackage
 	cosiBootMetadata     *CosiBootloader
-
-	baseConfigs []imagecustomizerapi.BaseConfig
 }
 
 type verityDeviceMetadata struct {
@@ -236,7 +234,6 @@ func createImageCustomizerParameters(ctx context.Context, buildDir string,
 	}
 
 	ic.packageSnapshotTime = packageSnapshotTime
-	ic.baseConfigs = config.BaseConfigs
 
 	return ic, nil
 }
@@ -543,11 +540,15 @@ func customizeOSContents(ctx context.Context, ic *ImageCustomizerParameters) err
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	resolvedConfig, err := LoadBaseConfig(ic.config, ic.configPath)
+	resolvedConfig, err := loadBaseConfig(ic.config, ic.configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load base config:\n%w", err)
 	}
-	ic.config = resolvedConfig.Config
+	ic.config.Input.Image.Path = resolvedConfig.InputImagePath
+	ic.config.Output.Image.Path = resolvedConfig.OutputImagePath
+	ic.config.Output.Image.Format = resolvedConfig.OutputImageFormat
+	ic.config.Output.Artifacts.Path = resolvedConfig.OutputArtifactsPath
+	ic.config.Output.Artifacts.Items = resolvedConfig.OutputArtifactsItems
 
 	// The code beyond this point assumes the OS object is always present. To
 	// change the code to check before every usage whether the OS object is

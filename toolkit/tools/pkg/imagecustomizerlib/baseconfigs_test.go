@@ -7,14 +7,40 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
-func TestResolveOverrideFields_OutputOverrides(t *testing.T) {
+func TestBaseConfigsInput(t *testing.T) {
+	base := &imagecustomizerapi.Config{
+		Input: imagecustomizerapi.Input{
+			Image: imagecustomizerapi.InputImage{
+				Path: "base-image-1.vhdx",
+			},
+		},
+	}
+
+	current := &imagecustomizerapi.Config{
+		Input: imagecustomizerapi.Input{
+			Image: imagecustomizerapi.InputImage{
+				Path: "base-image-2.vhdx",
+			},
+		},
+	}
+
+	chain := []*imagecustomizerapi.Config{base, current}
+
+	resolved := imagecustomizerlib.NewResolvedConfig(chain)
+
+	if resolved.InputImagePath != "base-image-2.vhdx" {
+		t.Errorf("expected input image path is base-image-2.vhdx, got %s", resolved.InputImagePath)
+	}
+}
+
+func TestBaseConfigsOutput(t *testing.T) {
 	base := &imagecustomizerapi.Config{
 		Output: imagecustomizerapi.Output{
 			Image: imagecustomizerapi.OutputImage{
-				Path: "base-image.vhdx",
+				Path: "output-image-1.vhdx",
 			},
 			Artifacts: &imagecustomizerapi.Artifacts{
-				Path: "./base-artifacts",
+				Path: "./artifacts-1",
 				Items: []imagecustomizerapi.OutputArtifactsItemType{
 					imagecustomizerapi.OutputArtifactsItemUkis,
 				},
@@ -25,10 +51,10 @@ func TestResolveOverrideFields_OutputOverrides(t *testing.T) {
 	current := &imagecustomizerapi.Config{
 		Output: imagecustomizerapi.Output{
 			Image: imagecustomizerapi.OutputImage{
-				Path: "current-image.vhdx",
+				Path: "output-image-2.vhdx",
 			},
 			Artifacts: &imagecustomizerapi.Artifacts{
-				Path: "./current-artifacts",
+				Path: "./artifacts-2",
 				Items: []imagecustomizerapi.OutputArtifactsItemType{
 					imagecustomizerapi.OutputArtifactsItemShim,
 				},
@@ -36,33 +62,25 @@ func TestResolveOverrideFields_OutputOverrides(t *testing.T) {
 		},
 	}
 
-	resolved := &imagecustomizerlib.ResolvedConfig{
-		InheritanceChain: []*imagecustomizerapi.Config{base, current},
-		Config: &imagecustomizerapi.Config{
-			Output: imagecustomizerapi.Output{
-				Artifacts: &imagecustomizerapi.Artifacts{},
-				Image:     imagecustomizerapi.OutputImage{},
-			},
-		},
+	chain := []*imagecustomizerapi.Config{base, current}
+
+	resolved := imagecustomizerlib.NewResolvedConfig(chain)
+
+	if resolved.InputImagePath != "output-image-2.vhdx" {
+		t.Errorf("expected output path is output-image-2.vhdx, got %s", resolved.InputImagePath)
 	}
 
-	resolved.Resolve()
-
-	if resolved.Config.Output.Image.Path != "current-image.vhdx" {
-		t.Errorf("expected path = current-image.vhdx, got %s", resolved.Config.Output.Image.Path)
-	}
-
-	if resolved.Config.Output.Artifacts.Path != "./current-artifacts" {
-		t.Errorf("expected artifacts path = ./current-artifacts, got %s", resolved.Config.Output.Artifacts.Path)
+	if resolved.OutputArtifactsPath != "./artifacts-2" {
+		t.Errorf("expected artifacts path is ./artifacts-2, got %s", resolved.OutputArtifactsPath)
 	}
 
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
 		imagecustomizerapi.OutputArtifactsItemUkis,
 		imagecustomizerapi.OutputArtifactsItemShim,
 	}
-	got := resolved.Config.Output.Artifacts.Items
+	got := resolved.OutputArtifactsItems
 	if len(got) != len(expectedItems) {
-		t.Errorf("expected output artifacts length = %d, got %d", len(expectedItems), len(got))
+		t.Errorf("expected output artifacts length is %d, got %d", len(expectedItems), len(got))
 	}
 
 	for _, item := range expectedItems {
@@ -74,7 +92,7 @@ func TestResolveOverrideFields_OutputOverrides(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("expected item %q not found in result: %v", item, got)
+			t.Errorf("expected artifact item %q not found in result: %v", item, got)
 		}
 	}
 }

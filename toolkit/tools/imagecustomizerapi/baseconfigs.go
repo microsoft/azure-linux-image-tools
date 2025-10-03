@@ -14,10 +14,17 @@ type BaseConfig struct {
 
 type BaseConfigs []BaseConfig
 
+func (b BaseConfig) IsValid() error {
+	if strings.TrimSpace(b.Path) == "" {
+		return fmt.Errorf("path must not be empty or whitespace")
+	}
+	return nil
+}
+
 func (b BaseConfigs) IsValid() error {
-	for _, base := range b {
-		if strings.TrimSpace(base.Path) == "" {
-			return fmt.Errorf("baseConfigs entry has empty or whitespace-only path")
+	for i, base := range b {
+		if err := base.IsValid(); err != nil {
+			return fmt.Errorf("invalid baseConfig item at index %d:\n%w", i, err)
 		}
 	}
 	return nil

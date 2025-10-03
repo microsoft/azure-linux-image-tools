@@ -2,49 +2,38 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-// ResolvedConfig represents a resolved config and chain of base configs.
-type ResolvedConfig struct {
-	Config *imagecustomizerapi.Config
-
-	InheritanceChain []*imagecustomizerapi.Config
-}
-
-func LoadBaseConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
+func loadBaseConfig(cfg *imagecustomizerapi.Config, baseDir string) (*ResolvedConfig, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := buildInheritanceChain(cfg, baseDir, visited, pathStack)
+	configChain, err := BuildInheritanceChain(cfg, baseDir, visited, pathStack)
 	if err != nil {
 		return nil, err
 	}
 
-	resolved := &ResolvedConfig{
-		InheritanceChain: configChain,
-		Config: &imagecustomizerapi.Config{
-			Input: imagecustomizerapi.Input{
-				Image: imagecustomizerapi.InputImage{},
-			},
-			Output: imagecustomizerapi.Output{
-				Image: imagecustomizerapi.OutputImage{},
-				Artifacts: &imagecustomizerapi.Artifacts{
-					Items: []imagecustomizerapi.OutputArtifactsItemType{},
-				},
-			},
-		},
-	}
+	resolved := NewResolvedConfig(configChain)
 
-	resolved.Resolve()
+	data, err := yaml.Marshal(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resolved config: %w", err)
+	}
+	fmt.Printf("ffffffffffffffffff:\n%s\n", string(data))
 
 	return resolved, nil
 }
 
-func buildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
+func BuildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
+	if err := cfg.BaseConfigs.IsValid(); err != nil {
+		return nil, fmt.Errorf("invalid baseConfigs:\n%w", err)
+	}
+
 	var chain []*imagecustomizerapi.Config
 
 	for _, base := range cfg.BaseConfigs {
@@ -68,7 +57,7 @@ func buildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visit
 		}
 
 		// Recurse into base config
-		subChain, err := buildInheritanceChain(&baseCfg, filepath.Dir(absPath), visited, pathStack)
+		subChain, err := BuildInheritanceChain(&baseCfg, filepath.Dir(absPath), visited, pathStack)
 		if err != nil {
 			return nil, err
 		}
@@ -82,46 +71,40 @@ func buildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visit
 	return chain, nil
 }
 
-func (r *ResolvedConfig) Resolve() {
-	r.resolveOverrideFields()
-	r.resolveMergeFields()
-}
-
-func (r *ResolvedConfig) resolveOverrideFields() {
-	for _, cfg := range r.InheritanceChain {
+func resolveOverrideFields(chain []*imagecustomizerapi.Config, target *ResolvedConfig) {
+	for _, cfg := range chain {
 		// .input.image.path
 		if val := strings.TrimSpace(cfg.Input.Image.Path); val != "" {
-			r.Config.Input.Image.Path = val
+			target.InputImagePath = val
 		}
 
 		// .output.image.path
 		if val := strings.TrimSpace(cfg.Output.Image.Path); val != "" {
-			r.Config.Output.Image.Path = val
+			target.OutputImagePath = val
 		}
 
 		// .output.image.format
 		if val := strings.TrimSpace(string(cfg.Output.Image.Format)); val != "" {
-			r.Config.Output.Image.Format = imagecustomizerapi.ImageFormatType(val)
+			target.OutputImageFormat = imagecustomizerapi.ImageFormatType(val)
 		}
 
 		// .output.image.artifacts.path
 		if val := strings.TrimSpace(cfg.Output.Artifacts.Path); val != "" {
-			r.Config.Output.Artifacts.Path = val
+			target.OutputArtifactsPath = val
 		}
 	}
 }
 
-func (r *ResolvedConfig) resolveMergeFields() {
-	for _, cfg := range r.InheritanceChain {
+func resolveMergeFields(chain []*imagecustomizerapi.Config, target *ResolvedConfig) {
+	for _, cfg := range chain {
 		// .output.artifacts.items
-		r.Config.Output.Artifacts.Items = mergeArtifacts(
-			r.Config.Output.Artifacts.Items,
-			cfg.Output.Artifacts.Items,
+		target.OutputArtifactsItems = mergeOutputArtifactTypes(
+			target.OutputArtifactsItems, cfg.Output.Artifacts.Items,
 		)
 	}
 }
 
-func mergeArtifacts(base, current []imagecustomizerapi.OutputArtifactsItemType) []imagecustomizerapi.OutputArtifactsItemType {
+func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifactsItemType) []imagecustomizerapi.OutputArtifactsItemType {
 	seen := make(map[imagecustomizerapi.OutputArtifactsItemType]bool)
 	var merged []imagecustomizerapi.OutputArtifactsItemType
 
