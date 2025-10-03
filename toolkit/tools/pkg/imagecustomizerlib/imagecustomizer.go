@@ -144,6 +144,9 @@ type ImageCustomizerParameters struct {
 	osPackages           []OsPackage
 	cosiBootMetadata     *CosiBootloader
 	targetOS             targetos.TargetOs
+
+	// For future migration: fields to be read from resolvedConfig instead of config
+	resolvedConfig *ResolvedConfig
 }
 
 type verityDeviceMetadata struct {
@@ -164,6 +167,18 @@ func createImageCustomizerParameters(ctx context.Context, configPath string, con
 	defer span.End()
 
 	ic := &ImageCustomizerParameters{}
+
+	if len(ic.config.BaseConfigs) > 0 {
+		resolvedConfig, err := resolveBaseConfigs(ic.config, ic.configPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load base config:\n%w", err)
+		}
+		ic.config.Input.Image.Path = resolvedConfig.InputImagePath
+		ic.config.Output.Image.Path = resolvedConfig.OutputImagePath
+		ic.config.Output.Image.Format = resolvedConfig.OutputImageFormat
+		ic.config.Output.Artifacts.Path = resolvedConfig.OutputArtifactsPath
+		ic.config.Output.Artifacts.Items = resolvedConfig.OutputArtifactsItems
+	}
 
 	// working directories
 	buildDirAbs, err := filepath.Abs(options.BuildDir)
