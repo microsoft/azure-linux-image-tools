@@ -23,8 +23,12 @@ func resolveBaseConfigs(cfg *imagecustomizerapi.Config, baseDir string) (*Resolv
 }
 
 func BuildInheritanceChain(cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
-	if err := cfg.BaseConfigs.IsValid(); err != nil {
-		return nil, fmt.Errorf("invalid baseConfigs:\n%w", err)
+	if cfg.BaseConfigs != nil {
+		for i, base := range cfg.BaseConfigs {
+			if err := base.IsValid(); err != nil {
+				return nil, fmt.Errorf("invalid baseConfig item at index %d:\n%w", i, err)
+			}
+		}
 	}
 
 	var chain []*imagecustomizerapi.Config

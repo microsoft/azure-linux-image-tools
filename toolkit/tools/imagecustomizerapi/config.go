@@ -19,7 +19,7 @@ type Config struct {
 	Scripts         Scripts          `yaml:"scripts" json:"scripts,omitempty"`
 	PreviewFeatures []PreviewFeature `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 	Output          Output           `yaml:"output" json:"output,omitempty"`
-	BaseConfigs     BaseConfigs      `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
+	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -129,9 +129,10 @@ func (c *Config) IsValid() (err error) {
 			return fmt.Errorf("the '%s' preview feature must be enabled to use 'baseConfigs'", PreviewFeatureBaseConfigs)
 		}
 
-		err = c.BaseConfigs.IsValid()
-		if err != nil {
-			return fmt.Errorf("invalid 'baseConfigs' field:\n%w", err)
+		for i, base := range c.BaseConfigs {
+			if err := base.IsValid(); err != nil {
+				return fmt.Errorf("invalid baseConfig item at index %d:\n%w", i, err)
+			}
 		}
 	}
 
