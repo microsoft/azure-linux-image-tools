@@ -35,6 +35,7 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
 	defer span.End()
 
+	// TODO: Fix ME
 	if snapshotTime == "" {
 		snapshotTime = string(config.Packages.SnapshotTime)
 	}

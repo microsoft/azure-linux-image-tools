@@ -17,7 +17,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
@@ -96,46 +95,7 @@ const (
 // The value of this string is inserted during compilation via a linker flag.
 var ToolVersion = ""
 
-type ImageCustomizerOptions struct {
-	BuildDir             string
-	InputImageFile       string
-	RpmsSources          []string
-	OutputImageFile      string
-	OutputImageFormat    string
-	UseBaseImageRpmRepos bool
-	PackageSnapshotTime  string
-}
-
 type ImageCustomizerParameters struct {
-	// build dirs
-	buildDirAbs string
-
-	// input image
-	inputImageFile   string
-	inputImageFormat string
-	inputIsIso       bool
-
-	// configurations
-	configPath            string
-	config                *imagecustomizerapi.Config
-	customizeOSPartitions bool
-	useBaseImageRpmRepos  bool
-	rpmsSources           []string
-	packageSnapshotTime   string
-
-	// intermediate writeable image
-	rawImageFile string
-
-	// output image
-	outputImageFormat imagecustomizerapi.ImageFormatType
-	outputIsIso       bool
-	outputIsPxe       bool
-	outputImageFile   string
-	outputImageDir    string
-
-	imageUuid    [randomization.UuidSize]byte
-	imageUuidStr string
-
 	baseImageVerityMetadata []verityDeviceMetadata
 	verityMetadata          []verityDeviceMetadata
 
@@ -165,71 +125,7 @@ func createImageCustomizerParameters(ctx context.Context, configPath string, con
 
 	ic := &ImageCustomizerParameters{}
 
-	// working directories
-	buildDirAbs, err := filepath.Abs(options.BuildDir)
-	if err != nil {
-		return nil, err
-	}
-
-	ic.buildDirAbs = buildDirAbs
-
-	// input image
-	ic.inputImageFile = options.InputImageFile
-	if ic.inputImageFile == "" && config.Input.Image.Path != "" {
-		ic.inputImageFile = file.GetAbsPathWithBase(configPath, config.Input.Image.Path)
-	}
-
-	ic.inputImageFormat = strings.TrimLeft(filepath.Ext(ic.inputImageFile), ".")
-	ic.inputIsIso = ic.inputImageFormat == string(imagecustomizerapi.ImageFormatTypeIso)
-
-	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := randomization.CreateUuid()
-	if err != nil {
-		return nil, err
-	}
-	ic.imageUuid = imageUuid
-	ic.imageUuidStr = imageUuidStr
-
-	// configuration
-	ic.configPath = configPath
-	ic.config = config
-	ic.customizeOSPartitions = config.CustomizePartitions() || config.OS != nil ||
-		len(config.Scripts.PostCustomization) > 0 ||
-		len(config.Scripts.FinalizeCustomization) > 0
-
-	ic.useBaseImageRpmRepos = options.UseBaseImageRpmRepos
-	ic.rpmsSources = options.RpmsSources
-
-	err = ValidateRpmSources(options.RpmsSources)
-	if err != nil {
-		return nil, err
-	}
-
-	// intermediate writeable image
-	ic.rawImageFile = filepath.Join(buildDirAbs, BaseImageName)
-
-	// output image
-	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
-	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, options.OutputImageFormat, err)
-	}
-
-	if ic.outputImageFormat == "" {
-		ic.outputImageFormat = config.Output.Image.Format
-	}
-
-	ic.outputImageFile = options.OutputImageFile
-	if ic.outputImageFile == "" && config.Output.Image.Path != "" {
-		ic.outputImageFile = file.GetAbsPathWithBase(configPath, config.Output.Image.Path)
-	}
-
-	ic.outputImageDir = filepath.Dir(ic.outputImageFile)
-	ic.outputIsIso = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypeIso
-	ic.outputIsPxe = ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxeDir ||
-		ic.outputImageFormat == imagecustomizerapi.ImageFormatTypePxeTar
-
 	if ic.inputIsIso {
-
 		// While re-creating a disk image from the iso is technically possible,
 		// we are choosing to not implement it until there is a need.
 		if !ic.outputIsIso && !ic.outputIsPxe {
@@ -244,8 +140,6 @@ func createImageCustomizerParameters(ctx context.Context, configPath string, con
 		}
 	}
 
-	ic.packageSnapshotTime = options.PackageSnapshotTime
-
 	return ic, nil
 }
 
@@ -258,9 +152,9 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
 		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    outputImageFormat,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  packageSnapshotTime,
+		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 	})
 }
 
@@ -307,9 +201,9 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
 		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    outputImageFormat,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  packageSnapshotTime,
+		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 	})
 }
 
@@ -337,7 +231,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		span.End()
 	}()
 
-	err = ValidateConfig(ctx, baseConfigPath, config, false, options)
+	resolvedConfig, err := ResolveAndValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -370,7 +264,8 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		return err
 	}
 
-	err = os.MkdirAll(imageCustomizerParameters.outputImageDir, os.ModePerm)
+	outputImageDir := filepath.Dir(imageCustomizerParameters.outputImageFile)
+	err = os.MkdirAll(outputImageDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -443,9 +338,6 @@ func convertInputImageToWriteableFormat(ctx context.Context, ic *ImageCustomizer
 	logger.Log.Infof("Converting input image to a writeable format")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "input_image_conversion")
-	span.SetAttributes(
-		attribute.String("input_image_format", ic.inputImageFormat),
-	)
 	defer span.End()
 
 	if ic.inputIsIso {
