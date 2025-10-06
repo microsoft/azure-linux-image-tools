@@ -38,6 +38,7 @@ var (
 	ErrInvalidSSHPublicKeyFile        = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
 	ErrSSHPublicKeyNotFile            = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
 	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
+	ErrUnsupportedFedoraFeature       = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
 )
 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, newImage bool,
@@ -314,6 +315,12 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature) error {
 	if snapshotTime != "" && !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
 		return ErrPackageSnapshotPreviewRequired
+	}
+
+	// snapshot time for fedora-42 images is not supported
+	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+		return fmt.Errorf("%w\n'%s' feature is not supported with '%s' feature",
+			ErrUnsupportedFedoraFeature, imagecustomizerapi.PreviewFeaturePackageSnapshotTime, imagecustomizerapi.PreviewFeatureFedora42)
 	}
 
 	if err := imagecustomizerapi.PackageSnapshotTime(snapshotTime).IsValid(); err != nil {
