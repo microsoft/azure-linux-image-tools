@@ -1,98 +1,79 @@
-package imagecustomizerlib_test
+package imagecustomizerlib
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestBaseConfigsInput(t *testing.T) {
-	base := &imagecustomizerapi.Config{
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: "base-image-1.vhdx",
-			},
-		},
+func TestBaseConfigsInputAndOutput(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "current-config.yaml")
+
+	options := ImageCustomizerOptions{
+		BuildDir:       buildDir,
+		InputImageFile: currentConfigFile,
 	}
 
-	current := &imagecustomizerapi.Config{
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: "base-image-2.vhdx",
-			},
-		},
-	}
+	var config imagecustomizerapi.Config
 
-	chain := []*imagecustomizerapi.Config{base, current}
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
 
-	resolved := imagecustomizerlib.NewResolvedConfig(chain)
+	baseConfigPath, _ := filepath.Split(currentConfigFile)
 
-	if resolved.InputImagePath != "base-image-2.vhdx" {
-		t.Errorf("expected input image path is base-image-2.vhdx, got %s", resolved.InputImagePath)
-	}
-}
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	assert.NoError(t, err)
 
-func TestBaseConfigsOutput(t *testing.T) {
-	base := &imagecustomizerapi.Config{
-		Output: imagecustomizerapi.Output{
-			Image: imagecustomizerapi.OutputImage{
-				Path: "output-image-1.vhdx",
-			},
-			Artifacts: &imagecustomizerapi.Artifacts{
-				Path: "./artifacts-1",
-				Items: []imagecustomizerapi.OutputArtifactsItemType{
-					imagecustomizerapi.OutputArtifactsItemUkis,
-				},
-			},
-		},
-	}
+	resolvedConfig, err := ResolveBaseConfigs(t.Context(), &config, absBaseConfigPath, options)
+	assert.NoError(t, err)
 
-	current := &imagecustomizerapi.Config{
-		Output: imagecustomizerapi.Output{
-			Image: imagecustomizerapi.OutputImage{
-				Path: "output-image-2.vhdx",
-			},
-			Artifacts: &imagecustomizerapi.Artifacts{
-				Path: "./artifacts-2",
-				Items: []imagecustomizerapi.OutputArtifactsItemType{
-					imagecustomizerapi.OutputArtifactsItemShim,
-				},
-			},
-		},
-	}
-
-	chain := []*imagecustomizerapi.Config{base, current}
-
-	resolved := imagecustomizerlib.NewResolvedConfig(chain)
-
-	if resolved.OutputImagePath != "output-image-2.vhdx" {
-		t.Errorf("expected output path is output-image-2.vhdx, got %s", resolved.OutputImagePath)
-	}
-
-	if resolved.OutputArtifactsPath != "./artifacts-2" {
-		t.Errorf("expected artifacts path is ./artifacts-2, got %s", resolved.OutputArtifactsPath)
-	}
+	assert.Equal(t, 2, len(resolvedConfig.InheritanceChain))
+	assert.Equal(t, ".testimages/input-image-2.vhdx", resolvedConfig.InputImagePath)
+	assert.Equal(t, "./out/output-image-2.vhdx", resolvedConfig.OutputImagePath)
+	assert.Equal(t, "./artifacts-2", resolvedConfig.OutputArtifactsPath)
+	assert.Equal(t, "testname", config.OS.Hostname)
 
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
 		imagecustomizerapi.OutputArtifactsItemUkis,
 		imagecustomizerapi.OutputArtifactsItemShim,
 	}
-	got := resolved.OutputArtifactsItems
-	if len(got) != len(expectedItems) {
-		t.Errorf("expected output artifacts length is %d, got %d", len(expectedItems), len(got))
-	}
+	actual := resolvedConfig.OutputArtifactsItems
+	assert.Equal(t, len(expectedItems), len(actual))
 
 	for _, item := range expectedItems {
-		found := false
-		for _, g := range got {
-			if g == item {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected artifact item %q not found in result: %v", item, got)
-		}
+		assert.Containsf(t, actual, item, "expected output artifact item %q not found in resolved config: %v", item, actual)
 	}
+}
+
+func TestBaseConfigsMalformed(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestBaseConfigsMalformed")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "current-config-malformed.yaml")
+
+	options := ImageCustomizerOptions{
+		BuildDir:       buildDir,
+		InputImageFile: currentConfigFile,
+	}
+
+	var config imagecustomizerapi.Config
+
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	baseConfigPath, _ := filepath.Split(currentConfigFile)
+
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	assert.NoError(t, err)
+
+	_, err = ResolveBaseConfigs(t.Context(), &config, absBaseConfigPath, options)
+	assert.ErrorContains(t, err, ErrInvalidImageConfig.Error())
 }

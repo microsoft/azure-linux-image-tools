@@ -1,0 +1,5 @@
+previewFeatures:
+- base-configs
+
+baseConfigs:
+  - path: base-config-malformed.yaml

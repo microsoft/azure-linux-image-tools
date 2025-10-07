@@ -9,7 +9,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-func resolveBaseConfigs(ctx context.Context, cfg *imagecustomizerapi.Config, baseDir string, options ImageCustomizerOptions) (*ResolvedConfig, error) {
+func ResolveBaseConfigs(ctx context.Context, cfg *imagecustomizerapi.Config, baseDir string, options ImageCustomizerOptions) (*ResolvedConfig, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 

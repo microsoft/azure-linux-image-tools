@@ -296,7 +296,7 @@ func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string,
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
-	resolvedConfig, err := resolveBaseConfigs(ctx, &config, absBaseConfigPath, options)
+	resolvedConfig, err := ResolveBaseConfigs(ctx, &config, absBaseConfigPath, options)
 	if err != nil {
 		return fmt.Errorf("failed to resolve base configs:\n%w", err)
 	}
@@ -332,7 +332,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		PackageSnapshotTime:  packageSnapshotTime,
 	}
 
-	resolvedConfig, err := resolveBaseConfigs(ctx, config, baseConfigPath, options)
+	resolvedConfig, err := ResolveBaseConfigs(ctx, config, baseConfigPath, options)
 	if err != nil {
 		return fmt.Errorf("failed to resolve base configs:\n%w", err)
 	}

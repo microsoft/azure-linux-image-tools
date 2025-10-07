@@ -1,0 +1,22 @@
+previewFeatures:
+- output-artifacts
+- base-configs
+
+baseConfigs:
+  - path: base-config.yaml
+
+os:
+  hostname: testname
+
+input:
+  image:
+    path: .testimages/input-image-2.vhdx
+  
+output:
+  image:
+    path: ./out/output-image-2.vhdx
+    format: vhdx
+  artifacts:
+    items:
+    - shim
+    path: ./artifacts-2
