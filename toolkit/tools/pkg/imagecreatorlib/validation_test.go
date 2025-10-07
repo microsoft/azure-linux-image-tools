@@ -63,7 +63,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
 
-	toolsFile := filepath.Join(testDir, "tools.tar.gz")
+	toolsFile := filepath.Join(testTmpDir, "tools.tar.gz")
 	err = createDummyTarGz(toolsFile)
 	assert.NoError(t, err)
 	// just use the base config path as the RPM sources for this test
@@ -214,16 +214,22 @@ func TestValidateConfig_EmptyConfig(t *testing.T) {
 }
 
 func TestValidateConfig_EmptyPackagestoInstall(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestValidateConfig_EmptyPackagestoInstall")
+	defer os.RemoveAll(testTmpDir)
+
+	err := os.MkdirAll(testTmpDir, os.ModePerm)
+	assert.NoError(t, err)
+
 	configFile := filepath.Join(testDir, "minimal-os.yaml")
 	var config imagecustomizerapi.Config
-	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
+	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
 
 	rpmSources := []string{testDir} // Use the test directory as a dummy RPM source
 	outputImageFile := filepath.Join(testDir, "output.vhdx")
 	outputImageFormat := "vhdx"
 	packageSnapshotTime := ""
-	toolsFile := filepath.Join(testDir, "tools.tar.gz")
+	toolsFile := filepath.Join(testTmpDir, "tools.tar.gz")
 	err = createDummyTarGz(toolsFile)
 	assert.NoError(t, err)
 	// Set the packages to install to an empty slice
