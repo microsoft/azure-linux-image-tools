@@ -8,7 +8,7 @@ storage:
 
     - id: rootfs
       type: root
-      size: 1G
+      size: 10T
 
   bootType: efi
 
