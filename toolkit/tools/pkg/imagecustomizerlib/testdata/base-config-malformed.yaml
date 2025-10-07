@@ -1,0 +1,7 @@
+previewFeatures:
+- output-artifacts
+
+output:
+  artifacts:
+    items:
+    - ukis

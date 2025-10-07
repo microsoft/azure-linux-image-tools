@@ -144,6 +144,9 @@ type ImageCustomizerParameters struct {
 	osPackages           []OsPackage
 	cosiBootMetadata     *CosiBootloader
 	targetOS             targetos.TargetOs
+
+	// For future migration: fields to be read from resolvedConfig instead of config
+	resolvedConfig *ResolvedConfig
 }
 
 type verityDeviceMetadata struct {
@@ -158,12 +161,24 @@ type verityDeviceMetadata struct {
 }
 
 func createImageCustomizerParameters(ctx context.Context, configPath string, config *imagecustomizerapi.Config,
-	options ImageCustomizerOptions,
+	resolvedConfig *ResolvedConfig, options ImageCustomizerOptions,
 ) (*ImageCustomizerParameters, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_image_customizer_parameters")
 	defer span.End()
 
 	ic := &ImageCustomizerParameters{}
+
+	if len(config.BaseConfigs) > 0 {
+		config.Input.Image.Path = resolvedConfig.InputImagePath
+		config.Output.Image.Path = resolvedConfig.OutputImagePath
+		config.Output.Image.Format = resolvedConfig.OutputImageFormat
+
+		if config.Output.Artifacts == nil {
+			config.Output.Artifacts = &imagecustomizerapi.Artifacts{}
+		}
+		config.Output.Artifacts.Path = resolvedConfig.OutputArtifactsPath
+		config.Output.Artifacts.Items = resolvedConfig.OutputArtifactsItems
+	}
 
 	// working directories
 	buildDirAbs, err := filepath.Abs(options.BuildDir)
@@ -281,7 +296,12 @@ func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string,
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
-	err = CustomizeImageOptions(ctx, absBaseConfigPath, &config, options)
+	resolvedConfig, err := ResolveBaseConfigs(ctx, &config, absBaseConfigPath, options)
+	if err != nil {
+		return fmt.Errorf("failed to resolve base configs:\n%w", err)
+	}
+
+	err = CustomizeImageOptions(ctx, absBaseConfigPath, &config, resolvedConfig, options)
 	if err != nil {
 		return err
 	}
@@ -302,7 +322,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) (err error) {
-	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
@@ -310,11 +330,18 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		OutputImageFormat:    outputImageFormat,
 		UseBaseImageRpmRepos: useBaseImageRpmRepos,
 		PackageSnapshotTime:  packageSnapshotTime,
-	})
+	}
+
+	resolvedConfig, err := ResolveBaseConfigs(ctx, config, baseConfigPath, options)
+	if err != nil {
+		return fmt.Errorf("failed to resolve base configs:\n%w", err)
+	}
+
+	return CustomizeImageOptions(ctx, baseConfigPath, config, resolvedConfig, options)
 }
 
 func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	options ImageCustomizerOptions,
+	resolvedConfig *ResolvedConfig, options ImageCustomizerOptions,
 ) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
 	span.SetAttributes(
@@ -342,7 +369,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
 
-	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, baseConfigPath, config, options)
+	imageCustomizerParameters, err := createImageCustomizerParameters(ctx, baseConfigPath, config, resolvedConfig, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}

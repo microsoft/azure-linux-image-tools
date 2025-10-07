@@ -1,0 +1,15 @@
+previewFeatures:
+- output-artifacts
+
+input:
+  image:
+    path: .testimages/input-image-1.vhdx
+
+output:
+  image:
+    path: ./out/output-image-1.vhdx
+    format: vhdx
+  artifacts:
+    items:
+    - ukis
+    path: ./artifacts-1
