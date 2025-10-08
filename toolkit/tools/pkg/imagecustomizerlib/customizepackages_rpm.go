@@ -38,10 +38,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	// Setup distribution-specific configuration if needed
 	if pmHandler.supportsSnapshotTime() && snapshotTime != "" {
 		// Setup Azure Linux specific TDNF configuration with snapshot
-		err = createTempTdnfConfigWithSnapshot(
-			packageManagerChroot,
-			imagecustomizerapi.PackageSnapshotTime(snapshotTime),
-		)
+		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, snapshotTime)
 		if err != nil {
 			return err
 		}
