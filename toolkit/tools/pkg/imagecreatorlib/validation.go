@@ -66,22 +66,22 @@ func validateSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
 	return nil
 }
 
-func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string,
-	outputImageFile, outputImageFormat string, packageSnapshotTime string,
-) error {
+func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
+	toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string,
+) (*imagecustomizerlib.ResolvedConfig, error) {
 	err := validateSupportedFields(config)
 	if err != nil {
-		return fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
+		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
 	}
 
 	// Validate mandatory fields for creating a seed image
 	err = validateMandatoryFields(baseConfigPath, config, rpmsSources, toolsTar)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// TODO: Validate for distro and release
-	err = imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config, true,
+	rc, err := imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config, true,
 		imagecustomizerlib.ImageCustomizerOptions{
 			RpmsSources:         rpmsSources,
 			OutputImageFile:     outputImageFile,
@@ -89,14 +89,14 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 			PackageSnapshotTime: imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 		})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(config.OS.Packages.Install) == 0 {
-		return fmt.Errorf("no packages to install specified, please specify at least one package to install for a new image")
+		return nil, fmt.Errorf("no packages to install specified, please specify at least one package to install for a new image")
 	}
 
-	return nil
+	return rc, nil
 }
 
 func validateMandatoryFields(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string) error {
