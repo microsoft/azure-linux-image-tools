@@ -31,7 +31,7 @@ var (
 	ErrScriptFileNotReadable          = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
 	ErrNoRpmSourcesSpecified          = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
 	ErrOutputImageFileRequired        = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
-	ErrInvalidOutputImageFile         = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid image file path")
+	ErrInvalidOutputImageFile         = NewImageCustomizerError("Validation:InvalidOutputImageFile", "invalid image file path")
 	ErrOutputImageFileIsDirectory     = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
 	ErrOutputImageFormatRequired      = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
 	ErrInvalidUser                    = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
