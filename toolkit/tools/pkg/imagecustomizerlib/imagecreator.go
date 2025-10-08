@@ -41,7 +41,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, base
 	// Do the actual customizations.
 	err = doOsCustomizationsImageCreator(ctx, buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
 		useBaseImageRpmRepos, imageUuidStr,
-		partUuidToFstabEntry, packageSnapshotTime, distroHandler)
+		partUuidToFstabEntry, imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime), distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -80,7 +80,7 @@ func doOsCustomizationsImageCreator(
 	useBaseImageRpmRepos bool,
 	imageUuid string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry,
-	packageSnapshotTime string,
+	packageSnapshotTime imagecustomizerapi.PackageSnapshotTime,
 	distroHandler distroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()

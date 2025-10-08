@@ -85,8 +85,8 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		imagecustomizerlib.ImageCustomizerOptions{
 			RpmsSources:         rpmsSources,
 			OutputImageFile:     outputImageFile,
-			OutputImageFormat:   outputImageFormat,
-			PackageSnapshotTime: packageSnapshotTime,
+			OutputImageFormat:   imagecustomizerapi.ImageFormatType(outputImageFormat),
+			PackageSnapshotTime: imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 		})
 	if err != nil {
 		return err
