@@ -112,7 +112,7 @@ test-imagecreator-azurelinux:
 		--show-capture=all \
 		--tb=short \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		./vmtests/imagecreator/test_imagecreator.py
+		./vmtests/imagecreator/test_imagecreator_azurelinux.py
 
 .PHONY: test-imagecreator-fedora
 test-imagecreator-fedora:

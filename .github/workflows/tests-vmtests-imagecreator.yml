@@ -154,7 +154,6 @@ jobs:
         # Binary paths
         IMAGE_CREATOR_BIN="$TOOLKIT_DIR/out/tools/imagecreator"
         IMAGE_CUSTOMIZER_BIN="$TOOLKIT_DIR/out/tools/imagecustomizer"
-        SSH_KEY="~/.ssh/id_ed25519"
 
         # Function to run tests for a specific distro
         run_tests() {
@@ -166,7 +165,7 @@ jobs:
               TOOLS_TAR="$TESTRPMS_DIR/build/tools-$distro-$version.tar.gz" \
               RPM_SOURCES="$TESTRPMS_DIR/downloadedrpms/$distro/$version" \
               IMAGE_CUSTOMIZER_BINARY_PATH="$IMAGE_CUSTOMIZER_BIN" \
-              SSH_PRIVATE_KEY_FILE=$SSH_KEY
+              SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
         }
 
         pushd ./repo/test/vmtests

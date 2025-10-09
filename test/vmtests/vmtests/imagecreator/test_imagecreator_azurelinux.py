@@ -14,7 +14,7 @@ from .imagecreator_test_utils import IMAGECREATOR_TEST_CONFIGS_DIR, run_image_cr
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
-def test_create_image_efi_qcow_output_fedora(
+def test_create_image_efi_qcow_output_azurelinux(
     image_creator_binary_path: Path,
     rpm_sources: List[Path],
     tools_tar: Path,
@@ -26,11 +26,10 @@ def test_create_image_efi_qcow_output_fedora(
     close_list: List[Closeable],
     image_customizer_binary_path: Path,
 ) -> None:
-    config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora.yaml")
+    config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("minimal-os.yaml")
     output_format = "qcow2"
-
     # debug message
-    logging.debug("Running test_create_image_efi_qcow_output_fedora")
+    logging.debug("Running test_create_image_efi_qcow_output_azurelinux")
 
     run_image_creator_test(
         image_creator_binary_path,
@@ -45,6 +44,6 @@ def test_create_image_efi_qcow_output_fedora(
         libvirt_conn,
         close_list,
         image_customizer_binary_path,
-        "fedora",
-        "42",
+        "azurelinux",
+        "3.0",
     )
