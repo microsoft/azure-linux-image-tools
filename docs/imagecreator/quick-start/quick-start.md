@@ -118,6 +118,8 @@ nav_order: 1
     sudo ./imagecreator \
       --build-dir ./build \
       --tools-file <tools-file.tar.gz> \
+      --distro azurelinux \
+      --distro-version 3.0 \
       --rpm-source azure-linux-rpms.repo \
       --output-image-file ./out/image.vhdx \
       --output-image-format vhdx \
