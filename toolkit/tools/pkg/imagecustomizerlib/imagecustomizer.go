@@ -96,16 +96,6 @@ const (
 // The value of this string is inserted during compilation via a linker flag.
 var ToolVersion = ""
 
-type ImageCustomizerOptions struct {
-	BuildDir             string
-	InputImageFile       string
-	RpmsSources          []string
-	OutputImageFile      string
-	OutputImageFormat    string
-	UseBaseImageRpmRepos bool
-	PackageSnapshotTime  string
-}
-
 type ImageCustomizerParameters struct {
 	// build dirs
 	buildDirAbs string
@@ -121,7 +111,7 @@ type ImageCustomizerParameters struct {
 	customizeOSPartitions bool
 	useBaseImageRpmRepos  bool
 	rpmsSources           []string
-	packageSnapshotTime   string
+	packageSnapshotTime   imagecustomizerapi.PackageSnapshotTime
 
 	// intermediate writeable image
 	rawImageFile string
@@ -210,10 +200,6 @@ func createImageCustomizerParameters(ctx context.Context, configPath string, con
 
 	// output image
 	ic.outputImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
-	if err := ic.outputImageFormat.IsValid(); err != nil {
-		return nil, fmt.Errorf("%w (format='%s'):\n%w", ErrInvalidOutputFormat, options.OutputImageFormat, err)
-	}
-
 	if ic.outputImageFormat == "" {
 		ic.outputImageFormat = config.Output.Image.Format
 	}
@@ -258,9 +244,9 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
 		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    outputImageFormat,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  packageSnapshotTime,
+		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 	})
 }
 
@@ -307,9 +293,9 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
 		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    outputImageFormat,
+		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  packageSnapshotTime,
+		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 	})
 }
 
@@ -786,7 +772,8 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 
 func customizeImageHelper(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool, partitionsCustomized bool,
-	imageUuidStr string, packageSnapshotTime string, outputImageFormatType imagecustomizerapi.ImageFormatType, targetOS targetos.TargetOs,
+	imageUuidStr string, packageSnapshotTime imagecustomizerapi.PackageSnapshotTime,
+	outputImageFormatType imagecustomizerapi.ImageFormatType, targetOS targetos.TargetOs,
 ) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 

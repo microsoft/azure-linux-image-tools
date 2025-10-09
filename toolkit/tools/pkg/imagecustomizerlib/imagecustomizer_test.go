@@ -180,7 +180,7 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	options := ImageCustomizerOptions{
 		InputImageFile:    inputImageFileReal,
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: filepath.Ext(outputImageFile)[1:],
+		OutputImageFormat: imagecustomizerapi.ImageFormatType(filepath.Ext(outputImageFile)[1:]),
 	}
 
 	// The input image file can be specified as an argument without being specified in the config.
@@ -344,7 +344,7 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 		},
 	}
 	options := ImageCustomizerOptions{
-		OutputImageFormat: string(imagecustomizerapi.ImageFormatTypeNone),
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeNone,
 	}
 
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
@@ -398,7 +398,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileNew
-	options.OutputImageFormat = filepath.Ext(options.OutputImageFile)[1:]
+	options.OutputImageFormat = imagecustomizerapi.ImageFormatType(filepath.Ext(options.OutputImageFile)[1:])
 
 	// The output image file can be sepcified as an argument without being in specified the config.
 	err = ValidateConfig(t.Context(), baseConfigPath, config, false, options)
@@ -983,7 +983,7 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 
 	// Pass the output image format only as an argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
-	options.OutputImageFormat = outputImageFormatAsArg
+	options.OutputImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormatAsArg)
 
 	// The output image file should be set to the value passed as an
 	// argument.

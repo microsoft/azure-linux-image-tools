@@ -30,13 +30,14 @@ var (
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
 func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, distroHandler distroHandler, snapshotTime string,
+	rpmsSources []string, useBaseImageRpmRepos bool, distroHandler distroHandler,
+	snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
 	defer span.End()
 
 	if snapshotTime == "" {
-		snapshotTime = string(config.Packages.SnapshotTime)
+		snapshotTime = config.Packages.SnapshotTime
 	}
 
 	// Delegate the entire package management workflow to the distribution-specific implementation

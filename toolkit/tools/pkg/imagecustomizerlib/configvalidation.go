@@ -47,7 +47,12 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
-	err := config.IsValid()
+	err := options.IsValid()
+	if err != nil {
+		return err
+	}
+
+	err = config.IsValid()
 	if err != nil {
 		return err
 	}
@@ -256,13 +261,15 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, outputImageFile, outputImageFormat string) error {
+func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, outputImageFile string,
+	outputImageFormat imagecustomizerapi.ImageFormatType,
+) error {
 	if outputImageFile == "" && output.Image.Path == "" {
 		return ErrOutputImageFileRequired
 	}
 
 	// Pxe output format allows the output to be a path.
-	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxeDir && outputImageFormat != string(imagecustomizerapi.ImageFormatTypePxeDir) {
+	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxeDir && outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 		if outputImageFile != "" {
 			if isDir, err := file.DirExists(outputImageFile); err != nil {
 				return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, outputImageFile, err)
@@ -312,7 +319,9 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	return nil
 }
 
-func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature) error {
+func validateSnapshotTimeInput(snapshotTime imagecustomizerapi.PackageSnapshotTime,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
+) error {
 	if snapshotTime != "" && !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
 		return ErrPackageSnapshotPreviewRequired
 	}
@@ -321,10 +330,6 @@ func validateSnapshotTimeInput(snapshotTime string, previewFeatures []imagecusto
 	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
 		return fmt.Errorf("%w\n'%s' feature is not supported with '%s' feature",
 			ErrUnsupportedFedoraFeature, imagecustomizerapi.PreviewFeaturePackageSnapshotTime, imagecustomizerapi.PreviewFeatureFedora42)
-	}
-
-	if err := imagecustomizerapi.PackageSnapshotTime(snapshotTime).IsValid(); err != nil {
-		return fmt.Errorf("%w (time='%s'):\n%w", ErrInvalidPackageSnapshotTime, snapshotTime, err)
 	}
 
 	return nil

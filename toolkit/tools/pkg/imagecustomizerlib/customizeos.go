@@ -20,7 +20,7 @@ func doOsCustomizations(
 	ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	imageConnection *imageconnection.ImageConnection, rpmsSources []string, useBaseImageRpmRepos bool,
 	partitionsCustomized bool, imageUuid string, partUuidToFstabEntry map[string]diskutils.FstabEntry,
-	packageSnapshotTime string, distroHandler distroHandler,
+	packageSnapshotTime imagecustomizerapi.PackageSnapshotTime, distroHandler distroHandler,
 ) error {
 	var err error
 
