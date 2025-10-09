@@ -12,22 +12,31 @@ import (
 
 func TestValidateSnapshotTimeInput(t *testing.T) {
 	// Test both features - should fail as they are incompatible
-	previewFeatures := []imagecustomizerapi.PreviewFeature{
-		imagecustomizerapi.PreviewFeaturePackageSnapshotTime,
-		imagecustomizerapi.PreviewFeatureFedora42,
+	config := &imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeaturePackageSnapshotTime,
+			imagecustomizerapi.PreviewFeatureFedora42,
+		},
 	}
 
-	err := validateSnapshotTimeInput("2023-10-10T10:10:10Z", previewFeatures)
+	_, err := validatePackageSnapshotTime(imagecustomizerapi.PackageSnapshotTime("2023-10-10T10:10:10Z"), config)
 	assert.ErrorIs(t, err, ErrUnsupportedFedoraFeature)
+
 	// Test with no preview features enabled
-	err = validateSnapshotTimeInput("2023-10-10T10:10:10Z", []imagecustomizerapi.PreviewFeature{})
+	config.PreviewFeatures = nil
+
+	_, err = validatePackageSnapshotTime("2023-10-10T10:10:10Z", config)
 	assert.ErrorIs(t, err, ErrPackageSnapshotPreviewRequired)
 
 	// Test with only package-snapshot-time feature - should succeed
-	err = validateSnapshotTimeInput("2023-10-10T10:10:10Z", []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeaturePackageSnapshotTime})
+	config.PreviewFeatures = []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeaturePackageSnapshotTime}
+
+	_, err = validatePackageSnapshotTime("2023-10-10T10:10:10Z", config)
 	assert.NoError(t, err)
 
 	// Test with only fedora-42 feature - should fail with preview required error
-	err = validateSnapshotTimeInput("2023-10-10T10:10:10Z", []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureFedora42})
+	config.PreviewFeatures = []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureFedora42}
+
+	_, err = validatePackageSnapshotTime("2023-10-10T10:10:10Z", config)
 	assert.ErrorIs(t, err, ErrPackageSnapshotPreviewRequired)
 }
