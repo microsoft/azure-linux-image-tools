@@ -92,23 +92,24 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 }
 
 func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) error {
-	if inputImageFile == "" && input.Image.Path == "" {
-		return ErrInputImageFileRequired
-	}
-
-	if inputImageFile != "" {
+	switch {
+	case inputImageFile != "":
 		if yes, err := file.IsFile(inputImageFile); err != nil {
 			return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
 			return fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
-	} else {
+
+	case input.Image.Path != "":
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
 		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
 			return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
 		} else if !yes {
 			return fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
 		}
+
+	default:
+		return ErrInputImageFileRequired
 	}
 
 	return nil
@@ -261,22 +262,35 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, outputImageFile string,
-	outputImageFormat imagecustomizerapi.ImageFormatType,
+func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, cliOutputImageFile string,
+	cliOutputImageFormat imagecustomizerapi.ImageFormatType,
 ) error {
-	if outputImageFile == "" && output.Image.Path == "" {
-		return ErrOutputImageFileRequired
+	outputImageFormat := imagecustomizerapi.ImageFormatTypeNone
+	switch {
+	case cliOutputImageFormat != "":
+		outputImageFormat = cliOutputImageFormat
+
+	case output.Image.Format != "":
+		outputImageFormat = output.Image.Format
+
+	default:
+		return ErrOutputImageFormatRequired
 	}
 
-	// Pxe output format allows the output to be a path.
-	if output.Image.Format != imagecustomizerapi.ImageFormatTypePxeDir && outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
-		if outputImageFile != "" {
-			if isDir, err := file.DirExists(outputImageFile); err != nil {
-				return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, outputImageFile, err)
+	switch {
+	case cliOutputImageFile != "":
+		// PXE output format allows the output to be a directory.
+		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
+				return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
 			} else if isDir {
-				return fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, outputImageFile)
+				return fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
 			}
-		} else {
+		}
+
+	case output.Image.Path != "":
+		// PXE output format allows the output to be a directory.
+		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 			outputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
 			if isDir, err := file.DirExists(outputImageAbsPath); err != nil {
 				return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputImageFileConfig, output.Image.Path, err)
@@ -284,10 +298,9 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, out
 				return fmt.Errorf("%w (path='%s')", ErrOutputImageFileIsDirectory, output.Image.Path)
 			}
 		}
-	}
 
-	if outputImageFormat == "" && output.Image.Format == imagecustomizerapi.ImageFormatTypeNone {
-		return ErrOutputImageFormatRequired
+	default:
+		return ErrOutputImageFileRequired
 	}
 
 	return nil
