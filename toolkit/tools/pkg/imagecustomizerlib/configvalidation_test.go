@@ -30,4 +30,7 @@ func TestValidateSnapshotTimeInput(t *testing.T) {
 	// Test with only fedora-42 feature - should fail with preview required error
 	err = validateSnapshotTimeInput("2023-10-10T10:10:10Z", []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureFedora42})
 	assert.ErrorIs(t, err, ErrPackageSnapshotPreviewRequired)
+
+	err = validateSnapshotTimeInput("", previewFeatures[1:])
+	assert.NoError(t, err)
 }

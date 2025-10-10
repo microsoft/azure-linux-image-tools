@@ -945,6 +945,10 @@ func validateTargetOs(ctx context.Context, buildDir string, buildImageFile strin
 		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
 			return targetOs, ErrFedora42PreviewFeatureRequired
 		}
+		if config.OS.Packages.SnapshotTime != "" {
+			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting: %w\n", ErrUnsupportedFedoraFeature)
+		}
+
 	}
 
 	return targetOs, nil
