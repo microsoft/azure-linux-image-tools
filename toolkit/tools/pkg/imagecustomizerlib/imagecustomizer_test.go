@@ -811,8 +811,8 @@ func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
 	checkFileType(t, outputImageFile, outputImageFormatAsArg)
 }
 
-func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_InputImageFileSelection")
+func TestCreateResolvedConfig_InputImageFileSelection(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCreateResolvedConfig_InputImageFileSelection")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -848,46 +848,46 @@ func TestCreateImageCustomizerParameters_InputImageFileSelection(t *testing.T) {
 	}
 
 	// The input image file should be set to the value in the config.
-	ic, err := createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err := createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.inputImageFile, inputImageFileAsConfig)
-	assert.Equal(t, ic.inputImageFormat, "vhdx")
-	assert.False(t, ic.inputIsIso)
+	assert.Equal(t, rc.InputImageFile, inputImageFileAsConfig)
+	assert.Equal(t, rc.InputFileExt(), "vhdx")
+	assert.False(t, rc.InputIsIso())
 
 	// Pass the input image file only as an argument.
 	config.Input.Image.Path = ""
 	options.InputImageFile = inputImageFileAsArg
 
 	// The input image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
-	assert.Equal(t, ic.inputImageFormat, "vhdx")
-	assert.False(t, ic.inputIsIso)
+	assert.Equal(t, rc.InputImageFile, inputImageFileAsArg)
+	assert.Equal(t, rc.InputFileExt(), "vhdx")
+	assert.False(t, rc.InputIsIso())
 
 	// Pass the input image file in both the config and as an argument.
 	config.Input.Image.Path = inputImageFileAsConfig
 
 	// The input image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.inputImageFile, inputImageFileAsArg)
-	assert.Equal(t, ic.inputImageFormat, "vhdx")
-	assert.False(t, ic.inputIsIso)
+	assert.Equal(t, rc.InputImageFile, inputImageFileAsArg)
+	assert.Equal(t, rc.InputFileExt(), "vhdx")
+	assert.False(t, rc.InputIsIso())
 
 	// Pass in an ISO to test that inputIsIso is set correctly.
 	options.InputImageFile = inputImageFileIsoAsArg
 	options.OutputImageFormat = "iso"
 	options.OutputImageFile = "out/image.iso"
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.inputImageFile, inputImageFileIsoAsArg)
-	assert.Equal(t, ic.inputImageFormat, "iso")
-	assert.True(t, ic.inputIsIso)
+	assert.Equal(t, rc.InputImageFile, inputImageFileIsoAsArg)
+	assert.Equal(t, rc.InputFileExt(), "iso")
+	assert.True(t, rc.InputIsIso())
 }
 
-func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFileSelection")
+func TestCreateResolvedConfig_OutputImageFileSelection(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCreateResolvedConfig_OutputImageFileSelection")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -910,42 +910,39 @@ func TestCreateImageCustomizerParameters_OutputImageFileSelection(t *testing.T) 
 	}
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
-	ic, err := createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err := createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFile, "")
+	assert.Equal(t, rc.OutputImageFile, "")
 
 	// Pass the output image file only in the config.
 	config.Output.Image.Path = outputImageFilePathAsConfig
 
 	// The output image file should be set to the value in the config.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsConfig)
-	assert.Equal(t, ic.outputImageDir, testTmpDir)
+	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsConfig)
 
 	// Pass the output image file only as an argument.
 	config.Output.Image.Path = ""
 	options.OutputImageFile = outputImageFilePathAsArg
 
 	// The output image file should be set to the value passed as an argument.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
-	assert.Equal(t, ic.outputImageDir, testTmpDir)
+	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsArg)
 
 	// Pass the output image file in both the config and as an argument.
 	config.Output.Image.Path = outputImageFilePathAsConfig
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFile, outputImageFilePathAsArg)
-	assert.Equal(t, ic.outputImageDir, testTmpDir)
+	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsArg)
 }
 
-func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageCustomizerParameters_OutputImageFormatSelection")
+func TestCreateResolvedConfig_OutputImageFormatSelection(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestCreateResolvedConfig_OutputImageFormatSelection")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -969,17 +966,17 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 
 	// The output image format is not specified in the config or as an
 	// argument, so the output image format will be empty.
-	ic, err := createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err := createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatTypeNone)
+	assert.Equal(t, rc.OutputImageFormat, imagecustomizerapi.ImageFormatTypeNone)
 
 	// Pass the output image format only in the config.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
 
 	// The output image file should be set to the value in the config.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig))
+	assert.Equal(t, rc.OutputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig))
 
 	// Pass the output image format only as an argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeNone
@@ -987,18 +984,18 @@ func TestCreateImageCustomizerParameters_OutputImageFormatSelection(t *testing.T
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
+	assert.Equal(t, rc.OutputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 
 	// Pass the output image file in both the config and as an argument.
 	config.Output.Image.Format = imagecustomizerapi.ImageFormatType(outputImageFormatAsConfig)
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	ic, err = createImageCustomizerParameters(t.Context(), configPath, config, options)
+	rc, err = createResolvedConfig(t.Context(), configPath, config, options)
 	assert.NoError(t, err)
-	assert.Equal(t, ic.outputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
+	assert.Equal(t, rc.OutputImageFormat, imagecustomizerapi.ImageFormatType(outputImageFormatAsArg))
 }
 
 func TestConvertImageToRawFromVhdCurrentSize(t *testing.T) {
