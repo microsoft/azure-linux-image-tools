@@ -27,7 +27,7 @@ Examples of commands to avoid:
 - `modprobe`
 - `sysctl`
 
-Instead, you should you make use of config files that set the runtime kernel settings
+Instead, you should make use of config files that set the runtime kernel settings
 during OS boot.
 
 Example config directories to use instead:
