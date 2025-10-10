@@ -27,8 +27,8 @@ type ImageCreatorCmd struct {
 	ToolsTar          string   `name:"tools-file" help:"Path to tdnf/dnf worker tarball" required:""`
 	OutputImageFile   string   `name:"output-image-file" help:"Path to write the customized image to."`
 	OutputImageFormat string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw)" help:"Format of output image." enum:"${imageformat}" default:""`
-	Distro            string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" default:"azurelinux"`
-	DistroVersion     string   `name:"distro-version" help:"Target distribution version (e.g., 3.0 for Azure Linux, 42 for Fedora)." default:""`
+	Distro            string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" required:""`
+	DistroVersion     string   `name:"distro-version" help:"Target distribution version (e.g., 3.0 for Azure Linux, 42 for Fedora)." required:""`
 	exekong.LogFlags
 	PackageSnapshotTime string `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 }
@@ -54,9 +54,13 @@ func main() {
 
 	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
 
+	distro := imagecreatorlib.Distribution{
+		Name:    cli.Distro,
+		Version: cli.DistroVersion,
+	}
+
 	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cli.BuildDir, cli.ConfigFile, cli.RpmSources,
-		cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, cli.Distro, cli.DistroVersion,
-		cli.PackageSnapshotTime)
+		cli.ToolsTar, cli.OutputImageFile, cli.OutputImageFormat, distro, cli.PackageSnapshotTime)
 	if err != nil {
 		log.Fatalf("image creation failed:\n%v", err)
 	}
