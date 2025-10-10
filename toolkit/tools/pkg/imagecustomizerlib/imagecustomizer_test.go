@@ -344,7 +344,7 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 		},
 	}
 	options := ImageCustomizerOptions{
-		OutputImageFormat: imagecustomizerapi.ImageFormatTypeNone,
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeQcow2,
 	}
 
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
