@@ -340,7 +340,7 @@ func validateSnapshotTimeInput(snapshotTime imagecustomizerapi.PackageSnapshotTi
 	}
 
 	// snapshot time for fedora-42 images is not supported
-	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) && slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
 		return fmt.Errorf("%w\n'%s' feature is not supported with '%s' feature",
 			ErrUnsupportedFedoraFeature, imagecustomizerapi.PreviewFeaturePackageSnapshotTime, imagecustomizerapi.PreviewFeatureFedora42)
 	}
