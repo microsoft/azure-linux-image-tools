@@ -224,7 +224,8 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	}()
 
 	if rc.InputImageOci != nil {
-		ociDownloadDir, ociImageFile, err := downloadOciImage(ctx, *rc.InputImageOci, options.BuildDir)
+		ociDownloadDir, ociImageFile, err := downloadOciImage(ctx, *rc.InputImageOci, options.BuildDir,
+			options.ImageCacheDir)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeDownloadImage, err)
 		}

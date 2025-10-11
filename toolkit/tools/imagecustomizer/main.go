@@ -29,6 +29,7 @@ type CustomizeCmd struct {
 	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
 	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
 	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
+	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
 }
 
 type InjectFilesCmd struct {
@@ -122,6 +123,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
 			UseBaseImageRpmRepos: !cmd.DisableBaseImageRpmRepos,
 			PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
+			ImageCacheDir:        cmd.ImageCacheDir,
 		})
 	if err != nil {
 		return err
