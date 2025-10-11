@@ -1,0 +1,41 @@
+previewFeatures:
+- input-image-oci
+
+input:
+  image:
+    oci:
+      uri: mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest
+      platform: linux/amd64
+
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      size: 1G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+    - cloud-init

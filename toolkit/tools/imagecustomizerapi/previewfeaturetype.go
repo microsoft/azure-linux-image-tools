@@ -28,12 +28,15 @@ const (
 
 	// PreviewFeatureFedora42 enables support for Fedora 42 images.
 	PreviewFeatureFedora42 PreviewFeature = "fedora-42"
+
+	// PreviewFeatureInputImageOci enables support for download OCI images.
+	PreviewFeatureInputImageOci PreviewFeature = "input-image-oci"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42:
+		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureInputImageOci:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

@@ -47,6 +47,7 @@ var (
 	ErrCustomizeProvisionVerity = NewImageCustomizerError("Customizer:ProvisionVerity", "failed to provision verity")
 	ErrCustomizeCreateUkis      = NewImageCustomizerError("Customizer:CreateUkis", "failed to create UKIs")
 	ErrCustomizeOutputArtifacts = NewImageCustomizerError("Customizer:OutputArtifacts", "failed to output artifacts")
+	ErrCustomizeDownloadImage   = NewImageCustomizerError("Customizer:DownloadImage", "failed to download image")
 
 	// Image conversion errors
 	ErrConvertInputImage       = NewImageCustomizerError("ImageConversion:ConvertInput", "failed to convert input image to a raw image")
@@ -221,6 +222,21 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 			}
 		}
 	}()
+
+	if rc.InputImageOci != nil {
+		ociDownloadDir, ociImageFile, err := downloadOciImage(ctx, *rc.InputImageOci, options.BuildDir)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrCustomizeDownloadImage, err)
+		}
+		defer os.RemoveAll(ociDownloadDir)
+
+		rc.InputImageFile = ociImageFile
+	}
+
+	err = ValidateConfigPostImageDownload(rc)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
+	}
 
 	err = CheckEnvironmentVars()
 	if err != nil {
