@@ -123,6 +123,11 @@ func (c *Config) IsValid() (err error) {
 		return fmt.Errorf("the 'reinitialize-verity' preview feature must be enabled to use 'storage.reinitializeVerity'")
 	}
 
+	if c.Input.Image.Oci != nil &&
+		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureInputImageOci) {
+		return fmt.Errorf("the 'input-image-oci' preview feature must be enabled to use 'input.image.oci'")
+	}
+
 	return nil
 }
 
