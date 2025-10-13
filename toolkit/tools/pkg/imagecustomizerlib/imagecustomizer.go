@@ -521,7 +521,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	// we could support those functions for input isos, we are choosing to
 	// not support them until there is an actual need/a future time.
 	// We explicitly inform the user of the lack of support earlier during
-	// mic parameter validation (see createImageCustomizerParameters()).
+	// mic parameter validation (see createResolvedConfig()).
 	if !rc.CustomizeOSPartitions && rc.InputIsIso() {
 		return im, nil
 	}
