@@ -36,10 +36,6 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "configure_packages")
 	defer span.End()
 
-	if snapshotTime == "" {
-		snapshotTime = config.Packages.SnapshotTime
-	}
-
 	// Delegate the entire package management workflow to the distribution-specific implementation
 	return distroHandler.managePackages(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot,
 		rpmsSources, useBaseImageRpmRepos, snapshotTime)
