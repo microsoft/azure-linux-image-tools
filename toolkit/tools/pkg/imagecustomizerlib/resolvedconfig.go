@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 )
 
+// ResolvedConfig contains the final image configuration, including the merged CLI and config values.
 type ResolvedConfig struct {
 	// Configurations
 	BaseConfigPath        string

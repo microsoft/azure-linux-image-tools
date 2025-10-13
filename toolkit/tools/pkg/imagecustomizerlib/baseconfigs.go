@@ -18,11 +18,7 @@ func ResolveBaseConfigs(ctx context.Context, config *imagecustomizerapi.Config, 
 		return nil, err
 	}
 
-	rc := &ResolvedConfig{
-		BaseConfigPath: baseConfigPath,
-		Config:         config,
-		Options:        options,
-	}
+	rc := &ResolvedConfig{}
 
 	resolveOverrideFields(configChain, rc)
 	resolveMergeFields(configChain, rc)
@@ -94,7 +90,6 @@ func resolveOverrideFields(chain []*imagecustomizerapi.Config, target *ResolvedC
 		target.Config.Output = imagecustomizerapi.Output{}
 	}
 
-	fmt.Println("ffffffffffffffffff", chain[0].Input.Image.Path, chain[1].Output.Image.Path)
 	for _, config := range chain {
 		// .input.image.path
 		if config.Input.Image.Path != "" {

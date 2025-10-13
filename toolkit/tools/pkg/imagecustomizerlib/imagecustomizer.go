@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
@@ -95,15 +96,15 @@ const (
 // The value of this string is inserted during compilation via a linker flag.
 var ToolVersion = ""
 
-type imageCustomizerParameters struct {
-	BaseImageVerityMetadata []verityDeviceMetadata
-	VerityMetadata          []verityDeviceMetadata
+type imageMetadata struct {
+	baseImageVerityMetadata []verityDeviceMetadata
+	verityMetadata          []verityDeviceMetadata
 
-	PartUuidToFstabEntry map[string]diskutils.FstabEntry
-	OsRelease            string
-	OsPackages           []OsPackage
-	CosiBootMetadata     *CosiBootloader
-	TargetOS             targetos.TargetOs
+	partUuidToFstabEntry map[string]diskutils.FstabEntry
+	osRelease            string
+	osPackages           []OsPackage
+	cosiBootMetadata     *CosiBootloader
+	targetOS             targetos.TargetOs
 }
 
 type verityDeviceMetadata struct {
@@ -115,6 +116,89 @@ type verityDeviceMetadata struct {
 	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
 	corruptionOption      imagecustomizerapi.CorruptionOption
 	hashSignaturePath     string
+}
+
+func createResolvedConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+	options ImageCustomizerOptions,
+) (*ResolvedConfig, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_resolved_config")
+	defer span.End()
+
+	rc := &ResolvedConfig{}
+
+	// working directories
+	buildDirAbs, err := filepath.Abs(options.BuildDir)
+	if err != nil {
+		return nil, err
+	}
+
+	rc.BuildDirAbs = buildDirAbs
+
+	// input image
+	rc.InputImageFile = options.InputImageFile
+	if rc.InputImageFile == "" && config.Input.Image.Path != "" {
+		rc.InputImageFile = file.GetAbsPathWithBase(baseConfigPath, config.Input.Image.Path)
+	}
+
+	// Create a uuid for the image
+	imageUuid, imageUuidStr, err := randomization.CreateUuid()
+	if err != nil {
+		return nil, err
+	}
+	rc.ImageUuid = imageUuid
+	rc.ImageUuidStr = imageUuidStr
+
+	// configuration
+	rc.BaseConfigPath = baseConfigPath
+	rc.Config = config
+	rc.CustomizeOSPartitions = config.CustomizePartitions() || config.OS != nil ||
+		len(config.Scripts.PostCustomization) > 0 ||
+		len(config.Scripts.FinalizeCustomization) > 0
+
+	rc.Options = options
+
+	err = ValidateRpmSources(options.RpmsSources)
+	if err != nil {
+		return nil, err
+	}
+
+	// intermediate writeable image
+	rc.RawImageFile = filepath.Join(buildDirAbs, BaseImageName)
+
+	// output image
+	rc.OutputImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
+	if rc.OutputImageFormat == "" {
+		rc.OutputImageFormat = config.Output.Image.Format
+	}
+
+	rc.OutputImageFile = options.OutputImageFile
+	if rc.OutputImageFile == "" && config.Output.Image.Path != "" {
+		rc.OutputImageFile = file.GetAbsPathWithBase(baseConfigPath, config.Output.Image.Path)
+	}
+
+	if rc.InputIsIso() {
+
+		// While re-creating a disk image from the iso is technically possible,
+		// we are choosing to not implement it until there is a need.
+		if !rc.OutputIsIso() && !rc.OutputIsPxe() {
+			return nil, fmt.Errorf("%w (output='%s', input='%s')", ErrCannotGenerateOutputFormat, rc.OutputImageFormat,
+				rc.InputFileExt())
+		}
+
+		// While defining a storage configuration can work when the input image is
+		// an iso, there is no obvious point of moving content between partitions
+		// where all partitions get collapsed into the squashfs at the end.
+		if config.CustomizePartitions() {
+			return nil, ErrCannotCustomizePartitionsOnIso
+		}
+	}
+
+	rc.PackageSnapshotTime = options.PackageSnapshotTime
+	if rc.PackageSnapshotTime == "" && config.OS != nil {
+		rc.PackageSnapshotTime = config.OS.Packages.SnapshotTime
+	}
+
+	return rc, nil
 }
 
 func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
@@ -170,7 +254,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) (err error) {
-	options := ImageCustomizerOptions{
+	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
@@ -178,9 +262,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: useBaseImageRpmRepos,
 		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
-	}
-
-	return CustomizeImageOptions(ctx, baseConfigPath, config, options)
+	})
 }
 
 func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
@@ -207,11 +289,14 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		span.End()
 	}()
 
-	ic := &imageCustomizerParameters{}
-
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
+	err = ValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
+	}
+
+	rc, err := createResolvedConfig(ctx, baseConfigPath, config, options)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}
 	defer func() {
 		cleanupErr := cleanUp(rc)
@@ -260,7 +345,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		}
 	}()
 
-	err = customizeOSContents(ctx, rc, ic)
+	im, err := customizeOSContents(ctx, rc)
 	if err != nil {
 		return err
 	}
@@ -269,13 +354,13 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
 
 		err = outputArtifacts(ctx, config.Output.Artifacts.Items, outputDir, rc.BuildDirAbs,
-			rc.RawImageFile, ic.VerityMetadata)
+			rc.RawImageFile, im.verityMetadata)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
 		}
 	}
 
-	err = convertWriteableFormatToOutputImage(ctx, rc, ic, inputIsoArtifacts)
+	err = convertWriteableFormatToOutputImage(ctx, rc, im, inputIsoArtifacts)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrConvertToOutputFormat, err)
 	}
@@ -426,7 +511,9 @@ func qemuImgEscapeOptionValue(value string) string {
 	return strings.ReplaceAll(value, ",", ",,")
 }
 
-func customizeOSContents(ctx context.Context, rc *ResolvedConfig, ic *imageCustomizerParameters) error {
+func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata, error) {
+	im := imageMetadata{}
+
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -434,9 +521,9 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, ic *imageCusto
 	// we could support those functions for input isos, we are choosing to
 	// not support them until there is an actual need/a future time.
 	// We explicitly inform the user of the lack of support earlier during
-	// mic parameter validation (see createImageCustomizerParameters()).
+	// mic parameter validation (see createResolvedConfig()).
 	if !rc.CustomizeOSPartitions && rc.InputIsIso() {
-		return nil
+		return im, nil
 	}
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
@@ -455,17 +542,17 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, ic *imageCusto
 
 	targetOS, err := validateTargetOs(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Config)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
+		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
 
 	// Save target OS information
-	ic.TargetOS = targetOS
+	im.targetOS = targetOS
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.BaseConfigPath, rc.Config, rc.RawImageFile, ic.TargetOS)
+		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.targetOS)
 	if err != nil {
-		return err
+		return im, err
 	}
 
 	if rc.RawImageFile != newRawImageFile {
@@ -475,47 +562,47 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, ic *imageCusto
 
 	// Customize the raw image file.
 	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
-		partitionsCustomized, ic.TargetOS)
+		partitionsCustomized, im.targetOS)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
+		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
 
 	if len(baseImageVerityMetadata) > 0 {
 		previewFeatureEnabled := slices.Contains(rc.Config.PreviewFeatures,
 			imagecustomizerapi.PreviewFeatureReinitializeVerity)
 		if !previewFeatureEnabled {
-			return ErrVerityPreviewFeatureRequired
+			return im, ErrVerityPreviewFeatureRequired
 		}
 	}
 
-	ic.PartUuidToFstabEntry = partUuidToFstabEntry
-	ic.BaseImageVerityMetadata = baseImageVerityMetadata
-	ic.OsRelease = osRelease
+	im.partUuidToFstabEntry = partUuidToFstabEntry
+	im.baseImageVerityMetadata = baseImageVerityMetadata
+	im.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
 	if shrinkPartitions {
 		err = shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
+			return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 	}
 
-	if len(rc.Config.Storage.Verity) > 0 || len(ic.BaseImageVerityMetadata) > 0 {
+	if len(rc.Config.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc.Config, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, ic.BaseImageVerityMetadata, readonlyPartUuids)
+			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
+			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
 
-		ic.VerityMetadata = verityMetadata
+		im.verityMetadata = verityMetadata
 	}
 
 	if rc.Config.OS.Uki != nil {
 		err = createUki(ctx, rc.BuildDirAbs, rc.RawImageFile)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
+			return im, fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}
 	}
 
@@ -525,22 +612,22 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig, ic *imageCusto
 	if rc.Config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
+			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
-		ic.OsPackages = osPackages
-		ic.CosiBootMetadata = cosiBootMetadata
+		im.osPackages = osPackages
+		im.cosiBootMetadata = cosiBootMetadata
 	}
 
 	// Check file systems for corruption.
 	err = checkFileSystems(ctx, rc.RawImageFile)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrCheckFilesystems, err)
+		return im, fmt.Errorf("%w:\n%w", ErrCheckFilesystems, err)
 	}
 
-	return nil
+	return im, nil
 }
 
-func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig, ic *imageCustomizerParameters,
+func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig, im imageMetadata,
 	inputIsoArtifacts *IsoArtifactsStore,
 ) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
@@ -564,8 +651,8 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		}
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
-		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, ic.PartUuidToFstabEntry,
-			ic.VerityMetadata, ic.OsRelease, ic.OsPackages, rc.ImageUuid, rc.ImageUuidStr, ic.CosiBootMetadata)
+		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partUuidToFstabEntry,
+			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata)
 		if err != nil {
 			return err
 		}

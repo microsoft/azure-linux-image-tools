@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -16,12 +17,13 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
-func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, tarFile string,
-	distroHandler distroHandler,
+func CustomizeImageHelperImageCreator(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+	rawImageFile string, rpmsSources []string, useBaseImageRpmRepos bool,
+	imageUuidStr string, packageSnapshotTime string, tarFile string, distroHandler distroHandler,
 ) (map[string]diskutils.FstabEntry, string, error) {
-	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
+	logger.Log.Debugf("Customizing OS image with config file %s", baseConfigPath)
 
-	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
+	toolsChrootDir := filepath.Join(buildDir, toolsRoot)
 	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
 	err := toolsChroot.Initialize(tarFile, nil, nil, true)
 	if err != nil {
@@ -29,7 +31,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	}
 	defer toolsChroot.Close(false)
 
-	imageConnection, partUuidToFstabEntry, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
+	imageConnection, partUuidToFstabEntry, _, _, err := connectToExistingImage(ctx, rawImageFile, toolsChrootDir,
 		toolsRootImageDir, true, false, false, false)
 	if err != nil {
 		return nil, "", err
@@ -37,11 +39,13 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsImageCreator(ctx, rc, imageConnection, toolsChroot, partUuidToFstabEntry, distroHandler)
+	err = doOsCustomizationsImageCreator(ctx, buildDir, baseConfigPath, config, imageConnection, toolsChroot, rpmsSources,
+		useBaseImageRpmRepos, imageUuidStr,
+		partUuidToFstabEntry, imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime), distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
-	warnOnLowFreeSpace(rc.BuildDirAbs, imageConnection)
+	warnOnLowFreeSpace(buildDir, imageConnection)
 	if err != nil {
 		return nil, "", err
 	}
@@ -68,10 +72,15 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 
 func doOsCustomizationsImageCreator(
 	ctx context.Context,
-	rc *ResolvedConfig,
+	buildDir string, baseConfigPath string,
+	config *imagecustomizerapi.Config,
 	imageConnection *imageconnection.ImageConnection,
 	toolsChroot *safechroot.Chroot,
+	rpmsSources []string,
+	useBaseImageRpmRepos bool,
+	imageUuid string,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	packageSnapshotTime imagecustomizerapi.PackageSnapshotTime,
 	distroHandler distroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
@@ -84,20 +93,20 @@ func doOsCustomizationsImageCreator(
 
 	if err = addRemoveAndUpdatePackages(
 		ctx,
-		rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.OS, imageChroot, toolsChroot, rc.Options.RpmsSources,
-		rc.Options.UseBaseImageRpmRepos, distroHandler, rc.PackageSnapshotTime); err != nil {
+		buildDir, baseConfigPath, config.OS, imageChroot, toolsChroot, rpmsSources,
+		useBaseImageRpmRepos, distroHandler, packageSnapshotTime); err != nil {
 		return err
 	}
 
-	if err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(ctx, config.OS.Hostname, imageChroot); err != nil {
 		return err
 	}
 
-	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr); err != nil {
+	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuid); err != nil {
 		return err
 	}
 
-	if err = handleBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, true); err != nil {
+	if err = handleBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, true); err != nil {
 		return err
 	}
 
@@ -109,7 +118,7 @@ func doOsCustomizationsImageCreator(
 		return fmt.Errorf("failed to clear systemd state:\n%w", err)
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
@@ -122,7 +131,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, baseConfigPath, config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
