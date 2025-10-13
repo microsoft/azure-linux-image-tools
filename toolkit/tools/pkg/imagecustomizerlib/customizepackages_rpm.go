@@ -20,7 +20,7 @@ import (
 // managePackagesRpm provides a shared implementation for RPM-based package management
 func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
-	snapshotTime string, pmHandler rpmPackageManagerHandler,
+	snapshotTime imagecustomizerapi.PackageSnapshotTime, pmHandler rpmPackageManagerHandler,
 ) error {
 	var err error
 
@@ -38,10 +38,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	// Setup distribution-specific configuration if needed
 	if pmHandler.supportsSnapshotTime() && snapshotTime != "" {
 		// Setup Azure Linux specific TDNF configuration with snapshot
-		err = createTempTdnfConfigWithSnapshot(
-			packageManagerChroot,
-			imagecustomizerapi.PackageSnapshotTime(snapshotTime),
-		)
+		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, snapshotTime)
 		if err != nil {
 			return err
 		}

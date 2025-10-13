@@ -119,9 +119,9 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 			InputImageFile:       cmd.InputImageFile,
 			RpmsSources:          cmd.RpmSources,
 			OutputImageFile:      cmd.OutputImageFile,
-			OutputImageFormat:    cmd.OutputImageFormat,
+			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
 			UseBaseImageRpmRepos: !cmd.DisableBaseImageRpmRepos,
-			PackageSnapshotTime:  cmd.PackageSnapshotTime,
+			PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
 		})
 	if err != nil {
 		return err

@@ -1,27 +1,60 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 package imagecustomizerlib
 
 import (
+	"path/filepath"
+	"strings"
+
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 )
 
-// ResolvedConfig represents resolved fields and a chain of base configs.
 type ResolvedConfig struct {
-	InputImagePath       string
-	OutputImagePath      string
-	OutputImageFormat    imagecustomizerapi.ImageFormatType
-	OutputArtifactsPath  string
-	OutputArtifactsItems []imagecustomizerapi.OutputArtifactsItemType
+	// Configurations
+	BaseConfigPath        string
+	Config                *imagecustomizerapi.Config
+	Options               ImageCustomizerOptions
+	CustomizeOSPartitions bool
 
-	InheritanceChain []*imagecustomizerapi.Config
+	// UUID
+	ImageUuid    [randomization.UuidSize]byte
+	ImageUuidStr string
+
+	// Build dirs
+	BuildDirAbs string
+
+	// Input image
+	InputImageFile string
+
+	// Output image
+	OutputImageFile   string
+	OutputImageFormat imagecustomizerapi.ImageFormatType
+
+	// Packages and repos
+	PackageSnapshotTime imagecustomizerapi.PackageSnapshotTime
+
+	// Intermediate writeable image.
+	RawImageFile string
 }
 
-func NewResolvedConfig(chain []*imagecustomizerapi.Config) *ResolvedConfig {
-	resolved := &ResolvedConfig{
-		InheritanceChain: chain,
-	}
+func (c *ResolvedConfig) InputFileExt() string {
+	fileExt := strings.TrimLeft(filepath.Ext(c.InputImageFile), ".")
+	return fileExt
+}
 
-	resolveOverrideFields(chain, resolved)
-	resolveMergeFields(chain, resolved)
+func (c *ResolvedConfig) InputIsIso() bool {
+	imageFileExt := c.InputFileExt()
+	inputIsIso := imageFileExt == string(imagecustomizerapi.ImageFormatTypeIso)
+	return inputIsIso
+}
 
-	return resolved
+func (c *ResolvedConfig) OutputIsIso() bool {
+	return c.OutputImageFormat == imagecustomizerapi.ImageFormatTypeIso
+}
+
+func (c *ResolvedConfig) OutputIsPxe() bool {
+	return c.OutputImageFormat == imagecustomizerapi.ImageFormatTypePxeDir ||
+		c.OutputImageFormat == imagecustomizerapi.ImageFormatTypePxeTar
 }

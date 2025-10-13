@@ -9,21 +9,28 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-func ResolveBaseConfigs(ctx context.Context, cfg *imagecustomizerapi.Config, baseDir string, options ImageCustomizerOptions) (*ResolvedConfig, error) {
+func ResolveBaseConfigs(ctx context.Context, config *imagecustomizerapi.Config, baseConfigPath string, options ImageCustomizerOptions) (*ResolvedConfig, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := BuildInheritanceChain(ctx, cfg, baseDir, visited, pathStack, options)
+	configChain, err := BuildInheritanceChain(ctx, config, baseConfigPath, visited, pathStack)
 	if err != nil {
 		return nil, err
 	}
 
-	resolved := NewResolvedConfig(configChain)
+	rc := &ResolvedConfig{
+		BaseConfigPath: baseConfigPath,
+		Config:         config,
+		Options:        options,
+	}
 
-	return resolved, nil
+	resolveOverrideFields(configChain, rc)
+	resolveMergeFields(configChain, rc)
+
+	return rc, nil
 }
 
-func BuildInheritanceChain(ctx context.Context, cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string, options ImageCustomizerOptions) ([]*imagecustomizerapi.Config, error) {
+func BuildInheritanceChain(ctx context.Context, cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
 	if cfg.BaseConfigs != nil {
 		for i, base := range cfg.BaseConfigs {
 			err := base.IsValid()
@@ -56,13 +63,12 @@ func BuildInheritanceChain(ctx context.Context, cfg *imagecustomizerapi.Config, 
 		}
 
 		// Validate base config content
-		err = ValidateConfig(ctx, baseDir, &baseCfg, false, options)
-		if err != nil {
+		if err := baseCfg.IsValid(); err != nil {
 			return nil, fmt.Errorf("%w at %s:\n%v", ErrInvalidImageConfig, absPath, err)
 		}
 
 		// Recurse into base config
-		subChain, err := BuildInheritanceChain(ctx, &baseCfg, filepath.Dir(absPath), visited, pathStack, options)
+		subChain, err := BuildInheritanceChain(ctx, &baseCfg, filepath.Dir(absPath), visited, pathStack)
 		if err != nil {
 			return nil, err
 		}
@@ -77,35 +83,64 @@ func BuildInheritanceChain(ctx context.Context, cfg *imagecustomizerapi.Config, 
 }
 
 func resolveOverrideFields(chain []*imagecustomizerapi.Config, target *ResolvedConfig) {
+	// Defensive initialization to avoid nil dereference
+	if target.Config == nil {
+		target.Config = &imagecustomizerapi.Config{}
+	}
+	if target.Config.Input.Image == (imagecustomizerapi.InputImage{}) {
+		target.Config.Input = imagecustomizerapi.Input{}
+	}
+	if target.Config.Output == (imagecustomizerapi.Output{}) {
+		target.Config.Output = imagecustomizerapi.Output{}
+	}
+
+	fmt.Println("ffffffffffffffffff", chain[0].Input.Image.Path, chain[1].Output.Image.Path)
 	for _, config := range chain {
-		if config.Input != (imagecustomizerapi.Input{}) && config.Input.Image != (imagecustomizerapi.InputImage{}) && config.Input.Image.Path != "" {
-			// .input.image.path
-			target.InputImagePath = config.Input.Image.Path
+		// .input.image.path
+		if config.Input.Image.Path != "" {
+			target.Config.Input.Image.Path = config.Input.Image.Path
+			target.InputImageFile = config.Input.Image.Path
 		}
 
-		if config.Output != (imagecustomizerapi.Output{}) {
-			// .output.image.path
-			if config.Output.Image != (imagecustomizerapi.OutputImage{}) && config.Output.Image.Path != "" {
-				target.OutputImagePath = config.Output.Image.Path
+		// .output.image.path
+		if config.Output.Image.Path != "" {
+			target.Config.Output.Image.Path = config.Output.Image.Path
+			target.OutputImageFile = config.Output.Image.Path
+		}
+
+		// .output.image.format
+		if config.Output.Image.Format != "" {
+			target.Config.Output.Image.Format = config.Output.Image.Format
+			target.OutputImageFormat = config.Output.Image.Format
+		}
+
+		// .output.artifacts.path
+		if config.Output.Artifacts != nil {
+			if target.Config.Output.Artifacts == nil {
+				target.Config.Output.Artifacts = &imagecustomizerapi.Artifacts{}
 			}
-			// .output.image.format
-			if config.Output.Image != (imagecustomizerapi.OutputImage{}) && config.Output.Image.Format != "" {
-				target.OutputImageFormat = config.Output.Image.Format
-			}
-			// .output.image.artifacts.path
-			if config.Output.Artifacts != nil {
-				target.OutputArtifactsPath = config.Output.Artifacts.Path
+			if config.Output.Artifacts.Path != "" {
+				target.Config.Output.Artifacts.Path = config.Output.Artifacts.Path
 			}
 		}
+
 	}
 }
 
 func resolveMergeFields(chain []*imagecustomizerapi.Config, target *ResolvedConfig) {
-	for _, cfg := range chain {
-		// .output.artifacts.items
-		if cfg.Output != (imagecustomizerapi.Output{}) && cfg.Output.Artifacts != nil {
-			target.OutputArtifactsItems = mergeOutputArtifactTypes(
-				target.OutputArtifactsItems, cfg.Output.Artifacts.Items,
+	// Defensive initialization
+	if target.Config.Output == (imagecustomizerapi.Output{}) {
+		target.Config.Output = imagecustomizerapi.Output{}
+	}
+
+	for _, config := range chain {
+		if config.Output.Artifacts != nil {
+			if target.Config.Output.Artifacts == nil {
+				target.Config.Output.Artifacts = &imagecustomizerapi.Artifacts{}
+			}
+			target.Config.Output.Artifacts.Items = mergeOutputArtifactTypes(
+				target.Config.Output.Artifacts.Items,
+				config.Output.Artifacts.Items,
 			)
 		}
 	}

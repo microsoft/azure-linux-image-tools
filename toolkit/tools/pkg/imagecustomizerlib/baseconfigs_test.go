@@ -34,17 +34,16 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	resolvedConfig, err := ResolveBaseConfigs(t.Context(), &config, absBaseConfigPath, options)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 2, len(resolvedConfig.InheritanceChain))
-	assert.Equal(t, ".testimages/input-image-2.vhdx", resolvedConfig.InputImagePath)
-	assert.Equal(t, "./out/output-image-2.vhdx", resolvedConfig.OutputImagePath)
-	assert.Equal(t, "./artifacts-2", resolvedConfig.OutputArtifactsPath)
+	assert.Equal(t, ".testimages/input-image-2.vhdx", resolvedConfig.Config.Input.Image.Path)
+	assert.Equal(t, "./out/output-image-2.vhdx", resolvedConfig.Config.Output.Image.Path)
+	assert.Equal(t, "./artifacts-2", resolvedConfig.Config.Output.Artifacts.Path)
 	assert.Equal(t, "testname", config.OS.Hostname)
 
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
 		imagecustomizerapi.OutputArtifactsItemUkis,
 		imagecustomizerapi.OutputArtifactsItemShim,
 	}
-	actual := resolvedConfig.OutputArtifactsItems
+	actual := resolvedConfig.Config.Output.Artifacts.Items
 	assert.Equal(t, len(expectedItems), len(actual))
 
 	for _, item := range expectedItems {
