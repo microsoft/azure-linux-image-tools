@@ -9,21 +9,28 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-func ResolveBaseConfigs(ctx context.Context, config *imagecustomizerapi.Config, baseConfigPath string, options ImageCustomizerOptions) (*ResolvedConfig, error) {
+func ResolveBaseConfigs(ctx context.Context, rc *ResolvedConfig) error {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := BuildInheritanceChain(ctx, config, baseConfigPath, visited, pathStack)
+	configChain, err := BuildInheritanceChain(ctx, rc.Config, rc.BaseConfigPath, visited, pathStack)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	rc := &ResolvedConfig{}
+	merged := &ResolvedConfig{}
 
-	resolveOverrideFields(configChain, rc)
-	resolveMergeFields(configChain, rc)
+	resolveOverrideFields(configChain, merged)
+	resolveMergeFields(configChain, merged)
 
-	return rc, nil
+	if merged.Config.Input != (imagecustomizerapi.Input{}) {
+		rc.Config.Input = merged.Config.Input
+	}
+	if merged.Config.Output != (imagecustomizerapi.Output{}) {
+		rc.Config.Output = merged.Config.Output
+	}
+
+	return nil
 }
 
 func BuildInheritanceChain(ctx context.Context, cfg *imagecustomizerapi.Config, baseDir string, visited map[string]bool, pathStack []string) ([]*imagecustomizerapi.Config, error) {
@@ -94,19 +101,16 @@ func resolveOverrideFields(chain []*imagecustomizerapi.Config, target *ResolvedC
 		// .input.image.path
 		if config.Input.Image.Path != "" {
 			target.Config.Input.Image.Path = config.Input.Image.Path
-			target.InputImageFile = config.Input.Image.Path
 		}
 
 		// .output.image.path
 		if config.Output.Image.Path != "" {
 			target.Config.Output.Image.Path = config.Output.Image.Path
-			target.OutputImageFile = config.Output.Image.Path
 		}
 
 		// .output.image.format
 		if config.Output.Image.Format != "" {
 			target.Config.Output.Image.Format = config.Output.Image.Format
-			target.OutputImageFormat = config.Output.Image.Format
 		}
 
 		// .output.artifacts.path

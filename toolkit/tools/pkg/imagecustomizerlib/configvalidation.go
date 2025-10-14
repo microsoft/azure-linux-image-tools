@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"go.opentelemetry.io/otel"
 )
 
@@ -41,78 +42,120 @@ var (
 	ErrUnsupportedFedoraFeature       = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
 )
 
-func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, newImage bool,
-	options ImageCustomizerOptions,
-) error {
+func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+	newImage bool, options ImageCustomizerOptions,
+) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
+	rc := &ResolvedConfig{
+		BaseConfigPath: baseConfigPath,
+		Config:         config,
+		Options:        options,
+	}
+
+	ResolveBaseConfigs(ctx, rc)
+
 	err := options.IsValid()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = config.IsValid()
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
+		config.OS != nil ||
+		len(config.Scripts.PostCustomization) > 0 ||
+		len(config.Scripts.FinalizeCustomization) > 0
+
+	// Create a UUID for the image.
+	rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve build dir path.
+	rc.BuildDirAbs, err = filepath.Abs(options.BuildDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Intermediate writeable image
+	rc.RawImageFile = filepath.Join(rc.BuildDirAbs, BaseImageName)
+
+	err = ValidateRpmSources(options.RpmsSources)
+	if err != nil {
+		return nil, err
 	}
 
 	if !newImage {
-		err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
+		rc.InputImageFile, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	err = validateIsoConfig(baseConfigPath, config.Iso)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = validateScripts(baseConfigPath, &config.Scripts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = validateOutput(baseConfigPath, config.Output, options.OutputImageFile, options.OutputImageFormat)
+	rc.OutputImageFormat, rc.OutputImageFile, err = validateOutput(baseConfigPath,
+		config.Output, options.OutputImageFile, options.OutputImageFormat)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := validateSnapshotTimeInput(options.PackageSnapshotTime, config.PreviewFeatures); err != nil {
-		return err
+	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	err = validateIsoPxeCustomization(rc)
+	if err != nil {
+		return nil, err
+	}
+
+	return rc, nil
 }
 
-func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) error {
+func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) (string, error) {
 	switch {
 	case inputImageFile != "":
 		if yes, err := file.IsFile(inputImageFile); err != nil {
-			return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+			return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
-			return fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+			return "", fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
+
+		return inputImageFile, nil
 
 	case input.Image.Path != "":
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
 		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-			return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
+			return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
 		} else if !yes {
-			return fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
+			return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
 		}
 
-	default:
-		return ErrInputImageFileRequired
-	}
+		return inputImageAbsPath, nil
 
-	return nil
+	default:
+		return "", ErrInputImageFileRequired
+	}
 }
 
 func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList) error {
@@ -264,7 +307,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 
 func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, cliOutputImageFile string,
 	cliOutputImageFormat imagecustomizerapi.ImageFormatType,
-) error {
+) (imagecustomizerapi.ImageFormatType, string, error) {
 	outputImageFormat := imagecustomizerapi.ImageFormatTypeNone
 	switch {
 	case cliOutputImageFormat != "":
@@ -274,36 +317,40 @@ func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, cli
 		outputImageFormat = output.Image.Format
 
 	default:
-		return ErrOutputImageFormatRequired
+		return "", "", ErrOutputImageFormatRequired
 	}
 
+	outputImageFile := ""
 	switch {
 	case cliOutputImageFile != "":
+		outputImageFile = cliOutputImageFile
+
 		// PXE output format allows the output to be a directory.
 		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
-				return fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
+				return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
 			} else if isDir {
-				return fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
+				return "", "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
 			}
 		}
 
 	case output.Image.Path != "":
+		outputImageFile = file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
+
 		// PXE output format allows the output to be a directory.
 		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
-			outputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
-			if isDir, err := file.DirExists(outputImageAbsPath); err != nil {
-				return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputImageFileConfig, output.Image.Path, err)
+			if isDir, err := file.DirExists(outputImageFile); err != nil {
+				return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig, output.Image.Path, err)
 			} else if isDir {
-				return fmt.Errorf("%w (path='%s')", ErrOutputImageFileIsDirectory, output.Image.Path)
+				return "", "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, output.Image.Path)
 			}
 		}
 
 	default:
-		return ErrOutputImageFileRequired
+		return "", "", ErrOutputImageFileRequired
 	}
 
-	return nil
+	return outputImageFormat, outputImageFile, nil
 }
 
 func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error {
@@ -332,17 +379,48 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	return nil
 }
 
-func validateSnapshotTimeInput(snapshotTime imagecustomizerapi.PackageSnapshotTime,
-	previewFeatures []imagecustomizerapi.PreviewFeature,
-) error {
-	if snapshotTime != "" && !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-		return ErrPackageSnapshotPreviewRequired
+func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnapshotTime,
+	config *imagecustomizerapi.Config,
+) (imagecustomizerapi.PackageSnapshotTime, error) {
+	snapshotTime := imagecustomizerapi.PackageSnapshotTime("")
+	switch {
+	case cliSnapshotTime != "":
+		snapshotTime = cliSnapshotTime
+
+	case config.OS != nil && config.OS.Packages.SnapshotTime != "":
+		snapshotTime = config.OS.Packages.SnapshotTime
 	}
 
-	// snapshot time for fedora-42 images is not supported
-	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
-		return fmt.Errorf("%w\n'%s' feature is not supported with '%s' feature",
-			ErrUnsupportedFedoraFeature, imagecustomizerapi.PreviewFeaturePackageSnapshotTime, imagecustomizerapi.PreviewFeatureFedora42)
+	if snapshotTime != "" {
+		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
+			return "", ErrPackageSnapshotPreviewRequired
+		}
+
+		// snapshot time for fedora-42 images is not supported
+		if slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+			return "", fmt.Errorf("%w\n'%s' feature is not supported with '%s' feature",
+				ErrUnsupportedFedoraFeature, imagecustomizerapi.PreviewFeaturePackageSnapshotTime, imagecustomizerapi.PreviewFeatureFedora42)
+		}
+	}
+
+	return snapshotTime, nil
+}
+
+func validateIsoPxeCustomization(rc *ResolvedConfig) error {
+	if rc.InputIsIso() {
+		// While re-creating a disk image from the iso is technically possible,
+		// we are choosing to not implement it until there is a need.
+		if !rc.OutputIsIso() && !rc.OutputIsPxe() {
+			return fmt.Errorf("%w (output='%s', input='%s')", ErrCannotGenerateOutputFormat, rc.OutputImageFormat,
+				rc.InputFileExt())
+		}
+
+		// While defining a storage configuration can work when the input image is
+		// an iso, there is no obvious point of moving content between partitions
+		// where all partitions get collapsed into the squashfs at the end.
+		if rc.Config.CustomizePartitions() {
+			return ErrCannotCustomizePartitionsOnIso
+		}
 	}
 
 	return nil
