@@ -17,6 +17,7 @@ type ImageCustomizerOptions struct {
 	OutputImageFormat    imagecustomizerapi.ImageFormatType
 	UseBaseImageRpmRepos bool
 	PackageSnapshotTime  imagecustomizerapi.PackageSnapshotTime
+	ImageCacheDir        string
 }
 
 func (o *ImageCustomizerOptions) IsValid() error {
