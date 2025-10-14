@@ -540,7 +540,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		rc.Config.OS = &imagecustomizerapi.OS{}
 	}
 
-	targetOS, err := validateTargetOs(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Config)
+	targetOS, err := validateTargetOs(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Config, rc.PackageSnapshotTime)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
@@ -925,7 +925,7 @@ func CheckEnvironmentVars() error {
 // validateTargetOs checks if the current distro/version is supported and has the required preview
 // features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, buildDir string, buildImageFile string,
-	config *imagecustomizerapi.Config,
+	config *imagecustomizerapi.Config, packageSnapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) (targetos.TargetOs, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
@@ -945,8 +945,8 @@ func validateTargetOs(ctx context.Context, buildDir string, buildImageFile strin
 		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
 			return targetOs, ErrFedora42PreviewFeatureRequired
 		}
-		if config.OS.Packages.SnapshotTime != "" {
-			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting: %w\n", ErrUnsupportedFedoraFeature)
+		if packageSnapshotTime != "" {
+			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
 		}
 
 	}
