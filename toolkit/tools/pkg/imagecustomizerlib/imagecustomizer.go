@@ -17,7 +17,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
@@ -118,89 +117,6 @@ type verityDeviceMetadata struct {
 	hashSignaturePath     string
 }
 
-func createResolvedConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	options ImageCustomizerOptions,
-) (*ResolvedConfig, error) {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "create_resolved_config")
-	defer span.End()
-
-	rc := &ResolvedConfig{}
-
-	// working directories
-	buildDirAbs, err := filepath.Abs(options.BuildDir)
-	if err != nil {
-		return nil, err
-	}
-
-	rc.BuildDirAbs = buildDirAbs
-
-	// input image
-	rc.InputImageFile = options.InputImageFile
-	if rc.InputImageFile == "" && config.Input.Image.Path != "" {
-		rc.InputImageFile = file.GetAbsPathWithBase(baseConfigPath, config.Input.Image.Path)
-	}
-
-	// Create a uuid for the image
-	imageUuid, imageUuidStr, err := randomization.CreateUuid()
-	if err != nil {
-		return nil, err
-	}
-	rc.ImageUuid = imageUuid
-	rc.ImageUuidStr = imageUuidStr
-
-	// configuration
-	rc.BaseConfigPath = baseConfigPath
-	rc.Config = config
-	rc.CustomizeOSPartitions = config.CustomizePartitions() || config.OS != nil ||
-		len(config.Scripts.PostCustomization) > 0 ||
-		len(config.Scripts.FinalizeCustomization) > 0
-
-	rc.Options = options
-
-	err = ValidateRpmSources(options.RpmsSources)
-	if err != nil {
-		return nil, err
-	}
-
-	// intermediate writeable image
-	rc.RawImageFile = filepath.Join(buildDirAbs, BaseImageName)
-
-	// output image
-	rc.OutputImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
-	if rc.OutputImageFormat == "" {
-		rc.OutputImageFormat = config.Output.Image.Format
-	}
-
-	rc.OutputImageFile = options.OutputImageFile
-	if rc.OutputImageFile == "" && config.Output.Image.Path != "" {
-		rc.OutputImageFile = file.GetAbsPathWithBase(baseConfigPath, config.Output.Image.Path)
-	}
-
-	if rc.InputIsIso() {
-
-		// While re-creating a disk image from the iso is technically possible,
-		// we are choosing to not implement it until there is a need.
-		if !rc.OutputIsIso() && !rc.OutputIsPxe() {
-			return nil, fmt.Errorf("%w (output='%s', input='%s')", ErrCannotGenerateOutputFormat, rc.OutputImageFormat,
-				rc.InputFileExt())
-		}
-
-		// While defining a storage configuration can work when the input image is
-		// an iso, there is no obvious point of moving content between partitions
-		// where all partitions get collapsed into the squashfs at the end.
-		if config.CustomizePartitions() {
-			return nil, ErrCannotCustomizePartitionsOnIso
-		}
-	}
-
-	rc.PackageSnapshotTime = options.PackageSnapshotTime
-	if rc.PackageSnapshotTime == "" && config.OS != nil {
-		rc.PackageSnapshotTime = config.OS.Packages.SnapshotTime
-	}
-
-	return rc, nil
-}
-
 func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
@@ -289,14 +205,9 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		span.End()
 	}()
 
-	err = ValidateConfig(ctx, baseConfigPath, config, false, options)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
-	}
-
-	rc, err := createResolvedConfig(ctx, baseConfigPath, config, options)
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrInvalidParameters, err)
 	}
 	defer func() {
 		cleanupErr := cleanUp(rc)
