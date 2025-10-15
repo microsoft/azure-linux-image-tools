@@ -54,14 +54,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		Options:        options,
 	}
 
-	ResolveBaseConfigs(ctx, rc)
-
 	err := options.IsValid()
 	if err != nil {
 		return nil, err
 	}
 
 	err = config.IsValid()
+	if err != nil {
+		return nil, err
+	}
+
+	err = resolveBaseConfigs(ctx, rc)
 	if err != nil {
 		return nil, err
 	}

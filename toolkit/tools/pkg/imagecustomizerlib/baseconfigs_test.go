@@ -6,8 +6,27 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestBaseConfigIsValidNoPath(t *testing.T) {
+	base := imagecustomizerapi.BaseConfig{
+		Path: "",
+	}
+	err := base.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "path must not be empty or whitespace")
+}
+
+func TestBaseConfigIsValidWhitespaces(t *testing.T) {
+	base := imagecustomizerapi.BaseConfig{
+		Path: "   ",
+	}
+	err := base.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "path must not be empty or whitespace")
+}
 
 func TestBaseConfigsInputAndOutput(t *testing.T) {
 	testTempDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput")
@@ -35,12 +54,16 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 		Options:        options,
 	}
 
-	err = ResolveBaseConfigs(t.Context(), rc)
+	err = resolveBaseConfigs(t.Context(), rc)
 	assert.NoError(t, err)
 
-	assert.Equal(t, ".testimages/input-image-2.vhdx", rc.Config.Input.Image.Path)
-	assert.Equal(t, "./out/output-image-2.vhdx", rc.Config.Output.Image.Path)
-	assert.Equal(t, "./artifacts-2", rc.Config.Output.Artifacts.Path)
+	expectedInputPath := file.GetAbsPathWithBase(testDir, ".testimages/input-image-2.vhdx")
+	expectedOutputPath := file.GetAbsPathWithBase(testDir, "./out/output-image-2.vhdx")
+	expectedArtifactsPath := file.GetAbsPathWithBase(testDir, "./artifacts-2")
+
+	assert.Equal(t, expectedInputPath, rc.Config.Input.Image.Path)
+	assert.Equal(t, expectedOutputPath, rc.Config.Output.Image.Path)
+	assert.Equal(t, expectedArtifactsPath, rc.Config.Output.Artifacts.Path)
 	assert.Equal(t, "testname", rc.Config.OS.Hostname)
 
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
@@ -81,7 +104,7 @@ func TestBaseConfigsMalformed(t *testing.T) {
 		Options:        options,
 	}
 
-	err = ResolveBaseConfigs(t.Context(), rc)
+	err = resolveBaseConfigs(t.Context(), rc)
 
-	assert.ErrorContains(t, err, ErrInvalidImageConfig.Error())
+	assert.ErrorContains(t, err, ErrInvalidBaseConfigs.Error())
 }
