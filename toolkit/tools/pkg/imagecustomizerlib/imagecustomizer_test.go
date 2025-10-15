@@ -138,6 +138,8 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
+	//
+	// TODO: CLEANUP. This is annoying.
 	_, err := ValidateConfig(t.Context(), testDir, config, false,
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
@@ -373,7 +375,9 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 		},
 	}
 
-	options := ImageCustomizerOptions{}
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
+	}
 
 	outputImageDir := filepath.Join(testTempDir, "out")
 	err = os.MkdirAll(outputImageDir, os.ModePerm)

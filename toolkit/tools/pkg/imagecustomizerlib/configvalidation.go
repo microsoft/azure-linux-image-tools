@@ -45,6 +45,8 @@ var (
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
 	newImage bool, options ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
+	ok := false
+
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
@@ -76,10 +78,20 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	// Resolve build dir path.
-	rc.BuildDirAbs, err = filepath.Abs(options.BuildDir)
+	buildDirAbs, err := filepath.Abs(options.BuildDir)
 	if err != nil {
 		return nil, err
 	}
+
+	rc.BuildDirAbs, err = os.MkdirTemp(buildDirAbs, "imgcstm-")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary build directory:\n%w", err)
+	}
+	defer func() {
+		if !ok {
+			os.Remove(rc.BuildDirAbs)
+		}
+	}()
 
 	// Intermediate writeable image
 	rc.RawImageFile = filepath.Join(rc.BuildDirAbs, BaseImageName)
@@ -127,6 +139,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	ok = true
 	return rc, nil
 }
 

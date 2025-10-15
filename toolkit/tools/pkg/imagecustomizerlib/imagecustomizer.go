@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -158,9 +159,20 @@ func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string,
 }
 
 func cleanUp(rc *ResolvedConfig) error {
+	errs := []error(nil)
+
 	err := file.RemoveFileIfExists(rc.RawImageFile)
 	if err != nil {
-		return err
+		errs = append(errs, err)
+	}
+
+	err = file.RemoveFileIfExists(rc.BuildDirAbs)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	return nil
