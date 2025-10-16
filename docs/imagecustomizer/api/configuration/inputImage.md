@@ -55,4 +55,8 @@ Added in v0.13.
 
 Download the base image file from an OCI artifact.
 
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
 Added in v1.1.

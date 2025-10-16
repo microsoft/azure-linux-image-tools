@@ -27,6 +27,10 @@ input:
       platform: linux/amd64
 ```
 
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
 Added in v1.1.
 
 ## uri [string]

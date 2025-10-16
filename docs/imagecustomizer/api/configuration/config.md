@@ -104,6 +104,10 @@ Supported options:
 
   Added in v0.15.
 
+- `input-image-oci`: Enables downloading the base image from a OCI artifact.
+
+  Added in v1.1.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
