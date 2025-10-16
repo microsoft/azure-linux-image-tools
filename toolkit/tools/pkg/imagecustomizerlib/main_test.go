@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -119,6 +120,7 @@ func TestMain(m *testing.M) {
 
 	logMessagesHook = logger.NewMemoryLogHook()
 	logger.Log.Hooks.Add(logMessagesHook)
+	logger.Log.SetLevel(logrus.DebugLevel)
 
 	workingDir, err = os.Getwd()
 	if err != nil {
