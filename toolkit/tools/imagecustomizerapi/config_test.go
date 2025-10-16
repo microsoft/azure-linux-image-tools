@@ -684,3 +684,20 @@ func TestConfigIsValidWithMissingOutputArtifactsPreviewFeature(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "the 'output-artifacts' preview feature must be enabled to use 'output.artifacts'")
 }
+
+func TestConfigIsValidWithMissingOciPreviewFeature(t *testing.T) {
+	config := &Config{
+		Input: Input{
+			Image: InputImage{
+				Oci: &OciImage{
+					Uri: "mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest",
+				},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'input-image-oci' preview feature must be enabled to use 'input.image.oci'")
+}

@@ -50,3 +50,9 @@ If verity is enabled in the base image, then:
   [previewfeatures](config.md#previewfeatures-string) API.
 
 Added in v0.13.
+
+## oci [[ociImage](ociimage.md)]
+
+Download the base image file from an OCI artifact.
+
+Added in v1.1.

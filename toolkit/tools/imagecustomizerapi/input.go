@@ -3,10 +3,19 @@
 
 package imagecustomizerapi
 
+import (
+	"fmt"
+)
+
 type Input struct {
 	Image InputImage `yaml:"image" json:"image,omitempty"`
 }
 
-func (i Input) IsValid() error {
-	return i.Image.IsValid()
+func (i *Input) IsValid() error {
+	err := i.Image.IsValid()
+	if err != nil {
+		return fmt.Errorf("invalid 'image' field:\n%w", err)
+	}
+
+	return nil
 }

@@ -207,6 +207,9 @@
       "properties": {
         "path": {
           "type": "string"
+        },
+        "oci": {
+          "$ref": "#/$defs/OciImage"
         }
       },
       "additionalProperties": false,
@@ -332,6 +335,30 @@
           "$ref": "#/$defs/Uki"
         },
         "imageHistory": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OciImage": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        },
+        "platform": {
+          "$ref": "#/$defs/OciPlatform"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OciPlatform": {
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "architecture": {
           "type": "string"
         }
       },
