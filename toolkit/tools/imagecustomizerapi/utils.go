@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -116,4 +117,17 @@ func MarshalYaml[ValueType any](value ValueType) (string, error) {
 	}
 
 	return string(yamlData), nil
+}
+
+// yaml.Node.Decode() doesn't respect the KnownFields() option.
+// So, need to manually implement it.
+func checkKnownFields(value *yaml.Node, structName string, validFields []string) error {
+	for i := 0; i < len(value.Content); i += 2 {
+		key := value.Content[i].Value
+		if !sliceutils.ContainsValue(validFields, key) {
+			return fmt.Errorf("line %d: field %s not found in type %s", value.Line, key, structName)
+		}
+	}
+
+	return nil
 }
