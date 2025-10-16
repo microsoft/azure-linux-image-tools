@@ -56,6 +56,34 @@ If verity is enabled in the base image, then:
 
 Added in v0.3.
 
+## --image
+
+Specifies the location where the base image can be downloaded from.
+
+Supported formats:
+
+- `oci:<URI>`
+
+  Where:
+
+  - `<URI>`: The URI of the OCI artifact containing the image.
+
+    The OCI artifact is expected to have a file with one of the following file extensions:
+
+    - `.vhdx`
+    - `.vhd`
+    - `.qcow2`
+    - `.img`
+    - `.raw`
+
+    If multiple such files exists in the artifact, then an error will occur.
+
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Added in v1.1.
+
 ## --output-image-file=FILE-PATH
 
 Required, unless
@@ -194,3 +222,4 @@ You may enable this feature by adding `package-snapshot-time` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v0.15.
+

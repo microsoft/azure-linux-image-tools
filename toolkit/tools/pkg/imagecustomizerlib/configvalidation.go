@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -64,6 +63,11 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	err = options.verifyPreviewFeatures(config.PreviewFeatures)
+	if err != nil {
+		return nil, err
+	}
+
 	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
 		config.OS != nil ||
 		len(config.Scripts.PostCustomization) > 0 ||
@@ -90,7 +94,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, rc.InputImageOci, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
+		rc.InputImageFile, rc.InputImageOci, err = validateInput(baseConfigPath, config.Input, options.InputImageFile,
+			options.InputImage)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +139,7 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 	return nil
 }
 
-func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string,
+func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string, inputImage string,
 ) (string, *imagecustomizerapi.OciImage, error) {
 	switch {
 	case inputImageFile != "":
@@ -145,6 +150,14 @@ func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputI
 		}
 
 		return inputImageFile, nil, nil
+
+	case inputImage != "":
+		ociImage, err := parseInputImage(inputImage)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return "", &ociImage, nil
 
 	case input.Image.Path != "":
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
@@ -395,12 +408,6 @@ func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnaps
 
 	case config.OS != nil && config.OS.Packages.SnapshotTime != "":
 		snapshotTime = config.OS.Packages.SnapshotTime
-	}
-
-	if snapshotTime != "" {
-		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-			return "", ErrPackageSnapshotPreviewRequired
-		}
 	}
 
 	return snapshotTime, nil
