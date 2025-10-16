@@ -10,7 +10,7 @@ os:
 
 input:
   image:
-    path: .testimages/input-image-2.vhdx
+    path: testimages/empty.vhdx
   
 output:
   image:

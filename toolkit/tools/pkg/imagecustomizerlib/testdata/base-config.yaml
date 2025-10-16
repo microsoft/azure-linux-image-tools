@@ -3,7 +3,7 @@ previewFeatures:
 
 input:
   image:
-    path: .testimages/input-image-1.vhdx
+    path: testimages/empty-base.vhdx
 
 output:
   image:

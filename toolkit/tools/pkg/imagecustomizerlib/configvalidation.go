@@ -64,7 +64,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	err = resolveBaseConfigs(ctx, rc)
+	configChain, err := buildConfigChain(ctx, rc)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
+		rc.InputImageFile, err = validateInput(configChain, options.InputImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -116,8 +116,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.OutputImageFormat, rc.OutputImageFile, err = validateOutput(baseConfigPath,
-		config.Output, options.OutputImageFile, options.OutputImageFormat)
+	rc.OutputImageFormat, rc.OutputImageFile, rc.Config.Output.Artifacts, err = validateOutput(configChain,
+		options.OutputImageFile, options.OutputImageFormat)
 	if err != nil {
 		return nil, err
 	}
@@ -135,30 +135,38 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	return rc, nil
 }
 
-func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) (string, error) {
-	switch {
-	case inputImageFile != "":
+func validateInput(configChain []*ConfigWithBasePath, inputImageFile string) (string, error) {
+	if inputImageFile != "" {
 		if yes, err := file.IsFile(inputImageFile); err != nil {
 			return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
 			return "", fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
-
 		return inputImageFile, nil
+	}
 
-	case input.Image.Path != "":
-		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
-		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-			return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
-		} else if !yes {
-			return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
+	// Resolve input image path
+	var inputImageAbsPath string
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.Input.Image.Path != "" {
+			inputImageAbsPath = file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Input.Image.Path,
+			)
 		}
+	}
 
-		return inputImageAbsPath, nil
-
-	default:
+	if inputImageAbsPath == "" {
 		return "", ErrInputImageFileRequired
 	}
+
+	if yes, err := file.IsFile(inputImageAbsPath); err != nil {
+		return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, inputImageAbsPath, err)
+	} else if !yes {
+		return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, inputImageAbsPath)
+	}
+
+	return inputImageAbsPath, nil
 }
 
 func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList) error {
@@ -308,52 +316,60 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, cliOutputImageFile string,
+func validateOutput(configChain []*ConfigWithBasePath, cliOutputImageFile string,
 	cliOutputImageFormat imagecustomizerapi.ImageFormatType,
-) (imagecustomizerapi.ImageFormatType, string, error) {
+) (imagecustomizerapi.ImageFormatType, string, *imagecustomizerapi.Artifacts, error) {
+	// Resolve output format
 	outputImageFormat := imagecustomizerapi.ImageFormatTypeNone
-	switch {
-	case cliOutputImageFormat != "":
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.Output.Image.Format != "" {
+			outputImageFormat = configWithBase.Config.Output.Image.Format
+		}
+	}
+
+	// CLI overrides config chain
+	if cliOutputImageFormat != "" {
 		outputImageFormat = cliOutputImageFormat
-
-	case output.Image.Format != "":
-		outputImageFormat = output.Image.Format
-
-	default:
-		return "", "", ErrOutputImageFormatRequired
 	}
 
-	outputImageFile := ""
-	switch {
-	case cliOutputImageFile != "":
+	if outputImageFormat == "" {
+		return "", "", nil, ErrOutputImageFormatRequired
+	}
+
+	// Resolve output path
+	var outputImageFile string
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.Output.Image.Path != "" {
+			outputImageFile = file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Output.Image.Path,
+			)
+		}
+	}
+
+	// CLI overrides config chain
+	if cliOutputImageFile != "" {
 		outputImageFile = cliOutputImageFile
-
-		// PXE output format allows the output to be a directory.
-		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
-			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
-				return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
-			} else if isDir {
-				return "", "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
-			}
-		}
-
-	case output.Image.Path != "":
-		outputImageFile = file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
-
-		// PXE output format allows the output to be a directory.
-		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
-			if isDir, err := file.DirExists(outputImageFile); err != nil {
-				return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig, output.Image.Path, err)
-			} else if isDir {
-				return "", "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, output.Image.Path)
-			}
-		}
-
-	default:
-		return "", "", ErrOutputImageFileRequired
 	}
 
-	return outputImageFormat, outputImageFile, nil
+	if outputImageFile == "" {
+		return "", "", nil, ErrOutputImageFileRequired
+	}
+
+	// Validate output path
+	// PXE output format allows the output to be a directory
+	if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+		if isDir, err := file.DirExists(outputImageFile); err != nil {
+			return "", "", nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, outputImageFile, err)
+		} else if isDir {
+			return "", "", nil, fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, outputImageFile)
+		}
+	}
+
+	// resolve output artifacts
+	outputArtifacts := resolveOutputArtifacts(configChain)
+
+	return outputImageFormat, outputImageFile, outputArtifacts, nil
 }
 
 func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error {
