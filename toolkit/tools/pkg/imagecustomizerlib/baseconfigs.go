@@ -9,7 +9,7 @@ import (
 )
 
 type ConfigWithBasePath struct {
-	*imagecustomizerapi.Config
+	Config         *imagecustomizerapi.Config
 	BaseConfigPath string
 }
 
@@ -67,56 +67,4 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 	})
 
 	return chain, nil
-}
-
-func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizerapi.Artifacts {
-	var artifacts *imagecustomizerapi.Artifacts
-
-	for _, configWithBase := range configChain {
-		if configWithBase.Config.Output.Artifacts != nil {
-			if artifacts == nil {
-				artifacts = &imagecustomizerapi.Artifacts{}
-			}
-
-			// Artifacts path from current config overrides previous one
-			if configWithBase.Config.Output.Artifacts.Path != "" {
-				artifacts.Path = file.GetAbsPathWithBase(
-					configWithBase.BaseConfigPath,
-					configWithBase.Config.Output.Artifacts.Path,
-				)
-			}
-
-			// Append items
-			artifacts.Items = mergeOutputArtifactTypes(
-				artifacts.Items,
-				configWithBase.Config.Output.Artifacts.Items,
-			)
-		}
-	}
-
-	return artifacts
-}
-
-func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifactsItemType,
-) []imagecustomizerapi.OutputArtifactsItemType {
-	seen := make(map[imagecustomizerapi.OutputArtifactsItemType]bool)
-	var merged []imagecustomizerapi.OutputArtifactsItemType
-
-	// Add base items first
-	for _, item := range base {
-		if !seen[item] {
-			merged = append(merged, item)
-			seen[item] = true
-		}
-	}
-
-	// Add current items
-	for _, item := range current {
-		if !seen[item] {
-			merged = append(merged, item)
-			seen[item] = true
-		}
-	}
-
-	return merged
 }

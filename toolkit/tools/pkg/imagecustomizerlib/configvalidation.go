@@ -64,7 +64,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	configChain, err := buildConfigChain(ctx, rc)
+	rc.ConfigChain, err = buildConfigChain(ctx, rc)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, err = validateInput(configChain, options.InputImageFile)
+		rc.InputImageFile, err = validateInput(rc.ConfigChain, options.InputImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -116,11 +116,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.OutputImageFormat, rc.OutputImageFile, rc.Config.Output.Artifacts, err = validateOutput(configChain,
-		options.OutputImageFile, options.OutputImageFormat)
+	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, options.OutputImageFormat)
 	if err != nil {
 		return nil, err
 	}
+
+	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, options.OutputImageFile, rc.OutputImageFormat)
+	if err != nil {
+		return nil, err
+	}
+
+	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
 	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
 	if err != nil {
@@ -146,27 +152,25 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string) (st
 	}
 
 	// Resolve input image path
-	var inputImageAbsPath string
-	for _, configWithBase := range configChain {
+	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Input.Image.Path != "" {
-			inputImageAbsPath = file.GetAbsPathWithBase(
+			inputImageAbsPath := file.GetAbsPathWithBase(
 				configWithBase.BaseConfigPath,
 				configWithBase.Config.Input.Image.Path,
 			)
+
+			// Validate the path
+			if yes, err := file.IsFile(inputImageAbsPath); err != nil {
+				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, configWithBase.Config.Input.Image.Path, err)
+			} else if !yes {
+				return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
+			}
+
+			return inputImageAbsPath, nil
 		}
 	}
 
-	if inputImageAbsPath == "" {
-		return "", ErrInputImageFileRequired
-	}
-
-	if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-		return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, inputImageAbsPath, err)
-	} else if !yes {
-		return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, inputImageAbsPath)
-	}
-
-	return inputImageAbsPath, nil
+	return "", ErrInputImageFileRequired
 }
 
 func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList) error {
@@ -316,60 +320,56 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(configChain []*ConfigWithBasePath, cliOutputImageFile string,
-	cliOutputImageFormat imagecustomizerapi.ImageFormatType,
-) (imagecustomizerapi.ImageFormatType, string, *imagecustomizerapi.Artifacts, error) {
-	// Resolve output format
-	outputImageFormat := imagecustomizerapi.ImageFormatTypeNone
-	for _, configWithBase := range configChain {
+func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImageFormat imagecustomizerapi.ImageFormatType,
+) (imagecustomizerapi.ImageFormatType, error) {
+	if cliOutputImageFormat != "" {
+		return cliOutputImageFormat, nil
+	}
+
+	// Resolve output image format
+	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Output.Image.Format != "" {
-			outputImageFormat = configWithBase.Config.Output.Image.Format
+			return configWithBase.Config.Output.Image.Format, nil
 		}
 	}
 
-	// CLI overrides config chain
-	if cliOutputImageFormat != "" {
-		outputImageFormat = cliOutputImageFormat
+	return "", ErrOutputImageFormatRequired
+}
+
+func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string, outputImageFormat imagecustomizerapi.ImageFormatType) (string, error) {
+	if cliOutputImageFile != "" {
+		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
+				return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
+			} else if isDir {
+				return "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
+			}
+		}
+		return cliOutputImageFile, nil
 	}
 
-	if outputImageFormat == "" {
-		return "", "", nil, ErrOutputImageFormatRequired
-	}
-
-	// Resolve output path
-	var outputImageFile string
-	for _, configWithBase := range configChain {
+	// Resolve output image path
+	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Output.Image.Path != "" {
-			outputImageFile = file.GetAbsPathWithBase(
+			outputImageFile := file.GetAbsPathWithBase(
 				configWithBase.BaseConfigPath,
 				configWithBase.Config.Output.Image.Path,
 			)
+
+			// PXE output format allows the output to be a directory
+			if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+				if isDir, err := file.DirExists(outputImageFile); err != nil {
+					return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig, configWithBase.Config.Output.Image.Path, err)
+				} else if isDir {
+					return "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, configWithBase.Config.Output.Image.Path)
+				}
+			}
+
+			return outputImageFile, nil
 		}
 	}
 
-	// CLI overrides config chain
-	if cliOutputImageFile != "" {
-		outputImageFile = cliOutputImageFile
-	}
-
-	if outputImageFile == "" {
-		return "", "", nil, ErrOutputImageFileRequired
-	}
-
-	// Validate output path
-	// PXE output format allows the output to be a directory
-	if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
-		if isDir, err := file.DirExists(outputImageFile); err != nil {
-			return "", "", nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, outputImageFile, err)
-		} else if isDir {
-			return "", "", nil, fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, outputImageFile)
-		}
-	}
-
-	// resolve output artifacts
-	outputArtifacts := resolveOutputArtifacts(configChain)
-
-	return outputImageFormat, outputImageFile, outputArtifacts, nil
+	return "", ErrOutputImageFileRequired
 }
 
 func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error {
@@ -437,4 +437,56 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 	}
 
 	return nil
+}
+
+func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizerapi.Artifacts {
+	var artifacts *imagecustomizerapi.Artifacts
+
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.Output.Artifacts != nil {
+			if artifacts == nil {
+				artifacts = &imagecustomizerapi.Artifacts{}
+			}
+
+			// Artifacts path from current config overrides previous one
+			if configWithBase.Config.Output.Artifacts.Path != "" {
+				artifacts.Path = file.GetAbsPathWithBase(
+					configWithBase.BaseConfigPath,
+					configWithBase.Config.Output.Artifacts.Path,
+				)
+			}
+
+			// Append items
+			artifacts.Items = mergeOutputArtifactTypes(
+				artifacts.Items,
+				configWithBase.Config.Output.Artifacts.Items,
+			)
+		}
+	}
+
+	return artifacts
+}
+
+func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifactsItemType,
+) []imagecustomizerapi.OutputArtifactsItemType {
+	seen := make(map[imagecustomizerapi.OutputArtifactsItemType]bool)
+	var merged []imagecustomizerapi.OutputArtifactsItemType
+
+	// Add base items first
+	for _, item := range base {
+		if !seen[item] {
+			merged = append(merged, item)
+			seen[item] = true
+		}
+	}
+
+	// Add current items
+	for _, item := range current {
+		if !seen[item] {
+			merged = append(merged, item)
+			seen[item] = true
+		}
+	}
+
+	return merged
 }
