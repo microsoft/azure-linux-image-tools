@@ -104,6 +104,15 @@ Supported options:
 
   Added in v0.15.
 
+- `base-configs`: Enables support for hierarchical configuration inheritance.
+
+  When this option is specified, the `baseConfigs` configuration becomes available.
+  This allows configurations to inherit from one or more base configurations.
+
+  See [Base Configs](./baseConfigs.md) for more details.
+
+  Added in v1.1.0.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

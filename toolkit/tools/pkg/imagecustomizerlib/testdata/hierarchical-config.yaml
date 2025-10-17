@@ -3,7 +3,7 @@ previewFeatures:
 - base-configs
 
 baseConfigs:
-  - path: base-config.yaml
+  - path: hierarchical-config-base.yaml
 
 os:
   hostname: testname
