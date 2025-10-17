@@ -90,7 +90,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
+		rc.InputImageFile, rc.InputImageOci, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -122,37 +122,45 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	err = validateIsoPxeCustomization(rc)
-	if err != nil {
-		return nil, err
-	}
-
 	return rc, nil
 }
 
-func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) (string, error) {
+func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
+	err := validateIsoPxeCustomization(rc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string,
+) (string, *imagecustomizerapi.OciImage, error) {
 	switch {
 	case inputImageFile != "":
 		if yes, err := file.IsFile(inputImageFile); err != nil {
-			return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+			return "", nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
-			return "", fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+			return "", nil, fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
 
-		return inputImageFile, nil
+		return inputImageFile, nil, nil
 
 	case input.Image.Path != "":
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
 		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-			return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
+			return "", nil, fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
 		} else if !yes {
-			return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
+			return "", nil, fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
 		}
 
-		return inputImageAbsPath, nil
+		return inputImageAbsPath, nil, nil
+
+	case input.Image.Oci != nil:
+		return "", input.Image.Oci, nil
 
 	default:
-		return "", ErrInputImageFileRequired
+		return "", nil, ErrInputImageFileRequired
 	}
 }
 
