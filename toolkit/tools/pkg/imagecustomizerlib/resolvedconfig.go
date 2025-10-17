@@ -29,6 +29,9 @@ type ResolvedConfig struct {
 	// Input image
 	InputImageFile string
 
+	// Output artifacts
+	OutputArtifacts *imagecustomizerapi.Artifacts
+
 	// Output image
 	OutputImageFile   string
 	OutputImageFormat imagecustomizerapi.ImageFormatType
@@ -38,6 +41,9 @@ type ResolvedConfig struct {
 
 	// Intermediate writeable image.
 	RawImageFile string
+
+	// Hierarchical config chain
+	ConfigChain []*ConfigWithBasePath
 }
 
 func (c *ResolvedConfig) InputFileExt() string {

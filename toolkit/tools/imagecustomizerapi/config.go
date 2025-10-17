@@ -19,6 +19,7 @@ type Config struct {
 	Scripts         Scripts          `yaml:"scripts" json:"scripts,omitempty"`
 	PreviewFeatures []PreviewFeature `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 	Output          Output           `yaml:"output" json:"output,omitempty"`
+	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -121,6 +122,18 @@ func (c *Config) IsValid() (err error) {
 	if c.Storage.ReinitializeVerity != ReinitializeVerityTypeDefault &&
 		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureReinitializeVerity) {
 		return fmt.Errorf("the 'reinitialize-verity' preview feature must be enabled to use 'storage.reinitializeVerity'")
+	}
+
+	if c.BaseConfigs != nil {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureBaseConfigs) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'baseConfigs'", PreviewFeatureBaseConfigs)
+		}
+
+		for i, base := range c.BaseConfigs {
+			if err := base.IsValid(); err != nil {
+				return fmt.Errorf("invalid baseConfig item at index %d:\n%w", i, err)
+			}
+		}
 	}
 
 	return nil
