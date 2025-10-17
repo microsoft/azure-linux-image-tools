@@ -9,11 +9,14 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCustomizeImageOciBaseImageInvalid(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageOciBaseImageInvalid")
 	defer os.RemoveAll(testTmpDir)
 
@@ -39,6 +42,8 @@ func TestCustomizeImageOciBaseImageInvalid(t *testing.T) {
 }
 
 func TestCustomizeImageOciBaseImageValid(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageOciBaseImageValid")
 	defer os.RemoveAll(testTmpDir)
 
