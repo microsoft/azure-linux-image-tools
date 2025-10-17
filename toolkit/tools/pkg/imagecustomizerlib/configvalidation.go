@@ -90,7 +90,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, rc.InputImageOci, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
+		rc.InputImage, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -135,32 +135,47 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 }
 
 func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string,
-) (string, *imagecustomizerapi.OciImage, error) {
+) (imagecustomizerapi.InputImage, error) {
 	switch {
 	case inputImageFile != "":
 		if yes, err := file.IsFile(inputImageFile); err != nil {
-			return "", nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+			err = fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+			return imagecustomizerapi.InputImage{}, err
 		} else if !yes {
-			return "", nil, fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+			err = fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+			return imagecustomizerapi.InputImage{}, err
 		}
 
-		return inputImageFile, nil, nil
+		return imagecustomizerapi.InputImage{
+			Path: inputImageFile,
+		}, nil
 
 	case input.Image.Path != "":
 		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
 		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-			return "", nil, fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
+			err = fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
+			return imagecustomizerapi.InputImage{}, err
 		} else if !yes {
-			return "", nil, fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
+			err = fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
+			return imagecustomizerapi.InputImage{}, err
 		}
 
-		return inputImageAbsPath, nil, nil
+		return imagecustomizerapi.InputImage{
+			Path: inputImageAbsPath,
+		}, nil
 
 	case input.Image.Oci != nil:
-		return "", input.Image.Oci, nil
+		return imagecustomizerapi.InputImage{
+			Oci: input.Image.Oci,
+		}, nil
+
+	case input.Image.AzureLinux != nil:
+		return imagecustomizerapi.InputImage{
+			AzureLinux: input.Image.AzureLinux,
+		}, nil
 
 	default:
-		return "", nil, ErrInputImageFileRequired
+		return imagecustomizerapi.InputImage{}, ErrInputImageFileRequired
 	}
 }
 

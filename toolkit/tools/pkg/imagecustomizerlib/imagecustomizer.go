@@ -221,15 +221,13 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		}
 	}()
 
-	if rc.InputImageOci != nil {
-		ociImageFile, err := downloadOciImage(ctx, *rc.InputImageOci, options.BuildDir,
-			options.ImageCacheDir)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrCustomizeDownloadImage, err)
-		}
-
-		rc.InputImageFile = ociImageFile
+	inputImageFilePath, err := downloadImage(ctx, rc.InputImage, options.BuildDir,
+		options.ImageCacheDir)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrCustomizeDownloadImage, err)
 	}
+
+	rc.InputImage.Path = inputImageFilePath
 
 	err = ValidateConfigPostImageDownload(rc)
 	if err != nil {
@@ -329,10 +327,10 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 	defer span.End()
 
 	if rc.InputIsIso() {
-		inputIsoArtifacts, err := createIsoArtifactStoreFromIsoImage(rc.InputImageFile,
+		inputIsoArtifacts, err := createIsoArtifactStoreFromIsoImage(rc.InputImage.Path,
 			filepath.Join(rc.BuildDirAbs, "from-iso"))
 		if err != nil {
-			return inputIsoArtifacts, fmt.Errorf("%w (source='%s'):\n%w", ErrCreateArtifactsStore, rc.InputImageFile, err)
+			return inputIsoArtifacts, fmt.Errorf("%w (source='%s'):\n%w", ErrCreateArtifactsStore, rc.InputImage.Path, err)
 		}
 
 		var liveosConfig LiveOSConfig
@@ -364,7 +362,7 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 	} else {
 		logger.Log.Infof("Creating raw base image: %s", rc.RawImageFile)
 
-		_, err := convertImageToRaw(rc.InputImageFile, rc.RawImageFile)
+		_, err := convertImageToRaw(rc.InputImage.Path, rc.RawImageFile)
 		if err != nil {
 			return nil, err
 		}
