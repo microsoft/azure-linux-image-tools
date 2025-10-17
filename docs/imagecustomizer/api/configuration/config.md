@@ -109,7 +109,7 @@ Supported options:
   When this option is specified, the `baseConfigs` configuration becomes available.
   This allows configurations to inherit from one or more base configurations.
 
-  See [Base Configs](./baseConfigs.md) for more details.
+  See [Base Config](./baseConfig.md) for more details.
 
   Added in v1.1.0.
 

@@ -29,6 +29,8 @@ fields in later configurations overriding or extending earlier ones.
 
 ## path [string]
 
+Required.
+
 A file path to the base config file. The path can be either relative or absolute.
 Relative paths are resolved relative to the parent directory of the current config file.
 
