@@ -336,7 +336,9 @@ func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImage
 	return "", ErrOutputImageFormatRequired
 }
 
-func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string, outputImageFormat imagecustomizerapi.ImageFormatType) (string, error) {
+func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string,
+	outputImageFormat imagecustomizerapi.ImageFormatType,
+) (string, error) {
 	if cliOutputImageFile != "" {
 		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
@@ -359,9 +361,11 @@ func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFi
 			// PXE output format allows the output to be a directory
 			if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 				if isDir, err := file.DirExists(outputImageFile); err != nil {
-					return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig, configWithBase.Config.Output.Image.Path, err)
+					return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig,
+						configWithBase.Config.Output.Image.Path, err)
 				} else if isDir {
-					return "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, configWithBase.Config.Output.Image.Path)
+					return "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory,
+						configWithBase.Config.Output.Image.Path)
 				}
 			}
 
