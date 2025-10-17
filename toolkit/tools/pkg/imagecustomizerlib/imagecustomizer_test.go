@@ -1066,12 +1066,6 @@ func testConvertImageToRawSuccess(t *testing.T, testName string, qemuImgArgs []s
 func TestCustomizeImageBaseImageMissing(t *testing.T) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	qemuimgExists, err := file.CommandExists("qemu-img")
-	assert.NoError(t, err)
-	if !qemuimgExists {
-		t.Skip("The 'qemu-img' command is not available")
-	}
-
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageMissing")
 	defer os.RemoveAll(testTmpDir)
 
@@ -1080,19 +1074,13 @@ func TestCustomizeImageBaseImageMissing(t *testing.T) {
 	baseImage := filepath.Join(testTmpDir, "missing.qcow2")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
 		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
 func TestCustomizeImageBaseImageInvalid(t *testing.T) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
-
-	qemuimgExists, err := file.CommandExists("qemu-img")
-	assert.NoError(t, err)
-	if !qemuimgExists {
-		t.Skip("The 'qemu-img' command is not available")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageBaseImageInvalid")
 	defer os.RemoveAll(testTmpDir)
@@ -1102,7 +1090,7 @@ func TestCustomizeImageBaseImageInvalid(t *testing.T) {
 	baseImage := configFile
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
 		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to open image file:")
 	assert.ErrorContains(t, err, "image does not contain a partition table")
