@@ -37,11 +37,20 @@ Added in v1.1.
 
 The URI of the OCI artifact containing the image to use as the base image.
 
+This value is required.
+
 Added in v1.1.
 
 ## platform [[ociPlatform](ociplatform.md)]
 
-Specifies the platform to use when the URI points to a multi-platform artifact.
+Specifies the platform to use when the `uri` value points to a multi-platform artifact.
+
+This value is optional. When `platform` is not specified, then if the `uri` value points
+to a multi-platform artifact, then `os` is set to `linux` and `architecture` is set to
+the system's CPU architecture.
+
+If `platform` is specified and the `uri` value does not point to a multi-platform
+artifact, then an error occurs.
 
 As syntactic sugar, this value can be specified as a string with the following format:
 
