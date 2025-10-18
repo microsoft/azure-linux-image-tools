@@ -13,6 +13,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/notaryproject/notation-go/dir"
+	"github.com/notaryproject/notation-go/verifier"
+	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"github.com/notaryproject/notation-go/verifier/truststore"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
@@ -127,6 +131,55 @@ func resolveOciReference(ctx context.Context, ociImage imagecustomizerapi.OciIma
 	}
 
 	return descriptor, nil
+}
+
+func checkNotationSignature(ctx context.Context) error {
+	trustPolicyName := "mcr-azure-linux"
+	trustStoreName := "microsoft-supplychain-2022"
+
+	trustPolicy := &trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name: trustPolicyName,
+				RegistryScopes: []string{
+					"*",
+				},
+				SignatureVerification: trustpolicy.SignatureVerification{
+					VerificationLevel: "strict",
+				},
+				TrustStores: []string{
+					string(truststore.TypeCA) + ":" + trustStoreName,
+				},
+				TrustedIdentities: []string{
+					"*",
+				},
+			},
+		},
+	}
+
+	dir.ConfigFS().SysPath()
+
+	trustStoreFs := dir.NewSysFS("TODO-PATH")
+	trustStore := truststore.NewX509TrustStore(trustStoreFs)
+
+	certDestinationPath, err := trustStoreFs.SysPath(dir.TrustStoreDir, "x509", string(truststore.TypeCA),
+		trustStoreName)
+	if err != nil {
+		return err
+	}
+
+	verifierOptions := verifier.VerifierOptions{}
+
+	verifier, err := verifier.NewWithOptions(trustPolicy, trustStore, nil, verifierOptions)
+	if err != nil {
+		return err
+	}
+
+	_ = certDestinationPath
+	_ = verifier
+
+	return nil
 }
 
 func downloadOciToDirectory(ctx context.Context, sourceRepo content.ReadOnlyStorage, destinationDir string,
