@@ -64,6 +64,11 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	rc.ConfigChain, err = buildConfigChain(ctx, rc)
+	if err != nil {
+		return nil, err
+	}
+
 	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
 		config.OS != nil ||
 		len(config.Scripts.PostCustomization) > 0 ||
@@ -90,7 +95,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, err = validateInput(baseConfigPath, config.Input, options.InputImageFile)
+		rc.InputImageFile, err = validateInput(rc.ConfigChain, options.InputImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -111,11 +116,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.OutputImageFormat, rc.OutputImageFile, err = validateOutput(baseConfigPath,
-		config.Output, options.OutputImageFile, options.OutputImageFormat)
+	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, options.OutputImageFormat)
 	if err != nil {
 		return nil, err
 	}
+
+	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, options.OutputImageFile, rc.OutputImageFormat)
+	if err != nil {
+		return nil, err
+	}
+
+	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
 	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
 	if err != nil {
@@ -130,30 +141,36 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	return rc, nil
 }
 
-func validateInput(baseConfigPath string, input imagecustomizerapi.Input, inputImageFile string) (string, error) {
-	switch {
-	case inputImageFile != "":
+func validateInput(configChain []*ConfigWithBasePath, inputImageFile string) (string, error) {
+	if inputImageFile != "" {
 		if yes, err := file.IsFile(inputImageFile); err != nil {
 			return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
 		} else if !yes {
 			return "", fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
 		}
-
 		return inputImageFile, nil
-
-	case input.Image.Path != "":
-		inputImageAbsPath := file.GetAbsPathWithBase(baseConfigPath, input.Image.Path)
-		if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-			return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, input.Image.Path, err)
-		} else if !yes {
-			return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, input.Image.Path)
-		}
-
-		return inputImageAbsPath, nil
-
-	default:
-		return "", ErrInputImageFileRequired
 	}
+
+	// Resolve input image path
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Input.Image.Path != "" {
+			inputImageAbsPath := file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Input.Image.Path,
+			)
+
+			// Validate the path
+			if yes, err := file.IsFile(inputImageAbsPath); err != nil {
+				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, configWithBase.Config.Input.Image.Path, err)
+			} else if !yes {
+				return "", fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
+			}
+
+			return inputImageAbsPath, nil
+		}
+	}
+
+	return "", ErrInputImageFileRequired
 }
 
 func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList) error {
@@ -303,52 +320,60 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutput(baseConfigPath string, output imagecustomizerapi.Output, cliOutputImageFile string,
-	cliOutputImageFormat imagecustomizerapi.ImageFormatType,
-) (imagecustomizerapi.ImageFormatType, string, error) {
-	outputImageFormat := imagecustomizerapi.ImageFormatTypeNone
-	switch {
-	case cliOutputImageFormat != "":
-		outputImageFormat = cliOutputImageFormat
-
-	case output.Image.Format != "":
-		outputImageFormat = output.Image.Format
-
-	default:
-		return "", "", ErrOutputImageFormatRequired
+func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImageFormat imagecustomizerapi.ImageFormatType,
+) (imagecustomizerapi.ImageFormatType, error) {
+	if cliOutputImageFormat != "" {
+		return cliOutputImageFormat, nil
 	}
 
-	outputImageFile := ""
-	switch {
-	case cliOutputImageFile != "":
-		outputImageFile = cliOutputImageFile
+	// Resolve output image format
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Output.Image.Format != "" {
+			return configWithBase.Config.Output.Image.Format, nil
+		}
+	}
 
-		// PXE output format allows the output to be a directory.
+	return "", ErrOutputImageFormatRequired
+}
+
+func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string,
+	outputImageFormat imagecustomizerapi.ImageFormatType,
+) (string, error) {
+	if cliOutputImageFile != "" {
 		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
-				return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
+				return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
 			} else if isDir {
-				return "", "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
+				return "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, cliOutputImageFile)
 			}
 		}
-
-	case output.Image.Path != "":
-		outputImageFile = file.GetAbsPathWithBase(baseConfigPath, output.Image.Path)
-
-		// PXE output format allows the output to be a directory.
-		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
-			if isDir, err := file.DirExists(outputImageFile); err != nil {
-				return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig, output.Image.Path, err)
-			} else if isDir {
-				return "", "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory, output.Image.Path)
-			}
-		}
-
-	default:
-		return "", "", ErrOutputImageFileRequired
+		return cliOutputImageFile, nil
 	}
 
-	return outputImageFormat, outputImageFile, nil
+	// Resolve output image path
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Output.Image.Path != "" {
+			outputImageFile := file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Output.Image.Path,
+			)
+
+			// PXE output format allows the output to be a directory
+			if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+				if isDir, err := file.DirExists(outputImageFile); err != nil {
+					return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig,
+						configWithBase.Config.Output.Image.Path, err)
+				} else if isDir {
+					return "", fmt.Errorf("%w (file='%s')", ErrOutputImageFileIsDirectory,
+						configWithBase.Config.Output.Image.Path)
+				}
+			}
+
+			return outputImageFile, nil
+		}
+	}
+
+	return "", ErrOutputImageFileRequired
 }
 
 func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error {
@@ -416,4 +441,56 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 	}
 
 	return nil
+}
+
+func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizerapi.Artifacts {
+	var artifacts *imagecustomizerapi.Artifacts
+
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.Output.Artifacts != nil {
+			if artifacts == nil {
+				artifacts = &imagecustomizerapi.Artifacts{}
+			}
+
+			// Artifacts path from current config overrides previous one
+			if configWithBase.Config.Output.Artifacts.Path != "" {
+				artifacts.Path = file.GetAbsPathWithBase(
+					configWithBase.BaseConfigPath,
+					configWithBase.Config.Output.Artifacts.Path,
+				)
+			}
+
+			// Append items
+			artifacts.Items = mergeOutputArtifactTypes(
+				artifacts.Items,
+				configWithBase.Config.Output.Artifacts.Items,
+			)
+		}
+	}
+
+	return artifacts
+}
+
+func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifactsItemType,
+) []imagecustomizerapi.OutputArtifactsItemType {
+	seen := make(map[imagecustomizerapi.OutputArtifactsItemType]bool)
+	var merged []imagecustomizerapi.OutputArtifactsItemType
+
+	// Add base items first
+	for _, item := range base {
+		if !seen[item] {
+			merged = append(merged, item)
+			seen[item] = true
+		}
+	}
+
+	// Add current items
+	for _, item := range current {
+		if !seen[item] {
+			merged = append(merged, item)
+			seen[item] = true
+		}
+	}
+
+	return merged
 }

@@ -32,6 +32,7 @@ var (
 	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
 	ErrCannotValidateTargetOS         = NewImageCustomizerError("Validation:CannotValidateTargetOS", "cannot validate target OS of the base image")
 	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
+	ErrInvalidBaseConfigs             = NewImageCustomizerError("Validation:InvalidBaseConfigs", "base configs contain invalid image config")
 	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
 	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
 	ErrVerityValidation               = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
@@ -261,10 +262,10 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		return err
 	}
 
-	if config.Output.Artifacts != nil {
-		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
+	if rc.OutputArtifacts != nil {
+		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
 
-		err = outputArtifacts(ctx, config.Output.Artifacts.Items, outputDir, rc.BuildDirAbs,
+		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
 			rc.RawImageFile, im.verityMetadata)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
