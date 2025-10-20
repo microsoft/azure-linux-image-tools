@@ -11,10 +11,8 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
-var (
-	// Boot customization errors
-	ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
-)
+// Boot customization errors
+var ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
 
 type BootCustomizer struct {
 	// The contents of the /boot/grub2/grub.cfg file.
@@ -90,8 +88,14 @@ func (b *BootCustomizer) getSELinuxModeFromGrub() (imagecustomizerapi.SELinuxMod
 	if b.isGrubMkconfig {
 		_, args, _, err = GetDefaultGrubFileLinuxArgs(b.defaultGrubFileContent, defaultGrubFileVarNameCmdlineForSELinux)
 		if err != nil {
-			return "", err
+			firstErr := err // Capture the first error
+			// Fallback to GRUB_CMDLINE_LINUX_DEFAULT
+			_, args, _, err = GetDefaultGrubFileLinuxArgs(b.defaultGrubFileContent, defaultGrubFileVarNameCmdlineLinuxDefault)
+			if err != nil {
+				return "", fmt.Errorf("failed to find SELinux args in grub file (%s):\nFirst error: %w.\nSecond error: %w", installutils.GrubDefFile, firstErr, err)
+			}
 		}
+
 	} else {
 		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
