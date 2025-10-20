@@ -13,6 +13,10 @@ as a [Live OS](./liveos.md) iso image. A Live OS iso image is a bootable image
 that boots into a root file system included on the iso media without the need
 to have anything pre-installed on the target machine.
 
+The ISO file's format is an ISO 9660 with the following extensions: Joilet, Rock Ridge,
+and El Torito. The ISO file is given a volume ID of `CDROM`. The ISO file cannot contain
+files that have a size greater than 4 GiB.
+
 ## Creating a Live OS ISO
 
 The input image can be a full disk image (vhd/vhdx/qcow2/raw) or previously

@@ -91,6 +91,7 @@ var (
 	baseImageCoreEfiAzl3   = flag.String("base-image-core-efi-azl3", "", "An Azure Linux 3.0 core-efi image to use as a base image.")
 	baseImageBareMetalAzl2 = flag.String("base-image-bare-metal-azl2", "", "An Azure Linux 2.0 bare-metal image to use as a base image.")
 	baseImageBareMetalAzl3 = flag.String("base-image-bare-metal-azl3", "", "An Azure Linux 3.0 bare-metal image to use as a base image.")
+	logLevel               = flag.String("log-level", "info", "The log level (error, warning, info, debug, or trace)")
 )
 
 var (
@@ -106,6 +107,13 @@ func TestMain(m *testing.M) {
 	logger.InitStderrLog()
 
 	flag.Parse()
+
+	if logLevel != nil {
+		err := logger.SetStderrLogLevel(*logLevel)
+		if err != nil {
+			logger.Log.Panicf("Failed to set log level, error: %s", err)
+		}
+	}
 
 	workingDir, err = os.Getwd()
 	if err != nil {
