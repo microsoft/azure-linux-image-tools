@@ -262,10 +262,10 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		return err
 	}
 
-	if config.Output.Artifacts != nil {
-		outputDir := file.GetAbsPathWithBase(baseConfigPath, config.Output.Artifacts.Path)
+	if rc.OutputArtifacts != nil {
+		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
 
-		err = outputArtifacts(ctx, config.Output.Artifacts.Items, outputDir, rc.BuildDirAbs,
+		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
 			rc.RawImageFile, im.verityMetadata)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)

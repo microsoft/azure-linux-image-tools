@@ -49,3 +49,24 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	assert.ElementsMatch(t, expectedItems, actual,
 		"output artifact items should match - expected: %v, got: %v", expectedItems, actual)
 }
+
+func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput_FullRun")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFile := filepath.Join(testTmpDir, "image.vhdx")
+
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
+		outImageFile, "vhdx", false, "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.FileExists(t, outImageFile)
+
+}

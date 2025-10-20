@@ -118,3 +118,10 @@ Supported options:
 Specifies the configuration for the output image and artifacts.
 
 Added in v0.13.
+
+
+## baseConfigs [[baseConfig](./baseConfig.md)]
+
+Specifies a list of configuration files to inherit from.
+
+Added in v1.1.0.
