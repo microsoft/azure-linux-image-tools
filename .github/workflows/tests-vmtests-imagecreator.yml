@@ -129,7 +129,7 @@ jobs:
       run: |
         set -eux
         # login to ACR
-        az acr login -n $AZURE_CR_CACHE
+        az acr login -n  ${{ vars.AZURE_CR_CACHE }}
 
     - name: Download RPMS and tools file
       run: |
