@@ -138,7 +138,8 @@ func (c *Config) IsValid() (err error) {
 
 	if c.Input.Image.Oci != nil &&
 		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureInputImageOci) {
-		return fmt.Errorf("the 'input-image-oci' preview feature must be enabled to use 'input.image.oci'")
+		return fmt.Errorf("the '%s' preview feature must be enabled to use 'input.image.oci'",
+			PreviewFeatureInputImageOci)
 	}
 
 	return nil
