@@ -37,6 +37,7 @@ var (
 	ErrUKIFileCopy                    = NewImageCustomizerError("UKI:FileCopy", "failed to copy UKI files")
 	ErrUKIKernelCmdlineExtract        = NewImageCustomizerError("UKI:KernelCmdlineExtract", "failed to extract kernel command-line arguments")
 	ErrUKICmdlineFileWrite            = NewImageCustomizerError("UKI:CmdlineFileWrite", "failed to write kernel cmdline args JSON")
+	ErrUKICleanBoot                   = NewImageCustomizerError("UKI:CleanBoot", "failed to clean boot directory")
 )
 
 const (
@@ -158,6 +159,16 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
+	}
+
+	// Clean the /boot directory if cleanBoot is enabled.
+	// All necessary UKI components (kernel, initramfs) have already been copied to the build directory.
+	if uki.CleanBoot {
+		logger.Log.Infof("cleanBoot is enabled: cleaning /boot directory (preserving /boot/efi)")
+		err = cleanBootDirectory(imageChroot)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrUKICleanBoot, err)
+		}
 	}
 
 	// Combine kernel-to-initramfs mapping and kernel command line arguments into a single structure.
@@ -368,6 +379,12 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string) erro
 	}
 	defer systemBootPartitionMount.Close()
 
+	ukiOutputFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
+	err = deleteOldUkiFiles(ukiOutputFullPath)
+	if err != nil {
+		return err
+	}
+
 	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
@@ -436,6 +453,11 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 
 	kernelToArgsString := make(map[string]string)
 	for kernel, args := range kernelToArgs {
+		// Normalize kernel path: strip "boot/" prefix if present When there's
+		// no separate /boot partition, grub.cfg has paths like
+		// "boot/vmlinuz-..." but kernel discovery returns just "vmlinuz-..."
+		normalizedKernel := strings.TrimPrefix(kernel, "boot/")
+
 		filteredArgs := []string(nil)
 		for _, arg := range args {
 			if arg.ValueHasVarExpansion {
@@ -447,7 +469,7 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 		}
 
 		filteredArgsString := GrubArgsToString(filteredArgs)
-		kernelToArgsString[kernel] = filteredArgsString
+		kernelToArgsString[normalizedKernel] = filteredArgsString
 	}
 
 	return kernelToArgsString, nil
@@ -526,6 +548,35 @@ func cleanupUkiBuildDir(buildDir string) error {
 	return nil
 }
 
+func deleteOldUkiFiles(ukiOutputDir string) error {
+	if _, err := os.Stat(ukiOutputDir); os.IsNotExist(err) {
+		logger.Log.Infof("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
+		return nil
+	}
+
+	files, err := os.ReadDir(ukiOutputDir)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI output directory (%s):\n%w", ukiOutputDir, err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if strings.HasSuffix(strings.ToLower(file.Name()), ".efi") {
+			filePath := filepath.Join(ukiOutputDir, file.Name())
+			err := os.Remove(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to delete old UKI file (%s):\n%w", filePath, err)
+			}
+			logger.Log.Infof("Deleted old UKI file: (%s)", filePath)
+		}
+	}
+
+	return nil
+}
+
 func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 
@@ -601,4 +652,29 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	// Reconstruct kernel name (vmlinuz-<version>, e.g., vmlinuz-6.6.51.1-5.azl3)
 	kernelName := "vmlinuz-" + matches[1]
 	return kernelName, nil
+}
+
+func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	bootPath := filepath.Join(imageChroot.RootDir(), BootDir)
+	espPath := filepath.Join(imageChroot.RootDir(), EspDir)
+
+	dirEntries, err := os.ReadDir(bootPath)
+	if err != nil {
+		return fmt.Errorf("failed to read boot directory (%s):\n%w", bootPath, err)
+	}
+
+	for _, entry := range dirEntries {
+		entryPath := filepath.Join(bootPath, entry.Name())
+
+		if entryPath == espPath {
+			continue
+		}
+
+		err := os.RemoveAll(entryPath)
+		if err != nil {
+			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
+		}
+	}
+
+	return nil
 }

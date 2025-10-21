@@ -52,3 +52,46 @@ func TestUkiKernelsIsValidInvalidKernelList(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid kernel version at index 1:")
 	assert.ErrorContains(t, err, "invalid kernel version format (invalid-kernel-version)")
 }
+
+func TestUkiCleanBootDefaultsToFalse(t *testing.T) {
+	uki := Uki{
+		Kernels: UkiKernels{
+			Auto:    true,
+			Kernels: nil,
+		},
+	}
+
+	assert.False(t, uki.CleanBoot)
+	err := uki.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestUkiCleanBootSetToTrue(t *testing.T) {
+	uki := Uki{
+		Kernels: UkiKernels{
+			Auto:    true,
+			Kernels: nil,
+		},
+		CleanBoot: true,
+	}
+
+	assert.True(t, uki.CleanBoot)
+	err := uki.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestUkiCleanBootSetToFalse(t *testing.T) {
+	uki := Uki{
+		Kernels: UkiKernels{
+			Auto: false,
+			Kernels: []string{
+				"6.6.51.1-5.azl3",
+			},
+		},
+		CleanBoot: false,
+	}
+
+	assert.False(t, uki.CleanBoot)
+	err := uki.IsValid()
+	assert.NoError(t, err)
+}

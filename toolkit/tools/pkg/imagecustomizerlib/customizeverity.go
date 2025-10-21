@@ -677,7 +677,8 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 		// Update kernel args.
 		isUki := config.OS.Uki != nil
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
+		cleanBoot := isUki && config.OS.Uki.CleanBoot
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, cleanBoot)
 		if err != nil {
 			return nil, err
 		}
@@ -756,7 +757,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 }
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
-	verityMetadata []verityDeviceMetadata, isUki bool,
+	verityMetadata []verityDeviceMetadata, isUki bool, cleanBoot bool,
 ) error {
 	systemBootPartition, err := findSystemBootPartition(diskPartitions)
 	if err != nil {
@@ -766,6 +767,17 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
 	if err != nil {
 		return err
+	}
+
+	if isUki {
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
+		}
+
+		if cleanBoot {
+			return nil
+		}
 	}
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
@@ -780,14 +792,6 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
-	}
-
-	if isUki {
-		// UKI is enabled, update kernel cmdline args file.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
-		}
 	}
 
 	// Temporarily always update grub.cfg for verity, even when UKI is used.
