@@ -46,9 +46,11 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = AddOrUpdateUsers(ctx, rc.Config.OS.Users, rc.BaseConfigPath, imageChroot)
-	if err != nil {
-		return err
+	for _, configWithBase := range rc.ConfigChain {
+		err = AddOrUpdateUsers(ctx, configWithBase.Config.OS.Users, configWithBase.BaseConfigPath, imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = copyAdditionalDirs(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalDirs, imageChroot)

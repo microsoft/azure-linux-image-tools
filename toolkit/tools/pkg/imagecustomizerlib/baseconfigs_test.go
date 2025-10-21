@@ -7,6 +7,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,4 +70,51 @@ func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
 
 	assert.FileExists(t, outImageFile)
 
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFile)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	hostnamePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname")
+	data, err := os.ReadFile(hostnamePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, "testname", data)
+}
+
+func TestBaseConfigsUsers(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsUsers")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.vhdx")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
+		outImageFilePath, "vhdx", false, "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Verify user from base config
+	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-base")
+	if assert.NoError(t, err) {
+		assert.Contains(t, baseadminEntry.HomeDirectory, "test-base")
+	}
+
+	// Verify user from current config
+	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test")
+	if assert.NoError(t, err) {
+		assert.Contains(t, appuserEntry.HomeDirectory, "test")
+	}
 }

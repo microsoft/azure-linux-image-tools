@@ -7,6 +7,8 @@ baseConfigs:
 
 os:
   hostname: testname
+  users:
+    - name: test
 
 input:
   image:

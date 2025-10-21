@@ -13,3 +13,7 @@ output:
     items:
     - ukis
     path: ./artifacts-1
+
+os:
+  users:
+    - name: test-base
