@@ -175,6 +175,42 @@ func GetDefaultGrubFileLinuxArgs(defaultGrubFileContent string, varName defaultG
 	return cmdLineVarAssign, args, insertAt, nil
 }
 
+// GetDefaultGrubFileLinuxArgsFromMultipleVars attempts to get Linux kernel command-line args from multiple
+// GRUB variables. It merges arguments from all found variables, allowing args to be distributed across
+// multiple GRUB variables like GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT.
+//
+// Parameters:
+//   - defaultGrubFileContent: The content of the /etc/default/grub file
+//   - varNames: Variable names to check and merge arguments from
+//
+// Returns:
+//   - args: The merged list of kernel command-line args from all found variables
+//   - error: Error if parsing fails or no variables are found
+func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string, varNames ...defaultGrubFileVarName,
+) ([]grubConfigLinuxArg, error) {
+	var allArgs []grubConfigLinuxArg
+	var foundAny bool
+
+	for _, varName := range varNames {
+		_, args, _, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent, varName)
+		if err != nil {
+			// Variable not found or parsing error, try next variable
+			continue
+		}
+
+		// Merge the args from this variable
+		allArgs = append(allArgs, args...)
+		foundAny = true
+	}
+
+	if !foundAny {
+		return nil, fmt.Errorf("failed to find any of the specified GRUB variables in %s: %v",
+			installutils.GrubDefFile, varNames)
+	}
+
+	return allArgs, nil
+}
+
 // Takes the string contents of /etc/default/grub file and inserts the provided command-line args.
 func addExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCommandLine string) (string, error) {
 	cmdLineVarAssign, _, insertAt, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent,
