@@ -121,7 +121,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 		// Skip over file-system types that can't be used for the rootfs partition.
 		switch diskPartition.FileSystemType {
-		case "ext2", "ext3", "ext4", "xfs":
+		case "ext2", "ext3", "ext4", "xfs", "btrfs":
 
 		default:
 			logger.Log.Debugf("Skip partition (%s) with unsupported rootfs filesystem type (%s)", diskPartition.Path,
