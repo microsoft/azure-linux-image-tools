@@ -31,6 +31,10 @@ The operating system of the artifact.
 
 This is used to filter multi-platform OCI artifacts.
 
+This value can technically be anything.
+However, by convention, values typically use the same names as Go's
+[runtime.GOOS](https://pkg.go.dev/runtime#pkg-constants) constant.
+
 For example: `linux`
 
 Added in v1.1.
@@ -40,6 +44,10 @@ Added in v1.1.
 The CPU architecture of the artifact.
 
 This is used to filter multi-platform OCI artifacts.
+
+This value can technically be anything.
+However, by convention, values typically use the same names as Go's
+[runtime.GOARCH](https://pkg.go.dev/runtime#pkg-constants) constant.
 
 For example:
 

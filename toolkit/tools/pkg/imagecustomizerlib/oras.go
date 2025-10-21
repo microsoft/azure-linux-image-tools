@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -20,8 +21,12 @@ import (
 	"oras.land/oras-go/v2/registry/remote"
 )
 
+const ociSupportedFileExtensionsStr = "*.vhdx, *.vhd, *.qcow2, *.img, *.raw"
+
+var OciSupportedFileExtensions = []string{".vhdx", ".vhd", ".qcow2", ".img", ".raw"}
+
 var (
-	ErrOciDownloadMissingCacheDir = NewImageCustomizerError("Oci:MissingImageCacheDir", "image cache directory must be provided to download images")
+	ErrOciDownloadMissingCacheDir = NewImageCustomizerError("Oci:MissingImageCacheDir", "image cache directory (--image-cache-dir) must be provided to download images")
 	ErrOciDownloadCreateCacheDir  = NewImageCustomizerError("Oci:CreateCacheDir", "failed to create image cache directory")
 )
 
@@ -189,18 +194,17 @@ func findImageFileInDirectory(dirPath string) (string, error) {
 		}
 
 		fileExt := filepath.Ext(dirEntry.Name())
-		switch fileExt {
-		case ".vhdx", ".vhd", ".qcow2", ".img", ".raw":
+		if slices.Contains(OciSupportedFileExtensions, fileExt) {
 			imageFilePaths = append(imageFilePaths, filepath.Join(dirPath, dirEntry.Name()))
 		}
 	}
 
 	if len(imageFilePaths) <= 0 {
-		return "", fmt.Errorf("no image files (*.vhdx, *.vhd, *.qcow2, *.img, *.raw) found in OCI artifact")
+		return "", fmt.Errorf("no image files (%s) found in OCI artifact", ociSupportedFileExtensionsStr)
 	}
 
 	if len(imageFilePaths) > 1 {
-		err = fmt.Errorf("too many image files (*.vhdx, *.vhd, *.qcow2, *.img, *.raw) found in OCI artifact (count=%d)",
+		err = fmt.Errorf("too many image files (%s) found in OCI artifact (count=%d)", ociSupportedFileExtensionsStr,
 			len(imageFilePaths))
 		return "", err
 	}

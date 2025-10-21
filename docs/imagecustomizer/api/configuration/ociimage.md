@@ -27,6 +27,10 @@ input:
       platform: linux/amd64
 ```
 
+To use this feature, you must pass in a
+[--image-cache-dir](../cli/cli.md#--image-cache-dir) value when calling
+`imagecustomizer`.
+
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
