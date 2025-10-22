@@ -11,9 +11,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
-// Boot customization errors
-var ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
-
+var (
+	// Boot customization errors
+	ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
+)
 type BootCustomizer struct {
 	// The contents of the /boot/grub2/grub.cfg file.
 	grubCfgContent string
