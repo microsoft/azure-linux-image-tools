@@ -16,12 +16,11 @@ const (
 	FileSystemTypeXfs   FileSystemType = "xfs"
 	FileSystemTypeFat32 FileSystemType = "fat32"
 	FileSystemTypeVfat  FileSystemType = "vfat"
-	FileSystemTypeBtrfs FileSystemType = "btrfs"
 )
 
 func (t FileSystemType) IsValid() error {
 	switch t {
-	case FileSystemTypeNone, FileSystemTypeExt4, FileSystemTypeXfs, FileSystemTypeFat32, FileSystemTypeVfat, FileSystemTypeBtrfs:
+	case FileSystemTypeNone, FileSystemTypeExt4, FileSystemTypeXfs, FileSystemTypeFat32, FileSystemTypeVfat:
 		// All good.
 		return nil
 
