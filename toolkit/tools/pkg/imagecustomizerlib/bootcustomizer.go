@@ -15,6 +15,7 @@ var (
 	// Boot customization errors
 	ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
 )
+
 type BootCustomizer struct {
 	// The contents of the /boot/grub2/grub.cfg file.
 	grubCfgContent string
