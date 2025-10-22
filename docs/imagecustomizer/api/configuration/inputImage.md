@@ -60,3 +60,13 @@ You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v1.1.
+
+## azureLinux [[azureLinuxImage](azurelinuximage.md)]
+
+Download an Azure Linux image file to use as the base image.
+
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Added in v1.1.
