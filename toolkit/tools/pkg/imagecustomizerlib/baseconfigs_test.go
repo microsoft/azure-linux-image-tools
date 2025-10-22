@@ -20,6 +20,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 
 	options := ImageCustomizerOptions{
 		BuildDir: buildDir,
+		UseBaseImageRpmRepos: true,
 	}
 
 	var config imagecustomizerapi.Config
