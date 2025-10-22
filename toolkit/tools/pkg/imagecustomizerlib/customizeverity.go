@@ -775,6 +775,8 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
 		}
 
+		// When cleanBoot is enabled, /boot is cleaned (grub.cfg removed). Return early to skip
+		// grub.cfg update below. Note: the image cannot undergo another round of customization.
 		if cleanBoot {
 			return nil
 		}

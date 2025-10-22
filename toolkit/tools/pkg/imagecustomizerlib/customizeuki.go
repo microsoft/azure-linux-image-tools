@@ -164,7 +164,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	// Clean the /boot directory if cleanBoot is enabled.
 	// All necessary UKI components (kernel, initramfs) have already been copied to the build directory.
 	if uki.CleanBoot {
-		logger.Log.Infof("cleanBoot is enabled: cleaning /boot directory (preserving /boot/efi)")
+		logger.Log.Infof("Cleaning /boot directory (preserving /boot/efi)")
 		err = cleanBootDirectory(imageChroot)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrUKICleanBoot, err)
@@ -453,9 +453,9 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 
 	kernelToArgsString := make(map[string]string)
 	for kernel, args := range kernelToArgs {
-		// Normalize kernel path: strip "boot/" prefix if present When there's
+		// Normalize kernel path: strip "boot/" prefix if present. When there's
 		// no separate /boot partition, grub.cfg has paths like
-		// "boot/vmlinuz-..." but kernel discovery returns just "vmlinuz-..."
+		// "boot/vmlinuz-*" but kernel discovery returns just "vmlinuz-*".
 		normalizedKernel := strings.TrimPrefix(kernel, "boot/")
 
 		filteredArgs := []string(nil)
@@ -550,7 +550,7 @@ func cleanupUkiBuildDir(buildDir string) error {
 
 func deleteOldUkiFiles(ukiOutputDir string) error {
 	if _, err := os.Stat(ukiOutputDir); os.IsNotExist(err) {
-		logger.Log.Infof("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
+		logger.Log.Debugf("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
 		return nil
 	}
 

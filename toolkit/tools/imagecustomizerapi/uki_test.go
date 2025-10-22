@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestUkiIsValid(t *testing.T) {
@@ -54,15 +55,15 @@ func TestUkiKernelsIsValidInvalidKernelList(t *testing.T) {
 }
 
 func TestUkiCleanBootDefaultsToFalse(t *testing.T) {
-	uki := Uki{
-		Kernels: UkiKernels{
-			Auto:    true,
-			Kernels: nil,
-		},
-	}
+	// Test YAML parsing when cleanBoot is not specified - should default to false
+	yamlContent := `kernels: auto`
 
-	assert.False(t, uki.CleanBoot)
-	err := uki.IsValid()
+	var uki Uki
+	err := yaml.Unmarshal([]byte(yamlContent), &uki)
+	assert.NoError(t, err)
+	assert.False(t, uki.CleanBoot, "cleanBoot should default to false when not specified in YAML")
+
+	err = uki.IsValid()
 	assert.NoError(t, err)
 }
 
