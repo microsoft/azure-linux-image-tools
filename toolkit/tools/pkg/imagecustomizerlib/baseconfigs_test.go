@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -40,7 +41,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 
 	// Verify merged artifact items
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
-		imagecustomizerapi.OutputArtifactsItemUkis,
+		imagecustomizerapi.OutputArtifactsItemSystemdBoot,
 		imagecustomizerapi.OutputArtifactsItemShim,
 	}
 	actual := rc.OutputArtifacts.Items
@@ -51,7 +52,15 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 }
 
 func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput_FullRun")
 	defer os.RemoveAll(testTmpDir)

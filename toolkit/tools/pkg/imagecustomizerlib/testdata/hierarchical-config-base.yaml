@@ -1,12 +1,20 @@
 previewFeatures:
 - output-artifacts
-- uki
 
 os:
   bootloader:
     resetType: hard-reset
-  uki:
-    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+    install:
+    - systemd-boot
+    - openssh-server
+
+  services:
+    enable:
+    - sshd
 
 input:
   image:
@@ -18,5 +26,5 @@ output:
     format: vhdx
   artifacts:
     items:
-    - ukis
+    - systemd-boot
     path: ./artifacts-1
