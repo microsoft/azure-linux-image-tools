@@ -126,10 +126,12 @@ jobs:
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
     - name: ACR Login
+      env:
+        AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
       run: |
         set -eux
         # login to ACR
-        az acr login -n  ${{ vars.AZURE_CR_CACHE }}
+        az acr login -n "${AZURE_CR_CACHE}"
 
     - name: Download RPMS and tools file
       run: |
