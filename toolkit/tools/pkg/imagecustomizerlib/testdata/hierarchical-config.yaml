@@ -14,6 +14,12 @@ os:
   uki:
     kernels: auto
 
+  packages:
+    remove:
+    - grub2-efi-binary
+    install:
+    - systemd-boot
+
 input:
   image:
     path: testimages/empty.vhdx
