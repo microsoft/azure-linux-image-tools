@@ -19,7 +19,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	options := ImageCustomizerOptions{
-		BuildDir: buildDir,
+		BuildDir:             buildDir,
 		UseBaseImageRpmRepos: true,
 	}
 
