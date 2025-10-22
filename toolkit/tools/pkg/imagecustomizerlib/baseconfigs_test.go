@@ -68,7 +68,7 @@ func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFile, "vhdx", true, "")
+		outImageFile, "vhdx", false, "")
 	if !assert.NoError(t, err) {
 		return
 	}

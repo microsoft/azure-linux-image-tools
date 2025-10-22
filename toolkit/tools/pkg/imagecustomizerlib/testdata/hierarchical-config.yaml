@@ -14,13 +14,6 @@ os:
   uki:
     kernels: auto
 
-  packages:
-    remove:
-    - grub2-efi-binary
-    install:
-    - systemd-boot
-    - openssh-server
-
 input:
   image:
     path: testimages/empty.vhdx
