@@ -1,5 +1,12 @@
 previewFeatures:
 - output-artifacts
+- uki
+
+os:
+  bootloader:
+    resetType: hard-reset
+  uki:
+    kernels: auto
 
 input:
   image:
