@@ -41,7 +41,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 
 	// Verify merged artifact items
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
-		imagecustomizerapi.OutputArtifactsItemSystemdBoot,
+		imagecustomizerapi.OutputArtifactsItemUkis,
 		imagecustomizerapi.OutputArtifactsItemShim,
 	}
 	actual := rc.OutputArtifacts.Items
@@ -52,14 +52,12 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 }
 
 func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
-	if baseImageInfo.Version == baseImageVersionAzl2 {
-		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
-
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
 	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput_FullRun")
@@ -70,8 +68,8 @@ func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFile, "vhdx", false, "")
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
+		outImageFile, "vhdx", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -1,12 +1,25 @@
 previewFeatures:
 - output-artifacts
 - base-configs
+- uki
 
 baseConfigs:
   - path: hierarchical-config-base.yaml
 
 os:
   hostname: testname
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+    install:
+    - systemd-boot
+    - openssh-server
 
 input:
   image:
