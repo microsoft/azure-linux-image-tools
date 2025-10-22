@@ -194,3 +194,17 @@ You may enable this feature by adding `package-snapshot-time` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v0.15.
+
+## --image-cache-dir
+
+A directory path that can be used to cache downloaded image files so that they can be
+reused in subsequent runs.
+
+This option is used in conjunction with the
+[oci](../configuration/inputImage.md#oci-ociimage) API.
+
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Added in v1.1.
