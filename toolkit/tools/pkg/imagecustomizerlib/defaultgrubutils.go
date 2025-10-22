@@ -208,8 +208,8 @@ func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string) 
 	}
 
 	if !foundAny {
-		return nil, fmt.Errorf("failed to find any GRUB command line variables (GRUB_CMDLINE_LINUX or GRUB_CMDLINE_LINUX_DEFAULT) in %s",
-			installutils.GrubDefFile)
+		return nil, fmt.Errorf("failed to find any of the specified GRUB variables in %s: %v",
+			installutils.GrubDefFile, varNames)
 	}
 
 	return allArgs, nil
