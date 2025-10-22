@@ -175,21 +175,25 @@ func GetDefaultGrubFileLinuxArgs(defaultGrubFileContent string, varName defaultG
 	return cmdLineVarAssign, args, insertAt, nil
 }
 
-// GetDefaultGrubFileLinuxArgsFromMultipleVars attempts to get Linux kernel command-line args from multiple
-// GRUB variables. It merges arguments from all found variables, allowing args to be distributed across
-// multiple GRUB variables like GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT.
+// GetDefaultGrubFileLinuxArgsFromMultipleVars attempts to get Linux kernel command-line args from both
+// GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT variables. It merges arguments from all found variables,
+// allowing args to be distributed across multiple GRUB variables.
 //
 // Parameters:
 //   - defaultGrubFileContent: The content of the /etc/default/grub file
-//   - varNames: Variable names to check and merge arguments from
 //
 // Returns:
 //   - args: The merged list of kernel command-line args from all found variables
 //   - error: Error if parsing fails or no variables are found
-func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string, varNames ...defaultGrubFileVarName,
-) ([]grubConfigLinuxArg, error) {
+func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string) ([]grubConfigLinuxArg, error) {
 	var allArgs []grubConfigLinuxArg
 	var foundAny bool
+
+	// Check both standard GRUB variables in order of preference from low to high
+	varNames := []defaultGrubFileVarName{
+		defaultGrubFileVarNameCmdlineLinuxDefault, // GRUB_CMDLINE_LINUX_DEFAULT
+		defaultGrubFileVarNameCmdlineLinux,        // GRUB_CMDLINE_LINUX
+	}
 
 	for _, varName := range varNames {
 		_, args, _, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent, varName)
@@ -204,8 +208,8 @@ func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string, 
 	}
 
 	if !foundAny {
-		return nil, fmt.Errorf("failed to find any of the specified GRUB variables in %s: %v",
-			installutils.GrubDefFile, varNames)
+		return nil, fmt.Errorf("failed to find any GRUB command line variables (GRUB_CMDLINE_LINUX or GRUB_CMDLINE_LINUX_DEFAULT) in %s",
+			installutils.GrubDefFile)
 	}
 
 	return allArgs, nil
