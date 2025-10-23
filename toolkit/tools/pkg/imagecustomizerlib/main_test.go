@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -99,6 +100,8 @@ var (
 	tmpDir       string
 	workingDir   string
 	testutilsDir string
+
+	logMessagesHook *logger.MemoryLogHook
 )
 
 func TestMain(m *testing.M) {
@@ -114,6 +117,10 @@ func TestMain(m *testing.M) {
 			logger.Log.Panicf("Failed to set log level, error: %s", err)
 		}
 	}
+
+	logMessagesHook = logger.NewMemoryLogHook()
+	logger.Log.Hooks.Add(logMessagesHook)
+	logger.Log.SetLevel(logrus.DebugLevel)
 
 	workingDir, err = os.Getwd()
 	if err != nil {

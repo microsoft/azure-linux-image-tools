@@ -28,6 +28,7 @@ type ResolvedConfig struct {
 
 	// Input image
 	InputImageFile string
+	InputImageOci  *imagecustomizerapi.OciImage
 
 	// Output artifacts
 	OutputArtifacts *imagecustomizerapi.Artifacts

@@ -1,0 +1,10 @@
+previewFeatures:
+- input-image-oci
+
+input:
+  image:
+    oci:
+      uri: mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest
+
+os:
+  hostname: sugarglider
