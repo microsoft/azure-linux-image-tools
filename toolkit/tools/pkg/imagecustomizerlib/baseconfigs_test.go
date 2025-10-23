@@ -8,6 +8,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -69,23 +70,23 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput_FullRun")
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	outImageFile := filepath.Join(testTmpDir, "image.vhdx")
+	outImageFilePath := filepath.Join(testTmpDir, "image.vhdx")
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFile, "vhdx", true, "")
+		outImageFilePath, "vhdx", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	assert.FileExists(t, outImageFile)
+	assert.FileExists(t, outImageFilePath)
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFile)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, coreEfiMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
