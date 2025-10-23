@@ -31,12 +31,15 @@ const (
 
 	// PreviewFeatureBaseConfigs enables support for base configuration.
 	PreviewFeatureBaseConfigs PreviewFeature = "base-configs"
+
+	// PreviewFeatureInputImageOci enables support for download OCI images.
+	PreviewFeatureInputImageOci PreviewFeature = "input-image-oci"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs:
+		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

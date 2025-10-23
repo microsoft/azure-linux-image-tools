@@ -3,7 +3,6 @@ package imagecustomizerapi
 import (
 	"fmt"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,17 +27,14 @@ func (p *MountPoint) UnmarshalYAML(value *yaml.Node) error {
 
 	// yaml.Node.Decode() doesn't respect the KnownFields() option.
 	// So, manually enforce this.
-	validFields := []string{"idType", "options", "path"}
-	for i := 0; i < len(value.Content); i += 2 {
-		key := value.Content[i].Value
-		if !sliceutils.ContainsValue(validFields, key) {
-			return fmt.Errorf("line %d: field %s not found in type %s", value.Line, key, "MountPoint")
-		}
+	err := checkKnownFields(value, "MountPoint", []string{"idType", "options", "path"})
+	if err != nil {
+		return err
 	}
 
 	// Otherwise, decode as a full MountPoint struct.
 	type IntermediateTypeMountPoint MountPoint
-	err := value.Decode((*IntermediateTypeMountPoint)(p))
+	err = value.Decode((*IntermediateTypeMountPoint)(p))
 	if err != nil {
 		return fmt.Errorf("failed to parse MountPoint struct:\n%w", err)
 	}
