@@ -867,7 +867,7 @@ func processBtrfsSubvolumes(diskPartition *diskutils.PartitionInfo, tmpDir strin
 	// List actual subvolumes using btrfs tools
 	subvolumes, err := listBtrfsSubvolumes(tmpDir)
 	if err != nil {
-		logger.Log.Debugf("Failed to list BTRFS subvolumes for partition %s:\n%w", diskPartition.Path, err)
+		logger.Log.Debugf("Failed to list BTRFS subvolumes for partition %s:\n%v", diskPartition.Path, err)
 		// Fallback to checking default location with callback
 		return callback("", partitionMount)
 	}
@@ -882,7 +882,7 @@ func processBtrfsSubvolumes(diskPartition *diskutils.PartitionInfo, tmpDir strin
 	for _, subvolume := range subvolumes {
 		subvolMount, err := mountBtrfsSubvolume(diskPartition.Path, subvolume, tmpDir)
 		if err != nil {
-			logger.Log.Debugf("Failed to mount BTRFS subvolume %s:\n%w", subvolume, err)
+			logger.Log.Debugf("Failed to mount BTRFS subvolume %s:\n%v", subvolume, err)
 			continue
 		}
 
@@ -890,7 +890,7 @@ func processBtrfsSubvolumes(diskPartition *diskutils.PartitionInfo, tmpDir strin
 		subvolMount.Close() // Always close the subvolume mount
 
 		if err != nil {
-			logger.Log.Debugf("Error processing BTRFS subvolume %s:\n%w", subvolume, err)
+			logger.Log.Debugf("Error processing BTRFS subvolume %s:\n%v", subvolume, err)
 			continue
 		}
 
