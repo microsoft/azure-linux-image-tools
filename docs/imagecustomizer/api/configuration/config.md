@@ -111,7 +111,11 @@ Supported options:
 
   See [Base Config](./baseConfig.md) for more details.
 
-  Added in v1.1.0.
+  Added in v1.1.
+
+- `input-image-oci`: Enables downloading the base image from a OCI artifact.
+
+  Added in v1.1.
 
 ## output [[output](./output.md)]
 
