@@ -133,14 +133,16 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 		if diskPartition.FileSystemType == "btrfs" {
 			found, err := findRootfsInBtrfsPartition(&diskPartition, tmpDir)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check BTRFS partition (%s) for rootfs:\n%w", diskPartition.Path, err)
+				return nil, fmt.Errorf("failed to check BTRFS partition (%s) for rootfs:\n%w",
+					diskPartition.Path, err)
 			}
 			if found {
 				rootfsPartitions = append(rootfsPartitions, &diskPartition)
 			}
 		}
 		// Temporarily mount the partition for non-BTRFS filesystems.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY, "", true)
+		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
+			unix.MS_RDONLY, "", true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
 		}
@@ -855,7 +857,8 @@ func processBtrfsSubvolumes(diskPartition *diskutils.PartitionInfo, tmpDir strin
 	callback func(subvolume string, subvolMount *safemount.Mount) (bool, error),
 ) (bool, error) {
 	// First mount the BTRFS filesystem to discover subvolumes
-	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
+		unix.MS_RDONLY, "", true)
 	if err != nil {
 		return false, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
 	}
@@ -918,11 +921,14 @@ func findRootfsInBtrfsPartition(diskPartition *diskutils.PartitionInfo, tmpDir s
 }
 
 // readFstabFromBtrfsPartition reads fstab entries from a BTRFS partition by searching through subvolumes
-func readFstabFromBtrfsPartition(rootfsPartition *diskutils.PartitionInfo, tmpDir string) ([]diskutils.FstabEntry, error) {
+func readFstabFromBtrfsPartition(rootfsPartition *diskutils.PartitionInfo, tmpDir string) ([]diskutils.FstabEntry,
+	error,
+) {
 	var fstabEntries []diskutils.FstabEntry
 	var fstabError error
 
-	found, err := processBtrfsSubvolumes(rootfsPartition, tmpDir, func(subvolume string, mount *safemount.Mount) (bool, error) {
+	found, err := processBtrfsSubvolumes(rootfsPartition, tmpDir, func(subvolume string, mount *safemount.Mount,
+	) (bool, error) {
 		// Check for fstab in this subvolume (or default mount if subvolume is empty)
 		candidateFstabPath := filepath.Join(tmpDir, "etc/fstab")
 		exists, err := file.PathExists(candidateFstabPath)
