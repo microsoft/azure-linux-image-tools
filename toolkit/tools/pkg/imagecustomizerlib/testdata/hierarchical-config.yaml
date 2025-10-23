@@ -1,12 +1,57 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      size: 100M
+
+    - id: rootfs
+      size: 2G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
 previewFeatures:
 - output-artifacts
 - base-configs
+- uki
 
 baseConfigs:
   - path: hierarchical-config-base.yaml
 
 os:
   hostname: testname
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+    install:
+    - systemd-boot
 
 input:
   image:

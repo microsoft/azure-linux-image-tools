@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -18,7 +19,8 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	options := ImageCustomizerOptions{
-		BuildDir: buildDir,
+		BuildDir:             buildDir,
+		UseBaseImageRpmRepos: true,
 	}
 
 	var config imagecustomizerapi.Config
@@ -51,7 +53,20 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 }
 
 func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput_FullRun")
 	defer os.RemoveAll(testTmpDir)
@@ -61,8 +76,8 @@ func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFile, "vhdx", false, "")
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
+		outImageFile, "vhdx", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}
