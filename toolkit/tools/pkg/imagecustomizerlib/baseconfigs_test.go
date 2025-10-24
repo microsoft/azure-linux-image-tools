@@ -86,7 +86,25 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	assert.FileExists(t, outImageFilePath)
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, coreEfiMountPoints)
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   3,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
