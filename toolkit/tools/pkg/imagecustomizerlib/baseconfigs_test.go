@@ -104,7 +104,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
