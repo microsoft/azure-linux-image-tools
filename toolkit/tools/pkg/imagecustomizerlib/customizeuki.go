@@ -58,7 +58,9 @@ type UkiKernelInfo struct {
 	Initramfs string `json:"initramfs"`
 }
 
-func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot) error {
+func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot,
+	distroHandler distroHandler,
+) error {
 	var err error
 
 	if uki == nil {
@@ -71,7 +73,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	defer span.End()
 
 	// Check UKI dependency packages.
-	err = validateUkiDependencies(imageChroot)
+	err = validateUkiDependencies(imageChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
 	}
@@ -183,7 +185,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	return nil
 }
 
-func validateUkiDependencies(imageChroot *safechroot.Chroot) error {
+func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler distroHandler) error {
 	// The following packages are required for the UKI feature:
 	// - "systemd-boot": Checked as a package dependency here to ensure installation,
 	//    but additional configuration is handled elsewhere in the UKI workflow.
@@ -192,8 +194,10 @@ func validateUkiDependencies(imageChroot *safechroot.Chroot) error {
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if !isPackageInstalled(imageChroot, pkg) {
-			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Uki: (%v)", pkg, requiredRpms)
+		installed := distroHandler.isPackageInstalled(imageChroot, pkg)
+		if !installed {
+			return fmt.Errorf("package (%s) is not installed:\n"+
+				"the following packages must be installed to use Uki: (%v)", pkg, requiredRpms)
 		}
 	}
 

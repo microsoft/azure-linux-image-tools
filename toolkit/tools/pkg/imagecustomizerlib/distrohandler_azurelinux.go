@@ -44,3 +44,8 @@ func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir s
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager)
 }
+
+// isPackageInstalled implements distroHandler.
+func (d *azureLinuxDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+}

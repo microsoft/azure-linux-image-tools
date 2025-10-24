@@ -38,6 +38,8 @@ type distroHandler interface {
 	managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
+
+	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

@@ -43,3 +43,7 @@ func (d *fedoraDistroHandler) managePackages(ctx context.Context, buildDir strin
 		snapshotTime, d.packageManager,
 	)
 }
+
+func (d *fedoraDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+}
