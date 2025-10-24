@@ -99,7 +99,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot)
+	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, imageChroot)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}

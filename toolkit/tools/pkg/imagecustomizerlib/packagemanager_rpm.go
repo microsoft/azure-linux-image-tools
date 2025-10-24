@@ -3,6 +3,8 @@
 
 package imagecustomizerlib
 
+import "github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+
 // rpmPackageManagerHandler represents the interface for RPM-based package managers (TDNF, DNF)
 type rpmPackageManagerHandler interface {
 	// Package manager configuration
@@ -19,4 +21,6 @@ type rpmPackageManagerHandler interface {
 
 	// Package manager specific snapshot time support
 	supportsSnapshotTime() bool
+
+	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
 }
