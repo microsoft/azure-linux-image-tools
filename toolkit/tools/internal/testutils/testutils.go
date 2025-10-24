@@ -136,6 +136,12 @@ func CheckSkipForCustomizeImageRequirements(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
+
+	qemuimgExists, err := file.CommandExists("qemu-img")
+	assert.NoError(t, err)
+	if !qemuimgExists {
+		t.Skip("The 'qemu-img' command is not available")
+	}
 }
 
 func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts bool, mounts []MountPoint,
