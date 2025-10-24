@@ -11,7 +11,7 @@ import (
 var (
 	azureLinuxVersionRegex = regexp.MustCompile(`^(\d+\.\d+)(\.(\d+))?$`)
 
-	// Limit Azure Linux variant name to what is permitted in a subsegment of an OCI reponsitory path.
+	// Limit Azure Linux variant name to what is permitted in a subsegment of an OCI repository path.
 	// See, OCI Spec v1.1.1: https://github.com/opencontainers/distribution-spec/blob/v1.1.1/spec.md#pulling-manifests
 	variantRegexp = regexp.MustCompile(`^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*$`)
 )

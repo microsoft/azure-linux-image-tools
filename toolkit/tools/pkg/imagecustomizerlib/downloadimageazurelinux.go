@@ -31,7 +31,7 @@ func downloadAzureLinuxImage(ctx context.Context, inputImage imagecustomizerapi.
 		return "", err
 	}
 
-	return inputImageFilePath, err
+	return inputImageFilePath, nil
 }
 
 func generateAzureLinuxOciUri(inputImage imagecustomizerapi.AzureLinuxImage) (imagecustomizerapi.OciImage, error) {
@@ -45,8 +45,9 @@ func generateAzureLinuxOciUri(inputImage imagecustomizerapi.AzureLinuxImage) (im
 		tag = majorMinor + "." + date
 	}
 
-	// Note: 'majorMinor' and 'tag' are already sanitized. So, there is no need to escape the values.
-	uri := fmt.Sprintf("mcr.microsoft.com/azurelinux/%s/image/minimal-os:%s", majorMinor, tag)
+	// Note: 'majorMinor', 'tag' and 'variant' are already sanitized.
+	// So, there is no need to escape the values.
+	uri := fmt.Sprintf("mcr.microsoft.com/azurelinux/%s/image/%s:%s", majorMinor, inputImage.Variant, tag)
 	ociImage := imagecustomizerapi.OciImage{
 		Uri: uri,
 	}
