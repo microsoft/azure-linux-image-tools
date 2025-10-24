@@ -75,7 +75,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	outImageFilePath := filepath.Join(testTmpDir, "image.vhdx")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
@@ -121,12 +121,12 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	// Verify users
 	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user-base")
 	if assert.NoError(t, err) {
-		assert.Contains(t, baseadminEntry.HomeDirectory, "test-base")
+		assert.Contains(t, baseadminEntry.HomeDirectory, "test-user-base")
 	}
 
 	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user")
 	if assert.NoError(t, err) {
-		assert.Contains(t, appuserEntry.HomeDirectory, "test")
+		assert.Contains(t, appuserEntry.HomeDirectory, "test-user")
 	}
 
 	// Verify groups
@@ -140,7 +140,6 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	aFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "mnt/a/a.txt")
 	bFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "mnt/b/b.txt")
 
-	// Assert files exist
 	_, err = os.Stat(aFilePath)
 	assert.NoError(t, err, "expected a.txt to exist at %s", aFilePath)
 	_, err = os.Stat(bFilePath)
@@ -148,14 +147,14 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	// Verify services
 	sshdEnabled, err := systemd.IsServiceEnabled("sshd", imageConnection.Chroot())
-	if err != nil {
-		t.Fatalf("failed to check sshd: %v", err)
-	}
-	assert.True(t, sshdEnabled, "expected sshd to be enabled")
+	assert.NoError(t, err)
+	assert.True(t, sshdEnabled)
 
-	chronydEnabled, err := systemd.IsServiceEnabled("chronyd", imageConnection.Chroot())
-	if err != nil {
-		t.Fatalf("failed to check chronyd: %v", err)
-	}
-	assert.False(t, chronydEnabled, "expected chronyd to be disabled")
+	nginxEnabled, err := systemd.IsServiceEnabled("nginx", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.False(t, nginxEnabled)
+
+	consoleGettyEnabled, err := systemd.IsServiceEnabled("console-getty", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.False(t, consoleGettyEnabled)
 }
