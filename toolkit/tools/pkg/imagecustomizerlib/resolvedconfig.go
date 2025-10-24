@@ -27,8 +27,7 @@ type ResolvedConfig struct {
 	BuildDirAbs string
 
 	// Input image
-	InputImageFile string
-	InputImageOci  *imagecustomizerapi.OciImage
+	InputImage imagecustomizerapi.InputImage
 
 	// Output artifacts
 	OutputArtifacts *imagecustomizerapi.Artifacts
@@ -48,7 +47,7 @@ type ResolvedConfig struct {
 }
 
 func (c *ResolvedConfig) InputFileExt() string {
-	fileExt := strings.TrimLeft(filepath.Ext(c.InputImageFile), ".")
+	fileExt := strings.TrimLeft(filepath.Ext(c.InputImage.Path), ".")
 	return fileExt
 }
 

@@ -85,4 +85,15 @@ func TestCustomizeImageOciBaseImageValid(t *testing.T) {
 
 	logMessages = logMessagesHook.ConsumeMessages()
 	assert.NotContains(t, logMessages, expectedDownloadLogMessage)
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Ensure hostname was correctly set.
+	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
+	assert.NoError(t, err)
+	assert.Equal(t, "sugarglider", string(actualHostname))
 }

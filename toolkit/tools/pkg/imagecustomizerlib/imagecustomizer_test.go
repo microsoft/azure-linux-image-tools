@@ -850,7 +850,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	// The input image file should be set to the value in the config.
 	rc, err := ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.NoError(t, err)
-	assert.Equal(t, rc.InputImageFile, inputImageFileAsConfig)
+	assert.Equal(t, rc.InputImage.Path, inputImageFileAsConfig)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
 	assert.False(t, rc.InputIsIso())
 
@@ -861,7 +861,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	// The input image file should be set to the value passed as an argument.
 	rc, err = ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.NoError(t, err)
-	assert.Equal(t, rc.InputImageFile, inputImageFileAsArg)
+	assert.Equal(t, rc.InputImage.Path, inputImageFileAsArg)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
 	assert.False(t, rc.InputIsIso())
 
@@ -871,7 +871,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	// The input image file should be set to the value passed as an argument.
 	rc, err = ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.NoError(t, err)
-	assert.Equal(t, rc.InputImageFile, inputImageFileAsArg)
+	assert.Equal(t, rc.InputImage.Path, inputImageFileAsArg)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
 	assert.False(t, rc.InputIsIso())
 
@@ -881,7 +881,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	options.OutputImageFile = "out/image.iso"
 	rc, err = ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.NoError(t, err)
-	assert.Equal(t, rc.InputImageFile, inputImageFileIsoAsArg)
+	assert.Equal(t, rc.InputImage.Path, inputImageFileIsoAsArg)
 	assert.Equal(t, rc.InputFileExt(), "iso")
 	assert.True(t, rc.InputIsIso())
 }

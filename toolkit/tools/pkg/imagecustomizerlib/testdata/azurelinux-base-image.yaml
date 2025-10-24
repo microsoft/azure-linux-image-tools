@@ -1,0 +1,11 @@
+previewFeatures:
+- input-image-oci
+
+input:
+  image:
+    azureLinux:
+      variant: minimal-os
+      version: 3.0
+
+os:
+  hostname: echidna
