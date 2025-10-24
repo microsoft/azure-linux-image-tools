@@ -111,12 +111,10 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	hostnamePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname")
-	data, err := os.ReadFile(hostnamePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	assert.Equal(t, "testname", data)
+	// Verify hostname
+	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
+	assert.NoError(t, err)
+	assert.Equal(t, "testname", string(actualHostname))
 
 	// Verify users
 	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user-base")
