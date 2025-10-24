@@ -88,14 +88,17 @@ func (b *BootCustomizer) getSELinuxModeFromGrub() (imagecustomizerapi.SELinuxMod
 
 	// Get the SELinux kernel command-line args.
 	if b.isGrubMkconfig {
-		_, args, _, err = GetDefaultGrubFileLinuxArgs(b.defaultGrubFileContent, defaultGrubFileVarNameCmdlineForSELinux)
+		// Check both GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT variables
+		// and merge arguments from both if they exist
+		args, err = GetDefaultGrubFileLinuxArgsFromMultipleVars(b.defaultGrubFileContent)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to find SELinux args in grub file (%s):\n%w", installutils.GrubDefFile, err)
 		}
 	} else {
 		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
-			return imagecustomizerapi.SELinuxModeDefault, err
+			return imagecustomizerapi.SELinuxModeDefault,
+				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.GrubCfgFile, err)
 		}
 	}
 
