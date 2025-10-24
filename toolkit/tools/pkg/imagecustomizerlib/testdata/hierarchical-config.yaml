@@ -40,8 +40,15 @@ baseConfigs:
   - path: hierarchical-config-base.yaml
 
 os:
+  additionalFiles:
+  - source: files/b.txt
+    destination: /mnt/b/b.txt
+
+  groups:
+  - name: test-group
+
   users:
-    - name: test
+    - name: test-user
   hostname: testname
   bootloader:
     resetType: hard-reset
@@ -54,6 +61,13 @@ os:
     - grub2-efi-binary
     install:
     - systemd-boot
+    - openssh-server
+
+  services:
+    enable:
+    - sshd
+    disable:
+    - console-getty
 
 input:
   image:

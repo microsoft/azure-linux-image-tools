@@ -8,6 +8,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemd"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
@@ -86,7 +87,25 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	assert.FileExists(t, outImageFilePath)
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, coreEfiMountPoints)
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   3,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -100,13 +119,43 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Equal(t, "testname", data)
 
 	// Verify users
-	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-base")
+	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user-base")
 	if assert.NoError(t, err) {
 		assert.Contains(t, baseadminEntry.HomeDirectory, "test-base")
 	}
 
-	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test")
+	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user")
 	if assert.NoError(t, err) {
 		assert.Contains(t, appuserEntry.HomeDirectory, "test")
 	}
+
+	// Verify groups
+	_, err = userutils.GetGroupEntry(imageConnection.Chroot().RootDir(), "test-group-base")
+	assert.NoError(t, err)
+
+	_, err = userutils.GetGroupEntry(imageConnection.Chroot().RootDir(), "test-group")
+	assert.NoError(t, err)
+
+	// Verify additional files
+	aFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "mnt/a/a.txt")
+	bFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "mnt/b/b.txt")
+
+	// Assert files exist
+	_, err = os.Stat(aFilePath)
+	assert.NoError(t, err, "expected a.txt to exist at %s", aFilePath)
+	_, err = os.Stat(bFilePath)
+	assert.NoError(t, err, "expected b.txt to exist at %s", bFilePath)
+
+	// Verify services
+	sshdEnabled, err := systemd.IsServiceEnabled("sshd", imageConnection.Chroot())
+	if err != nil {
+		t.Fatalf("failed to check sshd: %v", err)
+	}
+	assert.True(t, sshdEnabled, "expected sshd to be enabled")
+
+	chronydEnabled, err := systemd.IsServiceEnabled("chronyd", imageConnection.Chroot())
+	if err != nil {
+		t.Fatalf("failed to check chronyd: %v", err)
+	}
+	assert.False(t, chronydEnabled, "expected chronyd to be disabled")
 }

@@ -17,3 +17,17 @@ output:
 os:
   users:
     - name: test-base
+  groups:
+    - name: test-group-base
+  additionalFiles:
+  - source: files/a.txt
+    destination: /mnt/a/a.txt
+
+  packages:
+    install:
+    - nginx
+
+  services:
+    enable:
+    - nginx
+    - console-getty

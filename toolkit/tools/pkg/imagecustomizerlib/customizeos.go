@@ -41,36 +41,38 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = AddOrUpdateGroups(ctx, rc.Config.OS.Groups, imageChroot)
-	if err != nil {
-		return err
-	}
-
 	for _, configWithBase := range rc.ConfigChain {
+
+		err = AddOrUpdateGroups(ctx, rc.Config.OS.Groups, imageChroot)
+		if err != nil {
+			return err
+		}
+
 		err = AddOrUpdateUsers(ctx, configWithBase.Config.OS.Users, configWithBase.BaseConfigPath, imageChroot)
 		if err != nil {
 			return err
 		}
-	}
 
-	err = copyAdditionalDirs(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalDirs, imageChroot)
-	if err != nil {
-		return err
-	}
+		err = copyAdditionalDirs(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalDirs, imageChroot)
+		if err != nil {
+			return err
+		}
 
-	err = copyAdditionalFiles(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalFiles, imageChroot)
-	if err != nil {
-		return err
-	}
+		err = copyAdditionalFiles(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalFiles, imageChroot)
+		if err != nil {
+			return err
+		}
 
-	err = EnableOrDisableServices(ctx, rc.Config.OS.Services, imageChroot)
-	if err != nil {
-		return err
-	}
+		err = EnableOrDisableServices(ctx, rc.Config.OS.Services, imageChroot)
+		if err != nil {
+			return err
+		}
 
-	err = LoadOrDisableModules(ctx, rc.Config.OS.Modules, imageChroot.RootDir())
-	if err != nil {
-		return err
+		err = LoadOrDisableModules(ctx, rc.Config.OS.Modules, imageChroot.RootDir())
+		if err != nil {
+			return err
+		}
+
 	}
 
 	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr)
