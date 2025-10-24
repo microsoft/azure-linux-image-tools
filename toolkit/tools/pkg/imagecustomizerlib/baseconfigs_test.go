@@ -8,6 +8,8 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +54,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 		"output artifact items should match - expected: %v, got: %v", expectedItems, actual)
 }
 
-func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
+func TestBaseConfigsFullRun(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
@@ -68,20 +70,59 @@ func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsInputAndOutput_FullRun")
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	outImageFile := filepath.Join(testTmpDir, "image.vhdx")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFile, "vhdx", true, "")
+		outImageFilePath, "raw", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	assert.FileExists(t, outImageFile)
+	assert.FileExists(t, outImageFilePath)
 
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   3,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Verify hostname
+	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
+	assert.NoError(t, err)
+	assert.Equal(t, "testname", string(actualHostname))
+
+	// Verify users
+	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-base")
+	if assert.NoError(t, err) {
+		assert.Contains(t, baseadminEntry.HomeDirectory, "test-base")
+	}
+
+	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test")
+	if assert.NoError(t, err) {
+		assert.Contains(t, appuserEntry.HomeDirectory, "test")
+	}
 }

@@ -14,7 +14,8 @@ Defines a single configuration file to inherit from.
 
 BaseConfigs specifies a list of base configuration files to inherit from.
 When multiple base configs are specified, fields are resolved in order —
-fields in later configurations overriding or extending earlier ones.
+Fields from later configurations override or extend those from earlier ones,
+or are processed sequentially.
 
 **The current(last) config’s value (if specified) overrides all base configs.**
 
@@ -26,6 +27,10 @@ fields in later configurations overriding or extending earlier ones.
 **Base config items are merged with current config’s items**
 
 - `.output.artifacts.items`
+
+**Base config items are processed first, followed by current config’s.**
+
+- `.os.users`
 
 ## path [string]
 

@@ -40,6 +40,8 @@ baseConfigs:
   - path: hierarchical-config-base.yaml
 
 os:
+  users:
+    - name: test
   hostname: testname
   bootloader:
     resetType: hard-reset
