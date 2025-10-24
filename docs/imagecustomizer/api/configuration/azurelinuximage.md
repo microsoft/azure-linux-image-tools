@@ -25,7 +25,7 @@ input:
 ```
 
 The Azure Linux images are downloaded from the
-[Microsoft Artifact Registry](mcr.microsoft.com) (MCR).
+[Microsoft Artifact Registry](https://mcr.microsoft.com) (MCR).
 
 The URI used is:
 
