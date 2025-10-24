@@ -80,7 +80,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFilePath, "vhdx", true, "")
+		outImageFilePath, "raw", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -105,7 +105,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
