@@ -58,12 +58,12 @@ func TestBaseConfigsInputAndOutput_FullRun(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	outImageFile := filepath.Join(testTmpDir, "image.vhdx")
+	outImageFile := filepath.Join(testTmpDir, "image.raw")
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFile, "vhdx", false, "")
+		outImageFile, "raw", false, "")
 	if !assert.NoError(t, err) {
 		return
 	}
