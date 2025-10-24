@@ -137,6 +137,40 @@ def add_ssh_to_config(config_path: Path, username: str, ssh_public_key: str, clo
     return path
 
 
+def add_preview_features_to_config(config_path: Path, preview_feature: str, close_list: List[Closeable]) -> Path:
+    """Modify an image customizer config file to add preview features.
+
+    Args:
+        config_path: Path to the base config file
+        preview_feature: Feature flag to add to previewFeatures list
+        close_list: List of resources to be cleaned up
+
+    Returns:
+        Path to the modified config file
+    """
+    config_str = config_path.read_text()
+    config = yaml.safe_load(config_str)
+
+    # Get or create previewFeatures list
+    preview_features = config.get("previewFeatures", [])
+    if not isinstance(preview_features, list):
+        preview_features = []
+
+    # Add the feature if not already present
+    if preview_feature not in preview_features:
+        preview_features.append(preview_feature)
+        config["previewFeatures"] = preview_features
+
+    # Write out new config file to a temporary file
+    fd, modified_config_path = tempfile.mkstemp(prefix=config_path.name + "~", suffix=".tmp", dir=config_path.parent)
+    with fdopen(fd, mode="w") as file:
+        yaml.safe_dump(config, file)
+
+    path = Path(modified_config_path)
+    close_list.append(RemoveFileOnClose(path))
+    return path
+
+
 def dict_get_or_set(dictionary: Dict[Any, Any], value_name: str, default: Any = None) -> Any:
     value = dictionary.get(value_name)
     if value is None:
