@@ -74,12 +74,12 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	outImageFilePath := filepath.Join(testTmpDir, "image.vhdx")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFilePath, "vhdx", true, "")
+		outImageFilePath, "raw", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -110,12 +110,10 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	hostnamePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname")
-	data, err := os.ReadFile(hostnamePath)
-	if !assert.NoError(t, err) {
-		return
-	}
-	assert.Equal(t, "testname", data)
+	// Verify hostname
+	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
+	assert.NoError(t, err)
+	assert.Equal(t, "testname", string(actualHostname))
 
 	// Verify users
 	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-base")
