@@ -19,7 +19,15 @@ import (
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
 	"github.com/notaryproject/notation-go/verifier/truststore"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
+	orasregistry "oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
+)
+
+const (
+	// The maximum number of singatures an OCI artifact is expected to have.
+	// This is mostly just a denial-of-service protection limit.
+	// So, the number is set to be unrealistically large.
+	maxOciSignatures = 50
 )
 
 type ociSignatureCheckOptions struct {
@@ -33,32 +41,8 @@ func checkNotationSignature(ctx context.Context, buildDir string, remoteRepo *re
 	descriptor ociv1.Descriptor, options ociSignatureCheckOptions,
 ) error {
 	// Recreate the full artifact reference URI for the provided digest.
-	reference := remoteRepo.Reference
-	reference.Reference = descriptor.Digest.String()
-	artifactReference := reference.String()
-
-	logger.Log.Debugf("Verifying OCI signature (%s)", artifactReference)
-
-	trustPolicy := &trustpolicy.Document{
-		Version: "1.0",
-		TrustPolicies: []trustpolicy.TrustPolicy{
-			{
-				Name: options.TrustPolicyName,
-				RegistryScopes: []string{
-					"*",
-				},
-				SignatureVerification: trustpolicy.SignatureVerification{
-					VerificationLevel: "strict",
-				},
-				TrustStores: []string{
-					string(truststore.TypeCA) + ":" + options.TrustStoreName,
-				},
-				TrustedIdentities: []string{
-					"*",
-				},
-			},
-		},
-	}
+	digestUri := createOciDigestUri(remoteRepo.Reference, descriptor)
+	logger.Log.Debugf("Verifying OCI signature (%s)", digestUri)
 
 	trustStorePath, err := os.MkdirTemp(buildDir, "trust-store-path-")
 	if err != nil {
@@ -66,38 +50,22 @@ func checkNotationSignature(ctx context.Context, buildDir string, remoteRepo *re
 	}
 	defer os.RemoveAll(trustStorePath)
 
-	// Create a directory to use as a trust store.
-	trustStoreFs := dir.NewSysFS(trustStorePath)
-	certDestinationDir, err := trustStoreFs.SysPath(dir.TrustStoreDir, "x509", string(truststore.TypeCA),
-		options.TrustStoreName)
+	trustStoreType := truststore.TypeCA
+	trustStore, err := createNotationX509TrustStore(trustStorePath, options.TrustStoreName, trustStoreType,
+		options.CertificateFs, options.CertificateFsPath)
 	if err != nil {
 		return err
 	}
 
-	certDestinationPath := filepath.Join(certDestinationDir,
-		filepath.Base(options.CertificateFsPath))
-
-	// Copy certificate into trust store.
-	err = file.CopyResourceFile(options.CertificateFs, options.CertificateFsPath,
-		certDestinationPath, os.ModePerm, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to create OCI signature check certificate file (%s):\n%w", certDestinationPath, err)
-	}
-
-	// Create trust store.
-	trustStore := truststore.NewX509TrustStore(trustStoreFs)
-
-	// Create verifier.
-	verifierOptions := verifier.VerifierOptions{}
-
-	verifier, err := verifier.NewWithOptions(trustPolicy, trustStore, nil, verifierOptions)
+	verifier, err := createNotationX509Verifier(options.TrustPolicyName, options.TrustStoreName, trustStoreType,
+		trustStore)
 	if err != nil {
 		return err
 	}
 
 	verifyOptions := notation.VerifyOptions{
-		ArtifactReference:    artifactReference,
-		MaxSignatureAttempts: 50, // Max number of signatures attached to artifact.
+		ArtifactReference:    digestUri,
+		MaxSignatureAttempts: maxOciSignatures,
 	}
 
 	notaryRepo := registry.NewRepository(remoteRepo)
@@ -109,4 +77,78 @@ func checkNotationSignature(ctx context.Context, buildDir string, remoteRepo *re
 	}
 
 	return nil
+}
+
+// Create the full digest URI of an OCI artifact.
+func createOciDigestUri(registry orasregistry.Reference, artifact ociv1.Descriptor) string {
+	reference := registry
+	reference.Reference = artifact.Digest.String()
+	digestUri := reference.String()
+	return digestUri
+}
+
+// Create a Notation trust store.
+// This is mostly just a directory that contains the CA's public certificate. Though Notation has a specific directory
+// layout that you have to follow.
+func createNotationX509TrustStore(trustStorePath string, trustStoreName string, trustStoreType truststore.Type,
+	certificateFs fs.FS, certificateFsPath string,
+) (truststore.X509TrustStore, error) {
+	// Create a directory to use as a trust store.
+	trustStoreFs := dir.NewSysFS(trustStorePath)
+	certDestinationDir, err := trustStoreFs.SysPath(dir.X509TrustStoreDir(string(trustStoreType), trustStoreName))
+	if err != nil {
+		return nil, err
+	}
+
+	certDestinationPath := filepath.Join(certDestinationDir, filepath.Base(certificateFsPath))
+
+	// Copy certificate into trust store.
+	err = file.CopyResourceFile(certificateFs, certificateFsPath, certDestinationPath, os.ModePerm, os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OCI signature check certificate file (%s):\n%w", certDestinationPath,
+			err)
+	}
+
+	// Create Notation trust store.
+	trustStore := truststore.NewX509TrustStore(trustStoreFs)
+	return trustStore, nil
+}
+
+// Create a Notation verifier from an x509 trust store.
+func createNotationX509Verifier(trustPolicyName string, trustStoreName string, trustStoreType truststore.Type,
+	trustStore truststore.X509TrustStore,
+) (notation.Verifier, error) {
+	trustPolicy := &trustpolicy.Document{
+		Version: "1.0",
+		TrustPolicies: []trustpolicy.TrustPolicy{
+			{
+				Name: trustPolicyName,
+				RegistryScopes: []string{
+					// Appply policy to all OCI artifacts.
+					"*",
+				},
+				SignatureVerification: trustpolicy.SignatureVerification{
+					VerificationLevel: "strict",
+				},
+				TrustStores: []string{
+					// The sub trust-stores to use in this policy.
+					string(trustStoreType) + ":" + trustStoreName,
+				},
+				TrustedIdentities: []string{
+					// The identities that are permitted in the sub trust-stores.
+					"*",
+				},
+			},
+		},
+	}
+
+	// Create verifier.
+	verifierOptions := verifier.VerifierOptions{}
+
+	verifier, err := verifier.NewWithOptions(trustPolicy, trustStore, nil, verifierOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return verifier, nil
 }
