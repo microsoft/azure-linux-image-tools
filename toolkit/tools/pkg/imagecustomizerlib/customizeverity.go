@@ -65,7 +65,8 @@ const (
 	DracutModuleScriptFileMode = 0o755
 )
 
-func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
+func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity,
+	imageChroot *safechroot.Chroot, distroHandler distroHandler,
 ) (bool, error) {
 	var err error
 
@@ -78,7 +79,7 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_verity_partition")
 	defer span.End()
 
-	err = validateVerityDependencies(imageChroot)
+	err = validateVerityDependencies(imageChroot, distroHandler)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityPackageDependencyValidation, err)
 	}
@@ -435,7 +436,7 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 	return corruptionOption, hashSigPath, nil
 }
 
-func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
+func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler distroHandler) error {
 	// "device-mapper" is required for dm-verity support because it provides "dmsetup",
 	// which Dracut needs to install the "dm" module (a dependency of "systemd-veritysetup").
 	requiredRpms := []string{"device-mapper"}
@@ -443,7 +444,8 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if !isPackageInstalled(imageChroot, pkg) {
+		installed := distroHandler.isPackageInstalled(imageChroot, pkg)
+		if !installed {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Verity: %v", pkg, requiredRpms)
 		}
 	}
