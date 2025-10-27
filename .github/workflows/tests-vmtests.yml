@@ -156,7 +156,7 @@ jobs:
         HOST_ARCH: ${{ inputs.hostArch }}
         CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
       with:
         name: tests-results-vmtests-imagecustomizer-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
