@@ -7,18 +7,22 @@ ancestor: Image Customizer
 
 Specifies the configuration for the input image.
 
+Only one child field (`path`, `oci`, or `azureLinux`) may be specified.
+
+An input image must either be provided in the configuration file or on the command line
+(e.g. [--image-file](../cli/cli.md#--image-filefile-path)).
+If both a command-line input image and a configuration input image are specified, then
+the command line's input image overrides the config file's input image.
+
 Example:
 
 ```yaml
-image:
-  path: ./base.vhdx
+input:
+  image:
+    path: ./base.vhdx
 ```
 
 ## path [string]
-
-Required, unless [--image-file](../cli/cli.md#--image-filefile-path) is
-provided on the command line. If both `--image-file` and
-`input.image.path` are provided, then the value of `--image-file` is used.
 
 The base image file to customize.
 
