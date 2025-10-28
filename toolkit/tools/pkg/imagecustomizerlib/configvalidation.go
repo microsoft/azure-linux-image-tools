@@ -111,6 +111,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	rc.Config.OS.Hostname = resolveHostname(rc.ConfigChain)
+
 	err = validateScripts(baseConfigPath, &config.Scripts)
 	if err != nil {
 		return nil, err
@@ -502,4 +504,14 @@ func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifacts
 	}
 
 	return merged
+}
+
+func resolveHostname(configChain []*ConfigWithBasePath) string {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Hostname != "" {
+			return configWithBase.Config.OS.Hostname
+		}
+	}
+
+	return ""
 }

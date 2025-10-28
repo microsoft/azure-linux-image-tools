@@ -35,6 +35,7 @@ previewFeatures:
 - output-artifacts
 - base-configs
 - uki
+- package-snapshot-time
 
 baseConfigs:
   - path: hierarchical-config-base.yaml
@@ -49,7 +50,7 @@ os:
 
   users:
     - name: test-user
-  hostname: testname
+  hostname: test-hostname
   bootloader:
     resetType: hard-reset
 
@@ -62,12 +63,17 @@ os:
     install:
     - systemd-boot
     - openssh-server
+    snapshotTime: 2025-10-28
 
   services:
     enable:
     - sshd
     disable:
     - console-getty
+
+  modules:
+  - name: vfio
+    loadMode: disable
 
 input:
   image:

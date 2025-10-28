@@ -30,20 +30,20 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.OS, imageChroot, nil,
-		rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler, rc.PackageSnapshotTime)
-	if err != nil {
-		return err
-	}
-
 	err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot)
 	if err != nil {
 		return err
 	}
 
 	for _, configWithBase := range rc.ConfigChain {
+		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
+			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
+			configWithBase.Config.OS.Packages.SnapshotTime)
+		if err != nil {
+			return err
+		}
 
-		err = AddOrUpdateGroups(ctx, rc.Config.OS.Groups, imageChroot)
+		err = AddOrUpdateGroups(ctx, configWithBase.Config.OS.Groups, imageChroot)
 		if err != nil {
 			return err
 		}
@@ -53,22 +53,22 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			return err
 		}
 
-		err = copyAdditionalDirs(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalDirs, imageChroot)
+		err = copyAdditionalDirs(ctx, rc.BaseConfigPath, configWithBase.Config.OS.AdditionalDirs, imageChroot)
 		if err != nil {
 			return err
 		}
 
-		err = copyAdditionalFiles(ctx, rc.BaseConfigPath, rc.Config.OS.AdditionalFiles, imageChroot)
+		err = copyAdditionalFiles(ctx, rc.BaseConfigPath, configWithBase.Config.OS.AdditionalFiles, imageChroot)
 		if err != nil {
 			return err
 		}
 
-		err = EnableOrDisableServices(ctx, rc.Config.OS.Services, imageChroot)
+		err = EnableOrDisableServices(ctx, configWithBase.Config.OS.Services, imageChroot)
 		if err != nil {
 			return err
 		}
 
-		err = LoadOrDisableModules(ctx, rc.Config.OS.Modules, imageChroot.RootDir())
+		err = LoadOrDisableModules(ctx, configWithBase.Config.OS.Modules, imageChroot.RootDir())
 		if err != nil {
 			return err
 		}

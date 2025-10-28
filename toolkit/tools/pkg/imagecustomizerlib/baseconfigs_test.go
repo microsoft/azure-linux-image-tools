@@ -105,7 +105,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -114,7 +114,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	// Verify hostname
 	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
 	assert.NoError(t, err)
-	assert.Equal(t, "testname", string(actualHostname))
+	assert.Equal(t, "test-hostname", string(actualHostname))
 
 	// Verify users
 	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user-base")
@@ -122,9 +122,9 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		assert.Contains(t, baseadminEntry.HomeDirectory, "test-user-base")
 	}
 
-	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user")
+	currentuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user")
 	if assert.NoError(t, err) {
-		assert.Contains(t, appuserEntry.HomeDirectory, "test-user")
+		assert.Contains(t, currentuserEntry.HomeDirectory, "test-user")
 	}
 
 	// Verify groups
@@ -143,6 +143,27 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	_, err = os.Stat(bFilePath)
 	assert.NoError(t, err, "expected b.txt to exist at %s", bFilePath)
 
+	// Verify packages
+	nginxInstalled := isPackageInstalled(imageConnection.Chroot(), "nginx")
+	assert.True(t, nginxInstalled)
+
+	nginxVersionOutput, err := getPkgVersionFromChroot(imageConnection, "nginx")
+	assert.NoError(t, err, "failed to retrieve nginx version from chroot")
+
+	nginxExpectedVersion := "nginx-1.25.4-5"
+	assert.Containsf(t, nginxVersionOutput, nginxExpectedVersion,
+		"should install nginx version %s, but got: %s", nginxExpectedVersion, nginxVersionOutput)
+
+	sshdInstalled := isPackageInstalled(imageConnection.Chroot(), "openssh-server")
+	assert.True(t, sshdInstalled)
+
+	systemdBootVersionOutput, err := getPkgVersionFromChroot(imageConnection, "systemd-boot")
+	assert.NoError(t, err, "failed to retrieve systemd-boot version from chroot")
+
+	systemdBootExpectedVersion := "systemd-boot-255-24"
+	assert.Containsf(t, systemdBootVersionOutput, systemdBootExpectedVersion,
+		"should install systemd-boot version %s, but got: %s", systemdBootExpectedVersion, systemdBootVersionOutput)
+
 	// Verify services
 	sshdEnabled, err := systemd.IsServiceEnabled("sshd", imageConnection.Chroot())
 	assert.NoError(t, err)
@@ -150,9 +171,26 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	nginxEnabled, err := systemd.IsServiceEnabled("nginx", imageConnection.Chroot())
 	assert.NoError(t, err)
-	assert.False(t, nginxEnabled)
+	assert.True(t, nginxEnabled)
 
 	consoleGettyEnabled, err := systemd.IsServiceEnabled("console-getty", imageConnection.Chroot())
 	assert.NoError(t, err)
 	assert.False(t, consoleGettyEnabled)
+
+	// Verify modules
+	moduleLoadFilePath := filepath.Join(imageConnection.Chroot().RootDir(), moduleLoadPath)
+	moduleDisableFilePath := filepath.Join(imageConnection.Chroot().RootDir(), moduleDisabledPath)
+
+	moduleLoadContent, err := os.ReadFile(moduleLoadFilePath)
+	if err != nil {
+		t.Errorf("Failed to read module load configuration file: %v", err)
+	}
+
+	moduleDisableContent, err := os.ReadFile(moduleDisableFilePath)
+	if err != nil {
+		t.Errorf("Failed to read module disable configuration file: %v", err)
+	}
+
+	assert.Contains(t, string(moduleLoadContent), "br_netfilter")
+	assert.Contains(t, string(moduleDisableContent), "vfio")
 }
