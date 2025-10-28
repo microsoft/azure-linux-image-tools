@@ -41,7 +41,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	assert.Equal(t, expectedInputPath, rc.InputImageFile)
 	assert.Equal(t, expectedOutputPath, rc.OutputImageFile)
 	assert.Equal(t, expectedArtifactsPath, rc.OutputArtifacts.Path)
-	assert.Equal(t, "testname", rc.Config.OS.Hostname)
+	assert.Equal(t, "test-hostname", rc.Hostname)
 
 	// Verify merged artifact items
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
