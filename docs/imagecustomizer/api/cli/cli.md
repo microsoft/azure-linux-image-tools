@@ -21,11 +21,12 @@ Added in v0.3.
 
 ## --image-file=FILE-PATH
 
-Required, unless [input.image.path](../configuration/inputImage.md#path-string) is
-provided in the configuration file. If both `input.image.path` and
-`--image-file` are provided, then the `--image-file` value is used.
-
 The base image file to customize.
+
+An input image must either be provided in the configuration file (e.g.
+[input.image.path](../configuration/inputImage.md#path-string)) or on the command line.
+If both a command-line input image and a configuration input image are specified, then
+the command line's input image overrides the config file's input image.
 
 This file is typically one of the standard Azure Linux core images.
 But it can also be an Azure Linux image that has been customized.

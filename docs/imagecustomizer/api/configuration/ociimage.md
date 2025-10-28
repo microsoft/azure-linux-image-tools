@@ -35,6 +35,10 @@ This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
+When using official Azure Linux images from the Microsoft Artifact Registry (MCR), it is
+recommended that you use the dedicated
+[input.image.azureLinux](./inputImage.md#azurelinux-azurelinuximage) API.
+
 Added in v1.1.
 
 ## uri [string]

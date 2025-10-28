@@ -95,7 +95,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImageFile, rc.InputImageOci, err = validateInput(rc.ConfigChain, options.InputImageFile)
+		rc.InputImage, err = validateInput(rc.ConfigChain, options.InputImageFile)
 		if err != nil {
 			return nil, err
 		}
@@ -146,14 +146,19 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 }
 
 func validateInput(configChain []*ConfigWithBasePath, inputImageFile string,
-) (string, *imagecustomizerapi.OciImage, error) {
+) (imagecustomizerapi.InputImage, error) {
 	if inputImageFile != "" {
 		if yes, err := file.IsFile(inputImageFile); err != nil {
-			return "", nil, fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+			err = fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+			return imagecustomizerapi.InputImage{}, err
 		} else if !yes {
-			return "", nil, fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+			err = fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+			return imagecustomizerapi.InputImage{}, err
 		}
-		return inputImageFile, nil, nil
+
+		return imagecustomizerapi.InputImage{
+			Path: inputImageFile,
+		}, nil
 	}
 
 	// Resolve input image path
@@ -166,20 +171,32 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string,
 
 			// Validate the path
 			if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-				return "", nil, fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, configWithBase.Config.Input.Image.Path, err)
+				err = fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, configWithBase.Config.Input.Image.Path, err)
+				return imagecustomizerapi.InputImage{}, err
 			} else if !yes {
-				return "", nil, fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
+				err = fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
+				return imagecustomizerapi.InputImage{}, err
 			}
 
-			return inputImageAbsPath, nil, nil
+			return imagecustomizerapi.InputImage{
+				Path: inputImageAbsPath,
+			}, nil
 		}
 
 		if configWithBase.Config.Input.Image.Oci != nil {
-			return "", configWithBase.Config.Input.Image.Oci, nil
+			return imagecustomizerapi.InputImage{
+				Oci: configWithBase.Config.Input.Image.Oci,
+			}, nil
+		}
+
+		if configWithBase.Config.Input.Image.AzureLinux != nil {
+			return imagecustomizerapi.InputImage{
+				AzureLinux: configWithBase.Config.Input.Image.AzureLinux,
+			}, nil
 		}
 	}
 
-	return "", nil, ErrInputImageFileRequired
+	return imagecustomizerapi.InputImage{}, ErrInputImageFileRequired
 }
 
 func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList) error {
