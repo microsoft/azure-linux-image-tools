@@ -63,4 +63,8 @@ Specifies the variant of the Azure Linux image to use as the base image.
 
 This value is required.
 
+Example values:
+
+- `minimal-os`
+
 Added in v1.1.
