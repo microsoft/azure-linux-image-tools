@@ -22,6 +22,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -105,12 +106,13 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 // Searches for the partition that contains the /etc/fstab file.
 // While technically it is possible to place /etc on a different partition, doing so is fairly difficult and requires
 // a custom initramfs module.
-func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
+func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, string, error) {
 	logger.Log.Debugf("Searching for rootfs partition")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	var rootfsPartitions []*diskutils.PartitionInfo
+	var rootfsPaths []string
 	for i := range diskPartitions {
 		diskPartition := diskPartitions[i]
 
@@ -121,68 +123,146 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 		// Skip over file-system types that can't be used for the rootfs partition.
 		switch diskPartition.FileSystemType {
-		case "ext2", "ext3", "ext4", "xfs":
+		case "ext2", "ext3", "ext4", "xfs", "btrfs":
 
 		default:
-			logger.Log.Debugf("Skip partition (%s) with unsupported rootfs filesystem type (%s)", diskPartition.Path,
-				diskPartition.FileSystemType)
+			logger.Log.Debugf("Skip partition (%s) with unsupported rootfs filesystem type (%s)",
+				diskPartition.Path, diskPartition.FileSystemType)
 			continue
 		}
 
-		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
-			"", true)
+		exists, rootfsPath, err := findFstabInRoot(diskPartition, tmpDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+			return nil, "", err
 		}
-		defer partitionMount.Close()
-
-		// Check if the /etc/fstab file exists.
-		fstabPath := filepath.Join(tmpDir, "/etc/fstab")
-		exists, err := file.PathExists(fstabPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check if /etc/fstab file exists (%s):\n%w", diskPartition.Path, err)
-		}
-
 		if exists {
 			rootfsPartitions = append(rootfsPartitions, &diskPartition)
-		}
-
-		// Close the rootfs partition mount.
-		err = partitionMount.CleanClose()
-		if err != nil {
-			return nil, fmt.Errorf("failed to close partition mount (%s):\n%w", diskPartition.Path, err)
+			rootfsPaths = append(rootfsPaths, rootfsPath)
 		}
 	}
 
 	if len(rootfsPartitions) > 1 {
-		return nil, fmt.Errorf("found too many rootfs partition candidates (%d)", len(rootfsPartitions))
+		return nil, "", fmt.Errorf("found too many rootfs partition candidates (%d)",
+			len(rootfsPartitions))
 	} else if len(rootfsPartitions) < 1 {
-		return nil, fmt.Errorf("failed to find rootfs partition")
+		return nil, "", fmt.Errorf("failed to find rootfs partition")
 	}
 
 	rootfsPartition := rootfsPartitions[0]
-	return rootfsPartition, nil
+	rootfsPath := rootfsPaths[0]
+	return rootfsPartition, rootfsPath, nil
 }
 
-func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+// findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes
+func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool, string, error) {
+	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
+		unix.MS_RDONLY, "", true)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+	}
+	defer partitionMount.Close()
+
+	// Check the root of the filesystem
+	subvolume := ""
+	fstabPath := filepath.Join(tmpDir, "etc/fstab")
+	exists, err := file.PathExists(fstabPath)
+	if err != nil {
+		return false, "", err
+	}
+
+	if !exists && diskPartition.FileSystemType == "btrfs" {
+		// List actual subvolumes using btrfs tools
+		subvolumes, err := listBtrfsSubvolumes(tmpDir)
+		if err != nil {
+			return false, "", err
+		}
+
+		// Search for fstab in each subvolume directory
+		for _, subvolume = range subvolumes {
+			fstabPath := filepath.Join(tmpDir, subvolume, "etc/fstab")
+			exists, err := file.PathExists(fstabPath)
+			if err != nil {
+				return false, "", err
+			}
+			if exists {
+				break
+			}
+		}
+	}
+	
+	// Close the rootfs partition mount.
+	err = partitionMount.CleanClose()
+	if err != nil {
+		return false, "", fmt.Errorf("failed to close partition mount (%s):\n%w",
+			diskPartition.Path, err)
+	}
+	return exists, subvolume, nil
+}
+
+// listBtrfsSubvolumes uses btrfs tools to discover actual subvolumes in a mounted BTRFS filesystem
+func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
+	stdout, _, err := shell.NewExecBuilder("btrfs", "subvolume", "list", "-a", mountPoint).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		ExecuteCaptureOutput()
+		
+	if err != nil {
+		return nil, fmt.Errorf("failed to list BTRFS subvolumes:\n%w", err)
+	}
+
+	// Regex to parse btrfs subvolume list output format:
+	// ID 256 gen 7 top level 5 path @
+	// ID 257 gen 7 top level 5 path @home
+	subvolumeRegex := regexp.MustCompile(
+		`^ID\s+\d+\s+gen\s+\d+\s+top\s+level\s+\d+\s+path\s+(.+)$`)
+
+	var subvolumes []string
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		match := subvolumeRegex.FindStringSubmatch(line)
+		if match == nil {
+			return nil, fmt.Errorf("failed to parse btrfs subvolume list output line: %s", line)
+		}
+
+		subvolPath := match[1]
+		// Skip special subvolumes that start with <
+		if !strings.HasPrefix(subvolPath, "<") {
+			subvolumes = append(subvolumes, subvolPath)
+		}
+	}
+
+	logger.Log.Debugf("Found BTRFS subvolumes: %v", subvolumes)
+	return subvolumes, nil
+}
+
+func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
+	diskPartitions []diskutils.PartitionInfo, buildDir string, rootfsPath string,
 ) ([]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
-		true)
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
+		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
-	// Read the fstab file.
-	fstabPath := filepath.Join(tmpDir, "/etc/fstab")
-
+	var fstabPath string
+	if rootfsPath == "" {
+		fstabPath = filepath.Join(tmpDir, "etc/fstab")
+	} else {
+		fstabPath = filepath.Join(tmpDir, rootfsPath, "etc/fstab")
+	}
+	
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
@@ -192,7 +272,8 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
+			rootfsPartition.Path, err)
 	}
 
 	return fstabEntries, nil
@@ -791,3 +872,4 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 
 	return num, nil
 }
+
