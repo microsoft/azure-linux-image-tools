@@ -31,6 +31,10 @@ or are processed sequentially.
 **Base config items are processed first, followed by current config’s.**
 
 - `.os.users`
+- `.os.services`
+- `.os.packages` (If .os.packages.snapshotTime is specified, it is applied per-config)
+- `.os.modules`
+- `.os.additionalFiles`
 
 ## path [string]
 
