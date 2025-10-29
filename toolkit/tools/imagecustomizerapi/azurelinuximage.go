@@ -38,7 +38,7 @@ func (i *AzureLinuxImage) IsValid() error {
 func (i *AzureLinuxImage) ParseVersion() (string, string, error) {
 	groups := azureLinuxVersionRegex.FindStringSubmatch(i.Version)
 	if groups == nil {
-		return "", "", fmt.Errorf("invalid version value, expecting <MAJOR>.<MINOR>.<DATE> (value='%s')", i.Version)
+		return "", "", fmt.Errorf("invalid version value, expecting <MAJOR>.<MINOR>[.<DATE>] (value='%s')", i.Version)
 	}
 
 	majorMinor := groups[1]

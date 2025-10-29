@@ -23,6 +23,7 @@ import (
 type CustomizeCmd struct {
 	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
+	InputImage               string   `name:"image" help:"The image which the customization will be applied to.\n Supported formats:\n - oci:URI"`
 	OutputImageFile          string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
 	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
@@ -118,6 +119,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 		imagecustomizerlib.ImageCustomizerOptions{
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,
+			InputImage:           cmd.InputImage,
 			RpmsSources:          cmd.RpmSources,
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
