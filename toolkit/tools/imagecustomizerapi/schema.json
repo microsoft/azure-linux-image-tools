@@ -661,6 +661,9 @@
       "properties": {
         "kernels": {
           "$ref": "#/$defs/UkiKernels"
+        },
+        "cleanBoot": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
