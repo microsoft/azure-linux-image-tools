@@ -52,7 +52,7 @@ func TestGenerateAzureLinuxOciUriAZL3Date(t *testing.T) {
 func TestParseInputImageAZLValid(t *testing.T) {
 	inputImage, err := parseInputImage("azurelinux:minimal-os:3.0")
 	assert.NoError(t, err)
-	if !assert.NotNil(t, inputImage.AzureLinux) {
+	if assert.NotNil(t, inputImage.AzureLinux) {
 		assert.Equal(t, "minimal-os", inputImage.AzureLinux.Variant)
 		assert.Equal(t, "3.0", inputImage.AzureLinux.Version)
 	}

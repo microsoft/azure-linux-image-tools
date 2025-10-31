@@ -12,7 +12,7 @@ import (
 func TestParseInputImageOciValid(t *testing.T) {
 	inputImage, err := parseInputImage("oci:mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest")
 	assert.NoError(t, err)
-	if !assert.NotNil(t, inputImage.Oci) {
+	if assert.NotNil(t, inputImage.Oci) {
 		assert.Equal(t, "mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest", inputImage.Oci.Uri)
 	}
 }
