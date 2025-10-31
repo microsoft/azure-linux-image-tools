@@ -96,10 +96,11 @@ var (
 )
 
 var (
-	testDir      string
-	tmpDir       string
-	workingDir   string
-	testutilsDir string
+	testDir             string
+	tmpDir              string
+	workingDir          string
+	testutilsDir        string
+	sharedImageCacheDir string
 
 	logMessagesHook *logger.MemoryLogHook
 )
@@ -129,9 +130,10 @@ func TestMain(m *testing.M) {
 
 	testDir = filepath.Join(workingDir, "testdata")
 	tmpDir = filepath.Join(workingDir, "_tmp")
+	sharedImageCacheDir = filepath.Join(tmpDir, "image-cache")
 	testutilsDir = filepath.Join(workingDir, "../../internal/testutils")
 
-	err = os.MkdirAll(tmpDir, os.ModePerm)
+	err = os.MkdirAll(sharedImageCacheDir, os.ModePerm)
 	if err != nil {
 		logger.Log.Panicf("Failed to create tmp directory, error: %s", err)
 	}

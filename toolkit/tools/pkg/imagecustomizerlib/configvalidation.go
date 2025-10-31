@@ -64,6 +64,11 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	err = options.verifyPreviewFeatures(config.PreviewFeatures)
+	if err != nil {
+		return nil, err
+	}
+
 	rc.ConfigChain, err = buildConfigChain(ctx, rc)
 	if err != nil {
 		return nil, err
@@ -95,7 +100,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImage, err = validateInput(rc.ConfigChain, options.InputImageFile)
+		rc.InputImage, err = validateInput(rc.ConfigChain, options.InputImageFile, options.InputImage)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +150,7 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 	return nil
 }
 
-func validateInput(configChain []*ConfigWithBasePath, inputImageFile string,
+func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inputImage string,
 ) (imagecustomizerapi.InputImage, error) {
 	if inputImageFile != "" {
 		if yes, err := file.IsFile(inputImageFile); err != nil {
@@ -159,6 +164,15 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string,
 		return imagecustomizerapi.InputImage{
 			Path: inputImageFile,
 		}, nil
+	}
+
+	if inputImage != "" {
+		inputImage, err := parseInputImage(inputImage)
+		if err != nil {
+			return imagecustomizerapi.InputImage{}, err
+		}
+
+		return inputImage, nil
 	}
 
 	// Resolve input image path
@@ -438,12 +452,6 @@ func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnaps
 
 	case config.OS != nil && config.OS.Packages.SnapshotTime != "":
 		snapshotTime = config.OS.Packages.SnapshotTime
-	}
-
-	if snapshotTime != "" {
-		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-			return "", ErrPackageSnapshotPreviewRequired
-		}
 	}
 
 	return snapshotTime, nil

@@ -49,26 +49,52 @@ func TestGenerateAzureLinuxOciUriAZL3Date(t *testing.T) {
 	assert.Equal(t, "mcr.microsoft.com/azurelinux/3.0/image/minimal-os:3.0.20250910", ociImage.Uri)
 }
 
-func TestCustomizeImageAZLBaseImageValid(t *testing.T) {
+func TestParseInputImageAZLValid(t *testing.T) {
+	inputImage, err := parseInputImage("azurelinux:minimal-os:3.0")
+	assert.NoError(t, err)
+	if assert.NotNil(t, inputImage.AzureLinux) {
+		assert.Equal(t, "minimal-os", inputImage.AzureLinux.Variant)
+		assert.Equal(t, "3.0", inputImage.AzureLinux.Version)
+	}
+}
+
+func TestParseInputImageAZLMissingVersion(t *testing.T) {
+	_, err := parseInputImage("azurelinux:minimal-os")
+	assert.ErrorIs(t, err, ErrInvalidInputImageStringFormat)
+	assert.ErrorContains(t, err, "missing Azure Linux version value")
+}
+
+func TestParseInputImageAZLEmptyVersion(t *testing.T) {
+	_, err := parseInputImage("azurelinux:minimal-os:")
+	assert.ErrorIs(t, err, ErrInvalidInputImageStringFormat)
+	assert.ErrorContains(t, err, "invalid 'version' field")
+}
+
+func TestParseInputImageAZLEmptyVariant(t *testing.T) {
+	_, err := parseInputImage("azurelinux::3.0")
+	assert.ErrorIs(t, err, ErrInvalidInputImageStringFormat)
+	assert.ErrorContains(t, err, "invalid 'variant' field")
+}
+
+func TestCustomizeImageAZLBaseImageConfigValid(t *testing.T) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAZLBaseImageValid")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAZLBaseImageConfigValid")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	configFile := filepath.Join(testDir, "azurelinux-base-image.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-	imageCacheDir := filepath.Join(testTmpDir, "image-cache")
 
 	options := ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
 		UseBaseImageRpmRepos: true,
-		ImageCacheDir:        imageCacheDir,
+		ImageCacheDir:        sharedImageCacheDir,
 	}
 
-	// Customize image, with empty cache.
+	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
@@ -84,4 +110,41 @@ func TestCustomizeImageAZLBaseImageValid(t *testing.T) {
 	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
 	assert.NoError(t, err)
 	assert.Equal(t, "echidna", string(actualHostname))
+}
+
+func TestCustomizeImageAZLBaseImageCliValid(t *testing.T) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAZLBaseImageCliValid")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "oci-preview-feature.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	options := ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		ImageCacheDir:        sharedImageCacheDir,
+		InputImage:           "azurelinux:minimal-os:3.0",
+	}
+
+	// Customize image.
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Ensure hostname was correctly set.
+	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
+	assert.NoError(t, err)
+	assert.Equal(t, "blue-tongued-skink", string(actualHostname))
 }

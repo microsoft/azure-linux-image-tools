@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
@@ -53,4 +54,26 @@ func generateAzureLinuxOciUri(inputImage imagecustomizerapi.AzureLinuxImage) (im
 	}
 
 	return ociImage, nil
+}
+
+func parseInputImageAzureLinuxValue(value string) (imagecustomizerapi.InputImage, error) {
+	variant, version, splitOk := strings.Cut(value, ":")
+	if !splitOk {
+		err := fmt.Errorf("missing Azure Linux version value")
+		return imagecustomizerapi.InputImage{}, err
+	}
+
+	inputImage := imagecustomizerapi.InputImage{
+		AzureLinux: &imagecustomizerapi.AzureLinuxImage{
+			Variant: variant,
+			Version: version,
+		},
+	}
+
+	err := inputImage.AzureLinux.IsValid()
+	if err != nil {
+		return imagecustomizerapi.InputImage{}, err
+	}
+
+	return inputImage, nil
 }
