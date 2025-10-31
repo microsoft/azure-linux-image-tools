@@ -42,6 +42,9 @@ type ResolvedConfig struct {
 	// Intermediate writeable image.
 	RawImageFile string
 
+	// Hostname
+	Hostname string
+
 	// Hierarchical config chain
 	ConfigChain []*ConfigWithBasePath
 }
