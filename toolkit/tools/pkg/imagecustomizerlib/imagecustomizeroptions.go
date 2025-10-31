@@ -11,8 +11,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
-const ()
-
 var (
 	ErrInvalidInputImageStringFormat = NewImageCustomizerError("Validation:InvalidInputImageStringFormat", "invalid --image string format")
 	ErrMultipleInputImageOptions     = NewImageCustomizerError("Validation:MultipleInputImageOptions", "cannot specify both --image and --image-file")
