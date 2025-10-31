@@ -63,14 +63,6 @@ Specifies the location where the base image can be downloaded from.
 
 Supported formats:
 
-- `oci:<URI>`
-
-  Where:
-
-  - `<URI>`: The URI of the OCI artifact containing the image.
-
-  See [ociImage](../configuration/ociimage.md) for more details.
-
 - `azurelinux:<VARIANT>:<VERSION>`
 
   Where:
@@ -80,6 +72,14 @@ Supported formats:
   - `<VERSION>`: The version of the Azure Linux image.
   
   See [azureLinuxImage](../configuration/azurelinuximage.md) for more details.
+
+- `oci:<URI>`
+
+  Where:
+
+  - `<URI>`: The URI of the OCI artifact containing the image.
+
+  See [ociImage](../configuration/ociimage.md) for more details.
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
