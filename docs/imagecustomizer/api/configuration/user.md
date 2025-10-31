@@ -62,8 +62,6 @@ Example:
 os:
   users:
   - name: test
-    passwordPath: test-password.txt
-    passwordHashed: true
     passwordExpiresDays: 120
 ```
 
