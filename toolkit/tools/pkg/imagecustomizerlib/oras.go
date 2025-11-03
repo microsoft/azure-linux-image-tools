@@ -31,7 +31,10 @@ var (
 )
 
 func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, buildDir string, imageCacheDir string,
+	signatureCheckOptions *ociSignatureCheckOptions,
 ) (string, error) {
+	logger.Log.Debugf("Downloading OCI image (%s)", ociImage.Uri)
+
 	err := validateImageCacheDir(imageCacheDir)
 	if err != nil {
 		return "", err
@@ -50,6 +53,13 @@ func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage,
 		return "", err
 	}
 
+	if signatureCheckOptions != nil {
+		err = checkNotationSignature(ctx, buildDir, remoteRepo, descriptor, *signatureCheckOptions)
+		if err != nil {
+			return "", fmt.Errorf("OCI signature check failed:\n%w", err)
+		}
+	}
+
 	digestsDir := filepath.Join(imageCacheDir, "digests", string(descriptor.Digest.Algorithm()))
 
 	err = os.MkdirAll(digestsDir, os.ModePerm)
@@ -65,7 +75,9 @@ func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage,
 		return "", fmt.Errorf("failed to check if digest cache directory exists (%s):\n%w", digestDir, err)
 	}
 
-	if !digestDirExists {
+	if digestDirExists {
+		logger.Log.Debugf("Using cached OCI image")
+	} else {
 		err = downloadOciToDirectory(ctx, remoteRepo, digestDir, descriptor)
 		if err != nil {
 			return "", err

@@ -45,6 +45,18 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "AzureLinuxImage": {
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BaseConfig": {
       "properties": {
         "path": {
@@ -225,6 +237,9 @@
         },
         "oci": {
           "$ref": "#/$defs/OciImage"
+        },
+        "azureLinux": {
+          "$ref": "#/$defs/AzureLinuxImage"
         }
       },
       "additionalProperties": false,
