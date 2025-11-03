@@ -50,6 +50,7 @@ var (
 	ErrCustomizeCreateUkis      = NewImageCustomizerError("Customizer:CreateUkis", "failed to create UKIs")
 	ErrCustomizeOutputArtifacts = NewImageCustomizerError("Customizer:OutputArtifacts", "failed to output artifacts")
 	ErrCustomizeDownloadImage   = NewImageCustomizerError("Customizer:DownloadImage", "failed to download image")
+	ErrOutputSelinuxPolicy      = NewImageCustomizerError("Customizer:OutputSelinuxPolicy", "failed to output SELinux policy")
 
 	// Image conversion errors
 	ErrConvertInputImage       = NewImageCustomizerError("ImageConversion:ConvertInput", "failed to convert input image to a raw image")
@@ -285,6 +286,13 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 			rc.RawImageFile, im.verityMetadata)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
+		}
+	}
+
+	if rc.OutputSelinuxPolicyPath != "" {
+		err = outputSelinuxPolicy(ctx, rc.OutputSelinuxPolicyPath, rc.BuildDirAbs, rc.RawImageFile)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrOutputSelinuxPolicy, err)
 		}
 	}
 

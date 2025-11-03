@@ -34,12 +34,16 @@ const (
 
 	// PreviewFeatureInputImageOci enables support for download OCI images.
 	PreviewFeatureInputImageOci PreviewFeature = "input-image-oci"
+
+	// PreviewFeatureOutputSelinuxPolicy enables extraction of SELinux policy contents.
+	PreviewFeatureOutputSelinuxPolicy PreviewFeature = "output-selinux-policy"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci:
+		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci,
+		PreviewFeatureOutputSelinuxPolicy:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

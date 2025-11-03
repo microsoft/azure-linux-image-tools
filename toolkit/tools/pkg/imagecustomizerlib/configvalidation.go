@@ -133,6 +133,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
+	rc.OutputSelinuxPolicyPath = resolveOutputSelinuxPolicyPath(rc.ConfigChain)
+
 	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
 	if err != nil {
 		return nil, err
@@ -527,4 +529,21 @@ func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifacts
 	}
 
 	return merged
+}
+
+func resolveOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath) string {
+	var selinuxPolicyPath string
+
+	// Iterate through config chain, later configs override earlier ones.
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.Output.SelinuxPolicyPath != "" {
+			// Resolve the path relative to the config file that specified it.
+			selinuxPolicyPath = file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Output.SelinuxPolicyPath,
+			)
+		}
+	}
+
+	return selinuxPolicyPath
 }
