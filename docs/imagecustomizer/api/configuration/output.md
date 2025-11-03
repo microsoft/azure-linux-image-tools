@@ -47,3 +47,26 @@ previewFeatures:
 ```
 
 Added in v0.14.
+
+## selinuxPolicyPath [string]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `output-selinux-policy` in the
+[previewFeatures](./injectFilesConfig.md#previewfeatures-string) API.
+
+Specifies the directory path where Image Customizer will output the SELinux policy
+contents extracted from the customized image.
+
+See [outputSelinuxPolicy](./outputSelinuxPolicy.md) for more details.
+
+Example:
+
+```yaml
+output:
+  selinuxPolicyPath: ./selinux-policy
+previewFeatures:
+- output-selinux-policy
+```
+
+Added in v1.1.
