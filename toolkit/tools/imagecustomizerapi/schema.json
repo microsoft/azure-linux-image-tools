@@ -402,6 +402,9 @@
         },
         "artifacts": {
           "$ref": "#/$defs/Artifacts"
+        },
+        "selinuxPolicyPath": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
