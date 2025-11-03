@@ -30,11 +30,6 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot)
-	if err != nil {
-		return err
-	}
-
 	for _, configWithBase := range rc.ConfigChain {
 		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
 			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
@@ -42,37 +37,54 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		if err != nil {
 			return err
 		}
+	}
 
+	err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot)
+	if err != nil {
+		return err
+	}
+
+	for _, configWithBase := range rc.ConfigChain {
 		err = AddOrUpdateGroups(ctx, configWithBase.Config.OS.Groups, imageChroot)
 		if err != nil {
 			return err
 		}
+	}
 
+	for _, configWithBase := range rc.ConfigChain {
 		err = AddOrUpdateUsers(ctx, configWithBase.Config.OS.Users, configWithBase.BaseConfigPath, imageChroot)
 		if err != nil {
 			return err
 		}
+	}
 
-		err = copyAdditionalDirs(ctx, rc.BaseConfigPath, configWithBase.Config.OS.AdditionalDirs, imageChroot)
+	for _, configWithBase := range rc.ConfigChain {
+		err = copyAdditionalDirs(ctx, configWithBase.BaseConfigPath, configWithBase.Config.OS.AdditionalDirs, imageChroot)
 		if err != nil {
 			return err
 		}
+	}
 
-		err = copyAdditionalFiles(ctx, rc.BaseConfigPath, configWithBase.Config.OS.AdditionalFiles, imageChroot)
+	for _, configWithBase := range rc.ConfigChain {
+		err = copyAdditionalFiles(ctx, configWithBase.BaseConfigPath, configWithBase.Config.OS.AdditionalFiles,
+			imageChroot)
 		if err != nil {
 			return err
 		}
+	}
 
+	for _, configWithBase := range rc.ConfigChain {
 		err = EnableOrDisableServices(ctx, configWithBase.Config.OS.Services, imageChroot)
 		if err != nil {
 			return err
 		}
+	}
 
+	for _, configWithBase := range rc.ConfigChain {
 		err = LoadOrDisableModules(ctx, configWithBase.Config.OS.Modules, imageChroot.RootDir())
 		if err != nil {
 			return err
 		}
-
 	}
 
 	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr)

@@ -45,6 +45,10 @@ os:
   - source: files/b.txt
     destination: /mnt/b/b.txt
 
+  additionalDirs:
+  - source: dirs/b
+    destination: /
+
   groups:
   - name: test-group
 

@@ -3,6 +3,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
@@ -25,13 +26,14 @@ func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithBas
 	return configChain, nil
 }
 
-func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config, configFilePath string, visited map[string]bool,
-	pathStack []string,
-) ([]*ConfigWithBasePath, error) {
+func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config, configDir string,
+	visited map[string]bool, pathStack []string) ([]*ConfigWithBasePath, error) {
+
 	var chain []*ConfigWithBasePath
 
 	for _, base := range cfg.BaseConfigs {
-		absPath := file.GetAbsPathWithBase(configFilePath, base.Path)
+		// Resolve base config path relative to current config's directory
+		absPath := file.GetAbsPathWithBase(configDir, base.Path)
 
 		if visited[absPath] {
 			return nil, fmt.Errorf("cycle detected in baseConfigs: %v -> %s", pathStack, absPath)
@@ -52,7 +54,8 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 		}
 
 		// Recurse into base config
-		subChain, err := buildConfigChainHelper(ctx, &baseCfg, absPath, visited, pathStack)
+		baseConfigDir := filepath.Dir(absPath)
+		subChain, err := buildConfigChainHelper(ctx, &baseCfg, baseConfigDir, visited, pathStack)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +66,7 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 	// Add the current config last
 	chain = append(chain, &ConfigWithBasePath{
 		Config:         cfg,
-		BaseConfigPath: configFilePath,
+		BaseConfigPath: configDir,
 	})
 
 	return chain, nil

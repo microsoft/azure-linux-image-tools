@@ -143,6 +143,17 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	_, err = os.Stat(bFilePath)
 	assert.NoError(t, err, "expected b.txt to exist at %s", bFilePath)
 
+	// Verify additional dirs
+	animalsFileOrigPath := filepath.Join(testDir, "dirs/a/animals.sh")
+	animalsFileNewPath := filepath.Join(imageConnection.Chroot().RootDir(), "/usr/local/bin/animals.sh")
+
+	verifyFileContentsSame(t, animalsFileOrigPath, animalsFileNewPath)
+
+	plantsFileOrigPath := filepath.Join(testDir, "dirs/a/plants.sh")
+	plantsFileNewPath := filepath.Join(imageConnection.Chroot().RootDir(), "/usr/local/bin/plants.sh")
+
+	verifyFileContentsSame(t, plantsFileOrigPath, plantsFileNewPath)
+
 	// Verify packages
 	nginxInstalled := isPackageInstalled(imageConnection.Chroot(), "nginx")
 	assert.True(t, nginxInstalled)

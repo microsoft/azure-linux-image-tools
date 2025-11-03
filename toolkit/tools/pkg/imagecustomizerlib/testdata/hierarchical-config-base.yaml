@@ -21,9 +21,14 @@ os:
     - name: test-user-base
   groups:
     - name: test-group-base
+
   additionalFiles:
   - source: files/a.txt
     destination: /mnt/a/a.txt
+
+  additionalDirs:
+  - source: dirs/a
+    destination: /
 
   packages:
     install:
