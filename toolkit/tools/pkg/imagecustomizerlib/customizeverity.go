@@ -573,6 +573,7 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 func customizeVerityImageHelper(ctx context.Context, buildDir string, config *imagecustomizerapi.Config,
 	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
 	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry,
 ) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Provisioning verity")
 
@@ -679,7 +680,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 		// Update kernel args.
 		isUki := config.OS.Uki != nil
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partUuidToFstabEntry)
 		if err != nil {
 			return nil, err
 		}
@@ -758,27 +759,23 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 }
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
-	verityMetadata []verityDeviceMetadata, isUki bool,
+	verityMetadata []verityDeviceMetadata, isUki bool, partUuidToFstabEntry map[string]diskutils.FstabEntry,
 ) error {
-	systemBootPartition, err := findSystemBootPartition(diskPartitions)
-	if err != nil {
-		return err
-	}
-
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partUuidToFstabEntry)
 	if err != nil {
 		return err
 	}
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	// Temporarily mount the partition.
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
+	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType,
+		0, "", true)
 	if err != nil {
 		return fmt.Errorf("%w (partition='%s'):\n%w", ErrMountPartition, bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, DefaultGrubCfgPath)
 	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
