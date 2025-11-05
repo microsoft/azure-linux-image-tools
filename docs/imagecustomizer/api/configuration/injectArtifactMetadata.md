@@ -24,8 +24,8 @@ partition:
   idType: part-uuid
   id: b9f59ced-d1a6-44a7-91d9-4d623a39b032
 destination: /EFI/BOOT/bootx64.efi
-source: ./bootx64.signed.efi
-unsignedSource: ./bootx64.efi
+source: ./shim/bootx64.efi
+type: shim
 ```
 
 ## `partition` [InjectFilePartition](./injectFilePartition.md)
@@ -58,16 +58,30 @@ Added in v0.14.
 
 Required.
 
-Path to the signed artifact file to be injected. This path may be relative to the
+Path to the artifact file to be injected. This path may be relative to the
 `inject-files.yaml` config file or an absolute path.
 
-Added in v0.14.
+The file at this path should be initially the unsigned artifact extracted during
+the output artifacts phase. Users should replace this file with the signed version
+before running the injection command.
 
-## `unsignedSource` [string]
-
-Optional.
-
-Path to the original unsigned artifact (if available). This field is for informational
-or auditing purposes only — it is not used during injection.
+Artifacts are organized in subdirectories matching their type (e.g., `ukis/`, `shim/`,
+`systemd-boot/`, `verity-hash/`).
 
 Added in v0.14.
+
+## `type` [string]
+
+Required.
+
+The type of artifact being injected. This field helps users identify which signing
+process to apply to each artifact.
+
+Supported values:
+
+- `ukis` – Unified Kernel Image
+- `shim` – Boot shim
+- `systemd-boot` – systemd-boot loader
+- `verity-hash` – dm-verity hash file
+
+Added in v1.1.

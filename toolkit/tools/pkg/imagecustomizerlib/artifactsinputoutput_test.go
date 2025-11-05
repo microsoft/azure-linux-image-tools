@@ -227,41 +227,40 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string) []
 	espFiles := []string(nil)
 
 	for _, entry := range injectConfig.InjectFiles {
-		switch {
-		case strings.HasPrefix(entry.Destination, "/EFI/BOOT/boot") &&
-			strings.HasSuffix(entry.Destination, ".efi") &&
-			strings.HasPrefix(entry.Source, "./boot") &&
-			strings.HasSuffix(entry.Source, ".signed.efi"):
+		// Verify the type field is set
+		assert.NotEmpty(t, entry.Type, "Expected type field to be set for entry with destination: %s", entry.Destination)
+
+		switch entry.Type {
+		case imagecustomizerapi.OutputArtifactsItemShim:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/BOOT/boot"), "Expected shim destination to start with /EFI/BOOT/boot")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected shim destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./shim/"), "Expected shim source to be in shim/ subdirectory")
 			hasShim = true
-
 			espFiles = append(espFiles, entry.Destination)
 
-		case strings.HasPrefix(entry.Destination, "/EFI/systemd/systemd-boot") &&
-			strings.HasSuffix(entry.Destination, ".efi") &&
-			strings.HasPrefix(entry.Source, "./systemd-boot") &&
-			strings.HasSuffix(entry.Source, ".signed.efi"):
+		case imagecustomizerapi.OutputArtifactsItemSystemdBoot:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/systemd/systemd-boot"), "Expected systemd-boot destination to start with /EFI/systemd/systemd-boot")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected systemd-boot destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./systemd-boot/"), "Expected systemd-boot source to be in systemd-boot/ subdirectory")
 			hasSystemdBoot = true
-
 			espFiles = append(espFiles, entry.Destination)
 
-		case strings.HasPrefix(entry.Destination, "/EFI/Linux/vmlinuz") &&
-			strings.HasSuffix(entry.Destination, ".efi") &&
-			strings.HasPrefix(entry.Source, "./vmlinuz") &&
-			strings.HasSuffix(entry.Source, ".signed.efi"):
+		case imagecustomizerapi.OutputArtifactsItemUkis:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/Linux/vmlinuz"), "Expected UKI destination to start with /EFI/Linux/vmlinuz")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected UKI destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./ukis/"), "Expected UKI source to be in ukis/ subdirectory")
 			hasUKI = true
-
 			espFiles = append(espFiles, entry.Destination)
 		}
 
-		// Check that the unsigned file exists.
-		unsignedPath := filepath.Join(outputArtifactsDir, entry.UnsignedSource)
+		// Check that the unsigned file exists at the source path
+		unsignedPath := filepath.Join(outputArtifactsDir, entry.Source)
 		_, err := os.Stat(unsignedPath)
 		assert.NoErrorf(t, err, "failed to check if unsigned file exists ('%s')", unsignedPath)
 
-		// Pseudo sign the file.
-		signedPath := filepath.Join(outputArtifactsDir, entry.Source)
-		err = pseudoSignFile(unsignedPath, signedPath)
-		assert.NoErrorf(t, err, "pseduo sign file failed (unsignedPath='%s', signedPath='%s')", unsignedPath, signedPath)
+		// Pseudo sign the file by replacing it with a signed version
+		err = pseudoSignFile(unsignedPath)
+		assert.NoErrorf(t, err, "pseudo sign file failed (path='%s')", unsignedPath)
 	}
 
 	// Ensure all the expected files were seen.
@@ -284,13 +283,8 @@ func verifyInjectedFiles(t *testing.T, partitionDir string, partitionFiles []str
 	}
 }
 
-func pseudoSignFile(inputPath string, outputPath string) error {
-	err := file.Copy(inputPath, outputPath)
-	if err != nil {
-		return err
-	}
-
-	err = appendMarker(outputPath, pseudoSignedMarker)
+func pseudoSignFile(filePath string) error {
+	err := appendMarker(filePath, pseudoSignedMarker)
 	if err != nil {
 		return err
 	}
