@@ -1,0 +1,78 @@
+previewFeatures:
+- uki
+- output-artifacts
+
+# Change the partition layout to use usr verity.
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 250M
+
+    - id: usr
+      size: 1G
+
+    - id: usrhash
+      size: 100M
+
+    - id: root
+      size: 1G
+
+  verity:
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usrhash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: verityusr
+    type: ext4
+    mountPoint:
+      path: /usr
+      options: ro
+
+  - deviceId: root
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  # Enable UKI
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+      # Switch the systemd-boot since UKI is used.
+    - grub2-efi-binary
+
+    install:
+      # Switch the systemd-boot since UKI is used.
+    - systemd-boot
+      # Install ssh now since it can't be installed later.
+    - openssh-server
+      # Install verity utils for debug purposes.
+    - veritysetup
+    #- device-mapper
+
+output:
+  # Output the artifacts that need to be signed.
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - systemd-boot
+    path: ./output
