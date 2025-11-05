@@ -20,7 +20,6 @@ var (
 	ErrSelinuxPolicyDirNotFound     = NewImageCustomizerError("SelinuxPolicy:DirNotFound", "SELinux policy directory cannot be read")
 	ErrSelinuxPolicyDirCopy         = NewImageCustomizerError("SelinuxPolicy:DirCopy", "failed to copy SELinux policy directory")
 	ErrSelinuxPolicyOutputDirCreate = NewImageCustomizerError("SelinuxPolicy:OutputDirCreate", "failed to create output directory for SELinux policy")
-	ErrSelinuxPolicyMountPointFind  = NewImageCustomizerError("SelinuxPolicy:MountPointFind", "failed to find mount point for SELinux policy directory")
 	ErrSelinuxPolicyConfigNotFound  = NewImageCustomizerError("SelinuxPolicy:ConfigNotFound", "SELinux config file not found in image")
 	ErrSelinuxPolicyTypeNotFound    = NewImageCustomizerError("SelinuxPolicy:TypeNotFound", "SELINUXTYPE not found in SELinux config file")
 )
