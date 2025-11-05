@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -20,11 +21,44 @@ var (
 	ErrSelinuxPolicyDirCopy         = NewImageCustomizerError("SelinuxPolicy:DirCopy", "failed to copy SELinux policy directory")
 	ErrSelinuxPolicyOutputDirCreate = NewImageCustomizerError("SelinuxPolicy:OutputDirCreate", "failed to create output directory for SELinux policy")
 	ErrSelinuxPolicyMountPointFind  = NewImageCustomizerError("SelinuxPolicy:MountPointFind", "failed to find mount point for SELinux policy directory")
+	ErrSelinuxPolicyConfigNotFound  = NewImageCustomizerError("SelinuxPolicy:ConfigNotFound", "SELinux config file not found in image")
+	ErrSelinuxPolicyTypeNotFound    = NewImageCustomizerError("SelinuxPolicy:TypeNotFound", "SELINUXTYPE not found in SELinux config file")
 )
 
 const (
-	selinuxPolicyPath = "/etc/selinux/targeted"
+	selinuxConfigPath = "/usr/etc/selinux/config"
+	selinuxBaseDir    = "/usr/etc/selinux"
 )
+
+func readSelinuxType(chrootDir string) (string, error) {
+	configPath := filepath.Join(chrootDir, selinuxConfigPath)
+
+	lines, err := file.ReadLines(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("%w (path='%s')", ErrSelinuxPolicyConfigNotFound, selinuxConfigPath)
+		}
+		return "", fmt.Errorf("failed to read SELinux config file (path='%s'):\n%w", selinuxConfigPath, err)
+	}
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "SELINUXTYPE=") {
+			value := strings.TrimPrefix(line, "SELINUXTYPE=")
+			value = strings.TrimSpace(value)
+			if value != "" {
+				return value, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("%w (path='%s')", ErrSelinuxPolicyTypeNotFound, selinuxConfigPath)
+}
 
 func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string, buildImage string) error {
 	logger.Log.Infof("Extracting SELinux policy from image")
@@ -49,6 +83,16 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 	imageChroot := imageConnection.Chroot()
 	chrootDir := imageChroot.RootDir()
 
+	// Read SELINUXTYPE from /usr/etc/selinux/config
+	selinuxType, err := readSelinuxType(chrootDir)
+	if err != nil {
+		return err
+	}
+
+	logger.Log.Infof("Found SELINUXTYPE=%s in SELinux config", selinuxType)
+
+	// Build the policy path using the dynamic SELINUXTYPE
+	selinuxPolicyPath := filepath.Join(selinuxBaseDir, selinuxType)
 	selinuxPolicyFullPath := filepath.Join(chrootDir, selinuxPolicyPath)
 
 	_, err = os.Stat(selinuxPolicyFullPath)
@@ -60,7 +104,7 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrSelinuxPolicyDirNotFound, selinuxPolicyPath, err)
 	}
 
-	destPath := filepath.Join(outputDir, "targeted")
+	destPath := filepath.Join(outputDir, selinuxType)
 	logger.Log.Infof("Copying SELinux policy to %s", destPath)
 
 	err = file.CopyDir(selinuxPolicyFullPath, destPath, 0755, 0644, nil)

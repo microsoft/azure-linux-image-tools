@@ -121,8 +121,9 @@ Supported options:
   customized image.
 
   When this option is specified, the `output.selinuxPolicyPath` configuration becomes
-  available. This allows extracting the `/etc/selinux/targeted` directory from the
-  customized image to a specified output directory.
+  available. This allows extracting the SELinux policy directory from the customized
+  image to a specified output directory. The policy type is determined by reading the
+  `SELINUXTYPE` value from `/usr/etc/selinux/config` in the image.
 
   See [Output SELinux Policy](./outputSelinuxPolicy.md) for more details.
 

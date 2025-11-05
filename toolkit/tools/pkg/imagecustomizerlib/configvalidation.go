@@ -133,7 +133,10 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
-	rc.OutputSelinuxPolicyPath = resolveOutputSelinuxPolicyPath(rc.ConfigChain)
+	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, options.OutputSelinuxPolicyPath)
+	if err != nil {
+		return nil, err
+	}
 
 	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
 	if err != nil {
@@ -444,6 +447,45 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	return nil
 }
 
+func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutputSelinuxPolicyPath string) (string, error) {
+	// CLI parameter takes precedence.
+	if cliOutputSelinuxPolicyPath != "" {
+		if isDir, err := file.DirExists(cliOutputSelinuxPolicyPath); err != nil {
+			return "", fmt.Errorf("invalid command-line option '--output-selinux-policy-path' (path='%s'):\n%w", cliOutputSelinuxPolicyPath, err)
+		} else if !isDir {
+			if fileExists, _ := file.PathExists(cliOutputSelinuxPolicyPath); fileExists {
+				return "", fmt.Errorf("invalid command-line option '--output-selinux-policy-path': path exists but is not a directory (path='%s')", cliOutputSelinuxPolicyPath)
+			}
+		}
+		return cliOutputSelinuxPolicyPath, nil
+	}
+
+	// Resolve from config chain.
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Output.SelinuxPolicyPath != "" {
+			outputSelinuxPolicyPath := file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Output.SelinuxPolicyPath,
+			)
+
+			if isDir, err := file.DirExists(outputSelinuxPolicyPath); err != nil {
+				return "", fmt.Errorf("invalid config file property 'output.selinuxPolicyPath' (path='%s'):\n%w",
+					configWithBase.Config.Output.SelinuxPolicyPath, err)
+			} else if !isDir {
+				if fileExists, _ := file.PathExists(outputSelinuxPolicyPath); fileExists {
+					return "", fmt.Errorf("invalid config file property 'output.selinuxPolicyPath': path exists but is not a directory (path='%s')",
+						configWithBase.Config.Output.SelinuxPolicyPath)
+				}
+			}
+
+			return outputSelinuxPolicyPath, nil
+		}
+	}
+
+	// Empty string is valid, the feature is optional.
+	return "", nil
+}
+
 func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnapshotTime,
 	config *imagecustomizerapi.Config,
 ) (imagecustomizerapi.PackageSnapshotTime, error) {
@@ -529,21 +571,4 @@ func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifacts
 	}
 
 	return merged
-}
-
-func resolveOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath) string {
-	var selinuxPolicyPath string
-
-	// Iterate through config chain, later configs override earlier ones.
-	for _, configWithBase := range configChain {
-		if configWithBase.Config.Output.SelinuxPolicyPath != "" {
-			// Resolve the path relative to the config file that specified it.
-			selinuxPolicyPath = file.GetAbsPathWithBase(
-				configWithBase.BaseConfigPath,
-				configWithBase.Config.Output.SelinuxPolicyPath,
-			)
-		}
-	}
-
-	return selinuxPolicyPath
 }
