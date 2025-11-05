@@ -37,6 +37,7 @@ or are processed sequentially.
 - `.os.packages` (If .os.packages.snapshotTime is specified, it is applied per-config)
 - `.os.modules`
 - `.os.additionalFiles`
+- `.os.additionalDirs`
 
 ## path [string]
 

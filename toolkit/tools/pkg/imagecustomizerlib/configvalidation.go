@@ -130,11 +130,6 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
-	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
-	if err != nil {
-		return nil, err
-	}
-
 	return rc, nil
 }
 
@@ -411,27 +406,6 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	}
 
 	return nil
-}
-
-func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnapshotTime,
-	config *imagecustomizerapi.Config,
-) (imagecustomizerapi.PackageSnapshotTime, error) {
-	snapshotTime := imagecustomizerapi.PackageSnapshotTime("")
-	switch {
-	case cliSnapshotTime != "":
-		snapshotTime = cliSnapshotTime
-
-	case config.OS != nil && config.OS.Packages.SnapshotTime != "":
-		snapshotTime = config.OS.Packages.SnapshotTime
-	}
-
-	if snapshotTime != "" {
-		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-			return "", ErrPackageSnapshotPreviewRequired
-		}
-	}
-
-	return snapshotTime, nil
 }
 
 func validateIsoPxeCustomization(rc *ResolvedConfig) error {

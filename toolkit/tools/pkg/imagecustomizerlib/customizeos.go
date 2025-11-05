@@ -5,6 +5,8 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -31,9 +33,20 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	for _, configWithBase := range rc.ConfigChain {
+		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
+		if rc.Options.PackageSnapshotTime != "" {
+			snapshotTime = rc.Options.PackageSnapshotTime
+		}
+
+		if snapshotTime != "" {
+			if !slices.Contains(configWithBase.Config.PreviewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
+				return fmt.Errorf("config requires preview feature 'package-snapshot-time' to use snapshot time")
+			}
+		}
+
 		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
 			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
-			configWithBase.Config.OS.Packages.SnapshotTime)
+			snapshotTime)
 		if err != nil {
 			return err
 		}
@@ -49,9 +62,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		if err != nil {
 			return err
 		}
-	}
 
-	for _, configWithBase := range rc.ConfigChain {
 		err = AddOrUpdateUsers(ctx, configWithBase.Config.OS.Users, configWithBase.BaseConfigPath, imageChroot)
 		if err != nil {
 			return err

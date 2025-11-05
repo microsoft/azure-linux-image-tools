@@ -468,7 +468,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		rc.Config.OS = &imagecustomizerapi.OS{}
 	}
 
-	targetOS, err := validateTargetOs(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Config, rc.PackageSnapshotTime)
+	targetOS, err := validateTargetOs(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Config, rc.Options.PackageSnapshotTime)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}

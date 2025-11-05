@@ -85,7 +85,7 @@ func doOsCustomizationsImageCreator(
 	if err = addRemoveAndUpdatePackages(
 		ctx,
 		rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.OS, imageChroot, toolsChroot, rc.Options.RpmsSources,
-		rc.Options.UseBaseImageRpmRepos, distroHandler, rc.PackageSnapshotTime); err != nil {
+		rc.Options.UseBaseImageRpmRepos, distroHandler, rc.Options.PackageSnapshotTime); err != nil {
 		return err
 	}
 
