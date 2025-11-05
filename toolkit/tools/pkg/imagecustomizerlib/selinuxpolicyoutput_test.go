@@ -13,10 +13,7 @@ import (
 )
 
 func TestOutputSelinuxPolicy(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
-	if baseImageInfo.Version == baseImageVersionAzl2 {
-		t.Skip("Azure Linux 2.0 may not test output SELinux policy API.")
-	}
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputSelinuxPolicy")
 	defer os.RemoveAll(testTempDir)

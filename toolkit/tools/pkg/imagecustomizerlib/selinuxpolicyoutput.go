@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"go.opentelemetry.io/otel"
@@ -17,7 +17,7 @@ import (
 
 var (
 	ErrSelinuxPolicyImageConnection = NewImageCustomizerError("SelinuxPolicy:ImageConnection", "failed to connect to image for SELinux policy extraction")
-	ErrSelinuxPolicyDirNotFound     = NewImageCustomizerError("SelinuxPolicy:DirNotFound", "SELinux policy directory not found in image")
+	ErrSelinuxPolicyDirNotFound     = NewImageCustomizerError("SelinuxPolicy:DirNotFound", "SELinux policy directory cannot be read")
 	ErrSelinuxPolicyDirCopy         = NewImageCustomizerError("SelinuxPolicy:DirCopy", "failed to copy SELinux policy directory")
 	ErrSelinuxPolicyOutputDirCreate = NewImageCustomizerError("SelinuxPolicy:OutputDirCreate", "failed to create output directory for SELinux policy")
 	ErrSelinuxPolicyMountPointFind  = NewImageCustomizerError("SelinuxPolicy:MountPointFind", "failed to find mount point for SELinux policy directory")
@@ -26,14 +26,14 @@ var (
 )
 
 const (
-	selinuxConfigPath = "/usr/etc/selinux/config"
-	selinuxBaseDir    = "/usr/etc/selinux"
+	selinuxConfigPath = "/etc/selinux/config"
+	selinuxBaseDir    = "/etc/selinux"
 )
 
 func readSelinuxType(chrootDir string) (string, error) {
 	configPath := filepath.Join(chrootDir, selinuxConfigPath)
 
-	lines, err := file.ReadLines(configPath)
+	fields, err := envfile.ParseEnvFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", fmt.Errorf("%w (path='%s')", ErrSelinuxPolicyConfigNotFound, selinuxConfigPath)
@@ -41,23 +41,12 @@ func readSelinuxType(chrootDir string) (string, error) {
 		return "", fmt.Errorf("failed to read SELinux config file (path='%s'):\n%w", selinuxConfigPath, err)
 	}
 
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		if strings.HasPrefix(line, "SELINUXTYPE=") {
-			value := strings.TrimPrefix(line, "SELINUXTYPE=")
-			value = strings.TrimSpace(value)
-			if value != "" {
-				return value, nil
-			}
-		}
+	selinuxType, found := fields["SELINUXTYPE"]
+	if !found || selinuxType == "" {
+		return "", fmt.Errorf("%w (path='%s')", ErrSelinuxPolicyTypeNotFound, selinuxConfigPath)
 	}
 
-	return "", fmt.Errorf("%w (path='%s')", ErrSelinuxPolicyTypeNotFound, selinuxConfigPath)
+	return selinuxType, nil
 }
 
 func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string, buildImage string) error {
@@ -74,7 +63,7 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 	// Connect to the image with read-only mounts.
 	// Use connectToExistingImage which automatically mounts all partitions based on fstab.
 	imageConnection, _, _, _, err := connectToExistingImage(ctx, buildImage, buildDir, "selinux-extract",
-		true /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, false /*ignoreOverlays*/)
+		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, true /*ignoreOverlays*/)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrSelinuxPolicyImageConnection, err)
 	}
@@ -83,7 +72,7 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 	imageChroot := imageConnection.Chroot()
 	chrootDir := imageChroot.RootDir()
 
-	// Read SELINUXTYPE from /usr/etc/selinux/config
+	// Read SELINUXTYPE from /etc/selinux/config
 	selinuxType, err := readSelinuxType(chrootDir)
 	if err != nil {
 		return err
@@ -97,10 +86,6 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 
 	_, err = os.Stat(selinuxPolicyFullPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%w (path='%s'):\nthe SELinux policy directory does not exist in the image",
-				ErrSelinuxPolicyDirNotFound, selinuxPolicyPath)
-		}
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrSelinuxPolicyDirNotFound, selinuxPolicyPath, err)
 	}
 

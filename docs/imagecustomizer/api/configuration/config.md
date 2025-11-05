@@ -120,12 +120,10 @@ Supported options:
 - `output-selinux-policy`: Enables extraction of SELinux policy files from the
   customized image.
 
-  When this option is specified, the `output.selinuxPolicyPath` configuration becomes
-  available. This allows extracting the SELinux policy directory from the customized
-  image to a specified output directory. The policy type is determined by reading the
-  `SELINUXTYPE` value from `/usr/etc/selinux/config` in the image.
+  When this option is specified, the `output.selinuxPolicyPath` configuration
+  becomes available.
 
-  See [Output SELinux Policy](./outputSelinuxPolicy.md) for more details.
+  See [output.selinuxPolicyPath](./output.md#selinuxpolicypath-string) for more details.
 
   Added in v1.1.
 

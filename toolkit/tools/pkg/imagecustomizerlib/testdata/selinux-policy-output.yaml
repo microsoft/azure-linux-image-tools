@@ -10,8 +10,4 @@ os:
     - policycoreutils-python-utils
 
 output:
-  image:
-    path: image.raw
-    format: raw
-  
   selinuxPolicyPath: selinux-output

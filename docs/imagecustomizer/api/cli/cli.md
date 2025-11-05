@@ -140,8 +140,8 @@ value is used.
 
 The directory path to output the SELinux policy files extracted from the customized
 image. The SELinux policy type is determined by reading the `SELINUXTYPE` value from
-`/usr/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
-(e.g., `/usr/etc/selinux/targeted`) will be extracted and copied to this location.
+`/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
+(e.g., `/etc/selinux/targeted`) will be extracted and copied to this location.
 
 If not specified, SELinux policy extraction is disabled.
 
