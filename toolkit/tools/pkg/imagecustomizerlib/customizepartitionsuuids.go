@@ -163,7 +163,7 @@ func resetPartitionUuid(device string, partNum int) (string, error) {
 func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids []string, newPartUuids []string,
 	buildDir string,
 ) error {
-	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
+	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,8 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	defer partitionMount.Close()
 
 	// Read the existing fstab file.
-	fsTabFilePath := filepath.Join(partitionMount.Target(), "/etc/fstab")
+	fsTabFilePath := filepath.Join(partitionMount.Target(), rootfsPath, "etc/fstab")
+
 	fstabEntries, err := diskutils.ReadFstabFile(fsTabFilePath)
 	if err != nil {
 		return err

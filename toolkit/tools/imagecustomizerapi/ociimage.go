@@ -18,7 +18,7 @@ type OciImage struct {
 func (oi *OciImage) IsValid() error {
 	_, err := registry.ParseReference(oi.Uri)
 	if err != nil {
-		return fmt.Errorf("invalid 'uri' field:\n%w", err)
+		return fmt.Errorf("invalid 'uri' field (uri='%s'):\n%w", oi.Uri, err)
 	}
 
 	if oi.Platform != nil {

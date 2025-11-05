@@ -38,7 +38,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	expectedOutputPath := file.GetAbsPathWithBase(testDir, "./out/output-image-2.vhdx")
 	expectedArtifactsPath := file.GetAbsPathWithBase(testDir, "./artifacts-2")
 
-	assert.Equal(t, expectedInputPath, rc.InputImageFile)
+	assert.Equal(t, expectedInputPath, rc.InputImage.Path)
 	assert.Equal(t, expectedOutputPath, rc.OutputImageFile)
 	assert.Equal(t, expectedArtifactsPath, rc.OutputArtifacts.Path)
 	assert.Equal(t, "test-hostname", rc.Hostname)
