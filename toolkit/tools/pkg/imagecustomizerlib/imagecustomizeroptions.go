@@ -17,15 +17,16 @@ var (
 )
 
 type ImageCustomizerOptions struct {
-	BuildDir             string
-	InputImageFile       string
-	InputImage           string
-	RpmsSources          []string
-	OutputImageFile      string
-	OutputImageFormat    imagecustomizerapi.ImageFormatType
-	UseBaseImageRpmRepos bool
-	PackageSnapshotTime  imagecustomizerapi.PackageSnapshotTime
-	ImageCacheDir        string
+	BuildDir                string
+	InputImageFile          string
+	InputImage              string
+	RpmsSources             []string
+	OutputImageFile         string
+	OutputImageFormat       imagecustomizerapi.ImageFormatType
+	OutputSelinuxPolicyPath string
+	UseBaseImageRpmRepos    bool
+	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
+	ImageCacheDir           string
 }
 
 func (o *ImageCustomizerOptions) IsValid() error {

@@ -64,3 +64,19 @@ func TestOutputIsValid_InvalidArtifactsPathCombination(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "'items' and 'path' must both be specified and non-empty")
 }
+
+func TestOutputIsValid_ValidSelinuxPolicyPathIsValid(t *testing.T) {
+	output := Output{
+		SelinuxPolicyPath: "/output/selinux-policy",
+	}
+	err := output.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestOutputIsValid_EmptySelinuxPolicyPathIsValid(t *testing.T) {
+	output := Output{
+		SelinuxPolicyPath: "",
+	}
+	err := output.IsValid()
+	assert.NoError(t, err)
+}

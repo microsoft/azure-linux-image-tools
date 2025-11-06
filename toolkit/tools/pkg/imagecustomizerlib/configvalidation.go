@@ -19,27 +19,31 @@ import (
 
 var (
 	// Validation errors
-	ErrInputImageFileRequired         = NewImageCustomizerError("Validation:InputImageFileRequired", "input image file must be specified")
-	ErrInvalidInputImageFileArg       = NewImageCustomizerError("Validation:InvalidInputImageFileArg", "invalid command-line option '--image-file'")
-	ErrInputImageFileNotFile          = NewImageCustomizerError("Validation:InputImageFileNotFile", "input image file is not a file")
-	ErrInvalidInputImageFileConfig    = NewImageCustomizerError("Validation:InvalidInputImageFileConfig", "invalid config file property 'input.image.path'")
-	ErrInvalidAdditionalFilesSource   = NewImageCustomizerError("Validation:InvalidAdditionalFilesSource", "invalid additionalFiles source file")
-	ErrAdditionalFilesSourceNotFile   = NewImageCustomizerError("Validation:AdditionalFilesSourceNotFile", "additionalFiles source file is not a file")
-	ErrInvalidPostCustomizationScript = NewImageCustomizerError("Validation:InvalidPostCustomizationScript", "invalid postCustomization script")
-	ErrInvalidFinalizeScript          = NewImageCustomizerError("Validation:InvalidFinalizeScript", "invalid finalizeCustomization script")
-	ErrScriptNotUnderConfigDir        = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
-	ErrScriptFileNotReadable          = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
-	ErrNoRpmSourcesSpecified          = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
-	ErrOutputImageFileRequired        = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
-	ErrInvalidOutputImageFileArg      = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
-	ErrOutputImageFileIsDirectory     = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
-	ErrInvalidOutputImageFileConfig   = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
-	ErrOutputImageFormatRequired      = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
-	ErrInvalidUser                    = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
-	ErrInvalidSSHPublicKeyFile        = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
-	ErrSSHPublicKeyNotFile            = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
-	ErrInvalidPackageSnapshotTime     = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
-	ErrUnsupportedFedoraFeature       = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
+	ErrInputImageFileRequired               = NewImageCustomizerError("Validation:InputImageFileRequired", "input image file must be specified")
+	ErrInvalidInputImageFileArg             = NewImageCustomizerError("Validation:InvalidInputImageFileArg", "invalid command-line option '--image-file'")
+	ErrInputImageFileNotFile                = NewImageCustomizerError("Validation:InputImageFileNotFile", "input image file is not a file")
+	ErrInvalidInputImageFileConfig          = NewImageCustomizerError("Validation:InvalidInputImageFileConfig", "invalid config file property 'input.image.path'")
+	ErrInvalidAdditionalFilesSource         = NewImageCustomizerError("Validation:InvalidAdditionalFilesSource", "invalid additionalFiles source file")
+	ErrAdditionalFilesSourceNotFile         = NewImageCustomizerError("Validation:AdditionalFilesSourceNotFile", "additionalFiles source file is not a file")
+	ErrInvalidPostCustomizationScript       = NewImageCustomizerError("Validation:InvalidPostCustomizationScript", "invalid postCustomization script")
+	ErrInvalidFinalizeScript                = NewImageCustomizerError("Validation:InvalidFinalizeScript", "invalid finalizeCustomization script")
+	ErrScriptNotUnderConfigDir              = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
+	ErrScriptFileNotReadable                = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
+	ErrNoRpmSourcesSpecified                = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
+	ErrOutputImageFileRequired              = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
+	ErrInvalidOutputImageFileArg            = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
+	ErrOutputImageFileIsDirectory           = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
+	ErrInvalidOutputImageFileConfig         = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
+	ErrOutputImageFormatRequired            = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
+	ErrInvalidUser                          = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
+	ErrInvalidSSHPublicKeyFile              = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
+	ErrSSHPublicKeyNotFile                  = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
+	ErrInvalidPackageSnapshotTime           = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
+	ErrUnsupportedFedoraFeature             = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
+	ErrInvalidOutputSelinuxPolicyPathArg    = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathArg", "invalid command-line option '--output-selinux-policy-path'")
+	ErrOutputSelinuxPolicyPathIsFileArg     = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileArg", "path exists but is not a directory")
+	ErrInvalidOutputSelinuxPolicyPathConfig = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathConfig", "invalid config file property 'output.selinuxPolicyPath'")
+	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is not a directory")
 )
 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
@@ -132,6 +136,11 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
+
+	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, options.OutputSelinuxPolicyPath)
+	if err != nil {
+		return nil, err
+	}
 
 	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
 	if err != nil {
@@ -440,6 +449,45 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	}
 
 	return nil
+}
+
+func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutputSelinuxPolicyPath string) (string, error) {
+	// CLI parameter takes precedence.
+	if cliOutputSelinuxPolicyPath != "" {
+		if isDir, err := file.DirExists(cliOutputSelinuxPolicyPath); err != nil {
+			return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathArg, cliOutputSelinuxPolicyPath, err)
+		} else if !isDir {
+			if fileExists, _ := file.PathExists(cliOutputSelinuxPolicyPath); fileExists {
+				return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileArg, cliOutputSelinuxPolicyPath)
+			}
+		}
+		return cliOutputSelinuxPolicyPath, nil
+	}
+
+	// Resolve from config chain.
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Output.SelinuxPolicyPath != "" {
+			outputSelinuxPolicyPath := file.GetAbsPathWithBase(
+				configWithBase.BaseConfigPath,
+				configWithBase.Config.Output.SelinuxPolicyPath,
+			)
+
+			if isDir, err := file.DirExists(outputSelinuxPolicyPath); err != nil {
+				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
+					configWithBase.Config.Output.SelinuxPolicyPath, err)
+			} else if !isDir {
+				if fileExists, _ := file.PathExists(outputSelinuxPolicyPath); fileExists {
+					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileConfig,
+						configWithBase.Config.Output.SelinuxPolicyPath)
+				}
+			}
+
+			return outputSelinuxPolicyPath, nil
+		}
+	}
+
+	// Empty string is valid, the feature is optional.
+	return "", nil
 }
 
 func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnapshotTime,

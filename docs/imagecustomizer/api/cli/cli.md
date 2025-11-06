@@ -124,6 +124,29 @@ When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
 [Image Customizer ISO Support](../../concepts/iso.md).
 
+## --output-selinux-policy-path=DIRECTORY-PATH
+
+Optional.
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `output-selinux-policy` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+
+If both
+[output.selinuxPolicyPath](../configuration/output.md#selinuxpolicypath-string) and
+`--output-selinux-policy-path` are provided, then the `--output-selinux-policy-path`
+value is used.
+
+The directory path to output the SELinux policy files extracted from the customized
+image. The SELinux policy type is determined by reading the `SELINUXTYPE` value from
+`/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
+(e.g., `/etc/selinux/targeted`) will be extracted and copied to this location.
+
+If not specified, SELinux policy extraction is disabled.
+
+Added in v1.1.
+
 ## --config-file=FILE-PATH
 
 Required.

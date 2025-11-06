@@ -26,6 +26,7 @@ type CustomizeCmd struct {
 	InputImage               string   `name:"image" help:"The image which the customization will be applied to.\n Supported formats:\n - oci:URI"`
 	OutputImageFile          string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
 	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+	OutputSelinuxPolicyPath  string   `name:"output-selinux-policy-path" help:"Path to output directory for extracting SELinux policy files."`
 	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
 	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
 	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
@@ -117,15 +118,16 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
 		imagecustomizerlib.ImageCustomizerOptions{
-			BuildDir:             cmd.BuildDir,
-			InputImageFile:       cmd.InputImageFile,
-			InputImage:           cmd.InputImage,
-			RpmsSources:          cmd.RpmSources,
-			OutputImageFile:      cmd.OutputImageFile,
-			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
-			UseBaseImageRpmRepos: !cmd.DisableBaseImageRpmRepos,
-			PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
-			ImageCacheDir:        cmd.ImageCacheDir,
+			BuildDir:                cmd.BuildDir,
+			InputImageFile:          cmd.InputImageFile,
+			InputImage:              cmd.InputImage,
+			RpmsSources:             cmd.RpmSources,
+			OutputImageFile:         cmd.OutputImageFile,
+			OutputImageFormat:       imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
+			OutputSelinuxPolicyPath: cmd.OutputSelinuxPolicyPath,
+			UseBaseImageRpmRepos:    !cmd.DisableBaseImageRpmRepos,
+			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
+			ImageCacheDir:           cmd.ImageCacheDir,
 		})
 	if err != nil {
 		return err

@@ -117,6 +117,16 @@ Supported options:
 
   Added in v1.1.
 
+- `output-selinux-policy`: Enables extraction of SELinux policy files from the
+  customized image.
+
+  When this option is specified, the `output.selinuxPolicyPath` configuration
+  becomes available.
+
+  See [output.selinuxPolicyPath](./output.md#selinuxpolicypath-string) for more details.
+
+  Added in v1.1.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

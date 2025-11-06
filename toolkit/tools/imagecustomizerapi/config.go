@@ -108,6 +108,12 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	if c.Output.SelinuxPolicyPath != "" {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputSelinuxPolicy) {
+			return fmt.Errorf("the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
+		}
+	}
+
 	// Check if any verity entry has a non-empty hash signature path.
 	hasVerityHashSignature := slices.ContainsFunc(c.Storage.Verity, func(v Verity) bool {
 		return v.HashSignaturePath != ""
