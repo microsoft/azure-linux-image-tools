@@ -476,7 +476,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		rc.Config.OS = &imagecustomizerapi.OS{}
 	}
 
-	targetOS, err := validateTargetOs(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Config, rc.PackageSnapshotTime)
+	targetOS, err := validateTargetOs(ctx, rc)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
@@ -860,10 +860,9 @@ func CheckEnvironmentVars() error {
 
 // validateTargetOs checks if the current distro/version is supported and has the required preview
 // features enabled. Returns the detected target OS.
-func validateTargetOs(ctx context.Context, buildDir string, buildImageFile string,
-	config *imagecustomizerapi.Config, packageSnapshotTime imagecustomizerapi.PackageSnapshotTime,
+func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (targetos.TargetOs, error) {
-	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir,
+	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
 		false /* read-only-verity */, false /* ignore-overlays */)
 	if err != nil {
@@ -878,13 +877,28 @@ func validateTargetOs(ctx context.Context, buildDir string, buildImageFile strin
 
 	// Check if Fedora 42 is being used and if it has the required preview feature
 	if targetOs == targetos.TargetOsFedora42 {
-		if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+		if !slices.Contains(rc.Config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
 			return targetOs, ErrFedora42PreviewFeatureRequired
 		}
-		if packageSnapshotTime != "" {
-			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
+
+		hasPackageSnapshotTime := false
+
+		if rc.Options.PackageSnapshotTime != "" {
+			hasPackageSnapshotTime = true
 		}
 
+		if !hasPackageSnapshotTime {
+			for _, configWithBase := range rc.ConfigChain {
+				if configWithBase.Config.OS.Packages.SnapshotTime != "" {
+					hasPackageSnapshotTime = true
+					break
+				}
+			}
+		}
+
+		if hasPackageSnapshotTime {
+			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
+		}
 	}
 
 	return targetOs, nil

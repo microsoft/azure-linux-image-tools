@@ -1,5 +1,6 @@
 previewFeatures:
 - output-artifacts
+- package-snapshot-time
 
 input:
   image:
@@ -15,5 +16,32 @@ output:
     path: ./artifacts-1
 
 os:
+  hostname: test-hostname-base
   users:
-    - name: test-base
+    - name: test-user-base
+  groups:
+    - name: test-group-base
+
+  additionalFiles:
+  - source: files/a.txt
+    destination: /mnt/a/a.txt
+
+  additionalDirs:
+  - source: dirs/a
+    destination: /
+
+  packages:
+    install:
+    - nginx
+    snapshotTime: 2025-09-18
+
+  services:
+    enable:
+    - nginx
+    - console-getty
+
+  modules:
+  - name: br_netfilter
+    loadMode: always
+  - name: vfio
+    loadMode: always

@@ -8,6 +8,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemd"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	assert.Equal(t, expectedInputPath, rc.InputImage.Path)
 	assert.Equal(t, expectedOutputPath, rc.OutputImageFile)
 	assert.Equal(t, expectedArtifactsPath, rc.OutputArtifacts.Path)
-	assert.Equal(t, "testname", rc.Config.OS.Hostname)
+	assert.Equal(t, "test-hostname", rc.Hostname)
 
 	// Verify merged artifact items
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
@@ -104,7 +105,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		},
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -113,16 +114,94 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	// Verify hostname
 	actualHostname, err := os.ReadFile(filepath.Join(imageConnection.Chroot().RootDir(), "etc/hostname"))
 	assert.NoError(t, err)
-	assert.Equal(t, "testname", string(actualHostname))
+	assert.Equal(t, "test-hostname", string(actualHostname))
 
 	// Verify users
-	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-base")
+	baseadminEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user-base")
 	if assert.NoError(t, err) {
-		assert.Contains(t, baseadminEntry.HomeDirectory, "test-base")
+		assert.Contains(t, baseadminEntry.HomeDirectory, "test-user-base")
 	}
 
-	appuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test")
+	currentuserEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test-user")
 	if assert.NoError(t, err) {
-		assert.Contains(t, appuserEntry.HomeDirectory, "test")
+		assert.Contains(t, currentuserEntry.HomeDirectory, "test-user")
 	}
+
+	// Verify groups
+	_, err = userutils.GetGroupEntry(imageConnection.Chroot().RootDir(), "test-group-base")
+	assert.NoError(t, err)
+
+	_, err = userutils.GetGroupEntry(imageConnection.Chroot().RootDir(), "test-group")
+	assert.NoError(t, err)
+
+	// Verify additional files
+	aFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "mnt/a/a.txt")
+	bFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "mnt/b/b.txt")
+
+	_, err = os.Stat(aFilePath)
+	assert.NoError(t, err, "expected a.txt to exist at %s", aFilePath)
+	_, err = os.Stat(bFilePath)
+	assert.NoError(t, err, "expected b.txt to exist at %s", bFilePath)
+
+	// Verify additional dirs
+	animalsFileOrigPath := filepath.Join(testDir, "dirs/a/usr/local/bin/animals.sh")
+	animalsFileNewPath := filepath.Join(imageConnection.Chroot().RootDir(), "/usr/local/bin/animals.sh")
+
+	verifyFileContentsSame(t, animalsFileOrigPath, animalsFileNewPath)
+
+	plantsFileOrigPath := filepath.Join(testDir, "dirs/a/usr/local/bin/plants.sh")
+	plantsFileNewPath := filepath.Join(imageConnection.Chroot().RootDir(), "/usr/local/bin/plants.sh")
+
+	verifyFileContentsSame(t, plantsFileOrigPath, plantsFileNewPath)
+
+	// Verify packages
+	nginxInstalled := isPackageInstalled(imageConnection.Chroot(), "nginx")
+	assert.True(t, nginxInstalled)
+
+	nginxVersionOutput, err := getPkgVersionFromChroot(imageConnection, "nginx")
+	assert.NoError(t, err, "failed to retrieve nginx version from chroot")
+
+	nginxExpectedVersion := "nginx-1.25.4-5"
+	assert.Containsf(t, nginxVersionOutput, nginxExpectedVersion,
+		"should install nginx version %s, but got: %s", nginxExpectedVersion, nginxVersionOutput)
+
+	sshdInstalled := isPackageInstalled(imageConnection.Chroot(), "openssh-server")
+	assert.True(t, sshdInstalled)
+
+	systemdBootVersionOutput, err := getPkgVersionFromChroot(imageConnection, "systemd-boot")
+	assert.NoError(t, err, "failed to retrieve systemd-boot version from chroot")
+
+	systemdBootExpectedVersion := "systemd-boot-255-24"
+	assert.Containsf(t, systemdBootVersionOutput, systemdBootExpectedVersion,
+		"should install systemd-boot version %s, but got: %s", systemdBootExpectedVersion, systemdBootVersionOutput)
+
+	// Verify services
+	sshdEnabled, err := systemd.IsServiceEnabled("sshd", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.True(t, sshdEnabled)
+
+	nginxEnabled, err := systemd.IsServiceEnabled("nginx", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.True(t, nginxEnabled)
+
+	consoleGettyEnabled, err := systemd.IsServiceEnabled("console-getty", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.False(t, consoleGettyEnabled)
+
+	// Verify modules
+	moduleLoadFilePath := filepath.Join(imageConnection.Chroot().RootDir(), moduleLoadPath)
+	moduleDisableFilePath := filepath.Join(imageConnection.Chroot().RootDir(), moduleDisabledPath)
+
+	moduleLoadContent, err := os.ReadFile(moduleLoadFilePath)
+	if err != nil {
+		t.Errorf("Failed to read module load configuration file: %v", err)
+	}
+
+	moduleDisableContent, err := os.ReadFile(moduleDisableFilePath)
+	if err != nil {
+		t.Errorf("Failed to read module disable configuration file: %v", err)
+	}
+
+	assert.Contains(t, string(moduleLoadContent), "br_netfilter")
+	assert.Contains(t, string(moduleDisableContent), "vfio")
 }

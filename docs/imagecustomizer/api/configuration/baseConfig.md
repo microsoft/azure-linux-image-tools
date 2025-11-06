@@ -23,6 +23,7 @@ or are processed sequentially.
 - `.output.image.path`  
 - `.output.image.format`  
 - `.output.artifacts.path`
+- `.os.hostname`
 
 **Base config items are merged with current config’s items**
 
@@ -31,6 +32,12 @@ or are processed sequentially.
 **Base config items are processed first, followed by current config’s.**
 
 - `.os.users`
+- `.os.groups`
+- `.os.services`
+- `.os.packages` (If .os.packages.snapshotTime is specified, it is applied per-config)
+- `.os.modules`
+- `.os.additionalFiles`
+- `.os.additionalDirs`
 
 ## path [string]
 

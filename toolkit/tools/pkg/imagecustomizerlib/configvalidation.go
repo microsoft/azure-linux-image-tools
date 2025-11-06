@@ -120,6 +120,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	rc.Hostname = resolveHostname(rc.ConfigChain)
+
 	err = validateScripts(baseConfigPath, &config.Scripts)
 	if err != nil {
 		return nil, err
@@ -138,11 +140,6 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
 	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, options.OutputSelinuxPolicyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	rc.PackageSnapshotTime, err = validatePackageSnapshotTime(options.PackageSnapshotTime, config)
 	if err != nil {
 		return nil, err
 	}
@@ -490,21 +487,6 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutpu
 	return "", nil
 }
 
-func validatePackageSnapshotTime(cliSnapshotTime imagecustomizerapi.PackageSnapshotTime,
-	config *imagecustomizerapi.Config,
-) (imagecustomizerapi.PackageSnapshotTime, error) {
-	snapshotTime := imagecustomizerapi.PackageSnapshotTime("")
-	switch {
-	case cliSnapshotTime != "":
-		snapshotTime = cliSnapshotTime
-
-	case config.OS != nil && config.OS.Packages.SnapshotTime != "":
-		snapshotTime = config.OS.Packages.SnapshotTime
-	}
-
-	return snapshotTime, nil
-}
-
 func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 	if rc.InputIsIso() {
 		// While re-creating a disk image from the iso is technically possible,
@@ -575,4 +557,14 @@ func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifacts
 	}
 
 	return merged
+}
+
+func resolveHostname(configChain []*ConfigWithBasePath) string {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Hostname != "" {
+			return configWithBase.Config.OS.Hostname
+		}
+	}
+
+	return ""
 }

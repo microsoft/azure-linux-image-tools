@@ -39,11 +39,11 @@ type ResolvedConfig struct {
 	OutputImageFile   string
 	OutputImageFormat imagecustomizerapi.ImageFormatType
 
-	// Packages and repos
-	PackageSnapshotTime imagecustomizerapi.PackageSnapshotTime
-
 	// Intermediate writeable image.
 	RawImageFile string
+
+	// Hostname
+	Hostname string
 
 	// Hierarchical config chain
 	ConfigChain []*ConfigWithBasePath

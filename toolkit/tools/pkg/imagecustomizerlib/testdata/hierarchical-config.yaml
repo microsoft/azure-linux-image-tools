@@ -35,14 +35,26 @@ previewFeatures:
 - output-artifacts
 - base-configs
 - uki
+- package-snapshot-time
 
 baseConfigs:
   - path: hierarchical-config-base.yaml
 
 os:
+  additionalFiles:
+  - source: files/b.txt
+    destination: /mnt/b/b.txt
+
+  additionalDirs:
+  - source: dirs/b
+    destination: /
+
+  groups:
+  - name: test-group
+
   users:
-    - name: test
-  hostname: testname
+    - name: test-user
+  hostname: test-hostname
   bootloader:
     resetType: hard-reset
 
@@ -54,6 +66,18 @@ os:
     - grub2-efi-binary
     install:
     - systemd-boot
+    - openssh-server
+    snapshotTime: 2025-10-28
+
+  services:
+    enable:
+    - sshd
+    disable:
+    - console-getty
+
+  modules:
+  - name: vfio
+    loadMode: disable
 
 input:
   image:
