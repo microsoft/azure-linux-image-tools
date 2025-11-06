@@ -379,13 +379,8 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 	// Connect to usr verity image.
 	mountPoints := []testutils.MountPoint{
 		{
-			PartitionNum:   5,
+			PartitionNum:   4,
 			Path:           "/",
-			FileSystemType: "ext4",
-		},
-		{
-			PartitionNum:   2,
-			Path:           "/boot",
 			FileSystemType: "ext4",
 		},
 		{
@@ -394,7 +389,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 			FileSystemType: "vfat",
 		},
 		{
-			PartitionNum:   3,
+			PartitionNum:   2,
 			Path:           "/usr",
 			FileSystemType: "ext4",
 			Flags:          unix.MS_RDONLY,
@@ -412,10 +407,10 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 
 	// Verify that usr verity is configured correctly.
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
-	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
-	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
-	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[3].Uuid,
-		"UUID="+partitions[4].Uuid, "usr", "rd.info", baseImageInfo, corruptionOption)
+	usrDevice := testutils.PartitionDevPath(imageConnection, 2)
+	hashDevice := testutils.PartitionDevPath(imageConnection, 3)
+	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[2].Uuid,
+		"UUID="+partitions[3].Uuid, "usr", "rd.info", baseImageInfo, corruptionOption)
 }
 
 func TestCustomizeImageVerityUsr2Stage(t *testing.T) {

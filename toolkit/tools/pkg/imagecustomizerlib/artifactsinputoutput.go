@@ -343,7 +343,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 		if _, exists := partitionsToMountpoints[partitionKey]; !exists {
 			partitionsToMountpoints[partitionKey] = filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
 
-			partition, _, err := findPartition(item.Partition.MountIdType, item.Partition.Id, diskPartitions, buildDir)
+			partition, _, err := findPartition(item.Partition.MountIdType, item.Partition.Id, diskPartitions)
 			if err != nil {
 				return err
 			}
