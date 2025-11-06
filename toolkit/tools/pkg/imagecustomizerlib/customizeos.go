@@ -5,8 +5,6 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"fmt"
-	"slices"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -36,12 +34,6 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
 			snapshotTime = rc.Options.PackageSnapshotTime
-		}
-
-		if snapshotTime != "" {
-			if !slices.Contains(configWithBase.Config.PreviewFeatures, imagecustomizerapi.PreviewFeaturePackageSnapshotTime) {
-				return fmt.Errorf("config requires preview feature 'package-snapshot-time' to use snapshot time")
-			}
 		}
 
 		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,

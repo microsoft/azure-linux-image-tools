@@ -82,11 +82,18 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = addRemoveAndUpdatePackages(
-		ctx,
-		rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.OS, imageChroot, toolsChroot, rc.Options.RpmsSources,
-		rc.Options.UseBaseImageRpmRepos, distroHandler, rc.Options.PackageSnapshotTime); err != nil {
-		return err
+	for _, configWithBase := range rc.ConfigChain {
+		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
+		if rc.Options.PackageSnapshotTime != "" {
+			snapshotTime = rc.Options.PackageSnapshotTime
+		}
+
+		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
+			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
+			snapshotTime)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot); err != nil {
