@@ -6,8 +6,9 @@ package imagecustomizerapi
 import "fmt"
 
 type Output struct {
-	Image     OutputImage `yaml:"image" json:"image,omitempty"`
-	Artifacts *Artifacts  `yaml:"artifacts" json:"artifacts,omitempty"`
+	Image             OutputImage `yaml:"image" json:"image,omitempty"`
+	Artifacts         *Artifacts  `yaml:"artifacts" json:"artifacts,omitempty"`
+	SelinuxPolicyPath string      `yaml:"selinuxPolicyPath" json:"selinuxPolicyPath,omitempty"`
 }
 
 func (o Output) IsValid() error {

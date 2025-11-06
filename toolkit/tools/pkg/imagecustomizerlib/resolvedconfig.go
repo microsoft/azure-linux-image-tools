@@ -32,6 +32,9 @@ type ResolvedConfig struct {
 	// Output artifacts
 	OutputArtifacts *imagecustomizerapi.Artifacts
 
+	// Output SELinux policy path
+	OutputSelinuxPolicyPath string
+
 	// Output image
 	OutputImageFile   string
 	OutputImageFormat imagecustomizerapi.ImageFormatType
