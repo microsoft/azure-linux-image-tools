@@ -11,11 +11,11 @@ type InjectArtifactMetadata struct {
 	Partition InjectFilePartition `yaml:"partition" json:"partition,omitempty"`
 	// Destination is the absolute path within the mounted partition where the artifact should be placed.
 	Destination string `yaml:"destination" json:"destination,omitempty"`
-	// Source is the relative path to the signed artifact, resolved relative to the inject-files.yaml file.
+	// Source is the relative path to the artifact file, resolved relative to the inject-files.yaml file.
+	// The user should replace the unsigned file at this path with the signed version before injection.
 	Source string `yaml:"source" json:"source,omitempty"`
-	// UnsignedSource is the relative path to the unsigned version of the artifact, also resolved relative to inject-files.yaml.
-	// This field is for reference only and is ignored during injection.
-	UnsignedSource string `yaml:"unsignedSource" json:"unsignedSource,omitempty"`
+	// Type indicates the artifact type (e.g., "ukis", "shim", "systemd-boot", "verity-hash").
+	Type OutputArtifactsItemType `yaml:"type" json:"type,omitempty"`
 }
 
 func (iam *InjectArtifactMetadata) IsValid() error {

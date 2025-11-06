@@ -120,24 +120,29 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			return fmt.Errorf("%w (directory='%s'):\n%w", ErrArtifactUKIDirectoryRead, ukiDir, err)
 		}
 
+		// Create subdirectory for UKIs
+		ukiOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemUkis))
+		err = os.MkdirAll(ukiOutputSubdir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create ukis subdirectory:\n%w", err)
+		}
+
 		for _, entry := range dirEntries {
 			if !entry.IsDir() && ukiRegex.MatchString(entry.Name()) {
 				srcPath := filepath.Join(ukiDir, entry.Name())
-				destPath := filepath.Join(outputDir, entry.Name())
+				destPath := filepath.Join(ukiOutputSubdir, entry.Name())
 				err := file.Copy(srcPath, destPath)
 				if err != nil {
 					return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 				}
 
-				signedName := replaceSuffix(entry.Name(), ".efi", ".signed.efi")
-				source := "./" + signedName
-				unsignedSource := "./" + entry.Name()
+				source := "./" + string(imagecustomizerapi.OutputArtifactsItemUkis) + "/" + entry.Name()
 
 				outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-					Partition:      espInjectFilePartition,
-					Source:         source,
-					Destination:    filepath.Join("/", UkiOutputDir, entry.Name()),
-					UnsignedSource: unsignedSource,
+					Partition:   espInjectFilePartition,
+					Source:      source,
+					Destination: filepath.Join("/", UkiOutputDir, entry.Name()),
+					Type:        imagecustomizerapi.OutputArtifactsItemUkis,
 				})
 			}
 		}
@@ -145,63 +150,85 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 	// Output shim
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemShim) {
+		// Create subdirectory for shim
+		shimOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemShim))
+		err = os.MkdirAll(shimOutputSubdir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create shim subdirectory:\n%w", err)
+		}
+
 		srcPath := filepath.Join(systemBootPartitionTmpDir, ShimDir, bootConfig.bootBinary)
-		destPath := filepath.Join(outputDir, bootConfig.bootBinary)
+		destPath := filepath.Join(shimOutputSubdir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
-		signedPath := "./" + replaceSuffix(bootConfig.bootBinary, ".efi", ".signed.efi")
+		source := "./" + string(imagecustomizerapi.OutputArtifactsItemShim) + "/" + bootConfig.bootBinary
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:      espInjectFilePartition,
-			Source:         signedPath,
-			Destination:    filepath.Join("/", ShimDir, bootConfig.bootBinary),
-			UnsignedSource: "./" + bootConfig.bootBinary,
+			Partition:   espInjectFilePartition,
+			Source:      source,
+			Destination: filepath.Join("/", ShimDir, bootConfig.bootBinary),
+			Type:        imagecustomizerapi.OutputArtifactsItemShim,
 		})
 	}
 
 	// Output systemd-boot
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemSystemdBoot) {
+		// Create subdirectory for systemd-boot
+		systemdBootOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemSystemdBoot))
+		err = os.MkdirAll(systemdBootOutputSubdir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create systemd-boot subdirectory:\n%w", err)
+		}
+
 		srcPath := filepath.Join(systemBootPartitionTmpDir, SystemdBootDir, bootConfig.systemdBootBinary)
-		destPath := filepath.Join(outputDir, bootConfig.systemdBootBinary)
+		destPath := filepath.Join(systemdBootOutputSubdir, bootConfig.systemdBootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
-		signedPath := "./" + replaceSuffix(bootConfig.systemdBootBinary, ".efi", ".signed.efi")
+		source := "./" + string(imagecustomizerapi.OutputArtifactsItemSystemdBoot) + "/" + bootConfig.systemdBootBinary
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-			Partition:      espInjectFilePartition,
-			Source:         signedPath,
-			Destination:    filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
-			UnsignedSource: "./" + bootConfig.systemdBootBinary,
+			Partition:   espInjectFilePartition,
+			Source:      source,
+			Destination: filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
+			Type:        imagecustomizerapi.OutputArtifactsItemSystemdBoot,
 		})
 	}
 
 	// Output verity hash
 	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemVerityHash) {
+		// Create subdirectory for verity hashes
+		verityHashOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemVerityHash))
+		err = os.MkdirAll(verityHashOutputSubdir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create verity-hash subdirectory:\n%w", err)
+		}
+
 		for _, verity := range verityMetadata {
 			if verity.hashSignaturePath == "" {
 				continue
 			}
 
-			unsignedHashFile := verity.name + ".hash"
-			destPath := filepath.Join(outputDir, unsignedHashFile)
+			// Use the exact destination filename (e.g., "usr.hash" if hashSignaturePath is "/boot/usr.hash").
+			destination := strings.TrimPrefix(verity.hashSignaturePath, "/boot")
+			hashFile := filepath.Base(destination)
+			destPath := filepath.Join(verityHashOutputSubdir, hashFile)
 			err = file.Write(verity.rootHash, destPath)
 			if err != nil {
 				return fmt.Errorf("%w (name='%s', path='%s'):\n%w", ErrArtifactRootHashDump, verity.name, destPath, err)
 			}
 
-			signedHashFile := replaceSuffix(unsignedHashFile, ".hash", ".hash.sig")
-			destination := strings.TrimPrefix(verity.hashSignaturePath, "/boot")
+			source := "./" + string(imagecustomizerapi.OutputArtifactsItemVerityHash) + "/" + hashFile
 			outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
-				Partition:      bootInjectFilePartition,
-				Source:         "./" + signedHashFile,
-				Destination:    filepath.Join("/", destination),
-				UnsignedSource: "./" + unsignedHashFile,
+				Partition:   bootInjectFilePartition,
+				Source:      source,
+				Destination: filepath.Join("/", destination),
+				Type:        imagecustomizerapi.OutputArtifactsItemVerityHash,
 			})
 		}
 	}
@@ -222,13 +249,6 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	}
 
 	return nil
-}
-
-func replaceSuffix(input string, oldSuffix string, newSuffix string) string {
-	if !strings.HasSuffix(input, oldSuffix) {
-		return input
-	}
-	return strings.TrimSuffix(input, oldSuffix) + newSuffix
 }
 
 func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {

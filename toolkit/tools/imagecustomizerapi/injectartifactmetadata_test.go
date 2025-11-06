@@ -11,9 +11,9 @@ import (
 
 func TestInjectArtifactMetadata_Valid(t *testing.T) {
 	entry := InjectArtifactMetadata{
-		Source:         "./bootx64.signed.efi",
-		Destination:    "/EFI/BOOT/bootx64.efi",
-		UnsignedSource: "./bootx64.efi",
+		Source:      "./shim/bootx64.efi",
+		Destination: "/EFI/BOOT/bootx64.efi",
+		Type:        OutputArtifactsItemShim,
 		Partition: InjectFilePartition{
 			MountIdType: MountIdentifierTypePartUuid,
 			Id:          "5678-EFGH",
@@ -26,9 +26,9 @@ func TestInjectArtifactMetadata_Valid(t *testing.T) {
 
 func TestInjectArtifactMetadata_MissingSource(t *testing.T) {
 	entry := InjectArtifactMetadata{
-		Source:         "",
-		Destination:    "/EFI/BOOT/bootx64.efi",
-		UnsignedSource: "./bootx64.efi",
+		Source:      "",
+		Destination: "/EFI/BOOT/bootx64.efi",
+		Type:        OutputArtifactsItemShim,
 		Partition: InjectFilePartition{
 			MountIdType: MountIdentifierTypePartUuid,
 			Id:          "5678-EFGH",
@@ -42,9 +42,9 @@ func TestInjectArtifactMetadata_MissingSource(t *testing.T) {
 
 func TestInjectArtifactMetadata_InvalidPartition(t *testing.T) {
 	entry := InjectArtifactMetadata{
-		Source:         "./bootx64.signed.efi",
-		Destination:    "/EFI/BOOT/bootx64.efi",
-		UnsignedSource: "./bootx64.efi",
+		Source:      "./shim/bootx64.efi",
+		Destination: "/EFI/BOOT/bootx64.efi",
+		Type:        OutputArtifactsItemShim,
 		Partition: InjectFilePartition{
 			MountIdType: "bad-type",
 			Id:          "5678-EFGH",

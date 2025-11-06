@@ -57,7 +57,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 		return
 	}
 
-	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir)
+	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir, false)
 
 	// Inject artifacts into a fresh copy of the raw image
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
@@ -134,7 +134,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		return
 	}
 
-	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir)
+	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir, true)
 
 	// Inject artifacts into image.
 	err = InjectFilesWithConfigFile(t.Context(), buildDir, injectConfigPath, outImageFilePath, cosiFilePath, "cosi")
@@ -206,7 +206,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		"root", buildDir, "", "restart-on-corruption")
 }
 
-func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string) []string {
+func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, expectVerityHash bool) []string {
 	// Confirm inject-files.yaml was generated
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 	exists, err := file.PathExists(injectConfigPath)
@@ -224,51 +224,77 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string) []
 	hasShim := false
 	hasSystemdBoot := false
 	hasUKI := false
+	hasVerityHash := false
 	espFiles := []string(nil)
 
 	for _, entry := range injectConfig.InjectFiles {
-		switch {
-		case strings.HasPrefix(entry.Destination, "/EFI/BOOT/boot") &&
-			strings.HasSuffix(entry.Destination, ".efi") &&
-			strings.HasPrefix(entry.Source, "./boot") &&
-			strings.HasSuffix(entry.Source, ".signed.efi"):
+		// Verify the type field is set
+		assert.NotEmpty(t, entry.Type, "Expected type field to be set for entry with destination: %s", entry.Destination)
+
+		switch entry.Type {
+		case imagecustomizerapi.OutputArtifactsItemShim:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/BOOT/boot"), "Expected shim destination to start with /EFI/BOOT/boot")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected shim destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./shim/"), "Expected shim source to be in shim/ subdirectory")
 			hasShim = true
-
 			espFiles = append(espFiles, entry.Destination)
 
-		case strings.HasPrefix(entry.Destination, "/EFI/systemd/systemd-boot") &&
-			strings.HasSuffix(entry.Destination, ".efi") &&
-			strings.HasPrefix(entry.Source, "./systemd-boot") &&
-			strings.HasSuffix(entry.Source, ".signed.efi"):
+		case imagecustomizerapi.OutputArtifactsItemSystemdBoot:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/systemd/systemd-boot"), "Expected systemd-boot destination to start with /EFI/systemd/systemd-boot")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected systemd-boot destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./systemd-boot/"), "Expected systemd-boot source to be in systemd-boot/ subdirectory")
 			hasSystemdBoot = true
-
 			espFiles = append(espFiles, entry.Destination)
 
-		case strings.HasPrefix(entry.Destination, "/EFI/Linux/vmlinuz") &&
-			strings.HasSuffix(entry.Destination, ".efi") &&
-			strings.HasPrefix(entry.Source, "./vmlinuz") &&
-			strings.HasSuffix(entry.Source, ".signed.efi"):
+		case imagecustomizerapi.OutputArtifactsItemUkis:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/Linux/vmlinuz"), "Expected UKI destination to start with /EFI/Linux/vmlinuz")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected UKI destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./ukis/"), "Expected UKI source to be in ukis/ subdirectory")
 			hasUKI = true
-
 			espFiles = append(espFiles, entry.Destination)
+
+		case imagecustomizerapi.OutputArtifactsItemVerityHash:
+			// Verify verity hash artifact properties
+			assert.Equal(t, "/root.hash", entry.Destination, "Expected verity hash destination to be /root.hash")
+			assert.True(t, strings.HasPrefix(entry.Source, "./verity-hash/"), "Expected verity hash source to be in verity-hash/ subdirectory")
+			assert.Equal(t, "./verity-hash/root.hash", entry.Source, "Expected verity hash source filename to match destination filename")
+
+			// Verify the hash file exists
+			hashFilePath := filepath.Join(outputArtifactsDir, entry.Source)
+			hashFileExists, err := file.PathExists(hashFilePath)
+			assert.NoError(t, err)
+			assert.True(t, hashFileExists, "Expected verity hash file to exist at %s", hashFilePath)
+
+			// Verify the hash file has content (should be hex-encoded root hash)
+			hashContent, err := os.ReadFile(hashFilePath)
+			assert.NoError(t, err)
+			assert.NotEmpty(t, hashContent, "Expected verity hash file to have content")
+
+			hasVerityHash = true
 		}
 
-		// Check that the unsigned file exists.
-		unsignedPath := filepath.Join(outputArtifactsDir, entry.UnsignedSource)
+		// Check that the unsigned file exists at the source path
+		unsignedPath := filepath.Join(outputArtifactsDir, entry.Source)
 		_, err := os.Stat(unsignedPath)
 		assert.NoErrorf(t, err, "failed to check if unsigned file exists ('%s')", unsignedPath)
 
-		// Pseudo sign the file.
-		signedPath := filepath.Join(outputArtifactsDir, entry.Source)
-		err = pseudoSignFile(unsignedPath, signedPath)
-		assert.NoErrorf(t, err, "pseduo sign file failed (unsignedPath='%s', signedPath='%s')", unsignedPath, signedPath)
+		// Pseudo sign the file by replacing it with a signed version
+		err = pseudoSignFile(unsignedPath)
+		assert.NoErrorf(t, err, "pseudo sign file failed (path='%s')", unsignedPath)
 	}
 
 	// Ensure all the expected files were seen.
-	assert.Equal(t, 3, len(injectConfig.InjectFiles))
+	expectedCount := 3
+	if expectVerityHash {
+		expectedCount = 4
+	}
+	assert.Equal(t, expectedCount, len(injectConfig.InjectFiles))
 	assert.True(t, hasShim, "Expected an inject entry for shim")
 	assert.True(t, hasSystemdBoot, "Expected an inject entry for systemd-boot")
 	assert.True(t, hasUKI, "Expected at least one inject entry for UKI")
+	if expectVerityHash {
+		assert.True(t, hasVerityHash, "Expected an inject entry for verity-hash")
+	}
 
 	return espFiles
 }
@@ -284,13 +310,8 @@ func verifyInjectedFiles(t *testing.T, partitionDir string, partitionFiles []str
 	}
 }
 
-func pseudoSignFile(inputPath string, outputPath string) error {
-	err := file.Copy(inputPath, outputPath)
-	if err != nil {
-		return err
-	}
-
-	err = appendMarker(outputPath, pseudoSignedMarker)
+func pseudoSignFile(filePath string) error {
+	err := appendMarker(filePath, pseudoSignedMarker)
 	if err != nil {
 		return err
 	}
