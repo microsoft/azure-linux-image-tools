@@ -67,6 +67,8 @@ os:
     install:
     - systemd-boot
     - openssh-server
+    - selinux-policy
+    - selinux-policy-modules
     snapshotTime: 2025-10-28
 
   services:
