@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -204,4 +205,40 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	assert.Contains(t, string(moduleLoadContent), "br_netfilter")
 	assert.Contains(t, string(moduleDisableContent), "vfio")
+
+	// Verify SELinux
+	verifyKernelCommandLine(t, imageConnection, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	verifySELinuxConfigFile(t, imageConnection, "disabled")
+
+	// Verify overlays
+	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
+	fstabContents, err := file.Read(fstabPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Contains(t, fstabContents,
+		"overlay /var overlay "+
+			"lowerdir=/var,"+
+			"upperdir=/mnt/overlays/var/upper,"+
+			"workdir=/mnt/overlays/var/work 0 0")
+
+	assert.Contains(t, fstabContents,
+		"overlay /etc overlay "+
+			"lowerdir=/sysroot/etc,"+
+			"upperdir=/sysroot/var/overlays/etc/upper,"+
+			"workdir=/sysroot/var/overlays/etc/work 0 0")
+
+	// Verify UKI files
+	ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "EFI/Linux")
+	files, _ := os.ReadDir(ukiDir)
+	var ukiFiles []string
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".efi") {
+			ukiFiles = append(ukiFiles, f.Name())
+		}
+	}
+	assert.Len(t, ukiFiles, 1, "expected exactly one UKI .efi file to be created")
+	assert.Contains(t, ukiFiles[0], "6.6.51.1-5.azl3",
+		"expected UKI to be built for kernel 6.6.51.1-5.azl3")
 }

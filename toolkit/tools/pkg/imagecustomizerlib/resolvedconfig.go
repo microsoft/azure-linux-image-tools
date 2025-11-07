@@ -45,6 +45,18 @@ type ResolvedConfig struct {
 	// Hostname
 	Hostname string
 
+	// Overlays
+	Overlays []imagecustomizerapi.Overlay
+
+	// SELinux mode
+	SELinuxMode imagecustomizerapi.SELinuxMode
+
+	// Bootloader reset type
+	ResetBootLoaderType imagecustomizerapi.ResetBootLoaderType
+
+	// UKI
+	Uki *imagecustomizerapi.Uki
+
 	// Hierarchical config chain
 	ConfigChain []*ConfigWithBasePath
 }

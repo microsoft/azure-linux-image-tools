@@ -79,6 +79,16 @@ os:
   - name: vfio
     loadMode: disable
 
+  selinux:
+    mode: disabled
+
+  overlays:
+  - mountPoint: /etc
+    lowerDirs:
+    - /etc
+    upperDir: /var/overlays/etc/upper
+    workDir: /var/overlays/etc/work
+
 input:
   image:
     path: testimages/empty.vhdx
