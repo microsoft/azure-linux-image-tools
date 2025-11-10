@@ -103,11 +103,11 @@ type imageMetadata struct {
 	baseImageVerityMetadata []verityDeviceMetadata
 	verityMetadata          []verityDeviceMetadata
 
-	partUuidToFstabEntry map[string]diskutils.FstabEntry
-	osRelease            string
-	osPackages           []OsPackage
-	cosiBootMetadata     *CosiBootloader
-	targetOS             targetos.TargetOs
+	partitionsLayout []fstabEntryPartNum
+	osRelease        string
+	osPackages       []OsPackage
+	cosiBootMetadata *CosiBootloader
+	targetOS         targetos.TargetOs
 }
 
 type verityDeviceMetadata struct {
@@ -290,7 +290,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	}
 
 	if rc.OutputSelinuxPolicyPath != "" {
-		err = outputSelinuxPolicy(ctx, rc.OutputSelinuxPolicyPath, rc.BuildDirAbs, rc.RawImageFile)
+		err = outputSelinuxPolicy(ctx, rc.OutputSelinuxPolicyPath, rc.BuildDirAbs, rc.RawImageFile, im.partitionsLayout)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrOutputSelinuxPolicy, err)
 		}
@@ -497,7 +497,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	}
 
 	// Customize the raw image file.
-	partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
+	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
 		partitionsCustomized, im.targetOS)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
@@ -511,7 +511,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		}
 	}
 
-	im.partUuidToFstabEntry = partUuidToFstabEntry
+	im.partitionsLayout = partitionsLayout
 	im.baseImageVerityMetadata = baseImageVerityMetadata
 	im.osRelease = osRelease
 
@@ -527,7 +527,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	if len(rc.Config.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc.Config, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partUuidToFstabEntry)
+			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
@@ -546,7 +546,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	var osPackages []OsPackage
 	var cosiBootMetadata *CosiBootloader
 	if rc.Config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile)
+		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
@@ -587,7 +587,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		}
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
-		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partUuidToFstabEntry,
+		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partitionsLayout,
 			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata)
 		if err != nil {
 			return err
@@ -675,12 +675,12 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
 	targetOS targetos.TargetOs,
-) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, string, error) {
+) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
 	readOnlyVerity := rc.Config.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
+	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
 		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
 	if err != nil {
 		return nil, nil, nil, "", err
@@ -702,13 +702,13 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil
 	})
 
-	err = validateVerityMountPaths(imageConnection, rc.Config, partUuidToFstabEntry, baseImageVerityMetadata)
+	err = validateVerityMountPaths(imageConnection, rc.Config, partitionsLayout, baseImageVerityMetadata)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partUuidToFstabEntry, distroHandler)
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -723,13 +723,14 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
-	return partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil
+	return partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil
 }
 
-func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string,
+func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, partitionsLayout []fstabEntryPartNum,
 ) ([]OsPackage, *CosiBootloader, error) {
 	var err error
-	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false, true)
+	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false,
+		partitionsLayout)
 	if err != nil {
 		return nil, nil, err
 	}
