@@ -298,7 +298,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 			assert.Regexp(t, ` rd.systemd.verity=1 `, kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_data=%s `, dataId), kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_hash=%s `, hashId), kernelArgs)
-			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_options=%s( |$)`, corruptionOption), kernelArgs)
+			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_options=%s(,| |$)`, corruptionOption), kernelArgs)
 
 			hashRegexp = regexp.MustCompile(` roothash=([a-fA-F0-9]*) `)
 
@@ -306,7 +306,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 			assert.Regexp(t, ` rd.systemd.verity=1 `, kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_data=%s `, dataId), kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_hash=%s `, hashId), kernelArgs)
-			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_options=%s( |$)`, corruptionOption), kernelArgs)
+			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_options=%s(,| |$)`, corruptionOption), kernelArgs)
 
 			hashRegexp = regexp.MustCompile(` usrhash=([a-fA-F0-9]*) `)
 
