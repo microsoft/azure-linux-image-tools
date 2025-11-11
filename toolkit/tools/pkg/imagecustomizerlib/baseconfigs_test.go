@@ -224,8 +224,12 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		"overlay /etc overlay lowerdir=/etc,upperdir=/var/overlays/etc/upper,workdir=/var/overlays/etc/work 0 0")
 
 	// Verify UKI creation
-	ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "EFI/Linux")
-	files, _ := os.ReadDir(ukiDir)
+	ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
+	files, err := os.ReadDir(ukiDir)
+	if err != nil {
+		t.Errorf("Failed to read UKI directory: %v", err)
+		return
+	}
 	var ukiFiles []string
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".efi") {
@@ -238,6 +242,6 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
 	grubCfgContents, err := file.Read(grubCfgFilePath)
 	assert.NoError(t, err)
-	assert.Contains(t, grubCfgContents, "rd.info")
+	assert.NotContains(t, grubCfgContents, "rd.info")
 	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
 }
