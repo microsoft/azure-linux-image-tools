@@ -49,7 +49,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 ) error {
 	rc, err := validateConfig(
 		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
-		outputImageFormat, packageSnapshotTime)
+		outputImageFormat, packageSnapshotTime, buildDir)
 	if err != nil {
 		return err
 	}
