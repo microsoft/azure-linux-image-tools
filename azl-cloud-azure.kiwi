@@ -53,60 +53,51 @@
         <packages type="bootstrap" patternType="plusRecommended">
                 <package name="fedora-release-cloud"/>
                 <package name="fedora-repos"/>
+                <package name="grubby"/>
         </packages>
         
         <!-- Core system packages -->
         <packages type="image" patternType="plusRecommended">
                 
-                <!-- Essential system packages -->
-                <package name="kernel"/>
-                <package name="kernel-modules"/>
-                <package name="systemd"/>
-                <package name="NetworkManager"/>
-                <package name="openssh-server"/>
-                <package name="cloud-init"/>
+                <!-- Boot core packages-->
+	        <package name="grub2-efi-aa64" arch="aarch64"/>
+		<package name="grub2-efi-aa64-modules" arch="aarch64"/>
+		<package name="grub2-efi-riscv64" arch="riscv64"/>
+		<package name="grub2-efi-riscv64-modules" arch="riscv64"/>
+		<package name="grub2-efi-ia32" arch="x86_64"/>
+		<package name="grub2-efi-ia32-modules" arch="x86_64"/>
+		<package name="grub2-efi-x64" arch="x86_64"/>
+		<package name="grub2-efi-x64-modules" arch="x86_64"/>
+		<package name="grub2-pc" arch="x86_64"/>
+		<package name="grub2-pc-modules" arch="x86_64"/>
+		<package name="grub2-ppc64le" arch="ppc64le"/>
+		<package name="s390utils-base" arch="s390x"/>
+		<package name="shim-signed-aa64" arch="aarch64"/>
+		<package name="shim-signed-x64" arch="x86_64"/>
+		<package name="shim-unsigned-riscv64" arch="riscv64"/>
+		<package name="kernel-core"/>
+		<package name="systemd-oomd-defaults"/>
+		<package name="systemd-resolved"/>
+
+                <!-- cloud core packages to be included -->
+                <ignore name="dracut-config-rescue"/>
+		<ignore name="firewalld"/>
+		<ignore name="fwupd"/>
+		<ignore name="kernel"/>
+		<ignore name="*-firmware"/>
+		<ignore name="geolite2-city"/>
+		<ignore name="geolite2-country"/>
+		<ignore name="plymouth"/>
+		<package name="btrfs-progs"/>
+		<package name="python3-dnf-plugin-tracer"/>
+		<package name="glibc-langpack-en"/>
+
                 
                 <!-- Azure-specific packages -->
                 <package name="WALinuxAgent"/>
-                <package name="azure-vm-utils"/>
-                <package name="hyperv-daemons"/>
+		<package name="azure-vm-utils"/>
+		<package name="kernel-modules"/>
+		<package name="hyperv-daemons"/>
                 
-                <!-- File system support -->
-                <package name="btrfs-progs"/>
-                <package name="e2fsprogs"/>
-                <package name="xfsprogs"/>
-                
-                <!-- Basic tools -->
-                <package name="vim-minimal"/>
-                <package name="wget"/>
-                <package name="curl"/>
-                <package name="tar"/>
-                <package name="gzip"/>
-                <package name="unzip"/>
-                <package name="sudo"/>
-                <package name="which"/>
-                
-                <!-- Language support -->
-                <package name="glibc-langpack-en"/>
-                
-                <!-- Development tools (optional) -->
-                <package name="gcc"/>
-                <package name="make"/>
-                <package name="git"/>
-                <package name="python3"/>
-                <package name="python3-pip"/>
-                
-                <!-- Ignore unwanted packages -->
-                <ignore name="dracut-config-rescue"/>
-                <ignore name="firewalld"/>
-                <ignore name="fwupd"/>
-                <ignore name="plymouth"/>
-                <ignore name="geolite2-city"/>
-                <ignore name="geolite2-country"/>
-        </packages>
-        
-        <!-- Post-installation scripts -->
-        <packages type="image" patternType="plusRecommended">
-                <archive name="root.tar.xz"/>
         </packages>
 </image>
