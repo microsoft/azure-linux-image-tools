@@ -30,19 +30,19 @@ var (
 	ErrBootloaderUnsupportedRootMountId = NewImageCustomizerError("Bootloader:UnsupportedRootMountId", "unsupported root mount identifier")
 )
 
-func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
+func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	switch {
-	case config.OS.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
+	case rc.ResetBootLoaderType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
+		err := hardResetBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, newImage)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(ctx, config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
+		err := AddKernelCommandLine(ctx, rc.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}

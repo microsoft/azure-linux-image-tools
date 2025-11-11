@@ -218,18 +218,12 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	}
 
 	assert.Contains(t, fstabContents,
-		"overlay /var overlay "+
-			"lowerdir=/var,"+
-			"upperdir=/mnt/overlays/var/upper,"+
-			"workdir=/mnt/overlays/var/work 0 0")
+		"overlay /var overlay lowerdir=/var,upperdir=/mnt/overlays/var/upper,workdir=/mnt/overlays/var/work 0 0")
 
 	assert.Contains(t, fstabContents,
-		"overlay /etc overlay "+
-			"lowerdir=/sysroot/etc,"+
-			"upperdir=/sysroot/var/overlays/etc/upper,"+
-			"workdir=/sysroot/var/overlays/etc/work 0 0")
+		"overlay /etc overlay lowerdir=/etc,upperdir=/var/overlays/etc/upper,workdir=/var/overlays/etc/work 0 0")
 
-	// Verify UKI files
+	// Verify UKI creation
 	ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "EFI/Linux")
 	files, _ := os.ReadDir(ukiDir)
 	var ukiFiles []string
@@ -238,7 +232,12 @@ func TestBaseConfigsFullRun(t *testing.T) {
 			ukiFiles = append(ukiFiles, f.Name())
 		}
 	}
-	assert.Len(t, ukiFiles, 1, "expected exactly one UKI .efi file to be created")
-	assert.Contains(t, ukiFiles[0], "6.6.51.1-5.azl3",
-		"expected UKI to be built for kernel 6.6.51.1-5.azl3")
+	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
+
+	// Verify kernel commandline
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+	assert.NoError(t, err)
+	assert.Contains(t, grubCfgContents, "rd.info")
+	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
 }

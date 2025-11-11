@@ -55,3 +55,7 @@ os:
     - /var
     upperDir: /mnt/overlays/var/upper
     workDir: /mnt/overlays/var/work
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"

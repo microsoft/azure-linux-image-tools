@@ -124,6 +124,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.SELinuxMode = resolveSelinuxMode(rc.ConfigChain)
 	rc.ResetBootLoaderType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
+	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
 
 	err = validateScripts(baseConfigPath, &config.Scripts)
 	if err != nil {
@@ -607,4 +608,20 @@ func resolveBootLoaderResetType(configChain []*ConfigWithBasePath) imagecustomiz
 		}
 	}
 	return ""
+}
+
+func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+	var mergedArgs []string
+
+	// Concatenate all kernel command line args
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.OS != nil &&
+			len(configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine) > 0 {
+			mergedArgs = append(mergedArgs, configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine...)
+		}
+	}
+
+	return imagecustomizerapi.KernelCommandLine{
+		ExtraCommandLine: mergedArgs,
+	}
 }

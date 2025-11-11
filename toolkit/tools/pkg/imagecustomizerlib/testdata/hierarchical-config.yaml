@@ -91,6 +91,11 @@ os:
     upperDir: /var/overlays/etc/upper
     workDir: /var/overlays/etc/work
 
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0
+
 input:
   image:
     path: testimages/empty.vhdx

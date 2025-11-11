@@ -102,7 +102,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, false)
+	err = handleBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}

@@ -54,6 +54,9 @@ type ResolvedConfig struct {
 	// Bootloader reset type
 	ResetBootLoaderType imagecustomizerapi.ResetBootLoaderType
 
+	// Kernel command line
+	KernelCommandLine imagecustomizerapi.KernelCommandLine
+
 	// UKI
 	Uki *imagecustomizerapi.Uki
 
