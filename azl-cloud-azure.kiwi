@@ -57,7 +57,6 @@
         
         <!-- Core system packages -->
         <packages type="image" patternType="plusRecommended">
-                <namedCollection name="cloud-server-environment"/>
                 
                 <!-- Essential system packages -->
                 <package name="kernel"/>
