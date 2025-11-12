@@ -121,7 +121,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	rc.Hostname = resolveHostname(rc.ConfigChain)
-	rc.SELinuxMode = resolveSelinuxMode(rc.ConfigChain)
+	rc.SELinux = resolveSeLinux(rc.ConfigChain)
 	rc.ResetBootLoaderType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
@@ -573,13 +573,13 @@ func resolveHostname(configChain []*ConfigWithBasePath) string {
 	return ""
 }
 
-func resolveSelinuxMode(configChain []*ConfigWithBasePath) imagecustomizerapi.SELinuxMode {
+func resolveSeLinux(configChain []*ConfigWithBasePath) imagecustomizerapi.SELinux {
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.OS != nil && configWithBase.Config.OS.SELinux.Mode != "" {
-			return configWithBase.Config.OS.SELinux.Mode
+			return configWithBase.Config.OS.SELinux
 		}
 	}
-	return ""
+	return imagecustomizerapi.SELinux{}
 }
 
 func resolveUki(configChain []*ConfigWithBasePath) *imagecustomizerapi.Uki {

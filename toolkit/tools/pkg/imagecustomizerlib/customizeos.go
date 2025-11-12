@@ -107,7 +107,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.SELinuxMode, rc.ResetBootLoaderType, imageChroot)
+	selinuxMode, err := handleSELinux(ctx, rc.SELinux.Mode, rc.ResetBootLoaderType, imageChroot)
 	if err != nil {
 		return err
 	}
