@@ -67,7 +67,7 @@ func validateSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
 }
 
 func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
-	toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string,
+	toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string, buildDir string,
 ) (*imagecustomizerlib.ResolvedConfig, error) {
 	err := validateSupportedFields(config)
 	if err != nil {
@@ -87,6 +87,7 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 			OutputImageFile:     outputImageFile,
 			OutputImageFormat:   imagecustomizerapi.ImageFormatType(outputImageFormat),
 			PackageSnapshotTime: imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
+			BuildDir:            buildDir,
 		})
 	if err != nil {
 		return nil, err
