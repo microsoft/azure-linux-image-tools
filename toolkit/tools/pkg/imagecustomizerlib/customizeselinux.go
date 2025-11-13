@@ -28,7 +28,7 @@ var (
 	ErrSELinuxRelabelFiles    = NewImageCustomizerError("SELinux:RelabelFiles", "failed to set SELinux file labels")
 )
 
-func handleSELinux(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, resetBootLoaderType imagecustomizerapi.ResetBootLoaderType,
+func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustomizerapi.SELinuxMode, resetBootLoaderType imagecustomizerapi.ResetBootLoaderType,
 	imageChroot *safechroot.Chroot,
 ) (imagecustomizerapi.SELinuxMode, error) {
 	var err error
@@ -39,7 +39,8 @@ func handleSELinux(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMo
 	)
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot)
+	// SELinux customization doesn't require UKI mode awareness
+	bootCustomizer, err := NewBootCustomizer(imageChroot, nil)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
@@ -47,7 +48,7 @@ func handleSELinux(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMo
 	if selinuxMode == imagecustomizerapi.SELinuxModeDefault {
 		// No changes to the SELinux have been requested.
 		// So, return the current SELinux mode.
-		currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(imageChroot)
+		currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(buildDir, imageChroot)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("%w:\n%w", ErrSELinuxGetCurrentMode, err)
 		}

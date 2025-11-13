@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -215,6 +216,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
 	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
+	ukiMode imagecustomizerapi.UkiMode,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -231,15 +233,34 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 		return err
 	}
 
-	// TODO: Remove this once we have a way to determine if grub-mkconfig is enabled.
-	grubMkconfigEnabled := true
-	if !newImage {
-		grubMkconfigEnabled, err = isGrubMkconfigEnabled(imageConnection.Chroot())
+	// Determine the boot configuration type.
+	// For new images, default to grub-mkconfig (AZL3 default).
+	// For existing images, detect the actual boot configuration.
+	var bootConfigType bootConfigType
+	if newImage {
+		bootConfigType = bootConfigTypeGrubMkconfig
+	} else {
+		bootConfigType, err = getBootConfigType(imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
-
 	}
+
+	// If the image uses UKI with passthrough mode, skip GRUB bootloader configuration.
+	// Passthrough mode preserves existing UKIs and doesn't need grub.cfg.
+	if bootConfigType == bootConfigTypeUki && ukiMode == imagecustomizerapi.UkiModePassthrough {
+		logger.Log.Debugf("Image uses UKI boot configuration with passthrough mode, skipping GRUB bootloader setup")
+		return nil
+	}
+
+	// For UKI create mode, regenerate grub.cfg that serves as the source of
+	// truth for kernel cmdline before building new UKIs.
+	if bootConfigType == bootConfigTypeUki && ukiMode == imagecustomizerapi.UkiModeCreate {
+		logger.Log.Debugf("Image uses UKI boot configuration with create mode, regenerating grub.cfg for cmdline extraction")
+	}
+
+	grubMkconfigEnabled := (bootConfigType == bootConfigTypeGrubMkconfig) ||
+		(bootConfigType == bootConfigTypeUki && ukiMode == imagecustomizerapi.UkiModeCreate)
 
 	mountPointMap := make(map[string]string)
 	for _, mountPoint := range imageConnection.Chroot().GetMountPoints() {

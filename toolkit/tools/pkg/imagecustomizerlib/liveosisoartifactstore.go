@@ -97,13 +97,14 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 	return false, nil
 }
 
-func getSELinuxMode(imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
-	bootCustomizer, err := NewBootCustomizer(imageChroot)
+func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
+	// Live OS ISO doesn't use UKI
+	bootCustomizer, err := NewBootCustomizer(imageChroot, nil)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
 
-	imageSELinuxMode, err := bootCustomizer.GetSELinuxMode(imageChroot)
+	imageSELinuxMode, err := bootCustomizer.GetSELinuxMode(buildDir, imageChroot)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to get current SELinux mode:\n%w", err)
 	}
@@ -370,7 +371,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	return filesStore, nil
 }
 
-func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfoStore, err error) {
+func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
 	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
@@ -384,7 +385,7 @@ func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfo
 		return nil, fmt.Errorf("failed to initialize chroot object for (%s):\n%w", imageRootDir, err)
 	}
 
-	imageSELinuxMode, err := getSELinuxMode(chroot)
+	imageSELinuxMode, err := getSELinuxMode(buildDir, chroot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine SELinux mode for (%s):\n%w", imageRootDir, err)
 	}
@@ -520,7 +521,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(imageRootDir)
+	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir)
 	if err != nil {
 		return nil, err
 	}
