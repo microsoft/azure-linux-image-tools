@@ -29,6 +29,20 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
+	// If UKI is enabled, extract kernel and initramfs from existing UKIs for re-customization.
+	if rc.Config.OS.Uki != nil {
+		err = extractKernelAndInitramfsFromUkis(ctx, imageChroot)
+		if err != nil {
+			return err
+		}
+
+		// Ensures grub.cfg exists for dependency code that needs it (SELinux, bootloader checks, etc.)
+		err = ensureGrubCfgForUki(imageChroot)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {

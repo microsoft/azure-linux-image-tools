@@ -779,6 +779,10 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
+		// Preserve os.IsNotExist check by not wrapping if file doesn't exist.
+		if os.IsNotExist(err) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
@@ -801,6 +805,10 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
+		// Preserve os.IsNotExist check by not wrapping if file doesn't exist.
+		if os.IsNotExist(err) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
