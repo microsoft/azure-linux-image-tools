@@ -1,0 +1,15 @@
+previewFeatures:
+- reinitialize-verity
+- uki
+
+storage:
+  reinitializeVerity: all
+
+os:
+  uki:
+    kernels: auto
+
+  additionalFiles:
+  - content: |
+      Testing UKI re-customization
+    destination: /etc/uki-test.txt
