@@ -43,7 +43,7 @@ or are processed sequentially.
 - `.os.additionalDirs`
 - `.os.overlays`
 
-Pick the strongest option from the base config and current config.
+**Pick the strongest option from the base config and current config.**
 
 - `.os.bootLoader.resetType`
 
