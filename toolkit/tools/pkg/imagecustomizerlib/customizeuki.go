@@ -6,7 +6,9 @@ package imagecustomizerlib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -440,17 +442,17 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[s
 	// Try extracting from grub.cfg first
 	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return kernelToArgs, nil
 	}
 
 	// Fallback to extracting from UKI
 	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
-	} else if os.IsNotExist(err) {
+	} else if errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
@@ -659,23 +661,81 @@ func ensureGrubCfgForUki(imageChroot *safechroot.Chroot) error {
 		return nil
 	}
 
-	if !defaultGrubExists {
-		logger.Log.Debugf("/etc/default/grub doesn't exist, will extract cmdline from existing UKIs")
-		return nil
-	}
-
 	grubDir := filepath.Join(imageChroot.RootDir(), "boot", "grub2")
 	err = os.MkdirAll(grubDir, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
 	}
 
-	logger.Log.Infof("Generating grub.cfg for UKI cmdline extraction using grub2-mkconfig")
-	err = installutils.CallGrubMkconfig(imageChroot)
-	if err != nil {
-		return fmt.Errorf("failed to generate grub.cfg with grub2-mkconfig:\n%w", err)
+	if defaultGrubExists {
+		// Use grub2-mkconfig to generate grub.cfg from /etc/default/grub
+		logger.Log.Infof("Generating grub.cfg for UKI using grub2-mkconfig")
+		err = installutils.CallGrubMkconfig(imageChroot)
+		if err != nil {
+			return fmt.Errorf("failed to generate grub.cfg with grub2-mkconfig:\n%w", err)
+		}
+	} else {
+		// /etc/default/grub doesn't exist - need to create grub.cfg from UKI cmdline
+		// This is necessary because bootcustomizer code requires grub.cfg to exist for SELinux detection
+		logger.Log.Infof("Generating minimal grub.cfg for UKI by extracting cmdline from existing UKIs")
+		err = generateGrubCfgFromUkis(imageChroot)
+		if err != nil {
+			return fmt.Errorf("failed to generate grub.cfg from UKIs:\n%w", err)
+		}
 	}
 
+	return nil
+}
+
+func generateGrubCfgFromUkis(imageChroot *safechroot.Chroot) error {
+	// Extract kernel cmdline from existing UKIs
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	
+	// We need a temporary build dir for extracting UKI cmdlines
+	// Use a temp dir in the image's /tmp to avoid cross-filesystem issues
+	tmpDir := filepath.Join(imageChroot.RootDir(), "tmp", "uki-grub-gen")
+	err := os.MkdirAll(tmpDir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory for UKI extraction: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, tmpDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract kernel cmdline from UKIs:\n%w", err)
+	}
+
+	if len(kernelToArgs) == 0 {
+		return fmt.Errorf("no UKI files found to extract cmdline from")
+	}
+
+	// Pick the first kernel's cmdline as representative
+	// (all kernels in UKI should have similar cmdline)
+	var cmdline string
+	for _, args := range kernelToArgs {
+		cmdline = args
+		break
+	}
+
+	// Generate a minimal grub.cfg with the extracted cmdline
+	grubCfgPath := filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
+	grubCfgContent := fmt.Sprintf(`# Minimal grub.cfg generated from UKI for compatibility
+# This file is not used for booting (systemd-boot is used)
+# but is needed for image customization tooling
+
+set timeout=5
+menuentry 'Azure Linux (UKI)' {
+	linux /boot/vmlinuz %s
+	initrd /boot/initramfs.img
+}
+`, cmdline)
+
+	err = os.WriteFile(grubCfgPath, []byte(grubCfgContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write minimal grub.cfg:\n%w", err)
+	}
+
+	logger.Log.Infof("Generated minimal grub.cfg from UKI cmdline")
 	return nil
 }
 
@@ -731,7 +791,7 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 }
 
 func deleteOldUkiFiles(ukiOutputDir string) error {
-	if _, err := os.Stat(ukiOutputDir); os.IsNotExist(err) {
+	if _, err := os.Stat(ukiOutputDir); errors.Is(err, fs.ErrNotExist) {
 		logger.Log.Debugf("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
 		return nil
 	}

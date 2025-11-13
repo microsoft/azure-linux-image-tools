@@ -4,7 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"iter"
 	"maps"
 	"os"
@@ -568,9 +570,9 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 	}
 
 	cmdline, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
-	} else if !os.IsNotExist(err) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return cmdline, nil
 	}
 
@@ -580,9 +582,9 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 	}
 
 	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
-	} else if os.IsNotExist(err) {
+	} else if errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
@@ -747,10 +749,6 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
-		// Preserve os.IsNotExist check by not wrapping if file doesn't exist.
-		if os.IsNotExist(err) {
-			return nil, err
-		}
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
@@ -773,10 +771,6 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
-		// Preserve os.IsNotExist check by not wrapping if file doesn't exist.
-		if os.IsNotExist(err) {
-			return nil, err
-		}
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
