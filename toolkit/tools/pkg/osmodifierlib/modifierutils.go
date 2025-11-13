@@ -6,6 +6,7 @@ package osmodifierlib
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -18,7 +19,14 @@ import (
 func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS) error {
 	var dummyChroot safechroot.ChrootInterface = &safechroot.DummyChroot{}
 
-	err := imagecustomizerlib.AddOrUpdateUsers(ctx, osConfig.Users, baseConfigPath, dummyChroot)
+	// Create a temporary directory for operations that need a build directory
+	buildDir, err := os.MkdirTemp("", "osmodifier-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary build directory: %w", err)
+	}
+	defer os.RemoveAll(buildDir)
+
+	err = imagecustomizerlib.AddOrUpdateUsers(ctx, osConfig.Users, baseConfigPath, dummyChroot)
 	if err != nil {
 		return err
 	}
@@ -53,7 +61,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 
 	var bootCustomizer *imagecustomizerlib.BootCustomizer
 	if needsBootCustomizer {
-		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot)
+		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot, nil)
 		if err != nil {
 			return err
 		}
@@ -87,7 +95,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		}
 
 		if osConfig.SELinux.Mode != "" {
-			err = updateSELinuxForGrubBasedBoot(osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
+			err = updateSELinuxForGrubBasedBoot(buildDir, osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
 			if err != nil {
 				return err
 			}
@@ -179,8 +187,8 @@ func updateSELinuxForUkiBoot(selinuxMode imagecustomizerapi.SELinuxMode, install
 	return nil
 }
 
-func updateSELinuxForGrubBasedBoot(selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, installChroot safechroot.ChrootInterface) error {
-	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(installChroot)
+func updateSELinuxForGrubBasedBoot(buildDir string, selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, installChroot safechroot.ChrootInterface) error {
+	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(buildDir, installChroot)
 	if err != nil {
 		return fmt.Errorf("failed to get current SELinux mode: %w", err)
 	}

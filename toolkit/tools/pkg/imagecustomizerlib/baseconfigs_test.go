@@ -207,7 +207,11 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Contains(t, string(moduleDisableContent), "vfio")
 
 	// Verify SELinux
-	verifyKernelCommandLine(t, imageConnection, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
 	// Verify overlays
@@ -238,10 +242,10 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	}
 	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
 
-	// Verify kernel commandline
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err)
-	assert.NotContains(t, grubCfgContents, "rd.info")
-	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
+	// Verify kernel commandline, will check UKI if grub.cfg doesn't exist.
+	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"console=tty0", "console=ttyS0"}, []string{"rd.info"})
 }

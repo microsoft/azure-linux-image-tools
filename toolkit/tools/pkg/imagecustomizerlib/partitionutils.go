@@ -4,7 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"iter"
 	"os"
 	"path/filepath"
@@ -599,10 +601,11 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 		return nil, fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
-	cmdline, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
-	if err != nil && !os.IsNotExist(err) {
+	cmdline, found, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
+	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
-	} else if !os.IsNotExist(err) {
+	}
+	if found {
 		return cmdline, nil
 	}
 
@@ -612,9 +615,9 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 	}
 
 	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
-	} else if os.IsNotExist(err) {
+	} else if errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
@@ -669,21 +672,9 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 		return nil, err
 	}
 
-	// Assumes only one UKI is needed, uses the first entry in the map.
-	var firstCmdline string
-	for _, cmdline := range kernelToArgs {
-		firstCmdline = cmdline
-		break
-	}
-
-	tokens, err := grub.TokenizeConfig(firstCmdline)
+	args, err := parseFirstCmdlineFromUkiMap(kernelToArgs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI:\n%w", err)
-	}
-
-	args, err := ParseCommandLineArgs(tokens)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse kernel command-line from UKI:\n%w", err)
+		return nil, err
 	}
 
 	err = espPartitionMount.CleanClose()
@@ -702,6 +693,33 @@ func getUkiFiles(espPath string) ([]string, error) {
 	}
 
 	return ukiFiles, nil
+}
+
+// parseFirstCmdlineFromUkiMap extracts the first cmdline from a kernel->cmdline map,
+// tokenizes it, and parses it into grub command-line arguments.
+func parseFirstCmdlineFromUkiMap(kernelToArgs map[string]string) ([]grubConfigLinuxArg, error) {
+	if len(kernelToArgs) == 0 {
+		return nil, fmt.Errorf("no UKI kernel command-lines found")
+	}
+
+	// Use the first kernel's cmdline since they should all have the same settings.
+	var firstCmdline string
+	for _, cmdline := range kernelToArgs {
+		firstCmdline = cmdline
+		break
+	}
+
+	tokens, err := grub.TokenizeConfig(firstCmdline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI:\n%w", err)
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kernel command-line from UKI:\n%w", err)
+	}
+
+	return args, nil
 }
 
 func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[string]string, error) {
@@ -731,30 +749,22 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
 	// Create a temporary copy of UKI files to avoid modifying the original file,
 	// since objcopy might tamper with signatures or hashes.
-	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
+	tempDir := filepath.Join(buildDir, "uki-cmdline-extraction-temp")
+	err := os.MkdirAll(tempDir, 0o755)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp UKI copy:\n%w", err)
+		return "", fmt.Errorf("failed to create temp directory:\n%w", err)
 	}
-	defer os.Remove(tempCopy.Name())
+	defer os.RemoveAll(tempDir)
 
-	input, err := os.ReadFile(originalPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read UKI file:\n%w", err)
-	}
-	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
-		return "", fmt.Errorf("failed to write temp UKI file:\n%w", err)
-	}
-
-	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
+	cmdlinePath, err := os.CreateTemp(tempDir, "cmdline-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)
 	}
 	cmdlinePath.Close()
-	defer os.Remove(cmdlinePath.Name())
 
-	_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath.Name(), tempCopy.Name())
+	err = extractSectionFromUkiWithObjcopy(originalPath, ".cmdline", cmdlinePath.Name(), tempDir)
 	if err != nil {
-		return "", fmt.Errorf("objcopy failed:\n%w", err)
+		return "", fmt.Errorf("failed to extract cmdline section:\n%w", err)
 	}
 
 	content, err := os.ReadFile(cmdlinePath.Name())
@@ -767,33 +777,46 @@ func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, er
 
 func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDirPath string,
 	buildDir string,
-) ([]grubConfigLinuxArg, error) {
+) ([]grubConfigLinuxArg, bool, error) {
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType,
 		unix.MS_RDONLY, "", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
+		return nil, false, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
+		// Check if the error is because grub.cfg doesn't exist
+		if errors.Is(err, fs.ErrNotExist) {
+			closeErr := bootPartitionMount.CleanClose()
+			if closeErr != nil {
+				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing grub.cfg:\n%w", closeErr)
+			}
+			return nil, false, nil
+		}
+		// For other errors, attempt cleanup and return the error
+		closeErr := bootPartitionMount.CleanClose()
+		if closeErr != nil {
+			return nil, false, fmt.Errorf("failed to close bootPartitionMount (original error: %v):\n%w", err, closeErr)
+		}
+		return nil, false, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
+		return nil, false, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
 	for _, args := range kernelToArgs {
 		// Pick the first set of the args.
 		// (Hopefully they are all the same.)
-		return args, nil
+		return args, true, nil
 	}
 
-	return nil, fmt.Errorf("no kernel args found in grub.cfg file")
+	return nil, true, fmt.Errorf("no kernel args found in grub.cfg file")
 }
 
 // Extracts the kernel args for each kernel from the grub.cfg file.
@@ -949,7 +972,7 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 	numStr := match[1]
 
 	num, err := strconv.Atoi(numStr)
-	if match == nil {
+	if err != nil {
 		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
 	}
 

@@ -35,15 +35,19 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 ) error {
 	switch {
 	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partitionsLayout,
-			newImage, rc.SELinux)
+		err := hardResetBootLoader(ctx, rc, imageConnection, partitionsLayout, newImage)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(ctx, rc.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
+		// Pass UKI config so boot customizer knows whether to treat UKI create mode as grub-mkconfig
+		var uki *imagecustomizerapi.Uki
+		if rc.Config.OS != nil {
+			uki = rc.Config.OS.Uki
+		}
+		err := AddKernelCommandLine(ctx, rc.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), uki)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
@@ -52,8 +56,8 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 	return nil
 }
 
-func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
-	partitionsLayout []fstabEntryPartNum, newImage bool, selinuxConfig imagecustomizerapi.SELinux,
+func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
+	partitionsLayout []fstabEntryPartNum, newImage bool,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -65,12 +69,16 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
 
 	if !newImage {
-		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
+		var uki *imagecustomizerapi.Uki
+		if rc.Config.OS != nil {
+			uki = rc.Config.OS.Uki
+		}
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), uki)
 		if err != nil {
 			return err
 		}
 
-		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
+		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(rc.BuildDirAbs, imageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderSelinuxModeGet, err)
 		}
@@ -78,8 +86,8 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
-	if config.CustomizePartitions() {
-		rootFileSystem, foundRootFileSystem := sliceutils.FindValueFunc(config.Storage.FileSystems,
+	if rc.Config.CustomizePartitions() {
+		rootFileSystem, foundRootFileSystem := sliceutils.FindValueFunc(rc.Config.Storage.FileSystems,
 			func(fileSystem imagecustomizerapi.FileSystem) bool {
 				return fileSystem.MountPoint != nil &&
 					fileSystem.MountPoint.Path == "/"
@@ -90,7 +98,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 		}
 
 		rootMountIdType = rootFileSystem.MountPoint.IdType
-		bootType = config.Storage.BootType
+		bootType = rc.Config.Storage.BootType
 	} else {
 		rootMountIdType, err = findRootMountIdType(partitionsLayout)
 		if err != nil {
@@ -103,9 +111,15 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 		}
 	}
 
+	// Determine the UKI mode for bootloader configuration.
+	ukiMode := imagecustomizerapi.UkiModeUnspecified
+	if rc.Config.OS != nil && rc.Config.OS.Uki != nil {
+		ukiMode = rc.Config.OS.Uki.Mode
+	}
+
 	// Hard-reset the grub config.
-	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
-		config.OS.KernelCommandLine, currentSelinuxMode, newImage)
+	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
+		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage, ukiMode)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}
@@ -115,7 +129,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 
 // Inserts new kernel command-line args into the grub config file.
 func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface,
+	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki,
 ) error {
 	var err error
 
@@ -129,7 +143,7 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot)
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki)
 	if err != nil {
 		return err
 	}

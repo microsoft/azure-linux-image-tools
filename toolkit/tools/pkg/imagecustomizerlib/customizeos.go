@@ -29,6 +29,25 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
+	// If UKI mode is 'create' and base image has UKIs, extract kernel and
+	// initramfs from existing UKIs for re-customization. For 'passthrough'
+	// mode, we skip extraction to preserve existing UKIs.
+	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate {
+		// Check if base image has UKIs to determine if extraction is needed
+		hasUkis, err := baseImageHasUkis(imageChroot)
+		if err != nil {
+			return err
+		}
+
+		if hasUkis {
+			// Base image has UKIs and mode is create - extract for re-customization
+			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
@@ -106,7 +125,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.SELinux.Mode, rc.BootLoader.ResetType, imageChroot)
+	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.SELinux.Mode, rc.BootLoader.ResetType,
+		imageChroot)
 	if err != nil {
 		return err
 	}

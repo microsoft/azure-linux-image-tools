@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -50,7 +52,11 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -79,7 +85,11 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
 	// Verify packages are still installed.
@@ -108,7 +118,11 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "permissive")
 }
 
@@ -164,7 +178,11 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -206,22 +224,84 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	}
 }
 
-func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, existsArgs []string,
-	notExistsArgs []string,
+func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, hasUkis bool,
+	existsArgs []string, notExistsArgs []string,
 ) {
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
+	var grubCfgContents string
+
+	if hasUkis {
+		// UKI image - extract cmdline from UKI files
+		ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
+		cmdlineFromUki, err := extractCmdlineFromUkiForTest(ukiDir)
+		if err != nil {
+			t.Fatalf("Failed to extract cmdline from UKI: %v", err)
+			return
+		}
+		grubCfgContents = cmdlineFromUki
+	} else {
+		// GRUB image - read grub.cfg
+		grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+		contents, err := file.Read(grubCfgFilePath)
+		if err != nil {
+			t.Fatalf("Failed to read grub.cfg: %v", err)
+			return
+		}
+		grubCfgContents = contents
+	}
 
 	for _, existsArg := range existsArgs {
-		assert.Regexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(existsArg)), grubCfgContents,
+		assert.Regexpf(t, fmt.Sprintf("(linux.* %s |%s)", regexp.QuoteMeta(existsArg), regexp.QuoteMeta(existsArg)), grubCfgContents,
 			"ensure kernel command arg exists (%s)", existsArg)
 	}
 
 	for _, notExistsArg := range notExistsArgs {
-		assert.NotRegexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(notExistsArg)), grubCfgContents,
+		assert.NotContainsf(t, grubCfgContents, notExistsArg,
 			"ensure kernel command arg not exists (%s)", notExistsArg)
 	}
+}
+
+func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
+	files, err := os.ReadDir(ukiDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read UKI directory: %w", err)
+	}
+
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".efi") {
+			ukiPath := filepath.Join(ukiDir, f.Name())
+
+			tempDir, err := os.MkdirTemp("", "test-cmdline-extraction-*")
+			if err != nil {
+				return "", fmt.Errorf("failed to create temp directory: %w", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			cmdlinePath := filepath.Join(tempDir, "cmdline.txt")
+
+			tempCopy := filepath.Join(tempDir, "uki-copy.efi")
+			input, err := os.ReadFile(ukiPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to read UKI file: %w", err)
+			}
+			if err := os.WriteFile(tempCopy, input, 0o644); err != nil {
+				return "", fmt.Errorf("failed to write temp UKI file: %w", err)
+			}
+
+			_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, tempCopy)
+			if err != nil {
+				return "", fmt.Errorf("objcopy failed to extract cmdline: %w", err)
+			}
+
+			content, err := os.ReadFile(cmdlinePath)
+			if err != nil {
+				return "", fmt.Errorf("failed to read cmdline file: %w", err)
+			}
+
+			return string(content), nil
+		}
+	}
+
+	return "", fmt.Errorf("no UKI files found or cmdline not extracted")
 }
 
 func verifySELinuxConfigFile(t *testing.T, imageConnection *imageconnection.ImageConnection, mode string) {
