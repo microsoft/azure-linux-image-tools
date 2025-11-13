@@ -48,8 +48,8 @@ type ResolvedConfig struct {
 	// SELinux
 	SELinux imagecustomizerapi.SELinux
 
-	// Bootloader reset type
-	ResetBootLoaderType imagecustomizerapi.ResetBootLoaderType
+	// Bootloader
+	BootLoader imagecustomizerapi.BootLoader
 
 	// Kernel command line
 	KernelCommandLine imagecustomizerapi.KernelCommandLine

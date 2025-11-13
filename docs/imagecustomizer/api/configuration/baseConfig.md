@@ -24,10 +24,13 @@ or are processed sequentially.
 - `.output.image.format`  
 - `.output.artifacts.path`
 - `.os.hostname`
+- `.os.selinux`
+- `.os.uki`
 
 **Base config items are merged with current config’s items**
 
 - `.output.artifacts.items`
+- `.os.kernelCommandLine`
 
 **Base config items are processed first, followed by current config’s.**
 
@@ -38,6 +41,16 @@ or are processed sequentially.
 - `.os.modules`
 - `.os.additionalFiles`
 - `.os.additionalDirs`
+- `.os.overlays`
+
+Pick the strongest option from the base config and current config.
+
+- `.os.bootLoader.resetType`
+
+  The option ordering, from strongest to weakest:
+  - `"hard-reset"`
+  - `"regen"` (potential future API)
+  - `""` (i.e. no reset)
 
 ## path [string]
 

@@ -34,7 +34,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	switch {
-	case rc.ResetBootLoaderType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
+	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
 		err := hardResetBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry,
 			newImage, rc.SELinux)
 		if err != nil {

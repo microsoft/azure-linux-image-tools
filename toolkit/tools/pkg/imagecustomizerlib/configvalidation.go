@@ -122,7 +122,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Hostname = resolveHostname(rc.ConfigChain)
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
-	rc.ResetBootLoaderType = resolveBootLoaderResetType(rc.ConfigChain)
+	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
 
