@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -204,4 +205,43 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	assert.Contains(t, string(moduleLoadContent), "br_netfilter")
 	assert.Contains(t, string(moduleDisableContent), "vfio")
+
+	// Verify SELinux
+	verifyKernelCommandLine(t, imageConnection, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	verifySELinuxConfigFile(t, imageConnection, "disabled")
+
+	// Verify overlays
+	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
+	fstabContents, err := file.Read(fstabPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Contains(t, fstabContents,
+		"overlay /var overlay lowerdir=/var,upperdir=/mnt/overlays/var/upper,workdir=/mnt/overlays/var/work 0 0")
+
+	assert.Contains(t, fstabContents,
+		"overlay /etc overlay lowerdir=/etc,upperdir=/var/overlays/etc/upper,workdir=/var/overlays/etc/work 0 0")
+
+	// Verify UKI creation
+	ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
+	files, err := os.ReadDir(ukiDir)
+	if err != nil {
+		t.Errorf("Failed to read UKI directory: %v", err)
+		return
+	}
+	var ukiFiles []string
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".efi") {
+			ukiFiles = append(ukiFiles, f.Name())
+		}
+	}
+	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
+
+	// Verify kernel commandline
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+	assert.NoError(t, err)
+	assert.NotContains(t, grubCfgContents, "rd.info")
+	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
 }

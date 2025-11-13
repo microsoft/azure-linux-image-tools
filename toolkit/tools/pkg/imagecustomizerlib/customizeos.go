@@ -102,20 +102,23 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, false)
+	err = handleBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.Config.OS.SELinux.Mode, rc.Config.OS.BootLoader.ResetType,
-		imageChroot)
+	selinuxMode, err := handleSELinux(ctx, rc.SELinux.Mode, rc.BootLoader.ResetType, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	overlayUpdated, err := enableOverlays(ctx, rc.Config.OS.Overlays, selinuxMode, imageChroot)
-	if err != nil {
-		return err
+	var overlayUpdated bool
+	for _, configWithBase := range rc.ConfigChain {
+		updated, err := enableOverlays(ctx, configWithBase.Config.OS.Overlays, selinuxMode, imageChroot)
+		if err != nil {
+			return err
+		}
+		overlayUpdated = overlayUpdated || updated
 	}
 
 	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot, distroHandler)

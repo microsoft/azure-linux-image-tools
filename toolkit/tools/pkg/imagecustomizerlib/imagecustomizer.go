@@ -535,7 +535,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		im.verityMetadata = verityMetadata
 	}
 
-	if rc.Config.OS.Uki != nil {
+	if rc.Uki != nil {
 		err = createUki(ctx, rc.BuildDirAbs, rc.RawImageFile)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
@@ -617,10 +617,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
-			requestedSELinuxMode := imagecustomizerapi.SELinuxModeDefault
-			if rc.Config.OS != nil {
-				requestedSELinuxMode = rc.Config.OS.SELinux.Mode
-			}
+			requestedSELinuxMode := rc.SELinux.Mode
 			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, rc.BaseConfigPath, inputIsoArtifacts, requestedSELinuxMode,
 				rc.Config.Iso, rc.Config.Pxe, rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
 			if err != nil {

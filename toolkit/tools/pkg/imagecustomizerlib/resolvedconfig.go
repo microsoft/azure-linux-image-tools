@@ -45,6 +45,18 @@ type ResolvedConfig struct {
 	// Hostname
 	Hostname string
 
+	// SELinux
+	SELinux imagecustomizerapi.SELinux
+
+	// Bootloader
+	BootLoader imagecustomizerapi.BootLoader
+
+	// Kernel command line
+	KernelCommandLine imagecustomizerapi.KernelCommandLine
+
+	// UKI
+	Uki *imagecustomizerapi.Uki
+
 	// Hierarchical config chain
 	ConfigChain []*ConfigWithBasePath
 }

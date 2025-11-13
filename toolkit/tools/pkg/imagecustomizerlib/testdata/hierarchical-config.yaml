@@ -67,6 +67,8 @@ os:
     install:
     - systemd-boot
     - openssh-server
+    - selinux-policy
+    - selinux-policy-modules
     snapshotTime: 2025-10-28
 
   services:
@@ -78,6 +80,21 @@ os:
   modules:
   - name: vfio
     loadMode: disable
+
+  selinux:
+    mode: disabled
+
+  overlays:
+  - mountPoint: /etc
+    lowerDirs:
+    - /etc
+    upperDir: /var/overlays/etc/upper
+    workDir: /var/overlays/etc/work
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0
 
 input:
   image:

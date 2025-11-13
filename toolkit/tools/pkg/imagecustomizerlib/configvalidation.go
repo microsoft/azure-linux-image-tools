@@ -121,6 +121,10 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	rc.Hostname = resolveHostname(rc.ConfigChain)
+	rc.SELinux = resolveSeLinux(rc.ConfigChain)
+	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
+	rc.Uki = resolveUki(rc.ConfigChain)
+	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
 
 	err = validateScripts(baseConfigPath, &config.Scripts)
 	if err != nil {
@@ -567,4 +571,57 @@ func resolveHostname(configChain []*ConfigWithBasePath) string {
 	}
 
 	return ""
+}
+
+func resolveSeLinux(configChain []*ConfigWithBasePath) imagecustomizerapi.SELinux {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.SELinux.Mode != "" {
+			return configWithBase.Config.OS.SELinux
+		}
+	}
+	return imagecustomizerapi.SELinux{}
+}
+
+func resolveUki(configChain []*ConfigWithBasePath) *imagecustomizerapi.Uki {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Uki != nil {
+			return configWithBase.Config.OS.Uki
+		}
+	}
+	return nil
+}
+
+func resolveBootLoaderResetType(configChain []*ConfigWithBasePath) imagecustomizerapi.ResetBootLoaderType {
+	for _, cfg := range slices.Backward(configChain) {
+		if cfg.Config.OS == nil {
+			continue
+		}
+
+		switch cfg.Config.OS.BootLoader.ResetType {
+		case imagecustomizerapi.ResetBootLoaderTypeHard:
+			return imagecustomizerapi.ResetBootLoaderTypeHard
+		case "":
+			// skip unset, keep searching
+			continue
+		default:
+			continue
+		}
+	}
+	return ""
+}
+
+func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+	var mergedArgs []string
+
+	// Concatenate all kernel command line args
+	for _, configWithBase := range configChain {
+		if configWithBase.Config.OS != nil &&
+			len(configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine) > 0 {
+			mergedArgs = append(mergedArgs, configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine...)
+		}
+	}
+
+	return imagecustomizerapi.KernelCommandLine{
+		ExtraCommandLine: mergedArgs,
+	}
 }

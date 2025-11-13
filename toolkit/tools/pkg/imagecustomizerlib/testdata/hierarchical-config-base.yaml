@@ -45,3 +45,17 @@ os:
     loadMode: always
   - name: vfio
     loadMode: always
+
+  selinux:
+    mode: permissive
+
+  overlays:
+  - mountPoint: /var
+    lowerDirs:
+    - /var
+    upperDir: /mnt/overlays/var/upper
+    workDir: /mnt/overlays/var/work
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"

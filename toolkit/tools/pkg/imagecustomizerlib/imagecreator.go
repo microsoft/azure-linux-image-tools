@@ -104,7 +104,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = handleBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, true); err != nil {
+	if err = handleBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, true); err != nil {
 		return err
 	}
 
