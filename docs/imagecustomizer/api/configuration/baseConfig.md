@@ -49,7 +49,6 @@ or are processed sequentially.
 
   The option ordering, from strongest to weakest:
   - `"hard-reset"`
-  - `"regen"` (potential future API)
   - `""` (i.e. no reset)
 
 ## path [string]
