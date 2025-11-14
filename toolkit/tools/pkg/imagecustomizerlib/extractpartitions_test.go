@@ -404,3 +404,25 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	}
 	defer rootfsMount.Close()
 }
+
+// Ensure that Image Customizer doesn't fail if the user modifies the /etc/fstab in a postCustomization script.
+func TestCustomizeImageFstabDelete(t *testing.T) {
+	var err error
+
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageFstabDelete")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	configFile := filepath.Join(testDir, "fstab-delete.yaml")
+	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
+
+	// Customize image.
+	// Ensure there is no error even though the /etc/fstab file was deleted.
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+}

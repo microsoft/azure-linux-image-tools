@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"fmt"
 	"iter"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,6 +34,12 @@ var (
 	// Extract the partition number from the loopback partition path.
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
+
+type fstabEntryPartNum struct {
+	FstabEntry diskutils.FstabEntry
+	PartUuid   string
+	IsVerity   bool
+}
 
 func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {
 	// Look for all system boot partitions, including both EFI System Paritions (ESP) and BIOS boot partitions.
@@ -274,9 +279,9 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
 	return fstabEntries, nil
 }
 
-func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
-) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
+func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+	buildDir string, ignoreOverlays bool,
+) ([]fstabEntryPartNum, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
 	// Defer reading kernel cmdline until we know it is needed.
@@ -298,22 +303,53 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		return kernelCmdline, nil
 	}
 
-	// Convert fstab entries into mount points.
-	var mountPoints []*safechroot.MountPoint
-	var foundRoot bool
-	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
+	entries := []fstabEntryPartNum(nil)
 	verityMetadataList := []verityDeviceMetadata(nil)
-	readonlyPartUuids := []string(nil)
 	for _, fstabEntry := range filteredFstabEntries {
 		if ignoreOverlays && strings.ToLower(fstabEntry.FsType) == "overlay" {
 			continue // Skip overlay entries when requested
 		}
+
 		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, getKernelCmdline)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		}
 
-		readOnlyPartition := readOnlyVerity && verityMetadata != nil
+		entry := fstabEntryPartNum{
+			FstabEntry: fstabEntry,
+			PartUuid:   partition.PartUuid,
+			IsVerity:   verityMetadata != nil,
+		}
+
+		entries = append(entries, entry)
+
+		if verityMetadata != nil {
+			verityMetadataList = append(verityMetadataList, *verityMetadata)
+		}
+	}
+
+	return entries, verityMetadataList, nil
+}
+
+func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []diskutils.PartitionInfo,
+	readonly bool, readOnlyVerity bool,
+) ([]*safechroot.MountPoint, []string, error) {
+	// Convert fstab entries into mount points.
+	var mountPoints []*safechroot.MountPoint
+	var foundRoot bool
+	readonlyPartUuids := []string(nil)
+
+	for _, entry := range layout {
+		fstabEntry := entry.FstabEntry
+
+		partition, partitionFound := sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
+			return entry.PartUuid == partition.PartUuid
+		})
+		if !partitionFound {
+			return nil, nil, fmt.Errorf("failed to find partition (partuuid='%s')", entry.PartUuid)
+		}
+
+		readOnlyPartition := readOnlyVerity && entry.IsVerity
 		if readOnlyPartition {
 			readonlyPartUuids = append(readonlyPartUuids, partition.PartUuid)
 		}
@@ -344,17 +380,13 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
-		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
-		if verityMetadata != nil {
-			verityMetadataList = append(verityMetadataList, *verityMetadata)
-		}
 	}
 
 	if !foundRoot {
-		return nil, nil, nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
+		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
-	return mountPoints, partUuidToFstabEntry, verityMetadataList, readonlyPartUuids, nil
+	return mountPoints, readonlyPartUuids, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {
@@ -951,23 +983,24 @@ func getMostSpecificPath[K, V any](targetPath string, items iter.Seq2[K, V], pat
 }
 
 func getPartitionOfPath(targetPath string, diskPartitions []diskutils.PartitionInfo,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	partitionsLayout []fstabEntryPartNum,
 ) (diskutils.PartitionInfo, string, error) {
-	partUuid, relativePath, found := getMostSpecificPath(targetPath, maps.All(partUuidToFstabEntry),
-		func(entry diskutils.FstabEntry) string {
-			return entry.Target
+	index, relativePath, found := getMostSpecificPath(targetPath, slices.All(partitionsLayout),
+		func(entry fstabEntryPartNum) string {
+			return entry.FstabEntry.Target
 		})
 	if !found {
 		return diskutils.PartitionInfo{}, "", fmt.Errorf("failed to find fstab entry for path (path='%s')", targetPath)
 	}
 
+	entry := partitionsLayout[index]
 	partitionInfo, found := sliceutils.FindValueFunc(diskPartitions,
 		func(info diskutils.PartitionInfo) bool {
-			return info.PartUuid == partUuid
+			return info.PartUuid == entry.PartUuid
 		})
 	if !found {
 		return diskutils.PartitionInfo{}, "", fmt.Errorf("failed to partition for part UUID (partuuid='%s', path='%s)",
-			partUuid, targetPath)
+			entry.PartUuid, targetPath)
 	}
 
 	return partitionInfo, relativePath, nil

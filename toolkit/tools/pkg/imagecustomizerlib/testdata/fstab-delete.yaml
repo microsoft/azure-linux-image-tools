@@ -1,0 +1,22 @@
+previewFeatures:
+- output-artifacts
+
+os:
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Remove the fstab file.
+      # This will make the OS image unbootable. So, this isn't something that
+      # is really supported per se. But this is the easiest way to ensure that
+      # Image Customizer doesn't fail if the user makes changes to the fstab
+      # file.
+      rm -rf /etc/fstab
+
+output:
+  artifacts:
+    path: ./out/artifacts
+    items:
+    - shim
