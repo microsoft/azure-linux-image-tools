@@ -9,8 +9,11 @@ storage:
     - id: boot
       size: 100M
 
-    - id: rootfs
+    - id: root
       size: 2G
+
+    - id: roothash
+      size: 100M
 
   bootType: efi
 
@@ -26,10 +29,18 @@ storage:
     mountPoint:
       path: /boot
 
-  - deviceId: rootfs
+  - deviceId: verityroot
     type: ext4
     mountPoint:
       path: /
+      options: ro
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
 
 previewFeatures:
 - output-artifacts

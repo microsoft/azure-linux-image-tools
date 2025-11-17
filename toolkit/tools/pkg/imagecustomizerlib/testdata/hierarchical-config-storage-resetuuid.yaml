@@ -1,0 +1,12 @@
+previewFeatures:
+- base-configs
+
+storage:
+  resetPartitionsUuidsType: reset-all
+
+baseConfigs:
+  - path: hierarchical-config.yaml
+
+os:
+  bootloader:
+    resetType: hard-reset

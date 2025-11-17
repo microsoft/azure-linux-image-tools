@@ -530,10 +530,12 @@ func validateStorage(configChain []*ConfigWithBasePath) error {
 
 		if baseHasDisks {
 			if hasResetUUID {
-				return fmt.Errorf("invalid storage inheritance at layer %d: current config sets .storage.resetPartitionsUuidsType after a base config defined .storage.disks", i)
+				return fmt.Errorf(
+					"cannot specify 'resetPartitionsUuidsType' in config at layer %d when a base config specifies '.storage.disks'", i)
 			}
 			if hasReinitVerity {
-				return fmt.Errorf("invalid storage inheritance at layer %d: current config sets .storage.reinitializeVerity after a base config defined .storage.disks", i)
+				return fmt.Errorf(
+					"cannot specify 'reinitializeVerity' in config at layer %d when a base config specifies '.storage.disks'", i)
 			}
 		}
 

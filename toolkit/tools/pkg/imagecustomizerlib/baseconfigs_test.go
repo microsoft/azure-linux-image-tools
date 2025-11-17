@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func TestBaseConfigsInputAndOutput(t *testing.T) {
@@ -57,19 +58,40 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 }
 
 func TestBaseConfigsFullRun(t *testing.T) {
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	}
+
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun")
 	defer os.RemoveAll(testTmpDir)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
-	customizeImageOrSkip(t, buildDir, currentConfigFile, outImageFilePath)
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
+		outImageFilePath, "raw", true, "")
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	assert.FileExists(t, outImageFilePath)
 
 	mountPoints := []testutils.MountPoint{
 		{
 			PartitionNum:   3,
 			Path:           "/",
 			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
 		},
 		{
 			PartitionNum:   2,
@@ -221,40 +243,11 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotContains(t, grubCfgContents, "rd.info")
 	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
-}
-
-func TestStorageVerityOverride(t *testing.T) {
-	testTempDir := filepath.Join(tmpDir, "TestStorageVerityOverride")
-	defer os.RemoveAll(testTempDir)
-
-	buildDir := filepath.Join(testTempDir, "build")
-	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-verity.yaml")
-
-	baseImageInfo := customizeImageOrSkip(t, buildDir, currentConfigFile, outImageFilePath)
-
-	mountPoints := []testutils.MountPoint{
-		{
-			PartitionNum:   1,
-			Path:           "/boot/efi",
-			FileSystemType: "vfat",
-		},
-		{
-			PartitionNum:   2,
-			Path:           "/boot",
-			FileSystemType: "ext4",
-		},
-	}
-
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, mountPoints)
-	if !assert.NoError(t, err) {
-		return
-	}
-	defer imageConnection.Close()
 
 	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
 	assert.NoError(t, err, "get disk partitions")
 
+	// Verify verity
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
@@ -270,31 +263,60 @@ func TestStorageVerityOverride(t *testing.T) {
 		baseImageInfo,
 		"panic-on-corruption",
 	)
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
+
 }
 
-func customizeImageOrSkip(t *testing.T, buildDir, configFile, outImageFilePath string) testBaseImageInfo {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
-	if baseImageInfo.Version == baseImageVersionAzl2 {
-		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
+func TestStorageErrorDisksWithResetUUID(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestStorageErrorDisksWithResetUUID")
+	defer os.RemoveAll(testTempDir)
 
-	ukifyExists, err := file.CommandExists("ukify")
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-resetuuid.yaml")
+
+	var config imagecustomizerapi.Config
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
 	assert.NoError(t, err)
-	if !ukifyExists {
-		t.Skip("The 'ukify' command is not available")
+
+	baseConfigPath, _ := filepath.Split(currentConfigFile)
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	assert.NoError(t, err)
+
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
 	}
 
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	_, err = ValidateConfig(t.Context(), absBaseConfigPath, &config, false, options)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "cannot specify 'resetPartitionsUuidsType'")
+}
+
+func TestStorageErrorDisksWithReinitVerity(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestStorageErrorDisksWithReinitVerity")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-reinitverity.yaml")
+
+	var config imagecustomizerapi.Config
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	baseConfigPath, _ := filepath.Split(currentConfigFile)
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	assert.NoError(t, err)
+
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
 	}
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil,
-		outImageFilePath, "raw", true, "")
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
+	_, err = ValidateConfig(t.Context(), absBaseConfigPath, &config, false, options)
 
-	assert.FileExists(t, outImageFilePath)
-
-	return baseImageInfo
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "cannot specify 'reinitializeVerity'")
 }
