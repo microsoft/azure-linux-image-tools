@@ -6,6 +6,10 @@ storage:
   reinitializeVerity: all
 
 os:
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
   bootloader:
     resetType: hard-reset
 
