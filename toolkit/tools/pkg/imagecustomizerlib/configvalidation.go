@@ -120,8 +120,15 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	// Validate cross-config storage rules
+	err = validateStorage(rc.ConfigChain)
+	if err != nil {
+		return nil, fmt.Errorf("invalid storage inheritance:\n%w", err)
+	}
+
 	rc.Hostname = resolveHostname(rc.ConfigChain)
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
+	rc.Storage = resolveStorage(rc.ConfigChain)
 	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
@@ -511,6 +518,34 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 	return nil
 }
 
+func validateStorage(configChain []*ConfigWithBasePath) error {
+	var baseHasDisks bool
+
+	for i, configWithBase := range configChain {
+		storage := configWithBase.Config.Storage
+
+		hasDisks := len(storage.Disks) > 0
+		hasResetUUID := storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault
+		hasReinitVerity := storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault
+
+		if baseHasDisks {
+			if hasResetUUID {
+				return fmt.Errorf("invalid storage inheritance at layer %d: current config sets .storage.resetPartitionsUuidsType after a base config defined .storage.disks", i)
+			}
+			if hasReinitVerity {
+				return fmt.Errorf("invalid storage inheritance at layer %d: current config sets .storage.reinitializeVerity after a base config defined .storage.disks", i)
+			}
+		}
+
+		// For next iteration
+		if hasDisks {
+			baseHasDisks = true
+		}
+	}
+
+	return nil
+}
+
 func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizerapi.Artifacts {
 	var artifacts *imagecustomizerapi.Artifacts
 
@@ -624,4 +659,33 @@ func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizer
 	return imagecustomizerapi.KernelCommandLine{
 		ExtraCommandLine: mergedArgs,
 	}
+}
+
+func resolveStorage(configChain []*ConfigWithBasePath) imagecustomizerapi.Storage {
+	var resolvedStorage imagecustomizerapi.Storage
+
+	for _, configWithBase := range slices.Backward(configChain) {
+		storage := configWithBase.Config.Storage
+
+		// .storage.disks - override
+		if len(storage.Disks) > 0 {
+			resolvedStorage.Disks = storage.Disks
+			resolvedStorage.BootType = storage.BootType
+			resolvedStorage.FileSystems = storage.FileSystems
+			resolvedStorage.Verity = storage.Verity
+			return resolvedStorage
+		}
+
+		// .storage.resetPartitionsUuidsType - override
+		if storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
+			resolvedStorage.ResetPartitionsUuidsType = storage.ResetPartitionsUuidsType
+		}
+
+		// .storage.reinitializeVerity - override
+		if storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+			resolvedStorage.ReinitializeVerity = storage.ReinitializeVerity
+		}
+	}
+
+	return resolvedStorage
 }

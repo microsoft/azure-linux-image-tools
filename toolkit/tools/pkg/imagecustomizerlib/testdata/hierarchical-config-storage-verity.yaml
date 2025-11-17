@@ -1,0 +1,52 @@
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: boot
+      size: 1G
+
+    - id: root
+      size: 2G
+
+    - id: roothash
+      size: 100M
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
+
+previewFeatures:
+- base-configs
+
+baseConfigs:
+  - path: hierarchical-config-storage-verity-base.yaml
+
+os:
+  bootloader:
+    resetType: hard-reset

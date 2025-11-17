@@ -121,7 +121,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		overlayUpdated = overlayUpdated || updated
 	}
 
-	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot, distroHandler)
+	verityUpdated, err := enableVerityPartition(ctx, rc.Storage.Verity, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}
