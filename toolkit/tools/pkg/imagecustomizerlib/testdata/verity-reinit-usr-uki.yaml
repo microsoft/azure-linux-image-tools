@@ -6,8 +6,12 @@ storage:
   reinitializeVerity: all
 
 os:
+  bootloader:
+    resetType: hard-reset
+
   uki:
     kernels: auto
+    reinitialize: refresh
 
   additionalFiles:
   - content: |

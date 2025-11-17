@@ -36,6 +36,7 @@ var (
 	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
 	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
 	ErrVerityValidation               = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
+	ErrUkiReinitializeValidation      = NewImageCustomizerError("Validation:UkiReinitializeValidation", "UKI reinitialize validation failed")
 	ErrUnsupportedQemuImageFormat     = NewImageCustomizerError("Validation:UnsupportedQemuImageFormat", "unsupported qemu-img format")
 	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
 	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
@@ -701,6 +702,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		logger.Log.Infof("Base OS version: %s", version)
 		return nil
 	})
+
+	err = validateUkiReinitialize(imageConnection, rc.Config)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
 
 	err = validateVerityMountPaths(imageConnection, rc.Config, partitionsLayout, baseImageVerityMetadata)
 	if err != nil {
