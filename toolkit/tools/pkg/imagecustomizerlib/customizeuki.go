@@ -112,10 +112,11 @@ func validateUkiReinitialize(imageConnection *imageconnection.ImageConnection, c
 	return nil
 }
 
-func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot,
+func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine, imageChroot *safechroot.Chroot,
 	distroHandler distroHandler,
 ) error {
-	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, distroHandler)
+	err := prepareUkiHelper(ctx, buildDir, uki, kernelCommandLine, imageChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIPrepareOS, err)
 	}
@@ -123,7 +124,8 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 	return nil
 }
 
-func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot,
+func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine, imageChroot *safechroot.Chroot,
 	distroHandler distroHandler,
 ) error {
 	var err error
@@ -238,6 +240,12 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
 
+	// Prepare extra command line to append to all kernels
+	var extraCmdlineString string
+	if len(kernelCommandLine.ExtraCommandLine) > 0 {
+		extraCmdlineString = " " + GrubArgsToString(kernelCommandLine.ExtraCommandLine)
+	}
+
 	// Combine kernel-to-initramfs mapping and kernel command line arguments into a single structure.
 	kernelInfo := make(map[string]UkiKernelInfo)
 
@@ -263,6 +271,10 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
 			}
 		}
+
+		// Append extra command line arguments to the cmdline
+		cmdline += extraCmdlineString
+
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
 			Initramfs: initramfs,

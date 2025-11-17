@@ -18,9 +18,13 @@ func (u *Uki) IsValid() error {
 		return fmt.Errorf("invalid uki reinitialize:\n%w", err)
 	}
 
-	err = u.Kernels.IsValid()
-	if err != nil {
-		return fmt.Errorf("invalid uki kernels:\n%w", err)
+	// When reinitialize is passthrough, kernels is optional (we preserve existing UKIs).
+	// For refresh mode or when reinitialize is not set, kernels must be specified.
+	if u.Reinitialize != UkiReinitializePassthrough {
+		err = u.Kernels.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid uki kernels:\n%w", err)
+		}
 	}
 
 	return nil
