@@ -442,8 +442,14 @@ func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[str
 	return kernelToInitramfs, nil
 }
 
-func createUki(ctx context.Context, buildDir string, buildImageFile string) error {
+func createUki(ctx context.Context, buildDir string, buildImageFile string, uki *imagecustomizerapi.Uki) error {
 	logger.Log.Infof("Creating UKIs")
+
+	// If reinitialize mode is 'passthrough', skip UKI creation to preserve existing UKIs
+	if uki != nil && uki.Reinitialize == imagecustomizerapi.UkiReinitializePassthrough {
+		logger.Log.Infof("UKI reinitialize mode is 'passthrough', skipping UKI creation")
+		return nil
+	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki")
 	defer span.End()
