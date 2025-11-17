@@ -1,5 +1,6 @@
 previewFeatures:
 - reinitialize-verity
+- uki
 
 storage:
   reinitializeVerity: none
