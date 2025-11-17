@@ -4,7 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -354,6 +356,10 @@ func UpdateDefaultGrubFileVariable(defaultGrubFileContent string, varName string
 func isGrubMkconfigEnabled(imageChroot *safechroot.Chroot) (bool, error) {
 	grub2ConfigFile, err := ReadGrub2ConfigFile(imageChroot)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			// If grub.cfg doesn't exist (e.g., UKI-only image), grub-mkconfig is not enabled.
+			return false, nil
+		}
 		return false, err
 	}
 

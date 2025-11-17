@@ -5,6 +5,9 @@ storage:
   reinitializeVerity: none
 
 os:
+  uki:
+    reinitialize: passthrough
+
   additionalFiles:
   - content: |
       cat, dog, elephant, squirrel

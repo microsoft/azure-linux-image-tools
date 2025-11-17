@@ -19,8 +19,8 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -65,6 +65,53 @@ type UkiKernelInfo struct {
 	Initramfs string `json:"initramfs"`
 }
 
+func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	ukiFiles, err := getUkiFiles(espDir)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for UKI files:\n%w", err)
+	}
+	return len(ukiFiles) > 0, nil
+}
+
+// validateUkiReinitialize validates the UKI reinitialize mode against the base image state.
+// Rules:
+// - If base image has UKIs and reinitialize is unspecified (empty string), return an error
+// - If base image has UKIs and reinitialize is "passthrough", allow (preserve existing UKIs)
+// - If base image has UKIs and reinitialize is "refresh", allow (regenerate UKIs)
+// - If base image has no UKIs, no validation needed (config.OS.Uki can be nil or any value)
+func validateUkiReinitialize(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if err != nil {
+		return err
+	}
+
+	if !hasUkis {
+		// Base image doesn't have UKIs, no validation needed
+		return nil
+	}
+
+	// Base image has UKIs
+	if config.OS == nil || config.OS.Uki == nil {
+		return fmt.Errorf("base image contains UKI files but config does not specify os.uki field: " +
+			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.reinitialize " +
+			"with one of the following values:\n" +
+			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)\n" +
+			"  - 'refresh': extract and regenerate UKIs from scratch")
+	}
+
+	if config.OS.Uki.Reinitialize == imagecustomizerapi.UkiReinitializeUnspecified {
+		return fmt.Errorf("base image contains UKI files but os.uki.reinitialize is not specified: " +
+			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.reinitialize " +
+			"with one of the following values:\n" +
+			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)\n" +
+			"  - 'refresh': extract and regenerate UKIs from scratch")
+	}
+
+	logger.Log.Infof("Base image contains UKIs, reinitialize mode: %s", config.OS.Uki.Reinitialize)
+	return nil
+}
+
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot,
 	distroHandler distroHandler,
 ) error {
@@ -82,6 +129,12 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	var err error
 
 	if uki == nil {
+		return nil
+	}
+
+	// If reinitialize mode is 'passthrough', skip UKI regeneration to preserve existing UKIs
+	if uki.Reinitialize == imagecustomizerapi.UkiReinitializePassthrough {
+		logger.Log.Infof("UKI reinitialize mode is 'passthrough', skipping UKI regeneration")
 		return nil
 	}
 
@@ -187,10 +240,28 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	// Combine kernel-to-initramfs mapping and kernel command line arguments into a single structure.
 	kernelInfo := make(map[string]UkiKernelInfo)
+
+	// For reinitialize mode, when a new kernel is installed that doesn't match the old UKI files,
+	// we need to reuse an existing cmdline as a template. Get any available cmdline for this purpose.
+	var templateCmdline string
+	if len(kernelToArgs) > 0 {
+		for _, cmdline := range kernelToArgs {
+			templateCmdline = cmdline
+			break
+		}
+	}
+
 	for kernel, initramfs := range kernelToInitramfs {
 		cmdline, exists := kernelToArgs[kernel]
 		if !exists {
-			return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+			// If we're in UKI-only mode (no grub.cfg) and have a template cmdline,
+			// reuse it for the new kernel. Otherwise, fail.
+			if templateCmdline != "" {
+				logger.Log.Debugf("Using template cmdline for new kernel (%s)", kernel)
+				cmdline = templateCmdline
+			} else {
+				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+			}
 		}
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
@@ -642,46 +713,32 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	return kernelName, nil
 }
 
-func ensureGrubCfgForUki(imageChroot *safechroot.Chroot) error {
-	grubCfgPath := filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
-	defaultGrubPath := filepath.Join(imageChroot.RootDir(), installutils.GrubDefFile)
-
-	grubCfgExists, err := file.PathExists(grubCfgPath)
+func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, outputPath string, buildDir string) error {
+	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
 	if err != nil {
-		return fmt.Errorf("failed to check if grub.cfg exists:\n%w", err)
+		return fmt.Errorf("failed to create temp UKI copy:\n%w", err)
 	}
+	defer os.Remove(tempCopy.Name())
+	tempCopy.Close()
 
-	defaultGrubExists, err := file.PathExists(defaultGrubPath)
+	input, err := os.ReadFile(ukiPath)
 	if err != nil {
-		return fmt.Errorf("failed to check if /etc/default/grub exists:\n%w", err)
+		return fmt.Errorf("failed to read UKI file:\n%w", err)
+	}
+	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
+		return fmt.Errorf("failed to write temp UKI file:\n%w", err)
 	}
 
-	if grubCfgExists {
-		logger.Log.Debugf("grub.cfg already exists at (%s)", grubCfgPath)
-		return nil
-	}
-
-	if !defaultGrubExists {
-		logger.Log.Debugf("/etc/default/grub doesn't exist, will extract cmdline from existing UKIs")
-		return nil
-	}
-
-	grubDir := filepath.Join(imageChroot.RootDir(), "boot", "grub2")
-	err = os.MkdirAll(grubDir, 0755)
+	// Extract the section using objcopy on the temp copy
+	_, _, err = shell.Execute("objcopy", "--dump-section", sectionName+"="+outputPath, tempCopy.Name())
 	if err != nil {
-		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
-	}
-
-	logger.Log.Infof("Generating grub.cfg for UKI cmdline extraction using grub2-mkconfig")
-	err = installutils.CallGrubMkconfig(imageChroot)
-	if err != nil {
-		return fmt.Errorf("failed to generate grub.cfg with grub2-mkconfig:\n%w", err)
+		return fmt.Errorf("objcopy failed to extract section %s:\n%w", sectionName, err)
 	}
 
 	return nil
 }
 
-func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot) error {
+func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
 	logger.Log.Infof("Extracting kernel and initramfs from existing UKIs for re-customization")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "extract_kernel_initramfs_from_ukis")
@@ -700,6 +757,13 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
 
+	tempDir := filepath.Join(buildDir, "uki-extraction-temp")
+	err = os.MkdirAll(tempDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("%w: failed to create temp directory:\n%w", ErrUKIExtractComponents, err)
+	}
+	defer os.RemoveAll(tempDir)
+
 	for _, ukiFile := range ukiFiles {
 		kernelName, err := getKernelNameFromUki(ukiFile)
 		if err != nil {
@@ -713,7 +777,7 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 
 		kernelPath := filepath.Join(bootDir, kernelName)
 		logger.Log.Infof("Extracting kernel from UKI (%s) to (%s)", ukiFile, kernelPath)
-		_, _, err = shell.Execute("objcopy", "-O", "binary", "-j", ".linux", ukiFile, kernelPath)
+		err = extractSectionFromUkiWithObjcopy(ukiFile, ".linux", kernelPath, tempDir)
 		if err != nil {
 			return fmt.Errorf("%w: failed to extract kernel from UKI (%s):\n%w", ErrUKIExtractComponents, ukiFile, err)
 		}
@@ -721,7 +785,7 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 		initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
 		initramfsPath := filepath.Join(bootDir, initramfsName)
 		logger.Log.Infof("Extracting initramfs from UKI (%s) to (%s)", ukiFile, initramfsPath)
-		_, _, err = shell.Execute("objcopy", "-O", "binary", "-j", ".initrd", ukiFile, initramfsPath)
+		err = extractSectionFromUkiWithObjcopy(ukiFile, ".initrd", initramfsPath, tempDir)
 		if err != nil {
 			return fmt.Errorf("%w: failed to extract initramfs from UKI (%s):\n%w", ErrUKIExtractComponents, ukiFile, err)
 		}

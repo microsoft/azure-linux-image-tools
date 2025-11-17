@@ -4,10 +4,16 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
@@ -29,12 +35,12 @@ type BootCustomizer struct {
 
 func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer, error) {
 	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot)
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 
 	defaultGrubFileContent, err := readDefaultGrubFile(imageChroot)
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
 
@@ -88,6 +94,11 @@ func (b *BootCustomizer) getSELinuxModeFromGrub() (imagecustomizerapi.SELinuxMod
 
 	// Get the SELinux kernel command-line args.
 	if b.isGrubMkconfig {
+		// If grub config file is missing, indicate that with fs.ErrNotExist.
+		if b.defaultGrubFileContent == "" {
+			return imagecustomizerapi.SELinuxModeDefault, fs.ErrNotExist
+		}
+
 		// Check both GRUB_CMDLINE_LINUX and GRUB_CMDLINE_LINUX_DEFAULT variables
 		// and merge arguments from both if they exist
 		args, err = GetDefaultGrubFileLinuxArgsFromMultipleVars(b.defaultGrubFileContent)
@@ -95,6 +106,11 @@ func (b *BootCustomizer) getSELinuxModeFromGrub() (imagecustomizerapi.SELinuxMod
 			return "", fmt.Errorf("failed to find SELinux args in grub file (%s):\n%w", installutils.GrubDefFile, err)
 		}
 	} else {
+		// Same here, if grub config file is missing, indicate that with fs.ErrNotExist.
+		if b.grubCfgContent == "" {
+			return imagecustomizerapi.SELinuxModeDefault, fs.ErrNotExist
+		}
+
 		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault,
@@ -114,16 +130,73 @@ func (b *BootCustomizer) getSELinuxModeFromGrub() (imagecustomizerapi.SELinuxMod
 func (b *BootCustomizer) GetSELinuxMode(imageChroot safechroot.ChrootInterface) (imagecustomizerapi.SELinuxMode, error) {
 	// Get the SELinux mode from the kernel command-line args.
 	selinuxMode, err := b.getSELinuxModeFromGrub()
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return imagecustomizerapi.SELinuxModeDefault, err
+	} else if !errors.Is(err, fs.ErrNotExist) && selinuxMode != imagecustomizerapi.SELinuxModeDefault {
+		return selinuxMode, nil
+	}
+
+	// Fallback to extracting from UKI if grub.cfg doesn't exist or returns default.
+	selinuxMode, err = b.getSELinuxModeFromUki(imageChroot)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to extract SELinux mode from UKI:\n%w", err)
+	} else if !errors.Is(err, fs.ErrNotExist) && selinuxMode != imagecustomizerapi.SELinuxModeDefault {
+		return selinuxMode, nil
+	}
+
+	// Final fallback: Get the SELinux mode from the /etc/selinux/config file.
+	selinuxMode, err = getSELinuxModeFromConfigFile(imageChroot)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
 
-	if selinuxMode == imagecustomizerapi.SELinuxModeDefault {
-		// Get the SELinux mode from the /etc/selinux/config file.
-		selinuxMode, err = getSELinuxModeFromConfigFile(imageChroot)
-		if err != nil {
-			return imagecustomizerapi.SELinuxModeDefault, err
-		}
+	return selinuxMode, nil
+}
+
+// Extract SELinux mode from UKI kernel command-line arguments.
+func (b *BootCustomizer) getSELinuxModeFromUki(imageChroot safechroot.ChrootInterface) (imagecustomizerapi.SELinuxMode, error) {
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	buildDir := filepath.Join(filepath.Dir(imageChroot.RootDir()), "uki-selinux-temp")
+
+	err := os.MkdirAll(buildDir, 0o755)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(buildDir)
+
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, err
+	}
+
+	if len(kernelToArgs) == 0 {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("no UKI files found")
+	}
+
+	// Use the first kernel's cmdline since they should all have the same SELinux settings.
+	var firstCmdline string
+	for _, cmdline := range kernelToArgs {
+		firstCmdline = cmdline
+		break
+	}
+
+	logger.Log.Debugf("Extracting SELinux mode from UKI cmdline: %s", firstCmdline)
+
+	// Parse the cmdline string into grub tokens, then into args
+	tokens, err := grub.TokenizeConfig(firstCmdline)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to tokenize cmdline from UKI: %w", err)
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to parse cmdline args from UKI: %w", err)
+	}
+
+	// Extract SELinux mode from the parsed arguments
+	selinuxMode, err := getSELinuxModeFromLinuxArgs(args)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, err
 	}
 
 	return selinuxMode, nil

@@ -10,6 +10,7 @@ os:
     resetType: hard-reset
   uki:
     kernels: auto
+    reinitialize: refresh
   additionalFiles:
   - content: |
       cat, dog, elephant, squirrel

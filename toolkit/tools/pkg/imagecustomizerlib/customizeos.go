@@ -30,15 +30,10 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	// If UKI is enabled, extract kernel and initramfs from existing UKIs for re-customization.
-	if rc.Config.OS.Uki != nil {
-		err = extractKernelAndInitramfsFromUkis(ctx, imageChroot)
-		if err != nil {
-			return err
-		}
-
-		// Ensures grub.cfg exists for dependency code that needs it (SELinux, bootloader checks, etc.)
-		err = ensureGrubCfgForUki(imageChroot)
+	// If UKI reinitialize is 'refresh', extract kernel and initramfs from existing UKIs for re-customization.
+	// For 'passthrough' mode, we skip extraction to preserve existing UKIs.
+	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Reinitialize == imagecustomizerapi.UkiReinitializeRefresh {
+		err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
 		if err != nil {
 			return err
 		}

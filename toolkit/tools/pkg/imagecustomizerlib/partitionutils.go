@@ -701,32 +701,27 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
 	// Create a temporary copy of UKI files to avoid modifying the original file,
 	// since objcopy might tamper with signatures or hashes.
-	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
+	tempDir := filepath.Join(buildDir, "uki-cmdline-extraction-temp")
+	err := os.MkdirAll(tempDir, 0o755)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp UKI copy:\n%w", err)
+		return "", fmt.Errorf("failed to create temp directory:\n%w", err)
 	}
-	defer os.Remove(tempCopy.Name())
+	defer os.RemoveAll(tempDir)
 
-	input, err := os.ReadFile(originalPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read UKI file:\n%w", err)
-	}
-	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
-		return "", fmt.Errorf("failed to write temp UKI file:\n%w", err)
-	}
-
-	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
+	// Create temp file for cmdline output
+	cmdlinePath, err := os.CreateTemp(tempDir, "cmdline-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)
 	}
 	cmdlinePath.Close()
-	defer os.Remove(cmdlinePath.Name())
 
-	_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath.Name(), tempCopy.Name())
+	// Extract .cmdline section using the common helper function
+	err = extractSectionFromUkiWithObjcopy(originalPath, ".cmdline", cmdlinePath.Name(), tempDir)
 	if err != nil {
-		return "", fmt.Errorf("objcopy failed:\n%w", err)
+		return "", fmt.Errorf("failed to extract cmdline section:\n%w", err)
 	}
 
+	// Read the extracted cmdline content
 	content, err := os.ReadFile(cmdlinePath.Name())
 	if err != nil {
 		return "", fmt.Errorf("failed to read kernel cmdline args from dumped file (%s):\n%w", cmdlinePath.Name(), err)
