@@ -144,7 +144,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, imageChroot, distroHandler)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, rc.Config.OS.KernelCommandLine, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}

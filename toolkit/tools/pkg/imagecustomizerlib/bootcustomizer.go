@@ -170,7 +170,7 @@ func (b *BootCustomizer) getSELinuxModeFromUki(imageChroot safechroot.ChrootInte
 	}
 
 	if len(kernelToArgs) == 0 {
-		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("no UKI files found")
+		return imagecustomizerapi.SELinuxModeDefault, fs.ErrNotExist
 	}
 
 	// Use the first kernel's cmdline since they should all have the same SELinux settings.
