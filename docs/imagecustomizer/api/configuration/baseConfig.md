@@ -51,6 +51,29 @@ or are processed sequentially.
   - `"hard-reset"`
   - `""` (i.e. no reset)
 
+**Storage Override Fields:**
+
+Current value (if specified) fully overrides base's value
+- `.storage.disks`
+- `.storage.verity`
+- `.storage.bootType`
+- `.storage.filesystems`
+
+**Storage configuration also follows specific rules based on field combinations:**
+
+| Base\Current | None | `.storage.disks` | `.storage.resetPartitionsUuidsType` | `.storage.reinitializeVerity` |
+|--------------|------|------------------|-------------------------------------|------------------------------|
+| **None** | None | Current's `.storage.disks` | Current's `.storage.resetPartitionsUuidsType` | Current's `.storage.reinitializeVerity` |
+| **`.storage.disks`** | Base's `.storage.disks` | Current's `.storage.disks` | Error¹ | Error² |
+| **`.resetPartitionsUuidsType`** | Base's `.storage.resetPartitionsUuidsType` | Current's `.storage.disks` | Current's `.storage.resetPartitionsUuidsType` | Base's reset + Current's reinit³ |
+| **`.storage.reinitializeVerity`** | Base's `.storage.reinitializeVerity` | Current's `.storage.disks` | Base's reinit + Current's reset³ | Current's `.storage.reinitializeVerity` |
+
+¹ The current config requesting the partition UUIDs to be reset when the base config customized the partition table is somewhat pointless. Hence we error out.
+
+² Cannot reinitialize verity when base config destroys original verity setup with partition layout changes.
+
+³ Base's `.resetPartitionsUuidsType` and current's `.reinitializeVerity` are compatible and both are preserved together since UUID reset updates partition identifiers while verity reinit updates verity mapping to use new identifiers and rebuilds hash trees.
+
 ## path [string]
 
 Required.

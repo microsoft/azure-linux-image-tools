@@ -48,6 +48,9 @@ type ResolvedConfig struct {
 	// SELinux
 	SELinux imagecustomizerapi.SELinux
 
+	// Storage
+	Storage imagecustomizerapi.Storage
+
 	// Bootloader
 	BootLoader imagecustomizerapi.BootLoader
 

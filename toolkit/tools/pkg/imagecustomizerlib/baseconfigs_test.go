@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func TestBaseConfigsInputAndOutput(t *testing.T) {
@@ -74,10 +75,8 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun")
 	defer os.RemoveAll(testTmpDir)
-
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
@@ -85,7 +84,6 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-
 	assert.FileExists(t, outImageFilePath)
 
 	mountPoints := []testutils.MountPoint{
@@ -93,6 +91,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 			PartitionNum:   3,
 			Path:           "/",
 			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
 		},
 		{
 			PartitionNum:   2,
@@ -244,4 +243,79 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotContains(t, grubCfgContents, "rd.info")
 	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify partitions
+	assert.Len(t, partitions, 4)
+	assert.Equal(t, "esp", partitions[1].PartLabel)
+	assert.Equal(t, "", partitions[2].PartLabel)
+	assert.Equal(t, "", partitions[3].PartLabel)
+	assert.Equal(t, "", partitions[4].PartLabel)
+
+	// Verify verity
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
+	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
+
+	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid, "root", "console=tty0", baseImageInfo, "panic-on-corruption",
+	)
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+}
+
+func TestValidateDisksThenResetUUID(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestValidateDisksThenResetUUID")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-resetuuid.yaml")
+
+	var config imagecustomizerapi.Config
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	baseConfigPath, _ := filepath.Split(currentConfigFile)
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	assert.NoError(t, err)
+
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
+	}
+
+	_, err = ValidateConfig(t.Context(), absBaseConfigPath, &config, false, options)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "cannot specify 'resetPartitionsUuidsType'")
+}
+
+func TestValidateDisksThenReinitVerity(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestValidateDisksThenReinitVerity")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-reinitverity.yaml")
+
+	var config imagecustomizerapi.Config
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	baseConfigPath, _ := filepath.Split(currentConfigFile)
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	assert.NoError(t, err)
+
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
+	}
+
+	_, err = ValidateConfig(t.Context(), absBaseConfigPath, &config, false, options)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "cannot specify 'reinitializeVerity'")
 }
