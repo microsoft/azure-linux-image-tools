@@ -82,7 +82,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
 		outImageFilePath, "raw", true, "")
 	if !assert.NoError(t, err) {
-		t.FailNow()
+		return
 	}
 	assert.FileExists(t, outImageFilePath)
 
@@ -247,6 +247,13 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
 	assert.NoError(t, err, "get disk partitions")
 
+	// Verify partitions
+	assert.Len(t, partitions, 4)
+	assert.Equal(t, "esp", partitions[1].PartLabel)
+	assert.Equal(t, "", partitions[2].PartLabel)
+	assert.Equal(t, "", partitions[3].PartLabel)
+	assert.Equal(t, "", partitions[4].PartLabel)
+
 	// Verify verity
 	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
@@ -259,7 +266,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 		"PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid,
 		"root",
-		"rd.info",
+		"console=tty0",
 		baseImageInfo,
 		"panic-on-corruption",
 	)
@@ -271,8 +278,8 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 }
 
-func TestStorageErrorDisksWithResetUUID(t *testing.T) {
-	testTempDir := filepath.Join(tmpDir, "TestStorageErrorDisksWithResetUUID")
+func TestValidateDisksThenResetUUID(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestValidateDisksThenResetUUID")
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -296,8 +303,8 @@ func TestStorageErrorDisksWithResetUUID(t *testing.T) {
 	assert.ErrorContains(t, err, "cannot specify 'resetPartitionsUuidsType'")
 }
 
-func TestStorageErrorDisksWithReinitVerity(t *testing.T) {
-	testTempDir := filepath.Join(tmpDir, "TestStorageErrorDisksWithReinitVerity")
+func TestValidateDisksThenReinitVerity(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestValidateDisksThenReinitVerity")
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
