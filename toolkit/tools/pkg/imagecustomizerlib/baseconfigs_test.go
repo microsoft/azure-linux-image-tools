@@ -259,16 +259,8 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
 
-	verifyVerityGrub(t,
-		bootPath,
-		rootDevice,
-		hashDevice,
-		"PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid,
-		"root",
-		"console=tty0",
-		baseImageInfo,
-		"panic-on-corruption",
+	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid, "root", "console=tty0", baseImageInfo, "panic-on-corruption",
 	)
 
 	err = imageConnection.CleanClose()

@@ -669,8 +669,8 @@ func resolveStorage(configChain []*ConfigWithBasePath) imagecustomizerapi.Storag
 	for _, configWithBase := range slices.Backward(configChain) {
 		storage := configWithBase.Config.Storage
 
-		// .storage.disks - override
 		if len(storage.Disks) > 0 {
+			// Override
 			resolvedStorage.Disks = storage.Disks
 			resolvedStorage.BootType = storage.BootType
 			resolvedStorage.FileSystems = storage.FileSystems
