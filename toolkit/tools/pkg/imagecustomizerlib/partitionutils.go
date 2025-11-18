@@ -776,6 +776,7 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
+		bootPartitionMount.Close() // Ensure cleanup on error
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
