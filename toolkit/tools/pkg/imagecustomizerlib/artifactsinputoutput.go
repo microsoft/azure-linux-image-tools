@@ -23,7 +23,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"golang.org/x/sys/unix"
 )
@@ -330,14 +329,6 @@ func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, in
 	err = injectFilesIntoImage(buildDir, baseConfigPath, rawImageFile, metadata)
 	if err != nil {
 		return err
-	}
-
-	// Ensure all filesystem changes are flushed to disk before reopening the image.
-	// This prevents e2fsck errors when the image is reopened with a new loopback device.
-	logger.Log.Debugf("Syncing filesystem changes to disk")
-	_, _, err = shell.Execute("sync")
-	if err != nil {
-		return fmt.Errorf("failed to sync filesystem:\n%w", err)
 	}
 
 	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile)
