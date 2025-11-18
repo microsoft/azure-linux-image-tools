@@ -48,7 +48,9 @@ func readSelinuxType(chrootDir string) (string, error) {
 	return selinuxType, nil
 }
 
-func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string, buildImage string) error {
+func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string, buildImage string,
+	partitionsLayout []fstabEntryPartNum,
+) error {
 	logger.Log.Infof("Extracting SELinux policy from image")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "output_selinux_policy")
@@ -61,8 +63,8 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 
 	// Connect to the image with read-only mounts.
 	// Use connectToExistingImage which automatically mounts all partitions based on fstab.
-	imageConnection, _, _, _, err := connectToExistingImage(ctx, buildImage, buildDir, "selinux-extract",
-		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, true /*ignoreOverlays*/)
+	imageConnection, _, err := reconnectToExistingImage(ctx, buildImage, buildDir, "selinux-extract",
+		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrSelinuxPolicyImageConnection, err)
 	}

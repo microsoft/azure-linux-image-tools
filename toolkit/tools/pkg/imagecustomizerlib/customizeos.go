@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 )
 
@@ -17,7 +16,7 @@ const (
 )
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsCustomized bool, partUuidToFstabEntry map[string]diskutils.FstabEntry, distroHandler distroHandler,
+	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler distroHandler,
 ) error {
 	var err error
 
@@ -102,7 +101,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, false)
+	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false)
 	if err != nil {
 		return err
 	}
