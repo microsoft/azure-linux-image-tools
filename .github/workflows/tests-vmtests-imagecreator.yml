@@ -136,7 +136,7 @@ jobs:
           IMAGE_CUSTOMIZER_BINARY_PATH="../../toolkit/out/tools/imagecustomizer" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
       with:
         name: tests-results-vmtests-imagecreator-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
