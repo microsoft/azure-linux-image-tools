@@ -68,15 +68,6 @@ func (c *Config) IsValid() (err error) {
 			if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureUki) {
 				return fmt.Errorf("the 'uki' preview feature must be enabled to use 'os.uki'")
 			}
-
-			// Temporary limitation: We currently require 'os.bootloader.reset' to be 'hard-reset' when 'os.uki' is enabled.
-			// In the future, as we design and develop the bootloader further, this hard-reset limitation may be lifted.
-			// Exception: When reinitialize is 'passthrough', we're preserving existing UKIs without bootloader changes.
-			if c.OS.Uki.Reinitialize != UkiReinitializePassthrough && c.OS.BootLoader.ResetType != ResetBootLoaderTypeHard {
-				return fmt.Errorf(
-					"'os.bootloader.reset' must be '%s' when 'os.uki' is enabled", ResetBootLoaderTypeHard,
-				)
-			}
 		}
 
 		if c.OS.Packages.SnapshotTime != "" && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageSnapshotTime) {

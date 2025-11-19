@@ -639,21 +639,9 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 		return nil, err
 	}
 
-	// Assumes only one UKI is needed, uses the first entry in the map.
-	var firstCmdline string
-	for _, cmdline := range kernelToArgs {
-		firstCmdline = cmdline
-		break
-	}
-
-	tokens, err := grub.TokenizeConfig(firstCmdline)
+	args, err := parseFirstCmdlineFromUkiMap(kernelToArgs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI:\n%w", err)
-	}
-
-	args, err := ParseCommandLineArgs(tokens)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse kernel command-line from UKI:\n%w", err)
+		return nil, err
 	}
 
 	err = espPartitionMount.CleanClose()
@@ -672,6 +660,33 @@ func getUkiFiles(espPath string) ([]string, error) {
 	}
 
 	return ukiFiles, nil
+}
+
+// parseFirstCmdlineFromUkiMap extracts the first cmdline from a kernel->cmdline map,
+// tokenizes it, and parses it into grub command-line arguments.
+func parseFirstCmdlineFromUkiMap(kernelToArgs map[string]string) ([]grubConfigLinuxArg, error) {
+	if len(kernelToArgs) == 0 {
+		return nil, fmt.Errorf("no UKI kernel command-lines found")
+	}
+
+	// Use the first kernel's cmdline since they should all have the same settings.
+	var firstCmdline string
+	for _, cmdline := range kernelToArgs {
+		firstCmdline = cmdline
+		break
+	}
+
+	tokens, err := grub.TokenizeConfig(firstCmdline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize kernel command-line from UKI:\n%w", err)
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse kernel command-line from UKI:\n%w", err)
+	}
+
+	return args, nil
 }
 
 func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[string]string, error) {
@@ -744,7 +759,7 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
-		bootPartitionMount.Close() // Ensure cleanup on error
+		_ = bootPartitionMount.CleanClose() // Synchronous cleanup on error
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 

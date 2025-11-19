@@ -111,12 +111,12 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, false)
+	err = handleBootLoader(ctx, rc.BuildDirAbs, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry, false)
 	if err != nil {
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.Config.OS.SELinux.Mode, rc.Config.OS.BootLoader.ResetType,
+	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.Config.OS.SELinux.Mode, rc.Config.OS.BootLoader.ResetType,
 		imageChroot)
 	if err != nil {
 		return err
