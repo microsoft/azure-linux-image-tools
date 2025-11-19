@@ -1092,7 +1092,7 @@ func TestCustomizeImageBaseImageInvalid(t *testing.T) {
 
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath,
 		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	assert.ErrorContains(t, err, "failed to open image file:")
+	assert.ErrorContains(t, err, "failed to connect to OS image file:")
 	assert.ErrorContains(t, err, "image does not contain a partition table")
 }
 
