@@ -110,12 +110,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false)
+	err = handleBootLoader(ctx, rc.BuildDirAbs, rc.BaseConfigPath, rc.Config, imageConnection, partitionsLayout, false)
 	if err != nil {
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.SELinux.Mode, rc.BootLoader.ResetType, imageChroot)
+	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.SELinux.Mode, rc.BootLoader.ResetType,
+		imageChroot)
 	if err != nil {
 		return err
 	}

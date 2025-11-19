@@ -30,12 +30,12 @@ var (
 	ErrBootloaderUnsupportedRootMountId = NewImageCustomizerError("Bootloader:UnsupportedRootMountId", "unsupported root mount identifier")
 )
 
-func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
+func handleBootLoader(ctx context.Context, buildDir string, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsLayout []fstabEntryPartNum, newImage bool,
 ) error {
 	switch {
 	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partitionsLayout,
+		err := hardResetBootLoader(ctx, buildDir, rc.BaseConfigPath, rc.Config, imageConnection, partitionsLayout,
 			newImage, rc.SELinux)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
@@ -52,7 +52,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 	return nil
 }
 
-func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
+func hardResetBootLoader(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
 	partitionsLayout []fstabEntryPartNum, newImage bool, selinuxConfig imagecustomizerapi.SELinux,
 ) error {
 	var err error
@@ -70,7 +70,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 			return err
 		}
 
-		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(imageConnection.Chroot())
+		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(buildDir, imageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderSelinuxModeGet, err)
 		}

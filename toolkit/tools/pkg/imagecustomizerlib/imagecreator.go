@@ -103,7 +103,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, true); err != nil {
+	if err = handleBootLoader(ctx, rc.BuildDirAbs, rc.BaseConfigPath, rc.Config, imageConnection, partitionsLayout, true); err != nil {
 		return err
 	}
 
