@@ -238,10 +238,6 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	}
 	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
 
-	// Verify kernel commandline
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err)
-	assert.NotContains(t, grubCfgContents, "rd.info")
-	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
+	// Verify kernel commandline (will check UKI if grub.cfg doesn't exist)
+	verifyKernelCommandLine(t, imageConnection, []string{"console=tty0", "console=ttyS0"}, []string{"rd.info"})
 }

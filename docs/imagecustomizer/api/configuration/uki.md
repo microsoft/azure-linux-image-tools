@@ -69,3 +69,91 @@ os:
 ```
 
 Added in v0.8.
+
+## reinitialize [string]
+
+Controls the behavior when customizing an image that already contains UKI files.
+
+optional.
+
+This field is relevant when customizing an existing image that already has UKI
+files in the `/boot/efi/EFI/Linux` directory. It determines whether to preserve
+the existing UKI files or regenerate them during the customization process.
+
+Supported options:
+
+- (unspecified): When `reinitialize` is not specified, the tool generates new
+  UKI files based on the kernel and initramfs files present in the image. The
+  `kernels` field must be specified to indicate which kernels to build UKIs for.
+  This is the default behavior for first-time UKI creation. Will show error when
+  detecting UKI from the base image.
+
+- `passthrough`: Preserve existing UKI files without modification. The kernel,
+  initramfs, and command-line arguments embedded in the existing UKIs are left
+  unchanged. When this option is specified, the `kernels` field must not be
+  specified.
+
+- `refresh`: Extract the kernel and initramfs from existing UKI files, then
+  regenerate new UKI files with updated configurations. The `kernels` field
+  must be specified to indicate which kernels to build UKIs for.
+
+Example (passthrough mode):
+
+```yaml
+# Customize an existing UKI image without regenerating UKI files.
+# This preserves the existing kernel, initramfs, and cmdline in the UKI.
+os:
+  uki:
+    reinitialize: passthrough
+  
+  # You can still perform OS customizations:
+  packages:
+    install:
+      - nginx
+      - vim
+  
+  additionalFiles:
+    - path: /etc/app-config.txt
+      content: |
+        Application configuration
+
+previewFeatures:
+  - uki
+```
+
+Example (refresh mode with verity):
+
+```yaml
+# Recustomize an existing UKI+verity image with updated verity hashes.
+# Extracts kernel/initramfs from existing UKIs and rebuilds them with
+# updated kernel command-line arguments (including new verity hashes).
+storage:
+  reinitializeVerity: all
+
+os:
+  bootloader:
+    resetType: hard-reset
+  
+  uki:
+    kernels: auto
+    reinitialize: refresh
+  
+  kernelCommandLine:
+    extraCommandLine:
+      - rd.info
+  
+  packages:
+    install:
+      - openssh-server
+  
+  additionalFiles:
+    - path: /etc/uki-recustomization.txt
+      content: |
+        UKI recustomization with verity refresh
+
+previewFeatures:
+  - uki
+  - reinitialize-verity
+```
+
+Added in v1.0.1
