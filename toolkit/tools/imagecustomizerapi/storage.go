@@ -256,10 +256,6 @@ func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Ve
 	return nil
 }
 
-func (s *Storage) CustomizePartitions() bool {
-	return len(s.Disks) > 0
-}
-
 func (s *Storage) buildDeviceMap() (map[string]any, map[string]int, error) {
 	deviceMap := make(map[string]any)
 	partitionLabelCounts := make(map[string]int)

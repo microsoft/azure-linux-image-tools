@@ -78,10 +78,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
-		config.OS != nil ||
-		len(config.Scripts.PostCustomization) > 0 ||
-		len(config.Scripts.FinalizeCustomization) > 0
+	rc.CustomizeOSPartitions = false
+
+	for _, configWithBase := range rc.ConfigChain {
+		if len(configWithBase.Config.Storage.Disks) > 0 ||
+			configWithBase.Config.OS != nil ||
+			len(configWithBase.Config.Scripts.PostCustomization) > 0 ||
+			len(configWithBase.Config.Scripts.FinalizeCustomization) > 0 {
+			rc.CustomizeOSPartitions = true
+			break
+		}
+	}
 
 	// Create a UUID for the image.
 	rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
@@ -510,7 +517,7 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 		// While defining a storage configuration can work when the input image is
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
-		if rc.Config.CustomizePartitions() {
+		if len(rc.Storage.Disks) > 0 {
 			return ErrCannotCustomizePartitionsOnIso
 		}
 	}
@@ -686,6 +693,30 @@ func resolveStorage(configChain []*ConfigWithBasePath) imagecustomizerapi.Storag
 		// .storage.reinitializeVerity - override
 		if storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
 			resolvedStorage.ReinitializeVerity = storage.ReinitializeVerity
+		}
+
+		// Recalculate VerityPartitionsType based on resolved storage
+		verityUsesConfigPartitions := false
+		verityUsesExistingPartitions := false
+
+		for _, verity := range resolvedStorage.Verity {
+			if verity.DataDeviceId != "" || verity.HashDeviceId != "" {
+				verityUsesConfigPartitions = true
+			}
+			if verity.DataDevice != nil || verity.HashDevice != nil {
+				verityUsesExistingPartitions = true
+			}
+		}
+
+		switch {
+		case verityUsesConfigPartitions && verityUsesExistingPartitions:
+			return imagecustomizerapi.Storage{}
+		case verityUsesConfigPartitions:
+			resolvedStorage.VerityPartitionsType = imagecustomizerapi.VerityPartitionsUsesConfig
+		case verityUsesExistingPartitions:
+			resolvedStorage.VerityPartitionsType = imagecustomizerapi.VerityPartitionsUsesExisting
+		default:
+			resolvedStorage.VerityPartitionsType = imagecustomizerapi.VerityPartitionsNone
 		}
 	}
 

@@ -35,8 +35,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 ) error {
 	switch {
 	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partUuidToFstabEntry,
-			newImage, rc.SELinux)
+		err := hardResetBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, newImage)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
@@ -52,8 +51,8 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 	return nil
 }
 
-func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool, selinuxConfig imagecustomizerapi.SELinux,
+func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
+	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -78,8 +77,9 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
-	if config.CustomizePartitions() {
-		rootFileSystem, foundRootFileSystem := sliceutils.FindValueFunc(config.Storage.FileSystems,
+
+	if len(rc.Storage.Disks) > 0 {
+		rootFileSystem, foundRootFileSystem := sliceutils.FindValueFunc(rc.Storage.FileSystems,
 			func(fileSystem imagecustomizerapi.FileSystem) bool {
 				return fileSystem.MountPoint != nil &&
 					fileSystem.MountPoint.Path == "/"
@@ -90,7 +90,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 		}
 
 		rootMountIdType = rootFileSystem.MountPoint.IdType
-		bootType = config.Storage.BootType
+		bootType = rc.Storage.BootType
 	} else {
 		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
 		if err != nil {
@@ -104,8 +104,8 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	}
 
 	// Hard-reset the grub config.
-	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
-		config.OS.KernelCommandLine, currentSelinuxMode, newImage)
+	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
+		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}

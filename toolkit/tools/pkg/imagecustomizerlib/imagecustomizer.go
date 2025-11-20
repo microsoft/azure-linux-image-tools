@@ -485,8 +485,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	im.targetOS = targetOS
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.targetOS)
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc, im.targetOS)
 	if err != nil {
 		return im, err
 	}
@@ -526,8 +525,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc.Config, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partUuidToFstabEntry)
+		verityMetadata, err := customizeVerityImageHelper(ctx, rc, partIdToPartUuid, shrinkPartitions,
+			im.baseImageVerityMetadata, readonlyPartUuids, partUuidToFstabEntry)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
@@ -702,7 +701,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil
 	})
 
-	err = validateVerityMountPaths(imageConnection, rc.Config, partUuidToFstabEntry, baseImageVerityMetadata)
+	err = validateVerityMountPaths(imageConnection, rc.Storage, partUuidToFstabEntry, baseImageVerityMetadata)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
 	}
