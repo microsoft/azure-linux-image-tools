@@ -60,9 +60,8 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error
 	}
 
 	sectorSize, _, err := diskutils.GetSectorSize(imageLoopDevice)
-	err = fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemSectorSizeGet, imageLoopDevice, err)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemSectorSizeGet, imageLoopDevice, err)
 	}
 
 	for _, diskPartition := range diskPartitions {

@@ -652,7 +652,9 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	// Append newArgs.
 	newArgsStr := GrubArgsToString(newArgs)
 	for kernel, info := range kernelInfo {
-		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(info.Cmdline), strings.TrimSpace(newArgsStr))
+		// Remove old verity args before appending new ones to avoid duplicates.
+		cleanedCmdline := removeVerityArgsFromCmdline(info.Cmdline)
+		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(cleanedCmdline), strings.TrimSpace(newArgsStr))
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   updatedArgs,
 			Initramfs: info.Initramfs,
@@ -665,6 +667,44 @@ func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
 	}
 
 	return nil
+}
+
+// removeVerityArgsFromCmdline removes all verity-related kernel arguments from a command line string.
+// This is used when updating verity parameters during UKI recustomization to prevent duplicate args.
+func removeVerityArgsFromCmdline(cmdline string) string {
+	// List of verity-related argument prefixes that need to be removed
+	verityArgPrefixes := []string{
+		"rd.systemd.verity=",
+		"roothash=",
+		"usrhash=",
+		"systemd.verity_root_data=",
+		"systemd.verity_root_hash=",
+		"systemd.verity_root_options=",
+		"systemd.verity_usr_data=",
+		"systemd.verity_usr_hash=",
+		"systemd.verity_usr_options=",
+		"pre.verity.mount=",
+	}
+
+	// Split cmdline into individual arguments
+	args := strings.Fields(cmdline)
+	filteredArgs := make([]string, 0, len(args))
+
+	// Keep only arguments that don't start with verity-related prefixes
+	for _, arg := range args {
+		isVerityArg := false
+		for _, prefix := range verityArgPrefixes {
+			if strings.HasPrefix(arg, prefix) {
+				isVerityArg = true
+				break
+			}
+		}
+		if !isVerityArg {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	return strings.Join(filteredArgs, " ")
 }
 
 func getKernelVersion(kernelName string) (string, error) {

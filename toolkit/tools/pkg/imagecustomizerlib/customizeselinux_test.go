@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -210,18 +212,81 @@ func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.Imag
 	notExistsArgs []string,
 ) {
 	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+
+	// Check if grub.cfg exists (non-UKI image)
 	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
+	if err != nil {
+		// grub.cfg doesn't exist - this might be a UKI-only image
+		// Try to extract cmdline from UKI files
+		ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
+		cmdlineFromUki, ukiErr := extractCmdlineFromUkiForTest(ukiDir)
+		if ukiErr != nil {
+			// Neither grub.cfg nor UKI found - fail
+			t.Fatalf("Cannot verify kernel command line: grub.cfg not found and UKI extraction failed: %v", ukiErr)
+			return
+		}
+		grubCfgContents = cmdlineFromUki
+	}
 
 	for _, existsArg := range existsArgs {
-		assert.Regexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(existsArg)), grubCfgContents,
+		assert.Regexpf(t, fmt.Sprintf("(linux.* %s |%s)", regexp.QuoteMeta(existsArg), regexp.QuoteMeta(existsArg)), grubCfgContents,
 			"ensure kernel command arg exists (%s)", existsArg)
 	}
 
 	for _, notExistsArg := range notExistsArgs {
-		assert.NotRegexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(notExistsArg)), grubCfgContents,
+		assert.NotContainsf(t, grubCfgContents, notExistsArg,
 			"ensure kernel command arg not exists (%s)", notExistsArg)
 	}
+}
+
+// extractCmdlineFromUkiForTest extracts command line from first UKI file found
+func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
+	files, err := os.ReadDir(ukiDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read UKI directory: %w", err)
+	}
+
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".efi") {
+			ukiPath := filepath.Join(ukiDir, f.Name())
+
+			// Create a temp directory for extraction
+			tempDir, err := os.MkdirTemp("", "test-cmdline-extraction-*")
+			if err != nil {
+				return "", fmt.Errorf("failed to create temp directory: %w", err)
+			}
+			defer os.RemoveAll(tempDir)
+
+			// Create temp file for cmdline output
+			cmdlinePath := filepath.Join(tempDir, "cmdline.txt")
+
+			// Create a temp copy of the UKI file to avoid modifying the original
+			tempCopy := filepath.Join(tempDir, "uki-copy.efi")
+			input, err := os.ReadFile(ukiPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to read UKI file: %w", err)
+			}
+			if err := os.WriteFile(tempCopy, input, 0o644); err != nil {
+				return "", fmt.Errorf("failed to write temp UKI file: %w", err)
+			}
+
+			// Extract .cmdline section using objcopy
+			_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, tempCopy)
+			if err != nil {
+				return "", fmt.Errorf("objcopy failed to extract cmdline: %w", err)
+			}
+
+			// Read the extracted cmdline content
+			content, err := os.ReadFile(cmdlinePath)
+			if err != nil {
+				return "", fmt.Errorf("failed to read cmdline file: %w", err)
+			}
+
+			return string(content), nil
+		}
+	}
+
+	return "", fmt.Errorf("no UKI files found or cmdline not extracted")
 }
 
 func verifySELinuxConfigFile(t *testing.T, imageConnection *imageconnection.ImageConnection, mode string) {
