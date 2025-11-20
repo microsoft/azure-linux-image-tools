@@ -76,10 +76,13 @@ func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
 
 // validateUkiReinitialize validates the UKI reinitialize mode against the base image state.
 // Rules:
-// - If base image has UKIs and reinitialize is unspecified (empty string), return an error
-// - If base image has UKIs and reinitialize is "passthrough", allow (preserve existing UKIs)
-// - If base image has UKIs and reinitialize is "refresh", allow (regenerate UKIs)
-// - If base image has no UKIs, no validation needed (config.OS.Uki can be nil or any value)
+// - If base image has NO UKIs:
+//   - reinitialize must be unspecified (empty string) or not set
+//   - passthrough/refresh don't make sense
+//
+// - If base image HAS UKIs:
+//   - reinitialize must be explicitly set to 'passthrough' or 'refresh'
+//   - unspecified is not allowed (user must explicitly choose)
 func validateUkiReinitialize(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
 	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
 	if err != nil {
@@ -87,20 +90,20 @@ func validateUkiReinitialize(imageConnection *imageconnection.ImageConnection, c
 	}
 
 	if !hasUkis {
-		// Base image doesn't have UKIs, no validation needed
+		// Base image doesn't have UKIs - this is first-time UKI creation
+		if config.OS != nil && config.OS.Uki != nil {
+			if config.OS.Uki.Reinitialize != imagecustomizerapi.UkiReinitializeUnspecified {
+				return fmt.Errorf("base image does not contain UKIs but os.uki.reinitialize is set to '%s': "+
+					"when creating UKIs for the first time, do not specify os.uki.reinitialize "+
+					"(reinitialize is only for images that already have UKIs)",
+					config.OS.Uki.Reinitialize)
+			}
+		}
 		return nil
 	}
 
 	// Base image has UKIs
-	if config.OS == nil || config.OS.Uki == nil {
-		return fmt.Errorf("base image contains UKI files but config does not specify os.uki field: " +
-			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.reinitialize " +
-			"with one of the following values:\n" +
-			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)\n" +
-			"  - 'refresh': extract and regenerate UKIs from scratch")
-	}
-
-	if config.OS.Uki.Reinitialize == imagecustomizerapi.UkiReinitializeUnspecified {
+	if config.OS == nil || config.OS.Uki == nil || config.OS.Uki.Reinitialize == imagecustomizerapi.UkiReinitializeUnspecified {
 		return fmt.Errorf("base image contains UKI files but os.uki.reinitialize is not specified: " +
 			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.reinitialize " +
 			"with one of the following values:\n" +
@@ -108,7 +111,6 @@ func validateUkiReinitialize(imageConnection *imageconnection.ImageConnection, c
 			"  - 'refresh': extract and regenerate UKIs from scratch")
 	}
 
-	logger.Log.Infof("Base image contains UKIs, reinitialize mode: %s", config.OS.Uki.Reinitialize)
 	return nil
 }
 
@@ -240,40 +242,14 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
 
-	// Prepare extra command line to append to all kernels
-	var extraCmdlineString string
-	if len(kernelCommandLine.ExtraCommandLine) > 0 {
-		extraCmdlineString = " " + GrubArgsToString(kernelCommandLine.ExtraCommandLine)
-	}
-
 	// Combine kernel-to-initramfs mapping and kernel command line arguments into a single structure.
 	kernelInfo := make(map[string]UkiKernelInfo)
-
-	// For reinitialize mode, when a new kernel is installed that doesn't match the old UKI files,
-	// we need to reuse an existing cmdline as a template. Get any available cmdline for this purpose.
-	var templateCmdline string
-	if len(kernelToArgs) > 0 {
-		for _, cmdline := range kernelToArgs {
-			templateCmdline = cmdline
-			break
-		}
-	}
 
 	for kernel, initramfs := range kernelToInitramfs {
 		cmdline, exists := kernelToArgs[kernel]
 		if !exists {
-			// If we're in UKI-only mode (no grub.cfg) and have a template cmdline,
-			// reuse it for the new kernel. Otherwise, fail.
-			if templateCmdline != "" {
-				logger.Log.Debugf("Using template cmdline for new kernel (%s)", kernel)
-				cmdline = templateCmdline
-			} else {
-				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
-			}
+			return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
 		}
-
-		// Append extra command line arguments to the cmdline
-		cmdline += extraCmdlineString
 
 		kernelInfo[kernel] = UkiKernelInfo{
 			Cmdline:   cmdline,
@@ -485,7 +461,7 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string, uki 
 	defer systemBootPartitionMount.Close()
 
 	ukiOutputFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
-	err = deleteOldUkiFiles(ukiOutputFullPath)
+	err = cleanUkiDirectory(ukiOutputFullPath)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKICleanOldFiles, err)
 	}
@@ -533,9 +509,14 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[s
 	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
-	} else if !errors.Is(err, fs.ErrNotExist) {
+	} else if !errors.Is(err, fs.ErrNotExist) && len(kernelToArgs) > 0 {
+		// Successfully extracted kernel cmdline from grub.cfg
 		return kernelToArgs, nil
 	}
+
+	// Fall back to UKI extraction if:
+	// - grub.cfg doesn't exist, OR
+	// - grub.cfg exists but contains only variable-based kernel paths (which were skipped)
 
 	// Fallback to extracting from UKI
 	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
@@ -543,6 +524,10 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[s
 		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
 	} else if errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
+	}
+
+	if len(kernelToArgs) == 0 {
+		return nil, fmt.Errorf("no kernel command-line arguments extracted from UKI files in (%s)", espPath)
 	}
 
 	return kernelToArgs, nil
@@ -558,6 +543,12 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 
 	kernelToArgsString := make(map[string]string)
 	for kernel, args := range kernelToArgs {
+		// Skip kernel entries that use variable expansion (e.g., $bootprefix/$mariner_linux).
+		// These cannot be resolved to actual kernel names, so we need to fall back to UKI extraction.
+		if strings.Contains(kernel, "$") {
+			continue
+		}
+
 		normalizedKernel := kernel
 		// Normalize kernel path: strip "boot/" prefix if present. When there's
 		// no separate /boot partition, grub.cfg has paths like
@@ -814,7 +805,7 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 	return nil
 }
 
-func deleteOldUkiFiles(ukiOutputDir string) error {
+func cleanUkiDirectory(ukiOutputDir string) error {
 	if _, err := os.Stat(ukiOutputDir); errors.Is(err, fs.ErrNotExist) {
 		logger.Log.Debugf("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
 		return nil
