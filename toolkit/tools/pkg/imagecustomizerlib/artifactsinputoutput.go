@@ -51,8 +51,9 @@ var (
 )
 
 const (
-	ShimDir        = "EFI/BOOT"
-	SystemdBootDir = "EFI/systemd"
+	ShimDir         = "EFI/BOOT"
+	SystemdBootDir  = "EFI/systemd"
+	InjectFilesName = "inject-files.yaml"
 )
 
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
@@ -262,7 +263,7 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 		return fmt.Errorf("%w:\n%w", ErrArtifactInjectFilesYamlMarshal, err)
 	}
 
-	outputFilePath := filepath.Join(outputDir, "inject-files.yaml")
+	outputFilePath := filepath.Join(outputDir, InjectFilesName)
 	if err := os.WriteFile(outputFilePath, yamlBytes, 0o644); err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrArtifactInjectFilesYamlWrite, outputFilePath, err)
 	}
@@ -377,7 +378,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 			mountedPartitions = append(mountedPartitions, mount)
 		}
 
-		srcPath := filepath.Join(baseConfigPath, item.Source)
+		srcPath := file.GetAbsPathWithBase(baseConfigPath, item.Source)
 		destPath := filepath.Join(partitionsToMountpoints[partitionKey], item.Destination)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {

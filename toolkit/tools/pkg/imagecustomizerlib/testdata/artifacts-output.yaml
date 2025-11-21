@@ -41,7 +41,7 @@ output:
     - ukis
     - shim
     - systemd-boot
-    path: ./output
+    path: ./out/artifacts
 
 os:
   bootloader:

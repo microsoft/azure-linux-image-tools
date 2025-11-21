@@ -5,6 +5,7 @@ package shell
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -42,6 +43,7 @@ type ExecBuilder struct {
 	warnLogLines         int
 	chrootDir            string
 	capabilities         []uintptr
+	ctx                  context.Context
 }
 
 // NewExecBuilder initializes a new execution builder object.
@@ -139,6 +141,11 @@ func (b ExecBuilder) Callbacks(stdoutCallback LogCallback, stderrCallback LogCal
 	return b
 }
 
+func (b ExecBuilder) Context(ctx context.Context) ExecBuilder {
+	b.ctx = ctx
+	return b
+}
+
 func (b ExecBuilder) Execute() error {
 	_, _, err := b.executeHelper(false /*captureOutput*/)
 	return err
@@ -176,7 +183,13 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 	}
 
 	// Setup process.
-	cmd := exec.Command(b.command, b.args...)
+	var cmd *exec.Cmd
+	if b.ctx == nil {
+		cmd = exec.Command(b.command, b.args...)
+	} else {
+		cmd = exec.CommandContext(b.ctx, b.command, b.args...)
+	}
+
 	cmd.Dir = b.workingDirectory
 	cmd.Env = b.environmentVariables
 	cmd.SysProcAttr = &syscall.SysProcAttr{
