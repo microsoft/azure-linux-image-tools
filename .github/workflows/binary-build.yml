@@ -31,7 +31,7 @@ jobs:
       isLatestRelease: ${{ steps.build.outputs.isLatestRelease }}
     steps:
     - name: checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         path: repo
         # Patch releases need the full history to find the latest tag.
