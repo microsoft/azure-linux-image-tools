@@ -29,6 +29,15 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
+	// If UKI reinitialize is 'refresh', extract kernel and initramfs from existing UKIs for re-customization.
+	// For 'passthrough' mode, we skip extraction to preserve existing UKIs.
+	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Reinitialize == imagecustomizerapi.UkiReinitializeRefresh {
+		err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
@@ -101,12 +110,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false)
+	err = handleBootLoader(ctx, rc.BuildDirAbs, rc, imageConnection, partitionsLayout, false)
 	if err != nil {
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.SELinux.Mode, rc.BootLoader.ResetType, imageChroot)
+	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.SELinux.Mode, rc.BootLoader.ResetType,
+		imageChroot)
 	if err != nil {
 		return err
 	}
@@ -137,7 +147,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, imageChroot, distroHandler)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, rc.Config.OS.KernelCommandLine, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}

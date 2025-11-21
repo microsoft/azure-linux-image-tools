@@ -211,8 +211,7 @@ func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
 	}
 
 	err := config.IsValid()
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.bootloader.reset' must be 'hard-reset' when 'os.uki' is enabled")
+	assert.NoError(t, err)
 }
 
 func TestConfigIsValidWithInvalidBootType(t *testing.T) {

@@ -664,6 +664,9 @@
       "properties": {
         "kernels": {
           "$ref": "#/$defs/UkiKernels"
+        },
+        "reinitialize": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
