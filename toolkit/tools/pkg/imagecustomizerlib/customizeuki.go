@@ -20,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -539,12 +540,6 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 
 	kernelToArgsString := make(map[string]string)
 	for kernel, args := range kernelToArgs {
-		// Skip kernel entries that use variable expansion (e.g., $bootprefix/$mariner_linux).
-		// These cannot be resolved to actual kernel names, so we need to fall back to UKI extraction.
-		if strings.Contains(kernel, "$") {
-			continue
-		}
-
 		normalizedKernel := kernel
 		// Normalize kernel path: strip "boot/" prefix if present. When there's
 		// no separate /boot partition, grub.cfg has paths like
@@ -686,23 +681,38 @@ func removeVerityArgsFromCmdline(cmdline string) string {
 		"pre.verity.mount=",
 	}
 
-	args := strings.Fields(cmdline)
-	filteredArgs := make([]string, 0, len(args))
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
+		return cmdline
+	}
 
-	for _, arg := range args {
+	filteredArgs := []string{}
+	for _, token := range tokens {
+		if token.Type != grub.WORD {
+			continue
+		}
+
+		argBuilder := strings.Builder{}
+		for _, subword := range token.SubWords {
+			argBuilder.WriteString(subword.Value)
+		}
+		argString := argBuilder.String()
+
 		isVerityArg := false
 		for _, prefix := range verityArgPrefixes {
-			if strings.HasPrefix(arg, prefix) {
+			if strings.HasPrefix(argString, prefix) {
 				isVerityArg = true
 				break
 			}
 		}
+
 		if !isVerityArg {
-			filteredArgs = append(filteredArgs, arg)
+			filteredArgs = append(filteredArgs, argString)
 		}
 	}
 
-	return strings.Join(filteredArgs, " ")
+	return GrubArgsToString(filteredArgs)
 }
 
 func getKernelVersion(kernelName string) (string, error) {

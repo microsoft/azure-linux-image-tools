@@ -601,10 +601,11 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 		return nil, fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
-	cmdline, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	cmdline, found, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
+	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
-	} else if !errors.Is(err, fs.ErrNotExist) {
+	}
+	if found {
 		return cmdline, nil
 	}
 
@@ -779,34 +780,46 @@ func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, er
 
 func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDirPath string,
 	buildDir string,
-) ([]grubConfigLinuxArg, error) {
+) ([]grubConfigLinuxArg, bool, error) {
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType,
 		unix.MS_RDONLY, "", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
+		return nil, false, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
 	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
-		_ = bootPartitionMount.CleanClose() // Synchronous cleanup on error
-		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
+		// Check if the error is because grub.cfg doesn't exist
+		if errors.Is(err, fs.ErrNotExist) {
+			closeErr := bootPartitionMount.CleanClose()
+			if closeErr != nil {
+				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing grub.cfg:\n%w", closeErr)
+			}
+			return nil, false, nil
+		}
+		// For other errors, attempt cleanup and return the error
+		closeErr := bootPartitionMount.CleanClose()
+		if closeErr != nil {
+			return nil, false, fmt.Errorf("failed to close bootPartitionMount (original error: %v):\n%w", err, closeErr)
+		}
+		return nil, false, fmt.Errorf("failed to read grub.cfg:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
+		return nil, false, fmt.Errorf("failed to close bootPartitionMount:\n%w", err)
 	}
 
 	for _, args := range kernelToArgs {
 		// Pick the first set of the args.
 		// (Hopefully they are all the same.)
-		return args, nil
+		return args, true, nil
 	}
 
-	return nil, fmt.Errorf("no kernel args found in grub.cfg file")
+	return nil, true, fmt.Errorf("no kernel args found in grub.cfg file")
 }
 
 // Extracts the kernel args for each kernel from the grub.cfg file.
@@ -962,7 +975,7 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 	numStr := match[1]
 
 	num, err := strconv.Atoi(numStr)
-	if match == nil {
+	if err != nil {
 		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
 	}
 

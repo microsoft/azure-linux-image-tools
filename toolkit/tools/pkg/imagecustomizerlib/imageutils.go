@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -231,15 +232,28 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 		return err
 	}
 
-	// TODO: Remove this once we have a way to determine if grub-mkconfig is enabled.
-	grubMkconfigEnabled := true
-	if !newImage {
-		grubMkconfigEnabled, err = isGrubMkconfigEnabled(imageConnection.Chroot())
+	// Determine the boot configuration type.
+	// For new images, default to grub-mkconfig (AZL3 default).
+	// For existing images, detect the actual boot configuration.
+	var bootConfigType bootConfigType
+	if newImage {
+		bootConfigType = bootConfigTypeGrubMkconfig
+	} else {
+		bootConfigType, err = getBootConfigType(imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
-
 	}
+
+	// If the image uses UKI, skip GRUB bootloader configuration.
+	// UKI images manage boot through systemd-boot and don't use GRUB.
+	if bootConfigType == bootConfigTypeUki {
+		logger.Log.Infof("Image uses UKI boot configuration, skipping GRUB bootloader setup")
+		return nil
+	}
+
+	// Determine if grub-mkconfig is enabled based on boot config type
+	grubMkconfigEnabled := (bootConfigType == bootConfigTypeGrubMkconfig)
 
 	mountPointMap := make(map[string]string)
 	for _, mountPoint := range imageConnection.Chroot().GetMountPoints() {

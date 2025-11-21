@@ -52,7 +52,8 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
+	isUki := baseImageInfo.Version == baseImageVersionAzl3
+	verifyKernelCommandLine(t, imageConnection, isUki, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -81,7 +82,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	verifyKernelCommandLine(t, imageConnection, isUki, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
 	// Verify packages are still installed.
@@ -110,7 +111,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	verifyKernelCommandLine(t, imageConnection, isUki, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "permissive")
 }
 
@@ -166,7 +167,8 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	isUki := baseImageInfo.Version == baseImageVersionAzl3
+	verifyKernelCommandLine(t, imageConnection, isUki, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -208,24 +210,29 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	}
 }
 
-func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, existsArgs []string,
-	notExistsArgs []string,
+func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, isUki bool,
+	existsArgs []string, notExistsArgs []string,
 ) {
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	var grubCfgContents string
 
-	// Check if grub.cfg exists (non-UKI image)
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	if err != nil {
-		// grub.cfg doesn't exist - this might be a UKI-only image
-		// Try to extract cmdline from UKI files
+	if isUki {
+		// UKI image - extract cmdline from UKI files
 		ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
-		cmdlineFromUki, ukiErr := extractCmdlineFromUkiForTest(ukiDir)
-		if ukiErr != nil {
-			// Neither grub.cfg nor UKI found - fail
-			t.Fatalf("Cannot verify kernel command line: grub.cfg not found and UKI extraction failed: %v", ukiErr)
+		cmdlineFromUki, err := extractCmdlineFromUkiForTest(ukiDir)
+		if err != nil {
+			t.Fatalf("Failed to extract cmdline from UKI: %v", err)
 			return
 		}
 		grubCfgContents = cmdlineFromUki
+	} else {
+		// GRUB image - read grub.cfg
+		grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+		contents, err := file.Read(grubCfgFilePath)
+		if err != nil {
+			t.Fatalf("Failed to read grub.cfg: %v", err)
+			return
+		}
+		grubCfgContents = contents
 	}
 
 	for _, existsArg := range existsArgs {

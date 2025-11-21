@@ -110,7 +110,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc.BuildDirAbs, rc, imageConnection, partitionsLayout, false)
+	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false)
 	if err != nil {
 		return err
 	}

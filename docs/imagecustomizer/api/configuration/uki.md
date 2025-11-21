@@ -85,8 +85,8 @@ Supported options:
 - (unspecified): When `reinitialize` is not specified, the tool generates new
   UKI files based on the kernel and initramfs files present in the image. The
   `kernels` field must be specified to indicate which kernels to build UKIs for.
-  This is the default behavior for first-time UKI creation. Will show error when
-  detecting UKI from the base image.
+  This is the default behavior for first-time UKI creation. An error will occur
+  if the base image has UKIs.
 
 - `passthrough`: Preserve existing UKI files without modification. The kernel,
   initramfs, and command-line arguments embedded in the existing UKIs are left
