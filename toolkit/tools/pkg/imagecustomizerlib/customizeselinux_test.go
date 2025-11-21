@@ -52,8 +52,12 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	isUki := baseImageInfo.Version == baseImageVersionAzl3
-	verifyKernelCommandLine(t, imageConnection, isUki, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
+	// Detect whether the image actually uses UKI by checking for UKI files
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -82,7 +86,11 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, isUki, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
 	// Verify packages are still installed.
@@ -111,7 +119,11 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	verifyKernelCommandLine(t, imageConnection, isUki, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "permissive")
 }
 
@@ -167,8 +179,11 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	isUki := baseImageInfo.Version == baseImageVersionAzl3
-	verifyKernelCommandLine(t, imageConnection, isUki, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.

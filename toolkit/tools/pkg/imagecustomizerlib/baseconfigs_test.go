@@ -207,8 +207,11 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Contains(t, string(moduleDisableContent), "vfio")
 
 	// Verify SELinux
-	isUki := baseImageInfo.Version == baseImageVersionAzl3
-	verifyKernelCommandLine(t, imageConnection, isUki, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
 	// Verify overlays
@@ -240,5 +243,9 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
 
 	// Verify kernel commandline (will check UKI if grub.cfg doesn't exist)
-	verifyKernelCommandLine(t, imageConnection, isUki, []string{"console=tty0", "console=ttyS0"}, []string{"rd.info"})
+	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
+	if !assert.NoError(t, err) {
+		return
+	}
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"console=tty0", "console=ttyS0"}, []string{"rd.info"})
 }
