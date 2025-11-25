@@ -162,6 +162,8 @@ jobs:
       hostDistro: azl3
     permissions:
       contents: read
+      # Azure login.
+      id-token: write
 
   tests-vmtests-imagecreator-ubuntu2404-amd64:
     name: VMTests suite image creator Ubuntu24.04 AMD64
@@ -173,6 +175,8 @@ jobs:
       hostDistro: ubuntu2404
     permissions:
       contents: read
+      # Azure login.
+      id-token: write
 
   tests-vmtests-imagecreator-ubuntu2404-arm64:
     name: VMTests suite image creator Ubuntu24.04 ARM64
@@ -184,6 +188,8 @@ jobs:
       hostDistro: ubuntu2404
     permissions:
       contents: read
+      # Azure login.
+      id-token: write
 
   tests-vmtests-osmodifier-azl3-amd64:
     name: VMTests suite osmodifier AZL3 AMD64

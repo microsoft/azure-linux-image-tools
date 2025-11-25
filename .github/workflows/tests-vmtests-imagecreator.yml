@@ -27,9 +27,12 @@ jobs:
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
     permissions:
       contents: read
+      # Azure login.
+      id-token: write
+    environment: public  
     steps:
     - name: setup go 1.x
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: "${{ env.EXPECTED_GO_VERSION }}"
 
@@ -114,27 +117,76 @@ jobs:
         ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 
         make create-venv
- 
+
+    - name: Azure Login
+      uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: ACR Login
+      env:
+        AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
+      run: |
+        set -eux
+        # login to ACR
+        az acr login -n "${AZURE_CR_CACHE}"
+
     - name: Download RPMS and tools file
+      env:
+        AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
+        HOST_ARCH: ${{ inputs.hostArch }}
       run: |
         set -eux
 
-        # Download the test RPM and tools file.
-        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t 3.0 -s true
+        # Download the test RPM and tools file for azurelinux
+        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+
+        # Download the test RPM and tools file for fedora (x86_64 only)
+        # Fedora tests use x86_64-specific packages (grub2-efi-x64, shim-x64)
+        if [[ "$HOST_ARCH" == "amd64" ]]; then
+          ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true -r "${AZURE_CR_CACHE}"
+        fi
 
 
     - name: Run image creator tests
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
       run: |
         set -eux
 
+        # Define common paths and variables
+        TOOLKIT_DIR="../../toolkit"
+        TOOLS_DIR="$TOOLKIT_DIR/tools"
+        TESTRPMS_DIR="$TOOLS_DIR/internal/testutils/testrpms"
+        
+        # Binary paths
+        IMAGE_CREATOR_BIN="$TOOLKIT_DIR/out/tools/imagecreator"
+        IMAGE_CUSTOMIZER_BIN="$TOOLKIT_DIR/out/tools/imagecustomizer"
+
+        # Function to run tests for a specific distro
+        run_tests() {
+            local distro=$1
+            local version=$2
+            
+            sudo make test-imagecreator-$distro \
+              IMAGE_CREATOR_BIN="$IMAGE_CREATOR_BIN" \
+              TOOLS_TAR="$TESTRPMS_DIR/build/tools-$distro-$version.tar.gz" \
+              RPM_SOURCES="$TESTRPMS_DIR/downloadedrpms/$distro/$version" \
+              IMAGE_CUSTOMIZER_BINARY_PATH="$IMAGE_CUSTOMIZER_BIN" \
+              SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+        }
+
         pushd ./repo/test/vmtests
 
-        sudo make test-imagecreator \
-          IMAGE_CREATOR_BIN="../../toolkit/out/tools/imagecreator" \
-          TOOLS_TAR="../../toolkit/tools/internal/testutils/testrpms/build/tools.tar.gz" \
-          RPM_SOURCES="../../toolkit/tools/internal/testutils/testrpms/downloadedrpms/3.0" \
-          IMAGE_CUSTOMIZER_BINARY_PATH="../../toolkit/out/tools/imagecustomizer" \
-          SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+        # Run tests for each distro
+        run_tests "azurelinux" "3.0"
+
+        # Fedora tests are x86_64 only
+        if [[ "$HOST_ARCH" == "amd64" ]]; then
+          run_tests "fedora" "42"
+        fi
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
