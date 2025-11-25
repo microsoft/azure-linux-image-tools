@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -18,7 +17,7 @@ import (
 
 func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, tarFile string,
 	distroHandler distroHandler,
-) (map[string]diskutils.FstabEntry, string, error) {
+) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
 
 	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
@@ -29,7 +28,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	}
 	defer toolsChroot.Close(false)
 
-	imageConnection, partUuidToFstabEntry, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
+	imageConnection, partitionsLayout, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
 		toolsRootImageDir, true, false, false, false)
 	if err != nil {
 		return nil, "", err
@@ -37,7 +36,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsImageCreator(ctx, rc, imageConnection, toolsChroot, partUuidToFstabEntry, distroHandler)
+	err = doOsCustomizationsImageCreator(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -63,7 +62,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 		return nil, "", err
 	}
 
-	return partUuidToFstabEntry, osRelease, nil
+	return partitionsLayout, osRelease, nil
 }
 
 func doOsCustomizationsImageCreator(
@@ -71,7 +70,7 @@ func doOsCustomizationsImageCreator(
 	rc *ResolvedConfig,
 	imageConnection *imageconnection.ImageConnection,
 	toolsChroot *safechroot.Chroot,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	partitionsLayout []fstabEntryPartNum,
 	distroHandler distroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
@@ -96,7 +95,7 @@ func doOsCustomizationsImageCreator(
 		}
 	}
 
-	if err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(ctx, rc.Hostname, imageChroot); err != nil {
 		return err
 	}
 
@@ -104,7 +103,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = handleBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, true); err != nil {
+	if err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, true); err != nil {
 		return err
 	}
 

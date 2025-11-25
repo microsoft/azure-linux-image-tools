@@ -31,11 +31,12 @@ var (
 )
 
 func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
+	partitionsLayout []fstabEntryPartNum, newImage bool,
 ) error {
 	switch {
 	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, rc, imageConnection, partUuidToFstabEntry, newImage)
+		err := hardResetBootLoader(ctx, rc, imageConnection, partitionsLayout,
+			newImage)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
@@ -52,7 +53,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 }
 
 func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
+	partitionsLayout []fstabEntryPartNum, newImage bool,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -92,7 +93,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 		rootMountIdType = rootFileSystem.MountPoint.IdType
 		bootType = rc.Storage.BootType
 	} else {
-		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
+		rootMountIdType, err = findRootMountIdType(partitionsLayout)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderRootMountIdTypeGet, err)
 		}
@@ -147,11 +148,12 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	return nil
 }
 
-func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
+func findRootMountIdType(partitionsLayout []fstabEntryPartNum,
 ) (imagecustomizerapi.MountIdentifierType, error) {
 	rootFound := false
 	rootFstabEntry := diskutils.FstabEntry{}
-	for _, fstabEntry := range partUuidToFstabEntry {
+	for _, entry := range partitionsLayout {
+		fstabEntry := entry.FstabEntry
 		if fstabEntry.Target == "/" {
 			rootFound = true
 			rootFstabEntry = fstabEntry

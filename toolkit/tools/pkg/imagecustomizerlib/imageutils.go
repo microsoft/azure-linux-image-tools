@@ -25,25 +25,25 @@ type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
-) (*imageconnection.ImageConnection, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
+) (*imageconnection.ImageConnection, []fstabEntryPartNum, []verityDeviceMetadata, []string, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
 	defer span.End()
 	imageConnection := imageconnection.NewImageConnection()
 
-	partUuidToMountPath, verityMetadata, readonlyPartUuids, err := connectToExistingImageHelper(imageConnection,
+	partitionsLayout, verityMetadata, readonlyPartUuids, err := connectToExistingImageHelper(imageConnection,
 		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays)
 	if err != nil {
 		imageConnection.Close()
-		return nil, nil, nil, nil, fmt.Errorf("failed to open image file:\n%w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
 	}
 
-	return imageConnection, partUuidToMountPath, verityMetadata, readonlyPartUuids, nil
+	return imageConnection, partitionsLayout, verityMetadata, readonlyPartUuids, nil
 }
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
 	ignoreOverlays bool,
-) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
+) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
@@ -74,10 +74,15 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	mountPoints, partUuidToFstabEntry, verityMetadata, readonlyPartUuids, err := fstabEntriesToMountPoints(fstabEntries,
-		partitions, buildDir, readonly, readOnlyVerity, ignoreOverlays)
+	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
+		return nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+	}
+
+	mountPoints, readonlyPartUuids, err := partitionLayoutToMountPoints(partitionsLayout, partitions, readonly,
+		readOnlyVerity)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
 
 	// Create chroot environment.
@@ -88,7 +93,62 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, err
 	}
 
-	return partUuidToFstabEntry, verityMetadata, readonlyPartUuids, nil
+	return partitionsLayout, verityMetadata, readonlyPartUuids, nil
+}
+
+func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
+	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, partitionsLayout []fstabEntryPartNum,
+) (*imageconnection.ImageConnection, []string, error) {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reconnect_to_existing_image")
+	defer span.End()
+
+	imageConnection, readonlyPartUuids, err := reconnectToExistingImageHelper(imageFilePath, buildDir,
+		chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, partitionsLayout)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
+	}
+	return imageConnection, readonlyPartUuids, nil
+}
+
+func reconnectToExistingImageHelper(imageFilePath string, buildDir string, chrootDirName string,
+	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, partitionsLayout []fstabEntryPartNum,
+) (*imageconnection.ImageConnection, []string, error) {
+	ok := false
+
+	imageConnection := imageconnection.NewImageConnection()
+	defer func() {
+		if !ok {
+			imageConnection.Close()
+		}
+	}()
+
+	// Connect to image file using loopback device.
+	err := imageConnection.ConnectLoopback(imageFilePath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	mountPoints, readonlyPartUuids, err := partitionLayoutToMountPoints(partitionsLayout, partitions, readonly,
+		readOnlyVerity)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
+	}
+
+	// Create chroot environment.
+	imageChrootDir := filepath.Join(buildDir, chrootDirName)
+
+	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ok = true
+	return imageConnection, readonlyPartUuids, nil
 }
 
 func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
@@ -269,9 +329,14 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageco
 		return nil, "", err
 	}
 
-	mountPoints, _, _, _, err := fstabEntriesToMountPoints(fstabEntries, diskPartitions, buildDir, false, false, false)
+	partitionsLayout, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to find mount info for fstab file entries:\n%w", err)
+		return nil, "", fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+	}
+
+	mountPoints, _, err := partitionLayoutToMountPoints(partitionsLayout, diskPartitions, false, false)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
 
 	// Create chroot environment.

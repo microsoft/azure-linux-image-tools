@@ -470,7 +470,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 }
 
 func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, storage imagecustomizerapi.Storage,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, baseImageVerityMetadata []verityDeviceMetadata,
+	partitionsLayout []fstabEntryPartNum, baseImageVerityMetadata []verityDeviceMetadata,
 ) error {
 	if storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
 		// Either:
@@ -509,12 +509,16 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 			return fmt.Errorf("verity (%s) hash partition is invalid:\n%w", verity.Id, err)
 		}
 
-		dataFstabEntry, found := partUuidToFstabEntry[dataPartition.PartUuid]
+		dataEntry, found := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
+			return entry.PartUuid == dataPartition.PartUuid
+		})
 		if !found {
 			return fmt.Errorf("verity's (%s) data partition's fstab entry not found", verity.Id)
 		}
 
-		_, found = partUuidToFstabEntry[hashPartition.PartUuid]
+		_, found = sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
+			return entry.PartUuid == hashPartition.PartUuid
+		})
 		if found {
 			return fmt.Errorf("verity's (%s) hash partition cannot have an fstab entry", verity.Id)
 		}
@@ -524,8 +528,8 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		}
 
 		mountPoint := &imagecustomizerapi.MountPoint{
-			Path:    dataFstabEntry.Target,
-			Options: dataFstabEntry.Options,
+			Path:    dataEntry.FstabEntry.Target,
+			Options: dataEntry.FstabEntry.Options,
 		}
 		verityDeviceMountPoint[verity] = mountPoint
 	}
@@ -572,7 +576,7 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 
 func customizeVerityImageHelper(ctx context.Context, rc *ResolvedConfig, partIdToPartUuid map[string]string,
 	shrinkHashPartition bool, baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	partitionsLayout []fstabEntryPartNum,
 ) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Provisioning verity")
 
@@ -581,7 +585,7 @@ func customizeVerityImageHelper(ctx context.Context, rc *ResolvedConfig, partIdT
 
 	verityMetadata := []verityDeviceMetadata(nil)
 
-	isUki := rc.Config.OS.Uki != nil
+	isUki := rc.Uki != nil
 	storage := rc.Storage
 
 	loopback, err := safeloopback.NewLoopback(rc.RawImageFile)
@@ -681,7 +685,7 @@ func customizeVerityImageHelper(ctx context.Context, rc *ResolvedConfig, partIdT
 		}
 
 		// Update kernel args.
-		err = updateKernelArgsForVerity(rc.BuildDirAbs, diskPartitions, verityMetadata, isUki, partUuidToFstabEntry)
+		err = updateKernelArgsForVerity(rc.BuildDirAbs, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err
 		}
@@ -760,9 +764,9 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 }
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
-	verityMetadata []verityDeviceMetadata, isUki bool, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	verityMetadata []verityDeviceMetadata, isUki bool, partitionsLayout []fstabEntryPartNum,
 ) error {
-	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partUuidToFstabEntry)
+	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
 		return err
 	}

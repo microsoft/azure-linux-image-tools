@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -21,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 var (
@@ -40,7 +40,7 @@ type ImageBuildData struct {
 }
 
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, verityMetadata []verityDeviceMetadata,
+	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
 	cosiBootMetadata *CosiBootloader,
 ) error {
@@ -68,7 +68,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
-		partUuidToFstabEntry, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
+		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
 	}
@@ -84,7 +84,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 }
 
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
-	verityMetadata []verityDeviceMetadata, partUuidToFstabEntry map[string]diskutils.FstabEntry,
+	verityMetadata []verityDeviceMetadata, partitionsLayout []fstabEntryPartNum,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
@@ -108,8 +108,10 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		}
 
 		// Skip partitions that are unmounted or have no filesystem type
-		fstabEntry, hasMount := partUuidToFstabEntry[partition.PartUuid]
-		if !hasMount || fstabEntry.Target == "" || partition.FileSystemType == "" {
+		entry, hasMount := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
+			return partition.PartUuid == entry.PartUuid
+		})
+		if !hasMount || entry.FstabEntry.Target == "" || partition.FileSystemType == "" {
 			continue
 		}
 
@@ -119,7 +121,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 				UncompressedSize: partition.UncompressedSize,
 			},
 			PartType:   partition.PartitionTypeUuid,
-			MountPoint: partUuidToFstabEntry[partition.PartUuid].Target,
+			MountPoint: entry.FstabEntry.Target,
 			FsType:     partition.FileSystemType,
 			FsUuid:     partition.Uuid,
 		}

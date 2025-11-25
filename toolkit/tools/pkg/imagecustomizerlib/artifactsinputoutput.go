@@ -403,7 +403,7 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string,
 ) error {
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
-		partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
+		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
 			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
 		if err != nil {
 			return err
@@ -414,7 +414,7 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 
-		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partUuidToFstabEntry,
+		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
 			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata)
 		if err != nil {
 			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
@@ -432,11 +432,11 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
 	chrootDir string,
-) (map[string]diskutils.FstabEntry, []verityDeviceMetadata, string,
+) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
-	imageConnection, partUuidToFstabEntry, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(ctx,
-		rawImageFile, buildDir, chrootDir, true, true, true, true)
+	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
+		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
@@ -463,7 +463,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	return partUuidToFstabEntry, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr,
+	return partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr,
 		cosiBootMetadata, readonlyPartUuids, nil
 }
 
