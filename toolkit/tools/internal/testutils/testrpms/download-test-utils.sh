@@ -110,12 +110,7 @@ else
 fi
 
 # Combine with common testing packages
-# Add dnf for Fedora, but not for Azure Linux (uses tdnf)
-if [ "$DISTRO" = "fedora" ]; then
-  FINAL_PACKAGE_LIST="jq golang $PACKAGE_LIST"
-else
-  FINAL_PACKAGE_LIST="jq golang $PACKAGE_LIST"
-fi
+FINAL_PACKAGE_LIST="jq golang $PACKAGE_LIST"
 
 echo "Final package list: $FINAL_PACKAGE_LIST"
 
