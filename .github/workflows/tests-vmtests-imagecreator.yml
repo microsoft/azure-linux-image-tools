@@ -134,14 +134,16 @@ jobs:
         az acr login -n "${AZURE_CR_CACHE}"
 
     - name: Download RPMS and tools file
+      env:
+        AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
       run: |
         set -eux
 
         # Download the test RPM and tools file for azurelinux
         ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
-        
+
         # Download the test RPM and tools file for fedora
-        CI=true ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true
+        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true -r "${AZURE_CR_CACHE}"
 
 
     - name: Run image creator tests
