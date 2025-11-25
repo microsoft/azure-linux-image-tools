@@ -65,7 +65,8 @@ const (
 	DracutModuleScriptFileMode = 0o755
 )
 
-func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot,
+func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity,
+	imageChroot *safechroot.Chroot, distroHandler distroHandler,
 ) (bool, error) {
 	var err error
 
@@ -78,7 +79,7 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "enable_verity_partition")
 	defer span.End()
 
-	err = validateVerityDependencies(imageChroot)
+	err = validateVerityDependencies(imageChroot, distroHandler)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityPackageDependencyValidation, err)
 	}
@@ -206,7 +207,7 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 ) error {
 	var err error
 
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, bootUuid)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -260,7 +261,7 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 }
 
 func constructVerityKernelCmdlineArgs(verityMetadata []verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
+	partitions []diskutils.PartitionInfo, bootUuid string,
 ) ([]string, error) {
 	newArgs := []string{"rd.systemd.verity=1"}
 	hasSignatureInjection := false
@@ -286,13 +287,13 @@ func constructVerityKernelCmdlineArgs(verityMetadata []verityDeviceMetadata,
 		}
 
 		formattedDataPartition, err := systemdFormatPartitionUuid(metadata.dataPartUuid,
-			metadata.dataDeviceMountIdType, partitions, buildDir)
+			metadata.dataDeviceMountIdType, partitions)
 		if err != nil {
 			return nil, err
 		}
 
 		formattedHashPartition, err := systemdFormatPartitionUuid(metadata.hashPartUuid,
-			metadata.hashDeviceMountIdType, partitions, buildDir)
+			metadata.hashDeviceMountIdType, partitions)
 		if err != nil {
 			return nil, err
 		}
@@ -368,9 +369,9 @@ func verityIdToPartition(configDeviceId string, deviceId *imagecustomizerapi.Ide
 
 // systemdFormatPartitionUuid formats the partition UUID based on the ID type following systemd dm-verity style.
 func systemdFormatPartitionUuid(partUuid string, mountIdType imagecustomizerapi.MountIdentifierType,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo,
 ) (string, error) {
-	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions, buildDir)
+	partition, _, err := findPartition(imagecustomizerapi.MountIdentifierTypePartUuid, partUuid, partitions)
 	if err != nil {
 		return "", err
 	}
@@ -435,7 +436,7 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 	return corruptionOption, hashSigPath, nil
 }
 
-func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
+func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler distroHandler) error {
 	// "device-mapper" is required for dm-verity support because it provides "dmsetup",
 	// which Dracut needs to install the "dm" module (a dependency of "systemd-veritysetup").
 	requiredRpms := []string{"device-mapper"}
@@ -443,7 +444,8 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		if !isPackageInstalled(imageChroot, pkg) {
+		installed := distroHandler.isPackageInstalled(imageChroot, pkg)
+		if !installed {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Verity: %v", pkg, requiredRpms)
 		}
 	}
@@ -454,7 +456,7 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot) error {
 func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
 ) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, buildDir, bootUuid)
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
@@ -468,7 +470,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 }
 
 func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, baseImageVerityMetadata []verityDeviceMetadata,
+	partitionsLayout []fstabEntryPartNum, baseImageVerityMetadata []verityDeviceMetadata,
 ) error {
 	if config.Storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
 		// Either:
@@ -507,12 +509,16 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 			return fmt.Errorf("verity (%s) hash partition is invalid:\n%w", verity.Id, err)
 		}
 
-		dataFstabEntry, found := partUuidToFstabEntry[dataPartition.PartUuid]
+		dataEntry, found := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
+			return entry.PartUuid == dataPartition.PartUuid
+		})
 		if !found {
 			return fmt.Errorf("verity's (%s) data partition's fstab entry not found", verity.Id)
 		}
 
-		_, found = partUuidToFstabEntry[hashPartition.PartUuid]
+		_, found = sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
+			return entry.PartUuid == hashPartition.PartUuid
+		})
 		if found {
 			return fmt.Errorf("verity's (%s) hash partition cannot have an fstab entry", verity.Id)
 		}
@@ -522,8 +528,8 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		}
 
 		mountPoint := &imagecustomizerapi.MountPoint{
-			Path:    dataFstabEntry.Target,
-			Options: dataFstabEntry.Options,
+			Path:    dataEntry.FstabEntry.Target,
+			Options: dataEntry.FstabEntry.Options,
 		}
 		verityDeviceMountPoint[verity] = mountPoint
 	}
@@ -571,6 +577,7 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 func customizeVerityImageHelper(ctx context.Context, buildDir string, config *imagecustomizerapi.Config,
 	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
 	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
+	partitionsLayout []fstabEntryPartNum,
 ) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Provisioning verity")
 
@@ -677,7 +684,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 		// Update kernel args.
 		isUki := config.OS.Uki != nil
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki)
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err
 		}
@@ -756,27 +763,23 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 }
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
-	verityMetadata []verityDeviceMetadata, isUki bool,
+	verityMetadata []verityDeviceMetadata, isUki bool, partitionsLayout []fstabEntryPartNum,
 ) error {
-	systemBootPartition, err := findSystemBootPartition(diskPartitions)
-	if err != nil {
-		return err
-	}
-
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
 		return err
 	}
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	// Temporarily mount the partition.
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType, 0, "", true)
+	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType,
+		0, "", true)
 	if err != nil {
 		return fmt.Errorf("%w (partition='%s'):\n%w", ErrMountPartition, bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, DefaultGrubCfgPath)
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, DefaultGrubCfgPath)
 	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)

@@ -1,0 +1,110 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      size: 100M
+
+    - id: rootfs
+      size: 2G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+previewFeatures:
+- output-artifacts
+- base-configs
+- uki
+- package-snapshot-time
+
+baseConfigs:
+  - path: hierarchical-config-base.yaml
+
+os:
+  additionalFiles:
+  - source: files/b.txt
+    destination: /mnt/b/b.txt
+
+  additionalDirs:
+  - source: dirs/b
+    destination: /
+
+  groups:
+  - name: test-group
+
+  users:
+    - name: test-user
+  hostname: test-hostname
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    kernels: auto
+
+  packages:
+    remove:
+    - grub2-efi-binary
+    install:
+    - systemd-boot
+    - openssh-server
+    - selinux-policy
+    - selinux-policy-modules
+    snapshotTime: 2025-10-28
+
+  services:
+    enable:
+    - sshd
+    disable:
+    - console-getty
+
+  modules:
+  - name: vfio
+    loadMode: disable
+
+  selinux:
+    mode: disabled
+
+  overlays:
+  - mountPoint: /etc
+    lowerDirs:
+    - /etc
+    upperDir: /var/overlays/etc/upper
+    workDir: /var/overlays/etc/work
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0
+
+input:
+  image:
+    path: testimages/empty.vhdx
+  
+output:
+  image:
+    path: ./out/output-image-2.vhdx
+    format: vhdx
+  artifacts:
+    items:
+    - shim
+    path: ./artifacts-2

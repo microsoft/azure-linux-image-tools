@@ -38,14 +38,14 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
    `genisoimage`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
    `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
-   `veritysetup`, `grub2-install` (or `grub-install`), `ukify`, `objcopy`, `lsof`.
+   `veritysetup`, `grub2-install` (or `grub-install`), `ukify`, `objcopy`, `lsof`, `btrfs`.
 
    - For Ubuntu 22.04 images, run:
 
      ```bash
      sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
         sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-        xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
+        xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof
      ```
 
    - For Azure Linux (2.0 and 3.0, x86_64 and arm64), run:
@@ -53,7 +53,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-       xfsprogs zstd veritysetup grub2 binutils lsof systemd-ukify
+       xfsprogs btrfs-progs zstd veritysetup grub2 binutils lsof systemd-ukify
      ```
 
      - On x86_64, to install libraries for BIOS booting, additionally run:

@@ -1,0 +1,13 @@
+previewFeatures:
+  - output-selinux-policy
+
+os:
+  packages:
+    install:
+    - selinux-policy
+    - selinux-policy-modules
+    - setools-console
+    - policycoreutils-python-utils
+
+output:
+  selinuxPolicyPath: selinux-output

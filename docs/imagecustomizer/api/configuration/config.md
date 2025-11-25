@@ -104,8 +104,38 @@ Supported options:
 
   Added in v0.15.
 
+- `base-configs`: Enables support for hierarchical configuration inheritance.
+
+  When this option is specified, the `baseConfigs` configuration becomes available.
+  This allows configurations to inherit from one or more base configurations.
+
+  See [Base Config](./baseConfig.md) for more details.
+
+  Added in v1.1.
+
+- `input-image-oci`: Enables downloading the base image from a OCI artifact.
+
+  Added in v1.1.
+
+- `output-selinux-policy`: Enables extraction of SELinux policy files from the
+  customized image.
+
+  When this option is specified, the `output.selinuxPolicyPath` configuration
+  becomes available.
+
+  See [output.selinuxPolicyPath](./output.md#selinuxpolicypath-string) for more details.
+
+  Added in v1.1.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
 
 Added in v0.13.
+
+
+## baseConfigs [[baseConfig](./baseConfig.md)]
+
+Specifies a list of configuration files to inherit from.
+
+Added in v1.1.0.

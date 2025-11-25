@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -91,13 +92,17 @@ var (
 	baseImageCoreEfiAzl3   = flag.String("base-image-core-efi-azl3", "", "An Azure Linux 3.0 core-efi image to use as a base image.")
 	baseImageBareMetalAzl2 = flag.String("base-image-bare-metal-azl2", "", "An Azure Linux 2.0 bare-metal image to use as a base image.")
 	baseImageBareMetalAzl3 = flag.String("base-image-bare-metal-azl3", "", "An Azure Linux 3.0 bare-metal image to use as a base image.")
+	logLevel               = flag.String("log-level", "info", "The log level (error, warning, info, debug, or trace)")
 )
 
 var (
-	testDir      string
-	tmpDir       string
-	workingDir   string
-	testutilsDir string
+	testDir             string
+	tmpDir              string
+	workingDir          string
+	testutilsDir        string
+	sharedImageCacheDir string
+
+	logMessagesHook *logger.MemoryLogHook
 )
 
 func TestMain(m *testing.M) {
@@ -107,6 +112,17 @@ func TestMain(m *testing.M) {
 
 	flag.Parse()
 
+	if logLevel != nil {
+		err := logger.SetStderrLogLevel(*logLevel)
+		if err != nil {
+			logger.Log.Panicf("Failed to set log level, error: %s", err)
+		}
+	}
+
+	logMessagesHook = logger.NewMemoryLogHook()
+	logger.Log.Hooks.Add(logMessagesHook)
+	logger.Log.SetLevel(logrus.DebugLevel)
+
 	workingDir, err = os.Getwd()
 	if err != nil {
 		logger.Log.Panicf("Failed to get working directory, error: %s", err)
@@ -114,9 +130,10 @@ func TestMain(m *testing.M) {
 
 	testDir = filepath.Join(workingDir, "testdata")
 	tmpDir = filepath.Join(workingDir, "_tmp")
+	sharedImageCacheDir = filepath.Join(tmpDir, "image-cache")
 	testutilsDir = filepath.Join(workingDir, "../../internal/testutils")
 
-	err = os.MkdirAll(tmpDir, os.ModePerm)
+	err = os.MkdirAll(sharedImageCacheDir, os.ModePerm)
 	if err != nil {
 		logger.Log.Panicf("Failed to create tmp directory, error: %s", err)
 	}

@@ -28,12 +28,22 @@ const (
 
 	// PreviewFeatureFedora42 enables support for Fedora 42 images.
 	PreviewFeatureFedora42 PreviewFeature = "fedora-42"
+
+	// PreviewFeatureBaseConfigs enables support for base configuration.
+	PreviewFeatureBaseConfigs PreviewFeature = "base-configs"
+
+	// PreviewFeatureInputImageOci enables support for download OCI images.
+	PreviewFeatureInputImageOci PreviewFeature = "input-image-oci"
+
+	// PreviewFeatureOutputSelinuxPolicy enables extraction of SELinux policy contents.
+	PreviewFeatureOutputSelinuxPolicy PreviewFeature = "output-selinux-policy"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42:
+		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci,
+		PreviewFeatureOutputSelinuxPolicy:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

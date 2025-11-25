@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -163,7 +164,7 @@ func resetPartitionUuid(device string, partNum int) (string, error) {
 func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids []string, newPartUuids []string,
 	buildDir string,
 ) error {
-	rootfsPartition, err := findRootfsPartition(partitions, buildDir)
+	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
 		return err
 	}
@@ -177,7 +178,8 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 	defer partitionMount.Close()
 
 	// Read the existing fstab file.
-	fsTabFilePath := filepath.Join(partitionMount.Target(), "/etc/fstab")
+	fsTabFilePath := filepath.Join(partitionMount.Target(), rootfsPath, "etc/fstab")
+
 	fstabEntries, err := diskutils.ReadFstabFile(fsTabFilePath)
 	if err != nil {
 		return err
@@ -190,10 +192,24 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 			continue
 		}
 
+		mountIdType, mountId, err := parseExtendedSourcePartition(fstabEntry.Source)
+		if err != nil {
+			return err
+		}
+
+		switch mountIdType {
+		case ExtendedMountIdentifierTypeUuid, ExtendedMountIdentifierTypePartUuid:
+
+		default:
+			// fstab entry doesn't need to be changed.
+			continue
+		}
+
 		// Find the partition.
 		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
-		mountIdType, _, partitionIndex, _, err := findSourcePartition(fstabEntry.Source, partitions, buildDir)
+		_, partitionIndex, err := findPartitionHelper(imagecustomizerapi.MountIdentifierType(mountIdType), mountId,
+			partitions)
 		if err != nil {
 			return err
 		}

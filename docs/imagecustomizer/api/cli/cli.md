@@ -21,11 +21,12 @@ Added in v0.3.
 
 ## --image-file=FILE-PATH
 
-Required, unless [input.image.path](../configuration/inputImage.md#path-string) is
-provided in the configuration file. If both `input.image.path` and
-`--image-file` are provided, then the `--image-file` value is used.
-
 The base image file to customize.
+
+An input image must either be provided in the configuration file (e.g.
+[input.image.path](../configuration/inputImage.md#path-string)) or on the command line.
+If both a command-line input image and a configuration input image are specified, then
+the command line's input image overrides the config file's input image.
 
 This file is typically one of the standard Azure Linux core images.
 But it can also be an Azure Linux image that has been customized.
@@ -55,6 +56,36 @@ If verity is enabled in the base image, then:
   [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v0.3.
+
+## --image
+
+Specifies the location where the base image can be downloaded from.
+
+Supported formats:
+
+- `azurelinux:<VARIANT>:<VERSION>`
+
+  Where:
+
+  - `<VARIANT>`: The variant of the Azure Linux image.
+  
+  - `<VERSION>`: The version of the Azure Linux image.
+  
+  See [azureLinuxImage](../configuration/azurelinuximage.md) for more details.
+
+- `oci:<URI>`
+
+  Where:
+
+  - `<URI>`: The URI of the OCI artifact containing the image.
+
+  See [ociImage](../configuration/ociimage.md) for more details.
+
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Added in v1.1.
 
 ## --output-image-file=FILE-PATH
 
@@ -92,6 +123,29 @@ VMs in Azure.
 When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
 [Image Customizer ISO Support](../../concepts/iso.md).
+
+## --output-selinux-policy-path=DIRECTORY-PATH
+
+Optional.
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `output-selinux-policy` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+
+If both
+[output.selinuxPolicyPath](../configuration/output.md#selinuxpolicypath-string) and
+`--output-selinux-policy-path` are provided, then the `--output-selinux-policy-path`
+value is used.
+
+The directory path to output the SELinux policy files extracted from the customized
+image. The SELinux policy type is determined by reading the `SELINUXTYPE` value from
+`/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
+(e.g., `/etc/selinux/targeted`) will be extracted and copied to this location.
+
+If not specified, SELinux policy extraction is disabled.
+
+Added in v1.1.
 
 ## --config-file=FILE-PATH
 
@@ -194,3 +248,17 @@ You may enable this feature by adding `package-snapshot-time` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v0.15.
+
+## --image-cache-dir
+
+A directory path that can be used to cache downloaded image files so that they can be
+reused in subsequent runs.
+
+This option is used in conjunction with the
+[oci](../configuration/inputImage.md#oci-ociimage) API.
+
+This feature is in preview and may be subject to breaking changes.
+You may enable this feature by adding `input-image-oci` to the
+[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Added in v1.1.

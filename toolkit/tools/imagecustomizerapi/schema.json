@@ -45,6 +45,27 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "AzureLinuxImage": {
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "variant": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BaseConfig": {
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "BootLoader": {
       "properties": {
         "resetType": {
@@ -82,6 +103,12 @@
         },
         "output": {
           "$ref": "#/$defs/Output"
+        },
+        "baseConfigs": {
+          "items": {
+            "$ref": "#/$defs/BaseConfig"
+          },
+          "type": "array"
         }
       },
       "additionalProperties": false,
@@ -207,6 +234,12 @@
       "properties": {
         "path": {
           "type": "string"
+        },
+        "oci": {
+          "$ref": "#/$defs/OciImage"
+        },
+        "azureLinux": {
+          "$ref": "#/$defs/AzureLinuxImage"
         }
       },
       "additionalProperties": false,
@@ -338,6 +371,30 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "OciImage": {
+      "properties": {
+        "uri": {
+          "type": "string"
+        },
+        "platform": {
+          "$ref": "#/$defs/OciPlatform"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OciPlatform": {
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "architecture": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Output": {
       "properties": {
         "image": {
@@ -345,6 +402,9 @@
         },
         "artifacts": {
           "$ref": "#/$defs/Artifacts"
+        },
+        "selinuxPolicyPath": {
+          "type": "string"
         }
       },
       "additionalProperties": false,

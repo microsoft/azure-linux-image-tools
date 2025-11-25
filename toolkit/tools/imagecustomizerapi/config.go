@@ -19,6 +19,7 @@ type Config struct {
 	Scripts         Scripts          `yaml:"scripts" json:"scripts,omitempty"`
 	PreviewFeatures []PreviewFeature `yaml:"previewFeatures" json:"previewFeatures,omitempty"`
 	Output          Output           `yaml:"output" json:"output,omitempty"`
+	BaseConfigs     []BaseConfig     `yaml:"baseConfigs" json:"baseConfigs,omitempty"`
 }
 
 func (c *Config) IsValid() (err error) {
@@ -107,6 +108,12 @@ func (c *Config) IsValid() (err error) {
 		}
 	}
 
+	if c.Output.SelinuxPolicyPath != "" {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureOutputSelinuxPolicy) {
+			return fmt.Errorf("the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
+		}
+	}
+
 	// Check if any verity entry has a non-empty hash signature path.
 	hasVerityHashSignature := slices.ContainsFunc(c.Storage.Verity, func(v Verity) bool {
 		return v.HashSignaturePath != ""
@@ -121,6 +128,24 @@ func (c *Config) IsValid() (err error) {
 	if c.Storage.ReinitializeVerity != ReinitializeVerityTypeDefault &&
 		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureReinitializeVerity) {
 		return fmt.Errorf("the 'reinitialize-verity' preview feature must be enabled to use 'storage.reinitializeVerity'")
+	}
+
+	if c.BaseConfigs != nil {
+		if !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureBaseConfigs) {
+			return fmt.Errorf("the '%s' preview feature must be enabled to use 'baseConfigs'", PreviewFeatureBaseConfigs)
+		}
+
+		for i, base := range c.BaseConfigs {
+			if err := base.IsValid(); err != nil {
+				return fmt.Errorf("invalid baseConfig item at index %d:\n%w", i, err)
+			}
+		}
+	}
+
+	if c.Input.Image.Oci != nil &&
+		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureInputImageOci) {
+		return fmt.Errorf("the '%s' preview feature must be enabled to use 'input.image.oci'",
+			PreviewFeatureInputImageOci)
 	}
 
 	return nil

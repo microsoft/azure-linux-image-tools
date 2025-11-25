@@ -1,0 +1,61 @@
+previewFeatures:
+- output-artifacts
+- package-snapshot-time
+
+input:
+  image:
+    path: testimages/empty-base.vhdx
+
+output:
+  image:
+    path: ./out/output-image-1.vhdx
+    format: vhdx
+  artifacts:
+    items:
+    - ukis
+    path: ./artifacts-1
+
+os:
+  hostname: test-hostname-base
+  users:
+    - name: test-user-base
+  groups:
+    - name: test-group-base
+
+  additionalFiles:
+  - source: files/a.txt
+    destination: /mnt/a/a.txt
+
+  additionalDirs:
+  - source: dirs/a
+    destination: /
+
+  packages:
+    install:
+    - nginx
+    snapshotTime: 2025-09-18
+
+  services:
+    enable:
+    - nginx
+    - console-getty
+
+  modules:
+  - name: br_netfilter
+    loadMode: always
+  - name: vfio
+    loadMode: always
+
+  selinux:
+    mode: permissive
+
+  overlays:
+  - mountPoint: /var
+    lowerDirs:
+    - /var
+    upperDir: /mnt/overlays/var/upper
+    workDir: /mnt/overlays/var/work
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"

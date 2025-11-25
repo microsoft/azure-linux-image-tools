@@ -38,9 +38,14 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 // managePackages handles the complete package management workflow for Azure Linux
 func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime string,
+	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
 	return managePackagesRpm(
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager)
+}
+
+// isPackageInstalled implements distroHandler.
+func (d *azureLinuxDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+	return d.packageManager.isPackageInstalled(imageChroot, packageName)
 }

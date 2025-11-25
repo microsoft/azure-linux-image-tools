@@ -5,9 +5,11 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"iter"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -31,6 +34,12 @@ var (
 	// Extract the partition number from the loopback partition path.
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
+
+type fstabEntryPartNum struct {
+	FstabEntry diskutils.FstabEntry
+	PartUuid   string
+	IsVerity   bool
+}
 
 func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {
 	// Look for all system boot partitions, including both EFI System Paritions (ESP) and BIOS boot partitions.
@@ -105,12 +114,13 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 // Searches for the partition that contains the /etc/fstab file.
 // While technically it is possible to place /etc on a different partition, doing so is fairly difficult and requires
 // a custom initramfs module.
-func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
+func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, string, error) {
 	logger.Log.Debugf("Searching for rootfs partition")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	var rootfsPartitions []*diskutils.PartitionInfo
+	var rootfsPaths []string
 	for i := range diskPartitions {
 		diskPartition := diskPartitions[i]
 
@@ -121,67 +131,137 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 
 		// Skip over file-system types that can't be used for the rootfs partition.
 		switch diskPartition.FileSystemType {
-		case "ext2", "ext3", "ext4", "xfs":
+		case "ext2", "ext3", "ext4", "xfs", "btrfs":
 
 		default:
-			logger.Log.Debugf("Skip partition (%s) with unsupported rootfs filesystem type (%s)", diskPartition.Path,
-				diskPartition.FileSystemType)
+			logger.Log.Debugf("Skip partition (%s) with unsupported rootfs filesystem type (%s)",
+				diskPartition.Path, diskPartition.FileSystemType)
 			continue
 		}
 
-		// Temporarily mount the partition.
-		partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType, unix.MS_RDONLY,
-			"", true)
+		exists, rootfsPath, err := findFstabInRoot(diskPartition, tmpDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+			return nil, "", fmt.Errorf("failed to search for fstab in partition (%s):\n%w", diskPartition.Path, err)
 		}
-		defer partitionMount.Close()
-
-		// Check if the /etc/fstab file exists.
-		fstabPath := filepath.Join(tmpDir, "/etc/fstab")
-		exists, err := file.PathExists(fstabPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check if /etc/fstab file exists (%s):\n%w", diskPartition.Path, err)
-		}
-
 		if exists {
 			rootfsPartitions = append(rootfsPartitions, &diskPartition)
-		}
-
-		// Close the rootfs partition mount.
-		err = partitionMount.CleanClose()
-		if err != nil {
-			return nil, fmt.Errorf("failed to close partition mount (%s):\n%w", diskPartition.Path, err)
+			rootfsPaths = append(rootfsPaths, rootfsPath)
 		}
 	}
 
 	if len(rootfsPartitions) > 1 {
-		return nil, fmt.Errorf("found too many rootfs partition candidates (%d)", len(rootfsPartitions))
+		return nil, "", fmt.Errorf("found too many rootfs partition candidates (%d)",
+			len(rootfsPartitions))
 	} else if len(rootfsPartitions) < 1 {
-		return nil, fmt.Errorf("failed to find rootfs partition")
+		return nil, "", fmt.Errorf("failed to find rootfs partition")
 	}
 
 	rootfsPartition := rootfsPartitions[0]
-	return rootfsPartition, nil
+	rootfsPath := rootfsPaths[0]
+	return rootfsPartition, rootfsPath, nil
 }
 
-func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+// findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes
+func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool, string, error) {
+	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
+		unix.MS_RDONLY, "", true)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+	}
+	defer partitionMount.Close()
+
+	// Check the root of the filesystem
+	subvolume := ""
+	fstabPath := filepath.Join(tmpDir, "etc/fstab")
+	exists, err := file.PathExists(fstabPath)
+	if err != nil {
+		return false, "", err
+	}
+
+	if !exists && diskPartition.FileSystemType == "btrfs" {
+		// List actual subvolumes using btrfs tools
+		subvolumes, err := listBtrfsSubvolumes(tmpDir)
+		if err != nil {
+			return false, "", err
+		}
+
+		// Search for fstab in each subvolume directory
+		for _, subvolume = range subvolumes {
+			fstabPath := filepath.Join(tmpDir, subvolume, "etc/fstab")
+			exists, err := file.PathExists(fstabPath)
+			if err != nil {
+				return false, "", err
+			}
+			if exists {
+				break
+			}
+		}
+	}
+
+	// Close the rootfs partition mount.
+	err = partitionMount.CleanClose()
+	if err != nil {
+		return false, "", fmt.Errorf("failed to close partition mount (%s):\n%w",
+			diskPartition.Path, err)
+	}
+	return exists, subvolume, nil
+}
+
+// listBtrfsSubvolumes uses btrfs tools to discover actual subvolumes in a mounted BTRFS filesystem
+func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
+	stdout, _, err := shell.NewExecBuilder("btrfs", "subvolume", "list", "-a", mountPoint).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		ExecuteCaptureOutput()
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list BTRFS subvolumes:\n%w", err)
+	}
+
+	// Regex to parse btrfs subvolume list output format:
+	// ID 256 gen 7 top level 5 path @
+	// ID 257 gen 7 top level 5 path @home
+	subvolumeRegex := regexp.MustCompile(
+		`^ID\s+\d+\s+gen\s+\d+\s+top\s+level\s+\d+\s+path\s+(.+)$`)
+
+	var subvolumes []string
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		match := subvolumeRegex.FindStringSubmatch(line)
+		if match == nil {
+			return nil, fmt.Errorf("failed to parse btrfs subvolume list output line: %s", line)
+		}
+
+		subvolPath := match[1]
+		subvolumes = append(subvolumes, subvolPath)
+	}
+
+	logger.Log.Debugf("Found BTRFS subvolumes: %v", subvolumes)
+	return subvolumes, nil
+}
+
+func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
+	buildDir string, rootfsPath string,
 ) ([]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
 
 	// Temporarily mount the rootfs partition so that the fstab file can be read.
-	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir, rootfsPartition.FileSystemType, unix.MS_RDONLY, "",
-		true)
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
+		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
-	// Read the fstab file.
-	fstabPath := filepath.Join(tmpDir, "/etc/fstab")
+	fstabPath := filepath.Join(tmpDir, rootfsPath, "etc/fstab")
 
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
@@ -192,33 +272,84 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo, diskPa
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
+			rootfsPartition.Path, err)
 	}
 
 	return fstabEntries, nil
 }
 
-func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
-) ([]*safechroot.MountPoint, map[string]diskutils.FstabEntry, []verityDeviceMetadata, []string, error) {
+func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+	buildDir string, ignoreOverlays bool,
+) ([]fstabEntryPartNum, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
-	// Convert fstab entries into mount points.
-	var mountPoints []*safechroot.MountPoint
-	var foundRoot bool
-	partUuidToFstabEntry := make(map[string]diskutils.FstabEntry)
+	// Defer reading kernel cmdline until we know it is needed.
+	kernelCmdline := []grubConfigLinuxArg(nil)
+	gotKernelCmdline := false
+	getKernelCmdline := func() ([]grubConfigLinuxArg, error) {
+		var err error
+
+		if gotKernelCmdline {
+			return kernelCmdline, nil
+		}
+
+		kernelCmdline, err = extractKernelCmdline(fstabEntries, diskPartitions, buildDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read kernel cmdline:\n%w", err)
+		}
+
+		gotKernelCmdline = true
+		return kernelCmdline, nil
+	}
+
+	entries := []fstabEntryPartNum(nil)
 	verityMetadataList := []verityDeviceMetadata(nil)
-	readonlyPartUuids := []string(nil)
 	for _, fstabEntry := range filteredFstabEntries {
 		if ignoreOverlays && strings.ToLower(fstabEntry.FsType) == "overlay" {
 			continue // Skip overlay entries when requested
 		}
-		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, buildDir)
+
+		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, getKernelCmdline)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		}
 
-		readOnlyPartition := readOnlyVerity && verityMetadata != nil
+		entry := fstabEntryPartNum{
+			FstabEntry: fstabEntry,
+			PartUuid:   partition.PartUuid,
+			IsVerity:   verityMetadata != nil,
+		}
+
+		entries = append(entries, entry)
+
+		if verityMetadata != nil {
+			verityMetadataList = append(verityMetadataList, *verityMetadata)
+		}
+	}
+
+	return entries, verityMetadataList, nil
+}
+
+func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []diskutils.PartitionInfo,
+	readonly bool, readOnlyVerity bool,
+) ([]*safechroot.MountPoint, []string, error) {
+	// Convert fstab entries into mount points.
+	var mountPoints []*safechroot.MountPoint
+	var foundRoot bool
+	readonlyPartUuids := []string(nil)
+
+	for _, entry := range layout {
+		fstabEntry := entry.FstabEntry
+
+		partition, partitionFound := sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
+			return entry.PartUuid == partition.PartUuid
+		})
+		if !partitionFound {
+			return nil, nil, fmt.Errorf("failed to find partition (partuuid='%s')", entry.PartUuid)
+		}
+
+		readOnlyPartition := readOnlyVerity && entry.IsVerity
 		if readOnlyPartition {
 			readonlyPartUuids = append(readonlyPartUuids, partition.PartUuid)
 		}
@@ -249,17 +380,13 @@ func fstabEntriesToMountPoints(fstabEntries []diskutils.FstabEntry, diskPartitio
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
-		partUuidToFstabEntry[partition.PartUuid] = fstabEntry
-		if verityMetadata != nil {
-			verityMetadataList = append(verityMetadataList, *verityMetadata)
-		}
 	}
 
 	if !foundRoot {
-		return nil, nil, nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
+		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
-	return mountPoints, partUuidToFstabEntry, verityMetadataList, readonlyPartUuids, nil
+	return mountPoints, readonlyPartUuids, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {
@@ -285,14 +412,15 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 }
 
 func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
-	buildDir string,
+	getKernelCmdline func() ([]grubConfigLinuxArg, error),
 ) (ExtendedMountIdentifierType, diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
 	if err != nil {
 		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
 	}
 
-	partition, partitionIndex, verityMetadata, err := findExtendedPartition(mountIdType, mountId, partitions, buildDir)
+	partition, partitionIndex, verityMetadata, err := findExtendedPartition(mountIdType, mountId, partitions,
+		getKernelCmdline)
 	if err != nil {
 		return ExtendedMountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
 	}
@@ -301,7 +429,7 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 }
 
 func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo,
 ) (diskutils.PartitionInfo, int, error) {
 	partition, partitionIndex, err := findPartitionHelper(mountIdType, mountId, partitions)
 	if err != nil {
@@ -313,11 +441,16 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 
 // findExtendedPartition extends the public func findPartition to handle additional identifier types.
 func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId string,
-	partitions []diskutils.PartitionInfo, buildDir string,
+	partitions []diskutils.PartitionInfo, getKernelCmdline func() ([]grubConfigLinuxArg, error),
 ) (diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
 	switch mountIdType {
 	case ExtendedMountIdentifierTypeDev:
-		partition, partitionIndex, verityMetadata, err := findDevPathPartition(mountId, partitions, buildDir)
+		kernelCmdline, err := getKernelCmdline()
+		if err != nil {
+			return diskutils.PartitionInfo{}, 0, nil, err
+		}
+
+		partition, partitionIndex, verityMetadata, err := findDevPathPartition(mountId, partitions, kernelCmdline)
 		if err != nil {
 			return diskutils.PartitionInfo{}, 0, nil, err
 		}
@@ -370,16 +503,11 @@ func findPartitionHelper(mountIdType imagecustomizerapi.MountIdentifierType, mou
 }
 
 func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
-	buildDir string,
+	kernelCmdline []grubConfigLinuxArg,
 ) (diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
-	cmdline, err := extractKernelCmdline(partitions, buildDir)
-	if err != nil {
-		return diskutils.PartitionInfo{}, 0, nil, err
-	}
-
 	switch mountId {
 	case imagecustomizerapi.VerityRootDevicePath:
-		partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, cmdline,
+		partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
 			"systemd.verity_root_data", "systemd.verity_root_hash", "roothash", "systemd.verity_root_options",
 			imagecustomizerapi.VerityRootDeviceName)
 		if err != nil {
@@ -389,7 +517,7 @@ func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
 		return partition, partitionIndex, &verityMetadata, nil
 
 	case imagecustomizerapi.VerityUsrDevicePath:
-		partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, cmdline,
+		partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
 			"systemd.verity_usr_data", "systemd.verity_usr_hash", "usrhash", "systemd.verity_usr_options",
 			imagecustomizerapi.VerityUsrDeviceName)
 		if err != nil {
@@ -399,7 +527,7 @@ func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
 		return partition, partitionIndex, &verityMetadata, nil
 
 	default:
-		err = fmt.Errorf("unknown partition id (%s)", mountId)
+		err := fmt.Errorf("unknown partition id (%s)", mountId)
 		return diskutils.PartitionInfo{}, 0, nil, err
 	}
 }
@@ -463,22 +591,24 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 	return dataPartition, dataPartitionIndex, verityMetadata, nil
 }
 
-func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string) ([]grubConfigLinuxArg, error) {
-	espPartition, err := findSystemBootPartition(partitions)
+func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+	buildDir string,
+) ([]grubConfigLinuxArg, error) {
+	bootDirPartition, bootDirPath, err := findBasicPartitionForPath("/boot", fstabEntries, diskPartitions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find ESP partition:\n%w", err)
+		return nil, fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
-	bootPartition, err := findBootPartitionFromEsp(espPartition, partitions, buildDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find boot partition:\n%w", err)
-	}
-
-	cmdline, err := extractKernelCmdlineFromGrub(bootPartition, buildDir)
+	cmdline, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
 	} else if !os.IsNotExist(err) {
 		return cmdline, nil
+	}
+
+	espPartition, err := findSystemBootPartition(diskPartitions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find ESP partition:\n%w", err)
 	}
 
 	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
@@ -489,6 +619,39 @@ func extractKernelCmdline(partitions []diskutils.PartitionInfo, buildDir string)
 	}
 
 	return cmdline, nil
+}
+
+// Find the partition that a path is located on.
+// This function cannot handle verity partitions (since that requires reading the kernel cmdline).
+func findBasicPartitionForPath(targetPath string, fstabEntries []diskutils.FstabEntry,
+	diskPartitions []diskutils.PartitionInfo,
+) (diskutils.PartitionInfo, string, error) {
+	index, bootDirPath, found := getMostSpecificPath(targetPath, slices.All(fstabEntries),
+		func(entry diskutils.FstabEntry) string {
+			return entry.Target
+		})
+	if !found {
+		return diskutils.PartitionInfo{}, "", fmt.Errorf("failed to find fstab entry for path (path='%s')", targetPath)
+	}
+
+	fstabEntry := fstabEntries[index]
+
+	mountIdType, mountId, err := parseExtendedSourcePartition(fstabEntry.Source)
+	if err != nil {
+		return diskutils.PartitionInfo{}, "", err
+	}
+
+	if mountIdType == ExtendedMountIdentifierTypeDev {
+		return diskutils.PartitionInfo{}, "", fmt.Errorf("cannot process fstab source (source='%s')", fstabEntry.Source)
+	}
+
+	partition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierType(mountIdType),
+		mountId, diskPartitions)
+	if err != nil {
+		return diskutils.PartitionInfo{}, "", err
+	}
+
+	return partition, bootDirPath, nil
 }
 
 func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
@@ -602,17 +765,18 @@ func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, er
 	return string(content), nil
 }
 
-func extractKernelCmdlineFromGrub(bootPartition *diskutils.PartitionInfo,
+func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDirPath string,
 	buildDir string,
 ) ([]grubConfigLinuxArg, error) {
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
-	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType,
+		unix.MS_RDONLY, "", true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount boot partition (%s):\n%w", bootPartition.Path, err)
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgPath := filepath.Join(tmpDirBoot, DefaultGrubCfgPath)
+	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read grub.cfg:\n%w", err)
@@ -790,4 +954,54 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 	}
 
 	return num, nil
+}
+
+// Find the closest parent for a target path, given a set of parent paths.
+func getMostSpecificPath[K, V any](targetPath string, items iter.Seq2[K, V], pathFn func(V) string) (K, string, bool) {
+	var mostSpecificIndex K
+	mostSpecificPath := ""
+	mostSpecificRelativePath := ""
+	found := false
+
+	for k, v := range items {
+		path := pathFn(v)
+		relativePath, err := filepath.Rel(path, targetPath)
+		if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, "../") {
+			// Path is not relative to the mount.
+			continue
+		}
+
+		if !found || len(path) > len(mostSpecificPath) {
+			mostSpecificIndex = k
+			mostSpecificPath = path
+			mostSpecificRelativePath = relativePath
+			found = true
+		}
+	}
+
+	return mostSpecificIndex, mostSpecificRelativePath, found
+}
+
+func getPartitionOfPath(targetPath string, diskPartitions []diskutils.PartitionInfo,
+	partitionsLayout []fstabEntryPartNum,
+) (diskutils.PartitionInfo, string, error) {
+	index, relativePath, found := getMostSpecificPath(targetPath, slices.All(partitionsLayout),
+		func(entry fstabEntryPartNum) string {
+			return entry.FstabEntry.Target
+		})
+	if !found {
+		return diskutils.PartitionInfo{}, "", fmt.Errorf("failed to find fstab entry for path (path='%s')", targetPath)
+	}
+
+	entry := partitionsLayout[index]
+	partitionInfo, found := sliceutils.FindValueFunc(diskPartitions,
+		func(info diskutils.PartitionInfo) bool {
+			return info.PartUuid == entry.PartUuid
+		})
+	if !found {
+		return diskutils.PartitionInfo{}, "", fmt.Errorf("failed to partition for part UUID (partuuid='%s', path='%s)",
+			entry.PartUuid, targetPath)
+	}
+
+	return partitionInfo, relativePath, nil
 }

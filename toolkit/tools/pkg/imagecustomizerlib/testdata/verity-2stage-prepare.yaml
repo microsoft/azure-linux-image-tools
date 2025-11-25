@@ -10,9 +10,6 @@ storage:
       type: esp
       size: 8M
 
-    - id: boot
-      size: 1G
-
     - id: usr
       size: 2G
       label: usr
@@ -30,11 +27,6 @@ storage:
     mountPoint:
       path: /boot/efi
       options: umask=0077
-
-  - deviceId: boot
-    type: ext4
-    mountPoint:
-      path: /boot
 
   - deviceId: root
     type: ext4

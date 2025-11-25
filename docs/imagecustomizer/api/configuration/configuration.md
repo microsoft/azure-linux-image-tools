@@ -84,7 +84,13 @@ The top level type for the YAML file is the [config](./config.md) type.
 22. If a ([verity](./storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
 
-23. If the output format is set to `iso` or `pxe`, copy additional iso media files.
+23. If ([output.artifacts](./output.md#artifacts-outputartifacts)) is
+    specified, then copy the artifacts to the specified output directory.
+
+24. If ([output.selinuxPolicyPath](./output.md#selinuxpolicypath-string)) is
+    specified, then extract the SELinux policy files from the customized image.
+
+25. If the output format is set to `iso` or `pxe`, copy additional iso media files.
     ([iso](./iso.md) or [pxe](./pxe.md))
 
 ## /etc/resolv.conf
@@ -256,3 +262,4 @@ os:
     - [artifacts](./output.md#artifacts-outputartifacts) ([outputArtifacts type](./outputArtifacts.md))
       - [path](./outputArtifacts.md#path-string)
       - [items](./outputArtifacts.md#items-string)
+    - [selinuxPolicyPath](./output.md#selinuxpolicypath-string)

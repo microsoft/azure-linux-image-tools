@@ -30,19 +30,20 @@ var (
 	ErrBootloaderUnsupportedRootMountId = NewImageCustomizerError("Bootloader:UnsupportedRootMountId", "unsupported root mount identifier")
 )
 
-func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
+func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
+	partitionsLayout []fstabEntryPartNum, newImage bool,
 ) error {
 	switch {
-	case config.OS.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, baseConfigPath, config, imageConnection, partUuidToFstabEntry, newImage)
+	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
+		err := hardResetBootLoader(ctx, rc.BaseConfigPath, rc.Config, imageConnection, partitionsLayout,
+			newImage, rc.SELinux)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(ctx, config.OS.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
+		err := AddKernelCommandLine(ctx, rc.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
@@ -52,7 +53,7 @@ func handleBootLoader(ctx context.Context, baseConfigPath string, config *imagec
 }
 
 func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, imageConnection *imageconnection.ImageConnection,
-	partUuidToFstabEntry map[string]diskutils.FstabEntry, newImage bool,
+	partitionsLayout []fstabEntryPartNum, newImage bool, selinuxConfig imagecustomizerapi.SELinux,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -91,7 +92,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 		rootMountIdType = rootFileSystem.MountPoint.IdType
 		bootType = config.Storage.BootType
 	} else {
-		rootMountIdType, err = findRootMountIdType(partUuidToFstabEntry)
+		rootMountIdType, err = findRootMountIdType(partitionsLayout)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderRootMountIdTypeGet, err)
 		}
@@ -103,7 +104,7 @@ func hardResetBootLoader(ctx context.Context, baseConfigPath string, config *ima
 	}
 
 	// Hard-reset the grub config.
-	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, config.OS.SELinux,
+	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig,
 		config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
@@ -146,11 +147,12 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	return nil
 }
 
-func findRootMountIdType(partUuidToFstabEntry map[string]diskutils.FstabEntry,
+func findRootMountIdType(partitionsLayout []fstabEntryPartNum,
 ) (imagecustomizerapi.MountIdentifierType, error) {
 	rootFound := false
 	rootFstabEntry := diskutils.FstabEntry{}
-	for _, fstabEntry := range partUuidToFstabEntry {
+	for _, entry := range partitionsLayout {
+		fstabEntry := entry.FstabEntry
 		if fstabEntry.Target == "/" {
 			rootFound = true
 			rootFstabEntry = fstabEntry

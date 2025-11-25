@@ -14,9 +14,9 @@ func TestInjectFilesConfig_Valid(t *testing.T) {
 		PreviewFeatures: []PreviewFeature{PreviewFeatureInjectFiles},
 		InjectFiles: []InjectArtifactMetadata{
 			{
-				Source:         "./bootx64.signed.efi",
-				Destination:    "/EFI/BOOT/bootx64.efi",
-				UnsignedSource: "./bootx64.efi",
+				Source:      "./shim/bootx64.efi",
+				Destination: "/EFI/BOOT/bootx64.efi",
+				Type:        OutputArtifactsItemShim,
 				Partition: InjectFilePartition{
 					MountIdType: MountIdentifierTypePartUuid,
 					Id:          "5678-EFGH",
@@ -45,9 +45,9 @@ func TestInjectFilesConfig_InvalidInjectArtifact(t *testing.T) {
 		PreviewFeatures: []PreviewFeature{PreviewFeatureInjectFiles},
 		InjectFiles: []InjectArtifactMetadata{
 			{
-				Source:         "",
-				Destination:    "/EFI/BOOT/bootx64.efi",
-				UnsignedSource: "./bootx64.efi",
+				Source:      "",
+				Destination: "/EFI/BOOT/bootx64.efi",
+				Type:        OutputArtifactsItemShim,
 				Partition: InjectFilePartition{
 					MountIdType: MountIdentifierTypePartUuid,
 					Id:          "5678-EFGH",

@@ -4,33 +4,23 @@
 package imagecustomizerlib
 
 import (
-	"path/filepath"
-	"strings"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"golang.org/x/sys/unix"
 )
 
 func isPathOnReadOnlyMount(chrootPath string, imageChroot *safechroot.Chroot) bool {
-	mostSpecificMount := (*safechroot.MountPoint)(nil)
-
 	mounts := imageChroot.GetMountPoints()
-	for _, mount := range mounts {
-		relativePath, err := filepath.Rel(mount.GetTarget(), chrootPath)
-		if err != nil || strings.HasPrefix(relativePath, "../") {
-			// Path is not relative to the mount.
-			continue
-		}
-
-		if mostSpecificMount == nil || len(mount.GetTarget()) > len(mostSpecificMount.GetTarget()) {
-			mostSpecificMount = mount
-		}
-	}
-
-	if mostSpecificMount == nil {
+	mountIndex, _, found := getMostSpecificPath(chrootPath, slices.All(mounts),
+		func(mountPoint *safechroot.MountPoint) string {
+			return mountPoint.GetTarget()
+		})
+	if !found {
 		return false
 	}
 
+	mostSpecificMount := mounts[mountIndex]
 	mountIsReadOnly := (mostSpecificMount.GetFlags() & unix.MS_RDONLY) != 0
 	return mountIsReadOnly
 }

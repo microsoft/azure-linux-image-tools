@@ -262,8 +262,8 @@ the verity hash against a signature at boot time.
 
 This path **must be located under the boot partition**. (This restriction may be
 lessened in the future.) For example, if the boot partition is mounted at
-`/boot`, then `hashSignaturePath: /boot/root.hash.sig` will result in a
-destination of `/root.hash.sig` relative to the boot partition during injection.
+`/boot`, then `hashSignaturePath: /boot/usr.hash` will result in a
+destination of `/usr.hash` relative to the boot partition during injection.
 
 When this field is specified, Image Customizer will output the corresponding unsigned hash
 file (`verity-hash`) as an artifact if the

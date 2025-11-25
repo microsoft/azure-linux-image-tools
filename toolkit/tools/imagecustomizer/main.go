@@ -23,12 +23,15 @@ import (
 type CustomizeCmd struct {
 	BuildDir                 string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	InputImageFile           string   `name:"image-file" help:"Path of the base Azure Linux image which the customization will be applied to."`
+	InputImage               string   `name:"image" help:"The image which the customization will be applied to.\n Supported formats:\n - oci:URI"`
 	OutputImageFile          string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image artifacts to."`
 	OutputImageFormat        string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
+	OutputSelinuxPolicyPath  string   `name:"output-selinux-policy-path" help:"Path to output directory for extracting SELinux policy files."`
 	ConfigFile               string   `name:"config-file" help:"Path of the image customization config file." required:""`
 	RpmSources               []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs."`
 	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
 	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
+	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
 }
 
 type InjectFilesCmd struct {
@@ -115,13 +118,16 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
 		imagecustomizerlib.ImageCustomizerOptions{
-			BuildDir:             cmd.BuildDir,
-			InputImageFile:       cmd.InputImageFile,
-			RpmsSources:          cmd.RpmSources,
-			OutputImageFile:      cmd.OutputImageFile,
-			OutputImageFormat:    cmd.OutputImageFormat,
-			UseBaseImageRpmRepos: !cmd.DisableBaseImageRpmRepos,
-			PackageSnapshotTime:  cmd.PackageSnapshotTime,
+			BuildDir:                cmd.BuildDir,
+			InputImageFile:          cmd.InputImageFile,
+			InputImage:              cmd.InputImage,
+			RpmsSources:             cmd.RpmSources,
+			OutputImageFile:         cmd.OutputImageFile,
+			OutputImageFormat:       imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
+			OutputSelinuxPolicyPath: cmd.OutputSelinuxPolicyPath,
+			UseBaseImageRpmRepos:    !cmd.DisableBaseImageRpmRepos,
+			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
+			ImageCacheDir:           cmd.ImageCacheDir,
 		})
 	if err != nil {
 		return err

@@ -28,7 +28,13 @@ After running the command, the Image Creator binary will be located at
 1. Download the test RPM files and the tools tar file to create new image:
 
    ```bash
-   ./toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -t 3.0 -s true
+   ./toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+   ```
+
+   For Fedora, download the test RPM files and tools tar file using:
+
+   ```bash
+   ./toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true
    ```
 
 2. Run the tests:

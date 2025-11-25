@@ -20,7 +20,7 @@ import (
 // managePackagesRpm provides a shared implementation for RPM-based package management
 func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
-	snapshotTime string, pmHandler rpmPackageManagerHandler,
+	snapshotTime imagecustomizerapi.PackageSnapshotTime, pmHandler rpmPackageManagerHandler,
 ) error {
 	var err error
 
@@ -38,10 +38,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	// Setup distribution-specific configuration if needed
 	if pmHandler.supportsSnapshotTime() && snapshotTime != "" {
 		// Setup Azure Linux specific TDNF configuration with snapshot
-		err = createTempTdnfConfigWithSnapshot(
-			packageManagerChroot,
-			imagecustomizerapi.PackageSnapshotTime(snapshotTime),
-		)
+		err = createTempTdnfConfigWithSnapshot(packageManagerChroot, snapshotTime)
 		if err != nil {
 			return err
 		}
@@ -85,11 +82,13 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 		}
 	}
 
+	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
 	err = installOrUpdateRpmPackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
+	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
 	err = installOrUpdateRpmPackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return err
@@ -185,6 +184,8 @@ func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesT
 func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
+	logger.Log.Infof("Updating base image packages")
+
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
 	defer span.End()
 
@@ -215,6 +216,8 @@ func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
 func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
+	logger.Log.Infof("Removing packages: %v", allPackagesToRemove)
+
 	if len(allPackagesToRemove) <= 0 {
 		return nil
 	}
@@ -279,6 +282,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 func cleanRpmCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	pmHandler rpmPackageManagerHandler,
 ) error {
+	logger.Log.Infof("Cleaning up RPM cache")
 	// Build command arguments directly
 	args := []string{pmHandler.getVerbosityOption(), "clean", "all"}
 
