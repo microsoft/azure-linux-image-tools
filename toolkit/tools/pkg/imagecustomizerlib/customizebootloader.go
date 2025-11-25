@@ -78,7 +78,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
 
-	if len(rc.Storage.Disks) > 0 {
+	if rc.Storage.CustomizePartitions() {
 		rootFileSystem, foundRootFileSystem := sliceutils.FindValueFunc(rc.Storage.FileSystems,
 			func(fileSystem imagecustomizerapi.FileSystem) bool {
 				return fileSystem.MountPoint != nil &&

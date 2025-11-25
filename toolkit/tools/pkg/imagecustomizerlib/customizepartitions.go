@@ -26,7 +26,7 @@ func customizePartitions(ctx context.Context, rc *ResolvedConfig, targetOS targe
 	storage := rc.Storage
 
 	switch {
-	case len(storage.Disks) > 0:
+	case storage.CustomizePartitions():
 		logger.Log.Infof("Customizing partitions")
 
 		_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_partitions")

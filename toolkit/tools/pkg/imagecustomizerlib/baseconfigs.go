@@ -12,13 +12,14 @@ import (
 type ConfigWithBasePath struct {
 	Config         *imagecustomizerapi.Config
 	BaseConfigPath string
+	ConfigFileName string
 }
 
 func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithBasePath, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := buildConfigChainHelper(ctx, rc.Config, rc.BaseConfigPath, visited, pathStack)
+	configChain, err := buildConfigChainHelper(ctx, rc.Config, rc.BaseConfigPath, rc.ConfigFileName, visited, pathStack)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +28,7 @@ func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithBas
 }
 
 func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config, configDir string,
-	visited map[string]bool, pathStack []string) ([]*ConfigWithBasePath, error) {
+	configFileName string, visited map[string]bool, pathStack []string) ([]*ConfigWithBasePath, error) {
 
 	var chain []*ConfigWithBasePath
 
@@ -55,7 +56,8 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 
 		// Recurse into base config
 		baseConfigDir := filepath.Dir(absPath)
-		subChain, err := buildConfigChainHelper(ctx, &baseCfg, baseConfigDir, visited, pathStack)
+		baseFileName := filepath.Base(absPath)
+		subChain, err := buildConfigChainHelper(ctx, &baseCfg, baseConfigDir, baseFileName, visited, pathStack)
 		if err != nil {
 			return nil, err
 		}
@@ -67,6 +69,7 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 	chain = append(chain, &ConfigWithBasePath{
 		Config:         cfg,
 		BaseConfigPath: configDir,
+		ConfigFileName: configFileName,
 	})
 
 	return chain, nil

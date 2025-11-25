@@ -3,16 +3,20 @@ storage:
   - partitionTableType: gpt
     partitions:
     - id: esp
+      label: esp
       type: esp
       size: 100M
 
     - id: boot
+      label: boot
       size: 100M
 
     - id: root
+      label: root
       size: 2G
 
     - id: roothash
+      label: roothash
       size: 100M
 
   bootType: efi

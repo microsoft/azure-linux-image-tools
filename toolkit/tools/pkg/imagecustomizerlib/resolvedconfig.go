@@ -15,6 +15,7 @@ import (
 type ResolvedConfig struct {
 	// Configurations
 	BaseConfigPath        string
+	ConfigFileName        string
 	Config                *imagecustomizerapi.Config
 	Options               ImageCustomizerOptions
 	CustomizeOSPartitions bool

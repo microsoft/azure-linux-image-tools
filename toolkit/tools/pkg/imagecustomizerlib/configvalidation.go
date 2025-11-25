@@ -46,14 +46,22 @@ var (
 	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is not a directory")
 )
 
-func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+func ValidateConfig(ctx context.Context, configFilePath string, config *imagecustomizerapi.Config,
 	newImage bool, options ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
+	// Derive base config path from config file path
+	baseConfigPath := filepath.Dir(configFilePath)
+	if configFilePath == "" {
+		// For programmatic configs without a file, use current directory
+		baseConfigPath = "."
+	}
+
 	rc := &ResolvedConfig{
 		BaseConfigPath: baseConfigPath,
+		ConfigFileName: filepath.Base(configFilePath),
 		Config:         config,
 		Options:        options,
 	}
@@ -135,7 +143,12 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Hostname = resolveHostname(rc.ConfigChain)
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
-	rc.Storage = resolveStorage(rc.ConfigChain)
+
+	rc.Storage, err = resolveStorage(rc.ConfigChain)
+	if err != nil {
+		return nil, err
+	}
+
 	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
@@ -517,7 +530,7 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 		// While defining a storage configuration can work when the input image is
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
-		if len(rc.Storage.Disks) > 0 {
+		if rc.Storage.CustomizePartitions() {
 			return ErrCannotCustomizePartitionsOnIso
 		}
 	}
@@ -528,21 +541,22 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 func validateStorage(configChain []*ConfigWithBasePath) error {
 	var baseHasDisks bool
 
-	for i, configWithBase := range configChain {
+	for _, configWithBase := range configChain {
 		storage := configWithBase.Config.Storage
 
-		hasDisks := len(storage.Disks) > 0
+		hasDisks := storage.CustomizePartitions()
 		hasResetUUID := storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault
 		hasReinitVerity := storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault
 
 		if baseHasDisks {
+			configFullPath := filepath.Join(configWithBase.BaseConfigPath, configWithBase.ConfigFileName)
 			if hasResetUUID {
 				return fmt.Errorf(
-					"cannot specify 'resetPartitionsUuidsType' in config at layer %d when a base config specifies '.storage.disks'", i)
+					"cannot specify 'resetPartitionsUuidsType' in %s when a base config specifies '.storage.disks'", configFullPath)
 			}
 			if hasReinitVerity {
 				return fmt.Errorf(
-					"cannot specify 'reinitializeVerity' in config at layer %d when a base config specifies '.storage.disks'", i)
+					"cannot specify 'reinitializeVerity' in %s when a base config specifies '.storage.disks'", configFullPath)
 			}
 		}
 
@@ -553,6 +567,35 @@ func validateStorage(configChain []*ConfigWithBasePath) error {
 	}
 
 	return nil
+}
+
+func resolveStorage(configChain []*ConfigWithBasePath) (imagecustomizerapi.Storage, error) {
+	var resolvedStorage imagecustomizerapi.Storage
+
+	for _, configWithBase := range slices.Backward(configChain) {
+		storage := configWithBase.Config.Storage
+
+		// If current config has disks, it overrides all base configs
+		if storage.CustomizePartitions() {
+			return storage, nil
+		}
+
+		// Otherwise, accumulate individual override fields
+		if storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
+			resolvedStorage.ResetPartitionsUuidsType = storage.ResetPartitionsUuidsType
+		}
+
+		if storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+			resolvedStorage.ReinitializeVerity = storage.ReinitializeVerity
+		}
+
+		if len(storage.Verity) > 0 {
+			resolvedStorage.Verity = storage.Verity
+			resolvedStorage.VerityPartitionsType = storage.VerityPartitionsType
+		}
+	}
+
+	return resolvedStorage, nil
 }
 
 func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizerapi.Artifacts {
@@ -668,57 +711,4 @@ func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizer
 	return imagecustomizerapi.KernelCommandLine{
 		ExtraCommandLine: mergedArgs,
 	}
-}
-
-func resolveStorage(configChain []*ConfigWithBasePath) imagecustomizerapi.Storage {
-	var resolvedStorage imagecustomizerapi.Storage
-
-	for _, configWithBase := range slices.Backward(configChain) {
-		storage := configWithBase.Config.Storage
-
-		if len(storage.Disks) > 0 {
-			// Override
-			resolvedStorage.Disks = storage.Disks
-			resolvedStorage.BootType = storage.BootType
-			resolvedStorage.FileSystems = storage.FileSystems
-			resolvedStorage.Verity = storage.Verity
-			return resolvedStorage
-		}
-
-		// .storage.resetPartitionsUuidsType - override
-		if storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
-			resolvedStorage.ResetPartitionsUuidsType = storage.ResetPartitionsUuidsType
-		}
-
-		// .storage.reinitializeVerity - override
-		if storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
-			resolvedStorage.ReinitializeVerity = storage.ReinitializeVerity
-		}
-
-		// Recalculate VerityPartitionsType based on resolved storage
-		verityUsesConfigPartitions := false
-		verityUsesExistingPartitions := false
-
-		for _, verity := range resolvedStorage.Verity {
-			if verity.DataDeviceId != "" || verity.HashDeviceId != "" {
-				verityUsesConfigPartitions = true
-			}
-			if verity.DataDevice != nil || verity.HashDevice != nil {
-				verityUsesExistingPartitions = true
-			}
-		}
-
-		switch {
-		case verityUsesConfigPartitions && verityUsesExistingPartitions:
-			return imagecustomizerapi.Storage{}
-		case verityUsesConfigPartitions:
-			resolvedStorage.VerityPartitionsType = imagecustomizerapi.VerityPartitionsUsesConfig
-		case verityUsesExistingPartitions:
-			resolvedStorage.VerityPartitionsType = imagecustomizerapi.VerityPartitionsUsesExisting
-		default:
-			resolvedStorage.VerityPartitionsType = imagecustomizerapi.VerityPartitionsNone
-		}
-	}
-
-	return resolvedStorage
 }
