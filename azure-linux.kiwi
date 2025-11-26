@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<image schemaversion="7.5" name="AZL4-image-example">
+    <description type="system">
+        <author>Azure Linux</author>
+        <contact>azurelinux-team@microsoft.com</contact>
+        <specification>Azure Linux Image Example</specification>
+    </description>
+    <preferences>
+        <version>1.0</version>
+        <packagemanager>dnf5</packagemanager>
+        <locale>en_US</locale>
+        <keytable>us</keytable>
+        <timezone>UTC</timezone>
+        <release-version>1.0</release-version>
+        <type
+            image="oem"
+            filesystem="xfs"
+            kernelcmdline="console=ttyS0 rd.shell=0 systemd.getty_auto=false rd.kiwi.verity_options=panic-on-corruption"
+            firmware="uefi"
+            overlayroot="true"
+            overlayroot_write_partition="false"
+            overlayroot_readonly_filesystem="erofs"
+            overlayroot_readonly_partsize="2048"
+            erofscompression="lz4hc,level=12"
+            eficsm="false"
+            verity_blocks="all"
+            bootpartition="false"
+            efipartsize="200">
+        <oemconfig>
+            <oem-resize>false</oem-resize>
+        </oemconfig>
+        <bootloader name="systemd_boot" timeout="0"/>
+        <initrd action="setup">
+            <dracut uefi="true"/>
+        </initrd>
+        <size unit="G">4</size>
+        </type>
+    </preferences>
+
+    <repository type="rpm-md" alias="fedora-42-everything">
+            <source path="https://fedora.mirrorservice.org/fedora/linux/releases/42/Everything/x86_64/os/"/>
+    </repository>
+
+    <packages type="image">
+
+         <!-- Core group -->
+        <package name="basesystem"/>
+        <package name="bash"/>
+        <package name="ca-certificates"/>
+        <package name="coreutils"/>
+        <package name="system-release"/>
+
+        <!-- Minimal group (adjusted for Azure) -->
+        <package name="audit"/>
+        <package name="chrony"/>
+        <package name="cloud-init"/>
+        <package name="cloud-utils-growpart"/>
+        <package name="curl-minimal"/>
+        <package name="dnf"/>
+        <package name="dnf-plugin-release-notification"/>
+        <package name="dnf-plugin-support-info"/>
+        <package name="dnf-plugins-core"/>
+        <package name="dracut-config-generic"/>
+        <package name="glibc"/>
+        <package name="glibc-all-langpacks"/>
+        <package name="glibc-locale-source"/>
+        <package name="gnupg2-minimal"/>
+        <package name="grubby"/>
+        <package name="hostname"/>
+        <package name="iproute"/>
+        <package name="iputils"/>
+        <package name="irqbalance"/>
+        <package name="kernel"/>
+        <package name="less"/>
+        <package name="libcurl-minimal"/>
+        <package name="man-db"/>
+        <package name="ncurses"/>
+        <package name="openssh-clients"/>
+        <package name="openssh-server"/>
+        <package name="passwd"/>
+        <package name="policycoreutils"/>
+        <package name="procps-ng"/>
+        <package name="psmisc"/>
+        <package name="rng-tools"/>
+        <package name="rpm"/>
+        <package name="rpm-plugin-systemd-inhibit"/>
+        <package name="selinux-policy-targeted"/>
+        <package name="setup"/>
+        <package name="shadow-utils"/>
+        <package name="sudo"/>
+        <package name="systemd"/>
+        <package name="systemd-networkd"/>
+        <package name="systemd-resolved"/>
+        <package name="util-linux"/>
+        <package name="vim-minimal"/>
+        <package name="xfsprogs"/>
+        <package name="zstd"/>
+
+
+        <package name="pciutils"/>
+        <package name="gzip"/>
+        <package name="veritysetup"/>
+        <package name="systemd-boot"/>
+        <package name="tar"/>
+        <package name="zram-generator"/>
+        <package name="zram-generator-defaults"/>
+        <package name="cryptsetup"/>
+        <package name="dracut-kiwi-verity"/>
+        <package name="dracut-kiwi-overlay"/>
+        <package name="systemd-resolved"/>
+        <package name="binutils"/>
+
+
+        <!-- Azure-specific packages -->
+        <package name="WALinuxAgent"/>
+		<package name="azure-vm-utils"/>
+		<package name="kernel-modules"/>
+		<package name="hyperv-daemons"/>
+
+        <!-- Don't install these packages -->
+        <ignore name="grubby"/>
+        <ignore name="grub2-pc-modules"/>
+        <ignore name="grub2-tools"/>
+        <ignore name="grub2-efi-aa64-ec2"/>
+        <ignore name="grub2-efi-aa64"/>
+        <ignore name="grub2-efi-aa64-modules"/>
+        <ignore name="grub2-efi-x64-ec2"/>
+        <ignore name="grub2-efi-x64"/>
+        <ignore name="grub2-efi-x64-modules"/>
+        <ignore name="firewalld"/>
+       
+        <!-- Remove operator access by not installing these packages -->
+        <ignore name="openssh-server"/>
+        <ignore name="cloud-init"/>
+    </packages>
+
+    <packages type="bootstrap">
+        <package name="system-release"/>
+        <package name="dnf"/>
+        <!-- Ignoring these packages forces the use of the minimal versions -->
+        <ignore name="libcurl"/>
+        <ignore name="curl"/>
+        <ignore name="gnupg2"/>
+    </packages>
+
+
+    <users>
+        <user name="root" password="!" groups="root" />
+    </users>
+</image>
