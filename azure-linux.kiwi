@@ -31,12 +31,13 @@
             <oem-resize>false</oem-resize>
         </oemconfig>
         <bootloader name="systemd_boot" timeout="0"/>
-        <initrd action="setup">
-            <dracut uefi="true"/>
-        </initrd>
         <size unit="G">4</size>
         </type>
     </preferences>
+
+    <initrd action="setup">
+        <dracut uefi="true"/>
+    </initrd>
 
     <repository type="rpm-md" alias="fedora-42-everything">
             <source path="https://fedora.mirrorservice.org/fedora/linux/releases/42/Everything/x86_64/os/"/>
