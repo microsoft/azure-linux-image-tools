@@ -285,7 +285,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, configFil
 	}
 
 	if rc.OutputArtifacts != nil {
-		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
+		outputDir := file.GetAbsPathWithBase(rc.ConfigDir(), rc.OutputArtifacts.Path)
 
 		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
 			rc.RawImageFile, im.verityMetadata)
@@ -622,13 +622,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
-			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, rc.BaseConfigPath, inputIsoArtifacts, requestedSELinuxMode,
+			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, rc.ConfigDir(), inputIsoArtifacts, requestedSELinuxMode,
 				rc.Config.Iso, rc.Config.Pxe, rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
-			err := repackageLiveOS(rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.Iso, rc.Config.Pxe,
+			err := repackageLiveOS(rc.BuildDirAbs, rc.ConfigDir(), rc.Config.Iso, rc.Config.Pxe,
 				inputIsoArtifacts, rc.OutputImageFormat, rc.OutputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)

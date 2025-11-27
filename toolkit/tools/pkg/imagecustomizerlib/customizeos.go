@@ -35,7 +35,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			snapshotTime = rc.Options.PackageSnapshotTime
 		}
 
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
+		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.ConfigDir(), configWithBase.Config.OS,
 			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
@@ -54,21 +54,21 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			return err
 		}
 
-		err = AddOrUpdateUsers(ctx, configWithBase.Config.OS.Users, configWithBase.BaseConfigPath, imageChroot)
+		err = AddOrUpdateUsers(ctx, configWithBase.Config.OS.Users, configWithBase.ConfigDir(), imageChroot)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, configWithBase := range rc.ConfigChain {
-		err = copyAdditionalDirs(ctx, configWithBase.BaseConfigPath, configWithBase.Config.OS.AdditionalDirs, imageChroot)
+		err = copyAdditionalDirs(ctx, configWithBase.ConfigDir(), configWithBase.Config.OS.AdditionalDirs, imageChroot)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, configWithBase := range rc.ConfigChain {
-		err = copyAdditionalFiles(ctx, configWithBase.BaseConfigPath, configWithBase.Config.OS.AdditionalFiles,
+		err = copyAdditionalFiles(ctx, configWithBase.ConfigDir(), configWithBase.Config.OS.AdditionalFiles,
 			imageChroot)
 		if err != nil {
 			return err
@@ -95,7 +95,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	if rc.Config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, rc.BaseConfigPath, ToolVersion, buildTime, rc.Config)
+		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, rc.ConfigDir(), ToolVersion, buildTime, rc.Config)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, rc.ConfigDir(), rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization",
+	err = runUserScripts(ctx, rc.ConfigDir(), rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization",
 		imageChroot)
 	if err != nil {
 		return err

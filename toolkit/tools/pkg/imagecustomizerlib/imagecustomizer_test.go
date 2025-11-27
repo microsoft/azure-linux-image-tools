@@ -167,6 +167,9 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	baseConfigPath := testDir
 	config := &imagecustomizerapi.Config{}
 
+	// Use a config file path in testDir so relative paths resolve correctly
+	configFilePath := filepath.Join(baseConfigPath, "dummy-config.yaml")
+
 	inputImageFileFake := filepath.Join(testDir, "testimages", "doesnotexist.xxx")
 	inputImageFileReal := filepath.Join(testDir, "testimages", "empty.vhdx")
 	inputImageFileRealRelativeCwd, err := filepath.Rel(cwd, inputImageFileReal)
@@ -204,19 +207,19 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified in the config without being specified as an argument.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileRealRelativeConfig
 
 	// The input image file specified in the config can be relative to the bash config path.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file, specified in the config, must be a file.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 
@@ -224,18 +227,19 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified both as an argument and in the config.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file can even be invalid in the config if it is specified as an argument.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 }
 
 func TestValidateConfigValidAdditionalFiles(t *testing.T) {
-	_, err := ValidateConfig(t.Context(), "",
+	configFilePath := filepath.Join(testDir, "dummy-config.yaml")
+	_, err := ValidateConfig(t.Context(), configFilePath,
 		&imagecustomizerapi.Config{
 			OS: &imagecustomizerapi.OS{
 				AdditionalFiles: imagecustomizerapi.AdditionalFileList{
@@ -260,7 +264,8 @@ func TestValidateConfigValidAdditionalFiles(t *testing.T) {
 }
 
 func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
-	_, err := ValidateConfig(t.Context(), "",
+	configFilePath := filepath.Join(testDir, "dummy-config.yaml")
+	_, err := ValidateConfig(t.Context(), configFilePath,
 		&imagecustomizerapi.Config{
 			OS: &imagecustomizerapi.OS{
 				AdditionalFiles: imagecustomizerapi.AdditionalFileList{
@@ -284,7 +289,8 @@ func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
 }
 
 func TestValidateConfigdditionalFilesIsDir(t *testing.T) {
-	_, err := ValidateConfig(t.Context(), "",
+	configFilePath := filepath.Join(testDir, "dummy-config.yaml")
+	_, err := ValidateConfig(t.Context(), configFilePath,
 		&imagecustomizerapi.Config{
 			OS: &imagecustomizerapi.OS{
 				AdditionalFiles: imagecustomizerapi.AdditionalFileList{
@@ -346,8 +352,11 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhd,
 	}
 
+	// Use a dummy config file path so relative input image path resolves correctly
+	configFilePath := filepath.Join(testDir, "dummy-config.yaml")
+
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
-	_, err := ValidateConfig(t.Context(), "", config, false, options)
+	_, err := ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "output image file must be specified")
 }
@@ -371,6 +380,9 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 			},
 		},
 	}
+
+	// Use a dummy config file path so relative paths are resolved correctly
+	configFilePath := filepath.Join(baseConfigPath, "dummy-config.yaml")
 
 	options := ImageCustomizerOptions{}
 
@@ -400,91 +412,91 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	options.OutputImageFormat = imagecustomizerapi.ImageFormatType(filepath.Ext(options.OutputImageFile)[1:])
 
 	// The output image file can be sepcified as an argument without being in specified the config.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileNewRelativeCwd
 
 	// The output image file can be specified as an argument relative to the current working directory.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageDir
 
 	// The output image file, specified as an argument, must not be a directory.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	options.OutputImageFile = outputImageDirRelativeCwd
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	options.OutputImageFile = outputImageFileExists
 
 	// The output image file, specified as an argument, may be a file that already exists.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileExistsRelativeCwd
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = ""
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file cab be specified in the config without being specified as an argument.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileNewRelativeConfig
 
 	// The output image file can be specified in the config relative to the base config path.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file, specified in the config, must not be a directory.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageDirRelativeConfig
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageFileExists
 
 	// The output image file, specified in the config, may be a file that already exists.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileExistsRelativeConfig
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileNew
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file can be specified both as an argument and in the config.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file can even be invalid in the config if it is specified as an argument.
-	_, err = ValidateConfig(t.Context(), "", config, false, options)
+	_, err = ValidateConfig(t.Context(), configFilePath, config, false, options)
 	assert.NoError(t, err)
 }
 
