@@ -3,14 +3,21 @@ storage:
   - partitionTableType: gpt
     partitions:
     - id: esp
+      label: esp
       type: esp
       size: 100M
 
     - id: boot
+      label: boot
       size: 100M
 
-    - id: rootfs
+    - id: root
+      label: root
       size: 2G
+
+    - id: roothash
+      label: roothash
+      size: 100M
 
   bootType: efi
 
@@ -26,10 +33,18 @@ storage:
     mountPoint:
       path: /boot
 
-  - deviceId: rootfs
+  - deviceId: verityroot
     type: ext4
     mountPoint:
       path: /
+      options: ro
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
 
 previewFeatures:
 - output-artifacts

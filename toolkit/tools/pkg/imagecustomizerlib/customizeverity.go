@@ -469,10 +469,10 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	return nil
 }
 
-func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config,
+func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, storage imagecustomizerapi.Storage,
 	partitionsLayout []fstabEntryPartNum, baseImageVerityMetadata []verityDeviceMetadata,
 ) error {
-	if config.Storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
+	if storage.VerityPartitionsType != imagecustomizerapi.VerityPartitionsUsesExisting {
 		// Either:
 		// - Verity is not being used OR
 		// - Partitions were customized and the verity checks were done during the API validity checks.
@@ -486,8 +486,8 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 	}
 
 	verityDeviceMountPoint := make(map[*imagecustomizerapi.Verity]*imagecustomizerapi.MountPoint)
-	for i := range config.Storage.Verity {
-		verity := &config.Storage.Verity[i]
+	for i := range storage.Verity {
+		verity := &storage.Verity[i]
 
 		dataPartition, err := findIdentifiedPartition(partitions, *verity.DataDevice)
 		if err != nil {
@@ -534,7 +534,7 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		verityDeviceMountPoint[verity] = mountPoint
 	}
 
-	err = imagecustomizerapi.ValidateVerityMounts(config.Storage.Verity, verityDeviceMountPoint)
+	err = imagecustomizerapi.ValidateVerityMounts(storage.Verity, verityDeviceMountPoint)
 	if err != nil {
 		return err
 	}
@@ -574,9 +574,8 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 	return partition, nil
 }
 
-func customizeVerityImageHelper(ctx context.Context, buildDir string, config *imagecustomizerapi.Config,
-	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
-	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
+func customizeVerityImageHelper(ctx context.Context, rc *ResolvedConfig, partIdToPartUuid map[string]string,
+	shrinkHashPartition bool, baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
 	partitionsLayout []fstabEntryPartNum,
 ) ([]verityDeviceMetadata, error) {
 	logger.Log.Infof("Provisioning verity")
@@ -586,7 +585,10 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 	verityMetadata := []verityDeviceMetadata(nil)
 
-	loopback, err := safeloopback.NewLoopback(buildImageFile)
+	isUki := rc.Uki != nil
+	storage := rc.Storage
+
+	loopback, err := safeloopback.NewLoopback(rc.RawImageFile)
 	if err != nil {
 		return nil, fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
 	}
@@ -636,7 +638,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		verityMetadata = append(verityMetadata, newMetadata)
 	}
 
-	for _, verityConfig := range config.Storage.Verity {
+	for _, verityConfig := range storage.Verity {
 		// Extract the partition block device path.
 		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
 			diskPartitions)
@@ -683,8 +685,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		}
 
 		// Update kernel args.
-		isUki := config.OS.Uki != nil
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
+		err = updateKernelArgsForVerity(rc.BuildDirAbs, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err
 		}

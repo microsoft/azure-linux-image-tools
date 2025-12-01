@@ -14,7 +14,7 @@ import (
 // ResolvedConfig contains the final image configuration, including the merged CLI and config values.
 type ResolvedConfig struct {
 	// Configurations
-	BaseConfigPath        string
+	ConfigFilePath        string
 	Config                *imagecustomizerapi.Config
 	Options               ImageCustomizerOptions
 	CustomizeOSPartitions bool
@@ -48,6 +48,9 @@ type ResolvedConfig struct {
 	// SELinux
 	SELinux imagecustomizerapi.SELinux
 
+	// Storage
+	Storage imagecustomizerapi.Storage
+
 	// Bootloader
 	BootLoader imagecustomizerapi.BootLoader
 
@@ -58,7 +61,12 @@ type ResolvedConfig struct {
 	Uki *imagecustomizerapi.Uki
 
 	// Hierarchical config chain
-	ConfigChain []*ConfigWithBasePath
+	ConfigChain []*ConfigWithPath
+}
+
+// ConfigDir returns the directory containing the config file
+func (c *ResolvedConfig) ConfigDir() string {
+	return filepath.Dir(c.ConfigFilePath)
 }
 
 func (c *ResolvedConfig) InputFileExt() string {

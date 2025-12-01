@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func TestBaseConfigsInputAndOutput(t *testing.T) {
@@ -31,7 +32,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
 	assert.NoError(t, err)
 
-	rc, err := ValidateConfig(t.Context(), testDir, &config, false, options)
+	rc, err := ValidateConfig(t.Context(), currentConfigFile, &config, false, options)
 	assert.NoError(t, err)
 
 	// Verify resolved values
@@ -74,18 +75,31 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsFullRun")
 	defer os.RemoveAll(testTmpDir)
-
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
+
+	options := ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		UseBaseImageRpmRepos: true,
+	}
+
+	var config imagecustomizerapi.Config
+	err = imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	rc, err := ValidateConfig(t.Context(), currentConfigFile, &config, false, options)
+	assert.NoError(t, err)
+
+	// Verify VerityPartitionsType is correctly resolved
+	assert.Equal(t, imagecustomizerapi.VerityPartitionsUsesConfig, rc.Storage.VerityPartitionsType,
+		"VerityPartitionsType should be VerityPartitionsUsesConfig since the top-level config defines verity partitions")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
 		outImageFilePath, "raw", true, "")
 	if !assert.NoError(t, err) {
 		return
 	}
-
 	assert.FileExists(t, outImageFilePath)
 
 	mountPoints := []testutils.MountPoint{
@@ -93,6 +107,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 			PartitionNum:   3,
 			Path:           "/",
 			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
 		},
 		{
 			PartitionNum:   2,
@@ -244,4 +259,77 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotContains(t, grubCfgContents, "rd.info")
 	assert.Contains(t, grubCfgContents, "console=tty0 console=ttyS0")
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify partitions
+	assert.Len(t, partitions, 4, "should have 4 partitions from top-level config")
+	expectedLabels := []string{"esp", "boot", "root", "roothash"}
+	actualLabels := []string{partitions[1].PartLabel, partitions[2].PartLabel,
+		partitions[3].PartLabel, partitions[4].PartLabel}
+	assert.ElementsMatch(t, expectedLabels, actualLabels,
+		"partition labels should match top-level config (esp, boot, root, roothash)")
+
+	// Verify verity
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
+	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
+
+	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid, "root", "console=tty0", baseImageInfo, "panic-on-corruption",
+	)
+
+}
+
+func TestValidateDisksThenResetUUID(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestValidateDisksThenResetUUID")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-resetuuid.yaml")
+
+	var config imagecustomizerapi.Config
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	absCurrentConfigFile, err := filepath.Abs(currentConfigFile)
+	assert.NoError(t, err)
+
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
+	}
+
+	_, err = ValidateConfig(t.Context(), absCurrentConfigFile, &config, false, options)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "cannot specify 'resetPartitionsUuidsType'")
+	assert.ErrorContains(t, err, "hierarchical-config-storage-resetuuid.yaml")
+	assert.ErrorContains(t, err, "when a base config specifies '.storage.disks'")
+}
+
+func TestValidateDisksThenReinitVerity(t *testing.T) {
+	testTempDir := filepath.Join(tmpDir, "TestValidateDisksThenReinitVerity")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	currentConfigFile := filepath.Join(testDir, "hierarchical-config-storage-reinitverity.yaml")
+
+	var config imagecustomizerapi.Config
+	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
+	assert.NoError(t, err)
+
+	absCurrentConfigFile, err := filepath.Abs(currentConfigFile)
+	assert.NoError(t, err)
+
+	options := ImageCustomizerOptions{
+		BuildDir: buildDir,
+	}
+
+	_, err = ValidateConfig(t.Context(), absCurrentConfigFile, &config, false, options)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "cannot specify 'reinitializeVerity'")
+	assert.ErrorContains(t, err, "hierarchical-config-storage-reinitverity.yaml")
+	assert.ErrorContains(t, err, "when a base config specifies '.storage.disks'")
 }

@@ -26,15 +26,13 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("failed to unmarshal config file %s:\n%w", configFile, err)
 	}
 
-	baseConfigPath, _ := filepath.Split(configFile)
-
-	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	absConfigFile, err := filepath.Abs(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
+		return fmt.Errorf("failed to get absolute path of config file:\n%w", err)
 	}
 
 	err = createNewImage(
-		ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile,
+		ctx, buildDir, absConfigFile, config, rpmsSources, outputImageFile,
 		outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
 	if err != nil {
 		return err
@@ -43,12 +41,12 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 	return nil
 }
 
-func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
+func createNewImage(ctx context.Context, buildDir string, configFile string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
 	distroVersion string, packageSnapshotTime string,
 ) error {
 	rc, err := validateConfig(
-		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
+		ctx, configFile, &config, rpmsSources, toolsTar, outputImageFile,
 		outputImageFormat, packageSnapshotTime, buildDir)
 	if err != nil {
 		return err
@@ -73,7 +71,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 		return err
 	}
 
-	disks := rc.Config.Storage.Disks
+	disks := rc.Storage.Disks
 	diskConfig := disks[0]
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		return nil
@@ -86,7 +84,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(
 		distroHandler.GetTargetOs(), rc.RawImageFile,
-		diskConfig, rc.Config.Storage.FileSystems,
+		diskConfig, rc.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ import (
 func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, tarFile string,
 	distroHandler distroHandler,
 ) ([]fstabEntryPartNum, string, error) {
-	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
+	logger.Log.Debugf("Customizing OS image with config file %s", rc.ConfigFilePath)
 
 	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
 	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
@@ -87,7 +87,7 @@ func doOsCustomizationsImageCreator(
 			snapshotTime = rc.Options.PackageSnapshotTime
 		}
 
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
+		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.ConfigDir(), configWithBase.Config.OS,
 			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
@@ -95,7 +95,7 @@ func doOsCustomizationsImageCreator(
 		}
 	}
 
-	if err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(ctx, rc.Hostname, imageChroot); err != nil {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func doOsCustomizationsImageCreator(
 		return fmt.Errorf("failed to clear systemd state:\n%w", err)
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
+	err = runUserScripts(ctx, rc.ConfigDir(), rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
+	err = runUserScripts(ctx, rc.ConfigDir(), rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
 	if err != nil {
 		return err
 	}

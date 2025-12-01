@@ -66,22 +66,22 @@ func validateSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
 	return nil
 }
 
-func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
+func validateConfig(ctx context.Context, configFile string, config *imagecustomizerapi.Config, rpmsSources []string,
 	toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string, buildDir string,
 ) (*imagecustomizerlib.ResolvedConfig, error) {
 	err := validateSupportedFields(config)
 	if err != nil {
-		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
+		return nil, fmt.Errorf("invalid config file (%s):\n%w", configFile, err)
 	}
 
 	// Validate mandatory fields for creating a seed image
-	err = validateMandatoryFields(baseConfigPath, config, rpmsSources, toolsTar)
+	err = validateMandatoryFields(configFile, config, rpmsSources, toolsTar)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: Validate for distro and release
-	rc, err := imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config, true,
+	rc, err := imagecustomizerlib.ValidateConfig(ctx, configFile, config, true,
 		imagecustomizerlib.ImageCustomizerOptions{
 			RpmsSources:         rpmsSources,
 			OutputImageFile:     outputImageFile,
@@ -100,10 +100,10 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	return rc, nil
 }
 
-func validateMandatoryFields(baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string) error {
+func validateMandatoryFields(configFile string, config *imagecustomizerapi.Config, rpmsSources []string, toolsTar string) error {
 	// check if storage disks is not empty for creating a seed image
 	if len(config.Storage.Disks) == 0 {
-		return fmt.Errorf("storage.disks field is required in the config file (%s)", baseConfigPath)
+		return fmt.Errorf("storage.disks field is required in the config file (%s)", configFile)
 	}
 
 	// rpmSources must not be empty for creating a seed image
