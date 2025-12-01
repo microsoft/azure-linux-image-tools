@@ -36,7 +36,7 @@ jobs:
           go-version: "${{ env.EXPECTED_GO_VERSION }}"
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           path: repo
           persist-credentials: false
@@ -87,7 +87,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           path: out
 
@@ -181,7 +181,7 @@ jobs:
             INPUT_IMAGE="${INPUT_IMAGE}" \
             SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ !cancelled() }}
         with:
           name: tests-results-osmodifier-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
