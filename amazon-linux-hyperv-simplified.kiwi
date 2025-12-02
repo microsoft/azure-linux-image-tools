@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<image schemaversion="7.4" name="Azure-Linux">
+        <description type="system">
+                <author>Azure Linux Team</author>
+                <contact>azurelinux-team@microsoft.com</contact>
+                <specification>Azure Linux Cloud Image for Azure - Simplified Package List</specification>
+        </description>
+        <preferences>
+                <version>1.0</version>
+                <packagemanager>dnf</packagemanager>
+                <locale>en_US</locale>
+                <keytable>us</keytable>
+                <timezone>UTC</timezone>
+                <release-version>1.0</release-version>
+        </preferences>
+        
+        <!-- Azure-specific profile -->
+        <profiles>
+                <profile name="Hyper-V" description="Azure Linux Base Guest Image"/>
+        </profiles>
+        
+        <!-- Repository configuration -->
+        <repository type="rpm-md" alias="fedora-42-everything">
+                <source path="https://fedora.mirrorservice.org/fedora/linux/releases/42/Everything/x86_64/os/"/>
+        </repository>
+        
+        <!-- Azure VHD preferences for x86_64 -->
+        <!-- Layout matches AL2023 Hyper-V: Hybrid boot (UEFI + BIOS)
+             Partition layout from AL2023:
+             - Part 128: 10M EFI System (sectors 2048-22527)
+             - Part 127: 1M BIOS boot (sectors 22528-24575)
+             - Part 1:   25G Linux filesystem (sectors 24576-end)
+        -->
+        <preferences profiles="Azure-Linux-Cloud-Base-Azure" arch="x86_64">
+
+                <type image="oem" format="vhd" formatoptions="force_size"
+                      filesystem="xfs"
+                      kernelcmdline="no_timer_check console=tty1 console=ttyS0,115200n8 earlyprintk=ttyS0 systemd.firstboot=off"
+                      devicepersistency="by-uuid"
+                      bootpartition="false" 
+                      efipartsize="10"
+                      firmware="uefi"
+                      rootfs_label="azurelinux">
+                        <bootloader name="grub2" bls="true" console="serial" timeout="0"/>
+                        <size unit="G">25</size>
+                        <oemconfig>
+                                <oem-resize>false</oem-resize>
+                        </oemconfig>
+                </type>
+        </preferences>
+        
+        <!-- Bootstrap packages -->
+        <packages type="bootstrap" patternType="plusRecommended">
+                <package name="dnf"/>
+                
+                <!-- Explicitly request full coreutils (not coreutils-single)
+                     Fedora bootstrap defaults to coreutils-single for minimal installs.
+                     coreutils-single = single 2MB multi-call binary (like busybox)
+                     coreutils = separate binaries for each utility (15-20MB, standard)
+                     We need full coreutils to match AL2023 and avoid conflicts later. -->
+                <package name="coreutils"/>
+                <ignore name="coreutils-single"/>
+        </packages>
+        
+        <!-- Core system packages - SUPER MINIMAL LIST -->
+        <!-- Only 69 top-level packages; all dependencies auto-installed -->
+        <!-- Removed: libraries, python modules, build macros, gcc/rust/systemtap, docs -->
+        <packages type="image" patternType="plusRecommended">
+    
+                <!-- core packages -->
+                <package name="basesystem"/>
+                <package name="bash"/>
+                <package name="ca-certificates"/>
+                <package name="coreutils"/>
+                <package name="system-release"/>
+
+                <!-- cloud init packages -->
+                <package name="cloud-init"/>
+                <package name="cloud-utils-growpart"/>
+                
+                <!-- hyperv packages-->
+                <package name="hyperv-daemons"/>        
+
+                <!-- Minimal group (adjusted for Azure) -->
+                <package name="audit"/>
+                <package name="chrony"/> 
+                <package name="curl"/>
+                <package name="dnf"/>
+                <package name="dnf-plugins-core"/>
+                <package name="dracut-config-generic"/>
+                <package name="glibc"/>
+                <package name="glibc-all-langpacks"/>
+                <package name="glibc-locale-source"/>
+                <package name="gnupg2"/>
+                <package name="grubby"/>
+                <package name="hostname"/>
+                <package name="iproute"/>
+                <package name="iputils"/>
+                <package name="irqbalance"/>
+                <package name="kernel-core"/>
+                <package name="less"/>
+                <package name="man-db"/>
+                <package name="ncurses"/>
+                <package name="openssh-clients"/>
+                <package name="openssh-server"/>
+                <package name="passwd"/>
+                <package name="policycoreutils"/>
+                <package name="procps-ng"/>
+                <package name="psmisc"/>
+                <package name="rng-tools"/>
+                <package name="rpm"/>
+                <package name="rpm-plugin-systemd-inhibit"/>
+                <package name="selinux-policy-targeted"/>
+                <package name="setup"/>
+                <package name="shadow-utils"/>
+                <package name="sudo"/>
+                <package name="systemd"/>
+                <package name="systemd-networkd"/>
+                <package name="systemd-resolved"/>
+                <package name="util-linux"/>
+                <package name="vim-minimal"/>
+                <package name="xfsprogs"/>
+                <package name="zstd"/>
+                <package name="libcurl"/>
+
+
+                 <!-- Hybrid boot: Both UEFI and BIOS support (matches AL2023) -->
+                <package name="grub2-pc"/>
+                <package name="grub2-pc-modules"/>
+                <package name="grub2-efi-x64"/>
+                <package name="grub2-efi-x64-modules"/>
+                <package name="grub2-tools"/>
+                <package name="grub2-tools-minimal"/>
+                    
+                <!-- cloud core packages to be excluded -->
+                <ignore name="dracut-config-rescue"/>
+                <ignore name="firewalld"/>
+                <ignore name="fwupd"/>
+                <ignore name="kernel"/>
+                <ignore name="*-firmware"/>
+                <ignore name="geolite2-city"/>
+                <ignore name="geolite2-country"/>
+                <ignore name="plymouth"/>
+
+        </packages>
+</image>
