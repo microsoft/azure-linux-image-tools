@@ -398,7 +398,12 @@ func createIsoInfoStoreFromMountedImage(imageRootDir string) (infoStore *IsoInfo
 	// Note the MIC allows the user to install other selinux policy packages.
 	// So, the absence of selinux-policy does not mean that there are no selinux
 	// policy packages.
-	if isPackageInstalled(chroot, "selinux-policy") {
+	distroHandler, err := getDistroHandlerFromChroot(chroot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine distro from chroot:\n%w", err)
+	}
+
+	if distroHandler.isPackageInstalled(chroot, "selinux-policy") {
 		infoStore.selinuxPolicyPackageInfo, err = getPackageInformation(chroot, "selinux-policy")
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine package information for selinux-policy under (%s):\n%w", imageRootDir, err)

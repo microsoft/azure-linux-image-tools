@@ -162,10 +162,15 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 		return fmt.Errorf("failed to initialize chroot object for %s:\n%w", writeableRootfsDir, err)
 	}
 
+	distroHandler, err := getDistroHandlerFromChroot(chroot)
+	if err != nil {
+		return fmt.Errorf("failed to determine distro from chroot:\n%w", err)
+	}
+
 	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
 	for _, requiredRpm := range requiredRpms {
 		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		if !isPackageInstalled(chroot, requiredRpm) {
+		if !distroHandler.isPackageInstalled(chroot, requiredRpm) {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to generate an iso: %v", requiredRpm, requiredRpms)
 		}
 	}

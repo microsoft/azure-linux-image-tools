@@ -10,7 +10,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"go.opentelemetry.io/otel"
 )
 
@@ -60,15 +59,4 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 
 	allPackages = append(allPackages, packages...)
 	return allPackages, nil
-}
-
-func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
-		return err
-	})
-	if err != nil {
-		return false
-	}
-	return true
 }

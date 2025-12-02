@@ -329,12 +329,17 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
-	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
+	distroHandler, err := getDistroHandlerFromChroot(imageConnection.Chroot())
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine distro from chroot:\n%w", err)
+	}
+
+	if !distroHandler.isPackageInstalled(imageConnection.Chroot(), "rpm") {
 		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
 	}
 
 	var out string
-	err := imageConnection.Chroot().UnsafeRun(func() error {
+	err = imageConnection.Chroot().UnsafeRun(func() error {
 		var err error
 		out, _, err = shell.Execute(
 			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
@@ -547,10 +552,15 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 }
 
 func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if isPackageInstalled(imageChroot, "grub2-efi-binary") || isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
+	distroHandler, err := getDistroHandlerFromChroot(imageChroot)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine distro from chroot:\n%w", err)
+	}
+
+	if distroHandler.isPackageInstalled(imageChroot, "grub2-efi-binary") || distroHandler.isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
 		return BootloaderTypeGrub, nil
 	}
-	if isPackageInstalled(imageChroot, "systemd-boot") {
+	if distroHandler.isPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
 	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")

@@ -67,3 +67,12 @@ func NewDistroHandler(distroName string, version string) distroHandler {
 		panic("unsupported distro name: " + distroName)
 	}
 }
+
+// getDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
+func getDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (distroHandler, error) {
+	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
+	if err != nil {
+		return nil, err
+	}
+	return NewDistroHandlerFromTargetOs(targetOs), nil
+}

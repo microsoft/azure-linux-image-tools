@@ -156,7 +156,10 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	verifyFileContentsSame(t, plantsFileOrigPath, plantsFileNewPath)
 
 	// Verify packages
-	nginxInstalled := isPackageInstalled(imageConnection.Chroot(), "nginx")
+	distroHandler, err := getDistroHandlerFromChroot(imageConnection.Chroot())
+	assert.NoError(t, err, "failed to get distro handler")
+
+	nginxInstalled := distroHandler.isPackageInstalled(imageConnection.Chroot(), "nginx")
 	assert.True(t, nginxInstalled)
 
 	nginxVersionOutput, err := getPkgVersionFromChroot(imageConnection, "nginx")
@@ -166,7 +169,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Containsf(t, nginxVersionOutput, nginxExpectedVersion,
 		"should install nginx version %s, but got: %s", nginxExpectedVersion, nginxVersionOutput)
 
-	sshdInstalled := isPackageInstalled(imageConnection.Chroot(), "openssh-server")
+	sshdInstalled := distroHandler.isPackageInstalled(imageConnection.Chroot(), "openssh-server")
 	assert.True(t, sshdInstalled)
 
 	systemdBootVersionOutput, err := getPkgVersionFromChroot(imageConnection, "systemd-boot")
