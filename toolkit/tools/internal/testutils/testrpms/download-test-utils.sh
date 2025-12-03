@@ -5,30 +5,38 @@ SCRIPT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 
 AZURELINUX_2_CONTAINER_IMAGE="mcr.microsoft.com/cbl-mariner/base/core:2.0"
 AZURELINUX_3_CONTAINER_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
-FEDORA_42_CONTAINER_IMAGE="registry.fedoraproject.org/fedora:42"
+FEDORA_42_CONTAINER_IMAGE="quay.io/fedora/fedora:42"
 
 DISTRO="azurelinux"
 DISTRO_VERSION="3.0"
 
 IMAGE_CREATOR="false"
+CONTAINER_REGISTRY=""
 
-while getopts "d:t:s:" flag
+while getopts "d:t:s:r:" flag
 do
     case "${flag}" in
         d) DISTRO="$OPTARG";;
         t) DISTRO_VERSION="$OPTARG";;
         s) IMAGE_CREATOR="$OPTARG";;
+        r) CONTAINER_REGISTRY="$OPTARG";;
         h) ;;&
-        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-s IMAGE_CREATOR]"
+        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-s IMAGE_CREATOR] [-r CONTAINER_REGISTRY]"
             echo ""
             echo "Args:"
-            echo "  -d DISTRO          The distribution to use (azurelinux or fedora). Default: azurelinux"
-            echo "  -t DISTRO_VERSION   The image version to download the RPMs for (2.0, 3.0 for Azure Linux or 42 for Fedora)."
-            echo "  -s IMAGE_CREATOR   If set to true, the script will create a tar.gz file with the tools and download the rpms needed to test imagecreator."
+            echo "  -d DISTRO              The distribution to use (azurelinux or fedora). Default: azurelinux"
+            echo "  -t DISTRO_VERSION      The image version to download the RPMs for (2.0, 3.0 for Azure Linux or 42 for Fedora)."
+            echo "  -s IMAGE_CREATOR       If set to true, the script will create a tar.gz file with the tools and download the rpms needed to test imagecreator."
+            echo "  -r CONTAINER_REGISTRY  Container registry URL to use for Fedora images (e.g., myacr.azurecr.io)."
             echo "  -h Show help"
             exit 1;;
     esac
 done
+
+# Override Fedora container image if a container registry is provided
+if [[ -n "$CONTAINER_REGISTRY" ]]; then
+    FEDORA_42_CONTAINER_IMAGE="${CONTAINER_REGISTRY}/fedora/fedora:42"
+fi
 
 # Determine the tools file name based on the distro and image version
 BUILD_DIR="$SCRIPT_DIR/build"
