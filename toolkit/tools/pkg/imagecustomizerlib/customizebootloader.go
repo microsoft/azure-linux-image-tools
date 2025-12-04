@@ -102,15 +102,9 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 		}
 	}
 
-	// Determine the UKI mode for bootloader configuration.
-	ukiMode := imagecustomizerapi.UkiModeUnspecified
-	if rc.Config.OS != nil && rc.Config.OS.Uki != nil {
-		ukiMode = rc.Config.OS.Uki.Mode
-	}
-
 	// Hard-reset the grub config.
 	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
-		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage, ukiMode)
+		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}

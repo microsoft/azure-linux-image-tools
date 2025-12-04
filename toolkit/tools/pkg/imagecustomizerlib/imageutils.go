@@ -215,7 +215,6 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
 	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
-	ukiMode imagecustomizerapi.UkiMode,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {

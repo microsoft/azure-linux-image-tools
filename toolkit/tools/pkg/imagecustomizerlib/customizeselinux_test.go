@@ -52,11 +52,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
-	if !assert.NoError(t, err) {
-		return
-	}
-	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
+	verifyKernelCommandLine(t, imageConnection, false, []string{"security=selinux", "selinux=1", "enforcing=1"}, []string{})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -85,11 +81,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
-	if !assert.NoError(t, err) {
-		return
-	}
-	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
+	verifyKernelCommandLine(t, imageConnection, false, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
 	// Verify packages are still installed.
@@ -118,11 +110,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	hasUkis, err = baseImageHasUkis(imageConnection.Chroot())
-	if !assert.NoError(t, err) {
-		return
-	}
-	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	verifyKernelCommandLine(t, imageConnection, false, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "permissive")
 }
 
@@ -178,11 +166,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	defer imageConnection.Close()
 
 	// Verify bootloader config.
-	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
-	if !assert.NoError(t, err) {
-		return
-	}
-	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
+	verifyKernelCommandLine(t, imageConnection, false, []string{"security=selinux", "selinux=1"}, []string{"enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "enforcing")
 
 	// Verify packages are installed.
@@ -250,8 +234,15 @@ func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.Imag
 	}
 
 	for _, existsArg := range existsArgs {
-		assert.Regexpf(t, fmt.Sprintf("(linux.* %s |%s)", regexp.QuoteMeta(existsArg), regexp.QuoteMeta(existsArg)), grubCfgContents,
-			"ensure kernel command arg exists (%s)", existsArg)
+		if hasUkis {
+			// UKI cmdline is a plain string of args (no "linux" keyword)
+			assert.Containsf(t, grubCfgContents, existsArg,
+				"ensure kernel command arg exists (%s)", existsArg)
+		} else {
+			// GRUB cfg has "linux /boot/vmlinuz... args" format
+			assert.Regexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(existsArg)), grubCfgContents,
+				"ensure kernel command arg exists (%s)", existsArg)
+		}
 	}
 
 	for _, notExistsArg := range notExistsArgs {

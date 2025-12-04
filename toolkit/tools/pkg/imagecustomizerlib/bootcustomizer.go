@@ -19,7 +19,7 @@ var (
 	ErrBootGrubMkconfigGeneration        = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
 	ErrBootNoConfigFound                 = NewImageCustomizerError("Boot:NoConfigFound", "no boot configuration found: grub.cfg does not exist and no UKI files found")
 	ErrBootUkiPassthroughCmdlineModified = NewImageCustomizerError("Boot:UkiPassthroughCmdlineModified",
-		"cannot modify kernel command-line in UKI passthrough mode. Use 'mode: create' to customize kernel cmdline")
+		"cannot modify kernel command-line in UKI passthrough mode: use 'mode: create' to customize kernel cmdline")
 )
 
 // bootConfigType represents the type of boot configuration used by the image.
