@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -17,8 +16,10 @@ import (
 
 var (
 	// Boot customization errors
-	ErrBootGrubMkconfigGeneration = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
-	ErrBootNoConfigFound          = NewImageCustomizerError("Boot:NoConfigFound", "no boot configuration found: grub.cfg does not exist and no UKI files found")
+	ErrBootGrubMkconfigGeneration        = NewImageCustomizerError("Boot:GrubMkconfigGeneration", "failed to generate grub.cfg via grub2-mkconfig")
+	ErrBootNoConfigFound                 = NewImageCustomizerError("Boot:NoConfigFound", "no boot configuration found: grub.cfg does not exist and no UKI files found")
+	ErrBootUkiPassthroughCmdlineModified = NewImageCustomizerError("Boot:UkiPassthroughCmdlineModified",
+		"cannot modify kernel command-line in UKI passthrough mode. Use 'mode: create' to customize kernel cmdline")
 )
 
 // bootConfigType represents the type of boot configuration used by the image.
@@ -44,7 +45,7 @@ type BootCustomizer struct {
 	bootConfigType bootConfigType
 }
 
-func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki) (*BootCustomizer, error) {
+func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer, error) {
 	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
@@ -56,7 +57,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	}
 
 	// Determine boot configuration type
-	bootConfigType, err := determineBootConfigType(grubCfgContent, imageChroot, uki)
+	bootConfigType, err := determineBootConfigType(grubCfgContent, imageChroot)
 	if err != nil {
 		return nil, err
 	}
@@ -69,16 +70,13 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	return b, nil
 }
 
-func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki) (bootConfigType, error) {
+func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface) (bootConfigType, error) {
 	// If grub.cfg doesn't exist, check for UKI
 	if grubCfgContent == "" {
 		hasUkis, err := baseImageHasUkis(imageChroot.(*safechroot.Chroot))
 		if err == nil && hasUkis {
-			// For UKI create mode, treat as grub-mkconfig so cmdline args get applied to /etc/default/grub
-			if uki != nil && uki.Mode == imagecustomizerapi.UkiModeCreate {
-				return bootConfigTypeGrubMkconfig, nil
-			}
-			// For passthrough mode or no UKI config, keep as UKI type (no-op)
+			// UKI images without grub.cfg are in passthrough mode (grub.cfg not regenerated)
+			// For UKI create mode, grub.cfg is regenerated during kernel extraction, so it would exist
 			return bootConfigTypeUki, nil
 		}
 		// No grub.cfg and no UKIs - this is an error
@@ -121,8 +119,8 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args are embedded in UKI files and managed through UKI regeneration,
-		// not through grub config files or boot loader configuration.
+		// Cmdline args are embedded in UKI files and cannot be modified in passthrough mode.
+		return ErrBootUkiPassthroughCmdlineModified
 	}
 
 	return nil
@@ -156,21 +154,10 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 
 	case bootConfigTypeUki:
 		espDir := filepath.Join(imageChroot.RootDir(), EspDir)
-		tempDir := filepath.Join(buildDir, "uki-selinux-temp")
 
-		err := os.MkdirAll(tempDir, 0o755)
-		if err != nil {
-			return imagecustomizerapi.SELinuxModeDefault, false, fmt.Errorf("failed to create temp directory: %w", err)
-		}
-		defer os.RemoveAll(tempDir)
-
-		kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, tempDir)
+		kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false, err
-		}
-
-		if len(kernelToArgs) == 0 {
-			return imagecustomizerapi.SELinuxModeDefault, false, nil
 		}
 
 		args, err = parseFirstCmdlineFromUkiMap(kernelToArgs)
@@ -260,7 +247,8 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline updates are not supported in passthrough mode.
+		// Cmdline args are embedded in UKI files and cannot be modified in passthrough mode.
+		return ErrBootUkiPassthroughCmdlineModified
 	}
 
 	return nil

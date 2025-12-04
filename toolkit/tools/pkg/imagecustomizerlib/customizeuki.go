@@ -19,6 +19,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -652,28 +653,29 @@ func removeVerityArgsFromCmdline(cmdline string) string {
 		return cmdline
 	}
 
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		logger.Log.Errorf("Failed to parse command line args: %v", err)
+		return cmdline
+	}
+
 	filteredArgs := []string{}
-	for _, token := range tokens {
-		if token.Type != grub.WORD {
+	for _, arg := range args {
+		if arg.ValueHasVarExpansion {
+			// Skip args with variable expansions
 			continue
 		}
 
-		argBuilder := strings.Builder{}
-		for _, subword := range token.SubWords {
-			argBuilder.WriteString(subword.Value)
-		}
-		argString := argBuilder.String()
-
 		isVerityArg := false
 		for _, prefix := range verityArgPrefixes {
-			if strings.HasPrefix(argString, prefix) {
+			if strings.HasPrefix(arg.Arg, prefix) {
 				isVerityArg = true
 				break
 			}
 		}
 
 		if !isVerityArg {
-			filteredArgs = append(filteredArgs, argString)
+			filteredArgs = append(filteredArgs, arg.Arg)
 		}
 	}
 
@@ -737,15 +739,15 @@ func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, output
 		return fmt.Errorf("failed to create temp UKI copy:\n%w", err)
 	}
 	defer os.Remove(tempCopy.Name())
-	tempCopy.Close()
 
 	input, err := os.ReadFile(ukiPath)
 	if err != nil {
 		return fmt.Errorf("failed to read UKI file:\n%w", err)
 	}
-	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
+	if _, err := tempCopy.Write(input); err != nil {
 		return fmt.Errorf("failed to write temp UKI file:\n%w", err)
 	}
+	tempCopy.Close()
 
 	// Extract the section using objcopy on the temp copy
 	_, _, err = shell.Execute("objcopy", "--dump-section", sectionName+"="+outputPath, tempCopy.Name())
@@ -757,6 +759,15 @@ func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, output
 }
 
 func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
+	err := extractKernelAndInitramfsFromUkisHelper(ctx, imageChroot, buildDir)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
+	}
+
+	return nil
+}
+
+func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
 	logger.Log.Infof("Extracting kernel and initramfs from existing UKIs for re-customization")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "extract_kernel_initramfs_from_ukis")
@@ -765,7 +776,7 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
+		return err
 	}
 
 	if len(ukiFiles) == 0 {
@@ -778,26 +789,26 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 	tempDir := filepath.Join(buildDir, "uki-extraction-temp")
 	err = os.MkdirAll(tempDir, 0o755)
 	if err != nil {
-		return fmt.Errorf("%w: failed to create temp directory:\n%w", ErrUKIExtractComponents, err)
+		return fmt.Errorf("failed to create temp directory:\n%w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
 	for _, ukiFile := range ukiFiles {
 		kernelName, err := getKernelNameFromUki(ukiFile)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
+			return err
 		}
 
 		kernelVersion, err := getKernelVersion(kernelName)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
+			return err
 		}
 
 		kernelPath := filepath.Join(bootDir, kernelName)
 		logger.Log.Infof("Extracting kernel from UKI (%s) to (%s)", ukiFile, kernelPath)
 		err = extractSectionFromUkiWithObjcopy(ukiFile, ".linux", kernelPath, tempDir)
 		if err != nil {
-			return fmt.Errorf("%w: failed to extract kernel from UKI (%s):\n%w", ErrUKIExtractComponents, ukiFile, err)
+			return fmt.Errorf("failed to extract kernel from UKI (%s):\n%w", ukiFile, err)
 		}
 
 		initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
@@ -805,10 +816,17 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 		logger.Log.Infof("Extracting initramfs from UKI (%s) to (%s)", ukiFile, initramfsPath)
 		err = extractSectionFromUkiWithObjcopy(ukiFile, ".initrd", initramfsPath, tempDir)
 		if err != nil {
-			return fmt.Errorf("%w: failed to extract initramfs from UKI (%s):\n%w", ErrUKIExtractComponents, ukiFile, err)
+			return fmt.Errorf("failed to extract initramfs from UKI (%s):\n%w", ukiFile, err)
 		}
 
 		logger.Log.Infof("Successfully extracted kernel and initramfs for version (%s)", kernelVersion)
+	}
+
+	// Regenerate grub.cfg now that kernels are in /boot
+	logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
+	err = installutils.CallGrubMkconfig(imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
 	}
 
 	return nil

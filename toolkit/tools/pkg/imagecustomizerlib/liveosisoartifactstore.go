@@ -98,8 +98,7 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 }
 
 func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
-	// Live OS ISO doesn't use UKI
-	bootCustomizer, err := NewBootCustomizer(imageChroot, nil)
+	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
