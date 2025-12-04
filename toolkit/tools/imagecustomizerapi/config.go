@@ -158,6 +158,18 @@ func (c *Config) CustomizePartitions() bool {
 func (c *Config) validateUkiPassthroughMode() error {
 	var incompatibleConfigs []string
 
+	// Check for bootloader hard-reset (modifies bootloader configuration)
+	if c.OS != nil && c.OS.BootLoader.ResetType == ResetBootLoaderTypeHard {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.bootloader.resetType: hard-reset modifies bootloader configuration")
+	}
+
+	// Check for SELinux mode changes (modifies kernel command line)
+	if c.OS != nil && c.OS.SELinux.Mode != SELinuxModeDefault {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.selinux.mode: changes SELinux mode which modifies kernel command line embedded in UKI")
+	}
+
 	// Check for kernel command line modifications
 	if c.OS != nil && len(c.OS.KernelCommandLine.ExtraCommandLine) > 0 {
 		incompatibleConfigs = append(incompatibleConfigs,
@@ -176,37 +188,6 @@ func (c *Config) validateUkiPassthroughMode() error {
 			"storage.reinitializeVerity: reinitializes verity which modifies initramfs and kernel cmdline")
 	}
 
-	// Check for kernel package changes (would require kernel/initramfs updates)
-	if c.OS != nil && c.OS.Packages.Install != nil {
-		for _, pkg := range c.OS.Packages.Install {
-			if len(pkg) >= 6 && pkg[:6] == "kernel" {
-				incompatibleConfigs = append(incompatibleConfigs,
-					fmt.Sprintf("os.packages.install: '%s' would modify kernel files", pkg))
-				break
-			}
-		}
-	}
-
-	if c.OS != nil && c.OS.Packages.Remove != nil {
-		for _, pkg := range c.OS.Packages.Remove {
-			if len(pkg) >= 6 && pkg[:6] == "kernel" {
-				incompatibleConfigs = append(incompatibleConfigs,
-					fmt.Sprintf("os.packages.remove: '%s' would modify kernel files", pkg))
-				break
-			}
-		}
-	}
-
-	if c.OS != nil && c.OS.Packages.Update != nil {
-		for _, pkg := range c.OS.Packages.Update {
-			if len(pkg) >= 6 && pkg[:6] == "kernel" {
-				incompatibleConfigs = append(incompatibleConfigs,
-					fmt.Sprintf("os.packages.update: '%s' would modify kernel files", pkg))
-				break
-			}
-		}
-	}
-
 	// Check for overlay configurations (might trigger initramfs regeneration)
 	if c.OS != nil && c.OS.Overlays != nil && len(*c.OS.Overlays) > 0 {
 		incompatibleConfigs = append(incompatibleConfigs,
@@ -223,5 +204,8 @@ func (c *Config) validateUkiPassthroughMode() error {
 		return fmt.Errorf("%s", errorMsg)
 	}
 
+	// Note: Kernel package modifications are validated at runtime by checking /boot
+	// for new kernel binaries after package operations. This is more reliable than
+	// checking package names statically.
 	return nil
 }

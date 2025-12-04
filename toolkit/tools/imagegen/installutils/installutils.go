@@ -549,6 +549,13 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
 	squashErrors := true
 
+	// Ensure /boot/grub2 directory exists (needed for UKI images that don't have it)
+	grubDir := filepath.Join(installChroot.RootDir(), filepath.Dir(GrubCfgFile))
+	err = os.MkdirAll(grubDir, bootDirectoryDirMode)
+	if err != nil {
+		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+	}
+
 	ReportActionf("Running grub2-mkconfig...")
 	err = installChroot.UnsafeRun(func() error {
 		return shell.ExecuteLive(squashErrors, "grub2-mkconfig", "-o", GrubCfgFile)

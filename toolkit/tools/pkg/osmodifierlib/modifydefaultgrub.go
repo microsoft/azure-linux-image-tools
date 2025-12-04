@@ -28,7 +28,7 @@ func modifyDefaultGrub() error {
 		return fmt.Errorf("error getting verity, selinux and overlayfs values from grub.cfg:\n%w", err)
 	}
 
-	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot, nil)
+	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot)
 	if err != nil {
 		return err
 	}

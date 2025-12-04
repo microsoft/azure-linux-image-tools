@@ -15,7 +15,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -240,27 +239,14 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		bootConfigType, err = getBootConfigType(imageConnection.Chroot())
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
+		bootConfigType = bootCustomizer.bootConfigType
 	}
 
-	// If the image uses UKI with passthrough mode, skip GRUB bootloader configuration.
-	// Passthrough mode preserves existing UKIs and doesn't need grub.cfg.
-	if bootConfigType == bootConfigTypeUki && ukiMode == imagecustomizerapi.UkiModePassthrough {
-		logger.Log.Debugf("Image uses UKI boot configuration with passthrough mode, skipping GRUB bootloader setup")
-		return nil
-	}
-
-	// For UKI create mode, regenerate grub.cfg that serves as the source of
-	// truth for kernel cmdline before building new UKIs.
-	if bootConfigType == bootConfigTypeUki && ukiMode == imagecustomizerapi.UkiModeCreate {
-		logger.Log.Debugf("Image uses UKI boot configuration with create mode, regenerating grub.cfg for cmdline extraction")
-	}
-
-	grubMkconfigEnabled := (bootConfigType == bootConfigTypeGrubMkconfig) ||
-		(bootConfigType == bootConfigTypeUki && ukiMode == imagecustomizerapi.UkiModeCreate)
+	grubMkconfigEnabled := (bootConfigType == bootConfigTypeGrubMkconfig)
 
 	mountPointMap := make(map[string]string)
 	for _, mountPoint := range imageConnection.Chroot().GetMountPoints() {

@@ -138,8 +138,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 }
 
 func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
-	// Verity preparation doesn't require UKI mode awareness
-	bootCustomizer, err := NewBootCustomizer(imageChroot, nil)
+	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
 		return err
 	}

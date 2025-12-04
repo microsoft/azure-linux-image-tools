@@ -42,12 +42,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		// Pass UKI config so boot customizer knows whether to treat UKI create mode as grub-mkconfig
-		var uki *imagecustomizerapi.Uki
-		if rc.Config.OS != nil {
-			uki = rc.Config.OS.Uki
-		}
-		err := AddKernelCommandLine(ctx, rc.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), uki)
+		err := AddKernelCommandLine(ctx, rc.KernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
@@ -69,11 +64,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
 
 	if !newImage {
-		var uki *imagecustomizerapi.Uki
-		if rc.Config.OS != nil {
-			uki = rc.Config.OS.Uki
-		}
-		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), uki)
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
@@ -129,7 +120,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 // Inserts new kernel command-line args into the grub config file.
 func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki,
+	imageChroot safechroot.ChrootInterface,
 ) error {
 	var err error
 
@@ -143,7 +134,7 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot, uki)
+	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
 		return err
 	}

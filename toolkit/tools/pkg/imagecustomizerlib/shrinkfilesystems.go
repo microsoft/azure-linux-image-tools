@@ -2,9 +2,7 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"slices"
 	"strconv"
@@ -118,13 +116,7 @@ func shrinkExt4FileSystem(partitionDevice string, diskDevice string) (uint64, er
 	// Check the file system with e2fsck
 	err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", partitionDevice)
 	if err != nil {
-		// e2fsck returns exit code 1 if it corrected errors. This is considered a success.
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			logger.Log.Infof("e2fsck corrected errors on (%s)", partitionDevice)
-		} else {
-			return 0, fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemE2fsckResize, partitionDevice, err)
-		}
+		return 0, fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemE2fsckResize, partitionDevice, err)
 	}
 
 	// Shrink the file system with resize2fs -M
