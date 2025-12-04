@@ -662,28 +662,12 @@
     },
     "Uki": {
       "properties": {
-        "kernels": {
-          "$ref": "#/$defs/UkiKernels"
+        "mode": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
       "type": "object"
-    },
-    "UkiKernels": {
-      "oneOf": [
-        {
-          "type": "string",
-          "enum": [
-            "auto"
-          ]
-        },
-        {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      ]
     },
     "User": {
       "properties": {

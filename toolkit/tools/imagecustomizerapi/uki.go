@@ -8,13 +8,13 @@ import (
 )
 
 type Uki struct {
-	Kernels UkiKernels `yaml:"kernels" json:"kernels"`
+	Mode UkiMode `yaml:"mode" json:"mode"`
 }
 
 func (u *Uki) IsValid() error {
-	err := u.Kernels.IsValid()
+	err := u.Mode.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid uki kernels:\n%w", err)
+		return fmt.Errorf("invalid uki mode:\n%w", err)
 	}
 
 	return nil

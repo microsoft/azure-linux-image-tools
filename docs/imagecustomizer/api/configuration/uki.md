@@ -25,47 +25,97 @@ os:
   bootLoader:
     resetType: hard-reset
   uki:
-    kernels: auto
+    mode: create
 previewFeatures:
 - uki
 ```
 
 Added in v0.8.
 
-## kernels
+## mode [string]
 
-Specifies which kernels to produce UKIs for.
+Specifies how to handle UKI creation or preservation.
 
-The value can either contain:
+Required.
 
-- The string `"auto"`
-- A list of kernel version strings.
+Supported values:
 
-When `"auto"` is specified, the tool automatically searches for all the
-installed kernels and produces UKIs for all the found kernels.
+- `create`: Create UKI files for all installed kernels. When used with a base image that
+  already has UKIs, the new UKIs will be generated and override the old ones.
 
-If a list of kernel versions is provided, then the tool will only produce UKIs
-for the kernels specified.
+- `passthrough`: Preserve existing UKI files without modification.
 
-The kernel versions must match the regex: `^\d+\.\d+\.\d+(\.\d+)?(-[\w\-\.]+)?$`.
-Examples of valid kernel formats: `6.6.51.1-5.azl3`, `5.10.120-4.custom`, `4.18.0-80.el8`.
-
-Example:
+Example (creating UKIs):
 
 ```yaml
 os:
+  bootLoader:
+    resetType: hard-reset
   uki:
-    kernels: auto
+    mode: create
+  
+  kernelCommandLine:
+    extraCommandLine:
+      - rd.info
+  
+previewFeatures:
+  - uki
 ```
 
-Example:
+Example (passthrough mode):
 
 ```yaml
+# Customize an existing UKI image without regenerating UKI files.
+# This preserves the existing kernel, initramfs, and cmdline in the UKI.
 os:
   uki:
-    kernels:
-      - 6.6.51.1-5.azl3
-      - 5.10.120-4.custom
+    mode: passthrough
+  
+  # You can still perform OS customizations:
+  packages:
+    install:
+      - nginx
+      - vim
+  
+  additionalFiles:
+    - path: /etc/app-config.txt
+      content: |
+        Application configuration
+
+previewFeatures:
+  - uki
 ```
 
-Added in v0.8.
+Example (re-customizing UKI with verity):
+
+```yaml
+# Recustomize an existing UKI+verity image with updated verity hashes.
+storage:
+  reinitializeVerity: all
+
+os:
+  bootloader:
+    resetType: hard-reset
+  
+  uki:
+    mode: create
+  
+  kernelCommandLine:
+    extraCommandLine:
+      - rd.info
+  
+  packages:
+    install:
+      - openssh-server
+  
+  additionalFiles:
+    - path: /etc/uki-recustomization.txt
+      content: |
+        UKI recustomization with verity refresh
+
+previewFeatures:
+  - uki
+  - reinitialize-verity
+```
+
+Added in v1.2.0
