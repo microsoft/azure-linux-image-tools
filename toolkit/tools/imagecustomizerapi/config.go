@@ -23,6 +23,12 @@ type Config struct {
 }
 
 func (c *Config) IsValid() (err error) {
+	for i, feature := range c.PreviewFeatures {
+		if err := feature.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'previewFeatures' item at index %d:\n%w", i, err)
+		}
+	}
+
 	err = c.Input.IsValid()
 	if err != nil {
 		return fmt.Errorf("invalid 'input' field:\n%w", err)

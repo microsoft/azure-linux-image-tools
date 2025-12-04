@@ -63,7 +63,7 @@ output:
     - shim
     - systemd-boot
     - verity-hash
-    path: ./output
+    path: ./out/artifacts
 
 os:
   bootloader:

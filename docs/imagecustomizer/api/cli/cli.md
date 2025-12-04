@@ -226,12 +226,6 @@ The levels from lowest to highest level of verbosity are: `panic`, `fatal`, `err
 
 Added in v0.3.
 
-## inject-files
-
-Injects files into a disk image using an injection configuration.
-
-See [inject-files subcommand](./inject-files.md) for full documentation.
-
 ## --package-snapshot-time
 
 Limits package selection to those published before the specified timestamp.
@@ -260,5 +254,22 @@ This option is used in conjunction with the
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Added in v1.1.
+
+## inject-files
+
+Injects files into a disk image using an injection configuration.
+
+See [inject-files subcommand](./inject-files.md) for full documentation.
+
+Added in v0.14.
+
+## sign-artifacts
+
+Signs image artifacts that were created by the
+[.output.artifacts](../configuration/output.md#artifacts-outputartifacts) API.
+
+See [sign-artifacts subcommand](./sign-artifacts.md) for full documentation.
 
 Added in v1.1.

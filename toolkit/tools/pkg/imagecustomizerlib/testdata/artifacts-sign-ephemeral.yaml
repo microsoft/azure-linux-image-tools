@@ -1,0 +1,8 @@
+previewFeatures:
+- sign-artifacts
+
+input:
+  artifactsPath: ./out/artifacts
+
+signingMethod:
+  ephemeral: {}

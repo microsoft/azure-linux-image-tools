@@ -1,0 +1,4 @@
+*.pk12
+nssdb/
+*.crt
+*.pem

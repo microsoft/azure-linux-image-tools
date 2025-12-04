@@ -42,9 +42,17 @@ type InjectFilesCmd struct {
 	OutputImageFormat string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
 }
 
+type SignArtifactsCmd struct {
+	BuildDir                string `name:"build-dir" help:"Directory to run build out of." required:""`
+	ConfigFile              string `name:"config-file" help:"Path to the config file." required:""`
+	ArtifactsPath           string `name:"artifacts-paths" help:"Path of the directory of the OS image artifacts to sign."`
+	EphemeralPublicKeysPath string `name:"ephemeral-public-keys-path"`
+}
+
 type RootCmd struct {
 	Customize        CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
 	InjectFiles      InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
+	SignArtifacts    SignArtifactsCmd `name:"sign-artifacts" cmd:"" help:"Signs OS image artifacts."`
 	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
 	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
@@ -108,6 +116,12 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 			return fmt.Errorf("inject-files failed:\n%w", err)
 		}
 
+	case "sign-artifacts":
+		err = signArtifacts(ctx, cli.SignArtifacts)
+		if err != nil {
+			return fmt.Errorf("sign-artifacts failed:\n%w", err)
+		}
+
 	default:
 		panic(command)
 	}
@@ -139,6 +153,19 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
 	err := imagecustomizerlib.InjectFilesWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.InputImageFile,
 		cmd.OutputImageFile, cmd.OutputImageFormat)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func signArtifacts(ctx context.Context, cmd SignArtifactsCmd) error {
+	err := imagecustomizerlib.SignArtifactsWithConfigFile(ctx, cmd.ConfigFile, imagecustomizerlib.SignArtifactsOptions{
+		BuildDir:                cmd.BuildDir,
+		ArtifactsPath:           cmd.ArtifactsPath,
+		EphemeralPublicKeysPath: cmd.EphemeralPublicKeysPath,
+	})
 	if err != nil {
 		return err
 	}

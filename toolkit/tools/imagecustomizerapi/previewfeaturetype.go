@@ -3,7 +3,9 @@
 
 package imagecustomizerapi
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type PreviewFeature string
 
@@ -37,13 +39,16 @@ const (
 
 	// PreviewFeatureOutputSelinuxPolicy enables extraction of SELinux policy contents.
 	PreviewFeatureOutputSelinuxPolicy PreviewFeature = "output-selinux-policy"
+
+	// PreviewFeatureOutputSelinuxPolicy enables the sign-artifacts command.
+	PreviewFeatureSignArtifacts PreviewFeature = "sign-artifacts"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
 		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci,
-		PreviewFeatureOutputSelinuxPolicy:
+		PreviewFeatureOutputSelinuxPolicy, PreviewFeatureSignArtifacts:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)
