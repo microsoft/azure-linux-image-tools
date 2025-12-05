@@ -375,7 +375,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 				mountPoint := filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
 				partitionsToMountpoints[partitionKey] = mountPoint
 
-				mount, err := safemount.NewMount(partition.Path, mountPoint, partition.FileSystemType, 0, "", true)
+				mount, err := safemount.NewMount(partition.Path, mountPoint, partition.FileSystemType, unix.MS_SYNCHRONOUS, "", true)
 				if err != nil {
 					return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
 				}
