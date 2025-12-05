@@ -87,6 +87,17 @@ func (l *Loopback) CleanClose() error {
 
 func (l *Loopback) close(async bool) error {
 	if l.isAttached {
+		if !async {
+			// Sync and wait for outstanding IO BEFORE detaching the loopback device.
+			// This ensures all writes are flushed to the underlying disk image file.
+			// If we sync after detach, the device is no longer valid and the sync
+			// may not properly flush to the backing file.
+			err := diskutils.BlockOnDiskIOByIds(l.devicePath, l.diskIdMaj, l.diskIdMin)
+			if err != nil {
+				return err
+			}
+		}
+
 		err := diskutils.DetachLoopbackDevice(l.devicePath)
 		if err != nil {
 			return err
@@ -99,11 +110,6 @@ func (l *Loopback) close(async bool) error {
 		// The `losetup --detach` call happens asynchronously.
 		// So, need to wait for it to complete.
 		err := diskutils.WaitForLoopbackToDetach(l.devicePath, l.diskFilePath)
-		if err != nil {
-			return err
-		}
-
-		err = diskutils.BlockOnDiskIOByIds(l.devicePath, l.diskIdMaj, l.diskIdMin)
 		if err != nil {
 			return err
 		}
