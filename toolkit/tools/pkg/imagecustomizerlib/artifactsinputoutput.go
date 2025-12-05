@@ -385,6 +385,9 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 		}
 	}
 
+	// Sync the filesystems to ensure that all data is written to the disk.
+	unix.Sync()
+
 	for _, m := range mountedPartitions {
 		if err := m.CleanClose(); err != nil {
 			return fmt.Errorf("%w (target='%s'):\n%w", ErrArtifactPartitionUnmount, m.Target(), err)
