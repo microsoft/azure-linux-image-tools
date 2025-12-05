@@ -44,7 +44,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	// mode, we skip extraction to preserve existing UKIs.
 	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate {
 		// Check if base image has UKIs to determine if extraction is needed
-		hasUkis, err := baseImageHasUkis(imageChroot)
+		hasUkis, err := baseImageHasUkis(imageChroot.RootDir())
 		if err != nil {
 			return err
 		}

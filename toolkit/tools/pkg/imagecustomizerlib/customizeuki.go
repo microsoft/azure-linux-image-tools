@@ -67,8 +67,8 @@ type UkiKernelInfo struct {
 	Initramfs string `json:"initramfs"`
 }
 
-func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
-	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+func baseImageHasUkis(imageChrootRootDir string) (bool, error) {
+	espDir := filepath.Join(imageChrootRootDir, EspDir)
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return false, fmt.Errorf("failed to check for UKI files:\n%w", err)
@@ -88,7 +88,7 @@ func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
 func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
-	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot().RootDir())
 	if err != nil {
 		return err
 	}

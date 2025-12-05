@@ -57,7 +57,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer,
 	}
 
 	// Determine boot configuration type
-	bootConfigType, err := determineBootConfigType(grubCfgContent, imageChroot)
+	bootConfigType, err := determineBootConfigType(grubCfgContent, imageChroot.RootDir())
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +70,10 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer,
 	return b, nil
 }
 
-func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface) (bootConfigType, error) {
+func determineBootConfigType(grubCfgContent string, imageChrootRootDir string) (bootConfigType, error) {
 	// If grub.cfg doesn't exist, check for UKI
 	if grubCfgContent == "" {
-		hasUkis, err := baseImageHasUkis(imageChroot.(*safechroot.Chroot))
+		hasUkis, err := baseImageHasUkis(imageChrootRootDir)
 		if err == nil && hasUkis {
 			// UKI images without grub.cfg are in passthrough mode (grub.cfg not regenerated)
 			// For UKI create mode, grub.cfg is regenerated during kernel extraction, so it would exist
