@@ -5,8 +5,10 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -23,6 +25,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"golang.org/x/sys/unix"
 )
@@ -357,6 +360,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 
 	partitionsToMountpoints := make(map[imagecustomizerapi.InjectFilePartition]string)
 	var mountedPartitions []*safemount.Mount
+	mountedDevices := make(map[string]string)
 
 	for idx, item := range metadata {
 		partitionKey := item.Partition
@@ -375,6 +379,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 			defer mount.Close()
 
 			mountedPartitions = append(mountedPartitions, mount)
+			mountedDevices[partition.Path] = partition.FileSystemType
 		}
 
 		srcPath := filepath.Join(baseConfigPath, item.Source)
@@ -391,6 +396,26 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 	for _, m := range mountedPartitions {
 		if err := m.CleanClose(); err != nil {
 			return fmt.Errorf("%w (target='%s'):\n%w", ErrArtifactPartitionUnmount, m.Target(), err)
+		}
+	}
+
+	// Check the filesystems to ensure they are clean.
+	for devicePath, fstype := range mountedDevices {
+		switch fstype {
+		case "ext2", "ext3", "ext4":
+			// Check the file system with e2fsck
+			err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", devicePath)
+			if err != nil {
+				// e2fsck returns exit code 1 if it corrected errors. This is considered success for us.
+				var exitErr *exec.ExitError
+				if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+					err = nil
+				}
+			}
+
+			if err != nil {
+				return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemE2fsckCheck, devicePath, err)
+			}
 		}
 	}
 
