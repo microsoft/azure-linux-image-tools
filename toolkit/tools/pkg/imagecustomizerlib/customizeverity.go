@@ -683,7 +683,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		}
 
 		// Update kernel args.
-		isUki := config.OS.Uki != nil
+		isUki := config.OS.Uki != nil && config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate
 		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err
