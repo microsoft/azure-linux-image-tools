@@ -5,10 +5,8 @@ package imagecustomizerlib
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -25,7 +23,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"golang.org/x/sys/unix"
 )
@@ -360,26 +357,33 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 
 	partitionsToMountpoints := make(map[imagecustomizerapi.InjectFilePartition]string)
 	var mountedPartitions []*safemount.Mount
+	// Map of partition device path to mount point.
 	mountedDevices := make(map[string]string)
 
 	for idx, item := range metadata {
 		partitionKey := item.Partition
 		if _, exists := partitionsToMountpoints[partitionKey]; !exists {
-			partitionsToMountpoints[partitionKey] = filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
-
 			partition, _, err := findPartition(item.Partition.MountIdType, item.Partition.Id, diskPartitions)
 			if err != nil {
 				return err
 			}
 
-			mount, err := safemount.NewMount(partition.Path, partitionsToMountpoints[partitionKey], partition.FileSystemType, 0, "", true)
-			if err != nil {
-				return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
-			}
-			defer mount.Close()
+			// Check if the partition is already mounted.
+			if mountPoint, ok := mountedDevices[partition.Path]; ok {
+				partitionsToMountpoints[partitionKey] = mountPoint
+			} else {
+				mountPoint := filepath.Join(buildDir, fmt.Sprintf("inject-partition-%d", idx))
+				partitionsToMountpoints[partitionKey] = mountPoint
 
-			mountedPartitions = append(mountedPartitions, mount)
-			mountedDevices[partition.Path] = partition.FileSystemType
+				mount, err := safemount.NewMount(partition.Path, mountPoint, partition.FileSystemType, 0, "", true)
+				if err != nil {
+					return fmt.Errorf("%w (partition='%s'):\n%w", ErrArtifactInjectFilesPartitionMount, partition.Path, err)
+				}
+				defer mount.Close()
+
+				mountedPartitions = append(mountedPartitions, mount)
+				mountedDevices[partition.Path] = mountPoint
+			}
 		}
 
 		srcPath := filepath.Join(baseConfigPath, item.Source)
@@ -396,26 +400,6 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 	for _, m := range mountedPartitions {
 		if err := m.CleanClose(); err != nil {
 			return fmt.Errorf("%w (target='%s'):\n%w", ErrArtifactPartitionUnmount, m.Target(), err)
-		}
-	}
-
-	// Check the filesystems to ensure they are clean.
-	for devicePath, fstype := range mountedDevices {
-		switch fstype {
-		case "ext2", "ext3", "ext4":
-			// Check the file system with e2fsck
-			err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", devicePath)
-			if err != nil {
-				// e2fsck returns exit code 1 if it corrected errors. This is considered success for us.
-				var exitErr *exec.ExitError
-				if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-					err = nil
-				}
-			}
-
-			if err != nil {
-				return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemE2fsckCheck, devicePath, err)
-			}
 		}
 	}
 
