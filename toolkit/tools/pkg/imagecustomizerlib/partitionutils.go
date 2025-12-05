@@ -747,22 +747,13 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 }
 
 func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
-	// Create a temporary copy of UKI files to avoid modifying the original file,
-	// since objcopy might tamper with signatures or hashes.
-	tempDir := filepath.Join(buildDir, "uki-cmdline-extraction-temp")
-	err := os.MkdirAll(tempDir, 0o755)
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp directory:\n%w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	cmdlinePath, err := os.CreateTemp(tempDir, "cmdline-*.txt")
+	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)
 	}
-	cmdlinePath.Close()
+	defer os.Remove(cmdlinePath.Name())
 
-	err = extractSectionFromUkiWithObjcopy(originalPath, ".cmdline", cmdlinePath.Name(), tempDir)
+	err = extractSectionFromUkiWithObjcopy(originalPath, ".cmdline", cmdlinePath.Name(), buildDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract cmdline section:\n%w", err)
 	}
@@ -816,7 +807,7 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 		return args, true, nil
 	}
 
-	return nil, true, fmt.Errorf("no kernel args found in grub.cfg file")
+	return nil, false, fmt.Errorf("no kernel args found in grub.cfg file")
 }
 
 // Extracts the kernel args for each kernel from the grub.cfg file.
@@ -972,7 +963,7 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 	numStr := match[1]
 
 	num, err := strconv.Atoi(numStr)
-	if err != nil {
+	if match == nil {
 		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
 	}
 

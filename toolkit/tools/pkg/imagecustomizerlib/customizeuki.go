@@ -744,10 +744,9 @@ func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, output
 	if err != nil {
 		return fmt.Errorf("failed to read UKI file:\n%w", err)
 	}
-	if _, err := tempCopy.Write(input); err != nil {
+	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp UKI file:\n%w", err)
 	}
-	tempCopy.Close()
 
 	// Extract the section using objcopy on the temp copy
 	_, _, err = shell.Execute("objcopy", "--dump-section", sectionName+"="+outputPath, tempCopy.Name())
