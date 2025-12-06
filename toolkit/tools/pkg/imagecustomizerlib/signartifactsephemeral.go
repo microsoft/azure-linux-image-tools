@@ -27,7 +27,7 @@ func signArtifactsEphemeral(ctx context.Context, rc *signArtifactsResolvedConfig
 	}
 
 	// Generate keys.
-	certsDir, certificatePath, privateKeyPath, err := ephemeralGenerateKeys(ctx, rc)
+	certsDir, certificatePath, privateKeyPath, err := ephemeralGenerateKeys(ctx, rc.BuildDir)
 	if err != nil {
 		return fmt.Errorf("failed to generate ephemeral signing keys:\n%w", err)
 	}
@@ -58,10 +58,10 @@ func signArtifactsEphemeral(ctx context.Context, rc *signArtifactsResolvedConfig
 	return nil
 }
 
-func ephemeralGenerateKeys(ctx context.Context, rc *signArtifactsResolvedConfig) (string, string, string, error) {
+func ephemeralGenerateKeys(ctx context.Context, buildDir string) (string, string, string, error) {
 	logger.Log.Infof("Generating ephemeral signing keys")
 
-	certsDir := filepath.Join(rc.BuildDir, "ephemeral-certs")
+	certsDir := filepath.Join(buildDir, "ephemeral-certs")
 
 	err := os.MkdirAll(certsDir, os.ModePerm)
 	if err != nil {
@@ -119,7 +119,7 @@ func ephemeralSign(ctx context.Context, certificatePath string, privateKeyPath s
 			}
 
 		case imagecustomizerapi.OutputArtifactsItemVerityHash:
-			err := ephemeralSignVerityHash(ctx, itemPath, privateKeyPath)
+			err := ephemeralSignVerityHash(ctx, itemPath, privateKeyPath, certificatePath)
 			if err != nil {
 				return fmt.Errorf("failed to sign verity hash file (path='%s'):\n%w", itemPath, err)
 			}
@@ -140,7 +140,7 @@ func ephemeralSignEfi(ctx context.Context, efiPath string, stagingDir string, ce
 		return err
 	}
 
-	err = createSignatureOfFile(ctx, metadataPath, signaturePath, privateKeyPath)
+	err = createSignature(ctx, metadataPath, signaturePath, privateKeyPath)
 	if err != nil {
 		return err
 	}
@@ -153,11 +153,11 @@ func ephemeralSignEfi(ctx context.Context, efiPath string, stagingDir string, ce
 	return nil
 }
 
-func ephemeralSignVerityHash(ctx context.Context, verityHashPath string, privateKeyPath string,
+func ephemeralSignVerityHash(ctx context.Context, verityHashPath string, privateKeyPath string, certificatePath string,
 ) error {
 	signaturePath := verityHashPath + ".tmp"
 
-	err := createSignatureOfDigest(ctx, verityHashPath, signaturePath, privateKeyPath)
+	err := createSignaturePkcs7(ctx, verityHashPath, signaturePath, privateKeyPath, certificatePath)
 	if err != nil {
 		return err
 	}
@@ -171,8 +171,7 @@ func ephemeralSignVerityHash(ctx context.Context, verityHashPath string, private
 	return nil
 }
 
-// Hash a file and then create a signature from the hash.
-func createSignatureOfFile(ctx context.Context, path string, signaturePath string, privateKeyPath string) error {
+func createSignature(ctx context.Context, path string, signaturePath string, privateKeyPath string) error {
 	err := shell.NewExecBuilder("openssl", "dgst", "-sign", privateKeyPath, "-sha256", "-out", signaturePath, path).
 		Context(ctx).
 		ErrorStderrLines(1).
@@ -184,16 +183,17 @@ func createSignatureOfFile(ctx context.Context, path string, signaturePath strin
 	return nil
 }
 
-// Directly sign a digest.
-func createSignatureOfDigest(ctx context.Context, path string, signaturePath string, privateKeyPath string) error {
-	// TODO: Convert HEX to binary.
-	// TODO: Wrong output format?
-	err := shell.NewExecBuilder("openssl", "pkeyutl", "-sign",
+func createSignaturePkcs7(ctx context.Context, path string, signaturePath string, privateKeyPath string,
+	certificatePath string,
+) error {
+	err := shell.NewExecBuilder(
+		"openssl", "smime", "-sign", "-noattr", "-binary",
 		"-in", path,
+		"-signer", certificatePath,
 		"-inkey", privateKeyPath,
-		"-out", signaturePath,
-		// Specify the type of digest being provided.
-		"-pkeyopt", "digest:sha256").
+		"-passin", "pass:",
+		"-outform", "der",
+		"-out", signaturePath).
 		Context(ctx).
 		ErrorStderrLines(1).
 		Execute()

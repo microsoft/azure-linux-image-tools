@@ -35,4 +35,4 @@ for FILE in "$ARTIFACTS_DIR"/**/*.efi; do
     mv -f "$FILE.tmp" "$FILE"
 done
 
-# sudo virt-fw-vars --in-place <VARS> --add-db <GUID> <CERT>
+# sudo virt-fw-vars --in-place <VARS> --add-db $(uuid) <CERT>
