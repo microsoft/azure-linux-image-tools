@@ -119,6 +119,10 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			Image: ImageFile{
 				Path:             path.Join("images", partition.PartitionFilename),
 				UncompressedSize: partition.UncompressedSize,
+				PartUuid:         partition.PartUuid,
+				PartLabel:        partition.PartLabel,
+				PartNumber:       partition.PartitionNum,
+				OriginalSize:     partition.OriginalSize,
 			},
 			PartType:   partition.PartitionTypeUuid,
 			MountPoint: entry.FstabEntry.Target,
@@ -145,6 +149,10 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 					Image: ImageFile{
 						Path:             path.Join("images", hashPartition.PartitionFilename),
 						UncompressedSize: hashPartition.UncompressedSize,
+						PartUuid:         hashPartition.PartUuid,
+						PartLabel:        hashPartition.PartLabel,
+						PartNumber:       hashPartition.PartitionNum,
+						OriginalSize:     hashPartition.OriginalSize,
 					},
 				}
 
@@ -168,7 +176,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:    "1.1",
+		Version:    "1.2",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Images:     make([]FileSystem, len(imageData)),

@@ -59,6 +59,10 @@ type ImageFile struct {
 	Path             string `json:"path"`
 	CompressedSize   uint64 `json:"compressedSize"`
 	UncompressedSize uint64 `json:"uncompressedSize"`
+	OriginalSize     uint64 `json:"originalSize"`
+	PartUuid         string `json:"partUuid"`
+	PartLabel        string `json:"partLabel"`
+	PartNumber       int    `json:"partNumber"`
 	Sha384           string `json:"sha384"`
 }
 
