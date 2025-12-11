@@ -94,6 +94,11 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	defer imageConnection.Close()
 
 	verifyInjectedFiles(t, filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi"), espFiles)
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
 }
 
 func TestOutputAndInjectArtifactsCosi(t *testing.T) {

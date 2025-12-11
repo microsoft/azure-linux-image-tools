@@ -149,6 +149,11 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		assert.Equal(t, "efi", bootEntries[0].Name(), "/boot should only contain the 'efi' directory")
 		assert.True(t, bootEntries[0].IsDir(), "'efi' should be a directory")
 	}
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
 }
 
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
