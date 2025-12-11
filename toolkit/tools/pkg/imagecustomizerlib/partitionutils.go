@@ -669,11 +669,19 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 
 	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(tmpDirEsp, buildDir)
 	if err != nil {
+		closeErr := espPartitionMount.CleanClose()
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close espPartitionMount (original error: %v):\n%w", err, closeErr)
+		}
 		return nil, err
 	}
 
 	args, err := parseFirstCmdlineFromUkiMap(kernelToArgs)
 	if err != nil {
+		closeErr := espPartitionMount.CleanClose()
+		if closeErr != nil {
+			return nil, fmt.Errorf("failed to close espPartitionMount (original error: %v):\n%w", err, closeErr)
+		}
 		return nil, err
 	}
 

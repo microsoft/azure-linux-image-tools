@@ -373,6 +373,11 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
 	}
 
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, false
+	}
+
 	return ukiFilesChecksums, true
 }
 
@@ -479,6 +484,11 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 		// Note: This indirectly also checks that the verity partitions haven't changed since the UKIs contain the
 		// verity root hash in the kernel command-line args.
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
+	}
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, false
 	}
 
 	return ukiFilesChecksums, true
