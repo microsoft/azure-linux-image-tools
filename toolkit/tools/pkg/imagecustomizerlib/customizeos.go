@@ -226,6 +226,10 @@ func hasKernelBinariesInBoot(rootDir string) (bool, error) {
 		if strings.HasPrefix(entry.Name(), "vmlinuz-") {
 			return true, nil
 		}
+		// Check for initramfs files: initramfs-*.img (e.g., initramfs-6.6.104.2-4.azl3.img)
+		if strings.HasPrefix(entry.Name(), "initramfs-") {
+			return true, nil
+		}
 	}
 
 	return false, nil
