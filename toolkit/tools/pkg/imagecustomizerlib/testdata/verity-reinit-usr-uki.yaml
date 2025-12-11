@@ -6,11 +6,18 @@ storage:
   reinitializeVerity: all
 
 os:
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
   bootloader:
     resetType: hard-reset
+
   uki:
     mode: create
+
   additionalFiles:
   - content: |
-      cat, dog, elephant, squirrel
-    destination: /var/animals.txt
+      Testing UKI re-customization
+    destination: /etc/uki-test.txt
+

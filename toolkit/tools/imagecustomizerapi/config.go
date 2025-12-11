@@ -69,12 +69,12 @@ func (c *Config) IsValid() (err error) {
 				return fmt.Errorf("the 'uki' preview feature must be enabled to use 'os.uki'")
 			}
 
-			// Temporary limitation: We currently require 'os.bootloader.reset' to be 'hard-reset' when 'os.uki' is enabled.
-			// In the future, as we design and develop the bootloader further, this hard-reset limitation may be lifted.
-			if c.OS.BootLoader.ResetType != ResetBootLoaderTypeHard {
-				return fmt.Errorf(
-					"'os.bootloader.reset' must be '%s' when 'os.uki' is enabled", ResetBootLoaderTypeHard,
-				)
+			// Validate passthrough mode compatibility
+			if c.OS.Uki.Mode == UkiModePassthrough {
+				err = c.validateUkiPassthroughMode()
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -153,4 +153,59 @@ func (c *Config) IsValid() (err error) {
 
 func (c *Config) CustomizePartitions() bool {
 	return c.Storage.CustomizePartitions()
+}
+
+func (c *Config) validateUkiPassthroughMode() error {
+	var incompatibleConfigs []string
+
+	// Check for bootloader hard-reset (modifies bootloader configuration)
+	if c.OS != nil && c.OS.BootLoader.ResetType == ResetBootLoaderTypeHard {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.bootloader.resetType: hard-reset modifies bootloader configuration")
+	}
+
+	// Check for SELinux mode changes (modifies kernel command line)
+	if c.OS != nil && c.OS.SELinux.Mode != SELinuxModeDefault {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.selinux.mode: changes SELinux mode which modifies kernel command line embedded in UKI")
+	}
+
+	// Check for kernel command line modifications
+	if c.OS != nil && len(c.OS.KernelCommandLine.ExtraCommandLine) > 0 {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.kernelCommandLine.extraCommandLine: modifies kernel command line embedded in UKI")
+	}
+
+	// Check for verity configuration (modifies initramfs and kernel cmdline)
+	if len(c.Storage.Verity) > 0 {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"storage.verity: adds verity devices which modifies initramfs and kernel cmdline")
+	}
+
+	// Check for verity reinitialization (modifies initramfs and kernel cmdline)
+	if c.Storage.ReinitializeVerity == ReinitializeVerityTypeAll {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"storage.reinitializeVerity: reinitializes verity which modifies initramfs and kernel cmdline")
+	}
+
+	// Check for overlay configurations (might trigger initramfs regeneration)
+	if c.OS != nil && c.OS.Overlays != nil && len(*c.OS.Overlays) > 0 {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.overlays: overlay configuration might trigger initramfs regeneration")
+	}
+
+	if len(incompatibleConfigs) > 0 {
+		errorMsg := "UKI passthrough mode is incompatible with the following configurations:\n"
+		for _, cfg := range incompatibleConfigs {
+			errorMsg += fmt.Sprintf("  - %s\n", cfg)
+		}
+		errorMsg += "\nPassthrough mode preserves existing UKIs without modification.\n"
+		errorMsg += "To make these changes, use mode: create to regenerate UKIs, or remove the incompatible configurations."
+		return fmt.Errorf("%s", errorMsg)
+	}
+
+	// Note: Kernel package modifications are validated at runtime by checking /boot
+	// for new kernel binaries after package operations. This is more reliable than
+	// checking package names statically.
+	return nil
 }

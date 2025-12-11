@@ -235,10 +235,7 @@ func TestOSValidWithUki(t *testing.T) {
 			ResetType: ResetBootLoaderTypeHard,
 		},
 		Uki: &Uki{
-			Kernels: UkiKernels{
-				Auto:    false,
-				Kernels: []string{"6.6.51.1-5.azl3"},
-			},
+			Mode: UkiModeCreate,
 		},
 	}
 
@@ -246,15 +243,13 @@ func TestOSValidWithUki(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestOSValidUkiAutoMode(t *testing.T) {
+func TestOSValidUkiPassthroughMode(t *testing.T) {
 	os := OS{
 		BootLoader: BootLoader{
 			ResetType: ResetBootLoaderTypeHard,
 		},
 		Uki: &Uki{
-			Kernels: UkiKernels{
-				Auto: true,
-			},
+			Mode: UkiModePassthrough,
 		},
 	}
 
@@ -262,39 +257,32 @@ func TestOSValidUkiAutoMode(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestOSInvalidUkiInvalidKernels(t *testing.T) {
+func TestOSInvalidUkiInvalidMode(t *testing.T) {
 	os := OS{
 		BootLoader: BootLoader{
 			ResetType: ResetBootLoaderTypeHard,
 		},
 		Uki: &Uki{
-			Kernels: UkiKernels{
-				Auto:    false,
-				Kernels: []string{"invalid-kernel-version"},
-			},
+			Mode: UkiMode("invalid-mode"),
 		},
 	}
 
 	err := os.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid uki")
-	assert.ErrorContains(t, err, "invalid kernel version at index 0:")
-	assert.ErrorContains(t, err, "invalid kernel version format (invalid-kernel-version)")
+	assert.ErrorContains(t, err, "invalid uki mode value (invalid-mode)")
 }
 
-func TestOSInvalidUkiEmptyKernels(t *testing.T) {
+func TestOSValidUkiUnspecifiedMode(t *testing.T) {
 	os := OS{
 		BootLoader: BootLoader{
 			ResetType: ResetBootLoaderTypeHard,
 		},
 		Uki: &Uki{
-			Kernels: UkiKernels{
-				Auto:    false,
-				Kernels: []string{},
-			},
+			Mode: UkiModeUnspecified,
 		},
 	}
 
 	err := os.IsValid()
-	assert.ErrorContains(t, err, "must specify either 'auto' or a non-empty list of kernel names")
+	assert.NoError(t, err)
 }

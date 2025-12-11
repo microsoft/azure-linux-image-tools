@@ -50,15 +50,17 @@ func TestBootCustomizerAddKernelCommandLine30(t *testing.T) {
 
 func TestBootCustomizerSELinuxMode20(t *testing.T) {
 	b := createBootCustomizerFor20(t)
-	selinuxMode, err := b.getSELinuxModeFromGrub()
+	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
 
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
 	assert.NoError(t, err)
 
-	selinuxMode, err = b.getSELinuxModeFromGrub()
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
 
 	expectedGrubCfgDiff := `22c22
@@ -71,8 +73,9 @@ func TestBootCustomizerSELinuxMode20(t *testing.T) {
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeForceEnforcing)
 	assert.NoError(t, err)
 
-	selinuxMode, err = b.getSELinuxModeFromGrub()
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeForceEnforcing, selinuxMode)
 
 	expectedGrubCfgDiff = `22c22
@@ -85,8 +88,9 @@ func TestBootCustomizerSELinuxMode20(t *testing.T) {
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeDisabled)
 	assert.NoError(t, err)
 
-	selinuxMode, err = b.getSELinuxModeFromGrub()
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
 
 	expectedGrubCfgDiff = `22c22
@@ -99,15 +103,17 @@ func TestBootCustomizerSELinuxMode20(t *testing.T) {
 
 func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	b := createBootCustomizerFor30(t)
-	selinuxMode, err := b.getSELinuxModeFromGrub()
+	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
 
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
 	assert.NoError(t, err)
 
-	selinuxMode, err = b.getSELinuxModeFromGrub()
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
 
 	expectedDefaultGrubFileDiff := `5c5
@@ -120,8 +126,9 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeForceEnforcing)
 	assert.NoError(t, err)
 
-	selinuxMode, err = b.getSELinuxModeFromGrub()
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeForceEnforcing, selinuxMode)
 
 	expectedDefaultGrubFileDiff = `5c5
@@ -134,8 +141,9 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeDisabled)
 	assert.NoError(t, err)
 
-	selinuxMode, err = b.getSELinuxModeFromGrub()
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
+	assert.True(t, found)
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
 
 	expectedDefaultGrubFileDiff = `5c5
@@ -222,10 +230,15 @@ func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultG
 	sampleDefaultGrubFileContent, err := os.ReadFile(sampleDefaultGrubFilePath)
 	assert.NoError(t, err, "failed to read sample /etc/default/grub file")
 
+	bootConfigType := bootConfigTypeGrubLegacy
+	if isGrubMkconfig {
+		bootConfigType = bootConfigTypeGrubMkconfig
+	}
+
 	b := &BootCustomizer{
 		grubCfgContent:         string(sampleGrubCfgContent),
 		defaultGrubFileContent: string(sampleDefaultGrubFileContent),
-		isGrubMkconfig:         isGrubMkconfig,
+		bootConfigType:         bootConfigType,
 	}
 	return b
 }

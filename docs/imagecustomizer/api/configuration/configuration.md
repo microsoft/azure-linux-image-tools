@@ -237,7 +237,7 @@ os:
       - [options](./module.md#options-mapstring-string)
     - [overlays](./os.md#overlays-overlay) ([overlay type](./overlay.md))
     - [uki](./os.md#uki-uki) ([uki type](./uki.md))
-      - [kernels](./uki.md#kernels)
+      - [mode](./uki.md#mode-string)
     - [imageHistory](./os.md#imagehistory-string)
   - [scripts](./config.md#scripts-scripts) ([scripts type](./scripts.md))
     - [postCustomization](./scripts.md#postcustomization-script) ([script type](./script.md))
