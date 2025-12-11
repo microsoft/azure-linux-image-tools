@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 )
 
 var (
@@ -42,7 +43,7 @@ type ImageBuildData struct {
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
-	cosiBootMetadata *CosiBootloader,
+	cosiBootMetadata *CosiBootloader, includeVhdFooter bool,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -68,7 +69,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
-		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
+		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata, includeVhdFooter)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
 	}
@@ -86,6 +87,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partitionsLayout []fstabEntryPartNum,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
+	includeVhdFooter bool,
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
@@ -229,6 +231,22 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	for _, data := range imageData {
 		if err := addToCosi(data, tw); err != nil {
 			return fmt.Errorf("failed to add %s to COSI:\n%w", data.Source, err)
+		}
+	}
+
+	if err = tw.Flush(); err != nil {
+		return fmt.Errorf("failed to flush COSI tar writer:\n%w", err)
+	}
+
+	if includeVhdFooter {
+		currentOffset, err := cosiFile.Seek(0, 1)
+		if err != nil {
+			return fmt.Errorf("failed to get current offset in COSI file:\n%w", err)
+		}
+
+		err = vhdutils.AppendVhdFileFooter(cosiFile, uint64(currentOffset))
+		if err != nil {
+			return fmt.Errorf("failed to append VHD footer to COSI file:\n%w", err)
 		}
 	}
 
