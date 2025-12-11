@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,4 +34,62 @@ func TestParseInputImageOciUriBad(t *testing.T) {
 	_, err := parseInputImage("oci:mcr.microsoft.com")
 	assert.ErrorIs(t, err, ErrInvalidInputImageStringFormat)
 	assert.ErrorContains(t, err, "invalid reference: missing registry or repository")
+}
+
+func TestOptionsIsValid_CosiCompressionLevel_Pass(t *testing.T) {
+	testCases := []int{0, 1, 9, 15, 22}
+	for _, level := range testCases {
+		options := ImageCustomizerOptions{
+			CosiCompressionLevel: level,
+		}
+		err := options.IsValid()
+		assert.NoError(t, err, "level %d should be valid", level)
+	}
+}
+
+func TestOptionsIsValid_CosiCompressionLevel_Fail(t *testing.T) {
+	testCases := []int{-1, 23, 100}
+	for _, level := range testCases {
+		options := ImageCustomizerOptions{
+			CosiCompressionLevel: level,
+		}
+		err := options.IsValid()
+		assert.ErrorIs(t, err, ErrInvalidCosiCompressionLevelArg, "level %d should be invalid", level)
+	}
+}
+
+func TestVerifyPreviewFeatures_CosiCompressionLevelWithoutFeature_Fail(t *testing.T) {
+	options := ImageCustomizerOptions{
+		CosiCompressionLevel: 15,
+	}
+	previewFeatures := []imagecustomizerapi.PreviewFeature{}
+	err := options.verifyPreviewFeatures(previewFeatures)
+	assert.ErrorIs(t, err, ErrCosiCompressionPreviewRequired)
+}
+
+func TestVerifyPreviewFeatures_CosiCompressionWithFeature_Pass(t *testing.T) {
+	options := ImageCustomizerOptions{
+		CosiCompressionLevel: 15,
+	}
+	previewFeatures := []imagecustomizerapi.PreviewFeature{
+		imagecustomizerapi.PreviewFeatureCosiCompression,
+	}
+	err := options.verifyPreviewFeatures(previewFeatures)
+	assert.NoError(t, err)
+}
+
+func TestVerifyPreviewFeatures_NoOptionsWithCosiCompressionFeature_Pass(t *testing.T) {
+	options := ImageCustomizerOptions{}
+	previewFeatures := []imagecustomizerapi.PreviewFeature{
+		imagecustomizerapi.PreviewFeatureCosiCompression,
+	}
+	err := options.verifyPreviewFeatures(previewFeatures)
+	assert.NoError(t, err)
+}
+
+func TestVerifyPreviewFeatures_NoOptionsNoFeatures_Pass(t *testing.T) {
+	options := ImageCustomizerOptions{}
+	previewFeatures := []imagecustomizerapi.PreviewFeature{}
+	err := options.verifyPreviewFeatures(previewFeatures)
+	assert.NoError(t, err)
 }

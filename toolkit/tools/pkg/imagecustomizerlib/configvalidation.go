@@ -148,6 +148,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	rc.CosiCompression = resolveCosiCompression(rc.ConfigChain, options.CosiCompressionLevel)
+
 	return rc, nil
 }
 
@@ -624,4 +626,23 @@ func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizer
 	return imagecustomizerapi.KernelCommandLine{
 		ExtraCommandLine: mergedArgs,
 	}
+}
+
+func resolveCosiCompression(configChain []*ConfigWithBasePath, cliLevel int) *imagecustomizerapi.CosiCompression {
+	level := 0
+
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Output.Image.Cosi != nil &&
+				configWithBase.Config.Output.Image.Cosi.Compression != nil &&
+				configWithBase.Config.Output.Image.Cosi.Compression.Level != 0 {
+			level = configWithBase.Config.Output.Image.Cosi.Compression.Level
+			break
+		}
+	}
+
+	if cliLevel != 0 {
+		level = cliLevel
+	}
+
+	return newCosiCompression(level)
 }

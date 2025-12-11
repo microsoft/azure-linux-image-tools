@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/klauspost/compress/zstd"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -35,7 +36,7 @@ func TestAddSkippableFrame(t *testing.T) {
 
 	// Compress to .raw.zst partition file
 	tempPartitionFilepath := testDir + partitionFilename + "_temp.raw.zst"
-	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath)
+	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath, nil)
 	assert.NoError(t, err)
 
 	// Test adding the skippable frame
@@ -424,5 +425,46 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
+	}
+}
+
+func TestBuildZstdArgs_NilCompression(t *testing.T) {
+	args := buildZstdArgs("in.raw", "out.raw.zst", nil)
+	expected := []string{"--force", "-9", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}
+	assert.Equal(t, expected, args)
+}
+
+func TestBuildZstdArgs_DefaultCompression(t *testing.T) {
+	compression := &imagecustomizerapi.CosiCompression{}
+	args := buildZstdArgs("in.raw", "out.raw.zst", compression)
+	expected := []string{"--force", "-9", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}
+	assert.Equal(t, expected, args)
+}
+
+func TestBuildZstdArgs_CustomLevel(t *testing.T) {
+	compression := &imagecustomizerapi.CosiCompression{Level: 15}
+	args := buildZstdArgs("in.raw", "out.raw.zst", compression)
+	expected := []string{"--force", "-15", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}
+	assert.Equal(t, expected, args)
+}
+
+func TestBuildZstdArgs_UltraLevel(t *testing.T) {
+	testCases := []struct {
+		name     string
+		level    int
+		expected []string
+	}{
+		{"level 19", 18, []string{"--force", "-18", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
+		{"level 19", 19, []string{"--force", "-19", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
+		{"level 20", 20, []string{"--force", "--ultra", "-20", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
+		{"level 21", 21, []string{"--force", "--ultra", "-21", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
+		{"level 22", 22, []string{"--force", "--ultra", "-22", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			compression := &imagecustomizerapi.CosiCompression{Level: tc.level}
+			args := buildZstdArgs("in.raw", "out.raw.zst", compression)
+			assert.Equal(t, tc.expected, args)
+		})
 	}
 }

@@ -42,6 +42,7 @@ var (
 	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
 	ErrFedora42PreviewFeatureRequired = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
 	ErrInputImageOciPreviewRequired   = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
+	ErrCosiCompressionPreviewRequired = NewImageCustomizerError("Validation:CosiCompressionPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify custom COSI compression settings", imagecustomizerapi.PreviewFeatureCosiCompression))
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -283,7 +284,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
 
 		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
-			rc.RawImageFile, im.verityMetadata)
+			rc.RawImageFile, im.verityMetadata, rc.Config.PreviewFeatures)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
 		}
@@ -588,7 +589,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
 		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partitionsLayout,
-			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata)
+			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata, rc.CosiCompression)
 		if err != nil {
 			return err
 		}

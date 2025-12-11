@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -32,6 +33,13 @@ var (
 	ErrCosiFileCreate       = NewImageCustomizerError("COSI:FileCreate", "failed to create COSI file")
 )
 
+// newCosiCompression creates a CosiCompression struct from the compression level.
+func newCosiCompression(level int) *imagecustomizerapi.CosiCompression {
+	return &imagecustomizerapi.CosiCompression{
+		Level: level,
+	}
+}
+
 type ImageBuildData struct {
 	Source       string
 	KnownInfo    outputPartitionMetadata
@@ -42,7 +50,7 @@ type ImageBuildData struct {
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
-	cosiBootMetadata *CosiBootloader,
+	cosiBootMetadata *CosiBootloader, compression *imagecustomizerapi.CosiCompression,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -59,7 +67,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	defer imageLoopback.Close()
 
 	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
-		"raw-zst", imageUuid)
+		"raw-zst", imageUuid, compression)
 	if err != nil {
 		return err
 	}

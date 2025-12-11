@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
@@ -50,7 +51,7 @@ const (
 )
 
 // Extract all partitions of connected image into separate files with specified format.
-func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [randomization.UuidSize]byte) ([]outputPartitionMetadata, error) {
+func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [randomization.UuidSize]byte, compression *imagecustomizerapi.CosiCompression) ([]outputPartitionMetadata, error) {
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
 	if err != nil {
@@ -102,7 +103,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 		case "raw":
 			// Do nothing for "raw" case
 		case "raw-zst":
-			partitionFilepath, err = extractRawZstPartition(partitionFilepath, imageUuid, partitionFilename, outDir)
+			partitionFilepath, err = extractRawZstPartition(partitionFilepath, imageUuid, partitionFilename, outDir, compression)
 			if err != nil {
 				return nil, err
 			}
@@ -123,11 +124,11 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 }
 
 // Extract raw-zst partition.
-func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata [SkippableFramePayloadSize]byte, partitionFilename string, outDir string) (partitionFilepath string, err error) {
+func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata [SkippableFramePayloadSize]byte, partitionFilename string, outDir string, compression *imagecustomizerapi.CosiCompression) (partitionFilepath string, err error) {
 	// Define file path for temporary partition
 	tempPartitionFilepath := outDir + "/" + partitionFilename + "_temp.raw.zst"
 	// Compress raw partition with zstd
-	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath)
+	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath, compression)
 	if err != nil {
 		return "", err
 	}
@@ -173,14 +174,39 @@ func copyBlockDeviceToFile(outDir, devicePath, name string) (filename string, er
 }
 
 // Compress file from .raw to .raw.zst format using zstd.
-func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath string) (err error) {
-	// Using -f to overwrite a file with same name if it exists.
-	err = shell.ExecuteLive(true, "zstd", "-f", "-9", "-T0", partitionRawFilepath, "-o", outputPartitionFilepath)
+func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath string, compression *imagecustomizerapi.CosiCompression) (err error) {
+	args := buildZstdArgs(partitionRawFilepath, outputPartitionFilepath, compression)
+	err = shell.ExecuteLive(true, "zstd", args...)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractCompress, partitionRawFilepath, err)
 	}
 
 	return nil
+}
+
+func buildZstdArgs(inputFile string, outputFile string, compression *imagecustomizerapi.CosiCompression) []string {
+	args := []string{"--force"} // Overwrite a file with same name if it exists.
+
+	level := imagecustomizerapi.DefaultCosiCompressionLevel
+	if compression != nil {
+		level = compression.GetLevel()
+	}
+
+	if level >= imagecustomizerapi.UltraCosiCompressionThreshold {
+		args = append(args, "--ultra")
+	}
+
+	args = append(args, fmt.Sprintf("-%d", level))
+
+	// Enable long-range matching for improved compression of large files.
+	args = append(args, fmt.Sprintf("--long=%d", imagecustomizerapi.CosiLongWindowSize))
+
+	// Use all available threads.
+	args = append(args, "-T0")
+
+	args = append(args, inputFile, "-o", outputFile)
+
+	return args
 }
 
 // Prepend a skippable frame with the metadata to the specified partition file.

@@ -59,6 +59,7 @@ var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtifactsItemType,
 	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -233,7 +234,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		}
 	}
 
-	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir)
+	err = writeInjectFilesYaml(outputArtifactsMetadata, outputDir, previewFeatures)
 	if err != nil {
 		return fmt.Errorf("%w (outputDir='%s'):\n%w", ErrArtifactInjectFilesYamlWrite, outputDir, err)
 	}
@@ -251,10 +252,17 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	return nil
 }
 
-func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string) error {
+func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, outputDir string,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
+) error {
+	injectPreviewFeatures := []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureInjectFiles}
+	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
+		injectPreviewFeatures = append(injectPreviewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression)
+	}
+
 	yamlStruct := imagecustomizerapi.InjectFilesConfig{
 		InjectFiles:     metadata,
-		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureInjectFiles},
+		PreviewFeatures: injectPreviewFeatures,
 	}
 
 	yamlBytes, err := yaml.Marshal(&yamlStruct)
@@ -270,17 +278,24 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 	return nil
 }
 
-func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
-	outputImageFile string, outputImageFormat string,
-) error {
-	var injectConfig imagecustomizerapi.InjectFilesConfig
-	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &injectConfig)
+func InjectFilesWithConfigFileOptions(ctx context.Context, configFile string, options InjectFilesOptions) error {
+	var config imagecustomizerapi.InjectFilesConfig
+	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
 		return err
 	}
 
-	if err := injectConfig.IsValid(); err != nil {
+	if err := config.IsValid(); err != nil {
 		return fmt.Errorf("%w:\n%w", ErrArtifactInvalidInjectFilesConfig, err)
+	}
+
+	if err := options.IsValid(); err != nil {
+		return err
+	}
+
+	err = options.verifyPreviewFeatures(config.PreviewFeatures)
+	if err != nil {
+		return err
 	}
 
 	baseConfigPath, _ := filepath.Split(configFile)
@@ -290,8 +305,7 @@ func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
-	err = InjectFiles(ctx, buildDir, absBaseConfigPath, inputImageFile, injectConfig.InjectFiles,
-		outputImageFile, outputImageFormat)
+	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options)
 	if err != nil {
 		return err
 	}
@@ -299,39 +313,40 @@ func InjectFilesWithConfigFile(ctx context.Context, buildDir string, configFile 
 	return nil
 }
 
-func InjectFiles(ctx context.Context, buildDir string, baseConfigPath string, inputImageFile string,
-	metadata []imagecustomizerapi.InjectArtifactMetadata, outputImageFile string,
-	outputImageFormat string,
+func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
+	metadata []imagecustomizerapi.InjectArtifactMetadata, options InjectFilesOptions,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "inject_files")
 	defer span.End()
 
-	buildDirAbs, err := filepath.Abs(buildDir)
+	buildDirAbs, err := filepath.Abs(options.BuildDir)
 	if err != nil {
 		return err
 	}
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
-	detectedImageFormat, err := convertImageToRaw(inputImageFile, rawImageFile)
+	detectedImageFormat, err := convertImageToRaw(options.InputImageFile, rawImageFile)
 	if err != nil {
 		return err
 	}
-	if outputImageFormat != "" {
-		detectedImageFormat = imagecustomizerapi.ImageFormatType(outputImageFormat)
+	if options.OutputImageFormat != "" {
+		detectedImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
 	}
 
+	outputImageFile := options.OutputImageFile
 	if outputImageFile == "" {
-		outputImageFile = inputImageFile
+		outputImageFile = options.InputImageFile
 	}
 
-	err = injectFilesIntoImage(buildDir, baseConfigPath, rawImageFile, metadata)
+	err = injectFilesIntoImage(options.BuildDir, baseConfigPath, rawImageFile, metadata)
 	if err != nil {
 		return err
 	}
 
-	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile)
+	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
+		options.CosiCompressionLevel)
 	if err != nil {
 		return err
 	}
@@ -400,7 +415,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 }
 
 func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
-	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string,
+	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel int,
 ) error {
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
@@ -414,8 +429,9 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 
+		compression := newCosiCompression(cosiCompressionLevel)
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
-			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata)
+			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, compression)
 		if err != nil {
 			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}

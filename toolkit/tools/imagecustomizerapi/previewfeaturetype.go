@@ -37,13 +37,16 @@ const (
 
 	// PreviewFeatureOutputSelinuxPolicy enables extraction of SELinux policy contents.
 	PreviewFeatureOutputSelinuxPolicy PreviewFeature = "output-selinux-policy"
+
+	// PreviewFeatureCosiCompression enables custom compression settings for COSI output.
+	PreviewFeatureCosiCompression PreviewFeature = "cosi-compression"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeaturePackageSnapshotTime,
 		PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci,
-		PreviewFeatureOutputSelinuxPolicy:
+		PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

@@ -728,3 +728,42 @@ func TestConfigIsValidWithMissingOutputSelinuxPolicyPreviewFeature(t *testing.T)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
 }
+
+func TestConfigIsValidWithPreviewFeaturesAndCosiCompression(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Image: OutputImage{
+				Cosi: &CosiConfig{
+					Compression: &CosiCompression{
+						Level: 15,
+					},
+				},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{
+			PreviewFeatureCosiCompression,
+		},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithMissingCosiCompressionPreviewFeature(t *testing.T) {
+	config := &Config{
+		Output: Output{
+			Image: OutputImage{
+				Cosi: &CosiConfig{
+					Compression: &CosiCompression{
+						Level: 15,
+					},
+				},
+			},
+		},
+		PreviewFeatures: []PreviewFeature{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'cosi-compression' preview feature must be enabled to use 'output.image.cosi.compression'")
+}
