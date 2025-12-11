@@ -633,8 +633,8 @@ func resolveCosiCompression(configChain []*ConfigWithBasePath, cliLevel int) *im
 
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Output.Image.Cosi != nil &&
-				configWithBase.Config.Output.Image.Cosi.Compression != nil &&
-				configWithBase.Config.Output.Image.Cosi.Compression.Level != 0 {
+			configWithBase.Config.Output.Image.Cosi.Compression != nil &&
+			configWithBase.Config.Output.Image.Cosi.Compression.Level != 0 {
 			level = configWithBase.Config.Output.Image.Cosi.Compression.Level
 			break
 		}
