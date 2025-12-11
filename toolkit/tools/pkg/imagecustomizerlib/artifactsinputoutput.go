@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"gopkg.in/yaml.v3"
@@ -23,6 +24,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"golang.org/x/sys/unix"
 )
@@ -408,6 +410,17 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 		if err != nil {
 			return err
 		}
+
+		// Force kernel to flush all dirty buffers for the image file to disk before reopening.
+		// Without this, the backing file may have uncommitted changes in the page cache even though
+		// the loopback device has been cleanly detached, causing e2fsck to detect corruption.
+		logger.Log.Debugf("Syncing filesystem to ensure image file is fully written")
+		_, _, err = shell.Execute("sync")
+		if err != nil {
+			return fmt.Errorf("failed to sync filesystem: %w", err)
+		}
+		// Give kernel time to complete the sync operation
+		time.Sleep(500 * time.Millisecond)
 
 		err = shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids)
 		if err != nil {
