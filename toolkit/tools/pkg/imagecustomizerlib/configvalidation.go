@@ -630,21 +630,14 @@ func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizer
 }
 
 func resolveCosiCompressionLevel(configChain []*ConfigWithBasePath, cliLevel *int) int {
-	var level *int
+	if cliLevel != nil {
+		return *cliLevel
+	}
 
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Output.Image.Cosi.Compression.Level != nil {
-			level = configWithBase.Config.Output.Image.Cosi.Compression.Level
-			break
+			return *configWithBase.Config.Output.Image.Cosi.Compression.Level
 		}
-	}
-
-	if cliLevel != nil {
-		level = cliLevel
-	}
-
-	if level != nil {
-		return *level
 	}
 
 	return imagecustomizerapi.DefaultCosiCompressionLevel
