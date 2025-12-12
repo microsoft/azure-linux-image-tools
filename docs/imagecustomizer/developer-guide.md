@@ -59,9 +59,9 @@ sudo go test -C ./toolkit/tools ./...
    AZURE_LINUX_3_CORE_LEGACY_VHD="<core-legacy-3.0.vhd>"
 
    sudo go test -C ./toolkit/tools ./pkg/imagecustomizerlib -args \
-     --base-image-core-efi-azl2 "$AZURE_LINUX_2_CORE_EFI_VHDX"
-     --base-image-core-efi-azl3 "$AZURE_LINUX_3_CORE_EFI_VHDX"
-     --base-image-core-legacy-azl2 "$AZURE_LINUX_2_CORE_LEGACY_VHD"
+     --base-image-core-efi-azl2 "$AZURE_LINUX_2_CORE_EFI_VHDX" \
+     --base-image-core-efi-azl3 "$AZURE_LINUX_3_CORE_EFI_VHDX" \
+     --base-image-core-legacy-azl2 "$AZURE_LINUX_2_CORE_LEGACY_VHD" \
      --base-image-core-legacy-azl3 "$AZURE_LINUX_3_CORE_LEGACY_VHD"
    ```
 

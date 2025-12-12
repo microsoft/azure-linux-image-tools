@@ -14,11 +14,11 @@ type AdditionalFile struct {
 	Destination string `yaml:"destination" json:"destination,omitempty"`
 
 	// The source file path of the file that will copied.
-	// Mutally exclusive with 'contents'.
+	// Mutually exclusive with 'contents'.
 	Source string `yaml:"source" json:"source,omitempty"`
 
 	// A string that will be used as the contents of the file.
-	// Mutally exclusive with 'source'.
+	// Mutually exclusive with 'source'.
 	Content *string `yaml:"content" json:"content,omitempty"`
 
 	// The file permissions to set on the file.

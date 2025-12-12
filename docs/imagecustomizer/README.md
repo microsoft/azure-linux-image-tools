@@ -9,7 +9,7 @@ has_toc: false
 ## Overview
 
 The Image Customizer is a tool that can take an existing generic Azure Linux
-image and modify it to be suited for particular scenario.
+image and modify it to be suited for a particular scenario.
 
 The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) (and
 loopback block devices) to customize the image. This is the same technology used

@@ -6,11 +6,11 @@ parent: Verity Image Recommendations
 # Verity and systemd-growfs-root
 
 This service attempts to resize the root filesystem, which fails since verity
-makes the root filesystem readonly and a fixed size.
+makes the root filesystem read-only and a fixed size.
 
 ## Solution 1: Do nothing
 
-Since the root filesystem is readonly, the `systemd-growfs-root` service will
+Since the root filesystem is read-only, the `systemd-growfs-root` service will
 fail. However, the only impact will be an error in the boot logs.
 
 ## Solution 2: Disable service

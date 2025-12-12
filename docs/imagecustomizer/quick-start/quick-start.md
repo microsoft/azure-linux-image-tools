@@ -88,7 +88,7 @@ The container is published to both:
       has completed.
 
     - `--privileged=true`: Gives the container root permissions, which is needed to mount
-      loopback devices (i.e. disk files) and partitions.
+      loopback devices (i.e., disk files) and partitions.
 
     - `-v /dev:/dev`: When mounting loopback devices, the container needs the partition
       device nodes to be populated under `/dev`. But the udevd service runs in the host not

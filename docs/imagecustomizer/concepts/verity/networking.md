@@ -5,7 +5,7 @@ parent: Verity Image Recommendations
 
 # Verity and Networking
 
-In non-verity images, usually user can leverage cloud-init to provide default
+In non-verity images, usually the user can leverage cloud-init to provide default
 networking settings. However, cloud-init fails to provision the network in
 verity images since /etc is not writable.
 

@@ -49,7 +49,7 @@ or are processed sequentially.
 
   The option ordering, from strongest to weakest:
   - `"hard-reset"`
-  - `""` (i.e. no reset)
+  - `""` (i.e., no reset)
 
 ## path [string]
 

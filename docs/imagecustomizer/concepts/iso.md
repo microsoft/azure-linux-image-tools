@@ -27,11 +27,11 @@ More info can be found at
 [Creating a LiveOS ISO how-to guide](../how-to/live-iso.md)
 
 For a full list of capabilities, see [ISO configuration](../api/configuration/iso.md)
-page
+page.
 
 ## cloud-init Support
 
-In some user scenarios, it desired to embed the cloud-init data files into the
+In some user scenarios, it is desired to embed the cloud-init data files into the
 iso media. The easiest way is to include the data files on the media, and then
 the cloud-init `ds` kernel parameter to where the files are.
 
