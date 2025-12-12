@@ -75,6 +75,11 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	if includeVhdFooter {
+		err = padToMegabyte(outputImageFile)
+		if err != nil {
+			return fmt.Errorf("failed to pad image file to megabyte boundary:\n%w", err)
+		}
+
 		// Reame outputImageFile to have .raw extension
 		tempOutputImageFile := outputImageFile + ".raw"
 		err = os.Rename(outputImageFile, tempOutputImageFile)
@@ -82,7 +87,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 			return fmt.Errorf("failed to rename image file:\n%w", err)
 		}
 
-		err = ConvertImageFile(tempOutputImageFile, outputImageFile, imagecustomizerapi.ImageFormatTypeVhd)
+		err = ConvertImageFile(tempOutputImageFile, outputImageFile, imagecustomizerapi.ImageFormatVhdTypeFixed)
 		if err != nil {
 			return fmt.Errorf("failed to append VHD footer to image:\n%w", err)
 		}
@@ -580,4 +585,27 @@ func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
 		return CosiBootloader{}
 	}
 	return *bootloader
+}
+
+func padToMegabyte(imageFile string) error {
+	cosiFile, err := os.OpenFile(imageFile, os.O_WRONLY, fs.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to open image file for appending VHD footer:\n%w", err)
+	}
+	defer cosiFile.Close()
+
+	currentSize, err := cosiFile.Seek(0, io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("failed to get current size of image file:\n%w", err)
+	}
+
+	padSize := int64(1024*1024) - (currentSize % int64(1024*1024))
+	if padSize != int64(1024*1024) {
+		_, err = cosiFile.Write(make([]byte, padSize))
+		if err != nil {
+			return fmt.Errorf("failed to pad image file to 1 MB:\n%w", err)
+		}
+	}
+
+	return nil
 }
