@@ -111,6 +111,7 @@
         <package name="dracut-kiwi-overlay"/>
         <package name="systemd-resolved"/>
         <package name="binutils"/>
+        <package name="lolcat"/>
 
 
         <!-- Azure-specific packages -->
@@ -134,9 +135,6 @@
         <!-- Remove operator access by not installing these packages -->
         <ignore name="openssh-server"/>
         <ignore name="cloud-init"/>
-
-        <package name="lolcat"/>
-
     </packages>
 
     <packages type="bootstrap">
