@@ -148,7 +148,7 @@ func (c *Config) IsValid() (err error) {
 			PreviewFeatureInputImageOci)
 	}
 
-	if c.Output.Image.Cosi != nil && c.Output.Image.Cosi.Compression != nil &&
+	if c.Output.Image.Cosi.Compression.Level != nil &&
 		!sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureCosiCompression) {
 		return fmt.Errorf("the '%s' preview feature must be enabled to use 'output.image.cosi.compression'",
 			PreviewFeatureCosiCompression)

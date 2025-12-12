@@ -45,12 +45,6 @@ compression.
 All partition image files MUST be in the `images` directory or one of its
 subdirectories.
 
-#### Compression Options
-
-The zstd compression level for partition images can be customized.
-
-See [cosiCompression](./configuration/cosiCompression.md) for details on the available compression options.
-
 ### Metadata JSON File
 
 The metadata file MUST be named `metadata.json` and MUST be at the root of the

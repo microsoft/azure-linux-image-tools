@@ -32,7 +32,7 @@ type CustomizeCmd struct {
 	DisableBaseImageRpmRepos bool     `name:"disable-base-image-rpm-repos" help:"Disable the base image's RPM repos as an RPM source."`
 	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
-	CosiCompressionLevel     int      `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)." default:"0"`
+	CosiCompressionLevel     *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 }
 
 type InjectFilesCmd struct {
@@ -41,7 +41,7 @@ type InjectFilesCmd struct {
 	InputImageFile       string `name:"image-file" help:"Path of the base image to inject files into." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the injected image to."`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|iso|pxe-dir|pxe-tar|cosi)" help:"Format of output image." enum:"${imageformat}" default:""`
-	CosiCompressionLevel int    `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)." default:"0"`
+	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 }
 
 type RootCmd struct {
@@ -140,7 +140,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 }
 
 func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
-	err := imagecustomizerlib.InjectFilesWithConfigFileOptions(ctx, cmd.ConfigFile,
+	err := imagecustomizerlib.InjectFilesWithConfigFile(ctx, cmd.ConfigFile,
 		imagecustomizerlib.InjectFilesOptions{
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,

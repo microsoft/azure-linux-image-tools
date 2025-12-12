@@ -11,7 +11,7 @@ type CosiCompression struct {
 	// Higher levels provide better compression but take longer.
 	// Levels 20-22 require additional memory (--ultra mode is automatically enabled).
 	// Default: 9
-	Level int `yaml:"level" json:"level,omitempty"`
+	Level *int `yaml:"level" json:"level,omitempty"`
 }
 
 const (
@@ -27,24 +27,15 @@ const (
 	// UltraCosiCompressionThreshold is the level at which --ultra is required.
 	UltraCosiCompressionThreshold = 20
 
-	// CosiLongWindowSize is the zstd --long window size for COSI format (2^27 = 128 MiB).
-	CosiLongWindowSize = 27
+	// DefaultCosiCompressionLong is the zstd --long window size for COSI format (2^27 = 128 MiB).
+	DefaultCosiCompressionLong = 27
 )
 
 func (c *CosiCompression) IsValid() error {
-	if c.Level != 0 && (c.Level < MinCosiCompressionLevel || c.Level > MaxCosiCompressionLevel) {
+	if c.Level != nil && (*c.Level < MinCosiCompressionLevel || *c.Level > MaxCosiCompressionLevel) {
 		return fmt.Errorf("invalid 'level' value (%d): must be between %d and %d",
-			c.Level, MinCosiCompressionLevel, MaxCosiCompressionLevel)
+			*c.Level, MinCosiCompressionLevel, MaxCosiCompressionLevel)
 	}
 
 	return nil
-}
-
-// GetLevel returns the compression level to use, defaulting to DefaultCosiCompressionLevel if not set.
-func (c *CosiCompression) GetLevel() int {
-	if c.Level == 0 {
-		return DefaultCosiCompressionLevel
-	}
-
-	return c.Level
 }

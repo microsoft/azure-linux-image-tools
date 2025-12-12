@@ -278,7 +278,7 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 	return nil
 }
 
-func InjectFilesWithConfigFileOptions(ctx context.Context, configFile string, options InjectFilesOptions) error {
+func InjectFilesWithConfigFile(ctx context.Context, configFile string, options InjectFilesOptions) error {
 	var config imagecustomizerapi.InjectFilesConfig
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
@@ -415,7 +415,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 }
 
 func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
-	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel int,
+	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
 ) error {
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
@@ -429,9 +429,14 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 
-		compression := newCosiCompression(cosiCompressionLevel)
+		compressionLevel := imagecustomizerapi.DefaultCosiCompressionLevel
+		if cosiCompressionLevel != nil {
+			compressionLevel = *cosiCompressionLevel
+		}
+
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
-			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata, compression)
+			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
+			compressionLevel, imagecustomizerapi.DefaultCosiCompressionLong)
 		if err != nil {
 			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}

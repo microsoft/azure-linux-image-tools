@@ -15,15 +15,15 @@ type InjectFilesOptions struct {
 	InputImageFile       string
 	OutputImageFile      string
 	OutputImageFormat    string
-	CosiCompressionLevel int
+	CosiCompressionLevel *int
 }
 
 func (o *InjectFilesOptions) IsValid() error {
-	if o.CosiCompressionLevel != 0 &&
-		(o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
-			o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
+	if o.CosiCompressionLevel != nil &&
+		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
+			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
 		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
-			ErrInvalidCosiCompressionLevelArg, o.CosiCompressionLevel,
+			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
 			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
 	}
 
@@ -31,7 +31,7 @@ func (o *InjectFilesOptions) IsValid() error {
 }
 
 func (o *InjectFilesOptions) verifyPreviewFeatures(previewFeatures []imagecustomizerapi.PreviewFeature) error {
-	if o.CosiCompressionLevel != 0 {
+	if o.CosiCompressionLevel != nil {
 		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
 			return ErrCosiCompressionPreviewRequired
 		}

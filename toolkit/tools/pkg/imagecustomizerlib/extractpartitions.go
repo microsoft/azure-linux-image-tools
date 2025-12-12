@@ -51,7 +51,9 @@ const (
 )
 
 // Extract all partitions of connected image into separate files with specified format.
-func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string, imageUuid [randomization.UuidSize]byte, compression *imagecustomizerapi.CosiCompression) ([]outputPartitionMetadata, error) {
+func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string,
+	imageUuid [randomization.UuidSize]byte, compressionLevel int, compressionLong int,
+) ([]outputPartitionMetadata, error) {
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
 	if err != nil {
@@ -103,7 +105,8 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 		case "raw":
 			// Do nothing for "raw" case
 		case "raw-zst":
-			partitionFilepath, err = extractRawZstPartition(partitionFilepath, imageUuid, partitionFilename, outDir, compression)
+			partitionFilepath, err = extractRawZstPartition(partitionFilepath, imageUuid, partitionFilename, outDir,
+				compressionLevel, compressionLong)
 			if err != nil {
 				return nil, err
 			}
@@ -124,11 +127,13 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 }
 
 // Extract raw-zst partition.
-func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata [SkippableFramePayloadSize]byte, partitionFilename string, outDir string, compression *imagecustomizerapi.CosiCompression) (partitionFilepath string, err error) {
+func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata [SkippableFramePayloadSize]byte,
+	partitionFilename string, outDir string, compressionLevel int, compressionLong int,
+) (partitionFilepath string, err error) {
 	// Define file path for temporary partition
 	tempPartitionFilepath := outDir + "/" + partitionFilename + "_temp.raw.zst"
 	// Compress raw partition with zstd
-	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath, compression)
+	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath, compressionLevel, compressionLong)
 	if err != nil {
 		return "", err
 	}
@@ -174,8 +179,10 @@ func copyBlockDeviceToFile(outDir, devicePath, name string) (filename string, er
 }
 
 // Compress file from .raw to .raw.zst format using zstd.
-func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath string, compression *imagecustomizerapi.CosiCompression) (err error) {
-	args := buildZstdArgs(partitionRawFilepath, outputPartitionFilepath, compression)
+func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath string,
+	compressionLevel int, compressionLong int,
+) (err error) {
+	args := buildZstdArgs(partitionRawFilepath, outputPartitionFilepath, compressionLevel, compressionLong)
 	err = shell.ExecuteLive(true, "zstd", args...)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractCompress, partitionRawFilepath, err)
@@ -184,27 +191,18 @@ func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath strin
 	return nil
 }
 
-func buildZstdArgs(inputFile string, outputFile string, compression *imagecustomizerapi.CosiCompression) []string {
+func buildZstdArgs(inputFile string, outputFile string, compressionLevel int, compressionLong int) []string {
 	args := []string{"--force"} // Overwrite a file with same name if it exists.
 
-	level := imagecustomizerapi.DefaultCosiCompressionLevel
-	if compression != nil {
-		level = compression.GetLevel()
+	if compressionLevel >= imagecustomizerapi.UltraCosiCompressionThreshold {
+		args = append(args, "--ultra") // Needed for the highest compression levels.
 	}
 
-	if level >= imagecustomizerapi.UltraCosiCompressionThreshold {
-		args = append(args, "--ultra")
-	}
-
-	args = append(args, fmt.Sprintf("-%d", level))
-
-	// Enable long-range matching for improved compression of large files.
-	args = append(args, fmt.Sprintf("--long=%d", imagecustomizerapi.CosiLongWindowSize))
-
-	// Use all available threads.
-	args = append(args, "-T0")
-
-	args = append(args, inputFile, "-o", outputFile)
+	args = append(args, fmt.Sprintf("-%d", compressionLevel))      // Configure the compression level.
+	args = append(args, fmt.Sprintf("--long=%d", compressionLong)) // Configure the long-range matching window size.
+	args = append(args, "-T0")                                     // Use all available threads.
+	args = append(args, inputFile)
+	args = append(args, "-o", outputFile)
 
 	return args
 }

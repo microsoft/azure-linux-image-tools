@@ -589,7 +589,8 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 
 	case imagecustomizerapi.ImageFormatTypeCosi:
 		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partitionsLayout,
-			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata, rc.CosiCompression)
+			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata,
+			rc.CosiCompressionLevel, rc.CosiCompressionLong)
 		if err != nil {
 			return err
 		}

@@ -16,9 +16,10 @@ func TestCosiConfigIsValid_Empty(t *testing.T) {
 }
 
 func TestCosiConfigIsValid_ValidCompression(t *testing.T) {
+	level := 15
 	config := CosiConfig{
-		Compression: &CosiCompression{
-			Level: 15,
+		Compression: CosiCompression{
+			Level: &level,
 		},
 	}
 	err := config.IsValid()
@@ -26,9 +27,10 @@ func TestCosiConfigIsValid_ValidCompression(t *testing.T) {
 }
 
 func TestCosiConfigIsValid_InvalidCompression(t *testing.T) {
+	level := 30
 	config := CosiConfig{
-		Compression: &CosiCompression{
-			Level: 30,
+		Compression: CosiCompression{
+			Level: &level,
 		},
 	}
 	err := config.IsValid()

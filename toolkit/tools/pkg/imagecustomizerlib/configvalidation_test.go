@@ -10,24 +10,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestResolveCosiCompression_Empty(t *testing.T) {
+func TestResolveCosiCompressionLevel_Empty(t *testing.T) {
 	configChain := []*ConfigWithBasePath{}
 
-	compression := resolveCosiCompression(configChain, 0)
+	resolvedLevel := resolveCosiCompressionLevel(configChain, nil)
 
-	// When config chain is empty and no CLI args, zero values are used
-	assert.Equal(t, 0, compression.Level)
+	assert.Equal(t, imagecustomizerapi.DefaultCosiCompressionLevel, resolvedLevel)
 }
 
-func TestResolveCosiCompression_SingleConfig(t *testing.T) {
+func TestResolveCosiCompressionLevel_SingleConfig(t *testing.T) {
+	configLevel := 15
 	configChain := []*ConfigWithBasePath{
 		{
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: &imagecustomizerapi.CosiConfig{
-							Compression: &imagecustomizerapi.CosiCompression{
-								Level: 15,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &configLevel,
 							},
 						},
 					},
@@ -36,20 +36,22 @@ func TestResolveCosiCompression_SingleConfig(t *testing.T) {
 		},
 	}
 
-	compression := resolveCosiCompression(configChain, 0)
+	resolvedLevel := resolveCosiCompressionLevel(configChain, nil)
 
-	assert.Equal(t, 15, compression.Level)
+	assert.Equal(t, configLevel, resolvedLevel)
 }
 
-func TestResolveCosiCompression_MultipleConfigs_LastWins(t *testing.T) {
+func TestResolveCosiCompressionLevel_CurrentConfigOverridesBase(t *testing.T) {
+	baseConfigLevel := 9
+	currConfigLevel := 22
 	configChain := []*ConfigWithBasePath{
 		{
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: &imagecustomizerapi.CosiConfig{
-							Compression: &imagecustomizerapi.CosiCompression{
-								Level: 9,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &baseConfigLevel,
 							},
 						},
 					},
@@ -60,9 +62,9 @@ func TestResolveCosiCompression_MultipleConfigs_LastWins(t *testing.T) {
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: &imagecustomizerapi.CosiConfig{
-							Compression: &imagecustomizerapi.CosiCompression{
-								Level: 22,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &currConfigLevel,
 							},
 						},
 					},
@@ -71,20 +73,22 @@ func TestResolveCosiCompression_MultipleConfigs_LastWins(t *testing.T) {
 		},
 	}
 
-	compression := resolveCosiCompression(configChain, 0)
+	compression := resolveCosiCompressionLevel(configChain, nil)
 
-	assert.Equal(t, 22, compression.Level)
+	assert.Equal(t, currConfigLevel, compression)
 }
 
-func TestResolveCosiCompression_CLIOverridesConfig(t *testing.T) {
+func TestResolveCosiCompressionLevel_CLIOverridesConfig(t *testing.T) {
+	configLevel := 22
+	cliLevel := 15
 	configChain := []*ConfigWithBasePath{
 		{
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: &imagecustomizerapi.CosiConfig{
-							Compression: &imagecustomizerapi.CosiCompression{
-								Level: 9,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &configLevel,
 							},
 						},
 					},
@@ -93,37 +97,37 @@ func TestResolveCosiCompression_CLIOverridesConfig(t *testing.T) {
 		},
 	}
 
-	compression := resolveCosiCompression(configChain, 15)
+	resolvedLevel := resolveCosiCompressionLevel(configChain, &cliLevel)
 
-	assert.Equal(t, 15, compression.Level)
+	assert.Equal(t, cliLevel, resolvedLevel)
 }
 
-func TestResolveCosiCompression_NilCosiConfig(t *testing.T) {
+func TestResolveCosiCompressionLevel_CLIOverridesBaseConfig(t *testing.T) {
+	baseConfigLevel := 9
+	currConfigLevel := 22
+	cliLevel := 15
 	configChain := []*ConfigWithBasePath{
 		{
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: nil,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &baseConfigLevel,
+							},
+						},
 					},
 				},
 			},
 		},
-	}
-
-	compression := resolveCosiCompression(configChain, 0)
-
-	assert.Equal(t, 0, compression.Level)
-}
-
-func TestResolveCosiCompression_NilCompression(t *testing.T) {
-	configChain := []*ConfigWithBasePath{
 		{
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: &imagecustomizerapi.CosiConfig{
-							Compression: nil,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &currConfigLevel,
+							},
 						},
 					},
 				},
@@ -131,22 +135,23 @@ func TestResolveCosiCompression_NilCompression(t *testing.T) {
 		},
 	}
 
-	compression := resolveCosiCompression(configChain, 0)
+	resolvedLevel := resolveCosiCompressionLevel(configChain, &cliLevel)
 
-	assert.Equal(t, 0, compression.Level)
+	assert.Equal(t, cliLevel, resolvedLevel)
 }
 
-func TestResolveCosiCompression_BaseConfigWithCurrentNoCompression(t *testing.T) {
+func TestResolveCosiCompressionLevel_OnlyBaseConfigCompressionLevel(t *testing.T) {
 	// Test the scenario described in the design doc:
 	// "Inheriting compression without the preview feature in current config"
+	level := 19
 	configChain := []*ConfigWithBasePath{
 		{
 			Config: &imagecustomizerapi.Config{
 				Output: imagecustomizerapi.Output{
 					Image: imagecustomizerapi.OutputImage{
-						Cosi: &imagecustomizerapi.CosiConfig{
-							Compression: &imagecustomizerapi.CosiCompression{
-								Level: 19,
+						Cosi: imagecustomizerapi.CosiConfig{
+							Compression: imagecustomizerapi.CosiCompression{
+								Level: &level,
 							},
 						},
 					},
@@ -162,7 +167,7 @@ func TestResolveCosiCompression_BaseConfigWithCurrentNoCompression(t *testing.T)
 		},
 	}
 
-	compression := resolveCosiCompression(configChain, 0)
+	resolvedLevel := resolveCosiCompressionLevel(configChain, nil)
 
-	assert.Equal(t, 19, compression.Level)
+	assert.Equal(t, 19, resolvedLevel)
 }

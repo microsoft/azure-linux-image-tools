@@ -57,8 +57,11 @@ type ResolvedConfig struct {
 	// UKI
 	Uki *imagecustomizerapi.Uki
 
-	// COSI compression settings
-	CosiCompression *imagecustomizerapi.CosiCompression
+	// COSI compression level
+	CosiCompressionLevel int
+
+	// COSI compression long window size
+	CosiCompressionLong int
 
 	// Hierarchical config chain
 	ConfigChain []*ConfigWithBasePath

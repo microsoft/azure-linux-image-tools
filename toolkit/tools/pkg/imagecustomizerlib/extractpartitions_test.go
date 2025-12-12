@@ -36,7 +36,8 @@ func TestAddSkippableFrame(t *testing.T) {
 
 	// Compress to .raw.zst partition file
 	tempPartitionFilepath := testDir + partitionFilename + "_temp.raw.zst"
-	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath, nil)
+	err = compressWithZstd(partitionRawFilepath, tempPartitionFilepath, imagecustomizerapi.DefaultCosiCompressionLevel,
+		imagecustomizerapi.DefaultCosiCompressionLong)
 	assert.NoError(t, err)
 
 	// Test adding the skippable frame
@@ -428,26 +429,6 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 	}
 }
 
-func TestBuildZstdArgs_NilCompression(t *testing.T) {
-	args := buildZstdArgs("in.raw", "out.raw.zst", nil)
-	expected := []string{"--force", "-9", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}
-	assert.Equal(t, expected, args)
-}
-
-func TestBuildZstdArgs_DefaultCompression(t *testing.T) {
-	compression := &imagecustomizerapi.CosiCompression{}
-	args := buildZstdArgs("in.raw", "out.raw.zst", compression)
-	expected := []string{"--force", "-9", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}
-	assert.Equal(t, expected, args)
-}
-
-func TestBuildZstdArgs_CustomLevel(t *testing.T) {
-	compression := &imagecustomizerapi.CosiCompression{Level: 15}
-	args := buildZstdArgs("in.raw", "out.raw.zst", compression)
-	expected := []string{"--force", "-15", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}
-	assert.Equal(t, expected, args)
-}
-
 func TestBuildZstdArgs_UltraLevel(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -462,8 +443,7 @@ func TestBuildZstdArgs_UltraLevel(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			compression := &imagecustomizerapi.CosiCompression{Level: tc.level}
-			args := buildZstdArgs("in.raw", "out.raw.zst", compression)
+			args := buildZstdArgs("in.raw", "out.raw.zst", tc.level, imagecustomizerapi.DefaultCosiCompressionLong)
 			assert.Equal(t, tc.expected, args)
 		})
 	}

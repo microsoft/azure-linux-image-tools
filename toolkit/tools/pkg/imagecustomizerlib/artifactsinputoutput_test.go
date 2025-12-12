@@ -65,7 +65,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 		BuildDir:       buildDir,
 		InputImageFile: outImageFilePath,
 	}
-	err = InjectFilesWithConfigFileOptions(t.Context(), injectConfigPath, options)
+	err = InjectFilesWithConfigFile(t.Context(), injectConfigPath, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -147,7 +147,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		OutputImageFile:   cosiFilePath,
 		OutputImageFormat: "cosi",
 	}
-	err = InjectFilesWithConfigFileOptions(t.Context(), injectConfigPath, options)
+	err = InjectFilesWithConfigFile(t.Context(), injectConfigPath, options)
 	if !assert.NoError(t, err) {
 		return
 	}

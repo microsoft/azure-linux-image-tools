@@ -28,7 +28,7 @@ type ImageCustomizerOptions struct {
 	UseBaseImageRpmRepos    bool
 	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
 	ImageCacheDir           string
-	CosiCompressionLevel    int
+	CosiCompressionLevel    *int
 }
 
 func (o *ImageCustomizerOptions) IsValid() error {
@@ -50,11 +50,11 @@ func (o *ImageCustomizerOptions) IsValid() error {
 		return ErrMultipleInputImageOptions
 	}
 
-	if o.CosiCompressionLevel != 0 &&
-		(o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
-			o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
+	if o.CosiCompressionLevel != nil &&
+		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
+			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
 		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
-			ErrInvalidCosiCompressionLevelArg, o.CosiCompressionLevel,
+			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
 			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
 	}
 
@@ -74,7 +74,7 @@ func (o *ImageCustomizerOptions) verifyPreviewFeatures(previewFeatures []imagecu
 		}
 	}
 
-	if o.CosiCompressionLevel != 0 {
+	if o.CosiCompressionLevel != nil {
 		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
 			return ErrCosiCompressionPreviewRequired
 		}

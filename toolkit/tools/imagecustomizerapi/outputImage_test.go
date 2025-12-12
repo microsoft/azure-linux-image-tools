@@ -30,11 +30,12 @@ func TestOutputImageIsValid_InvalidFormatIsInvalid(t *testing.T) {
 }
 
 func TestOutputImageIsValid_ValidCosiConfig(t *testing.T) {
+	level := 15
 	oi := OutputImage{
 		Format: ImageFormatTypeCosi,
-		Cosi: &CosiConfig{
-			Compression: &CosiCompression{
-				Level: 15,
+		Cosi: CosiConfig{
+			Compression: CosiCompression{
+				Level: &level,
 			},
 		},
 	}
@@ -43,11 +44,12 @@ func TestOutputImageIsValid_ValidCosiConfig(t *testing.T) {
 }
 
 func TestOutputImageIsValid_InvalidCosiConfig(t *testing.T) {
+	level := 30
 	oi := OutputImage{
 		Format: ImageFormatTypeCosi,
-		Cosi: &CosiConfig{
-			Compression: &CosiCompression{
-				Level: 30,
+		Cosi: CosiConfig{
+			Compression: CosiCompression{
+				Level: &level,
 			},
 		},
 	}
