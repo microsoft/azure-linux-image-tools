@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -21,7 +22,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 )
 
 var (
@@ -69,9 +69,23 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
-		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata, includeVhdFooter)
+		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
+	}
+
+	if includeVhdFooter {
+		// Reame outputImageFile to have .raw extension
+		tempOutputImageFile := outputImageFile + ".raw"
+		err = os.Rename(outputImageFile, tempOutputImageFile)
+		if err != nil {
+			return fmt.Errorf("failed to rename image file:\n%w", err)
+		}
+
+		err = ConvertImageFile(tempOutputImageFile, outputImageFile, imagecustomizerapi.ImageFormatTypeVhd)
+		if err != nil {
+			return fmt.Errorf("failed to append VHD footer to image:\n%w", err)
+		}
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
@@ -87,7 +101,6 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partitionsLayout []fstabEntryPartNum,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
-	includeVhdFooter bool,
 ) error {
 	// Pre-compute a map for quick lookup of partition metadata by UUID
 	partUuidToMetadata := make(map[string]outputPartitionMetadata)
@@ -236,18 +249,6 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 	if err = tw.Flush(); err != nil {
 		return fmt.Errorf("failed to flush COSI tar writer:\n%w", err)
-	}
-
-	if includeVhdFooter {
-		currentOffset, err := cosiFile.Seek(0, 1)
-		if err != nil {
-			return fmt.Errorf("failed to get current offset in COSI file:\n%w", err)
-		}
-
-		err = vhdutils.AppendVhdFileFooter(cosiFile, uint64(currentOffset))
-		if err != nil {
-			return fmt.Errorf("failed to append VHD footer to COSI file:\n%w", err)
-		}
 	}
 
 	logger.Log.Infof("Finished building COSI: %s", outputFile)
