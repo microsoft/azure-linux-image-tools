@@ -516,7 +516,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	im.osRelease = osRelease
 
 	// For COSI, always shrink the filesystems.
-	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi
+	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {
 		err = shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids)
 		if err != nil {
@@ -545,7 +545,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	// collect OS info if generating a COSI image
 	var osPackages []OsPackage
 	var cosiBootMetadata *CosiBootloader
-	if rc.Config.Output.Image.Format == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+	if rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
@@ -586,9 +586,11 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 			return err
 		}
 
-	case imagecustomizerapi.ImageFormatTypeCosi:
+	case imagecustomizerapi.ImageFormatTypeCosi, imagecustomizerapi.ImageFormatTypeBareMetalImage:
+		includeVhdFooter := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partitionsLayout,
-			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata)
+			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata,
+			includeVhdFooter)
 		if err != nil {
 			return err
 		}

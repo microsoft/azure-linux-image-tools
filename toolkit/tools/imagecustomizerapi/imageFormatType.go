@@ -11,16 +11,17 @@ import (
 type ImageFormatType string
 
 const (
-	ImageFormatTypeNone     ImageFormatType = ""
-	ImageFormatTypeVhd      ImageFormatType = "vhd"
-	ImageFormatVhdTypeFixed ImageFormatType = "vhd-fixed"
-	ImageFormatTypeVhdx     ImageFormatType = "vhdx"
-	ImageFormatTypeQcow2    ImageFormatType = "qcow2"
-	ImageFormatTypeRaw      ImageFormatType = "raw"
-	ImageFormatTypeIso      ImageFormatType = "iso"
-	ImageFormatTypePxeDir   ImageFormatType = "pxe-dir"
-	ImageFormatTypePxeTar   ImageFormatType = "pxe-tar"
-	ImageFormatTypeCosi     ImageFormatType = "cosi"
+	ImageFormatTypeNone           ImageFormatType = ""
+	ImageFormatTypeVhd            ImageFormatType = "vhd"
+	ImageFormatVhdTypeFixed       ImageFormatType = "vhd-fixed"
+	ImageFormatTypeVhdx           ImageFormatType = "vhdx"
+	ImageFormatTypeQcow2          ImageFormatType = "qcow2"
+	ImageFormatTypeRaw            ImageFormatType = "raw"
+	ImageFormatTypeIso            ImageFormatType = "iso"
+	ImageFormatTypePxeDir         ImageFormatType = "pxe-dir"
+	ImageFormatTypePxeTar         ImageFormatType = "pxe-tar"
+	ImageFormatTypeCosi           ImageFormatType = "cosi"
+	ImageFormatTypeBareMetalImage ImageFormatType = "baremetal-image"
 )
 
 // supportedImageFormatTypes is a list of all non-empty image format types
@@ -35,6 +36,7 @@ var supportedImageFormatTypes = []string{
 	string(ImageFormatTypePxeDir),
 	string(ImageFormatTypePxeTar),
 	string(ImageFormatTypeCosi),
+	string(ImageFormatTypeBareMetalImage),
 }
 
 var supportedImageFormatTypesImageCreator = []string{
