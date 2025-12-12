@@ -185,7 +185,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 					OriginalSize: hashPartition.OriginalSize,
 					PartUuid:     hashPartition.PartUuid,
 					Label:        hashPartition.PartLabel,
-					Number:       hashPartition.PartitionNum + 1,
+					Number:       hashPartition.PartitionNum,
 				})
 
 				break
