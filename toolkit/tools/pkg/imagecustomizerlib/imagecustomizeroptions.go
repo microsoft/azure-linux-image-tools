@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrInvalidInputImageStringFormat = NewImageCustomizerError("Validation:InvalidInputImageStringFormat", "invalid --image string format")
-	ErrMultipleInputImageOptions     = NewImageCustomizerError("Validation:MultipleInputImageOptions", "cannot specify both --image and --image-file")
+	ErrInvalidInputImageStringFormat  = NewImageCustomizerError("Validation:InvalidInputImageStringFormat", "invalid --image string format")
+	ErrMultipleInputImageOptions      = NewImageCustomizerError("Validation:MultipleInputImageOptions", "cannot specify both --image and --image-file")
+	ErrInvalidCosiCompressionLevelArg = NewImageCustomizerError("Validation:InvalidCosiCompressionLevelArg", "invalid --cosi-compression-level value")
 )
 
 type ImageCustomizerOptions struct {
@@ -27,6 +28,7 @@ type ImageCustomizerOptions struct {
 	UseBaseImageRpmRepos    bool
 	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
 	ImageCacheDir           string
+	CosiCompressionLevel    *int
 }
 
 func (o *ImageCustomizerOptions) IsValid() error {
@@ -48,6 +50,14 @@ func (o *ImageCustomizerOptions) IsValid() error {
 		return ErrMultipleInputImageOptions
 	}
 
+	if o.CosiCompressionLevel != nil &&
+		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
+			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
+		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
+			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
+			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
+	}
+
 	return nil
 }
 
@@ -61,6 +71,12 @@ func (o *ImageCustomizerOptions) verifyPreviewFeatures(previewFeatures []imagecu
 	if o.InputImage != "" {
 		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureInputImageOci) {
 			return ErrInputImageOciPreviewRequired
+		}
+	}
+
+	if o.CosiCompressionLevel != nil {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
+			return ErrCosiCompressionPreviewRequired
 		}
 	}
 

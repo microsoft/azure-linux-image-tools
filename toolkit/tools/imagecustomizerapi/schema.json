@@ -114,6 +114,24 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "CosiCompression": {
+      "properties": {
+        "level": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CosiConfig": {
+      "properties": {
+        "compression": {
+          "$ref": "#/$defs/CosiCompression"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "DirConfig": {
       "properties": {
         "source": {
@@ -417,6 +435,9 @@
         },
         "format": {
           "type": "string"
+        },
+        "cosi": {
+          "$ref": "#/$defs/CosiConfig"
         }
       },
       "additionalProperties": false,

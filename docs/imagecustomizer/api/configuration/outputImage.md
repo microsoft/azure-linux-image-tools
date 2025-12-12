@@ -46,3 +46,29 @@ iso image. For more details on this format, see:
 [Image Customizer ISO Support](../../concepts/iso.md).
 
 Added in v0.13.
+
+## cosi [[cosiConfig](./cosiConfig.md)]
+
+Optional.
+
+Specifies the configuration options for the COSI (Composable Operating System
+Image) output format.
+
+This field is only applicable when `format` is set to `cosi`.
+
+Example:
+
+```yaml
+output:
+  image:
+    path: ./out/image.cosi
+    format: cosi
+    cosi:
+      compression:
+        level: 22
+previewFeatures:
+- cosi-compression
+```
+
+Added in v1.2.
+

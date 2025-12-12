@@ -17,11 +17,12 @@ When multiple base configs are specified, fields are resolved in order —
 Fields from later configurations override or extend those from earlier ones,
 or are processed sequentially.
 
-**The current(last) config’s value (if specified) overrides all base configs.**
+**The current(last) config's value (if specified) overrides all base configs.**
 
-- `.input.image.path`  
-- `.output.image.path`  
-- `.output.image.format`  
+- `.input.image.path`
+- `.output.image.path`
+- `.output.image.cosi.compression.level`
+- `.output.image.format`
 - `.output.artifacts.path`
 - `.os.hostname`
 - `.os.selinux`
@@ -66,4 +67,4 @@ baseConfigs:
   - path: /absolute/path/to/base-config.yaml
 ```
 
-Added in v1.1.0.
+Added in v1.1.

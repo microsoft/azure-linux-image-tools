@@ -61,7 +61,11 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// Inject artifacts into a fresh copy of the raw image
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
-	err = InjectFilesWithConfigFile(t.Context(), buildDir, injectConfigPath, outImageFilePath, "", "")
+	options := InjectFilesOptions{
+		BuildDir:       buildDir,
+		InputImageFile: outImageFilePath,
+	}
+	err = InjectFilesWithConfigFile(t.Context(), injectConfigPath, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -137,7 +141,13 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir, true)
 
 	// Inject artifacts into image.
-	err = InjectFilesWithConfigFile(t.Context(), buildDir, injectConfigPath, outImageFilePath, cosiFilePath, "cosi")
+	options := InjectFilesOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    outImageFilePath,
+		OutputImageFile:   cosiFilePath,
+		OutputImageFormat: "cosi",
+	}
+	err = InjectFilesWithConfigFile(t.Context(), injectConfigPath, options)
 	if !assert.NoError(t, err) {
 		return
 	}

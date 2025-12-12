@@ -124,6 +124,27 @@ When the output image format is set to iso, the generated image is a LiveOS
 iso image. For more details on this format, see:
 [Image Customizer ISO Support](../../concepts/iso.md).
 
+## --cosi-compression-level=LEVEL
+
+Optional. Default: `9`
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `cosi-compression` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+
+If both
+[output.image.cosi.compression.level](../configuration/cosiCompression.md#level-int) and
+`--cosi-compression-level` are provided, then the `--cosi-compression-level`
+value is used.
+
+The zstd compression level (1-22) for COSI partition images.
+
+Higher compression levels produce smaller files but take significantly longer to
+compress. Decompression speed is largely unaffected by the compression level.
+
+Added in v1.2.
+
 ## --output-selinux-policy-path=DIRECTORY-PATH
 
 Optional.

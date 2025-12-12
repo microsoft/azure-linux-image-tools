@@ -127,6 +127,15 @@ Supported options:
 
   Added in v1.1.
 
+- `cosi-compression`: Enables custom compression settings for COSI output images.
+
+  When this option is specified, the `output.image.cosi.compression.level` configuration
+  becomes available, as well as the `--cosi-compression-level` CLI flag.
+
+  See [cosiCompression](./cosiCompression.md) for more details.
+
+  Added in v1.2.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.
@@ -138,4 +147,4 @@ Added in v0.13.
 
 Specifies a list of configuration files to inherit from.
 
-Added in v1.1.0.
+Added in v1.1.
