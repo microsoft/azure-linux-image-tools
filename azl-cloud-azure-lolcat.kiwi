@@ -51,7 +51,7 @@
         
         <!-- Bootstrap packages -->
         <packages type="bootstrap" patternType="plusRecommended">
-                <package name="fedora-release-cloud"/>
+                <package name="fedora-release"/>
                 <package name="fedora-repos"/>
                 <package name="grubby"/>
         </packages>
