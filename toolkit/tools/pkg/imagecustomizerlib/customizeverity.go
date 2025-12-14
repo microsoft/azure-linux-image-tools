@@ -776,6 +776,9 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
 		}
+
+		// When UKI is enabled, /boot is cleaned. Return early to skip grub.cfg update.
+		return nil
 	}
 
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)

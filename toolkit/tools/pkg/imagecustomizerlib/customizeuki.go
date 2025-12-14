@@ -19,6 +19,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -42,6 +43,8 @@ var (
 	ErrUKIKernelCmdlineExtract        = NewImageCustomizerError("UKI:KernelCmdlineExtract", "failed to extract kernel command-line arguments")
 	ErrUKICmdlineFileWrite            = NewImageCustomizerError("UKI:CmdlineFileWrite", "failed to write kernel cmdline args JSON")
 	ErrUKICleanOldFiles               = NewImageCustomizerError("UKI:CleanOldFiles", "failed to clean old UKI files")
+	ErrUKICleanBootDir                = NewImageCustomizerError("UKI:CleanBootDir", "failed to clean /boot directory")
+	ErrUKIExtractComponents           = NewImageCustomizerError("UKI:ExtractComponents", "failed to extract kernel/initramfs from UKI")
 )
 
 const (
@@ -261,6 +264,11 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrUKICmdlineFileWrite, cmdlineFilePath, err)
+	}
+
+	err = cleanBootDirectory(imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
 
 	return nil
@@ -688,6 +696,137 @@ func cleanUkiDirectory(ukiOutputDir string) error {
 			}
 			logger.Log.Infof("Deleted old UKI file: (%s)", filePath)
 		}
+	}
+
+	return nil
+}
+
+func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	bootPath := filepath.Join(imageChroot.RootDir(), BootDir)
+	espPath := filepath.Join(imageChroot.RootDir(), EspDir)
+
+	dirEntries, err := os.ReadDir(bootPath)
+	if err != nil {
+		return fmt.Errorf("failed to read boot directory (%s):\n%w", bootPath, err)
+	}
+
+	for _, entry := range dirEntries {
+		entryPath := filepath.Join(bootPath, entry.Name())
+
+		if entryPath == espPath {
+			continue
+		}
+
+		err := os.RemoveAll(entryPath)
+		if err != nil {
+			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
+		}
+	}
+
+	return nil
+}
+
+func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
+	err := extractKernelAndInitramfsFromUkisHelper(ctx, imageChroot, buildDir)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
+	}
+
+	return nil
+}
+
+func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
+	logger.Log.Infof("Extracting kernel and initramfs from existing UKIs for re-customization")
+
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "extract_kernel_initramfs_from_ukis")
+	defer span.End()
+
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	ukiFiles, err := getUkiFiles(espDir)
+	if err != nil {
+		return err
+	}
+
+	if len(ukiFiles) == 0 {
+		logger.Log.Infof("No existing UKI files found, skipping extraction")
+		return nil
+	}
+
+	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
+
+	tempDir := filepath.Join(buildDir, "uki-extraction-temp")
+	err = os.MkdirAll(tempDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory:\n%w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	for _, ukiFile := range ukiFiles {
+		kernelName, err := getKernelNameFromUki(ukiFile)
+		if err != nil {
+			return err
+		}
+
+		kernelVersion, err := getKernelVersion(kernelName)
+		if err != nil {
+			return err
+		}
+
+		kernelPath := filepath.Join(bootDir, kernelName)
+		logger.Log.Infof("Extracting kernel from UKI (%s) to (%s)", ukiFile, kernelPath)
+		err = extractSectionFromUkiWithObjcopy(ukiFile, ".linux", kernelPath, tempDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract kernel from UKI (%s):\n%w", ukiFile, err)
+		}
+
+		initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
+		initramfsPath := filepath.Join(bootDir, initramfsName)
+		logger.Log.Infof("Extracting initramfs from UKI (%s) to (%s)", ukiFile, initramfsPath)
+		err = extractSectionFromUkiWithObjcopy(ukiFile, ".initrd", initramfsPath, tempDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract initramfs from UKI (%s):\n%w", ukiFile, err)
+		}
+
+		logger.Log.Infof("Successfully extracted kernel and initramfs for version (%s)", kernelVersion)
+	}
+
+	// Regenerate grub.cfg now that kernels are in /boot
+	logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
+
+	// Ensure /boot/grub2 directory exists
+	grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.GrubCfgFile))
+	err = os.MkdirAll(grubDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+	}
+
+	err = installutils.CallGrubMkconfig(imageChroot)
+	if err != nil {
+		return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
+	}
+
+	return nil
+}
+
+func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, outputPath string, buildDir string) error {
+	tempCopy, err := os.CreateTemp(buildDir, "uki-copy-*.efi")
+	if err != nil {
+		return fmt.Errorf("failed to create temp UKI copy:\n%w", err)
+	}
+	defer os.Remove(tempCopy.Name())
+
+	input, err := os.ReadFile(ukiPath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI file:\n%w", err)
+	}
+	if err := os.WriteFile(tempCopy.Name(), input, 0o644); err != nil {
+		return fmt.Errorf("failed to write temp UKI file:\n%w", err)
+	}
+
+	// Extract the section using objcopy on the temp copy
+	_, _, err = shell.Execute("objcopy", "--dump-section", sectionName+"="+outputPath, tempCopy.Name())
+	if err != nil {
+		return fmt.Errorf("objcopy failed to extract section %s:\n%w", sectionName, err)
 	}
 
 	return nil

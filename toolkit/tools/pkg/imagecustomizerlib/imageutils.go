@@ -231,15 +231,22 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 		return err
 	}
 
-	// TODO: Remove this once we have a way to determine if grub-mkconfig is enabled.
-	grubMkconfigEnabled := true
-	if !newImage {
-		grubMkconfigEnabled, err = isGrubMkconfigEnabled(imageConnection.Chroot())
+	// Determine the boot configuration type.
+	// For new images, default to grub-mkconfig (AZL3 default).
+	// For existing images, detect the actual boot configuration.
+	var bootConfigType bootConfigType
+	if newImage {
+		bootConfigType = bootConfigTypeGrubMkconfig
+	} else {
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
 
+		bootConfigType = bootCustomizer.bootConfigType
 	}
+
+	grubMkconfigEnabled := (bootConfigType == bootConfigTypeGrubMkconfig)
 
 	mountPointMap := make(map[string]string)
 	for _, mountPoint := range imageConnection.Chroot().GetMountPoints() {
