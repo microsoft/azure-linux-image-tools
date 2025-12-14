@@ -6,9 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -474,18 +472,18 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[s
 	// Try extracting from grub.cfg first
 	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
 	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
-	} else if !errors.Is(err, fs.ErrNotExist) && len(kernelToArgs) > 0 {
+	} else if !os.IsNotExist(err) && len(kernelToArgs) > 0 {
 		// Successfully extracted kernel cmdline from grub.cfg
 		return kernelToArgs, nil
 	}
 
 	// Fallback to extracting from UKI
 	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
-	} else if errors.Is(err, fs.ErrNotExist) {
+	} else if os.IsNotExist(err) {
 		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
@@ -840,7 +838,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 }
 
 func cleanUkiDirectory(ukiOutputDir string) error {
-	if _, err := os.Stat(ukiOutputDir); errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(ukiOutputDir); os.IsNotExist(err) {
 		logger.Log.Debugf("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
 		return nil
 	}

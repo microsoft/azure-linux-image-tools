@@ -4,9 +4,7 @@
 package imagecustomizerlib
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
 	"iter"
 	"os"
 	"path/filepath"
@@ -615,9 +613,9 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 	}
 
 	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
-	} else if errors.Is(err, fs.ErrNotExist) {
+	} else if os.IsNotExist(err) {
 		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 	}
 
@@ -707,7 +705,8 @@ func getUkiFiles(espPath string) ([]string, error) {
 // tokenizes it, and parses it into grub command-line arguments.
 func parseFirstCmdlineFromUkiMap(kernelToArgs map[string]string) ([]grubConfigLinuxArg, error) {
 	if len(kernelToArgs) == 0 {
-		return nil, fmt.Errorf("no UKI kernel command-lines found")
+		// Return os.ErrNotExist directly (not wrapped) so os.IsNotExist() can detect it.
+		return nil, os.ErrNotExist
 	}
 
 	// Use the first kernel's cmdline since they should all have the same settings.
@@ -789,7 +788,7 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
 	if err != nil {
 		// Check if the error is because grub.cfg doesn't exist
-		if errors.Is(err, fs.ErrNotExist) {
+		if os.IsNotExist(err) {
 			closeErr := bootPartitionMount.CleanClose()
 			if closeErr != nil {
 				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing grub.cfg:\n%w", closeErr)
@@ -820,9 +819,15 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 
 // Extracts the kernel args for each kernel from the grub.cfg file.
 // Returns a mapping from kernel version to list of kernel args.
+// Returns os.ErrNotExist directly (not wrapped) if grub.cfg doesn't exist,
+// so callers can use os.IsNotExist() to detect this case.
 func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
+		// Return os.ErrNotExist directly (not wrapped) so os.IsNotExist() can detect it.
+		if os.IsNotExist(err) {
+			return nil, os.ErrNotExist
+		}
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 

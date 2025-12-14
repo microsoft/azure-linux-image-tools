@@ -4,9 +4,8 @@
 package imagecustomizerlib
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
+	"os"
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -47,12 +46,12 @@ type BootCustomizer struct {
 
 func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer, error) {
 	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 
 	defaultGrubFileContent, err := readDefaultGrubFile(imageChroot)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 

@@ -904,5 +904,10 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		}
 	}
 
+	err = existingImageConnection.CleanClose()
+	if err != nil {
+		return "", err
+	}
+
 	return targetOs, nil
 }
