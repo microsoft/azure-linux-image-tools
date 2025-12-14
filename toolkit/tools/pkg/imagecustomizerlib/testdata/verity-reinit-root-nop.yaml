@@ -9,7 +9,7 @@ os:
   bootloader:
     resetType: hard-reset
   uki:
-    kernels: auto
+    mode: create
   additionalFiles:
   - content: |
       cat, dog, elephant, squirrel

@@ -70,7 +70,7 @@ os:
     resetType: hard-reset
 
   uki:
-    kernels: auto
+    mode: create
 
   packages:
     remove:

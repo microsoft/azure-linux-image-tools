@@ -163,10 +163,7 @@ func TestConfigIsValidWithPreviewFeaturesAndUki(t *testing.T) {
 				ResetType: "hard-reset",
 			},
 			Uki: &Uki{
-				Kernels: UkiKernels{
-					Auto:    false,
-					Kernels: []string{"6.6.51.1-5.azl3"},
-				},
+				Mode: UkiModeCreate,
 			},
 		},
 		PreviewFeatures: []PreviewFeature{"uki"},
@@ -183,10 +180,7 @@ func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 				ResetType: "hard-reset",
 			},
 			Uki: &Uki{
-				Kernels: UkiKernels{
-					Auto:    false,
-					Kernels: []string{"6.6.51.1-5.azl3"},
-				},
+				Mode: UkiModeCreate,
 			},
 		},
 		PreviewFeatures: []PreviewFeature{},
@@ -195,24 +189,6 @@ func TestConfigIsValidWithMissingUkiPreviewFeature(t *testing.T) {
 	err := config.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "the 'uki' preview feature must be enabled to use 'os.uki'")
-}
-
-func TestConfigIsValidWithUkiAndMissingHardReset(t *testing.T) {
-	config := &Config{
-		OS: &OS{
-			Uki: &Uki{
-				Kernels: UkiKernels{
-					Auto:    true,
-					Kernels: nil,
-				},
-			},
-		},
-		PreviewFeatures: []PreviewFeature{"uki"},
-	}
-
-	err := config.IsValid()
-	assert.Error(t, err)
-	assert.ErrorContains(t, err, "'os.bootloader.reset' must be 'hard-reset' when 'os.uki' is enabled")
 }
 
 func TestConfigIsValidWithInvalidBootType(t *testing.T) {

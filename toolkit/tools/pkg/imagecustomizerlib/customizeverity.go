@@ -683,7 +683,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		}
 
 		// Update kernel args.
-		isUki := config.OS.Uki != nil
+		isUki := config.OS.Uki != nil && config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate
 		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err
@@ -770,6 +770,14 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 		return err
 	}
 
+	if isUki {
+		// UKI is enabled, update kernel cmdline args file.
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
+		}
+	}
+
 	bootPartitionTmpDir := filepath.Join(buildDir, tmpBootPartitionDirName)
 	// Temporarily mount the partition.
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, bootPartitionTmpDir, bootPartition.FileSystemType,
@@ -783,14 +791,6 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
-	}
-
-	if isUki {
-		// UKI is enabled, update kernel cmdline args file.
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
-		}
 	}
 
 	// Temporarily always update grub.cfg for verity, even when UKI is used.

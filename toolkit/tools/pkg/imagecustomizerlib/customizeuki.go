@@ -6,7 +6,9 @@ package imagecustomizerlib
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -38,6 +41,7 @@ var (
 	ErrUKIFileCopy                    = NewImageCustomizerError("UKI:FileCopy", "failed to copy UKI files")
 	ErrUKIKernelCmdlineExtract        = NewImageCustomizerError("UKI:KernelCmdlineExtract", "failed to extract kernel command-line arguments")
 	ErrUKICmdlineFileWrite            = NewImageCustomizerError("UKI:CmdlineFileWrite", "failed to write kernel cmdline args JSON")
+	ErrUKICleanOldFiles               = NewImageCustomizerError("UKI:CleanOldFiles", "failed to clean old UKI files")
 )
 
 const (
@@ -59,6 +63,65 @@ type UkiKernelInfo struct {
 	Initramfs string `json:"initramfs"`
 }
 
+func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	ukiFiles, err := getUkiFiles(espDir)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for UKI files:\n%w", err)
+	}
+	return len(ukiFiles) > 0, nil
+}
+
+// validateUkiMode validates the UKI mode against the base image state.
+// Rules:
+// - If base image has NO UKIs:
+//   - No mode specified (os.uki == nil): No UKI created
+//   - mode: create: Create UKI
+//   - mode: passthrough: FAIL (can't passthrough if no UKIs exist)
+//
+// - If base image HAS UKIs:
+//   - No mode specified (os.uki == nil): FAIL (must explicitly specify mode)
+//   - mode: create: Extract and regenerate UKIs
+//   - mode: passthrough: Preserve existing UKIs without modification
+func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+	if err != nil {
+		return err
+	}
+
+	if !hasUkis {
+		// Base image doesn't have UKIs
+		if config.OS != nil && config.OS.Uki != nil {
+			// User specified os.uki
+			if config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
+				return fmt.Errorf("base image does not contain UKIs but os.uki.mode is set to 'passthrough': " +
+					"cannot passthrough UKIs when base image has no UKIs. " +
+					"Use mode: create to create UKIs, or omit os.uki entirely",
+				)
+			}
+			// mode: create or unspecified (with os.uki present) - both are OK for creating UKIs
+		}
+		// No os.uki specified - that's fine, no UKI will be created
+		return nil
+	}
+
+	// Base image has UKIs
+	if config.OS == nil || config.OS.Uki == nil {
+		return fmt.Errorf("base image contains UKI files but os.uki is not specified: " +
+			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.mode " +
+			"with one of the following values:\n" +
+			"  - 'create': extract and regenerate UKIs with updated configurations\n" +
+			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)")
+	}
+
+	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeUnspecified {
+		return fmt.Errorf("base image contains UKI files but os.uki.mode is not specified: " +
+			"when base image has UKIs, you must explicitly set mode to either 'create' or 'passthrough'")
+	}
+
+	return nil
+}
+
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki, imageChroot *safechroot.Chroot,
 	distroHandler distroHandler,
 ) error {
@@ -76,6 +139,12 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	var err error
 
 	if uki == nil {
+		return nil
+	}
+
+	// If mode is 'passthrough', skip UKI regeneration to preserve existing UKIs
+	if uki.Mode == imagecustomizerapi.UkiModePassthrough {
+		logger.Log.Infof("UKI mode is 'passthrough', skipping UKI regeneration")
 		return nil
 	}
 
@@ -156,7 +225,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 	// Map kernels and initramfs.
 	bootDir := filepath.Join(imageChroot.RootDir(), BootDir)
-	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir, uki.Kernels)
+	kernelToInitramfs, err := getKernelToInitramfsMap(bootDir)
 	if err != nil {
 		return fmt.Errorf("%w (bootDir='%s'):\n%w", ErrUKIKernelInitramfsMap, bootDir, err)
 	}
@@ -260,22 +329,12 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 	return nil
 }
 
-func getKernelToInitramfsMap(bootDir string, ukiKernels imagecustomizerapi.UkiKernels) (map[string]string, error) {
-	if ukiKernels.Auto {
-		// Auto mode: Find all kernels and their initramfs.
-		kernelToInitramfs, err := findKernelsAndInitramfs(bootDir)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find kernels and initramfs in auto mode:\n%w", err)
-		}
-		return kernelToInitramfs, nil
-	}
+func getKernelToInitramfsMap(bootDir string) (map[string]string, error) {
 
-	// User-specified mode: Match kernels and initramfs with the specified versions.
-	kernelToInitramfs, err := findSpecificKernelsAndInitramfs(bootDir, ukiKernels.Kernels)
+	kernelToInitramfs, err := findKernelsAndInitramfs(bootDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find specific kernels and initramfs:\n%w", err)
+		return nil, fmt.Errorf("failed to find kernels and initramfs:\n%w", err)
 	}
-
 	return kernelToInitramfs, nil
 }
 
@@ -316,40 +375,14 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 	return kernelToInitramfs, nil
 }
 
-func findSpecificKernelsAndInitramfs(bootDir string, versions []string) (map[string]string, error) {
-	kernelToInitramfs := make(map[string]string)
-
-	for _, version := range versions {
-		kernelName := fmt.Sprintf("vmlinuz-%s", version)
-		initramfsName := fmt.Sprintf("initramfs-%s.img", version)
-
-		kernelPath := filepath.Join(bootDir, kernelName)
-		initramfsPath := filepath.Join(bootDir, initramfsName)
-
-		kernelExists, err := file.PathExists(kernelPath)
-		if err != nil {
-			return nil, fmt.Errorf("error checking existence of kernel (%s):\n%w", kernelPath, err)
-		}
-		if !kernelExists {
-			return nil, fmt.Errorf("missing kernel: (%s)", kernelName)
-		}
-
-		initramfsExists, err := file.PathExists(initramfsPath)
-		if err != nil {
-			return nil, fmt.Errorf("error checking existence of initramfs (%s):\n%w", initramfsPath, err)
-		}
-		if !initramfsExists {
-			return nil, fmt.Errorf("missing initramfs for kernel: (%s), expected (%s)", kernelName, initramfsName)
-		}
-
-		kernelToInitramfs[kernelName] = initramfsName
-	}
-
-	return kernelToInitramfs, nil
-}
-
-func createUki(ctx context.Context, buildDir string, buildImageFile string) error {
+func createUki(ctx context.Context, buildDir string, buildImageFile string, uki *imagecustomizerapi.Uki) error {
 	logger.Log.Infof("Creating UKIs")
+
+	// If mode is 'passthrough', skip UKI creation to preserve existing UKIs
+	if uki != nil && uki.Mode == imagecustomizerapi.UkiModePassthrough {
+		logger.Log.Infof("UKI mode is 'passthrough', skipping UKI creation")
+		return nil
+	}
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki")
 	defer span.End()
@@ -383,6 +416,12 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string) erro
 		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
 	}
 	defer systemBootPartitionMount.Close()
+
+	ukiOutputFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir)
+	err = cleanUkiDirectory(ukiOutputFullPath)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrUKICleanOldFiles, err)
+	}
 
 	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
@@ -623,4 +662,33 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	// Reconstruct kernel name (vmlinuz-<version>, e.g., vmlinuz-6.6.51.1-5.azl3)
 	kernelName := "vmlinuz-" + matches[1]
 	return kernelName, nil
+}
+
+func cleanUkiDirectory(ukiOutputDir string) error {
+	if _, err := os.Stat(ukiOutputDir); errors.Is(err, fs.ErrNotExist) {
+		logger.Log.Debugf("UKI output directory does not exist, nothing to clean: (%s)", ukiOutputDir)
+		return nil
+	}
+
+	files, err := os.ReadDir(ukiOutputDir)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI output directory (%s):\n%w", ukiOutputDir, err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if strings.HasSuffix(strings.ToLower(file.Name()), ".efi") {
+			filePath := filepath.Join(ukiOutputDir, file.Name())
+			err := os.Remove(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to delete old UKI file (%s):\n%w", filePath, err)
+			}
+			logger.Log.Infof("Deleted old UKI file: (%s)", filePath)
+		}
+	}
+
+	return nil
 }
