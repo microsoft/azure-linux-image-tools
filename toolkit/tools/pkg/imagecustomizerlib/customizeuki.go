@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"go.opentelemetry.io/otel"
 	"gopkg.in/ini.v1"
@@ -722,6 +723,11 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
 			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
 		}
 	}
+
+	// Sync filesystem to ensure all metadata changes (file deletions) are
+	// flushed to disk. This prevents e2fsck from detecting journal issues
+	// when the image is reopened for subsequent operations like shrinking.
+	syscall.Sync()
 
 	return nil
 }

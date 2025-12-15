@@ -385,6 +385,11 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 		}
 	}
 
+	// Sync all pending writes to disk before unmounting.
+	// This ensures the ext4 journal is properly committed, preventing
+	// e2fsck from detecting issues when the image is reopened.
+	unix.Sync()
+
 	for _, m := range mountedPartitions {
 		if err := m.CleanClose(); err != nil {
 			return fmt.Errorf("%w (target='%s'):\n%w", ErrArtifactPartitionUnmount, m.Target(), err)

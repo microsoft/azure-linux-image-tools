@@ -723,6 +723,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
+	// Sync all pending writes to disk before closing the image connection.
+	// This ensures the ext4 journal is properly committed, preventing e2fsck
+	// from detecting issues when the image is reopened for subsequent operations.
+	unix.Sync()
+
 	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, nil, nil, "", err
