@@ -45,6 +45,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	originalConfigFile := filepath.Join(testDir, "artifacts-output.yaml")
 	configFile := filepath.Join(testTempDir, "artifacts-output.yaml")
 	outputArtifactsDir := filepath.Join(testTempDir, "output")
+	cosiFilePath := filepath.Join(testTempDir, "image.cosi")
 
 	// Copy test config to the temp dir so it's isolated
 	err = file.Copy(originalConfigFile, configFile)
@@ -61,7 +62,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	// Inject artifacts into a fresh copy of the raw image
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
-	err = InjectFilesWithConfigFile(t.Context(), buildDir, injectConfigPath, outImageFilePath, "", "")
+	err = InjectFilesWithConfigFile(t.Context(), buildDir, injectConfigPath, outImageFilePath, cosiFilePath, "cosi")
 	if !assert.NoError(t, err) {
 		return
 	}

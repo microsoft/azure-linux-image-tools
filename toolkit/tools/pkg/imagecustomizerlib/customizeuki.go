@@ -868,6 +868,44 @@ func cleanUkiDirectory(ukiOutputDir string) error {
 	return nil
 }
 
+// removeRecursively removes a file or directory recursively using os.Remove.
+// Unlike os.RemoveAll, this ensures each removal is synchronous.
+func removeRecursively(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+
+	if !info.IsDir() {
+		// It's a file or symlink, remove it directly
+		return os.Remove(path)
+	}
+
+	// It's a directory, read its contents
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+
+	// Remove all children first
+	for _, name := range names {
+		childPath := filepath.Join(path, name)
+		err = removeRecursively(childPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Now the directory is empty, remove it
+	return os.Remove(path)
+}
+
 func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	bootPath := filepath.Join(imageChroot.RootDir(), BootDir)
 	espPath := filepath.Join(imageChroot.RootDir(), EspDir)
@@ -884,7 +922,7 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
 			continue
 		}
 
-		err := os.RemoveAll(entryPath)
+		err := removeRecursively(entryPath)
 		if err != nil {
 			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
 		}
