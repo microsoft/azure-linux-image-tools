@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sys/unix"
 	"gopkg.in/ini.v1"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -889,6 +890,10 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
 			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
 		}
 	}
+
+	// Sync the filesystem to ensure all deletions are persisted before unmount.
+	// This prevents e2fsck errors during filesystem shrinking operations.
+	unix.Sync()
 
 	return nil
 }
