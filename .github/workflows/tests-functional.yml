@@ -141,7 +141,7 @@ jobs:
 
         exit $FAILED
 
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v6
       if: ${{ !cancelled() }}
       with:
         name: tests-results-functional-${{ inputs.hostDistro }}-${{ inputs.hostArch }}

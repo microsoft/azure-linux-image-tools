@@ -201,31 +201,31 @@ jobs:
 
     - name: Upload version artifact
       if: inputs.arch == 'amd64'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: version
         path: version.txt
 
     - name: Upload binary artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: binary-${{ inputs.arch }}
         path: repo/toolkit/out/imagecustomizer.tar.gz
 
     - name: Upload container artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: container-${{ inputs.arch }}
         path: imagecustomizer.tar.gz
 
     - name: Upload image creator artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: imagecreator-binary-${{ inputs.arch }}
         path: repo/toolkit/out/imagecreator.tar.gz
 
     - name: Upload osmodifier artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: osmodifier-${{ inputs.arch }}
         path: repo/toolkit/out/tools/osmodifier
