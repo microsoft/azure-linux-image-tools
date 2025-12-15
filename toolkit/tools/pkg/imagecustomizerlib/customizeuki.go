@@ -880,7 +880,7 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	for _, entry := range dirEntries {
 		entryPath := filepath.Join(bootPath, entry.Name())
 
-		if entryPath == espPath {
+		if entryPath == espPath || entry.Name() == "lost+found" {
 			continue
 		}
 
