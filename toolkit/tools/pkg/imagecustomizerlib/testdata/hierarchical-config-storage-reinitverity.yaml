@@ -1,0 +1,10 @@
+previewFeatures:
+- base-configs
+- reinitialize-verity
+
+storage:
+  reinitializeVerity: all
+
+baseConfigs:
+  - path: hierarchical-config.yaml
+

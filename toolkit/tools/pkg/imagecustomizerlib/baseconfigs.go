@@ -9,16 +9,21 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 )
 
-type ConfigWithBasePath struct {
+type ConfigWithPath struct {
 	Config         *imagecustomizerapi.Config
-	BaseConfigPath string
+	ConfigFilePath string
 }
 
-func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithBasePath, error) {
+// ConfigDir returns the directory containing the config file
+func (c *ConfigWithPath) ConfigDir() string {
+	return filepath.Dir(c.ConfigFilePath)
+}
+
+func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithPath, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := buildConfigChainHelper(ctx, rc.Config, rc.BaseConfigPath, visited, pathStack)
+	configChain, err := buildConfigChainHelper(ctx, rc.Config, rc.ConfigFilePath, visited, pathStack)
 	if err != nil {
 		return nil, err
 	}
@@ -26,10 +31,12 @@ func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithBas
 	return configChain, nil
 }
 
-func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config, configDir string,
-	visited map[string]bool, pathStack []string) ([]*ConfigWithBasePath, error) {
+func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config, configFilePath string,
+	visited map[string]bool, pathStack []string) ([]*ConfigWithPath, error) {
 
-	var chain []*ConfigWithBasePath
+	var chain []*ConfigWithPath
+
+	configDir := filepath.Dir(configFilePath)
 
 	for _, base := range cfg.BaseConfigs {
 		// Resolve base config path relative to current config's directory
@@ -54,8 +61,7 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 		}
 
 		// Recurse into base config
-		baseConfigDir := filepath.Dir(absPath)
-		subChain, err := buildConfigChainHelper(ctx, &baseCfg, baseConfigDir, visited, pathStack)
+		subChain, err := buildConfigChainHelper(ctx, &baseCfg, absPath, visited, pathStack)
 		if err != nil {
 			return nil, err
 		}
@@ -64,9 +70,9 @@ func buildConfigChainHelper(ctx context.Context, cfg *imagecustomizerapi.Config,
 	}
 
 	// Add the current config last
-	chain = append(chain, &ConfigWithBasePath{
+	chain = append(chain, &ConfigWithPath{
 		Config:         cfg,
-		BaseConfigPath: configDir,
+		ConfigFilePath: configFilePath,
 	})
 
 	return chain, nil

@@ -46,14 +46,14 @@ var (
 	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is not a directory")
 )
 
-func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+func ValidateConfig(ctx context.Context, configFilePath string, config *imagecustomizerapi.Config,
 	newImage bool, options ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
 
 	rc := &ResolvedConfig{
-		BaseConfigPath: baseConfigPath,
+		ConfigFilePath: configFilePath,
 		Config:         config,
 		Options:        options,
 	}
@@ -78,10 +78,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
-		config.OS != nil ||
-		len(config.Scripts.PostCustomization) > 0 ||
-		len(config.Scripts.FinalizeCustomization) > 0
+	rc.CustomizeOSPartitions = false
+
+	for _, configWithBase := range rc.ConfigChain {
+		if len(configWithBase.Config.Storage.Disks) > 0 ||
+			configWithBase.Config.OS != nil ||
+			len(configWithBase.Config.Scripts.PostCustomization) > 0 ||
+			len(configWithBase.Config.Scripts.FinalizeCustomization) > 0 {
+			rc.CustomizeOSPartitions = true
+			break
+		}
+	}
 
 	// Create a UUID for the image.
 	rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
@@ -103,6 +110,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	baseConfigPath := rc.ConfigDir()
+
 	if !newImage {
 		rc.InputImage, err = validateInput(rc.ConfigChain, options.InputImageFile, options.InputImage)
 		if err != nil {
@@ -120,8 +129,20 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	// Validate cross-config storage rules
+	err = validateStorage(rc.ConfigChain)
+	if err != nil {
+		return nil, fmt.Errorf("invalid storage inheritance:\n%w", err)
+	}
+
 	rc.Hostname = resolveHostname(rc.ConfigChain)
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
+
+	rc.Storage, err = resolveStorage(rc.ConfigChain)
+	if err != nil {
+		return nil, err
+	}
+
 	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
@@ -160,7 +181,7 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 	return nil
 }
 
-func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inputImage string,
+func validateInput(configChain []*ConfigWithPath, inputImageFile string, inputImage string,
 ) (imagecustomizerapi.InputImage, error) {
 	if inputImageFile != "" {
 		if yes, err := file.IsFile(inputImageFile); err != nil {
@@ -189,7 +210,7 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inp
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Input.Image.Path != "" {
 			inputImageAbsPath := file.GetAbsPathWithBase(
-				configWithBase.BaseConfigPath,
+				configWithBase.ConfigDir(),
 				configWithBase.Config.Input.Image.Path,
 			)
 
@@ -370,7 +391,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 	return nil
 }
 
-func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImageFormat imagecustomizerapi.ImageFormatType,
+func validateOutputImageFormat(configChain []*ConfigWithPath, cliOutputImageFormat imagecustomizerapi.ImageFormatType,
 ) (imagecustomizerapi.ImageFormatType, error) {
 	if cliOutputImageFormat != "" {
 		return cliOutputImageFormat, nil
@@ -386,7 +407,7 @@ func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImage
 	return "", ErrOutputImageFormatRequired
 }
 
-func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string,
+func validateOutputImageFile(configChain []*ConfigWithPath, cliOutputImageFile string,
 	outputImageFormat imagecustomizerapi.ImageFormatType,
 ) (string, error) {
 	if cliOutputImageFile != "" {
@@ -404,7 +425,7 @@ func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFi
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Output.Image.Path != "" {
 			outputImageFile := file.GetAbsPathWithBase(
-				configWithBase.BaseConfigPath,
+				configWithBase.ConfigDir(),
 				configWithBase.Config.Output.Image.Path,
 			)
 
@@ -452,7 +473,7 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
 	return nil
 }
 
-func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutputSelinuxPolicyPath string) (string, error) {
+func validateOutputSelinuxPolicyPath(configChain []*ConfigWithPath, cliOutputSelinuxPolicyPath string) (string, error) {
 	// CLI parameter takes precedence.
 	if cliOutputSelinuxPolicyPath != "" {
 		if isDir, err := file.DirExists(cliOutputSelinuxPolicyPath); err != nil {
@@ -469,7 +490,7 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutpu
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.Output.SelinuxPolicyPath != "" {
 			outputSelinuxPolicyPath := file.GetAbsPathWithBase(
-				configWithBase.BaseConfigPath,
+				configWithBase.ConfigDir(),
 				configWithBase.Config.Output.SelinuxPolicyPath,
 			)
 
@@ -503,7 +524,7 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 		// While defining a storage configuration can work when the input image is
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
-		if rc.Config.CustomizePartitions() {
+		if rc.Storage.CustomizePartitions() {
 			return ErrCannotCustomizePartitionsOnIso
 		}
 	}
@@ -511,7 +532,67 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 	return nil
 }
 
-func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizerapi.Artifacts {
+func validateStorage(configChain []*ConfigWithPath) error {
+	var baseHasDisks bool
+
+	for _, configWithBase := range configChain {
+		storage := configWithBase.Config.Storage
+
+		hasDisks := storage.CustomizePartitions()
+		hasResetUUID := storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault
+		hasReinitVerity := storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault
+
+		if baseHasDisks {
+			configFullPath := configWithBase.ConfigFilePath
+			if hasResetUUID {
+				return fmt.Errorf(
+					"cannot specify 'resetPartitionsUuidsType' in %s when a base config specifies '.storage.disks'", configFullPath)
+			}
+			if hasReinitVerity {
+				return fmt.Errorf(
+					"cannot specify 'reinitializeVerity' in %s when a base config specifies '.storage.disks'", configFullPath)
+			}
+		}
+
+		// For next iteration
+		if hasDisks {
+			baseHasDisks = true
+		}
+	}
+
+	return nil
+}
+
+func resolveStorage(configChain []*ConfigWithPath) (imagecustomizerapi.Storage, error) {
+	var resolvedStorage imagecustomizerapi.Storage
+
+	for _, configWithBase := range slices.Backward(configChain) {
+		storage := configWithBase.Config.Storage
+
+		// If current config has disks, it overrides all base configs
+		if storage.CustomizePartitions() {
+			return storage, nil
+		}
+
+		// Otherwise, accumulate individual override fields
+		if storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault {
+			resolvedStorage.ResetPartitionsUuidsType = storage.ResetPartitionsUuidsType
+		}
+
+		if storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+			resolvedStorage.ReinitializeVerity = storage.ReinitializeVerity
+		}
+
+		if len(storage.Verity) > 0 {
+			resolvedStorage.Verity = storage.Verity
+			resolvedStorage.VerityPartitionsType = storage.VerityPartitionsType
+		}
+	}
+
+	return resolvedStorage, nil
+}
+
+func resolveOutputArtifacts(configChain []*ConfigWithPath) *imagecustomizerapi.Artifacts {
 	var artifacts *imagecustomizerapi.Artifacts
 
 	for _, configWithBase := range configChain {
@@ -523,7 +604,7 @@ func resolveOutputArtifacts(configChain []*ConfigWithBasePath) *imagecustomizera
 			// Artifacts path from current config overrides previous one
 			if configWithBase.Config.Output.Artifacts.Path != "" {
 				artifacts.Path = file.GetAbsPathWithBase(
-					configWithBase.BaseConfigPath,
+					configWithBase.ConfigDir(),
 					configWithBase.Config.Output.Artifacts.Path,
 				)
 			}
@@ -563,7 +644,7 @@ func mergeOutputArtifactTypes(base, current []imagecustomizerapi.OutputArtifacts
 	return merged
 }
 
-func resolveHostname(configChain []*ConfigWithBasePath) string {
+func resolveHostname(configChain []*ConfigWithPath) string {
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Hostname != "" {
 			return configWithBase.Config.OS.Hostname
@@ -573,7 +654,7 @@ func resolveHostname(configChain []*ConfigWithBasePath) string {
 	return ""
 }
 
-func resolveSeLinux(configChain []*ConfigWithBasePath) imagecustomizerapi.SELinux {
+func resolveSeLinux(configChain []*ConfigWithPath) imagecustomizerapi.SELinux {
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.OS != nil && configWithBase.Config.OS.SELinux.Mode != "" {
 			return configWithBase.Config.OS.SELinux
@@ -582,7 +663,7 @@ func resolveSeLinux(configChain []*ConfigWithBasePath) imagecustomizerapi.SELinu
 	return imagecustomizerapi.SELinux{}
 }
 
-func resolveUki(configChain []*ConfigWithBasePath) *imagecustomizerapi.Uki {
+func resolveUki(configChain []*ConfigWithPath) *imagecustomizerapi.Uki {
 	for _, configWithBase := range slices.Backward(configChain) {
 		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Uki != nil {
 			return configWithBase.Config.OS.Uki
@@ -591,7 +672,7 @@ func resolveUki(configChain []*ConfigWithBasePath) *imagecustomizerapi.Uki {
 	return nil
 }
 
-func resolveBootLoaderResetType(configChain []*ConfigWithBasePath) imagecustomizerapi.ResetBootLoaderType {
+func resolveBootLoaderResetType(configChain []*ConfigWithPath) imagecustomizerapi.ResetBootLoaderType {
 	for _, cfg := range slices.Backward(configChain) {
 		if cfg.Config.OS == nil {
 			continue
@@ -610,7 +691,7 @@ func resolveBootLoaderResetType(configChain []*ConfigWithBasePath) imagecustomiz
 	return ""
 }
 
-func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+func resolveKernelCommandLine(configChain []*ConfigWithPath) imagecustomizerapi.KernelCommandLine {
 	var mergedArgs []string
 
 	// Concatenate all kernel command line args

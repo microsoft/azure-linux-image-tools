@@ -88,7 +88,7 @@ func (c *Config) IsValid() (err error) {
 		return err
 	}
 
-	if c.CustomizePartitions() && !hasResetBootLoader {
+	if c.Storage.CustomizePartitions() && !hasResetBootLoader {
 		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.disks' is specified")
 	}
 
@@ -149,8 +149,4 @@ func (c *Config) IsValid() (err error) {
 	}
 
 	return nil
-}
-
-func (c *Config) CustomizePartitions() bool {
-	return c.Storage.CustomizePartitions()
 }

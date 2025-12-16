@@ -153,7 +153,12 @@ func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string,
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
-	err = CustomizeImageOptions(ctx, absBaseConfigPath, &config, options)
+	absConfigFile, err := filepath.Abs(configFile)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
+	}
+
+	err = CustomizeImageOptions(ctx, absBaseConfigPath, absConfigFile, &config, options)
 	if err != nil {
 		return err
 	}
@@ -174,7 +179,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
 ) (err error) {
-	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
+	return CustomizeImageOptions(ctx, baseConfigPath, "", config, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       inputImageFile,
 		RpmsSources:          rpmsSources,
@@ -185,7 +190,7 @@ func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string,
 	})
 }
 
-func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+func CustomizeImageOptions(ctx context.Context, baseConfigPath string, configFilePath string, config *imagecustomizerapi.Config,
 	options ImageCustomizerOptions,
 ) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")
@@ -209,7 +214,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		span.End()
 	}()
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
+	rc, err := ValidateConfig(ctx, configFilePath, config, false, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -280,7 +285,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	}
 
 	if rc.OutputArtifacts != nil {
-		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
+		outputDir := file.GetAbsPathWithBase(rc.ConfigDir(), rc.OutputArtifacts.Path)
 
 		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
 			rc.RawImageFile, im.verityMetadata)
@@ -485,8 +490,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	im.targetOS = targetOS
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.targetOS)
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc, im.targetOS)
 	if err != nil {
 		return im, err
 	}
@@ -524,10 +528,10 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		}
 	}
 
-	if len(rc.Config.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
+	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc.Config, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
+		verityMetadata, err := customizeVerityImageHelper(ctx, rc, partIdToPartUuid, shrinkPartitions,
+			im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
@@ -618,13 +622,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
-			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, rc.BaseConfigPath, inputIsoArtifacts, requestedSELinuxMode,
+			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, rc.ConfigDir(), inputIsoArtifacts, requestedSELinuxMode,
 				rc.Config.Iso, rc.Config.Pxe, rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
-			err := repackageLiveOS(rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.Iso, rc.Config.Pxe,
+			err := repackageLiveOS(rc.BuildDirAbs, rc.ConfigDir(), rc.Config.Iso, rc.Config.Pxe,
 				inputIsoArtifacts, rc.OutputImageFormat, rc.OutputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
@@ -678,7 +682,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	readOnlyVerity := rc.Config.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
+	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
 		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
@@ -702,7 +706,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil
 	})
 
-	err = validateVerityMountPaths(imageConnection, rc.Config, partitionsLayout, baseImageVerityMetadata)
+	err = validateVerityMountPaths(imageConnection, rc.Storage, partitionsLayout, baseImageVerityMetadata)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
 	}
