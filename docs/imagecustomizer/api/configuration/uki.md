@@ -22,7 +22,7 @@ Example:
 
 ```yaml
 os:
-  bootLoader:
+  bootloader:
     resetType: hard-reset
   uki:
     mode: create

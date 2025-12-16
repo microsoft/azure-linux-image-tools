@@ -63,7 +63,7 @@ The permissions to set on the destination file.
 
 Supported formats:
 
-- String containing an octal string. e.g. `"664"`
+- String containing an octal string (e.g., `"664"`)
 
 Example:
 

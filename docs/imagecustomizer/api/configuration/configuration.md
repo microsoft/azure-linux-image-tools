@@ -105,7 +105,7 @@ However, if the `/etc/resolv.conf` did not exist in the base image and
 `systemd-resolved` service is enabled, then the `/etc/resolv.conf` file is symlinked to
 the `/run/systemd/resolve/stub-resolv.conf` file. (This would happen anyway during
 first-boot. But doing this during customization is useful for verity enabled images
-where the filesystem is readonly.)
+where the filesystem is read-only.)
 
 If you want to explicitly set the `/etc/resolv.conf` file contents, you can do so within
 a [finalizeCustomization](./scripts.md#finalizecustomization-script) script, since those scripts run
@@ -228,7 +228,7 @@ os:
       - [startupCommand](./user.md#startupcommand-string)
     - [selinux](./os.md#selinux-selinux) ([selinux type](./selinux.md))
       - [mode](./selinux.md#mode-string)
-    - [services](./os.md#services-services) ([selinux type](./services.md))
+    - [services](./os.md#services-services) ([services type](./services.md))
       - [enable](./services.md#enable-string)
       - [disable](./services.md#disable-string)
     - [modules](./os.md#modules-module) ([module type](./module.md))

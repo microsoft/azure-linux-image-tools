@@ -52,12 +52,12 @@ Supported values include:
 
 - `2.0`
 - `3.0`
-- `2.0.<DATE>` (e.g. `2.0.20251010`)
-- `3.0.<DATE>` (e.g. `3.0.20250910`)
+- `2.0.<DATE>` (e.g., `2.0.20251010`)
+- `3.0.<DATE>` (e.g., `3.0.20250910`)
 
 Added in v1.1.
 
-## variant [[ociPlatform](ociplatform.md)]
+## variant [string]
 
 Specifies the variant of the Azure Linux image to use as the base image.
 

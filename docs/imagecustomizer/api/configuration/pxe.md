@@ -59,7 +59,7 @@ Supported options:
 
 - `bootstrap`: Creates a minimal Dracut-based initramfs image that later
   transitions to the full OS. The full OS is packaged in a separate image
-  and is included on in the PXE artifacts folder for the initramfs to find it.
+  and is included in the PXE artifacts folder for the initramfs to find it.
   This option allows the generated PXE artifacts to boot on hardware that has
   memory restrictions on the initramfs image size.
 - `full-os`: Creates a full OS initramfs image.
@@ -122,7 +122,7 @@ pxe:
 A file named `my-bootstrap.iso` will be placed at the root of the PXE artifacts
 folder.
 
-The supported download protocols are: nfs, http, https, ftp, torent, tftp.
+The supported download protocols are: nfs, http, https, ftp, torrent, tftp.
 
 This field is mutually exclusive with `bootstrapBaseUrl`.
 

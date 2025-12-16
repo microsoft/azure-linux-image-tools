@@ -133,9 +133,9 @@ ExtraTrees=/path/to/custom-tool:/usr/bin/custom-tool,/path/to/tool-config:/usr/l
 #### [Output] Section
 - Format=sysext: Specifies that we are building a system extension image.
 - ImageId=custom-tools: Defines the image identifier, which is used in the output filename.
-- ImageVersion=1.0.0: (Optional)Sets the version number of the image, included in metadata and
+- ImageVersion=1.0.0: (Optional) Sets the version number of the image, included in metadata and
   the default filename.
-- OutputDirectory=mkosi.output: (Optional)Specifies the directory where the output file will be
+- OutputDirectory=mkosi.output: (Optional) Specifies the directory where the output file will be
   stored. If not specified, the current working directory will be used.
 
 #### [Validation] Section

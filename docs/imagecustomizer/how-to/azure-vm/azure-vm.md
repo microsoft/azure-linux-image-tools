@@ -20,9 +20,9 @@ In general, for web applications, it is better to use a dedicated hosting servic
 [Azure Kubernetes Service](https://learn.microsoft.com/en-us/azure/aks/what-is-aks)
 than managing the VMs directly.
 
-In addition, it is a good idea to stick both a load balancer (e.g.
+In addition, it is a good idea to stick both a load balancer (e.g.,
 [Azure Application Gateway](https://learn.microsoft.com/en-us/azure/application-gateway/overview))
-and a CDN (Content Delivery Network) (e.g.
+and a CDN (Content Delivery Network) (e.g.,
 [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview))
 in front of any HTTP endpoints.
 
