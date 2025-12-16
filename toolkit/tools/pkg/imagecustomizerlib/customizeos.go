@@ -5,6 +5,10 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -13,6 +17,12 @@ import (
 
 const (
 	buildTimeFormat = "2006-01-02T15:04:05Z"
+)
+
+var (
+	ErrUkiPassthroughKernelModified = NewImageCustomizerError("UKI:PassthroughKernelModified",
+		"kernel binaries detected in /boot after package operations. "+
+			"Use 'mode: create' to regenerate UKIs with updated kernels")
 )
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
@@ -29,6 +39,25 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
+	// If UKI mode is 'create' and base image has UKIs, extract kernel and
+	// initramfs from existing UKIs for re-customization. For 'passthrough'
+	// mode, we skip extraction to preserve existing UKIs.
+	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate {
+		// Check if base image has UKIs to determine if extraction is needed
+		hasUkis, err := baseImageHasUkis(imageChroot)
+		if err != nil {
+			return err
+		}
+
+		if hasUkis {
+			// Base image has UKIs and mode is create - extract for re-customization
+			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
@@ -40,6 +69,17 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			snapshotTime)
 		if err != nil {
 			return err
+		}
+	}
+
+	// If UKI passthrough mode, verify no kernel binaries appeared in /boot
+	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
+		hasKernels, err := hasKernelBinariesInBoot(imageChroot.RootDir())
+		if err != nil {
+			return err
+		}
+		if hasKernels {
+			return ErrUkiPassthroughKernelModified
 		}
 	}
 
@@ -106,7 +146,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	selinuxMode, err := handleSELinux(ctx, rc.SELinux.Mode, rc.BootLoader.ResetType, imageChroot)
+	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.SELinux.Mode, rc.BootLoader.ResetType,
+		imageChroot)
 	if err != nil {
 		return err
 	}
@@ -164,4 +205,32 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	return nil
+}
+
+func hasKernelBinariesInBoot(rootDir string) (bool, error) {
+	bootDir := filepath.Join(rootDir, "boot")
+	entries, err := os.ReadDir(bootDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// /boot doesn't exist, no kernels
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to read /boot directory:\n%w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		// Check for kernel binaries: vmlinuz-* (e.g., vmlinuz-6.6.104.2-4.azl3)
+		if strings.HasPrefix(entry.Name(), "vmlinuz-") {
+			return true, nil
+		}
+		// Check for initramfs files: initramfs-*.img (e.g., initramfs-6.6.104.2-4.azl3.img)
+		if strings.HasPrefix(entry.Name(), "initramfs-") {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

@@ -536,7 +536,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	}
 
 	if rc.Uki != nil {
-		err = createUki(ctx, rc.BuildDirAbs, rc.RawImageFile)
+		err = createUki(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Uki)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}
@@ -701,6 +701,11 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		logger.Log.Infof("Base OS version: %s", version)
 		return nil
 	})
+
+	err = validateUkiMode(imageConnection, rc.Config)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
 
 	err = validateVerityMountPaths(imageConnection, rc.Config, partitionsLayout, baseImageVerityMetadata)
 	if err != nil {

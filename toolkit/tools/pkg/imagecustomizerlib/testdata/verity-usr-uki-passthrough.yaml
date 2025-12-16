@@ -1,0 +1,10 @@
+previewFeatures:
+- uki
+- reinitialize-verity
+
+storage:
+  reinitializeVerity: none
+
+os:
+  uki:
+    mode: passthrough

@@ -9,46 +9,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUkiIsValid(t *testing.T) {
+func TestUkiIsValidWithCreate(t *testing.T) {
 	validUki := Uki{
-		Kernels: UkiKernels{
-			Auto: false,
-			Kernels: []string{
-				"6.6.51.1-5.azl3",
-				"5.10.120-4.custom",
-			},
-		},
+		Mode: UkiModeCreate,
 	}
 
 	err := validUki.IsValid()
 	assert.NoError(t, err)
 }
 
-func TestUkiIsValidWithAuto(t *testing.T) {
+func TestUkiIsValidWithPassthrough(t *testing.T) {
 	validUki := Uki{
-		Kernels: UkiKernels{
-			Auto:    true,
-			Kernels: nil, // Auto mode does not require explicit kernel versions
-		},
+		Mode: UkiModePassthrough,
 	}
 
 	err := validUki.IsValid()
 	assert.NoError(t, err)
 }
 
-func TestUkiKernelsIsValidInvalidKernelList(t *testing.T) {
+func TestUkiIsValidWithUnspecified(t *testing.T) {
+	validUki := Uki{
+		Mode: UkiModeUnspecified,
+	}
+
+	err := validUki.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestUkiIsValidInvalidMode(t *testing.T) {
 	invalidUki := Uki{
-		Kernels: UkiKernels{
-			Auto: false,
-			Kernels: []string{
-				"6.6.51.1-5.azl3",
-				"invalid-kernel-version",
-			},
-		},
+		Mode: UkiMode("invalid-mode"),
 	}
 
 	err := invalidUki.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "invalid kernel version at index 1:")
-	assert.ErrorContains(t, err, "invalid kernel version format (invalid-kernel-version)")
+	assert.ErrorContains(t, err, "invalid uki mode value (invalid-mode)")
 }

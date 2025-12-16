@@ -68,7 +68,7 @@ os:
     - rd.info
 
   uki:
-    kernels: auto
+    mode: create
 
   packages:
     remove:

@@ -62,6 +62,159 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
 }
 
+func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	}
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageUsrVerityUkiRecustomize")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	if !ok {
+		return
+	}
+
+	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
+	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	newUkiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil)
+	if !ok {
+		return
+	}
+
+	for ukiFile := range ukiFilesChecksums {
+		oldChecksum := ukiFilesChecksums[ukiFile]
+		newChecksum, exists := newUkiFilesChecksums[ukiFile]
+		assert.True(t, exists, "UKI file should exist after re-customization: %s", ukiFile)
+		assert.NotEqual(t, oldChecksum, newChecksum, "UKI checksum should change after verity re-initialization: %s", ukiFile)
+	}
+
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   5,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath2, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	bootEntries, err := os.ReadDir(bootPath)
+	assert.NoError(t, err)
+
+	// /boot should only contain "efi" and optionally "lost+found" directories.
+	assert.LessOrEqual(t, len(bootEntries), 2, "/boot should contain at most 2 entries: 'efi' and 'lost+found'")
+
+	// Verify all entries are either "efi" or "lost+found"
+	hasEfi := false
+	for _, entry := range bootEntries {
+		assert.True(t, entry.Name() == "efi" || entry.Name() == "lost+found",
+			"unexpected entry in /boot: %s (expected only 'efi' and 'lost+found')", entry.Name())
+		assert.True(t, entry.IsDir(), "%s should be a directory", entry.Name())
+		if entry.Name() == "efi" {
+			hasEfi = true
+		}
+	}
+	assert.True(t, hasEfi, "/boot must contain the 'efi' directory")
+}
+
+func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
+	baseImageInfo := testBaseImageAzl3CoreEfi
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	ukifyExists, err := file.CommandExists("ukify")
+	assert.NoError(t, err)
+	if !ukifyExists {
+		t.Skip("The 'ukify' command is not available")
+	}
+
+	if runtime.GOARCH == "arm64" {
+		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
+	}
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageUsrVerityUkiPassthrough")
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	if !ok {
+		return
+	}
+
+	outImageFilePath2 := filepath.Join(testTempDir, "image-passthrough.raw")
+	configFile2 := filepath.Join(testDir, "verity-usr-uki-passthrough.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	passthroughUkiChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	if !ok {
+		return
+	}
+
+	// Verify UKI checksums are unchanged.
+	for ukiFile := range ukiFilesChecksums {
+		originalChecksum := ukiFilesChecksums[ukiFile]
+		passthroughChecksum, exists := passthroughUkiChecksums[ukiFile]
+		assert.True(t, exists, "UKI file should exist after passthrough customization: %s", ukiFile)
+		assert.Equal(t, originalChecksum, passthroughChecksum,
+			"UKI checksum MUST NOT change in passthrough mode: %s", ukiFile)
+	}
+}
+
 func TestCustomizeImageVerityRootUki(t *testing.T) {
 	baseImageInfo := testBaseImageAzl3CoreEfi
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
@@ -228,6 +381,11 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
 	}
 
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, false
+	}
+
 	return ukiFilesChecksums, true
 }
 
@@ -334,6 +492,11 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 		// Note: This indirectly also checks that the verity partitions haven't changed since the UKIs contain the
 		// verity root hash in the kernel command-line args.
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
+	}
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, false
 	}
 
 	return ukiFilesChecksums, true
