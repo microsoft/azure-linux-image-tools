@@ -143,12 +143,20 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 	bootEntries, err := os.ReadDir(bootPath)
 	assert.NoError(t, err)
 
-	// /boot should only contain the "efi" directory.
-	assert.Equal(t, 1, len(bootEntries), "/boot should only contain the 'efi' directory")
-	if len(bootEntries) == 1 {
-		assert.Equal(t, "efi", bootEntries[0].Name(), "/boot should only contain the 'efi' directory")
-		assert.True(t, bootEntries[0].IsDir(), "'efi' should be a directory")
+	// /boot should only contain "efi" and optionally "lost+found" directories.
+	assert.LessOrEqual(t, len(bootEntries), 2, "/boot should contain at most 2 entries: 'efi' and 'lost+found'")
+
+	// Verify all entries are either "efi" or "lost+found"
+	hasEfi := false
+	for _, entry := range bootEntries {
+		assert.True(t, entry.Name() == "efi" || entry.Name() == "lost+found",
+			"unexpected entry in /boot: %s (expected only 'efi' and 'lost+found')", entry.Name())
+		assert.True(t, entry.IsDir(), "%s should be a directory", entry.Name())
+		if entry.Name() == "efi" {
+			hasEfi = true
+		}
 	}
+	assert.True(t, hasEfi, "/boot must contain the 'efi' directory")
 }
 
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
