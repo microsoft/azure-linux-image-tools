@@ -188,8 +188,6 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 	filesToInstall := map[string]string{
 		resources.VerityMountBootPartitionSetupFile:     filepath.Join(targetDir, "module-setup.sh"),
 		resources.VerityMountBootPartitionGeneratorFile: filepath.Join(targetDir, "mountbootpartition-generator.sh"),
-		resources.VerityMountBootPartitionGenRulesFile:  filepath.Join(targetDir, "mountbootpartition-genrules.sh"),
-		resources.VerityMountBootPartitionScriptFile:    filepath.Join(targetDir, "mountbootpartition.sh"),
 	}
 
 	for src, dst := range filesToInstall {

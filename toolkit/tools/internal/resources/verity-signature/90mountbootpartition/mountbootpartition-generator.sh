@@ -1,81 +1,41 @@
 #!/bin/sh
 
-set -x
-set -e
+echo "mountbootpartition-generator.sh: Running" > /dev/kmsg
 
-echo "Running mountbootpartition-generator.sh" > /dev/kmsg
+command -v getarg > /dev/null || . /lib/dracut-lib.sh
 
-# type getarg > /dev/null 2>&1 || . /lib/dracut-lib.sh
+# systemd provides a directory to place the generated unit files.
+outputDir="$1"
 
-function updateVeritySetupUnit () {
-    systemdDropInDir=/etc/systemd/system
-    verityDropInDir=$systemdDropInDir/systemd-veritysetup@usr.service.d
+bootPartitionUuid=$(getarg pre.verity.mount) || bootPartitionUuid=""
+if [[ -z "$bootPartitionUuid" ]]; then
+    echo "mountbootpartition-generator.sh: cmdline arg pre.verity.mount is not specified" > /dev/kmsg
+    exit 0
+fi
 
-    mkdir -p $verityDropInDir
-    verityConfiguration=$verityDropInDir/verity-azl-extension.conf
+echo "mountbootpartition-generator.sh: Adding boot.mount" > /dev/kmsg
 
-    cat <<EOF > $verityConfiguration
+bootMountMonitorUnitFile="$outputDir/boot.mount"
+
+cat <<EOF > $bootMountMonitorUnitFile
 [Unit]
-After=bootmountmonitor.service
-Requires=bootmountmonitor.service
+Description=/boot
+RequiresMountsFor=/dev/disk/by-uuid/$bootPartitionUuid
+After=dev-disk-by\\x2duuid-${bootPartitionUuid//-/\\x2d}.device
+Before=veritysetup-pre.target
+Wants=veritysetup-pre.target
+
+[Mount]
+What=UUID=$bootPartitionUuid
+Where=/boot
+Options=ro
 EOF
 
-    chmod 644 $verityConfiguration
-    chown root:root $verityConfiguration
-}
+echo "mountbootpartition-generator.sh: Enabling boot.mount" > /dev/kmsg
 
-# -----------------------------------------------------------------------------
-function createBootPartitionMonitorScript () {
-    local bootPartitionMonitorCmd=$1
-    local semaphorefile=$2
+enableDir="$outputDir/local-fs.target.wants"
+mkdir -p "$enableDir"
 
-    cat <<EOF > $bootPartitionMonitorCmd
-#!/bin/sh
-while [ ! -e "$semaphorefile" ]; do
-    echo "Waiting for $semaphorefile to exist..."
-    sleep 1
-done    
-EOF
-    chmod +x $bootPartitionMonitorCmd
-}
+ln -s "$bootMountMonitorUnitFile" "$enableDir"
 
-# -----------------------------------------------------------------------------
-function createBootPartitionMonitorUnit() {
-    local bootPartitionMonitorCmd=$1
-
-    bootMountMonitorName="bootmountmonitor.service"
-    systemdDropInDir=/etc/systemd/system
-    bootMountMonitorDir=$systemdDropInDir
-    bootMountMonitorUnitFile=$bootMountMonitorDir/$bootMountMonitorName
-
-    cat <<EOF > $bootMountMonitorUnitFile
-[Unit]
-Description=bootpartitionmounter
-DefaultDependencies=no
-
-[Service]
-Type=oneshot
-ExecStart=$bootPartitionMonitorCmd
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-}
-
-# -----------------------------------------------------------------------------
-
-updateVeritySetupUnit
-
-systemdScriptsDir=/usr/local/bin
-bootPartitionMonitorCmd=$systemdScriptsDir/boot-partition-monitor.sh
-semaphorefile=/run/boot-parition-mount-complete.sem
-
-mkdir -p $systemdScriptsDir
-
-# ToDo: we should generate this boot mounting logic only when it is needed -
-#       i.e. by reading kernel command line parameters.
-createBootPartitionMonitorScript $bootPartitionMonitorCmd $semaphorefile
-createBootPartitionMonitorUnit $bootPartitionMonitorCmd
-
-echo "mountbootpartition-generator.sh completed successfully." > /dev/kmsg
+echo "mountbootpartition-generator.sh: Added /boot mount" > /dev/kmsg
