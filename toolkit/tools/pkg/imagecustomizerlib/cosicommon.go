@@ -42,7 +42,7 @@ type ImageBuildData struct {
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
-	cosiBootMetadata *CosiBootloader,
+	cosiBootMetadata *CosiBootloader, compressionLevel int, compressionLong int,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -59,7 +59,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	defer imageLoopback.Close()
 
 	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
-		"raw-zst", imageUuid)
+		"raw-zst", imageUuid, compressionLevel, compressionLong)
 	if err != nil {
 		return err
 	}

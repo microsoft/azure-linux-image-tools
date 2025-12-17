@@ -83,3 +83,12 @@ Supported options:
   later consumed via the `inject-files` CLI command.
 
   Added in v0.14.
+
+- `cosi-compression`: Enables custom compression settings for COSI output images.
+
+  When this option is specified, the `--cosi-compression-level` CLI flag becomes
+  available for the `inject-files` subcommand.
+
+  See [cosiCompression](./cosiCompression.md) for more details.
+
+  Added in v1.2.
