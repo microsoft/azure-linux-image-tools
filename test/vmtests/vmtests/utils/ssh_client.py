@@ -186,6 +186,7 @@ class SshClient:
         self.ssh_client = SSHClient()
 
         # Handle known hosts.
+        # CodeQL [SM03116] Test code + VMs are dynamically generated
         self.ssh_client.set_missing_host_key_policy(AutoAddPolicy)
         if known_hosts_path:
             self.ssh_client.load_host_keys(str(known_hosts_path))
