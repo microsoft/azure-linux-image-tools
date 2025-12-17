@@ -1,0 +1,202 @@
+======================================================================
+ANALYSIS: Why 22 Mandatory OnPrem Packages Missing from amazon-hyperv-image.yaml
+======================================================================
+
+---
+PACKAGE: amazon-linux-repo-cdn
+REASON: Amazon Linux-specific repository configuration
+  → Not applicable to Fedora-based build
+  → Using Fedora repositories instead
+
+---
+PACKAGE: bind-utils
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - bind
+
+---
+PACKAGE: cloud-init-cfg-onprem
+REASON: Parent package present instead
+  → Found: cloud-init (provides cloud-init-cfg-onprem functionality)
+
+---
+PACKAGE: cloud-utils-growpart
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - cloud-init
+    - cloud-utils
+
+---
+PACKAGE: curl-minimal
+REASON: Parent package present instead
+  → Found: curl (provides curl-minimal functionality)
+
+---
+PACKAGE: cyrus-sasl-plain
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - cyrus-sasl
+
+---
+PACKAGE: dracut-config-generic
+REASON: Configuration package for dracut
+  → Found: dracut (may have different config approach)
+
+---
+PACKAGE: glibc-all-langpacks
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - glibc
+
+---
+PACKAGE: glibc-locale-source
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - glibc
+
+---
+PACKAGE: gnupg2-minimal
+REASON: Parent package present instead
+  → Found: gnupg2 (provides gnupg2-minimal functionality)
+
+---
+PACKAGE: kernel-livepatch-repo-cdn
+REASON: Amazon Linux-specific kernel livepatch repository
+  → Not applicable to Fedora-based build
+
+---
+PACKAGE: kernel-tools
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - kernel
+    - kernel-srpm-macros
+
+---
+PACKAGE: libcurl-minimal
+REASON: Minimal variant not needed
+
+---
+PACKAGE: ntsysv
+REASON: Legacy System V service management tool
+  → Using systemd instead (systemd-based management)
+  → Found: systemd (modern service management)
+
+---
+PACKAGE: openssh-clients
+REASON: Parent package present instead
+  → Found: openssh (provides openssh-clients functionality)
+
+---
+PACKAGE: openssh-server
+REASON: Parent package present instead
+  → Found: openssh (provides openssh-server functionality)
+
+---
+PACKAGE: python3-cryptography
+REASON: Not included in Fedora-based build
+  → Related packages found:
+    - python3.9
+
+---
+PACKAGE: rpm-plugin-systemd-inhibit
+REASON: RPM plugin for systemd integration
+  → Found: rpm (main package present, plugin may not be needed)
+
+---
+PACKAGE: selinux-policy-targeted
+REASON: Specific SELinux policy variant
+    - selinux-policy
+  → Using different SELinux policy variant
+
+---
+PACKAGE: systemd-resolved
+REASON: Sub-package of systemd
+  → Found: systemd (includes systemd-resolved)
+  → Note: May need explicit installation for DNS resolution
+
+---
+PACKAGE: vim-minimal
+REASON: Parent package present instead
+  → Found: vim (provides vim-minimal functionality)
+
+---
+PACKAGE: yum
+REASON: Replaced by dnf
+  → Found: dnf (yum successor, provides yum compatibility)
+
+
+
+======================================================================
+ANALYSIS: OnPrem Default Packages vs amazon-hyperv-image.yaml
+======================================================================
+
+Total Default packages in OnPrem group: 31
+
+PRESENT Default Packages:
+----------------------------------------------------------------------
+  ✓ bash-completion
+  ✓ binutils
+  ✓ bzip2
+  ✓ cryptsetup
+  ✓ dosfstools
+  ✓ ethtool
+  ✓ hunspell
+  ✓ hunspell-en
+  ✓ kpatch-runtime
+  ✓ libaio
+  ✓ libstoragemgmt
+  ✓ man-pages
+  ✓ nano
+  ✓ rsync
+  ✓ strace
+  ✓ sysstat
+  ✓ tcpdump
+  ✓ tcsh
+  ✓ time
+  ✓ unzip
+  ✓ wget
+  ✓ which
+  ✓ words
+  ✓ xfsdump
+  ✓ xz
+  ✓ zip
+
+MISSING Default Packages with Reasons:
+----------------------------------------------------------------------
+
+[1] PACKAGE: dnf-utils
+    REASON: Utility collection for dnf
+    → Found: dnf (main package present)
+    → dnf-utils provides extras like package-cleanup, repoquery
+    → Core dnf functionality already available
+
+[2] PACKAGE: perl-interpreter
+    REASON: May have different perl package
+    - perl
+    - perl-Carp
+
+[3] PACKAGE: sssd-client
+    REASON: System Security Services Daemon client
+    → Used for LDAP/AD integration, identity management
+    → Not needed for standalone systems
+    → Can be added for domain-joined environments
+
+[4] PACKAGE: systemtap-runtime
+    REASON: SystemTap runtime for kernel tracing/debugging
+    → Advanced debugging/profiling tool
+    → Not needed for production systems
+    → Large package, adds significant overhead
+
+[5] PACKAGE: vim-enhanced
+    REASON: Full-featured vim variant
+    - nano
+    - vim
+    → Alternative editors present (vim or nano)
+    → vim-enhanced adds GUI support, syntax highlighting
+
+======================================================================
+SUMMARY:
+  Present: 26 / 31
+  Missing: 5 / 31
+  Coverage: 83%
+======================================================================

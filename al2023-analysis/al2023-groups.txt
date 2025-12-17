@@ -1,0 +1,1053 @@
+System Base Groups:
+
+1. Core - Absolute minimal (5 packages: basesystem, bash, ca-certificates, coreutils, system-release)
+2. Container - For Docker/Podman containers
+3. Base (minimal) - Minimal system installation
+4. Base - Standard base system
+
+Cloud/VM Image Groups:
+
+5. AMI (minimal) - Minimal AWS EC2 image
+6. AMI (minimal, kernel 6.12) - Minimal AWS EC2 with newer kernel
+7. AMI - Full AWS EC2 image
+8. AMI (kernel 6.12) - Full AWS EC2 with newer kernel
+9. OnPrem (minimal) - Minimal on-premises/Hyper-V/VMware image (57 packages)
+10. OnPrem - Full on-premises/Hyper-V/VMware image
+
+Development/Tools Groups:
+11. AWS Tools - AWS CLI and tools
+12. Development Tools - Compilers, build tools (gcc, make, etc.)
+13. buildsys-build - Package building tools
+14. Desktop - Desktop environment packages
+
+Example to explain different kinds of pkgs in a group
+
+
+# Install only mandatory packages
+dnf group install "Base" --no-default
+
+# Install mandatory + default packages (standard behavior)
+dnf group install "Base"
+
+# Install mandatory + default + optional packages
+dnf group install "Base" --with-optional
+
+# Install mandatory + specific optional packages
+dnf group install "Base"
+dnf install acpid zsh  # install optional packages separately
+
+
+=== Core ===
+Amazon Linux 2023 repository                     59 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:47:53 2025.
+Group: Core
+ Description: Smallest common package set of an Amazon Linux image.
+ Mandatory Packages:
+   basesystem
+   bash
+   ca-certificates
+   coreutils
+   system-release
+
+=== Container ===
+Amazon Linux 2023 repository                     24 MB/s |  49 MB     00:02    
+Last metadata expiration check: 0:00:10 ago on Wed Dec  3 21:48:03 2025.
+Group: Container
+ Description: Packages needed to run Amazon Linux in a container.
+ Mandatory Packages:
+   amazon-linux-repo-cdn
+   basesystem
+   bash
+   ca-certificates
+   coreutils-single
+   curl-minimal
+   dnf
+   dnf-data
+   glibc-minimal-langpack
+   gnupg2-minimal
+   libcurl-minimal
+   system-release
+   yum
+
+=== Base (minimal) ===
+Amazon Linux 2023 repository                     84 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:48:13 2025.
+Group: Base (minimal)
+ Description: The basic minimal install of Amazon Linux.
+ Mandatory Packages:
+   audit
+   basesystem
+   bash
+   ca-certificates
+   chrony
+   cloud-utils-growpart
+   coreutils
+   curl-minimal
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-generic
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   less
+   libcurl-minimal
+   man-db
+   ncurses
+   openssh-clients
+   openssh-server
+   passwd
+   policycoreutils
+   procps-ng
+   psmisc
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-resolved
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+
+=== Base ===
+Amazon Linux 2023 repository                     96 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:08 ago on Wed Dec  3 21:48:23 2025.
+Group: Base
+ Description: The basic install of Amazon Linux.
+ Mandatory Packages:
+   acl
+   at
+   attr
+   audit
+   basesystem
+   bash
+   bc
+   bind-utils
+   ca-certificates
+   chrony
+   cloud-utils-growpart
+   coreutils
+   cpio
+   crontabs
+   curl-minimal
+   cyrus-sasl-plain
+   dbus
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-generic
+   ed
+   file
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel-tools
+   less
+   libcurl-minimal
+   logrotate
+   lsof
+   man-db
+   ncurses
+   net-tools
+   nfs-utils
+   ntsysv
+   openssh-clients
+   openssh-server
+   parted
+   passwd
+   pciutils
+   policycoreutils
+   procps-ng
+   psacct
+   psmisc
+   quota
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   screen
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-resolved
+   traceroute
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+ Default Packages:
+   bash-completion
+   binutils
+   bzip2
+   cryptsetup
+   dnf-utils
+   dosfstools
+   ethtool
+   hunspell
+   hunspell-en
+   kpatch-runtime
+   libaio
+   libstoragemgmt
+   man-pages
+   nano
+   perl-interpreter
+   rsync
+   sssd-client
+   strace
+   sysstat
+   systemtap-runtime
+   tcpdump
+   tcsh
+   time
+   unzip
+   vim-enhanced
+   wget
+   which
+   words
+   xfsdump
+   xz
+   zip
+ Optional Packages:
+   acpid
+   audispd-plugins
+   augeas
+   cryptsetup-reencrypt
+   device-mapper-persistent-data
+   dos2unix
+   gpm
+   libcgroup
+   libcgroup-tools
+   libitm
+   logwatch
+   mtools
+   ncurses-term
+   oddjob
+   sgpio
+   squashfs-tools
+   star
+   uuidd
+   volume_key
+   zsh
+
+=== AMI (minimal) ===
+Amazon Linux 2023 repository                     52 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:49:47 2025.
+Group: AMI (minimal)
+ Description: The basic minimal install of Amazon Linux as an EC2 AMI.
+ Mandatory Packages:
+   amazon-ec2-net-utils
+   amazon-linux-repo-s3
+   audit
+   basesystem
+   bash
+   ca-certificates
+   chrony
+   cloud-init
+   cloud-init-cfg-ec2
+   cloud-utils-growpart
+   coreutils
+   curl-minimal
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-ec2
+   dracut-config-generic
+   ec2-utils
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel
+   kernel-livepatch-repo-s3
+   less
+   libcurl-minimal
+   man-db
+   ncurses
+   openssh-clients
+   openssh-server
+   passwd
+   policycoreutils
+   procps-ng
+   psmisc
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-networkd
+   systemd-resolved
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+   zstd
+
+=== AMI ===
+Amazon Linux 2023 repository                     25 MB/s |  49 MB     00:01    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:50:00 2025.
+Group: AMI
+ Description: The basic install of Amazon Linux as an EC2 AMI.
+ Mandatory Packages:
+   acl
+   amazon-ec2-net-utils
+   amazon-linux-repo-s3
+   amazon-ssm-agent
+   at
+   attr
+   audit
+   aws-cfn-bootstrap
+   awscli-2
+   basesystem
+   bash
+   bc
+   bind-utils
+   ca-certificates
+   chrony
+   cloud-init
+   cloud-init-cfg-ec2
+   cloud-utils-growpart
+   coreutils
+   cpio
+   crontabs
+   curl-minimal
+   cyrus-sasl-plain
+   dbus
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-ec2
+   dracut-config-generic
+   ec2-utils
+   ed
+   file
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hibagent
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel
+   kernel-livepatch-repo-s3
+   kernel-tools
+   less
+   libcurl-minimal
+   logrotate
+   lsof
+   man-db
+   ncurses
+   net-tools
+   nfs-utils
+   ntsysv
+   openssh-clients
+   openssh-server
+   parted
+   passwd
+   pciutils
+   policycoreutils
+   procps-ng
+   psacct
+   psmisc
+   python3-cryptography
+   quota
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   screen
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-networkd
+   systemd-resolved
+   traceroute
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+   zstd
+ Default Packages:
+   bash-completion
+   binutils
+   bzip2
+   cryptsetup
+   dnf-utils
+   dosfstools
+   ec2-hibinit-agent
+   ec2-instance-connect
+   ethtool
+   hunspell
+   hunspell-en
+   kpatch-runtime
+   libaio
+   libstoragemgmt
+   man-pages
+   nano
+   perl-interpreter
+   rsync
+   sssd-client
+   strace
+   sysstat
+   systemtap-runtime
+   tcpdump
+   tcsh
+   time
+   unzip
+   vim-enhanced
+   wget
+   which
+   words
+   xfsdump
+   xz
+   zip
+ Optional Packages:
+   acpid
+   audispd-plugins
+   augeas
+   cryptsetup-reencrypt
+   device-mapper-persistent-data
+   dos2unix
+   gpm
+   libcgroup
+   libcgroup-tools
+   libitm
+   logwatch
+   mtools
+   ncurses-term
+   oddjob
+   sgpio
+   squashfs-tools
+   star
+   uuidd
+   volume_key
+   zsh
+
+=== AWS Tools ===
+Amazon Linux 2023 repository                     79 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:50:16 2025.
+Group: AWS Tools
+ Description: Libraries and utilities for interacting with AWS.
+ Mandatory Packages:
+   awscli-2
+   python3-cryptography
+
+=== Development Tools ===
+Amazon Linux 2023 repository                     72 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:08 ago on Wed Dec  3 21:50:34 2025.
+Group: Development Tools
+ Description: A basic development environment.
+ Mandatory Packages:
+   autoconf
+   automake
+   binutils
+   bison
+   flex
+   gcc
+   gcc-c++
+   gettext
+   libtool
+   make
+   patch
+   pkgconfig
+   rpm-build
+   rpm-sign
+   system-rpm-config
+ Default Packages:
+   byacc
+   cscope
+   ctags
+   diffstat
+   doxygen
+   elfutils
+   gcc-gfortran
+   git
+   indent
+   intltool
+   patchutils
+   rcs
+   subversion
+   swig
+   systemtap
+ Optional Packages:
+   ElectricFence
+   ant
+   babel
+   bzr
+   chrpath
+   cmake
+   cvs
+   dejagnu
+   expect
+   gcc-gnat
+   imake
+   javapackages-tools
+   libstdc++-docs
+   mercurial
+   mod_dav_svn
+   nasm
+   perltidy
+   python-docs
+   python2-rpm
+   rpmdevtools
+   rpmlint
+   systemtap-sdt-devel
+   systemtap-server
+
+=== buildsys-build ===
+Amazon Linux 2023 repository                     94 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:08 ago on Wed Dec  3 21:50:50 2025.
+Group: buildsys-build
+ Description: The base set of packages for a mock chroot
+ Mandatory Packages:
+   bash
+   bzip2
+   coreutils
+   cpio
+   diffutils
+   file
+   findutils
+   gawk
+   gcc
+   gcc-c++
+   git
+   glibc-all-langpacks
+   glibc-locale-source
+   grep
+   gzip
+   info
+   kernel
+   kernel-devel
+   make
+   patch
+   python-rpm-macros
+   python3-rpm-macros
+   rpm-build
+   rpmdevtools
+   sed
+   shadow-utils
+   system-release
+   system-rpm-config
+   tar
+   unzip
+   util-linux
+   wget
+   which
+   xz
+
+=== Desktop ===
+Amazon Linux 2023 repository                     67 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:51:00 2025.
+Group: Desktop
+ Description: Package set for AL2023 Desktop.
+ Mandatory Packages:
+   gdm
+   gnome-backgrounds
+   gnome-menus
+   tigervnc
+   tigervnc-server
+ Default Packages:
+   dconf-editor
+   firefox
+   gnome-calculator
+   gnome-extensions-app
+   gnome-system-monitor
+   gnome-text-editor
+   gnome-tweaks
+   loupe
+   nautilus
+   papers
+   ptyxis
+   seahorse
+ Optional Packages:
+   gnome-remote-desktop
+   gnome-shell-extension-apps-menu
+   gnome-shell-extension-auto-move-windows
+   gnome-shell-extension-common
+   gnome-shell-extension-dash-to-dock
+   gnome-shell-extension-drive-menu
+   gnome-shell-extension-launch-new-instance
+   gnome-shell-extension-light-style
+   gnome-shell-extension-native-window-placement
+   gnome-shell-extension-places-menu
+   gnome-shell-extension-screenshot-window-sizer
+   gnome-shell-extension-status-icons
+   gnome-shell-extension-system-monitor
+   gnome-shell-extension-user-theme
+   gnome-shell-extension-window-list
+   gnome-shell-extension-windowsNavigator
+   gnome-shell-extension-workspace-indicator
+
+=== OnPrem (minimal) ===
+Amazon Linux 2023 repository                     65 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:08 ago on Wed Dec  3 21:53:09 2025.
+Group: OnPrem (minimal)
+ Description: The basic minimal install of Amazon Linux in OnPrem Images.
+ Mandatory Packages:
+   amazon-linux-onprem
+   amazon-linux-repo-cdn
+   amazon-ssm-agent
+   audit
+   basesystem
+   bash
+   ca-certificates
+   chrony
+   cloud-init
+   cloud-init-cfg-onprem
+   cloud-utils-growpart
+   coreutils
+   curl-minimal
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-generic
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel-livepatch-repo-cdn
+   less
+   libcurl-minimal
+   man-db
+   ncurses
+   openssh-clients
+   openssh-server
+   passwd
+   policycoreutils
+   procps-ng
+   psmisc
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-resolved
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+
+=== OnPrem ===
+Amazon Linux 2023 repository                     59 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:53:21 2025.
+Group: OnPrem
+ Description: The basic install of Amazon Linux in OnPrem Images.
+ Mandatory Packages:
+   acl
+   amazon-linux-onprem
+   amazon-linux-repo-cdn
+   amazon-ssm-agent
+   at
+   attr
+   audit
+   awscli-2
+   basesystem
+   bash
+   bc
+   bind-utils
+   ca-certificates
+   chrony
+   cloud-init
+   cloud-init-cfg-onprem
+   cloud-utils-growpart
+   coreutils
+   cpio
+   crontabs
+   curl-minimal
+   cyrus-sasl-plain
+   dbus
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-generic
+   ed
+   file
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel-livepatch-repo-cdn
+   kernel-tools
+   less
+   libcurl-minimal
+   logrotate
+   lsof
+   man-db
+   ncurses
+   net-tools
+   nfs-utils
+   ntsysv
+   openssh-clients
+   openssh-server
+   parted
+   passwd
+   pciutils
+   policycoreutils
+   procps-ng
+   psacct
+   psmisc
+   python3-cryptography
+   quota
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   screen
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-resolved
+   traceroute
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+ Default Packages:
+   bash-completion
+   binutils
+   bzip2
+   cryptsetup
+   dnf-utils
+   dosfstools
+   ethtool
+   hunspell
+   hunspell-en
+   kpatch-runtime
+   libaio
+   libstoragemgmt
+   man-pages
+   nano
+   perl-interpreter
+   rsync
+   sssd-client
+   strace
+   sysstat
+   systemtap-runtime
+   tcpdump
+   tcsh
+   time
+   unzip
+   vim-enhanced
+   wget
+   which
+   words
+   xfsdump
+   xz
+   zip
+ Optional Packages:
+   acpid
+   audispd-plugins
+   augeas
+   cryptsetup-reencrypt
+   device-mapper-persistent-data
+   dos2unix
+   gpm
+   libcgroup
+   libcgroup-tools
+   libitm
+   logwatch
+   mtools
+   ncurses-term
+   oddjob
+   sgpio
+   squashfs-tools
+   star
+   uuidd
+   volume_key
+   zsh
+
+=== AMI (minimal, kernel 6.12) ===
+Amazon Linux 2023 repository                     87 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:08 ago on Wed Dec  3 21:53:52 2025.
+Group: AMI (minimal, kernel 6.12)
+ Description: The basic minimal install of Amazon Linux as an EC2 AMI with kernel 6.12
+ Mandatory Packages:
+   amazon-ec2-net-utils
+   amazon-linux-repo-s3
+   audit
+   basesystem
+   bash
+   ca-certificates
+   chrony
+   cloud-init
+   cloud-init-cfg-ec2
+   cloud-utils-growpart
+   coreutils
+   curl-minimal
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-ec2
+   dracut-config-generic
+   ec2-utils
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel-livepatch-repo-s3
+   kernel6.12
+   less
+   libcurl-minimal
+   man-db
+   ncurses
+   openssh-clients
+   openssh-server
+   passwd
+   policycoreutils
+   procps-ng
+   psmisc
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-networkd
+   systemd-resolved
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+   zstd
+
+=== AMI (kernel 6.12) ===
+Amazon Linux 2023 repository                     89 MB/s |  49 MB     00:00    
+Last metadata expiration check: 0:00:09 ago on Wed Dec  3 21:54:02 2025.
+Group: AMI (kernel 6.12)
+ Description: The basic install of Amazon Linux as an EC2 AMI with kernel 6.12
+ Mandatory Packages:
+   acl
+   amazon-ec2-net-utils
+   amazon-linux-repo-s3
+   amazon-ssm-agent
+   at
+   attr
+   audit
+   aws-cfn-bootstrap
+   awscli-2
+   basesystem
+   bash
+   bc
+   bind-utils
+   ca-certificates
+   chrony
+   cloud-init
+   cloud-init-cfg-ec2
+   cloud-utils-growpart
+   coreutils
+   cpio
+   crontabs
+   curl-minimal
+   cyrus-sasl-plain
+   dbus
+   dnf
+   dnf-plugin-release-notification
+   dnf-plugin-support-info
+   dnf-plugins-core
+   dracut-config-ec2
+   dracut-config-generic
+   ec2-utils
+   ed
+   file
+   glibc
+   glibc-all-langpacks
+   glibc-locale-source
+   gnupg2-minimal
+   grubby
+   hibagent
+   hostname
+   initscripts
+   iproute
+   iputils
+   irqbalance
+   kernel-livepatch-repo-s3
+   kernel6.12
+   kernel6.12-tools
+   less
+   libcurl-minimal
+   logrotate
+   lsof
+   man-db
+   ncurses
+   net-tools
+   nfs-utils
+   ntsysv
+   openssh-clients
+   openssh-server
+   parted
+   passwd
+   pciutils
+   policycoreutils
+   procps-ng
+   psacct
+   psmisc
+   python3-cryptography
+   quota
+   rng-tools
+   rootfiles
+   rpm
+   rpm-plugin-systemd-inhibit
+   screen
+   selinux-policy-targeted
+   setup
+   shadow-utils
+   sudo
+   sysctl-defaults
+   system-release
+   systemd
+   systemd-networkd
+   systemd-resolved
+   traceroute
+   update-motd
+   util-linux
+   vim-minimal
+   xfsprogs
+   yum
+   zstd
+ Default Packages:
+   bash-completion
+   binutils
+   bzip2
+   cryptsetup
+   dnf-utils
+   dosfstools
+   ec2-hibinit-agent
+   ec2-instance-connect
+   ethtool
+   hunspell
+   hunspell-en
+   kpatch-runtime
+   libaio
+   libstoragemgmt
+   man-pages
+   nano
+   perl-interpreter
+   rsync
+   sssd-client
+   strace
+   sysstat
+   systemtap-runtime
+   tcpdump
+   tcsh
+   time
+   unzip
+   vim-enhanced
+   wget
+   which
+   words
+   xfsdump
+   xz
+   zip
+ Optional Packages:
+   acpid
+   audispd-plugins
+   augeas
+   cryptsetup-reencrypt
+   device-mapper-persistent-data
+   dos2unix
+   gpm
+   libcgroup
+   libcgroup-tools
+   libitm
+   logwatch
+   mtools
+   ncurses-term
+   oddjob
+   sgpio
+   squashfs-tools
+   star
+   uuidd
+   volume_key
+   zsh
