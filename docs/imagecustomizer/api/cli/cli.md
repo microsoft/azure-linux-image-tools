@@ -161,8 +161,8 @@ value is used.
 
 The directory path to output the SELinux policy files extracted from the customized
 image. The SELinux policy type is determined by reading the `SELINUXTYPE` value from
-`/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
-(e.g., `/etc/selinux/targeted`) will be extracted and copied to this location.
+`/etc/selinux/config` in the image (e.g. `targeted`), and the corresponding directory
+(e.g. `/etc/selinux/targeted`) will be extracted and copied to this location.
 
 If not specified, SELinux policy extraction is disabled.
 
@@ -194,7 +194,7 @@ Can be one of:
   If you wish to enable GPG signature checking, then use a repo file instead and set the
   `gpgkey` field within the repo file.
 
-- `*.repo` file path: A path to a RPM repo definition file.
+- `*.repo` file path: A path to an RPM repo definition file.
 
   The file name extension must be `.repo`.
 
@@ -208,7 +208,7 @@ Can be one of:
 
   The repo file will only be used during image customization and will not be added to
   the image.
-  If you want to add the repo file to the image, then use use
+  If you want to add the repo file to the image, then use
   [additionalFiles](../configuration/os.md#additionalfiles-additionalfile) to place
   the repo file under the `/etc/yum.repos.d` directory.
 
@@ -222,7 +222,7 @@ See, [Building custom packages](../../reference/building-packages.md) for a guid
 build your own packages for Azure Linux.
 
 See, [Cloning an RPM repo](../../reference/clone-rpm-repo.md) for how to clone or download
-RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
+RPMs from an existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
 Added in v0.3.
@@ -263,7 +263,7 @@ ensuring only packages available at that point in time are considered.
 Supports:
 
 - A date in `YYYY-MM-DD` format (interpreted as UTC midnight)
-- A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
+- A full RFC 3339 timestamp (e.g. `2024-05-20T23:59:59Z`)
 
 You may enable this feature by adding `package-snapshot-time` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.

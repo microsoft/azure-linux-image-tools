@@ -14,7 +14,7 @@ Requirements:
 
 Steps:
 
-1. Setup Python venv:
+1. Set up Python venv:
 
    ```sh
    make create-venv

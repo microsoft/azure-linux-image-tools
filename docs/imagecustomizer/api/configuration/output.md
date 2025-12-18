@@ -59,7 +59,7 @@ You must enable this feature by specifying `output-selinux-policy` in the
 
 Specifies the directory path where Image Customizer will output the SELinux policy
 files. The policy type is determined by reading the `SELINUXTYPE` value from
-`/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
+`/etc/selinux/config` in the image (e.g. `targeted`), and the corresponding directory
 from `/etc/selinux/<type>` is extracted.
 
 This field can be overridden by the
@@ -68,14 +68,14 @@ command line option. If both are provided, the command line value is used.
 
 The path can be either:
 
-- An absolute path (e.g., `/tmp/selinux-policy`)
-- A relative path to the configuration file's parent directory (e.g., `./selinux-policy`)
+- An absolute path (e.g. `/tmp/selinux-policy`)
+- A relative path to the configuration file's parent directory (e.g. `./selinux-policy`)
 
 If this field is not specified or is an empty string, SELinux policy extraction is
 disabled.
 
 The output directory will contain a subdirectory named after the `SELINUXTYPE` value
-(e.g., `targeted/`) with the complete SELinux policy structure, including:
+(e.g. `targeted/`) with the complete SELinux policy structure, including:
 
 - `policy/` – Compiled policy files
 - `contexts/` – SELinux context configurations

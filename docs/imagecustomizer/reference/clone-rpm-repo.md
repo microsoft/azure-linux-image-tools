@@ -113,7 +113,7 @@ Example RPM server using httpd/apache2:
    ```bash
    sudo apt update -y
    sudo apt install -y createrepo-c apache2
-   ````
+   ```
 
 2. Download the cached RPMs to a local directory.
 

@@ -7,7 +7,7 @@ nav_order: 1
 
 # Using the Image Creator
 
-## Prerequisities
+## Prerequisites
 
 - Linux host
 - Image creator binary downloaded. Check out [Developers Guide](../developer-guide.md) to learn how.
@@ -147,8 +147,6 @@ nav_order: 1
    The created image is placed in the file that you specified with the
    `--output-image-file` parameter. You can now use this image as you see fit.
    (For example, boot it in a Hyper-V VM.)
-
-## Next Steps
 
 - Learn more about the [Image creator command line](../api/cli.md)
 - Learn more about the [Image creator config options](../api/configuration/configuration.md)

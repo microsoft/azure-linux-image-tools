@@ -5,7 +5,7 @@ parent: Verity Image Recommendations
 
 # Verity and cloud-init
 
-cloud-init has various features to configure the system (e.g., user accounts,
+cloud-init has various features to configure the system (e.g. user accounts,
 networking, etc.), but many of these require the /etc directory to be writable.
 In verity-protected images with a read-only root filesystem, cloud-init cannot
 perform these configurations effectively.

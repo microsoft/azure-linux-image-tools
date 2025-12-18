@@ -53,7 +53,7 @@ The telemetry feature collects the following data:
 | Category          |Examples                                                                  |
 |-------------------|--------------------------------------------------------------------------|
 | Usage Metrics     | Number of image customizations, API call frequency, Number of Image Customizer downloads |
-| Environment Info  | Host OS (e.g., WSL, Ubuntu, Azure Linux), base image-format              |
+| Environment Info  | Host OS (e.g. WSL, Ubuntu, Azure Linux), base image-format              |
 | Performance       | Image creation success and failure rates, error codes, Time taken to create images |
 
 

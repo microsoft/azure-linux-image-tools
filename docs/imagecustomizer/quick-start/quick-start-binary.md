@@ -9,7 +9,7 @@ nav_order: 1
 
 Note: Using the [Image Customizer container](../quick-start/quick-start.md) is the recommended way to use Image Customizer.
 
-## Prerequisities
+## Prerequisites
 
 - Linux host
 - Image Customizer binary downloaded. Check out [Developers Guide](../developer-guide.md) to learn how.

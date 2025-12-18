@@ -169,7 +169,7 @@ The value must be:
 
   Added in v0.7.
   
-- `usr` for the usr partition (i.g. `/usr`).
+- `usr` for the usr partition (i.e. `/usr`).
 
   Added in v0.11.
 

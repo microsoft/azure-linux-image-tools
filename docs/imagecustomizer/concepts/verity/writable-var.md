@@ -5,7 +5,7 @@ parent: Verity Image Recommendations
 
 # Verity and `/var` Partition
 
-Many services  (e.g., auditd, docker, logrotate, etc.) require write access to
+Many services (e.g. auditd, docker, logrotate, etc.) require write access to
 the /var directory.
 
 ## Solution: Create a Writable Persistent /var Partition
