@@ -88,7 +88,7 @@ Then, it will proceed to customize it and then look for following:
 
 ### OS Modifications
 
-The user can customize the full OS using the Image Customizer the as usual (using
+The user can customize the full OS using the Image Customizer as usual (using
 the `os` section in the configuration). All those customizations will carry over
 into the Live OS naturally. This includes customizations for kernel modules,
 dracut, and other early boot-time actions.
@@ -97,7 +97,7 @@ While converting the input full disk image into a Live OS involves copying
 almost all the artifacts unchanged - some artifacts are changed as follows:
 
 - `grub.cfg` is modified by updating the kernel command-line arguments:
-  - If the root file system is bootstrapped (`initramfsType=boostrap`), the
+  - If the root file system is bootstrapped (`initramfsType=bootstrap`), the
     `root` value is updated to the location of the bootstrap root file system
     image (for example: `root=live:/liveos/image.img`).
   - If the root file system is the same as the initramfs (`initramfsType=full-os`),

@@ -22,7 +22,7 @@ using Image Customizer. The example below demonstrates installing Kubernetes
    Create a repository configuration file (e.g., `cloud-native-prod.repo`). The
    following example is based on the [cloud-native
    repo](https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/config.repo).
-   You can also setup your own repo, See [Clone rpm repo](../reference/clone-rpm-repo.md)
+   You can also set up your own repo, See [Clone rpm repo](../reference/clone-rpm-repo.md)
    for details.
 
    ```ini

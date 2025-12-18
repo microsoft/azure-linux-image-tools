@@ -100,7 +100,7 @@ Can be one of:
   If you wish to enable GPG signature checking, then use a repo file instead and set the
   `gpgkey` field within the repo file.
 
-- `*.repo` file path: A path to a RPM repo definition file.
+- `*.repo` file path: A path to an RPM repo definition file.
 
   The file name extension must be `.repo`.
 
@@ -114,7 +114,7 @@ Can be one of:
 
   The repo file will only be used during image creation and will not be added to
   the image.
-  If you want to add the repo file to the image, then use use
+  If you want to add the repo file to the image, then use
   [additionalFiles](../../imagecustomizer/api/configuration/os.md#additionalfiles-additionalfile) to
   place the repo file under the `/etc/yum.repos.d` directory.
 
@@ -124,7 +124,7 @@ See, [Building custom packages](../../imagecustomizer/reference/building-package
 how to build your own packages for Azure Linux.
 
 See, [Cloning an RPM repo](../../imagecustomizer/reference/clone-rpm-repo.md) for how to clone or download
-RPMs from a existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
+RPMs from an existing RPM repo (such as packages.microsoft.com). Using a cloned repo with
 `--rpm-source` can help your builds avoid dependencies on external resources.
 
 ## --log-level=LEVEL
