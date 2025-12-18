@@ -12,7 +12,7 @@ and actually do, grant us the rights to use your contribution. For details, visi
 <https://cla.microsoft.com>.
 
 When you submit a pull request, a CLA-bot will automatically determine whether you need
-to provide a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the
+to provide a CLA and decorate the PR appropriately (e.g. label, comment). Simply follow the
 instructions provided by the bot. You will only need to do this once across all repositories using our CLA.
 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
@@ -41,7 +41,7 @@ You should receive a response within 24 hours. If for some reason you do not, pl
 
 Please include the requested information listed below (as much as you can provide) to help us better understand the nature and scope of the possible issue:
 
-* Type of issue (e.g., buffer overflow, SQL injection, cross-site scripting, etc.)
+* Type of issue (e.g. buffer overflow, SQL injection, cross-site scripting, etc.)
 * Full paths of source file(s) related to the manifestation of the issue
 * The location of the affected source code (tag/branch/commit or direct URL)
 * Any special configuration required to reproduce the issue

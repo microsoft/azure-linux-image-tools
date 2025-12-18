@@ -54,7 +54,7 @@ The permissions to set on the children file of the directory. Default value: `75
 
 Supported formats for permission values:
 
-- String containing an octal value. e.g., `664`
+- String containing an octal value. e.g. `664`
 
 Example:
 

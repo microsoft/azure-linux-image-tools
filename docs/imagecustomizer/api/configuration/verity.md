@@ -165,11 +165,11 @@ The name of the device mapper block device.
 
 The value must be:
 
-- `root` for root partition (i.e., `/`).
+- `root` for root partition (i.e. `/`).
 
   Added in v0.7.
   
-- `usr` for the usr partition (i.e., `/usr`).
+- `usr` for the usr partition (i.e. `/usr`).
 
   Added in v0.11.
 

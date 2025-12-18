@@ -41,7 +41,7 @@ A properly formatted sysext image will typically contain:
 
 | Partition Name                   | Description                                                                 |
 |----------------------------------|-----------------------------------------------------------------------------|
-| Root Filesystem Partition        | Contains the extension's files (e.g., binaries, libraries, configurations). |
+| Root Filesystem Partition        | Contains the extension's files (e.g. binaries, libraries, configurations). |
 | Verity Hash Partition (optional) | Stores a Merkle tree hash of the root filesystem for dm-verity integrity.   |
 | Signature Partition (optional)   | Holds a digital signature verifying the integrity of the hash data.         |
 
@@ -107,7 +107,7 @@ Authority instead of a self-signed certificate.
   configurations. For format=sysext, mkosi is specifically using its own predefined
   repart definitions located at [mkosi/resources/repart/definitions/sysext.repart.d]
   (https://github.com/systemd/mkosi/tree/main/mkosi/resources/repart/definitions/sysext.repart.d)
-  If you need to modify the partition structure (e.g., to change filesystem types or
+  If you need to modify the partition structure (e.g. to change filesystem types or
   partition sizes), you'll need to edit the .conf files in the mkosi installation
   directory, which will be in the system paths if installed via package manager or in
   the cloned repository.)
@@ -260,7 +260,7 @@ the same mount point. They interact in a specific way that affects system behavi
 
 - Working with This Behavior:
 
-  You can access these binaries using their full paths (e.g., /usr/local/bin/custom-tool
+  You can access these binaries using their full paths (e.g. /usr/local/bin/custom-tool
   instead of just custom-tool)
   Alternatively, create symbolic links from a PATH-accessible directory to the actual
   binary locations

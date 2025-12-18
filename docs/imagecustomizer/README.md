@@ -28,13 +28,13 @@ and trade-offs:
 - **Lower overhead,** since you don't need to boot up and shutdown the OS.
 - **More precision when making changes,** since you won't see any side effects
   that come from the OS running.
-- The image has **fewer requirements** (e.g., ssh doesn't need to be installed).
+- The image has **fewer requirements** (e.g. ssh doesn't need to be installed).
 
 ### Limitations:
 
 - **Not all Linux tools play nicely when run under chroot.** For example, while
   it is possible to install Kubernetes using Image Customizer, initialization of
-  a Kubernetes cluster node must be done while the OS is running (e.g., using
+  a Kubernetes cluster node must be done while the OS is running (e.g. using
   cloud-init).
 
 ## Supported Hosts

@@ -135,8 +135,8 @@ nav_order: 1
    [Image creator command line](../api/cli.md)
 
    Note: If you are running in WSL (Windows Subsystem for Linux), then you should place the
-   `--build-dir` directory in the native Linux filesystem (e.g., `~/build`) instead of one of the
-   mounted Windows filesystems (e.g., `/mnt/c`). Otherwise, the tool will run very slowly due to I/O
+   `--build-dir` directory in the native Linux filesystem (e.g. `~/build`) instead of one of the
+   mounted Windows filesystems (e.g. `/mnt/c`). Otherwise, the tool will run very slowly due to I/O
    performance issues. However, it is fine for `--output-image-file` to be located in either a
    Windows or Linux filesystem.
 

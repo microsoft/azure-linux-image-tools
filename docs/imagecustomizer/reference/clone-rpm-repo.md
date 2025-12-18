@@ -14,7 +14,7 @@ image customization config includes package install or updates, then a run on on
 may produce a different result than a run on another day since PMC might have been
 updated in between runs. This behavior may be perfectly fine (or even desirable) for
 some users. However, other users may require more stable builds that don't change based
-on the state of an external resource (e.g., PMC). For such users, it can be useful to
+on the state of an external resource (e.g. PMC). For such users, it can be useful to
 make a clone of PMC.
 
 ## Cloning a repo to a local directory

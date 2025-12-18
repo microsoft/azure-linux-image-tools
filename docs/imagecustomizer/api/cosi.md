@@ -92,7 +92,7 @@ _Notes:_
 - **[3]** It MUST be a UUID defined by the [Discoverable Partition Specification
     (DPS)](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/)
     when the applicable type exists in the DPS. Other partition types MAY be
-    used for types not defined in DPS (e.g., Windows partitions).
+    used for types not defined in DPS (e.g. Windows partitions).
 - **[4]** The EFI System Partition (ESP) MUST be identified with the UUID
     established by the DPS: `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`.
 - **[5]** Should default to `0fc63daf-8483-4772-8e79-3d69d8477de4` (Generic

@@ -23,7 +23,7 @@ Added in v0.3.
 
 The base image file to customize.
 
-An input image must either be provided in the configuration file (e.g.,
+An input image must either be provided in the configuration file (e.g.
 [input.image.path](../configuration/inputImage.md#path-string)) or on the command line.
 If both a command-line input image and a configuration input image are specified, then
 the command line's input image overrides the config file's input image.
@@ -161,8 +161,8 @@ value is used.
 
 The directory path to output the SELinux policy files extracted from the customized
 image. The SELinux policy type is determined by reading the `SELINUXTYPE` value from
-`/etc/selinux/config` in the image (e.g., `targeted`), and the corresponding directory
-(e.g., `/etc/selinux/targeted`) will be extracted and copied to this location.
+`/etc/selinux/config` in the image (e.g. `targeted`), and the corresponding directory
+(e.g. `/etc/selinux/targeted`) will be extracted and copied to this location.
 
 If not specified, SELinux policy extraction is disabled.
 
@@ -263,7 +263,7 @@ ensuring only packages available at that point in time are considered.
 Supports:
 
 - A date in `YYYY-MM-DD` format (interpreted as UTC midnight)
-- A full RFC 3339 timestamp (e.g., `2024-05-20T23:59:59Z`)
+- A full RFC 3339 timestamp (e.g. `2024-05-20T23:59:59Z`)
 
 You may enable this feature by adding `package-snapshot-time` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
