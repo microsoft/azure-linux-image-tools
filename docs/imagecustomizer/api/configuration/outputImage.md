@@ -10,9 +10,10 @@ Specifies the configuration for the output image.
 Example:
 
 ```yaml
-image:
-  path: ./out/image.vhdx
-  format: vhdx
+output::
+  image:
+    path: ./out/image.vhdx
+    format: vhdx
 ```
 
 ## path [string]
