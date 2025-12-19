@@ -12,7 +12,9 @@ from typing import Any, Dict, List, Optional, Union
 
 # CodeQL [SM04242] Paramiko is used in test-only code, not in production. The warning is acceptable as it does not affect released artifacts.
 from paramiko import AutoAddPolicy, SSHClient
+# CodeQL [SM04242] Paramiko is used in test-only code, not in production. The warning is acceptable as it does not affect released artifacts.
 from paramiko.channel import ChannelFile, ChannelStderrFile
+# CodeQL [SM04242] Paramiko is used in test-only code, not in production. The warning is acceptable as it does not affect released artifacts.
 from paramiko.ssh_exception import NoValidConnectionsError, SSHException
 
 
