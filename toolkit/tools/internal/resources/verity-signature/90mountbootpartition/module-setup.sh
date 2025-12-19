@@ -7,6 +7,7 @@ check() {
 
 # called by dracut
 depends() {
+    echo "systemd-initrd"
     return 0
 }
 
@@ -17,15 +18,5 @@ installkernel() {
 
 # called by dracut
 install() {
-    # install utilities
-    inst_multiple lsblk umount
-    # generate udev rule - i.e. schedule things post udev settlement
-    inst_hook pre-udev 30 "$moddir/mountbootpartition-genrules.sh"
-    # script to run post udev to mout
-    inst_script "$moddir/mountbootpartition.sh" "/sbin/mountbootpartition"
-    # script runs early on when systemd is initialized...
-    if dracut_module_included "systemd-initrd"; then
-        inst_script "$moddir/mountbootpartition-generator.sh" "$systemdutildir"/system-generators/dracut-mountbootpartition-generator
-    fi
-    dracut_need_initqueue
+    inst_script "$moddir/mountbootpartition-generator.sh" "$systemdutildir"/system-generators/dracut-mountbootpartition-generator
 }
