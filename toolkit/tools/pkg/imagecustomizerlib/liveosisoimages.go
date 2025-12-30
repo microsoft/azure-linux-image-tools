@@ -242,7 +242,7 @@ func stageLiveOSFile(stageDirPath string, stageFile StageFile) error {
 }
 
 func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outputFormat imagecustomizerapi.ImageFormatType,
-	filesStore *IsoFilesStore, baseConfigPath string, kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
+	filesStore *IsoFilesStore, kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
 	additionalIsoFiles imagecustomizerapi.AdditionalFileList, stagingDir string,
 ) error {
 	err := os.RemoveAll(stagingDir)
@@ -383,16 +383,11 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 
 	// Stage config-defined additional files
 	// - This is typically populated if the current configuration defines
-	//   additional files.
+	//   additional files. Source paths have already been resolved to absolute paths.
 	var filesToCopy []safechroot.FileToCopy
 	for _, additionalFile := range additionalIsoFiles {
-		absSourceFile := ""
-		if additionalFile.Source != "" {
-			absSourceFile = file.GetAbsPathWithBase(baseConfigPath, additionalFile.Source)
-		}
-
 		fileToCopy := safechroot.FileToCopy{
-			Src:         absSourceFile,
+			Src:         additionalFile.Source,
 			Content:     additionalFile.Content,
 			Dest:        additionalFile.Destination,
 			Permissions: (*fs.FileMode)(additionalFile.Permissions),
@@ -414,13 +409,13 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 	return nil
 }
 
-func createIsoImage(buildDir string, baseConfigPath string, initramfsType imagecustomizerapi.InitramfsImageType, filesStore *IsoFilesStore,
+func createIsoImage(buildDir string, initramfsType imagecustomizerapi.InitramfsImageType, filesStore *IsoFilesStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
 	outputImagePath string) error {
 	stagingDir := filepath.Join(buildDir, "iso-staging")
 
 	err := stageLiveOSFiles(initramfsType, imagecustomizerapi.ImageFormatTypeIso, filesStore,
-		baseConfigPath, kdumpBootFiles, additionalIsoFiles, stagingDir)
+		kdumpBootFiles, additionalIsoFiles, stagingDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more iso files:\n%w", err)
 	}

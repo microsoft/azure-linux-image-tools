@@ -51,8 +51,8 @@ type ResolvedConfig struct {
 	// Bootloader
 	BootLoader imagecustomizerapi.BootLoader
 
-	// Kernel command line
-	KernelCommandLine imagecustomizerapi.KernelCommandLine
+	// OS Kernel command line
+	OsKernelCommandLine imagecustomizerapi.KernelCommandLine
 
 	// UKI
 	Uki *imagecustomizerapi.Uki
@@ -65,6 +65,12 @@ type ResolvedConfig struct {
 
 	// Hierarchical config chain
 	ConfigChain []*ConfigWithBasePath
+
+	// Resolved ISO config from config chain (merged/overridden values)
+	Iso imagecustomizerapi.Iso
+
+	// Resolved PXE config from config chain (merged/overridden values)
+	Pxe imagecustomizerapi.Pxe
 }
 
 func (c *ResolvedConfig) InputFileExt() string {
