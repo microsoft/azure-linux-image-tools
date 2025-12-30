@@ -220,14 +220,28 @@ func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
 		return nil, fmt.Errorf("failed to list BTRFS subvolumes:\n%w", err)
 	}
 
-	// Regex to parse btrfs subvolume list output format:
-	// ID 256 gen 7 top level 5 path @
-	// ID 257 gen 7 top level 5 path @home
+	subvolumes, err := parseBtrfsSubvolumeListOutput(stdout)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Log.Debugf("Found BTRFS subvolumes: %v", subvolumes)
+	return subvolumes, nil
+}
+
+// parseBtrfsSubvolumeListOutput parses the output of `btrfs subvolume list -a` command.
+// When using the -a flag, the output shows absolute paths from the filesystem root (ID=5).
+// The paths are prefixed with <FS_TREE>/ to indicate they are absolute paths.
+// Example output:
+//
+//	ID 256 gen 7 top level 5 path <FS_TREE>/root
+//	ID 257 gen 7 top level 5 path <FS_TREE>/home
+func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 	subvolumeRegex := regexp.MustCompile(
 		`^ID\s+\d+\s+gen\s+\d+\s+top\s+level\s+\d+\s+path\s+(.+)$`)
 
 	var subvolumes []string
-	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(output), "\n")
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -241,10 +255,14 @@ func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
 		}
 
 		subvolPath := match[1]
+
+		// Strip the <FS_TREE>/ prefix if present.
+		// This prefix indicates an absolute path from the filesystem root.
+		subvolPath = strings.TrimPrefix(subvolPath, "<FS_TREE>/")
+
 		subvolumes = append(subvolumes, subvolPath)
 	}
 
-	logger.Log.Debugf("Found BTRFS subvolumes: %v", subvolumes)
 	return subvolumes, nil
 }
 
