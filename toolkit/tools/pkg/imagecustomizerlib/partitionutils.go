@@ -188,13 +188,14 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool
 		}
 
 		// Search for fstab in each subvolume directory
-		for _, subvolume = range subvolumes {
-			fstabPath := filepath.Join(tmpDir, subvolume, "etc/fstab")
-			exists, err := file.PathExists(fstabPath)
+		for _, subvol := range subvolumes {
+			fstabPath := filepath.Join(tmpDir, subvol, "etc/fstab")
+			exists, err = file.PathExists(fstabPath)
 			if err != nil {
 				return false, "", err
 			}
 			if exists {
+				subvolume = subvol
 				break
 			}
 		}
@@ -215,7 +216,6 @@ func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		ExecuteCaptureOutput()
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to list BTRFS subvolumes:\n%w", err)
 	}
