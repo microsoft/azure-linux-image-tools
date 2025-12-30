@@ -42,7 +42,7 @@ func getPxeBootstrapFileName(bootstrapBaseUrl, bootstrapFileUrl string) (string,
 	return filepath.Base(bootstrapFileUrl), nil
 }
 
-func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFormatType, baseConfigPath string,
+func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFormatType,
 	initramfsType imagecustomizerapi.InitramfsImageType, artifactsStore *IsoArtifactsStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
 	bootstrapBaseUrl, bootstrapFileUrl, outputPath string) (err error) {
@@ -70,7 +70,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		outputPXEImage = ""
 	}
 
-	err = stageLiveOSFiles(initramfsType, outputFormat, artifactsStore.files, baseConfigPath,
+	err = stageLiveOSFiles(initramfsType, outputFormat, artifactsStore.files,
 		kdumpBootFiles, additionalIsoFiles, outputPXEArtifactsDir)
 	if err != nil {
 		return fmt.Errorf("failed to stage one or more live os files:\n%w", err)
@@ -91,7 +91,7 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		// The iso image file itself must be placed in the PXE folder because
 		// dracut livenet module will download it.
 		artifactsIsoImagePath := filepath.Join(outputPXEArtifactsDir, isoImageName)
-		err = createIsoImage(buildDir, baseConfigPath, imagecustomizerapi.InitramfsImageTypeBootstrap,
+		err = createIsoImage(buildDir, imagecustomizerapi.InitramfsImageTypeBootstrap,
 			artifactsStore.files, kdumpBootFiles, additionalIsoFiles, artifactsIsoImagePath)
 		if err != nil {
 			return fmt.Errorf("failed to create the Iso image.\n%w", err)
