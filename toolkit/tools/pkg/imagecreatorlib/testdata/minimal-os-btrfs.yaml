@@ -1,0 +1,67 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+
+    maxSize: 1G
+    partitions:
+    - id: boot
+      type: esp
+      start: 1M
+      end: 15M
+
+    - id: rootfs
+      start: 15M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: boot
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: btrfs
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+    - azurelinux-release
+    - azurelinux-repos
+    - azurelinux-rpm-macros
+    - bash
+    - btrfs-progs
+    - ca-certificates
+    - ca-certificates-base
+    - dbus
+    - dracut-hostonly
+    - filesystem
+    - grub2
+    - grub2-efi-binary
+    - iana-etc
+    - initramfs
+    - iproute
+    - iputils
+    - irqbalance
+    - ncurses-libs
+    - openssl
+    - rpm
+    - rpm-libs
+    - shadow-utils
+    - shim
+    - sudo
+    - systemd
+    - systemd-networkd
+    - systemd-resolved
+    - systemd-udev
+    - tdnf
+    - tdnf-plugin-repogpgcheck
+    - util-linux
+    - zlib
+    - kernel

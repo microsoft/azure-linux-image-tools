@@ -102,6 +102,13 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 	newUuid := ""
 	switch partition.FileSystemType {
+	case "btrfs":
+		newUuid = uuid.NewString()
+		err := shell.ExecuteLive(true /*squashErrors*/, "btrfstune", "-U", newUuid, partition.Path)
+		if err != nil {
+			return "", err
+		}
+
 	case "ext2", "ext3", "ext4":
 		// tune2fs requires you to run 'e2fsck -f' first.
 		err := shell.ExecuteLive(true /*squashErrors*/, "e2fsck", "-fy", partition.Path)

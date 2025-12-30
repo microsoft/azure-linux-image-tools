@@ -63,6 +63,62 @@ func TestCreateImageRaw(t *testing.T) {
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
 }
 
+func TestCreateImageBtrfs(t *testing.T) {
+	checkSkipForCreateImage(t, runCreateImageTests)
+
+	testTmpDir := filepath.Join(tmpDir, "TestCreateImageBtrfs")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	partitionsConfigFile := filepath.Join(testDir, "minimal-os-btrfs.yaml")
+	outputImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	outputImageFormat := "raw"
+
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)
+	rpmSources := []string{downloadedRpmsRepoFile}
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", "3.0", true)
+
+	err := CreateImageWithConfigFile(
+		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
+		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "")
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	fileType, err := testutils.GetImageFileType(outputImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "raw", fileType)
+
+	imageInfo, err := imagecustomizerlib.GetImageFileInfo(outputImageFilePath)
+	assert.NoError(t, err)
+	assert.Equal(t, "raw", imageInfo.Format)
+	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
+
+	// Connect to image and verify btrfs filesystem
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   2,
+			Path:           "/",
+			FileSystemType: "btrfs",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outputImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Verify btrfs root filesystem exists
+	_, err = os.Stat(filepath.Join(imageConnection.Chroot().RootDir(), "/usr/bin/bash"))
+	assert.NoError(t, err, "check for /usr/bin/bash on btrfs root")
+}
+
 func TestCreateImageRawNoTar(t *testing.T) {
 	checkSkipForCreateImage(t, runCreateImageTests)
 
