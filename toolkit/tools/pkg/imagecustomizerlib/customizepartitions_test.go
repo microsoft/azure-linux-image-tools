@@ -478,6 +478,52 @@ func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, ba
 	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", false)
 }
 
+func TestCustomizeImagePartitionsBtrfsBoot(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsBtrfsBootHelper(t, "TestCustomizeImagePartitionsBtrfsBoot"+baseImageInfo.Name,
+				baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-btrfs-boot.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   2,
+			Path:           "/",
+			FileSystemType: "btrfs",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+}
+
 func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)

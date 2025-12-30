@@ -24,7 +24,7 @@ func LogVersionsOfToolDeps() {
 			"openssl",
 		},
 		"-V": {
-			"mkfs.ext4", "mkfs.xfs", "e2fsck", "xfs_repair", "xfs_admin",
+			"mkfs.btrfs", "mkfs.ext4", "mkfs.xfs", "e2fsck", "xfs_repair", "xfs_admin",
 		},
 		"": {
 			"mkfs.vfat", "resize2fs", "tune2fs",

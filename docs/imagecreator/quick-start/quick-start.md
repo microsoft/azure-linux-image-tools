@@ -61,7 +61,7 @@ nav_order: 1
 
 2. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
-    `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
+    `mkfs`, `mkfs.btrfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
    `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
    `grub2-install` (or `grub-install`), `objcopy`, `lsof`.
 
@@ -70,7 +70,7 @@ nav_order: 1
      ```bash
      sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
         sed createrepo-c squashfs-tools  e2fsprogs dosfstools \
-        xfsprogs zstd cryptsetup-bin grub2-common binutils lsof
+        xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof
      ```
 
    - For Azure Linux (2.0 and 3.0, x86_64 and arm64), run:
@@ -78,7 +78,7 @@ nav_order: 1
      ```bash
      sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
        sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-       xfsprogs zstd grub2 binutils lsof
+       xfsprogs btrfs-progs zstd grub2 binutils lsof
      ```
 
      - On x86_64, to install libraries for BIOS booting, additionally run:
