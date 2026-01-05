@@ -655,16 +655,26 @@ func resolveBootLoaderResetType(configChain []*ConfigWithBasePath) imagecustomiz
 	return ""
 }
 
-func resolveOsKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+// mergeKernelCommandLine merges kernel command line arguments from a config chain.
+// The getArgs function extracts the ExtraCommandLine slice from each config.
+func mergeKernelCommandLine(configChain []*ConfigWithBasePath, getArgs func(*imagecustomizerapi.Config) []string) []string {
 	var mergedArgs []string
-
-	// Concatenate all kernel command line args from os configs
 	for _, configWithBase := range configChain {
-		if configWithBase.Config.OS != nil &&
-			len(configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine) > 0 {
-			mergedArgs = append(mergedArgs, configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine...)
+		args := getArgs(configWithBase.Config)
+		if len(args) > 0 {
+			mergedArgs = append(mergedArgs, args...)
 		}
 	}
+	return mergedArgs
+}
+
+func resolveOsKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+	mergedArgs := mergeKernelCommandLine(configChain, func(c *imagecustomizerapi.Config) []string {
+		if c.OS != nil {
+			return c.OS.KernelCommandLine.ExtraCommandLine
+		}
+		return nil
+	})
 
 	return imagecustomizerapi.KernelCommandLine{
 		ExtraCommandLine: mergedArgs,
@@ -693,14 +703,12 @@ func resolveIsoConfig(configChain []*ConfigWithBasePath) imagecustomizerapi.Iso 
 	}
 
 	// Merge KernelCommandLine (concatenate from all configs)
-	var mergedArgs []string
-	for _, configWithBase := range configChain {
-		if configWithBase.Config.Iso != nil &&
-			len(configWithBase.Config.Iso.KernelCommandLine.ExtraCommandLine) > 0 {
-			mergedArgs = append(mergedArgs, configWithBase.Config.Iso.KernelCommandLine.ExtraCommandLine...)
+	iso.KernelCommandLine.ExtraCommandLine = mergeKernelCommandLine(configChain, func(c *imagecustomizerapi.Config) []string {
+		if c.Iso != nil {
+			return c.Iso.KernelCommandLine.ExtraCommandLine
 		}
-	}
-	iso.KernelCommandLine.ExtraCommandLine = mergedArgs
+		return nil
+	})
 
 	// Resolve InitramfsType (current overrides base)
 	for _, configWithBase := range slices.Backward(configChain) {
@@ -745,14 +753,12 @@ func resolvePxeConfig(configChain []*ConfigWithBasePath) imagecustomizerapi.Pxe 
 	}
 
 	// Merge KernelCommandLine (concatenate from all configs)
-	var mergedArgs []string
-	for _, configWithBase := range configChain {
-		if configWithBase.Config.Pxe != nil &&
-			len(configWithBase.Config.Pxe.KernelCommandLine.ExtraCommandLine) > 0 {
-			mergedArgs = append(mergedArgs, configWithBase.Config.Pxe.KernelCommandLine.ExtraCommandLine...)
+	pxe.KernelCommandLine.ExtraCommandLine = mergeKernelCommandLine(configChain, func(c *imagecustomizerapi.Config) []string {
+		if c.Pxe != nil {
+			return c.Pxe.KernelCommandLine.ExtraCommandLine
 		}
-	}
-	pxe.KernelCommandLine.ExtraCommandLine = mergedArgs
+		return nil
+	})
 
 	// Resolve InitramfsType (current overrides base)
 	for _, configWithBase := range slices.Backward(configChain) {
