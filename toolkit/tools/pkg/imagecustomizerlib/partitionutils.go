@@ -775,15 +775,39 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, buildDir)
+		// Try to extract cmdline from addon first (new architecture), fallback to main UKI (old architecture)
+		cmdlineContent, err := extractCmdlineFromUkiOrAddon(ukiFile, kernelName, buildDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract cmdline from UKI file (%s):\n%w", ukiFile, err)
+			return nil, fmt.Errorf("failed to extract cmdline from UKI or addon (%s):\n%w", ukiFile, err)
 		}
 
 		kernelToArgsString[kernelName] = string(cmdlineContent)
 	}
 
 	return kernelToArgsString, nil
+}
+
+func extractCmdlineFromUkiOrAddon(ukiFile string, kernelName string, buildDir string) (string, error) {
+	// Construct addon file path: <uki-file>.extra.d/<kernel-name>.addon.efi
+	ukiFileName := filepath.Base(ukiFile)
+	addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+	addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
+
+	// Try to extract from addon first (new architecture)
+	if _, err := os.Stat(addonFilePath); err == nil {
+		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(addonFilePath, buildDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
+		}
+		return cmdlineContent, nil
+	}
+
+	// Fallback to extracting from main UKI (old monolithic architecture)
+	cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, buildDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+	}
+	return cmdlineContent, nil
 }
 
 func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
@@ -1003,7 +1027,7 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 	numStr := match[1]
 
 	num, err := strconv.Atoi(numStr)
-	if match == nil {
+	if err != nil {
 		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
 	}
 

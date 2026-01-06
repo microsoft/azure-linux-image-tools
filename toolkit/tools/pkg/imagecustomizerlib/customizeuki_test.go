@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -89,7 +90,7 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerityWithAddons(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -103,16 +104,27 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		return
 	}
 
-	newUkiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil)
+	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerityWithAddons(t, buildDir, outImageFilePath2, nil, nil)
 	if !ok {
 		return
 	}
 
+	// With UKI addon architecture:
+	// - Main UKI (kernel + os-release + initramfs) should NOT change when only verity is re-initialized
+	// - Addon (cmdline with verity hashes) SHOULD change when verity is re-initialized
 	for ukiFile := range ukiFilesChecksums {
 		oldChecksum := ukiFilesChecksums[ukiFile]
 		newChecksum, exists := newUkiFilesChecksums[ukiFile]
 		assert.True(t, exists, "UKI file should exist after re-customization: %s", ukiFile)
-		assert.NotEqual(t, oldChecksum, newChecksum, "UKI checksum should change after verity re-initialization: %s", ukiFile)
+		// Main UKI should stay the same since initramfs doesn't change
+		assert.Equal(t, oldChecksum, newChecksum, "Main UKI checksum should NOT change (only cmdline in addon changes): %s", ukiFile)
+	}
+
+	// Addon checksums should change because verity hashes in cmdline change
+	for addonFile, oldAddonChecksum := range addonFilesChecksums {
+		newAddonChecksum, exists := newAddonFilesChecksums[addonFile]
+		assert.True(t, exists, "Addon file should exist after re-customization: %s", addonFile)
+		assert.NotEqual(t, oldAddonChecksum, newAddonChecksum, "Addon checksum should change after verity re-initialization: %s", addonFile)
 	}
 
 	mountPoints := []testutils.MountPoint{
@@ -515,4 +527,112 @@ func calculateUkiFileChecksums(t *testing.T, ukiFiles []string) map[string]strin
 	}
 
 	return ukiFilesChecksums
+}
+
+// getUkiAddonFiles returns a list of UKI addon files (.addon.efi) in the ESP partition.
+func getUkiAddonFiles(espPath string) ([]string, error) {
+	espLinuxPath := filepath.Join(espPath, "EFI/Linux")
+	addonDirs, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi.extra.d"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for UKI addon directories in ESP partition:\n%w", err)
+	}
+
+	var addonFiles []string
+	for _, addonDir := range addonDirs {
+		addons, err := filepath.Glob(filepath.Join(addonDir, "*.addon.efi"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to search for addon files in %s:\n%w", addonDir, err)
+		}
+		addonFiles = append(addonFiles, addons...)
+	}
+
+	return addonFiles, nil
+}
+
+// verifyUsrVerityWithAddons verifies verity setup and returns checksums for both main UKI files and addon files.
+func verifyUsrVerityWithAddons(t *testing.T, buildDir string, imagePath string,
+	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
+) (map[string]string, map[string]string, bool) {
+	// Connect to customized image.
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   5,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   3,
+			Path:           "/usr",
+			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
+		},
+		{
+			PartitionNum:   6,
+			Path:           "/var",
+			FileSystemType: "ext4",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, imagePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return nil, nil, false
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify that verity is configured correctly.
+	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
+	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
+	usrHashDevice := testutils.PartitionDevPath(imageConnection, 4)
+	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
+
+	// Get UKI files and calculate checksums
+	ukiFiles, err := getUkiFiles(espPath)
+	if !assert.NoError(t, err) {
+		return nil, nil, false
+	}
+
+	ukiFilesChecksums := calculateUkiFileChecksums(t, ukiFiles)
+	if ukiFilesChecksums == nil {
+		return nil, nil, false
+	}
+
+	if expectedUkiFilesChecksums != nil {
+		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums, "Main UKI checksums should match expected")
+	}
+
+	// Get addon files and calculate checksums
+	addonFiles, err := getUkiAddonFiles(espPath)
+	if !assert.NoError(t, err) {
+		return nil, nil, false
+	}
+
+	addonFilesChecksums := calculateUkiFileChecksums(t, addonFiles)
+	if addonFilesChecksums == nil {
+		return nil, nil, false
+	}
+
+	if expectedAddonFilesChecksums != nil {
+		assert.Equal(t, expectedAddonFilesChecksums, addonFilesChecksums, "Addon checksums should match expected")
+	}
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, nil, false
+	}
+
+	return ukiFilesChecksums, addonFilesChecksums, true
 }
