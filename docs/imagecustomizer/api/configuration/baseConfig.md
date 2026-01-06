@@ -27,11 +27,17 @@ or are processed sequentially.
 - `.os.hostname`
 - `.os.selinux`
 - `.os.uki`
+- `.iso.initramfsType`
+- `.iso.kdumpBootFiles`
+- `.pxe.initramfsType`
+- `.pxe.kdumpBootFiles`
 
 **Base config items are merged with current config’s items**
 
 - `.output.artifacts.items`
 - `.os.kernelCommandLine`
+- `.iso.kernelCommandLine`
+- `.pxe.kernelCommandLine`
 
 **Base config items are processed first, followed by current config’s.**
 
@@ -43,6 +49,8 @@ or are processed sequentially.
 - `.os.additionalFiles`
 - `.os.additionalDirs`
 - `.os.overlays`
+- `.iso.additionalFiles`
+- `.pxe.additionalFiles`
 
 **Pick the strongest option from the base config and current config.**
 

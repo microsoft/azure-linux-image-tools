@@ -346,8 +346,8 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 		}
 
 		var liveosConfig LiveOSConfig
-		liveosConfig, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, rc.Config.Iso,
-			rc.Config.Pxe, rc.OutputImageFormat)
+		liveosConfig, convertInitramfsType, err := buildLiveOSConfig(inputIsoArtifacts, rc.Iso, rc.Pxe,
+			rc.OutputImageFormat)
 		if err != nil {
 			return nil, fmt.Errorf("%w:\n%w", ErrBuildLiveOSConfig, err)
 		}
@@ -362,7 +362,6 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 		// it. If no OS customizations are defined, we can skip this step and
 		// just re-use the existing squashfs.
 		rebuildFullOsImage := rc.CustomizeOSPartitions || convertInitramfsType || kdumpBootFileChanging
-
 		if rebuildFullOsImage {
 			err = createWriteableImageFromArtifacts(rc.BuildDirAbs, inputIsoArtifacts, rc.RawImageFile)
 			if err != nil {
@@ -603,7 +602,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 			// Check if user is converting from full os initramfs to bootstrap initramfs
 			var err error
 			var liveosConfig LiveOSConfig
-			liveosConfig, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, rc.Config.Iso, rc.Config.Pxe,
+			liveosConfig, convertInitramfsType, err = buildLiveOSConfig(inputIsoArtifacts, rc.Iso, rc.Pxe,
 				rc.OutputImageFormat)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrBuildLiveOSConfig, err)
@@ -620,14 +619,14 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		// Either re-build the full OS image, or just re-package the existing one
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
-			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, rc.BaseConfigPath, inputIsoArtifacts, requestedSELinuxMode,
-				rc.Config.Iso, rc.Config.Pxe, rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
+			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, requestedSELinuxMode, rc.Iso, rc.Pxe,
+				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
-			err := repackageLiveOS(rc.BuildDirAbs, rc.BaseConfigPath, rc.Config.Iso, rc.Config.Pxe,
-				inputIsoArtifacts, rc.OutputImageFormat, rc.OutputImageFile)
+			err := repackageLiveOS(rc.BuildDirAbs, rc.Iso, rc.Pxe, inputIsoArtifacts, rc.OutputImageFormat,
+				rc.OutputImageFile)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}

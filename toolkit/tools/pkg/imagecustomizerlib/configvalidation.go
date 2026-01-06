@@ -110,10 +110,19 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		}
 	}
 
-	err = validateIsoConfig(baseConfigPath, config.Iso)
+	err = validateIsoConfigChain(rc.ConfigChain)
 	if err != nil {
 		return nil, err
 	}
+
+	rc.Iso = resolveIsoConfig(rc.ConfigChain)
+
+	err = validatePxeConfigChain(rc.ConfigChain)
+	if err != nil {
+		return nil, err
+	}
+
+	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
 	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos)
 	if err != nil {
@@ -124,7 +133,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.SELinux = resolveSeLinux(rc.ConfigChain)
 	rc.BootLoader.ResetType = resolveBootLoaderResetType(rc.ConfigChain)
 	rc.Uki = resolveUki(rc.ConfigChain)
-	rc.KernelCommandLine = resolveKernelCommandLine(rc.ConfigChain)
+	rc.OsKernelCommandLine = resolveOsKernelCommandLine(rc.ConfigChain)
 
 	err = validateScripts(baseConfigPath, &config.Scripts)
 	if err != nil {
@@ -257,6 +266,39 @@ func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso) er
 		return err
 	}
 
+	return nil
+}
+
+func validateIsoConfigChain(configChain []*ConfigWithBasePath) error {
+	for _, configWithBase := range configChain {
+		err := validateIsoConfig(configWithBase.BaseConfigPath, configWithBase.Config.Iso)
+		if err != nil {
+			return fmt.Errorf("invalid 'iso' config:\n%w", err)
+		}
+	}
+	return nil
+}
+
+func validatePxeConfig(baseConfigPath string, config *imagecustomizerapi.Pxe) error {
+	if config == nil {
+		return nil
+	}
+
+	err := validateAdditionalFiles(baseConfigPath, config.AdditionalFiles)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validatePxeConfigChain(configChain []*ConfigWithBasePath) error {
+	for _, configWithBase := range configChain {
+		err := validatePxeConfig(configWithBase.BaseConfigPath, configWithBase.Config.Pxe)
+		if err != nil {
+			return fmt.Errorf("invalid 'pxe' config:\n%w", err)
+		}
+	}
 	return nil
 }
 
@@ -613,20 +655,159 @@ func resolveBootLoaderResetType(configChain []*ConfigWithBasePath) imagecustomiz
 	return ""
 }
 
-func resolveKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+// mergeKernelCommandLine merges kernel command line arguments from a config chain.
+// The getArgs function extracts the ExtraCommandLine slice from each config.
+func mergeKernelCommandLine(configChain []*ConfigWithBasePath,
+	getArgs func(*imagecustomizerapi.Config) []string,
+) []string {
 	var mergedArgs []string
-
-	// Concatenate all kernel command line args
 	for _, configWithBase := range configChain {
-		if configWithBase.Config.OS != nil &&
-			len(configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine) > 0 {
-			mergedArgs = append(mergedArgs, configWithBase.Config.OS.KernelCommandLine.ExtraCommandLine...)
+		args := getArgs(configWithBase.Config)
+		if len(args) > 0 {
+			mergedArgs = append(mergedArgs, args...)
 		}
 	}
+	return mergedArgs
+}
+
+// mergeAdditionalFiles merges additional files from a config chain, resolving source paths.
+// The getFiles function extracts the AdditionalFileList from each config.
+func mergeAdditionalFiles(configChain []*ConfigWithBasePath,
+	getFiles func(*imagecustomizerapi.Config) imagecustomizerapi.AdditionalFileList,
+) imagecustomizerapi.AdditionalFileList {
+	var merged imagecustomizerapi.AdditionalFileList
+	for _, configWithBase := range configChain {
+		files := getFiles(configWithBase.Config)
+		for _, additionalFile := range files {
+			resolvedFile := additionalFile
+			if additionalFile.Source != "" {
+				resolvedFile.Source = file.GetAbsPathWithBase(configWithBase.BaseConfigPath, additionalFile.Source)
+			}
+			merged = append(merged, resolvedFile)
+		}
+	}
+	return merged
+}
+
+func resolveOsKernelCommandLine(configChain []*ConfigWithBasePath) imagecustomizerapi.KernelCommandLine {
+	mergedArgs := mergeKernelCommandLine(configChain, func(c *imagecustomizerapi.Config) []string {
+		if c.OS != nil {
+			return c.OS.KernelCommandLine.ExtraCommandLine
+		}
+		return nil
+	})
 
 	return imagecustomizerapi.KernelCommandLine{
 		ExtraCommandLine: mergedArgs,
 	}
+}
+
+// resolveIsoConfig builds a resolved Iso config by merging values from the config chain.
+// AdditionalFiles and KernelCommandLine are merged (concatenated from all configs).
+// InitramfsType and KdumpBootFiles use "current overrides base" semantics.
+func resolveIsoConfig(configChain []*ConfigWithBasePath) imagecustomizerapi.Iso {
+	var iso imagecustomizerapi.Iso
+
+	// Merge AdditionalFiles (concatenate from all configs)
+	iso.AdditionalFiles = mergeAdditionalFiles(configChain,
+		func(c *imagecustomizerapi.Config) imagecustomizerapi.AdditionalFileList {
+			if c.Iso != nil {
+				return c.Iso.AdditionalFiles
+			}
+			return nil
+		})
+
+	// Merge KernelCommandLine (concatenate from all configs)
+	iso.KernelCommandLine.ExtraCommandLine = mergeKernelCommandLine(configChain,
+		func(c *imagecustomizerapi.Config) []string {
+			if c.Iso != nil {
+				return c.Iso.KernelCommandLine.ExtraCommandLine
+			}
+			return nil
+		})
+
+	// Resolve InitramfsType (current overrides base)
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Iso != nil &&
+			configWithBase.Config.Iso.InitramfsType != "" {
+			iso.InitramfsType = configWithBase.Config.Iso.InitramfsType
+			break
+		}
+	}
+
+	// Resolve KdumpBootFiles (current overrides base)
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Iso != nil &&
+			configWithBase.Config.Iso.KdumpBootFiles != nil {
+			iso.KdumpBootFiles = configWithBase.Config.Iso.KdumpBootFiles
+			break
+		}
+	}
+
+	return iso
+}
+
+// resolvePxeConfig builds a resolved Pxe config by merging values from the config chain.
+// AdditionalFiles and KernelCommandLine are merged (concatenated from all configs).
+// InitramfsType, KdumpBootFiles, BootstrapBaseUrl, and BootstrapFileUrl use "current overrides base" semantics.
+func resolvePxeConfig(configChain []*ConfigWithBasePath) imagecustomizerapi.Pxe {
+	var pxe imagecustomizerapi.Pxe
+
+	// Merge AdditionalFiles (concatenate from all configs)
+	pxe.AdditionalFiles = mergeAdditionalFiles(configChain,
+		func(c *imagecustomizerapi.Config) imagecustomizerapi.AdditionalFileList {
+			if c.Pxe != nil {
+				return c.Pxe.AdditionalFiles
+			}
+			return nil
+		})
+
+	// Merge KernelCommandLine (concatenate from all configs)
+	pxe.KernelCommandLine.ExtraCommandLine = mergeKernelCommandLine(configChain,
+		func(c *imagecustomizerapi.Config) []string {
+			if c.Pxe != nil {
+				return c.Pxe.KernelCommandLine.ExtraCommandLine
+			}
+			return nil
+		})
+
+	// Resolve InitramfsType (current overrides base)
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Pxe != nil &&
+			configWithBase.Config.Pxe.InitramfsType != "" {
+			pxe.InitramfsType = configWithBase.Config.Pxe.InitramfsType
+			break
+		}
+	}
+
+	// Resolve KdumpBootFiles (current overrides base)
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Pxe != nil &&
+			configWithBase.Config.Pxe.KdumpBootFiles != nil {
+			pxe.KdumpBootFiles = configWithBase.Config.Pxe.KdumpBootFiles
+			break
+		}
+	}
+
+	// Resolve BootstrapBaseUrl (current overrides base)
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Pxe != nil &&
+			configWithBase.Config.Pxe.BootstrapBaseUrl != "" {
+			pxe.BootstrapBaseUrl = configWithBase.Config.Pxe.BootstrapBaseUrl
+			break
+		}
+	}
+
+	// Resolve BootstrapFileUrl (current overrides base)
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.Pxe != nil &&
+			configWithBase.Config.Pxe.BootstrapFileUrl != "" {
+			pxe.BootstrapFileUrl = configWithBase.Config.Pxe.BootstrapFileUrl
+			break
+		}
+	}
+
+	return pxe
 }
 
 func resolveCosiCompressionLevel(configChain []*ConfigWithBasePath, cliLevel *int) int {
