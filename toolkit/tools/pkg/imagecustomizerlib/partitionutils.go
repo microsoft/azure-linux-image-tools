@@ -148,11 +148,11 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 			continue
 		}
 
-		exists, rootfsPath, err := findFstabInRoot(diskPartition, tmpDir)
+		matchingPaths, err := findFstabInRoot(diskPartition, tmpDir)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to search for fstab in partition (%s):\n%w", diskPartition.Path, err)
 		}
-		if exists {
+		for _, rootfsPath := range matchingPaths {
 			rootfsPartitions = append(rootfsPartitions, &diskPartition)
 			rootfsPaths = append(rootfsPaths, rootfsPath)
 		}
@@ -170,8 +170,9 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	return rootfsPartition, rootfsPath, nil
 }
 
-// findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes
-func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool, string, error) {
+// findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes.
+// Returns all paths where etc/fstab was found (empty string for top-level, BTRFS subvolume path otherwise).
+func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) ([]string, error) {
 	// For BTRFS, mount with subvolid=5 to ensure the top-level subvolume is mounted.
 	// This ensures that `btrfs subvolume list -a` returns consistent absolute paths
 	// without the <FS_TREE>/ prefix.
@@ -183,23 +184,27 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool
 	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
 		unix.MS_RDONLY, mountOptions, true)
 	if err != nil {
-		return false, "", fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+		return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
 	}
 	defer partitionMount.Close()
 
+	var matchingPaths []string
+
 	// Check the root of the filesystem
-	subvolume := ""
 	fstabPath := filepath.Join(tmpDir, "etc/fstab")
 	exists, err := file.PathExists(fstabPath)
 	if err != nil {
-		return false, "", err
+		return nil, err
+	}
+	if exists {
+		matchingPaths = append(matchingPaths, "")
 	}
 
-	if !exists && diskPartition.FileSystemType == "btrfs" {
+	if diskPartition.FileSystemType == "btrfs" {
 		// List actual subvolumes using btrfs tools
 		subvolumes, err := listBtrfsSubvolumes(tmpDir)
 		if err != nil {
-			return false, "", err
+			return nil, err
 		}
 
 		// Search for fstab in each subvolume directory
@@ -207,11 +212,10 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool
 			fstabPath := filepath.Join(tmpDir, subvol, "etc/fstab")
 			exists, err = file.PathExists(fstabPath)
 			if err != nil {
-				return false, "", err
+				return nil, err
 			}
 			if exists {
-				subvolume = subvol
-				break
+				matchingPaths = append(matchingPaths, subvol)
 			}
 		}
 	}
@@ -219,10 +223,10 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool
 	// Close the rootfs partition mount.
 	err = partitionMount.CleanClose()
 	if err != nil {
-		return false, "", fmt.Errorf("failed to close partition mount (%s):\n%w",
+		return nil, fmt.Errorf("failed to close partition mount (%s):\n%w",
 			diskPartition.Path, err)
 	}
-	return exists, subvolume, nil
+	return matchingPaths, nil
 }
 
 // listBtrfsSubvolumes uses btrfs tools to discover actual subvolumes in a mounted BTRFS filesystem
