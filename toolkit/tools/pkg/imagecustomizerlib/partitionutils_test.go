@@ -24,7 +24,7 @@ func TestParseBtrfsSubvolumeOutput(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name:          "Standard subvolume paths without FS_TREE prefix",
+			name:          "Standard subvolume paths",
 			output:        "ID 256 gen 7 top level 5 path root\nID 257 gen 7 top level 5 path home",
 			expectedPaths: []string{"root", "home"},
 			expectedError: false,
@@ -36,15 +36,9 @@ func TestParseBtrfsSubvolumeOutput(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name:          "Subvolume paths with FS_TREE prefix (from -a flag on non-toplevel mount)",
-			output:        "ID 256 gen 7 top level 5 path <FS_TREE>/root\nID 257 gen 7 top level 5 path <FS_TREE>/home",
-			expectedPaths: []string{"root", "home"},
-			expectedError: false,
-		},
-		{
-			name:          "Mixed paths with and without FS_TREE prefix",
-			output:        "ID 256 gen 7 top level 5 path <FS_TREE>/root\nID 257 gen 7 top level 5 path nested_snap",
-			expectedPaths: []string{"root", "nested_snap"},
+			name:          "Nested subvolumes",
+			output:        "ID 256 gen 7 top level 5 path root\nID 257 gen 7 top level 5 path root/var",
+			expectedPaths: []string{"root", "root/var"},
 			expectedError: false,
 		},
 		{
@@ -64,12 +58,6 @@ func TestParseBtrfsSubvolumeOutput(t *testing.T) {
 			output:        "invalid line without proper format",
 			expectedPaths: nil,
 			expectedError: true,
-		},
-		{
-			name:          "Nested subvolumes with FS_TREE prefix",
-			output:        "ID 256 gen 7 top level 5 path <FS_TREE>/root\nID 257 gen 7 top level 5 path <FS_TREE>/root/var",
-			expectedPaths: []string{"root", "root/var"},
-			expectedError: false,
 		},
 	}
 
