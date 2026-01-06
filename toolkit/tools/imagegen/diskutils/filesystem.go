@@ -151,6 +151,19 @@ var (
 	// - Are not used by one of the supported distros/versions, OR
 	// - Are supported by MinKernelVersion (v5.4).
 	//
+	// All btrfs features (as of btrfs-progs 6.17):
+	// - mixed-bg (since kernel v2.6.37)
+	// - extref (v3.7)
+	// - raid56 (v3.9)
+	// - skinny-metadata (v3.10)
+	// - no-holes (v3.14)
+	// - zoned (v5.12)
+	// - quota (v3.4)
+	// - free-space-tree (v4.5)
+	// - block-group-tree (v6.1)
+	// - raid-stripe-tree (v6.7)
+	// - squota (v6.7)
+	//
 	// Ref: https://btrfs.readthedocs.io/en/latest/mkfs.btrfs.html
 	btrfsFeaturesKernelSupport = map[string]version.Version{
 		"extref":          {3, 7},
