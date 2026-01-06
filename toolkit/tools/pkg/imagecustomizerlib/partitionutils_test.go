@@ -170,13 +170,13 @@ UUID=test-uuid  /home   btrfs   subvol=/home,defaults   0 0
 		return
 	}
 
-	found, subvolPath, err := findFstabInRoot(partitionInfo, searchDir)
+	fstabPaths, err := findFstabInRoot(partitionInfo, searchDir)
 	if !assert.NoError(t, err, "findFstabInRoot") {
 		return
 	}
 
-	assert.True(t, found, "fstab should be found in btrfs subvolume")
-	assert.Equal(t, "root", subvolPath, "subvolume path should be 'root'")
+	assert.Len(t, fstabPaths, 1, "fstab should be found in btrfs subvolume")
+	assert.Equal(t, "root", fstabPaths[0], "subvolume path should be 'root'")
 }
 
 func TestFindFstabInBtrfsSubvolumeWithFsTreePrefix(t *testing.T) {
@@ -274,10 +274,10 @@ func TestFindFstabInBtrfsSubvolumeWithFsTreePrefix(t *testing.T) {
 		return
 	}
 
-	found, subvolPath, err := findFstabInRoot(partitionInfo, searchDir)
+	fstabPaths, err := findFstabInRoot(partitionInfo, searchDir)
 	assert.NoError(t, err)
-	assert.True(t, found, "fstab should be found")
-	assert.Equal(t, "root", subvolPath, "subvolume path should be 'root'")
+	assert.Len(t, fstabPaths, 1, "fstab should be found")
+	assert.Equal(t, "root", fstabPaths[0], "subvolume path should be 'root'")
 }
 
 func TestFindFstabAtBtrfsRoot(t *testing.T) {
@@ -361,10 +361,10 @@ func TestFindFstabAtBtrfsRoot(t *testing.T) {
 		return
 	}
 
-	found, subvolPath, err := findFstabInRoot(partitionInfo, searchDir)
+	fstabPaths, err := findFstabInRoot(partitionInfo, searchDir)
 	assert.NoError(t, err)
-	assert.True(t, found, "fstab should be found at root")
-	assert.Empty(t, subvolPath, "subvolume path should be empty when fstab is at root")
+	assert.Len(t, fstabPaths, 1, "fstab should be found at root")
+	assert.Empty(t, fstabPaths[0], "subvolume path should be empty when fstab is at root")
 }
 
 func TestFindFstabNotFoundInBtrfs(t *testing.T) {
@@ -440,8 +440,7 @@ func TestFindFstabNotFoundInBtrfs(t *testing.T) {
 		return
 	}
 
-	found, subvolPath, err := findFstabInRoot(partitionInfo, searchDir)
+	fstabPaths, err := findFstabInRoot(partitionInfo, searchDir)
 	assert.NoError(t, err)
-	assert.False(t, found, "fstab should NOT be found")
-	assert.Empty(t, subvolPath, "subvolume path should be empty when fstab is not found")
+	assert.Empty(t, fstabPaths, "fstab should NOT be found")
 }
