@@ -23,6 +23,10 @@ import (
 // However, when building Azure Linux images, the defaults should be as consistent as possible and should only contain
 // features that are supported on Azure Linux.
 
+type btrfsOptions struct {
+	Features []string
+}
+
 type ext4Options struct {
 	BlockSize int
 	Features  []string
@@ -33,6 +37,8 @@ type xfsOptions struct {
 }
 
 type fileSystemsOptions struct {
+	// The btrfs options to use.
+	Btrfs btrfsOptions
 	// The ext4 options to use.
 	Ext4 ext4Options
 	// The xfs options to use.
@@ -42,6 +48,22 @@ type fileSystemsOptions struct {
 }
 
 var (
+	// The default btrfs options used by an Azure Linux 2.0 image (kernel v5.15).
+	// Features that are default-enabled as of btrfs-progs v5.15:
+	// - extref (default since v3.12)
+	// - skinny-metadata (default since v3.18)
+	// - no-holes (default since v5.15)
+	// - free-space-tree (default since v5.15)
+	azl2BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+	}
+
+	// The default btrfs options used by an Azure Linux 3.0 image (kernel v6.6).
+	// Same as AZL2 since no new default features were added since v5.15.
+	azl3BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+	}
+
 	// The default ext4 options used by an Azure Linux 2.0 image.
 	// See, the /etc/mke2fs.conf file in an Azure Linux 2.0 image.
 	azl2Ext4Options = ext4Options{
@@ -80,6 +102,11 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
+	// The default btrfs options used by Fedora 42 (kernel v6.11+)
+	fedora42BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+	}
+
 	// The default ext4 options used by Fedora 42 (kernel v6.11+)
 	// Based on typical Fedora defaults with modern ext4 features
 	fedora42Ext4Options = ext4Options{
@@ -99,20 +126,37 @@ var (
 
 	targetOsFileSystemsOptions = map[targetos.TargetOs]fileSystemsOptions{
 		targetos.TargetOsAzureLinux2: {
+			Btrfs:   azl2BtrfsOptions,
 			Ext4:    azl2Ext4Options,
 			Xfs:     azl2XfsOptions,
 			BootXfs: azl2XfsOptions,
 		},
 		targetos.TargetOsAzureLinux3: {
+			Btrfs:   azl3BtrfsOptions,
 			Ext4:    azl3Ext4Options,
 			Xfs:     azl3XfsOptions,
 			BootXfs: azl3BootXfsOptions,
 		},
 		targetos.TargetOsFedora42: {
+			Btrfs:   fedora42BtrfsOptions,
 			Ext4:    fedora42Ext4Options,
 			Xfs:     fedora42XfsOptions,
 			BootXfs: fedora42XfsOptions,
 		},
+	}
+
+	// A list of btrfs features and their minimum supported kernel versions.
+	//
+	// Note: This list omits features that either:
+	// - Are not used by one of the supported distros/versions, OR
+	// - Are supported by MinKernelVersion (v5.4).
+	//
+	// Ref: https://btrfs.readthedocs.io/en/latest/mkfs.btrfs.html
+	btrfsFeaturesKernelSupport = map[string]version.Version{
+		"extref":          {3, 7},
+		"skinny-metadata": {3, 10},
+		"no-holes":        {3, 14},
+		"free-space-tree": {4, 5},
 	}
 
 	// A list of ext4 features and their minimum supported Linux kernel version.
@@ -172,6 +216,11 @@ var (
 		"parent":     "naming",
 	}
 
+	// The maximum version of mkfs.btrfs that is currently supported.
+	// This is used to prevent issues with newer versions of mkfs.btrfs default enabling new features.
+	// Ref: https://btrfs.readthedocs.io/en/latest/CHANGES.html
+	maxMkfsBtrfsVersion = version.Version{6, 17}
+
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
 	maxMkfsXfsVersion = version.Version{6, 14}
@@ -184,6 +233,9 @@ var (
 	// - Mariner 2.0: v5.15
 	// - Mariner 3.0: v6.6
 	minKernelVersion = version.Version{5, 4}
+
+	// For example: mkfs.btrfs, part of btrfs-progs v6.8
+	mkfsBtrfsVersionRegex = regexp.MustCompile(`^mkfs\.btrfs, part of btrfs-progs v(\d+)\.(\d+)(?:\.(\d+))?$`)
 
 	// For exampke: mke2fs 1.47.0 (5-Feb-2023)
 	mke2fsVersionRegex = regexp.MustCompile(`(?m)^mke2fs (\d+)\.(\d+)\.(\d+) \(\d+-[a-zA-Z]+-\d+\)$`)
@@ -212,6 +264,14 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 	}
 
 	switch filesystemType {
+	case "btrfs":
+		options, err := getBtrfsFileSystemOptions(hostKernelVersion, options)
+		if err != nil {
+			return nil, err
+		}
+
+		return options, nil
+
 	case "ext4":
 		options, err := getExt4FileSystemOptions(hostKernelVersion, options)
 		if err != nil {
@@ -231,6 +291,65 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 	default:
 		return []string(nil), nil
 	}
+}
+
+func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+	mkfsBtrfsVersion, err := getMkfsBtrfsVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	if mkfsBtrfsVersion.Gt(maxMkfsBtrfsVersion) {
+		// New versions of mkfs.btrfs might add new default-enabled features in the future.
+		// So, block newer versions of mkfs.btrfs until we have verified there aren't any new btrfs features that need
+		// to be set in the CLI args.
+		return nil, fmt.Errorf("mkfs.btrfs version (%s) is too new (max: %s)", mkfsBtrfsVersion, maxMkfsBtrfsVersion)
+	}
+
+	// Build list of features to enable.
+	// Unlike ext4's "none" option, btrfs doesn't have a way to disable all defaults.
+	// Instead, we explicitly list the features we want.
+	enableFeatures := []string{}
+	disableFeatures := []string{}
+
+	// Go through all known features and explicitly enable or disable them based on the target OS options.
+	for feature, requiredVersion := range btrfsFeaturesKernelSupport {
+		enableFeature := sliceutils.ContainsValue(options.Btrfs.Features, feature)
+
+		if requiredVersion.Gt(hostKernelVersion) {
+			// Feature is not supported on build host kernel.
+			if enableFeature {
+				logger.Log.Infof("Build host kernel does not support btrfs feature (%s)", feature)
+				enableFeature = false
+			}
+		}
+
+		if requiredVersion.Gt(mkfsBtrfsVersion) {
+			// Feature is not supported by mkfs.btrfs.
+			if enableFeature {
+				logger.Log.Infof("mkfs.btrfs does not support btrfs feature (%s)", feature)
+			}
+
+			continue
+		}
+
+		if enableFeature {
+			enableFeatures = append(enableFeatures, feature)
+		} else {
+			disableFeatures = append(disableFeatures, "^"+feature)
+		}
+	}
+
+	allFeatures := append(enableFeatures, disableFeatures...)
+
+	if len(allFeatures) == 0 {
+		return []string(nil), nil
+	}
+
+	featuresArg := strings.Join(allFeatures, ",")
+	args := []string{"-O", featuresArg}
+
+	return args, nil
 }
 
 func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
@@ -337,6 +456,30 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 
 	args := []string{"-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
 	return args, nil
+}
+
+// Get the version of mkfs.btrfs
+func getMkfsBtrfsVersion() (version.Version, error) {
+	stdout, _, err := shell.Execute("mkfs.btrfs", "-V")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mkfs.btrfs's version:\n%w", err)
+	}
+
+	fullVersionString := strings.TrimSpace(stdout)
+
+	match := mkfsBtrfsVersionRegex.FindStringSubmatch(fullVersionString)
+	if match == nil {
+		return nil, fmt.Errorf("failed to parse mkfs.btrfs's version (%s)", fullVersionString)
+	}
+
+	major, _ := strconv.Atoi(match[1])
+	minor, _ := strconv.Atoi(match[2])
+	patch := 0
+	if match[3] != "" {
+		patch, _ = strconv.Atoi(match[3])
+	}
+	version := version.Version{major, minor, patch}
+	return version, nil
 }
 
 // Get the version of mkfs.ext4
