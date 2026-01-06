@@ -221,14 +221,17 @@ func TestResolveIsoAdditionalFiles_SingleConfig(t *testing.T) {
 
 	result := resolveIsoConfig(configChain)
 
-	assert.Len(t, result.AdditionalFiles, 2)
-
-	assert.Equal(t, "/base/config/files/a.txt", result.AdditionalFiles[0].Source)
-	assert.Equal(t, "/a.txt", result.AdditionalFiles[0].Destination)
-
-	assert.Equal(t, &content, result.AdditionalFiles[1].Content)
-	assert.Equal(t, "/b.txt", result.AdditionalFiles[1].Destination)
-	assert.Equal(t, "", result.AdditionalFiles[1].Source)
+	assert.Equal(t, imagecustomizerapi.AdditionalFileList{
+		{
+			Source:      "/base/config/files/a.txt",
+			Destination: "/a.txt",
+			Permissions: &perms,
+		},
+		{
+			Content:     &content,
+			Destination: "/b.txt",
+		},
+	}, result.AdditionalFiles)
 }
 
 func TestResolveIsoAdditionalFiles_MultipleConfigs(t *testing.T) {
@@ -266,9 +269,18 @@ func TestResolveIsoAdditionalFiles_MultipleConfigs(t *testing.T) {
 
 	result := resolveIsoConfig(configChain)
 
-	assert.Len(t, result.AdditionalFiles, 2)
-	assert.Equal(t, "/base/base-files/base.txt", result.AdditionalFiles[0].Source)
-	assert.Equal(t, "/current/current-files/current.txt", result.AdditionalFiles[1].Source)
+	assert.Equal(t, imagecustomizerapi.AdditionalFileList{
+		{
+			Source:      "/base/base-files/base.txt",
+			Destination: "/base.txt",
+			Permissions: &perms,
+		},
+		{
+			Source:      "/current/current-files/current.txt",
+			Destination: "/current.txt",
+			Permissions: &perms,
+		},
+	}, result.AdditionalFiles)
 }
 
 func TestResolvePxeAdditionalFiles_Empty(t *testing.T) {
@@ -320,14 +332,17 @@ func TestResolvePxeAdditionalFiles_SingleConfig(t *testing.T) {
 
 	result := resolvePxeConfig(configChain)
 
-	assert.Len(t, result.AdditionalFiles, 2)
-
-	assert.Equal(t, "/base/config/files/a.txt", result.AdditionalFiles[0].Source)
-	assert.Equal(t, "/a.txt", result.AdditionalFiles[0].Destination)
-
-	assert.Equal(t, &content, result.AdditionalFiles[1].Content)
-	assert.Equal(t, "/b.txt", result.AdditionalFiles[1].Destination)
-	assert.Equal(t, "", result.AdditionalFiles[1].Source)
+	assert.Equal(t, imagecustomizerapi.AdditionalFileList{
+		{
+			Source:      "/base/config/files/a.txt",
+			Destination: "/a.txt",
+			Permissions: &perms,
+		},
+		{
+			Content:     &content,
+			Destination: "/b.txt",
+		},
+	}, result.AdditionalFiles)
 }
 
 func TestResolvePxeAdditionalFiles_MultipleConfigs(t *testing.T) {
@@ -367,9 +382,18 @@ func TestResolvePxeAdditionalFiles_MultipleConfigs(t *testing.T) {
 
 	// Base config's files should come first, then current config's files
 	// Paths should be resolved relative to each config's base path
-	assert.Len(t, result.AdditionalFiles, 2)
-	assert.Equal(t, "/base/base-files/base.txt", result.AdditionalFiles[0].Source)
-	assert.Equal(t, "/current/current-files/current.txt", result.AdditionalFiles[1].Source)
+	assert.Equal(t, imagecustomizerapi.AdditionalFileList{
+		{
+			Source:      "/base/base-files/base.txt",
+			Destination: "/base.txt",
+			Permissions: &perms,
+		},
+		{
+			Source:      "/current/current-files/current.txt",
+			Destination: "/current.txt",
+			Permissions: &perms,
+		},
+	}, result.AdditionalFiles)
 }
 
 func TestResolveIsoKernelCommandLine_Empty(t *testing.T) {
@@ -411,9 +435,7 @@ func TestResolveIsoKernelCommandLine_SingleConfig(t *testing.T) {
 
 	result := resolveIsoConfig(configChain)
 
-	assert.Len(t, result.KernelCommandLine.ExtraCommandLine, 2)
-	assert.Equal(t, "console=tty0", result.KernelCommandLine.ExtraCommandLine[0])
-	assert.Equal(t, "console=ttyS0", result.KernelCommandLine.ExtraCommandLine[1])
+	assert.Equal(t, []string{"console=tty0", "console=ttyS0"}, result.KernelCommandLine.ExtraCommandLine)
 }
 
 func TestResolveIsoKernelCommandLine_MultipleConfigs(t *testing.T) {
@@ -443,10 +465,7 @@ func TestResolveIsoKernelCommandLine_MultipleConfigs(t *testing.T) {
 	result := resolveIsoConfig(configChain)
 
 	// Base config's args should come first, then current config's args are appended
-	assert.Len(t, result.KernelCommandLine.ExtraCommandLine, 3)
-	assert.Equal(t, "console=tty0", result.KernelCommandLine.ExtraCommandLine[0])
-	assert.Equal(t, "rd.info", result.KernelCommandLine.ExtraCommandLine[1])
-	assert.Equal(t, "rd.shell", result.KernelCommandLine.ExtraCommandLine[2])
+	assert.Equal(t, []string{"console=tty0", "rd.info", "rd.shell"}, result.KernelCommandLine.ExtraCommandLine)
 }
 
 func TestResolveIsoKernelCommandLine_EmptyArgsInMiddle(t *testing.T) {
@@ -486,9 +505,7 @@ func TestResolveIsoKernelCommandLine_EmptyArgsInMiddle(t *testing.T) {
 	result := resolveIsoConfig(configChain)
 
 	// Should skip the empty config in the middle
-	assert.Len(t, result.KernelCommandLine.ExtraCommandLine, 2)
-	assert.Equal(t, "console=tty0", result.KernelCommandLine.ExtraCommandLine[0])
-	assert.Equal(t, "rd.shell", result.KernelCommandLine.ExtraCommandLine[1])
+	assert.Equal(t, []string{"console=tty0", "rd.shell"}, result.KernelCommandLine.ExtraCommandLine)
 }
 
 func TestResolvePxeKernelCommandLine_Empty(t *testing.T) {
@@ -530,9 +547,7 @@ func TestResolvePxeKernelCommandLine_SingleConfig(t *testing.T) {
 
 	result := resolvePxeConfig(configChain)
 
-	assert.Len(t, result.KernelCommandLine.ExtraCommandLine, 2)
-	assert.Equal(t, "console=tty0", result.KernelCommandLine.ExtraCommandLine[0])
-	assert.Equal(t, "console=ttyS0", result.KernelCommandLine.ExtraCommandLine[1])
+	assert.Equal(t, []string{"console=tty0", "console=ttyS0"}, result.KernelCommandLine.ExtraCommandLine)
 }
 
 func TestResolvePxeKernelCommandLine_MultipleConfigs(t *testing.T) {
@@ -562,10 +577,7 @@ func TestResolvePxeKernelCommandLine_MultipleConfigs(t *testing.T) {
 	result := resolvePxeConfig(configChain)
 
 	// Base config's args should come first, then current config's args are appended
-	assert.Len(t, result.KernelCommandLine.ExtraCommandLine, 3)
-	assert.Equal(t, "console=tty0", result.KernelCommandLine.ExtraCommandLine[0])
-	assert.Equal(t, "rd.info", result.KernelCommandLine.ExtraCommandLine[1])
-	assert.Equal(t, "rd.shell", result.KernelCommandLine.ExtraCommandLine[2])
+	assert.Equal(t, []string{"console=tty0", "rd.info", "rd.shell"}, result.KernelCommandLine.ExtraCommandLine)
 }
 
 func TestResolvePxeKernelCommandLine_EmptyArgsInMiddle(t *testing.T) {
@@ -605,9 +617,7 @@ func TestResolvePxeKernelCommandLine_EmptyArgsInMiddle(t *testing.T) {
 	result := resolvePxeConfig(configChain)
 
 	// Should skip the empty config in the middle
-	assert.Len(t, result.KernelCommandLine.ExtraCommandLine, 2)
-	assert.Equal(t, "console=tty0", result.KernelCommandLine.ExtraCommandLine[0])
-	assert.Equal(t, "rd.shell", result.KernelCommandLine.ExtraCommandLine[1])
+	assert.Equal(t, []string{"console=tty0", "rd.shell"}, result.KernelCommandLine.ExtraCommandLine)
 }
 
 func TestResolveIsoInitramfsType_Empty(t *testing.T) {
@@ -803,8 +813,7 @@ func TestResolveIsoKdumpBootFiles_SingleConfig(t *testing.T) {
 	}
 
 	result := resolveIsoConfig(configChain)
-	assert.NotNil(t, result.KdumpBootFiles)
-	assert.Equal(t, imagecustomizerapi.KdumpBootFilesTypeKeep, *result.KdumpBootFiles)
+	assert.Equal(t, &kdumpType, result.KdumpBootFiles)
 }
 
 func TestResolveIsoKdumpBootFiles_OverrideFromCurrent(t *testing.T) {
@@ -830,8 +839,7 @@ func TestResolveIsoKdumpBootFiles_OverrideFromCurrent(t *testing.T) {
 	}
 
 	result := resolveIsoConfig(configChain)
-	assert.NotNil(t, result.KdumpBootFiles)
-	assert.Equal(t, imagecustomizerapi.KdumpBootFilesTypeNone, *result.KdumpBootFiles)
+	assert.Equal(t, &kdumpNone, result.KdumpBootFiles)
 }
 
 func TestResolveIsoKdumpBootFiles_NilInCurrentUsesBase(t *testing.T) {
@@ -856,8 +864,7 @@ func TestResolveIsoKdumpBootFiles_NilInCurrentUsesBase(t *testing.T) {
 	}
 
 	result := resolveIsoConfig(configChain)
-	assert.NotNil(t, result.KdumpBootFiles)
-	assert.Equal(t, imagecustomizerapi.KdumpBootFilesTypeKeep, *result.KdumpBootFiles)
+	assert.Equal(t, &kdumpKeep, result.KdumpBootFiles)
 }
 
 func TestResolvePxeKdumpBootFiles_Empty(t *testing.T) {
@@ -891,8 +898,7 @@ func TestResolvePxeKdumpBootFiles_SingleConfig(t *testing.T) {
 	}
 
 	result := resolvePxeConfig(configChain)
-	assert.NotNil(t, result.KdumpBootFiles)
-	assert.Equal(t, imagecustomizerapi.KdumpBootFilesTypeKeep, *result.KdumpBootFiles)
+	assert.Equal(t, &kdumpType, result.KdumpBootFiles)
 }
 
 func TestResolvePxeKdumpBootFiles_OverrideFromCurrent(t *testing.T) {
@@ -918,8 +924,7 @@ func TestResolvePxeKdumpBootFiles_OverrideFromCurrent(t *testing.T) {
 	}
 
 	result := resolvePxeConfig(configChain)
-	assert.NotNil(t, result.KdumpBootFiles)
-	assert.Equal(t, imagecustomizerapi.KdumpBootFilesTypeNone, *result.KdumpBootFiles)
+	assert.Equal(t, &kdumpNone, result.KdumpBootFiles)
 }
 
 func TestResolvePxeKdumpBootFiles_NilInCurrentUsesBase(t *testing.T) {
@@ -944,8 +949,7 @@ func TestResolvePxeKdumpBootFiles_NilInCurrentUsesBase(t *testing.T) {
 	}
 
 	result := resolvePxeConfig(configChain)
-	assert.NotNil(t, result.KdumpBootFiles)
-	assert.Equal(t, imagecustomizerapi.KdumpBootFilesTypeKeep, *result.KdumpBootFiles)
+	assert.Equal(t, &kdumpKeep, result.KdumpBootFiles)
 }
 
 func TestResolvePxeBootstrapBaseUrl_Empty(t *testing.T) {
