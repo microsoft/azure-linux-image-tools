@@ -228,18 +228,17 @@ func TestFindFstabAtBtrfsRoot(t *testing.T) {
 	if !assert.NoError(t, err, "mount btrfs filesystem") {
 		return
 	}
+	defer btrfsMount.Close()
 
 	etcDir := filepath.Join(mountDir, "etc")
 	err = os.MkdirAll(etcDir, 0755)
 	if !assert.NoError(t, err) {
-		btrfsMount.Close()
 		return
 	}
 
 	fstabContent := "# Test fstab at root\n"
 	err = os.WriteFile(filepath.Join(etcDir, "fstab"), []byte(fstabContent), 0644)
 	if !assert.NoError(t, err) {
-		btrfsMount.Close()
 		return
 	}
 
@@ -315,10 +314,10 @@ func TestFindFstabNotFoundInBtrfs(t *testing.T) {
 	if !assert.NoError(t, err, "mount btrfs filesystem") {
 		return
 	}
+	defer btrfsMount.Close()
 
 	err = shell.ExecuteLive(true, "btrfs", "subvolume", "create", filepath.Join(mountDir, "data"))
 	if !assert.NoError(t, err, "create 'data' subvolume") {
-		btrfsMount.Close()
 		return
 	}
 
