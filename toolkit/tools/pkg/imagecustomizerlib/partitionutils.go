@@ -274,11 +274,6 @@ func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 		}
 
 		subvolPath := match[1]
-
-		// Strip the <FS_TREE>/ prefix if present.
-		// This prefix indicates an absolute path from the filesystem root.
-		subvolPath = strings.TrimPrefix(subvolPath, "<FS_TREE>/")
-
 		subvolumes = append(subvolumes, subvolPath)
 	}
 
