@@ -65,3 +65,6 @@ os:
     - util-linux
     - zlib
     - kernel
+
+previewFeatures:
+- btrfs

@@ -765,3 +765,151 @@ func TestConfigIsValidWithCosiCompressionLevelNoPreviewFeature(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "the 'cosi-compression' preview feature must be enabled to use 'output.image.cosi.compression'")
 }
+
+func TestConfigIsValidWithBtrfsPreviewFeatureAndFilesystem(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			Disks: []Disk{{
+				PartitionTableType: "gpt",
+				MaxSize:            ptrutils.PtrTo(DiskSize(3 * diskutils.GiB)),
+				Partitions: []Partition{
+					{
+						Id:    "esp",
+						Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+						End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+						Type:  PartitionTypeESP,
+					},
+					{
+						Id:    "rootfs",
+						Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					},
+				},
+			}},
+			BootType: "efi",
+			FileSystems: []FileSystem{
+				{
+					DeviceId: "esp",
+					Type:     FileSystemTypeFat32,
+					MountPoint: &MountPoint{
+						Path: "/boot/efi",
+					},
+				},
+				{
+					DeviceId: "rootfs",
+					Type:     FileSystemTypeBtrfs,
+					MountPoint: &MountPoint{
+						Path: "/",
+					},
+				},
+			},
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+		},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureBtrfs},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithBtrfsPreviewFeatureNoFilesystem(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			Disks: []Disk{{
+				PartitionTableType: "gpt",
+				MaxSize:            ptrutils.PtrTo(DiskSize(3 * diskutils.GiB)),
+				Partitions: []Partition{
+					{
+						Id:    "esp",
+						Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+						End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+						Type:  PartitionTypeESP,
+					},
+					{
+						Id:    "rootfs",
+						Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					},
+				},
+			}},
+			BootType: "efi",
+			FileSystems: []FileSystem{
+				{
+					DeviceId: "esp",
+					Type:     FileSystemTypeFat32,
+					MountPoint: &MountPoint{
+						Path: "/boot/efi",
+					},
+				},
+				{
+					DeviceId: "rootfs",
+					Type:     FileSystemTypeExt4,
+					MountPoint: &MountPoint{
+						Path: "/",
+					},
+				},
+			},
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+		},
+		PreviewFeatures: []PreviewFeature{PreviewFeatureBtrfs},
+	}
+
+	err := config.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestConfigIsValidWithBtrfsFilesystemNoPreviewFeature(t *testing.T) {
+	config := &Config{
+		Storage: Storage{
+			Disks: []Disk{{
+				PartitionTableType: "gpt",
+				MaxSize:            ptrutils.PtrTo(DiskSize(3 * diskutils.GiB)),
+				Partitions: []Partition{
+					{
+						Id:    "esp",
+						Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+						End:   ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+						Type:  PartitionTypeESP,
+					},
+					{
+						Id:    "rootfs",
+						Start: ptrutils.PtrTo(DiskSize(9 * diskutils.MiB)),
+					},
+				},
+			}},
+			BootType: "efi",
+			FileSystems: []FileSystem{
+				{
+					DeviceId: "esp",
+					Type:     FileSystemTypeFat32,
+					MountPoint: &MountPoint{
+						Path: "/boot/efi",
+					},
+				},
+				{
+					DeviceId: "rootfs",
+					Type:     FileSystemTypeBtrfs,
+					MountPoint: &MountPoint{
+						Path: "/",
+					},
+				},
+			},
+		},
+		OS: &OS{
+			BootLoader: BootLoader{
+				ResetType: ResetBootLoaderTypeHard,
+			},
+		},
+		PreviewFeatures: []PreviewFeature{},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "the 'btrfs' preview feature must be enabled to use btrfs filesystems")
+}

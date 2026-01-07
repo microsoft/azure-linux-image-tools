@@ -154,6 +154,15 @@ func (c *Config) IsValid() (err error) {
 			PreviewFeatureCosiCompression)
 	}
 
+	hasBtrfsFilesystem := slices.ContainsFunc(c.Storage.FileSystems, func(fs FileSystem) bool {
+		return fs.Type == FileSystemTypeBtrfs
+	})
+
+	if hasBtrfsFilesystem && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeatureBtrfs) {
+		return fmt.Errorf("the '%s' preview feature must be enabled to use btrfs filesystems",
+			PreviewFeatureBtrfs)
+	}
+
 	return nil
 }
 

@@ -26,3 +26,6 @@ storage:
 os:
   bootloader:
     resetType: hard-reset
+
+previewFeatures:
+- btrfs
