@@ -5,11 +5,6 @@ ancestor: Image Customizer
 
 # cosiCompression type
 
-This is a preview feature.
-Its API and behavior is subject to change.
-You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](./config.md#previewfeatures-string) API.
-
 Specifies the zstd compression settings for the partition images within the COSI output image.
 
 If not specified, the default compression level is used.
@@ -29,6 +24,11 @@ previewFeatures:
 ```
 
 ## level [int]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `cosi-compression` in the
+[previewFeatures](./config.md#previewfeatures-string) API.
 
 Optional. Default: `9`
 
