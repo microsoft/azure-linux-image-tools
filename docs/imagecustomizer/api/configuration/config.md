@@ -136,6 +136,12 @@ Supported options:
 
   Added in v1.2.
 
+- `btrfs`: Enables support for creating BTRFS filesystems.
+
+  When this option is specified, the `storage.filesystems[].type` can be set to `btrfs`.
+
+  Added in v1.2.
+
 ## output [[output](./output.md)]
 
 Specifies the configuration for the output image and artifacts.

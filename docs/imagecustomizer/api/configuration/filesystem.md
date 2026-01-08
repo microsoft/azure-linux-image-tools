@@ -25,6 +25,7 @@ The filesystem type of the partition.
 
 Supported options:
 
+- `btrfs` (requires `btrfs` preview feature)
 - `ext4`
 - `fat32` (alias for `vfat`)
 - `vfat` (will select either FAT12, FAT16, or FAT32 based on the size of the partition)

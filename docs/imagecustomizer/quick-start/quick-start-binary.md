@@ -36,7 +36,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
 
 3. Install prerequisites: `qemu-img`, `rpm`, `dd`, `lsblk`, `losetup`, `sfdisk`,
    `udevadm`, `flock`, `blkid`, `openssl`, `sed`, `createrepo`, `mksquashfs`,
-   `genisoimage`, `mkfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
+   `genisoimage`, `mkfs`, `mkfs.btrfs`, `mkfs.ext4`, `mkfs.vfat`, `mkfs.xfs`, `fsck`,
    `e2fsck`, `xfs_repair`, `resize2fs`, `tune2fs`, `xfs_admin`, `fatlabel`, `zstd`,
    `veritysetup`, `grub2-install` (or `grub-install`), `ukify`, `objcopy`, `lsof`, `btrfs`.
 

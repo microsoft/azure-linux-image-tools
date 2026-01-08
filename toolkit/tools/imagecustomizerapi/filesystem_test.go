@@ -19,3 +19,16 @@ func TestFileSystemIsValidBadDeviceId(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid deviceId value: must not be empty")
 }
+
+func TestFileSystemIsValidBtrfs(t *testing.T) {
+	fileSystem := FileSystem{
+		DeviceId: "rootfs",
+		Type:     FileSystemTypeBtrfs,
+		MountPoint: &MountPoint{
+			Path: "/",
+		},
+	}
+
+	err := fileSystem.IsValid()
+	assert.NoError(t, err)
+}

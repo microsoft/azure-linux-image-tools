@@ -1,0 +1,31 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      size: 1G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: btrfs
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+previewFeatures:
+- btrfs

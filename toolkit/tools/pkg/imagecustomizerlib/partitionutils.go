@@ -37,6 +37,13 @@ var (
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
 )
 
+const (
+	// BtrfsTopLevelSubvolumeId is the ID of the top-level subvolume in a BTRFS filesystem.
+	// This is BTRFS_FS_TREE_OBJECTID, the objectid that refers to the global FS_TREE root.
+	// See: https://btrfs.readthedocs.io/en/latest/dev/On-disk-format.html#reserved-objectids
+	BtrfsTopLevelSubvolumeId = 5
+)
+
 type fstabEntryPartNum struct {
 	FstabEntry diskutils.FstabEntry
 	PartUuid   string
@@ -141,11 +148,11 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 			continue
 		}
 
-		exists, rootfsPath, err := findFstabInRoot(diskPartition, tmpDir)
+		matchingPaths, err := findFstabInRoot(diskPartition, tmpDir)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to search for fstab in partition (%s):\n%w", diskPartition.Path, err)
 		}
-		if exists {
+		for _, rootfsPath := range matchingPaths {
 			rootfsPartitions = append(rootfsPartitions, &diskPartition)
 			rootfsPaths = append(rootfsPaths, rootfsPath)
 		}
@@ -163,39 +170,52 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	return rootfsPartition, rootfsPath, nil
 }
 
-// findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes
-func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool, string, error) {
+// findFstabInRoot searches for fstab in the root filesystem and in BTRFS subvolumes.
+// Returns all paths where etc/fstab was found (empty string for top-level, BTRFS subvolume path otherwise).
+func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) ([]string, error) {
+	// For BTRFS, mount with subvolid=5 to ensure the top-level subvolume is mounted.
+	// This ensures that `btrfs subvolume list -a` returns consistent absolute paths
+	// without the <FS_TREE>/ prefix.
+	mountOptions := ""
+	if diskPartition.FileSystemType == "btrfs" {
+		mountOptions = fmt.Sprintf("subvolid=%d", BtrfsTopLevelSubvolumeId)
+	}
+
 	partitionMount, err := safemount.NewMount(diskPartition.Path, tmpDir, diskPartition.FileSystemType,
-		unix.MS_RDONLY, "", true)
+		unix.MS_RDONLY, mountOptions, true)
 	if err != nil {
-		return false, "", fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
+		return nil, fmt.Errorf("failed to mount partition (%s):\n%w", diskPartition.Path, err)
 	}
 	defer partitionMount.Close()
 
+	var matchingPaths []string
+
 	// Check the root of the filesystem
-	subvolume := ""
 	fstabPath := filepath.Join(tmpDir, "etc/fstab")
 	exists, err := file.PathExists(fstabPath)
 	if err != nil {
-		return false, "", err
+		return nil, err
+	}
+	if exists {
+		matchingPaths = append(matchingPaths, "")
 	}
 
-	if !exists && diskPartition.FileSystemType == "btrfs" {
+	if diskPartition.FileSystemType == "btrfs" {
 		// List actual subvolumes using btrfs tools
 		subvolumes, err := listBtrfsSubvolumes(tmpDir)
 		if err != nil {
-			return false, "", err
+			return nil, err
 		}
 
 		// Search for fstab in each subvolume directory
-		for _, subvolume = range subvolumes {
-			fstabPath := filepath.Join(tmpDir, subvolume, "etc/fstab")
-			exists, err := file.PathExists(fstabPath)
+		for _, subvol := range subvolumes {
+			fstabPath := filepath.Join(tmpDir, subvol, "etc/fstab")
+			exists, err = file.PathExists(fstabPath)
 			if err != nil {
-				return false, "", err
+				return nil, err
 			}
 			if exists {
-				break
+				matchingPaths = append(matchingPaths, subvol)
 			}
 		}
 	}
@@ -203,10 +223,10 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) (bool
 	// Close the rootfs partition mount.
 	err = partitionMount.CleanClose()
 	if err != nil {
-		return false, "", fmt.Errorf("failed to close partition mount (%s):\n%w",
+		return nil, fmt.Errorf("failed to close partition mount (%s):\n%w",
 			diskPartition.Path, err)
 	}
-	return exists, subvolume, nil
+	return matchingPaths, nil
 }
 
 // listBtrfsSubvolumes uses btrfs tools to discover actual subvolumes in a mounted BTRFS filesystem
@@ -215,19 +235,32 @@ func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		ExecuteCaptureOutput()
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to list BTRFS subvolumes:\n%w", err)
 	}
 
-	// Regex to parse btrfs subvolume list output format:
-	// ID 256 gen 7 top level 5 path @
-	// ID 257 gen 7 top level 5 path @home
+	subvolumes, err := parseBtrfsSubvolumeListOutput(stdout)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Log.Debugf("Found BTRFS subvolumes: %v", subvolumes)
+	return subvolumes, nil
+}
+
+// parseBtrfsSubvolumeListOutput parses the output of `btrfs subvolume list -a` command.
+// When the top-level subvolume (subvolid=5) is mounted, the output shows paths without
+// the <FS_TREE>/ prefix. The -a flag ensures absolute paths from the filesystem root.
+// Example output:
+//
+//	ID 256 gen 7 top level 5 path root
+//	ID 257 gen 7 top level 5 path home
+func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 	subvolumeRegex := regexp.MustCompile(
 		`^ID\s+\d+\s+gen\s+\d+\s+top\s+level\s+\d+\s+path\s+(.+)$`)
 
 	var subvolumes []string
-	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(output), "\n")
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -244,7 +277,6 @@ func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
 		subvolumes = append(subvolumes, subvolPath)
 	}
 
-	logger.Log.Debugf("Found BTRFS subvolumes: %v", subvolumes)
 	return subvolumes, nil
 }
 
