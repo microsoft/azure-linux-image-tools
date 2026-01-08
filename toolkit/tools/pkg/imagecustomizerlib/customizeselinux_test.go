@@ -269,12 +269,8 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 			}
 			defer os.RemoveAll(tempDir)
 
-			// Extract kernel name from UKI filename (vmlinuz-<version>.efi)
-			ukiBaseName := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
-			kernelName := strings.TrimSuffix(ukiBaseName, ".uki")
-
-			// Use production code to extract cmdline (handles both main UKI and addon)
-			cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, kernelName, tempDir)
+			// Use production code to extract cmdline (handles main UKI and all addons)
+			cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, tempDir)
 			if err != nil {
 				return "", fmt.Errorf("failed to extract cmdline: %w", err)
 			}
