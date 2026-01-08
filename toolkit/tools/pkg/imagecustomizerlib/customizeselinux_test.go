@@ -13,7 +13,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -258,7 +257,10 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 	}
 
 	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ".efi") && !strings.Contains(f.Name(), ".addon.efi") {
+		if f.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(f.Name(), ".efi") {
 			ukiPath := filepath.Join(ukiDir, f.Name())
 
 			tempDir, err := os.MkdirTemp("", "test-cmdline-extraction-*")
@@ -267,43 +269,17 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 			}
 			defer os.RemoveAll(tempDir)
 
-			cmdlinePath := filepath.Join(tempDir, "cmdline.txt")
-
-			// Check if addon exists first
+			// Extract kernel name from UKI filename (vmlinuz-<version>.efi)
 			ukiBaseName := strings.TrimSuffix(f.Name(), filepath.Ext(f.Name()))
 			kernelName := strings.TrimSuffix(ukiBaseName, ".uki")
-			addonDir := filepath.Join(ukiDir, f.Name()+".extra.d")
-			addonPath := filepath.Join(addonDir, kernelName+".addon.efi")
 
-			var pathToExtractFrom string
-			if _, err := os.Stat(addonPath); err == nil {
-				// Addon exists, extract from addon
-				pathToExtractFrom = addonPath
-			} else {
-				// No addon, extract from main UKI
-				pathToExtractFrom = ukiPath
-			}
-
-			tempCopy := filepath.Join(tempDir, "uki-copy.efi")
-			input, err := os.ReadFile(pathToExtractFrom)
+			// Use production code to extract cmdline (handles both main UKI and addon)
+			cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, kernelName, tempDir)
 			if err != nil {
-				return "", fmt.Errorf("failed to read UKI/addon file: %w", err)
-			}
-			if err := os.WriteFile(tempCopy, input, 0o644); err != nil {
-				return "", fmt.Errorf("failed to write temp UKI/addon file: %w", err)
+				return "", fmt.Errorf("failed to extract cmdline: %w", err)
 			}
 
-			_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, tempCopy)
-			if err != nil {
-				return "", fmt.Errorf("objcopy failed to extract cmdline: %w", err)
-			}
-
-			content, err := os.ReadFile(cmdlinePath)
-			if err != nil {
-				return "", fmt.Errorf("failed to read cmdline file: %w", err)
-			}
-
-			return string(content), nil
+			return cmdline, nil
 		}
 	}
 

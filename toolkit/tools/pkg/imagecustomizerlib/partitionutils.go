@@ -775,10 +775,10 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
-		// Try to extract cmdline from addon first (new architecture), fallback to main UKI (old architecture)
-		cmdlineContent, err := extractCmdlineFromUkiOrAddon(ukiFile, kernelName, buildDir)
+		// Extract cmdline from main UKI and addon (if exists), then concatenate
+		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, kernelName, buildDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract cmdline from UKI or addon (%s):\n%w", ukiFile, err)
+			return nil, fmt.Errorf("failed to extract cmdline from UKI (%s):\n%w", ukiFile, err)
 		}
 
 		kernelToArgsString[kernelName] = string(cmdlineContent)
@@ -787,30 +787,48 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 	return kernelToArgsString, nil
 }
 
-func extractCmdlineFromUkiOrAddon(ukiFile string, kernelName string, buildDir string) (string, error) {
+// extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and its addon (if present).
+// It mirrors systemd-boot's behavior by concatenating .cmdline sections from both the main UKI and addon.
+func extractCmdlineFromUkiWithObjcopy(ukiFile string, kernelName string, buildDir string) (string, error) {
+	// Extract cmdline from main UKI (may be empty if using addon architecture)
+	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+	}
+
 	// Construct addon file path: <uki-file>.extra.d/<kernel-name>.addon.efi
 	ukiFileName := filepath.Base(ukiFile)
 	addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
 	addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
 
-	// Try to extract from addon first (new architecture)
+	// Try to extract cmdline from addon (if it exists)
+	var addonCmdline string
 	if _, err := os.Stat(addonFilePath); err == nil {
-		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(addonFilePath, buildDir)
+		addonCmdline, err = extractCmdlineFromSinglePE(addonFilePath, buildDir)
 		if err != nil {
 			return "", fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
 		}
-		return cmdlineContent, nil
 	}
 
-	// Fallback to extracting from main UKI (old monolithic architecture)
-	cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, buildDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+	// Concatenate cmdlines from main UKI and addon (mirrors systemd-boot behavior)
+	// At boot time, systemd-boot concatenates .cmdline sections from the main UKI and all addons.
+	cmdlines := []string{}
+	if mainUkiCmdline != "" {
+		cmdlines = append(cmdlines, strings.TrimSpace(mainUkiCmdline))
 	}
-	return cmdlineContent, nil
+	if addonCmdline != "" {
+		cmdlines = append(cmdlines, strings.TrimSpace(addonCmdline))
+	}
+
+	if len(cmdlines) == 0 {
+		return "", fmt.Errorf("no cmdline found in either main UKI or addon")
+	}
+
+	return strings.Join(cmdlines, " "), nil
 }
 
-func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
+// extractCmdlineFromSinglePE extracts the .cmdline section from a single PE file (UKI or addon).
+func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)

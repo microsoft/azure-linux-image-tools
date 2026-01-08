@@ -45,7 +45,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -60,7 +60,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		return
 	}
 
-	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums, nil)
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
@@ -90,7 +90,7 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerityWithAddons(t, buildDir, outImageFilePath, nil, nil)
+	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -104,7 +104,7 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		return
 	}
 
-	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerityWithAddons(t, buildDir, outImageFilePath2, nil, nil)
+	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil, nil)
 	if !ok {
 		return
 	}
@@ -198,7 +198,7 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -212,7 +212,7 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 		return
 	}
 
-	passthroughUkiChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums, nil)
 	if !ok {
 		return
 	}
@@ -273,8 +273,9 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 	verifyRootVerityUki(t, buildDir, outImageFilePath2, nil)
 }
 
-func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
-) (map[string]string, bool) {
+func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,
+	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
+) (map[string]string, map[string]string, bool) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
 		{
@@ -307,7 +308,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, imagePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
-		return nil, false
+		return nil, nil, false
 	}
 	defer imageConnection.Close()
 
@@ -321,6 +322,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
 
+	// Verify fstab entries
 	expectedFstabEntries := []diskutils.FstabEntry{
 		{
 			Source:     "PARTUUID=" + partitions[5].PartUuid,
@@ -376,14 +378,15 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
 	assert.Equal(t, expectedFstabEntries, filteredFstabEntries)
 
+	// Get UKI files and calculate checksums
 	ukiFiles, err := getUkiFiles(espPath)
 	if !assert.NoError(t, err) {
-		return nil, false
+		return nil, nil, false
 	}
 
 	ukiFilesChecksums := calculateUkiFileChecksums(t, ukiFiles)
 	if ukiFilesChecksums == nil {
-		return nil, false
+		return nil, nil, false
 	}
 
 	if expectedUkiFilesChecksums != nil {
@@ -393,12 +396,27 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
 	}
 
-	err = imageConnection.CleanClose()
+	// Get addon files and calculate checksums
+	addonFiles, err := getUkiAddonFiles(espPath)
 	if !assert.NoError(t, err) {
-		return nil, false
+		return nil, nil, false
 	}
 
-	return ukiFilesChecksums, true
+	addonFilesChecksums := calculateUkiFileChecksums(t, addonFiles)
+	if addonFilesChecksums == nil {
+		return nil, nil, false
+	}
+
+	if expectedAddonFilesChecksums != nil {
+		assert.Equal(t, expectedAddonFilesChecksums, addonFilesChecksums, "Addon checksums should match expected")
+	}
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, nil, false
+	}
+
+	return ukiFilesChecksums, addonFilesChecksums, true
 }
 
 func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
@@ -547,92 +565,4 @@ func getUkiAddonFiles(espPath string) ([]string, error) {
 	}
 
 	return addonFiles, nil
-}
-
-// verifyUsrVerityWithAddons verifies verity setup and returns checksums for both main UKI files and addon files.
-func verifyUsrVerityWithAddons(t *testing.T, buildDir string, imagePath string,
-	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
-) (map[string]string, map[string]string, bool) {
-	// Connect to customized image.
-	mountPoints := []testutils.MountPoint{
-		{
-			PartitionNum:   5,
-			Path:           "/",
-			FileSystemType: "ext4",
-		},
-		{
-			PartitionNum:   2,
-			Path:           "/boot",
-			FileSystemType: "ext4",
-		},
-		{
-			PartitionNum:   1,
-			Path:           "/boot/efi",
-			FileSystemType: "vfat",
-		},
-		{
-			PartitionNum:   3,
-			Path:           "/usr",
-			FileSystemType: "ext4",
-			Flags:          unix.MS_RDONLY,
-		},
-		{
-			PartitionNum:   6,
-			Path:           "/var",
-			FileSystemType: "ext4",
-		},
-	}
-
-	imageConnection, err := testutils.ConnectToImage(buildDir, imagePath, false /*includeDefaultMounts*/, mountPoints)
-	if !assert.NoError(t, err) {
-		return nil, nil, false
-	}
-	defer imageConnection.Close()
-
-	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
-	assert.NoError(t, err, "get disk partitions")
-
-	// Verify that verity is configured correctly.
-	espPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi")
-	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
-	usrHashDevice := testutils.PartitionDevPath(imageConnection, 4)
-	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
-
-	// Get UKI files and calculate checksums
-	ukiFiles, err := getUkiFiles(espPath)
-	if !assert.NoError(t, err) {
-		return nil, nil, false
-	}
-
-	ukiFilesChecksums := calculateUkiFileChecksums(t, ukiFiles)
-	if ukiFilesChecksums == nil {
-		return nil, nil, false
-	}
-
-	if expectedUkiFilesChecksums != nil {
-		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums, "Main UKI checksums should match expected")
-	}
-
-	// Get addon files and calculate checksums
-	addonFiles, err := getUkiAddonFiles(espPath)
-	if !assert.NoError(t, err) {
-		return nil, nil, false
-	}
-
-	addonFilesChecksums := calculateUkiFileChecksums(t, addonFiles)
-	if addonFilesChecksums == nil {
-		return nil, nil, false
-	}
-
-	if expectedAddonFilesChecksums != nil {
-		assert.Equal(t, expectedAddonFilesChecksums, addonFilesChecksums, "Addon checksums should match expected")
-	}
-
-	err = imageConnection.CleanClose()
-	if !assert.NoError(t, err) {
-		return nil, nil, false
-	}
-
-	return ukiFilesChecksums, addonFilesChecksums, true
 }
