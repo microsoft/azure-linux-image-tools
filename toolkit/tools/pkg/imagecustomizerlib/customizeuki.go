@@ -536,29 +536,38 @@ func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFu
 	if err != nil {
 		return err
 	}
-	configFilePath := filepath.Join(buildDir, UkiBuildDir, fmt.Sprintf("ukify_%s.conf", kernelVersion))
 
-	// Create the INI file.
+	// Build main UKI
+	err = buildMainUki(kernel, initramfs, osSubreleaseFullPath, stubPath, buildDir, systemBootPartitionTmpDir, kernelVersion)
+	if err != nil {
+		return fmt.Errorf("failed to build main UKI:\n%w", err)
+	}
+
+	// Build UKI addon
+	err = buildUkiAddon(kernel, kernelArgs, stubPath, buildDir, systemBootPartitionTmpDir, kernelVersion)
+	if err != nil {
+		return fmt.Errorf("failed to build UKI addon:\n%w", err)
+	}
+
+	return nil
+}
+
+func buildMainUki(kernel string, initramfs string, osSubreleaseFullPath string, stubPath string,
+	buildDir string, systemBootPartitionTmpDir string, kernelVersion string,
+) error {
+	mainUkiConfigPath := filepath.Join(buildDir, UkiBuildDir, fmt.Sprintf("ukify_main_%s.conf", kernelVersion))
+
+	// Create the INI file for main UKI.
 	cfg := ini.Empty()
 	section, err := cfg.NewSection("UKI")
 	if err != nil {
 		return fmt.Errorf("failed to create INI section:\n%w", err)
 	}
 
-	// Add keys to the INI file.
+	// Add Linux, OSRelease, and Initrd to main UKI.
 	_, err = section.NewKey("Linux", filepath.Join(buildDir, UkiBuildDir, kernel))
 	if err != nil {
 		return fmt.Errorf("failed to add 'Linux' key to INI file:\n%w", err)
-	}
-
-	_, err = section.NewKey("Initrd", filepath.Join(buildDir, UkiBuildDir, initramfs))
-	if err != nil {
-		return fmt.Errorf("failed to add 'Initrd' key to INI file:\n%w", err)
-	}
-
-	_, err = section.NewKey("Cmdline", kernelArgs)
-	if err != nil {
-		return fmt.Errorf("failed to add 'Cmdline' key to INI file:\n%w", err)
 	}
 
 	_, err = section.NewKey("OSRelease", fmt.Sprintf("@%s", osSubreleaseFullPath))
@@ -566,27 +575,65 @@ func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFu
 		return fmt.Errorf("failed to add 'OSRelease' key to INI file:\n%w", err)
 	}
 
-	// Save the INI file.
-	err = cfg.SaveTo(configFilePath)
+	_, err = section.NewKey("Initrd", filepath.Join(buildDir, UkiBuildDir, initramfs))
 	if err != nil {
-		return fmt.Errorf("failed to save INI file for kernel (%s):\n%w", kernelVersion, err)
+		return fmt.Errorf("failed to add 'Initrd' key to INI file:\n%w", err)
+	}
+
+	// Save the INI file.
+	err = cfg.SaveTo(mainUkiConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to save main UKI INI file for kernel (%s):\n%w", kernelVersion, err)
 	}
 
 	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.efi", kernel))
 
-	// Build the UKI using ukify.
 	ukifyCmd := []string{
-		"-c", configFilePath, "build",
+		"-c", mainUkiConfigPath, "build",
 		fmt.Sprintf("--stub=%s", stubPath),
 		fmt.Sprintf("--output=%s", ukiFullPath),
 	}
 
 	err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
 	if err != nil {
-		return fmt.Errorf("failed to build UKI for config (%s):\n%w", configFilePath, err)
+		return fmt.Errorf("failed to build main UKI for config (%s):\n%w", mainUkiConfigPath, err)
 	}
 
-	logger.Log.Infof("Successfully built UKI: (%s)", ukiFullPath)
+	logger.Log.Infof("Successfully built main UKI: (%s)", ukiFullPath)
+	return nil
+}
+
+func buildUkiAddon(kernel string, kernelArgs string, stubPath string,
+	buildDir string, systemBootPartitionTmpDir string, kernelVersion string,
+) error {
+	// Create addon directory: <uki-path>.extra.d/
+	ukiFileName := fmt.Sprintf("%s.efi", kernel)
+	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, ukiFileName)
+	addonDirPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, fmt.Sprintf("%s.extra.d", ukiFileName))
+
+	err := os.MkdirAll(addonDirPath, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create addon directory (%s):\n%w", addonDirPath, err)
+	}
+
+	// Addon output path: <uki-name>.extra.d/<kernel-name>.addon.efi
+	addonFullPath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernel))
+
+	// Build the addon.
+	ukifyCmd := []string{
+		"build",
+		fmt.Sprintf("--cmdline=%s", kernelArgs),
+		fmt.Sprintf("--stub=%s", stubPath),
+		fmt.Sprintf("--output=%s", addonFullPath),
+	}
+
+	err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
+	if err != nil {
+		return fmt.Errorf("failed to build UKI addon:\n%w", err)
+	}
+
+	logger.Log.Infof("Successfully built UKI addon: (%s)", addonFullPath)
+	logger.Log.Infof("Main UKI (%s) will load addon cmdline at boot time", ukiFullPath)
 	return nil
 }
 
@@ -803,8 +850,9 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 			return err
 		}
 
+		// Extract kernel from main UKI file
 		kernelPath := filepath.Join(bootDir, kernelName)
-		logger.Log.Infof("Extracting kernel from UKI (%s) to (%s)", ukiFile, kernelPath)
+		logger.Log.Infof("Extracting kernel from main UKI (%s) to (%s)", ukiFile, kernelPath)
 		err = extractSectionFromUkiWithObjcopy(ukiFile, ".linux", kernelPath, tempDir)
 		if err != nil {
 			return fmt.Errorf("failed to extract kernel from UKI (%s):\n%w", ukiFile, err)
@@ -812,7 +860,8 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 
 		initramfsName := fmt.Sprintf("initramfs-%s.img", kernelVersion)
 		initramfsPath := filepath.Join(bootDir, initramfsName)
-		logger.Log.Infof("Extracting initramfs from UKI (%s) to (%s)", ukiFile, initramfsPath)
+
+		logger.Log.Infof("Extracting initramfs from main UKI (%s) to (%s)", ukiFile, initramfsPath)
 		err = extractSectionFromUkiWithObjcopy(ukiFile, ".initrd", initramfsPath, tempDir)
 		if err != nil {
 			return fmt.Errorf("failed to extract initramfs from UKI (%s):\n%w", ukiFile, err)
@@ -845,23 +894,33 @@ func cleanUkiDirectory(ukiOutputDir string) error {
 		return nil
 	}
 
-	files, err := os.ReadDir(ukiOutputDir)
+	entries, err := os.ReadDir(ukiOutputDir)
 	if err != nil {
 		return fmt.Errorf("failed to read UKI output directory (%s):\n%w", ukiOutputDir, err)
 	}
 
-	for _, file := range files {
-		if file.IsDir() {
+	for _, entry := range entries {
+		entryPath := filepath.Join(ukiOutputDir, entry.Name())
+
+		if entry.IsDir() {
+			// Clean addon directories (*.efi.extra.d/)
+			if strings.HasSuffix(entry.Name(), ".efi.extra.d") {
+				err := os.RemoveAll(entryPath)
+				if err != nil {
+					return fmt.Errorf("failed to delete old UKI addon directory (%s):\n%w", entryPath, err)
+				}
+				logger.Log.Infof("Deleted old UKI addon directory: (%s)", entryPath)
+			}
 			continue
 		}
 
-		if strings.HasSuffix(strings.ToLower(file.Name()), ".efi") {
-			filePath := filepath.Join(ukiOutputDir, file.Name())
-			err := os.Remove(filePath)
+		// Clean UKI files
+		if strings.HasSuffix(strings.ToLower(entry.Name()), ".efi") {
+			err := os.Remove(entryPath)
 			if err != nil {
-				return fmt.Errorf("failed to delete old UKI file (%s):\n%w", filePath, err)
+				return fmt.Errorf("failed to delete old UKI file (%s):\n%w", entryPath, err)
 			}
-			logger.Log.Infof("Deleted old UKI file: (%s)", filePath)
+			logger.Log.Infof("Deleted old UKI file: (%s)", entryPath)
 		}
 	}
 

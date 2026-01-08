@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -44,7 +45,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -59,7 +60,7 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		return
 	}
 
-	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums, nil)
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
@@ -89,7 +90,7 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	ukiFilesChecksums, addonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -103,16 +104,27 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		return
 	}
 
-	newUkiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil)
+	newUkiFilesChecksums, newAddonFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, nil, nil)
 	if !ok {
 		return
 	}
 
+	// With UKI addon architecture:
+	// - Main UKI (kernel + os-release + initramfs) should NOT change when only verity is re-initialized
+	// - Addon (cmdline with verity hashes) SHOULD change when verity is re-initialized
 	for ukiFile := range ukiFilesChecksums {
 		oldChecksum := ukiFilesChecksums[ukiFile]
 		newChecksum, exists := newUkiFilesChecksums[ukiFile]
 		assert.True(t, exists, "UKI file should exist after re-customization: %s", ukiFile)
-		assert.NotEqual(t, oldChecksum, newChecksum, "UKI checksum should change after verity re-initialization: %s", ukiFile)
+		// Main UKI should stay the same since initramfs doesn't change
+		assert.Equal(t, oldChecksum, newChecksum, "Main UKI checksum should NOT change (only cmdline in addon changes): %s", ukiFile)
+	}
+
+	// Addon checksums should change because verity hashes in cmdline change
+	for addonFile, oldAddonChecksum := range addonFilesChecksums {
+		newAddonChecksum, exists := newAddonFilesChecksums[addonFile]
+		assert.True(t, exists, "Addon file should exist after re-customization: %s", addonFile)
+		assert.NotEqual(t, oldAddonChecksum, newAddonChecksum, "Addon checksum should change after verity re-initialization: %s", addonFile)
 	}
 
 	mountPoints := []testutils.MountPoint{
@@ -186,7 +198,7 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 		return
 	}
 
-	ukiFilesChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil)
+	ukiFilesChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath, nil, nil)
 	if !ok {
 		return
 	}
@@ -200,7 +212,7 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 		return
 	}
 
-	passthroughUkiChecksums, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums)
+	passthroughUkiChecksums, _, ok := verifyUsrVerity(t, buildDir, outImageFilePath2, ukiFilesChecksums, nil)
 	if !ok {
 		return
 	}
@@ -261,8 +273,9 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 	verifyRootVerityUki(t, buildDir, outImageFilePath2, nil)
 }
 
-func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
-) (map[string]string, bool) {
+func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,
+	expectedUkiFilesChecksums map[string]string, expectedAddonFilesChecksums map[string]string,
+) (map[string]string, map[string]string, bool) {
 	// Connect to customized image.
 	mountPoints := []testutils.MountPoint{
 		{
@@ -295,7 +308,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, imagePath, false /*includeDefaultMounts*/, mountPoints)
 	if !assert.NoError(t, err) {
-		return nil, false
+		return nil, nil, false
 	}
 	defer imageConnection.Close()
 
@@ -309,6 +322,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
 		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
 
+	// Verify fstab entries
 	expectedFstabEntries := []diskutils.FstabEntry{
 		{
 			Source:     "PARTUUID=" + partitions[5].PartUuid,
@@ -364,14 +378,15 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
 	assert.Equal(t, expectedFstabEntries, filteredFstabEntries)
 
+	// Get UKI files and calculate checksums
 	ukiFiles, err := getUkiFiles(espPath)
 	if !assert.NoError(t, err) {
-		return nil, false
+		return nil, nil, false
 	}
 
 	ukiFilesChecksums := calculateUkiFileChecksums(t, ukiFiles)
 	if ukiFilesChecksums == nil {
-		return nil, false
+		return nil, nil, false
 	}
 
 	if expectedUkiFilesChecksums != nil {
@@ -381,12 +396,27 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string, expectedUk
 		assert.Equal(t, expectedUkiFilesChecksums, ukiFilesChecksums)
 	}
 
-	err = imageConnection.CleanClose()
+	// Get addon files and calculate checksums
+	addonFiles, err := getUkiAddonFiles(espPath)
 	if !assert.NoError(t, err) {
-		return nil, false
+		return nil, nil, false
 	}
 
-	return ukiFilesChecksums, true
+	addonFilesChecksums := calculateUkiFileChecksums(t, addonFiles)
+	if addonFilesChecksums == nil {
+		return nil, nil, false
+	}
+
+	if expectedAddonFilesChecksums != nil {
+		assert.Equal(t, expectedAddonFilesChecksums, addonFilesChecksums, "Addon checksums should match expected")
+	}
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return nil, nil, false
+	}
+
+	return ukiFilesChecksums, addonFilesChecksums, true
 }
 
 func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expectedUkiFilesChecksums map[string]string,
@@ -515,4 +545,24 @@ func calculateUkiFileChecksums(t *testing.T, ukiFiles []string) map[string]strin
 	}
 
 	return ukiFilesChecksums
+}
+
+// getUkiAddonFiles returns a list of UKI addon files (.addon.efi) in the ESP partition.
+func getUkiAddonFiles(espPath string) ([]string, error) {
+	espLinuxPath := filepath.Join(espPath, "EFI/Linux")
+	addonDirs, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi.extra.d"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to search for UKI addon directories in ESP partition:\n%w", err)
+	}
+
+	var addonFiles []string
+	for _, addonDir := range addonDirs {
+		addons, err := filepath.Glob(filepath.Join(addonDir, "*.addon.efi"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to search for addon files in %s:\n%w", addonDir, err)
+		}
+		addonFiles = append(addonFiles, addons...)
+	}
+
+	return addonFiles, nil
 }

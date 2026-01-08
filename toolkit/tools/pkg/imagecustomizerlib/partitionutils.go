@@ -775,9 +775,10 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 			return nil, fmt.Errorf("failed to extract kernel name from UKI file (%s):\n%w", ukiFile, err)
 		}
 
+		// Extract cmdline from main UKI and all addons, then concatenate
 		cmdlineContent, err := extractCmdlineFromUkiWithObjcopy(ukiFile, buildDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract cmdline from UKI file (%s):\n%w", ukiFile, err)
+			return nil, fmt.Errorf("failed to extract cmdline from UKI (%s):\n%w", ukiFile, err)
 		}
 
 		kernelToArgsString[kernelName] = string(cmdlineContent)
@@ -786,7 +787,63 @@ func extractKernelCmdlineFromUkiEfis(espPath string, buildDir string) (map[strin
 	return kernelToArgsString, nil
 }
 
-func extractCmdlineFromUkiWithObjcopy(originalPath, buildDir string) (string, error) {
+// extractCmdlineFromUkiWithObjcopy extracts kernel command-line arguments from a UKI and all its addons.
+// It mirrors systemd-boot's behavior by concatenating .cmdline sections from the main UKI and all addons in lexicographic order.
+func extractCmdlineFromUkiWithObjcopy(ukiFile string, buildDir string) (string, error) {
+	// Extract cmdline from main UKI (may be empty if using addon architecture)
+	mainUkiCmdline, err := extractCmdlineFromSinglePE(ukiFile, buildDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract cmdline from main UKI (%s):\n%w", ukiFile, err)
+	}
+
+	// Construct addon directory path: <uki-file>.extra.d/
+	ukiFileName := filepath.Base(ukiFile)
+	addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+
+	// Extract cmdlines from all addon files in lexicographic order (mirrors systemd-boot behavior)
+	addonCmdlines := []string{}
+	if entries, err := os.ReadDir(addonDirPath); err == nil {
+		// Collect all .addon.efi files
+		var addonFiles []string
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".addon.efi") {
+				addonFiles = append(addonFiles, entry.Name())
+			}
+		}
+
+		// Sort addon files lexicographically (same order as systemd-boot)
+		slices.Sort(addonFiles)
+
+		// Extract cmdline from each addon in sorted order
+		for _, addonFile := range addonFiles {
+			addonFilePath := filepath.Join(addonDirPath, addonFile)
+			addonCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
+			}
+			if strings.TrimSpace(addonCmdline) != "" {
+				addonCmdlines = append(addonCmdlines, strings.TrimSpace(addonCmdline))
+			}
+		}
+	}
+
+	// Concatenate cmdlines from main UKI and all addons (mirrors systemd-boot behavior)
+	// At boot time, systemd-boot concatenates .cmdline sections from the main UKI and all addons.
+	cmdlines := []string{}
+	if mainUkiCmdline != "" {
+		cmdlines = append(cmdlines, strings.TrimSpace(mainUkiCmdline))
+	}
+	cmdlines = append(cmdlines, addonCmdlines...)
+
+	if len(cmdlines) == 0 {
+		return "", fmt.Errorf("no cmdline found in either main UKI or addon")
+	}
+
+	return strings.Join(cmdlines, " "), nil
+}
+
+// extractCmdlineFromSinglePE extracts the .cmdline section from a single PE file (UKI or addon).
+func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 	cmdlinePath, err := os.CreateTemp(buildDir, "cmdline-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp cmdline file:\n%w", err)
@@ -1003,7 +1060,7 @@ func getPartitionNum(partitionLoopDevice string) (int, error) {
 	numStr := match[1]
 
 	num, err := strconv.Atoi(numStr)
-	if match == nil {
+	if err != nil {
 		return 0, fmt.Errorf("failed to parse partition number (%s):\n%w", numStr, err)
 	}
 

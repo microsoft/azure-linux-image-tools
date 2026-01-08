@@ -13,7 +13,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -258,6 +257,9 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 	}
 
 	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
 		if strings.HasSuffix(f.Name(), ".efi") {
 			ukiPath := filepath.Join(ukiDir, f.Name())
 
@@ -267,28 +269,13 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 			}
 			defer os.RemoveAll(tempDir)
 
-			cmdlinePath := filepath.Join(tempDir, "cmdline.txt")
-
-			tempCopy := filepath.Join(tempDir, "uki-copy.efi")
-			input, err := os.ReadFile(ukiPath)
+			// Use production code to extract cmdline (handles main UKI and all addons)
+			cmdline, err := extractCmdlineFromUkiWithObjcopy(ukiPath, tempDir)
 			if err != nil {
-				return "", fmt.Errorf("failed to read UKI file: %w", err)
-			}
-			if err := os.WriteFile(tempCopy, input, 0o644); err != nil {
-				return "", fmt.Errorf("failed to write temp UKI file: %w", err)
+				return "", fmt.Errorf("failed to extract cmdline: %w", err)
 			}
 
-			_, _, err = shell.Execute("objcopy", "--dump-section", ".cmdline="+cmdlinePath, tempCopy)
-			if err != nil {
-				return "", fmt.Errorf("objcopy failed to extract cmdline: %w", err)
-			}
-
-			content, err := os.ReadFile(cmdlinePath)
-			if err != nil {
-				return "", fmt.Errorf("failed to read cmdline file: %w", err)
-			}
-
-			return string(content), nil
+			return cmdline, nil
 		}
 	}
 
