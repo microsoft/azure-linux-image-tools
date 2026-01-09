@@ -42,6 +42,7 @@ type outputPartitionMetadata struct {
 	PartUuid          string `json:"partuuid"`         // Example: 7b1367a6-5845-43f2-99b1-a742d873f590
 	Mountpoint        string `json:"mountpoint"`       // Example: /mnt/os/boot
 	UncompressedSize  uint64 `json:"uncompressedsize"` // Example: 104857600
+	OriginalSize      uint64 `json:"originalsize"`     // Example: 104857600
 }
 
 const (
@@ -264,6 +265,7 @@ func constructOutputPartitionMetadata(diskPartition diskutils.PartitionInfo, par
 	partitionMetadata.Uuid = diskPartition.Uuid
 	partitionMetadata.PartUuid = diskPartition.PartUuid
 	partitionMetadata.Mountpoint = diskPartition.Mountpoint
+	partitionMetadata.OriginalSize = diskPartition.SizeInBytes
 
 	return partitionMetadata, nil
 }
