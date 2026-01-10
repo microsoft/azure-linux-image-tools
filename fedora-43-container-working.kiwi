@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<image schemaversion="7.4" name="fedora-container-simple">
+    <description type="system">
+        <author>KIWI User</author>
+        <contact>user@example.com</contact>
+        <specification>Fedora 43 container test build</specification>
+    </description>
+    <preferences>
+        <version>1.0.0</version>
+        <packagemanager>dnf</packagemanager>
+        <rpm-excludedocs>true</rpm-excludedocs>
+        <rpm-check-signatures>false</rpm-check-signatures>
+        <locale>en_US</locale>
+        <keytable>us</keytable>
+        <type image="docker">
+            <containerconfig name="fedora-43-simple"/>
+        </type>
+    </preferences>
+    <repository type="rpm-md" alias="fedora">
+        <source path="https://download.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/"/>
+    </repository>
+    <packages type="image">
+        <package name="bash"/>
+        <package name="curl"/>
+        <package name="fedora-release"/>
+        <package name="python3"/>
+        <package name="vim-minimal"/>
+        <package name="git"/>
+        <package name="tar"/>
+        <package name="gzip"/>
+    </packages>
+    <packages type="bootstrap">
+        <package name="filesystem"/>
+        <package name="glibc"/>
+        <package name="setup"/>
+        <package name="basesystem"/>
+        <package name="fedora-repos"/>
+    </packages>
+</image>
