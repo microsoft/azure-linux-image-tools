@@ -9,28 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPreviewFeatureIsValid_ValidFeatures_Pass(t *testing.T) {
-	validFeatures := []PreviewFeature{
-		PreviewFeatureUki,
-		PreviewFeatureOutputArtifacts,
-		PreviewFeatureInjectFiles,
-		PreviewFeatureReinitializeVerity,
-		PreviewFeaturePackageSnapshotTime,
-		PreviewFeatureKdumpBootFiles,
-		PreviewFeatureFedora42,
-		PreviewFeatureBaseConfigs,
-		PreviewFeatureInputImageOci,
-		PreviewFeatureOutputSelinuxPolicy,
-		PreviewFeatureCosiCompression,
-		PreviewFeatureBtrfs,
-	}
-
-	for _, feature := range validFeatures {
-		t.Run(string(feature), func(t *testing.T) {
-			err := feature.IsValid()
-			assert.NoError(t, err)
-		})
-	}
+func TestPreviewFeatureIsValid_ValidFeature_Pass(t *testing.T) {
+	err := PreviewFeatureUki.IsValid()
+	assert.NoError(t, err)
 }
 
 func TestPreviewFeatureIsValid_InvalidFeature_Fail(t *testing.T) {

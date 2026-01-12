@@ -88,9 +88,9 @@ func (c *Config) IsValid() (err error) {
 		return err
 	}
 
-	for _, feature := range c.PreviewFeatures {
+	for i, feature := range c.PreviewFeatures {
 		if err := feature.IsValid(); err != nil {
-			return fmt.Errorf("invalid preview feature in list:\n%w", err)
+			return fmt.Errorf("invalid 'previewFeatures' item at index %d:\n%w", i, err)
 		}
 	}
 
