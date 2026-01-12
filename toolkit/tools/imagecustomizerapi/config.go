@@ -88,6 +88,12 @@ func (c *Config) IsValid() (err error) {
 		return err
 	}
 
+	for _, feature := range c.PreviewFeatures {
+		if err := feature.IsValid(); err != nil {
+			return fmt.Errorf("invalid preview feature in list:\n%w", err)
+		}
+	}
+
 	if c.CustomizePartitions() && !hasResetBootLoader {
 		return fmt.Errorf("'os.bootloader.reset' must be specified if 'storage.disks' is specified")
 	}
