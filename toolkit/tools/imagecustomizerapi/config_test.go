@@ -702,7 +702,19 @@ func TestConfigIsValidWithMissingOutputSelinuxPolicyPreviewFeature(t *testing.T)
 
 	err := config.IsValid()
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
+	assert.ErrorContains(t, err,
+		"the 'output-selinux-policy' preview feature must be enabled to use 'output.selinuxPolicyPath'")
+}
+
+func TestConfigIsValid_InvalidPreviewFeature_Fail(t *testing.T) {
+	config := &Config{
+		PreviewFeatures: []PreviewFeature{"invalid-feature"},
+	}
+
+	err := config.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid 'previewFeatures' item at index 0")
+	assert.ErrorContains(t, err, "invalid preview feature: invalid-feature")
 }
 
 func TestConfigIsValidWithCosiCompressionPreviewFeatureAndLevel(t *testing.T) {

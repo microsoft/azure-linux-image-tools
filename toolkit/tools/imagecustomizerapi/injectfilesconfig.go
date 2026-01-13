@@ -22,9 +22,9 @@ func (ifc *InjectFilesConfig) IsValid() error {
 		return fmt.Errorf("the 'inject-files' feature is currently in preview; please add 'inject-files' to 'previewFeatures' to enable it")
 	}
 
-	for _, feature := range ifc.PreviewFeatures {
+	for i, feature := range ifc.PreviewFeatures {
 		if err := feature.IsValid(); err != nil {
-			return fmt.Errorf("invalid preview feature in list:\n%w", err)
+			return fmt.Errorf("invalid 'previewFeatures' item at index %d:\n%w", i, err)
 		}
 	}
 
