@@ -20,8 +20,9 @@ const (
 )
 
 var (
-	ErrUkiPassthroughKernelModified = NewImageCustomizerError("UKI:PassthroughKernelModified",
+	ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 		"kernel binaries detected in /boot after package operations. "+
+			"Both 'passthrough' and 'append' modes preserve the existing kernel and initramfs. "+
 			"Use 'mode: create' to regenerate UKIs with updated kernels")
 )
 
@@ -72,14 +73,17 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	// If UKI passthrough mode, verify no kernel binaries appeared in /boot
-	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
+	// Both modes preserve the existing kernel and initramfs:
+	// - passthrough: preserves entire UKI without modification
+	// - append: preserves main UKI (kernel, initramfs) and only modifies addon
+	if rc.Config.OS.Uki != nil && (rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough ||
+		rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeAppend) {
 		hasKernels, err := hasKernelBinariesInBoot(imageChroot.RootDir())
 		if err != nil {
 			return err
 		}
 		if hasKernels {
-			return ErrUkiPassthroughKernelModified
+			return ErrUkiKernelModified
 		}
 	}
 
@@ -147,7 +151,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.SELinux.Mode, rc.BootLoader.ResetType,
-		imageChroot)
+		imageChroot, rc.Uki)
 	if err != nil {
 		return err
 	}
@@ -161,7 +165,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		overlayUpdated = overlayUpdated || updated
 	}
 
-	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot, distroHandler)
+	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot, distroHandler, rc.Uki)
 	if err != nil {
 		return err
 	}

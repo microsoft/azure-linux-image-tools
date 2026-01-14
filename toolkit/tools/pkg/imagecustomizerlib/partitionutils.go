@@ -727,11 +727,15 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 
 func getUkiFiles(espPath string) ([]string, error) {
 	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
-	ukiFiles, err := filepath.Glob(filepath.Join(espLinuxPath, "vmlinuz-*.efi"))
+	searchPattern := filepath.Join(espLinuxPath, "vmlinuz-*.efi")
+	logger.Log.Debugf("Searching for UKI files: pattern=(%s)", searchPattern)
+
+	ukiFiles, err := filepath.Glob(searchPattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
 	}
 
+	logger.Log.Infof("Found %d UKI files matching pattern", len(ukiFiles))
 	return ukiFiles, nil
 }
 

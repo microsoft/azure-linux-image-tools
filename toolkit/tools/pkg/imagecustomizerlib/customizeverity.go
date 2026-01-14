@@ -66,7 +66,7 @@ const (
 )
 
 func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity,
-	imageChroot *safechroot.Chroot, distroHandler distroHandler,
+	imageChroot *safechroot.Chroot, distroHandler distroHandler, uki *imagecustomizerapi.Uki,
 ) (bool, error) {
 	var err error
 
@@ -95,7 +95,7 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 		return false, fmt.Errorf("%w:\n%w", ErrVerityFstabUpdate, err)
 	}
 
-	err = prepareGrubConfigForVerity(verity, imageChroot)
+	err = prepareGrubConfigForVerity(verity, imageChroot, uki)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityGrubConfigPrepare, err)
 	}
@@ -137,10 +137,15 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
-func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
+func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki) error {
 	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
 		return err
+	}
+
+	// Set UKI mode if UKI is configured
+	if uki != nil {
+		bootCustomizer.SetUkiMode(uki.Mode)
 	}
 
 	for _, verity := range verityList {
@@ -452,16 +457,28 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler di
 }
 
 func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
-	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string, isAppendMode bool,
 ) error {
 	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
 	if err != nil {
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
 
-	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
-	if err != nil {
-		return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+	if isAppendMode {
+		// In append mode, write verity args to a temp file for modifyUkiAddon to read later
+		verityArgsPath := filepath.Join(buildDir, UkiBuildDir, "verity-args.txt")
+		argsStr := GrubArgsToString(newArgs)
+		err = os.WriteFile(verityArgsPath, []byte(argsStr), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write verity args to temp file:\n%w", err)
+		}
+		logger.Log.Debugf("Wrote verity args to temp file: %s", verityArgsPath)
+	} else {
+		// In create mode, update the uki-kernel-info.json file
+		err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
+		if err != nil {
+			return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+		}
 	}
 
 	return nil
@@ -681,8 +698,10 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		}
 
 		// Update kernel args.
-		isUki := config.OS.Uki != nil && config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
+		// UKI mode can be 'create' or 'append' - both use UKI bootloader (not GRUB)
+		isUki := config.OS.Uki != nil && config.OS.Uki.Mode != imagecustomizerapi.UkiModePassthrough
+		isAppendMode := config.OS.Uki != nil && config.OS.Uki.Mode == imagecustomizerapi.UkiModeAppend
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, isAppendMode, partitionsLayout)
 		if err != nil {
 			return nil, err
 		}
@@ -761,7 +780,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 }
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
-	verityMetadata []verityDeviceMetadata, isUki bool, partitionsLayout []fstabEntryPartNum,
+	verityMetadata []verityDeviceMetadata, isUki bool, isAppendMode bool, partitionsLayout []fstabEntryPartNum,
 ) error {
 	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
@@ -769,7 +788,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 
 	if isUki {
-		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid)
+		err = updateUkiKernelArgsForVerity(verityMetadata, diskPartitions, buildDir, bootPartition.Uuid, isAppendMode)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrUpdateKernelArgs, err)
 		}

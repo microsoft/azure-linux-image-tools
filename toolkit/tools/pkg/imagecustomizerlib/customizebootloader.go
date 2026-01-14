@@ -42,7 +42,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(ctx, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
+		err := AddKernelCommandLine(ctx, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), rc.Uki)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
@@ -114,7 +114,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 // Inserts new kernel command-line args into the grub config file.
 func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface,
+	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki,
 ) error {
 	var err error
 
@@ -131,6 +131,10 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	bootCustomizer, err := NewBootCustomizer(imageChroot)
 	if err != nil {
 		return err
+	}
+
+	if uki != nil {
+		bootCustomizer.SetUkiMode(uki.Mode)
 	}
 
 	err = bootCustomizer.AddKernelCommandLine(extraCommandLine)

@@ -43,6 +43,9 @@ type BootCustomizer struct {
 
 	// The type of boot configuration used by the image.
 	bootConfigType bootConfigType
+
+	// The UKI mode when boot type is UKI (optional).
+	ukiMode imagecustomizerapi.UkiMode
 }
 
 func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer, error) {
@@ -68,6 +71,12 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer,
 		bootConfigType:         bootConfigType,
 	}
 	return b, nil
+}
+
+// SetUkiMode sets the UKI mode for the boot customizer.
+// This should be called when using UKI with a specific mode (create, passthrough, append).
+func (b *BootCustomizer) SetUkiMode(ukiMode imagecustomizerapi.UkiMode) {
+	b.ukiMode = ukiMode
 }
 
 func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface) (bootConfigType, error) {
@@ -119,8 +128,12 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args are embedded in UKI files and cannot be modified in passthrough mode.
-		return ErrBootUkiPassthroughCmdlineModified
+		// Cmdline args cannot be modified in passthrough mode.
+		if b.ukiMode != imagecustomizerapi.UkiModeAppend {
+			return ErrBootUkiPassthroughCmdlineModified
+		}
+		// For append mode, changes will be handled during UKI addon regeneration in createUki().
+		// We allow the call to succeed here since the actual modification happens elsewhere.
 	}
 
 	return nil
@@ -247,8 +260,12 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args are embedded in UKI files and cannot be modified in passthrough mode.
-		return ErrBootUkiPassthroughCmdlineModified
+		// Cmdline args cannot be modified in passthrough mode.
+		if b.ukiMode != imagecustomizerapi.UkiModeAppend {
+			return ErrBootUkiPassthroughCmdlineModified
+		}
+		// For append mode, changes will be handled during UKI addon regeneration in createUki().
+		// We allow the call to succeed here since the actual modification happens elsewhere.
 	}
 
 	return nil
