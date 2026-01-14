@@ -146,6 +146,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 					Destination: filepath.Join("/", UkiOutputDir, entry.Name()),
 					Type:        imagecustomizerapi.OutputArtifactsItemUkis,
 				})
+				logger.Log.Debugf("Added UKI file to metadata: %s", entry.Name())
 
 				// Check for and copy UKI addon directory (e.g., vmlinuz-6.6.104.2-4.azl3.efi.extra.d/)
 				addonDirName := entry.Name() + ".extra.d"
@@ -187,8 +188,8 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 						}
 					}
 				} else {
-					// No addon directory found - this is a legacy UKI with cmdline embedded in the main UKI
-					logger.Log.Debugf("No addon directory found for UKI: %s (legacy UKI or no cmdline customization)", entry.Name())
+					// No addon directory found - UKI with cmdline embedded in the main UKI file
+					logger.Log.Debugf("No addon directory found for UKI: %s (single UKI file or no cmdline customization)", entry.Name())
 				}
 			}
 		}
@@ -218,6 +219,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			Destination: filepath.Join("/", ShimDir, bootConfig.bootBinary),
 			Type:        imagecustomizerapi.OutputArtifactsItemShim,
 		})
+		logger.Log.Debugf("Added shim file to metadata: %s", bootConfig.bootBinary)
 	}
 
 	// Output systemd-boot
@@ -244,6 +246,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			Destination: filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
 			Type:        imagecustomizerapi.OutputArtifactsItemSystemdBoot,
 		})
+		logger.Log.Debugf("Added systemd-boot file to metadata: %s", bootConfig.systemdBootBinary)
 	}
 
 	// Output verity hash
@@ -276,6 +279,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				Destination: filepath.Join("/", destination),
 				Type:        imagecustomizerapi.OutputArtifactsItemVerityHash,
 			})
+			logger.Log.Debugf("Added verity hash file to metadata: %s", hashFile)
 		}
 	}
 
