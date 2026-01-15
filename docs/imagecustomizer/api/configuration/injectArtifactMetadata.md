@@ -66,7 +66,9 @@ path of the unsigned artifact. Users should replace this file with the signed
 version before running the inject-files command.
 
 Artifacts are organized in subdirectories matching their type (e.g. `ukis/`, `shim/`,
-`systemd-boot/`, `verity-hash/`).
+`systemd-boot/`, `verity-hash/`). For UKI artifacts with addon architecture, the
+addon files are stored in a `.efi.extra.d/` subdirectory next to the main UKI file
+(e.g. `ukis/vmlinuz-6.6.X.efi.extra.d/vmlinuz-6.6.X.addon.efi`).
 
 Added in v0.14.
 

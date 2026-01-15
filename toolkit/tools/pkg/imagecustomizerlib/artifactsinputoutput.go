@@ -130,6 +130,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 
 		for _, entry := range dirEntries {
 			if !entry.IsDir() && ukiRegex.MatchString(entry.Name()) {
+				// Copy main UKI file
 				srcPath := filepath.Join(ukiDir, entry.Name())
 				destPath := filepath.Join(ukiOutputSubdir, entry.Name())
 				err := file.Copy(srcPath, destPath)
@@ -145,6 +146,51 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 					Destination: filepath.Join("/", UkiOutputDir, entry.Name()),
 					Type:        imagecustomizerapi.OutputArtifactsItemUkis,
 				})
+				logger.Log.Debugf("Added UKI file to metadata: %s", entry.Name())
+
+				// Check for and copy UKI addon directory (e.g., vmlinuz-6.6.104.2-4.azl3.efi.extra.d/)
+				addonDirName := entry.Name() + ".extra.d"
+				addonSrcDir := filepath.Join(ukiDir, addonDirName)
+				addonDirExists, err := file.DirExists(addonSrcDir)
+				if err != nil {
+					return fmt.Errorf("failed to check for UKI addon directory (%s):\n%w", addonSrcDir, err)
+				}
+
+				if addonDirExists {
+					logger.Log.Debugf("Found UKI addon directory: %s", addonDirName)
+					addonDestDir := filepath.Join(ukiOutputSubdir, addonDirName)
+
+					// Copy the entire addon directory with all its contents
+					err = file.CopyDir(addonSrcDir, addonDestDir, 0o755, 0o644, nil)
+					if err != nil {
+						return fmt.Errorf("failed to copy UKI addon directory (%s):\n%w", addonSrcDir, err)
+					}
+
+					addonEntries, err := os.ReadDir(addonSrcDir)
+					if err != nil {
+						return fmt.Errorf("failed to read UKI addon directory (%s):\n%w", addonSrcDir, err)
+					}
+
+					for _, addonEntry := range addonEntries {
+						if !addonEntry.IsDir() {
+							addonFileName := addonEntry.Name()
+							addonSource := "./" + string(imagecustomizerapi.OutputArtifactsItemUkis) + "/" + addonDirName + "/" + addonFileName
+							addonDestination := filepath.Join("/", UkiOutputDir, addonDirName, addonFileName)
+
+							outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
+								Partition:   espInjectFilePartition,
+								Source:      addonSource,
+								Destination: addonDestination,
+								Type:        imagecustomizerapi.OutputArtifactsItemUkis,
+							})
+
+							logger.Log.Debugf("Added UKI addon file to metadata: %s", addonFileName)
+						}
+					}
+				} else {
+					// No addon directory found - UKI with cmdline embedded in the main UKI file
+					logger.Log.Debugf("No addon directory found for UKI: %s (single UKI file or no cmdline customization)", entry.Name())
+				}
 			}
 		}
 	}
@@ -173,6 +219,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			Destination: filepath.Join("/", ShimDir, bootConfig.bootBinary),
 			Type:        imagecustomizerapi.OutputArtifactsItemShim,
 		})
+		logger.Log.Debugf("Added shim file to metadata: %s", bootConfig.bootBinary)
 	}
 
 	// Output systemd-boot
@@ -199,6 +246,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			Destination: filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
 			Type:        imagecustomizerapi.OutputArtifactsItemSystemdBoot,
 		})
+		logger.Log.Debugf("Added systemd-boot file to metadata: %s", bootConfig.systemdBootBinary)
 	}
 
 	// Output verity hash
@@ -231,6 +279,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 				Destination: filepath.Join("/", destination),
 				Type:        imagecustomizerapi.OutputArtifactsItemVerityHash,
 			})
+			logger.Log.Debugf("Added verity hash file to metadata: %s", hashFile)
 		}
 	}
 

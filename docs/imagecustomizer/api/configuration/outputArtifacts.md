@@ -57,7 +57,9 @@ Specifies the artifacts that will be output after the image customization.
 
 Supported values:
 
-- `ukis` – UKI PE images (`vmlinuz-<version>.efi`).
+- `ukis` – UKI PE images (`vmlinuz-<version>.efi`) and their associated addon files
+  (`vmlinuz-<version>.efi.extra.d/vmlinuz-<version>.addon.efi`) when UKI addon
+  architecture is used.
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
 - `systemd-boot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
 - `verity-hash` – Verity hash files associated with dm-verity protected partitions.

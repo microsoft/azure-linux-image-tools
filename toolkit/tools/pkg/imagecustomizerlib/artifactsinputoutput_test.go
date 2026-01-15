@@ -234,6 +234,7 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 	hasShim := false
 	hasSystemdBoot := false
 	hasUKI := false
+	hasUKIAddon := false
 	hasVerityHash := false
 	espFiles := []string(nil)
 
@@ -261,6 +262,12 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected UKI destination to end with .efi")
 			assert.True(t, strings.HasPrefix(entry.Source, "./ukis/"), "Expected UKI source to be in ukis/ subdirectory")
 			hasUKI = true
+			if strings.Contains(entry.Destination, ".efi.extra.d/") {
+				// UKI addon file validation
+				assert.True(t, strings.Contains(entry.Source, ".efi.extra.d/"), "Expected UKI addon source to be in .efi.extra.d/ subdirectory")
+				assert.True(t, strings.HasSuffix(entry.Destination, ".addon.efi"), "Expected UKI addon destination to end with .addon.efi")
+				hasUKIAddon = true
+			}
 			espFiles = append(espFiles, entry.Destination)
 
 		case imagecustomizerapi.OutputArtifactsItemVerityHash:
@@ -294,14 +301,16 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 	}
 
 	// Ensure all the expected files were seen.
-	expectedCount := 3
+	expectedCount := 4 // shim, systemd-boot, main UKI, UKI addon
 	if expectVerityHash {
-		expectedCount = 4
+		expectedCount = 5 // + verity hash
 	}
+
 	assert.Equal(t, expectedCount, len(injectConfig.InjectFiles))
 	assert.True(t, hasShim, "Expected an inject entry for shim")
 	assert.True(t, hasSystemdBoot, "Expected an inject entry for systemd-boot")
-	assert.True(t, hasUKI, "Expected at least one inject entry for UKI")
+	assert.True(t, hasUKI, "Expected at least one inject entry for main UKI")
+	assert.True(t, hasUKIAddon, "Expected at least one inject entry for UKI addon")
 	if expectVerityHash {
 		assert.True(t, hasVerityHash, "Expected an inject entry for verity-hash")
 	}
