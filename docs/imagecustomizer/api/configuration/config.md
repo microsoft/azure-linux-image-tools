@@ -130,7 +130,7 @@ Supported options:
 - `cosi-compression`: Enables custom compression settings for COSI output images.
 
   When this option is specified, the `output.image.cosi.compression.level` configuration
-  becomes available, as well as the `--cosi-compression-level` CLI flag.
+  and the `--cosi-compression-level` CLI flag become available.
 
   See [cosiCompression](./cosiCompression.md) for more details.
 

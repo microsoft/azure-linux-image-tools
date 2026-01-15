@@ -82,3 +82,6 @@ The top level type for the YAML file is the [config](./config.md) type.
     - [image](../../../imagecustomizer/api/configuration/output.md#image-outputimage) ([outputImage type](../../../imagecustomizer/api/configuration/outputImage.md))
       - [path](../../../imagecustomizer/api/configuration/outputImage.md#path-string)
       - [format](../../../imagecustomizer/api/configuration/outputImage.md#format-string)
+      - [cosi](../../../imagecustomizer/api/configuration/outputImage.md#cosi-cosiconfig) ([cosiConfig type](../../../imagecustomizer/api/configuration/cosiConfig.md))
+        - [compression](../../../imagecustomizer/api/configuration/cosiConfig.md#compression-cosicompression) ([cosiCompression type](../../../imagecustomizer/api/configuration/cosiCompression.md))
+          - [level](../../../imagecustomizer/api/configuration/cosiCompression.md#level-int)
