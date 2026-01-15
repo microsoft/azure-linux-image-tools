@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
@@ -69,6 +70,10 @@ func validateSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
 func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
 	toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string, buildDir string,
 ) (*imagecustomizerlib.ResolvedConfig, error) {
+	if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
+		return nil, fmt.Errorf("the 'create' feature is currently in preview; please add 'create' to 'previewFeatures' to enable it")
+	}
+
 	err := validateSupportedFields(config)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)

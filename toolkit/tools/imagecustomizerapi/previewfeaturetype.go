@@ -43,13 +43,17 @@ const (
 
 	// PreviewFeatureBtrfs enables support for creating BTRFS filesystems.
 	PreviewFeatureBtrfs PreviewFeature = "btrfs"
+
+	// PreviewFeatureCreate enables the create command for building new images from scratch.
+	PreviewFeatureCreate PreviewFeature = "create"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
-		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureBaseConfigs,
-		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression, PreviewFeatureBtrfs:
+		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
+		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
+		PreviewFeatureCosiCompression, PreviewFeatureBtrfs, PreviewFeatureCreate:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

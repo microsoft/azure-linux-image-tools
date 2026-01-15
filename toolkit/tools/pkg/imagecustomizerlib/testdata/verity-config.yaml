@@ -1,3 +1,6 @@
+previewFeatures:
+- create
+
 storage:
   bootType: efi
   disks:

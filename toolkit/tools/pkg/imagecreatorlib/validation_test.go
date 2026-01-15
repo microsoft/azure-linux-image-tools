@@ -201,7 +201,9 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 
 func TestValidateConfig_EmptyConfig(t *testing.T) {
 	baseConfigPath := testDir
-	config := &imagecustomizerapi.Config{}
+	config := &imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureCreate},
+	}
 	rpmSources := []string{}
 
 	outputImageFile := ""
