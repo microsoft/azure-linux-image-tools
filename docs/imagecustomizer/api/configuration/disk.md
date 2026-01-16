@@ -17,7 +17,7 @@ Supported options:
 
 - `gpt`: Use the GUID Partition Table (GPT) format.
 
-## maxSize [uint64]
+## maxSize [string]
 
 The size of the disk.
 
