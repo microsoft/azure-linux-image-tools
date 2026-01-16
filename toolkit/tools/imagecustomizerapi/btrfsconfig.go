@@ -59,8 +59,8 @@ func validateNoSubvolumeMountPointLoops(subvolumes []BtrfsSubvolume) error {
 
 			mountPointA := path.Clean(subvolA.MountPoint.Path)
 			mountPointB := path.Clean(subvolB.MountPoint.Path)
-			aMountedUnderB := strings.HasPrefix(mountPointA, mountPointB + "/")
-			bNestedUnderA := strings.HasPrefix(subvolB.Path, subvolA.Path + "/")
+			aMountedUnderB := strings.HasPrefix(mountPointA, mountPointB+"/")
+			bNestedUnderA := strings.HasPrefix(subvolB.Path, subvolA.Path+"/")
 
 			if bNestedUnderA && aMountedUnderB {
 				return fmt.Errorf(
