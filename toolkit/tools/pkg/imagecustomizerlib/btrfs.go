@@ -157,13 +157,13 @@ func createBtrfsSubvolumesOnDevice(devicePath string, subvolumes []btrfsSubvolum
 	return nil
 }
 
-// sortBtrfsSubvolumesByDepth returns a new slice of subvolumes sorted by path depth (shallower first).
+// sortBtrfsSubvolumesByDepth returns a new slice of subvolumes sorted alphabetically by path.
 // This ensures parent subvolumes are created before their children.
 func sortBtrfsSubvolumesByDepth(subvolumes []btrfsSubvolumeConfig) []btrfsSubvolumeConfig {
 	sorted := make([]btrfsSubvolumeConfig, len(subvolumes))
 	copy(sorted, subvolumes)
 	sort.Slice(sorted, func(i, j int) bool {
-		return strings.Count(sorted[i].Path, "/") < strings.Count(sorted[j].Path, "/")
+		return sorted[i].Path < sorted[j].Path
 	})
 	return sorted
 }
