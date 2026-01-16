@@ -203,7 +203,7 @@ func createBtrfsSubvolume(mountDir, subvolPath string, subvolumeSet map[string]b
 			}
 
 			logger.Log.Debugf("Creating directory: %s", fullParentPath)
-			err = os.MkdirAll(fullParentPath, 0755)
+			err = os.MkdirAll(fullParentPath, 0o755)
 			if err != nil {
 				return fmt.Errorf("failed to create directory '%s':\n%w", fullParentPath, err)
 			}
