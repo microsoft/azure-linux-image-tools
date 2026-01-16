@@ -2,6 +2,7 @@ package imagecustomizerapi
 
 import (
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -56,6 +57,28 @@ func (p *MountPoint) IsValid() error {
 	// Use validateMountOptions to check Options.
 	if validateMountOptions(p.Options) {
 		return fmt.Errorf("options (%s) contain spaces, tabs, or newlines and are invalid", p.Options)
+	}
+
+	return nil
+}
+
+// validateBtrfsMountOptions validates that mount options for BTRFS filesystems and subvolumes
+// don't contain subvol= or subvolid=.
+func validateBtrfsMountOptions(options string) error {
+	if options == "" {
+		return nil
+	}
+
+	optionsList := strings.Split(options, ",")
+	for _, opt := range optionsList {
+		// No need to trim spaces here.
+		// The kernel will not recognize whitespace before or after option names, or around '='.
+		if strings.HasPrefix(opt, "subvol=") {
+			return fmt.Errorf("'subvol=' option is not allowed; it is automatically added by Image Customizer")
+		}
+		if strings.HasPrefix(opt, "subvolid=") {
+			return fmt.Errorf("'subvolid=' option is not allowed; 'subvol=' is automatically added by Image Customizer")
+		}
 	}
 
 	return nil

@@ -15,6 +15,8 @@ type FileSystem struct {
 	Type FileSystemType `yaml:"type" json:"type,omitempty"`
 	// MountPoint contains the mount settings.
 	MountPoint *MountPoint `yaml:"mountPoint" json:"mountPoint,omitempty"`
+	// Btrfs contains BTRFS-specific configuration options.
+	Btrfs *BtrfsConfig `yaml:"btrfs" json:"btrfs,omitempty"`
 
 	// If 'DeviceId' points at a verity device, this value is the 'Id' of the data partition.
 	// Otherwise, it is the same as 'DeviceId'.
@@ -25,22 +27,43 @@ type FileSystem struct {
 // IsValid returns an error if the MountPoint is not valid
 func (f *FileSystem) IsValid() error {
 	if f.DeviceId == "" {
-		return fmt.Errorf("invalid deviceId value: must not be empty")
+		return fmt.Errorf("invalid 'deviceId' value: must not be empty")
 	}
 
 	err := f.Type.IsValid()
 	if err != nil {
-		return fmt.Errorf("invalid fileSystem (%s) type value:\n%w", f.DeviceId, err)
+		return fmt.Errorf("invalid fileSystem (%s) 'type' value:\n%w", f.DeviceId, err)
+	}
+
+	if f.Btrfs != nil {
+		if f.Type != FileSystemTypeBtrfs {
+			return fmt.Errorf("'btrfs' configuration is only valid for 'btrfs' filesystems")
+		}
+
+		err := f.Btrfs.IsValid()
+		if err != nil {
+			return fmt.Errorf("invalid 'btrfs' configuration:\n%w", err)
+		}
+
+		if len(f.Btrfs.Subvolumes) > 0 && f.MountPoint != nil {
+			return fmt.Errorf("'mountPoint' cannot be set when 'btrfs.subvolumes' is non-empty")
+		}
 	}
 
 	if f.MountPoint != nil {
 		err := f.MountPoint.IsValid()
 		if err != nil {
-			return fmt.Errorf("invalid mountPoint value:\n%w", err)
+			return fmt.Errorf("invalid 'mountPoint' value:\n%w", err)
 		}
 
 		if f.Type == FileSystemTypeNone {
 			return fmt.Errorf("filesystem with 'mountPoint' must have a 'type'")
+		}
+
+		if f.Type == FileSystemTypeBtrfs {
+			if err := validateBtrfsMountOptions(f.MountPoint.Options); err != nil {
+				return fmt.Errorf("invalid 'mountPoint.options' for 'btrfs' filesystem:\n%w", err)
+			}
 		}
 	}
 

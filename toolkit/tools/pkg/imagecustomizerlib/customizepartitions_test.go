@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -497,31 +498,179 @@ func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, 
 	configFile := filepath.Join(testDir, "partitions-btrfs-boot.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	mountPoints := []testutils.MountPoint{
-		{
-			PartitionNum:   2,
-			Path:           "/",
-			FileSystemType: "btrfs",
-		},
-		{
-			PartitionNum:   1,
-			Path:           "/boot/efi",
-			FileSystemType: "vfat",
-		},
-	}
-
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	loopback, err := safeloopback.NewLoopback(outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer imageConnection.Close()
+	defer loopback.Close()
+
+	btrfsPartitionPath := fmt.Sprintf("%sp2", loopback.DevicePath())
+
+	btrfsMountDir := filepath.Join(testTmpDir, "btrfsmount")
+	err = os.MkdirAll(btrfsMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		shell.ExecuteLive(true, "umount", btrfsMountDir)
+	}()
+
+	verifyBtrfsSubvolumes(t, btrfsMountDir, nil)
+	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
+}
+
+func TestCustomizeImagePartitionsBtrfsSubvolumesNested(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t,
+				"TestCustomizeImagePartitionsBtrfsSubvolumesNested"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t *testing.T, testName string,
+	baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-btrfs-subvolumes-nested.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	loopback, err := safeloopback.NewLoopback(outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer loopback.Close()
+
+	btrfsPartitionPath := fmt.Sprintf("%sp2", loopback.DevicePath())
+
+	btrfsMountDir := filepath.Join(testTmpDir, "btrfsmount")
+	err = os.MkdirAll(btrfsMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		shell.ExecuteLive(true, "umount", btrfsMountDir)
+	}()
+
+	expectedSubvolumes := []string{"root", "home", "root/var", "root/var/log", "snapshots"}
+	verifyBtrfsSubvolumes(t, btrfsMountDir, expectedSubvolumes)
+
+	fstabPath := filepath.Join(btrfsMountDir, "root", "etc", "fstab")
+	expectedOptions := map[string]string{
+		"/":        "subvol=/root",
+		"/home":    "subvol=/home",
+		"/var":     "subvol=/root/var",
+		"/var/log": "subvol=/root/var/log,noatime",
+	}
+	verifyBtrfsFstabEntries(t, fstabPath, expectedOptions)
+
+	expectedQuotas := []btrfsExpectedQuota{
+		{"home", 500 * diskutils.MiB, 0},
+		{"root/var/log", 100 * diskutils.MiB, 50 * diskutils.MiB},
+	}
+	verifyBtrfsQuotas(t, btrfsMountDir, expectedQuotas)
+}
+
+func TestCustomizeImagePartitionsBtrfsUnmounted(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsBtrfsUnmountedHelper(t,
+				"TestCustomizeImagePartitionsBtrfsUnmounted"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName string,
+	baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-btrfs-unmounted.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	loopback, err := safeloopback.NewLoopback(outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer loopback.Close()
+
+	rootPartitionPath := fmt.Sprintf("%sp2", loopback.DevicePath())
+
+	rootMountDir := filepath.Join(testTmpDir, "rootmount")
+	err = os.MkdirAll(rootMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = shell.ExecuteLive(true, "mount", rootPartitionPath, rootMountDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		shell.ExecuteLive(true, "umount", rootMountDir)
+	}()
+
+	fstabPath := filepath.Join(rootMountDir, "etc", "fstab")
+	verifyBtrfsFstabEntries(t, fstabPath, nil)
+
+	btrfsPartitionPath := fmt.Sprintf("%sp3", loopback.DevicePath())
+
+	btrfsMountDir := filepath.Join(testTmpDir, "btrfsmount")
+	err = os.MkdirAll(btrfsMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	if !assert.NoError(t, err, "should be able to mount btrfs partition") {
+		return
+	}
+	defer func() {
+		shell.ExecuteLive(true, "umount", btrfsMountDir)
+	}()
+
+	_, err = os.ReadDir(btrfsMountDir)
+	assert.NoError(t, err, "should be able to read btrfs filesystem")
+
+	verifyBtrfsSubvolumes(t, btrfsMountDir, nil)
+	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
 }
 
 func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
@@ -655,4 +804,174 @@ func verifyXfsFeature(t *testing.T, partition string, feature string, enabled bo
 	} else {
 		assert.Equal(t, "0", value)
 	}
+}
+
+// verifyBtrfsQuotasDisabled verifies that btrfs quotas are disabled on the filesystem.
+func verifyBtrfsQuotasDisabled(t *testing.T, mountDir string) {
+	_, _, err := shell.Execute("btrfs", "qgroup", "show", mountDir)
+	assert.Error(t, err, "quotas should be disabled (qgroup show should fail)")
+}
+
+type btrfsExpectedQuota struct {
+	subvolPath      string
+	referencedLimit uint64
+	exclusiveLimit  uint64
+}
+
+// verifyBtrfsQuotas verifies that btrfs quotas are set correctly for the specified subvolumes.
+func verifyBtrfsQuotas(t *testing.T, mountDir string, expectedQuotas []btrfsExpectedQuota) {
+	qgroups, err := getBtrfsQgroupLimits(mountDir)
+	if !assert.NoError(t, err, "get qgroup limits") {
+		return
+	}
+
+	for _, expected := range expectedQuotas {
+		subvolId, err := getBtrfsSubvolumeId(mountDir, expected.subvolPath)
+		if !assert.NoErrorf(t, err, "get subvolume ID for %s", expected.subvolPath) {
+			continue
+		}
+
+		qgroupKey := fmt.Sprintf("0/%d", subvolId)
+		qgroup, exists := qgroups[qgroupKey]
+		if !assert.Truef(t, exists, "qgroup %s should exist for %s", qgroupKey, expected.subvolPath) {
+			continue
+		}
+
+		if expected.referencedLimit != qgroup.maxRfer {
+			t.Errorf("referenced limit for %s: expected %d, got %d",
+				expected.subvolPath, expected.referencedLimit, qgroup.maxRfer)
+		}
+		if expected.exclusiveLimit != qgroup.maxExcl {
+			t.Errorf("exclusive limit for %s: expected %d, got %d",
+				expected.subvolPath, expected.exclusiveLimit, qgroup.maxExcl)
+		}
+	}
+}
+
+// verifyBtrfsSubvolumes verifies that the btrfs filesystem has the expected subvolumes.
+// If expectedSubvolumes is nil or empty, it verifies that no subvolumes exist.
+func verifyBtrfsSubvolumes(t *testing.T, mountDir string, expectedSubvolumes []string) {
+	subvolumes, err := listBtrfsSubvolumes(mountDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	if len(expectedSubvolumes) == 0 {
+		assert.Empty(t, subvolumes, "btrfs filesystem should have no subvolumes")
+	} else {
+		assert.ElementsMatch(t, expectedSubvolumes, subvolumes, "btrfs subvolumes should match expected")
+	}
+}
+
+// verifyBtrfsFstabEntries verifies that the fstab contains the expected btrfs subvolume mount entries.
+// expectedOptions maps target paths to their expected mount options.
+func verifyBtrfsFstabEntries(t *testing.T, fstabPath string, expectedOptions map[string]string) {
+	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
+	if !assert.NoError(t, err, "read /etc/fstab") {
+		return
+	}
+
+	filteredEntries := filterOutSpecialPartitions(fstabEntries)
+
+	var btrfsTargets []string
+	for _, entry := range filteredEntries {
+		if entry.FsType == "btrfs" {
+			btrfsTargets = append(btrfsTargets, entry.Target)
+		}
+	}
+
+	expectedTargets := make([]string, 0, len(expectedOptions))
+	for target := range expectedOptions {
+		expectedTargets = append(expectedTargets, target)
+	}
+	assert.ElementsMatch(t, expectedTargets, btrfsTargets, "fstab should contain all btrfs subvolume mounts")
+
+	for _, entry := range filteredEntries {
+		if entry.FsType == "btrfs" {
+			assert.Equalf(t, expectedOptions[entry.Target], entry.Options, "mount options for %s", entry.Target)
+		}
+	}
+}
+
+type btrfsQgroupInfo struct {
+	maxRfer uint64
+	maxExcl uint64
+}
+
+// getBtrfsSubvolumeId returns the subvolume ID for a given subvolume path.
+func getBtrfsSubvolumeId(mountDir, subvolPath string) (uint64, error) {
+	stdout, _, err := shell.Execute("btrfs", "subvolume", "show", filepath.Join(mountDir, subvolPath))
+	if err != nil {
+		return 0, fmt.Errorf("failed to get subvolume info for %s: %w", subvolPath, err)
+	}
+
+	subvolIdRegex := regexp.MustCompile(`(?m)^\s*Subvolume ID:\s+(\d+)`)
+	match := subvolIdRegex.FindStringSubmatch(stdout)
+	if match == nil {
+		return 0, fmt.Errorf("failed to find Subvolume ID in output for %s", subvolPath)
+	}
+
+	var id uint64
+	_, err = fmt.Sscanf(match[1], "%d", &id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse subvolume ID: %w", err)
+	}
+
+	return id, nil
+}
+
+// getBtrfsQgroupLimits returns a map of qgroup ID to quota limits.
+func getBtrfsQgroupLimits(mountDir string) (map[string]btrfsQgroupInfo, error) {
+	stdout, _, err := shell.Execute("btrfs", "qgroup", "show", "-r", "-e", "--raw", mountDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get qgroup limits: %w", err)
+	}
+
+	return parseBtrfsQgroupOutput(stdout)
+}
+
+// parseBtrfsQgroupOutput parses the output of `btrfs qgroup show -r -e --raw`.
+// Example output:
+//
+//	qgroupid         rfer         excl     max_rfer     max_excl
+//	--------         ----         ----     --------     --------
+//	0/5             16384        16384         none         none
+//	0/256         4194304      4194304    524288000         none
+func parseBtrfsQgroupOutput(output string) (map[string]btrfsQgroupInfo, error) {
+	result := make(map[string]btrfsQgroupInfo)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Skip header lines.
+		if line == "" || strings.HasPrefix(line, "qgroupid") || strings.HasPrefix(line, "---") {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+
+		qgroupId := fields[0]
+		maxRfer := parseQgroupValue(fields[3])
+		maxExcl := parseQgroupValue(fields[4])
+
+		result[qgroupId] = btrfsQgroupInfo{
+			maxRfer: maxRfer,
+			maxExcl: maxExcl,
+		}
+	}
+
+	return result, nil
+}
+
+// parseQgroupValue parses a qgroup limit value, returning 0 for "none".
+func parseQgroupValue(s string) uint64 {
+	if s == "none" {
+		return 0
+	}
+	var val uint64
+	fmt.Sscanf(s, "%d", &val)
+	return val
 }

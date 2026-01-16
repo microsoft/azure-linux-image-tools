@@ -545,3 +545,78 @@ func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, base
 
 	verityUsrVerity(t, baseImageInfo, buildDir, stage2FilePath, "")
 }
+
+func TestUpdateSubvolOption_EmptyOptions_Pass(t *testing.T) {
+	result := updateSubvolOption("", "root")
+	assert.Equal(t, "subvol=/root", result)
+}
+
+func TestUpdateSubvolOption_NoExistingSubvol_Pass(t *testing.T) {
+	result := updateSubvolOption("ro,noatime", "root")
+	assert.Equal(t, "ro,noatime,subvol=/root", result)
+}
+
+func TestUpdateSubvolOption_ExistingSubvol_Pass(t *testing.T) {
+	result := updateSubvolOption("ro,subvol=/old,noatime", "root")
+	assert.Equal(t, "ro,subvol=/root,noatime", result)
+}
+
+func TestUpdateSubvolOption_SubvolAtEnd_Pass(t *testing.T) {
+	result := updateSubvolOption("ro,subvol=/old", "home")
+	assert.Equal(t, "ro,subvol=/home", result)
+}
+
+func TestExtractSubvolPath_NoSubvol_Pass(t *testing.T) {
+	result := extractSubvolPath("ro,noatime")
+	assert.Equal(t, "", result)
+}
+
+func TestExtractSubvolPath_EmptyOptions_Pass(t *testing.T) {
+	result := extractSubvolPath("")
+	assert.Equal(t, "", result)
+}
+
+func TestExtractSubvolPath_WithLeadingSlash_Pass(t *testing.T) {
+	result := extractSubvolPath("ro,subvol=/root,noatime")
+	assert.Equal(t, "root", result)
+}
+
+func TestExtractSubvolPath_WithoutLeadingSlash_Pass(t *testing.T) {
+	result := extractSubvolPath("ro,subvol=root,noatime")
+	assert.Equal(t, "root", result)
+}
+
+func TestExtractSubvolPath_NestedPath_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=/var/lib")
+	assert.Equal(t, "var/lib", result)
+}
+
+func TestExtractSubvolPath_NestedPathWithoutLeadingSlash_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=var/lib")
+	assert.Equal(t, "var/lib", result)
+}
+
+func TestExtractSubvolPath_DoubleSlashes_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=/var//lib")
+	assert.Equal(t, "var/lib", result)
+}
+
+func TestExtractSubvolPath_TrailingSlash_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=/var/lib/")
+	assert.Equal(t, "var/lib", result)
+}
+
+func TestExtractSubvolPath_DotInPath_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=/var/./lib")
+	assert.Equal(t, "var/lib", result)
+}
+
+func TestExtractSubvolPath_DotDotInPath_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=/var/tmp/../lib")
+	assert.Equal(t, "var/lib", result)
+}
+
+func TestExtractSubvolPath_MultipleAnomalies_Pass(t *testing.T) {
+	result := extractSubvolPath("subvol=/var//./tmp/../lib/")
+	assert.Equal(t, "var/lib", result)
+}
