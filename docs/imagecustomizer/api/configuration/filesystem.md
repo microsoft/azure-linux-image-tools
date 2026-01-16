@@ -43,8 +43,8 @@ Added in v0.3.
 
 Optional settings for where and how to mount the filesystem.
 
-As of v1.2, this can only be set when [.btrfs.subvolumes](./btrfsConfig.md#subvolumes-btrfssubvolume)
-is not set or empty. Otherwise, use mount points on individual BTRFS subvolumes instead.
+This cannot be set when [.btrfs.subvolumes](./btrfsConfig.md#subvolumes-btrfssubvolume) is configured.
+Use mount points on individual BTRFS subvolumes instead.
 
 Added in v0.3.
 

@@ -99,7 +99,7 @@ These options are in the same format as
 `-o` option or the `fs_mntops` field of the
 [fstab](https://man7.org/linux/man-pages/man5/fstab.5.html) file.
 
-When mounting a BTRFS subvolume, the `subvol=` and `subvolid=` mount options cannot be specified,
+When specifying a BTRFS subvolume's mount options, the `subvol=` and `subvolid=` mount options cannot be specified,
 since the tool automatically includes `subvol=` based on the subvolume's path.
 
 Added in v0.3.
