@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -106,17 +105,11 @@ func createBtrfsSubvolumesOnDevice(devicePath string, subvolumes []btrfsSubvolum
 	}
 	defer mount.Close()
 
-	// Create subvolumes, used to distinguish subvolumes from regular directories.
-	subvolumeSet := make(map[string]bool)
-	for _, subvol := range subvolumes {
-		subvolumeSet[subvol.Path] = true
-	}
-
 	// Sort subvolumes by depth to ensure parents are created before children.
 	sortedSubvolumes := sortBtrfsSubvolumesByDepth(subvolumes)
 
 	for _, subvol := range sortedSubvolumes {
-		err := createBtrfsSubvolume(tempMountDir, subvol.Path, subvolumeSet)
+		err := createBtrfsSubvolume(tempMountDir, subvol.Path)
 		if err != nil {
 			return fmt.Errorf("failed to create subvolume '%s':\n%w", subvol.Path, err)
 		}
@@ -169,50 +162,19 @@ func sortBtrfsSubvolumesByDepth(subvolumes []btrfsSubvolumeConfig) []btrfsSubvol
 }
 
 // createBtrfsSubvolume creates a single subvolume, creating parent directories as needed.
-func createBtrfsSubvolume(mountDir, subvolPath string, subvolumeSet map[string]bool) error {
+func createBtrfsSubvolume(mountDir, subvolPath string) error {
 	fullPath := filepath.Join(mountDir, subvolPath)
 
-	// Create parent directories if they don't exist and are not subvolumes
-	parentPath := filepath.Dir(subvolPath)
-	if parentPath != "." {
-		parentParts := strings.Split(parentPath, "/")
-		currentPath := ""
-		for _, part := range parentParts {
-			if currentPath == "" {
-				currentPath = part
-			} else {
-				currentPath = currentPath + "/" + part
-			}
-
-			fullParentPath := filepath.Join(mountDir, currentPath)
-
-			// Check if this path already exists
-			_, err := os.Stat(fullParentPath)
-			if err == nil {
-				// Path exists, continue
-				continue
-			}
-
-			if !os.IsNotExist(err) {
-				return fmt.Errorf("failed to stat '%s':\n%w", fullParentPath, err)
-			}
-
-			// Skip subvolumes that will be created later
-			if subvolumeSet[currentPath] {
-				continue
-			}
-
-			logger.Log.Debugf("Creating directory: %s", fullParentPath)
-			err = os.MkdirAll(fullParentPath, 0o755)
-			if err != nil {
-				return fmt.Errorf("failed to create directory '%s':\n%w", fullParentPath, err)
-			}
-		}
+	// Create parent directories if needed.
+	// Parent subvolumes already exist (due to depth sorting), so any missing parents are just regular directories.
+	parentDir := filepath.Dir(fullPath)
+	err := os.MkdirAll(parentDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create parent directories for '%s':\n%w", subvolPath, err)
 	}
 
-	// Create the subvolume
 	logger.Log.Debugf("Creating subvolume: %s", subvolPath)
-	err := shell.ExecuteLive(false, "btrfs", "subvolume", "create", fullPath)
+	err = shell.ExecuteLive(false, "btrfs", "subvolume", "create", fullPath)
 	if err != nil {
 		return fmt.Errorf("btrfs subvolume create failed:\n%w", err)
 	}
