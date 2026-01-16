@@ -31,7 +31,7 @@ subvolumes:
 
 Added in v1.2.
 
-## referencedLimit [uint64]
+## referencedLimit [string]
 
 Optional.
 
@@ -42,7 +42,7 @@ Supported format: `<NUM>(K|M|G|T)`: A size in KiB (`K`), MiB (`M`), GiB (`G`), o
 
 Added in v1.2.
 
-## exclusiveLimit [uint64]
+## exclusiveLimit [string]
 
 Optional.
 

@@ -23,7 +23,7 @@ The label to assign to the partition.
 
 Added in v0.3.
 
-## start [uint64]
+## start [string]
 
 The start location (inclusive) of the partition.
 
@@ -41,7 +41,7 @@ Must be a multiple of 1 MiB.
 
 Added in v0.3.
 
-## end [uint64]
+## end [string]
 
 The end location (exclusive) of the partition.
 
@@ -51,7 +51,7 @@ Either the `size` or `end` field is required for all partitions except for the l
 partition.
 When both the `size` and `end` fields are omitted or when the `size` field is set to the
 value `grow`, the last partition will fill the remainder of the disk based on the disk's
-[maxSize](./disk.md#maxsize-uint64) field.
+[maxSize](./disk.md#maxsize-string) field.
 
 Supported format: `<NUM>(K|M|G|T)`: A size in KiB (`K`), MiB (`M`), GiB (`G`), or TiB
 (`T`).
@@ -76,7 +76,7 @@ disks:
 
 Added in v0.3.
 
-## size [uint64]
+## size [string]
 
 The size of the partition.
 
