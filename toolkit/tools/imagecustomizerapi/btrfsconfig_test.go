@@ -73,6 +73,7 @@ func TestBtrfsConfigIsValid_InvalidSubvolumeEmptyPath_Fail(t *testing.T) {
 	err := config.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid subvolume at index 0")
+	assert.ErrorContains(t, err, "path must not be empty")
 }
 
 func TestBtrfsConfigIsValid_InvalidSubvolumeAtSecondIndex_Fail(t *testing.T) {
@@ -89,6 +90,7 @@ func TestBtrfsConfigIsValid_InvalidSubvolumeAtSecondIndex_Fail(t *testing.T) {
 	err := config.IsValid()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "invalid subvolume at index 1")
+	assert.ErrorContains(t, err, "path must not start with '/'")
 }
 
 func TestBtrfsConfigIsValid_DuplicatePaths_Fail(t *testing.T) {

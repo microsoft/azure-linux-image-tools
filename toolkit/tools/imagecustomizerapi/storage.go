@@ -282,7 +282,7 @@ func ValidateVerityMounts(verityDevices []Verity, verityDeviceMount map[*Verity]
 		verity := &verityDevices[i]
 
 		mount, hasMount := verityDeviceMount[verity]
-		if !hasMount || mount == nil || (mount.MountPath != "/" && mount.MountPath != "/usr") {
+		if !hasMount || (mount.MountPath != "/" && mount.MountPath != "/usr") {
 			return fmt.Errorf("mount path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
 		}
 
