@@ -61,7 +61,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 
 	var bootCustomizer *imagecustomizerlib.BootCustomizer
 	if needsBootCustomizer {
-		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot)
+		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot, nil, buildDir)
 		if err != nil {
 			return err
 		}

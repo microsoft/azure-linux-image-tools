@@ -22,7 +22,7 @@ const (
 var (
 	ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 		"kernel binaries detected in /boot after package operations. "+
-			"Both 'passthrough' and 'append' modes preserve the existing kernel and initramfs. "+
+			"Both 'passthrough' and 'modify' modes preserve the existing kernel and initramfs. "+
 			"Use 'mode: create' to regenerate UKIs with updated kernels")
 )
 
@@ -59,6 +59,20 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
+	// If UKI mode is 'modify', extract cmdline early so BootCustomizer can modify it
+	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+		ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
+		err = os.MkdirAll(ukiBuildDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
+		}
+
+		err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot)
+		if err != nil {
+			return fmt.Errorf("failed to extract UKI cmdline for modify mode:\n%w", err)
+		}
+	}
+
 	for _, configWithBase := range rc.ConfigChain {
 		snapshotTime := configWithBase.Config.OS.Packages.SnapshotTime
 		if rc.Options.PackageSnapshotTime != "" {
@@ -75,9 +89,9 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	// Both modes preserve the existing kernel and initramfs:
 	// - passthrough: preserves entire UKI without modification
-	// - append: preserves main UKI (kernel, initramfs) and only modifies addon
+	// - modify: preserves main UKI (kernel, initramfs) and only modifies addon
 	if rc.Config.OS.Uki != nil && (rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough ||
-		rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeAppend) {
+		rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify) {
 		hasKernels, err := hasKernelBinariesInBoot(imageChroot.RootDir())
 		if err != nil {
 			return err
@@ -165,7 +179,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		overlayUpdated = overlayUpdated || updated
 	}
 
-	verityUpdated, err := enableVerityPartition(ctx, rc.Config.Storage.Verity, imageChroot, distroHandler, rc.Uki)
+	verityUpdated, err := enableVerityPartition(ctx, rc.BuildDirAbs, rc.Config.Storage.Verity, imageChroot, distroHandler, rc.Uki)
 	if err != nil {
 		return err
 	}

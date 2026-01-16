@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -46,9 +48,12 @@ type BootCustomizer struct {
 
 	// The UKI mode when boot type is UKI (optional).
 	ukiMode imagecustomizerapi.UkiMode
+
+	// The path to the UKI cmdline file (for modify mode).
+	ukiCmdlineFilePath string
 }
 
-func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer, error) {
+func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string) (*BootCustomizer, error) {
 	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
@@ -65,18 +70,23 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer,
 		return nil, err
 	}
 
+	ukiMode := imagecustomizerapi.UkiModeUnspecified
+	ukiCmdlineFilePath := ""
+	if uki != nil {
+		ukiMode = uki.Mode
+		if ukiMode == imagecustomizerapi.UkiModeModify && buildDir != "" {
+			ukiCmdlineFilePath = filepath.Join(buildDir, "UkiBuildDir", "uki-cmdline.txt")
+		}
+	}
+
 	b := &BootCustomizer{
 		grubCfgContent:         grubCfgContent,
 		defaultGrubFileContent: defaultGrubFileContent,
 		bootConfigType:         bootConfigType,
+		ukiMode:                ukiMode,
+		ukiCmdlineFilePath:     ukiCmdlineFilePath,
 	}
 	return b, nil
-}
-
-// SetUkiMode sets the UKI mode for the boot customizer.
-// This should be called when using UKI with a specific mode (create, passthrough, append).
-func (b *BootCustomizer) SetUkiMode(ukiMode imagecustomizerapi.UkiMode) {
-	b.ukiMode = ukiMode
 }
 
 func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface) (bootConfigType, error) {
@@ -129,11 +139,14 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
 		// Cmdline args cannot be modified in passthrough mode.
-		if b.ukiMode != imagecustomizerapi.UkiModeAppend {
+		if b.ukiMode != imagecustomizerapi.UkiModeModify {
 			return ErrBootUkiPassthroughCmdlineModified
 		}
-		// For append mode, changes will be handled during UKI addon regeneration in createUki().
-		// We allow the call to succeed here since the actual modification happens elsewhere.
+		// For modify mode, append args to the UKI cmdline file.
+		err := b.appendToUkiCmdlineFile(combinedArgs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -261,11 +274,14 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
 		// Cmdline args cannot be modified in passthrough mode.
-		if b.ukiMode != imagecustomizerapi.UkiModeAppend {
+		if b.ukiMode != imagecustomizerapi.UkiModeModify {
 			return ErrBootUkiPassthroughCmdlineModified
 		}
-		// For append mode, changes will be handled during UKI addon regeneration in createUki().
-		// We allow the call to succeed here since the actual modification happens elsewhere.
+		// For modify mode, update the UKI cmdline file.
+		err := b.updateUkiCmdlineFile(argsToRemove, newArgs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -341,6 +357,67 @@ func (b *BootCustomizer) SetRootDevice(rootDevice string) error {
 	}
 
 	b.defaultGrubFileContent = updatedGrubFileContent
+
+	return nil
+}
+
+// appendToUkiCmdlineFile appends kernel arguments to the UKI cmdline file.
+func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
+	if b.ukiCmdlineFilePath == "" {
+		return fmt.Errorf("UKI cmdline file path not set")
+	}
+
+	currentCmdline, err := os.ReadFile(b.ukiCmdlineFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI cmdline file:\n%w", err)
+	}
+
+	updatedCmdline := strings.TrimSpace(string(currentCmdline)) + " " + args
+
+	err = os.WriteFile(b.ukiCmdlineFilePath, []byte(updatedCmdline), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI cmdline file:\n%w", err)
+	}
+
+	return nil
+}
+
+// updateUkiCmdlineFile updates kernel arguments in the UKI cmdline file.
+func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []string) error {
+	if b.ukiCmdlineFilePath == "" {
+		return fmt.Errorf("UKI cmdline file path not set")
+	}
+
+	currentCmdlineBytes, err := os.ReadFile(b.ukiCmdlineFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI cmdline file:\n%w", err)
+	}
+
+	currentCmdline := strings.TrimSpace(string(currentCmdlineBytes))
+	currentArgs := strings.Fields(currentCmdline)
+
+	// Remove args that match any of the argsToRemove prefixes
+	var filteredArgs []string
+	for _, arg := range currentArgs {
+		shouldRemove := false
+		for _, removePrefix := range argsToRemove {
+			if strings.HasPrefix(arg, removePrefix) || strings.HasPrefix(arg, removePrefix+"=") {
+				shouldRemove = true
+				break
+			}
+		}
+		if !shouldRemove {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	filteredArgs = append(filteredArgs, newArgs...)
+
+	updatedCmdline := strings.Join(filteredArgs, " ")
+	err = os.WriteFile(b.ukiCmdlineFilePath, []byte(updatedCmdline), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI cmdline file:\n%w", err)
+	}
 
 	return nil
 }

@@ -204,7 +204,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	defer rawImageConnection.Close()
 
 	// Find out if selinux is enabled
-	bootCustomizer, err := NewBootCustomizer(rawImageConnection.Chroot())
+	bootCustomizer, err := NewBootCustomizer(rawImageConnection.Chroot(), nil, isoBuildDir)
 	if err != nil {
 		return fmt.Errorf("failed to attach to raw image to inspect selinux status:\n%w", err)
 	}

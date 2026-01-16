@@ -45,13 +45,13 @@ Supported values:
 
 - `passthrough`: Preserve existing UKI files without modification.
 
-- `append`: Modify only the UKI addon to append or update kernel command-line arguments.
+- `modify`: Modify only the UKI addon to append or update kernel command-line arguments.
   The main UKI file (kernel, initramfs, os-release, systemd-stub) remains unchanged.
   This mode requires that the base image uses the UKI addon architecture where kernel
   command-line arguments are stored in a separate `.addon.efi` file rather than embedded
   in the main UKI.
 
-  **Restrictions for append mode:**
+  **Restrictions for modify mode:**
   - Base image must have UKIs with addon architecture (`<uki-name>.extra.d/*.addon.efi`)
   - Kernel and initramfs cannot be modified (package updates that change kernel/initramfs are not allowed)
   - Only kernel command-line arguments can be changed via:
@@ -132,14 +132,14 @@ previewFeatures:
   - reinitialize-verity
 ```
 
-Example (append mode):
+Example (modify mode):
 
 ```yaml
 # Modify kernel cmdline in existing UKI addon without touching the main UKI.
 # This preserves the kernel, initramfs, and all other UKI sections.
 os:
   uki:
-    mode: append
+    mode: modify
   
   kernelCommandLine:
     extraCommandLine:
@@ -160,7 +160,7 @@ previewFeatures:
   - uki
 ```
 
-Example (append mode with SELinux and verity update):
+Example (modify mode with SELinux and verity update):
 
 ```yaml
 # Update SELinux mode and refresh verity hashes while preserving main UKI.
@@ -169,7 +169,7 @@ storage:
 
 os:
   uki:
-    mode: append
+    mode: modify
   
   selinux:
     mode: permissive

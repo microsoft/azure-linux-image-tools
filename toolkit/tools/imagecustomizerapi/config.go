@@ -77,9 +77,9 @@ func (c *Config) IsValid() (err error) {
 				}
 			}
 
-			// Validate append mode compatibility
-			if c.OS.Uki.Mode == UkiModeAppend {
-				err = c.validateUkiAppendMode()
+			// Validate modify mode compatibility
+			if c.OS.Uki.Mode == UkiModeModify {
+				err = c.validateUkiModifyMode()
 				if err != nil {
 					return err
 				}
@@ -184,36 +184,36 @@ func (c *Config) CustomizePartitions() bool {
 	return c.Storage.CustomizePartitions()
 }
 
-func (c *Config) validateUkiAppendMode() error {
+func (c *Config) validateUkiModifyMode() error {
 	var incompatibleConfigs []string
 
-	// Append mode adds arguments without replacing existing ones. Hard-reset would replace
-	// the entire bootloader configuration, conflicting with append mode's additive nature.
+	// Modify mode adds arguments without replacing existing ones. Hard-reset would replace
+	// the entire bootloader configuration, conflicting with modify mode's additive nature.
 	if c.OS != nil && c.OS.BootLoader.ResetType == ResetBootLoaderTypeHard {
 		incompatibleConfigs = append(incompatibleConfigs,
-			"os.bootloader.resetType: hard-reset requires mounting root partition which is incompatible with append mode")
+			"os.bootloader.resetType: hard-reset requires mounting root partition which is incompatible with UKI modify mode")
 	}
 
 	// Adding new verity devices requires adding the systemd-verity dracut module to initramfs.
-	// Since append mode cannot modify the initramfs (embedded in main UKI), this is blocked.
+	// Since modify mode cannot modify the initramfs (embedded in main UKI), this is blocked.
 	if len(c.Storage.Verity) > 0 {
 		incompatibleConfigs = append(incompatibleConfigs,
-			"storage.verity: adding new verity devices requires modifying initramfs to add drivers, which append mode cannot do")
+			"storage.verity: adding new verity devices requires modifying initramfs to add drivers, which UKI modify mode cannot do")
 	}
 
 	// Overlays require adding the overlay driver to initramfs via enableOverlays().
-	// Since append mode cannot modify the initramfs, overlays are incompatible.
+	// Since modify mode cannot modify the initramfs, overlays are incompatible.
 	if c.OS != nil && c.OS.Overlays != nil && len(*c.OS.Overlays) > 0 {
 		incompatibleConfigs = append(incompatibleConfigs,
-			"os.overlays: overlay filesystems require adding overlay driver to initramfs, which append mode cannot do")
+			"os.overlays: overlay filesystems require adding overlay driver to initramfs, which UKI modify mode cannot do")
 	}
 
 	if len(incompatibleConfigs) > 0 {
-		errorMsg := "UKI append mode is incompatible with the following configurations:\n"
+		errorMsg := "UKI modify mode is incompatible with the following configurations:\n"
 		for _, cfg := range incompatibleConfigs {
 			errorMsg += fmt.Sprintf("  - %s\n", cfg)
 		}
-		errorMsg += "\nAppend mode only modifies the addon cmdline. Use mode: create to make changes requiring initramfs or kernel modification."
+		errorMsg += "\nUKI modify mode only modifies the addon cmdline. Use mode: create to make changes requiring initramfs or kernel modification."
 		return fmt.Errorf("%s", errorMsg)
 	}
 

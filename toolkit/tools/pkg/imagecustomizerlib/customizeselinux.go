@@ -39,14 +39,9 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 	)
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot)
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
-	}
-
-	// Set UKI mode if UKI is configured
-	if uki != nil {
-		bootCustomizer.SetUkiMode(uki.Mode)
 	}
 
 	if selinuxMode == imagecustomizerapi.SELinuxModeDefault {

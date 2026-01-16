@@ -238,7 +238,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), nil, "")
 		if err != nil {
 			return err
 		}

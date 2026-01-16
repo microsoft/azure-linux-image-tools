@@ -261,13 +261,18 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/Linux/vmlinuz"), "Expected UKI destination to start with /EFI/Linux/vmlinuz")
 			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected UKI destination to end with .efi")
 			assert.True(t, strings.HasPrefix(entry.Source, "./ukis/"), "Expected UKI source to be in ukis/ subdirectory")
+			assert.False(t, strings.Contains(entry.Destination, ".efi.extra.d/"), "Expected main UKI files to not be in .extra.d/ directory")
 			hasUKI = true
-			if strings.Contains(entry.Destination, ".efi.extra.d/") {
-				// UKI addon file validation
-				assert.True(t, strings.Contains(entry.Source, ".efi.extra.d/"), "Expected UKI addon source to be in .efi.extra.d/ subdirectory")
-				assert.True(t, strings.HasSuffix(entry.Destination, ".addon.efi"), "Expected UKI addon destination to end with .addon.efi")
-				hasUKIAddon = true
-			}
+			espFiles = append(espFiles, entry.Destination)
+
+		case imagecustomizerapi.OutputArtifactsItemUkiAddons:
+			// UKI addon file validation
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/Linux/vmlinuz"), "Expected UKI addon destination to start with /EFI/Linux/vmlinuz")
+			assert.True(t, strings.Contains(entry.Destination, ".efi.extra.d/"), "Expected UKI addon destination to be in .efi.extra.d/ subdirectory")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".addon.efi"), "Expected UKI addon destination to end with .addon.efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./ukis/"), "Expected UKI addon source to be in ukis/ subdirectory")
+			assert.True(t, strings.Contains(entry.Source, ".efi.extra.d/"), "Expected UKI addon source to be in .efi.extra.d/ subdirectory")
+			hasUKIAddon = true
 			espFiles = append(espFiles, entry.Destination)
 
 		case imagecustomizerapi.OutputArtifactsItemVerityHash:

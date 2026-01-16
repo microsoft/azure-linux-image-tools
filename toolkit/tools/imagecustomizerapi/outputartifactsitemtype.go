@@ -9,6 +9,7 @@ type OutputArtifactsItemType string
 
 const (
 	OutputArtifactsItemUkis        OutputArtifactsItemType = "ukis"
+	OutputArtifactsItemUkiAddons   OutputArtifactsItemType = "uki-addons"
 	OutputArtifactsItemShim        OutputArtifactsItemType = "shim"
 	OutputArtifactsItemSystemdBoot OutputArtifactsItemType = "systemd-boot"
 	OutputArtifactsItemVerityHash  OutputArtifactsItemType = "verity-hash"
@@ -17,7 +18,7 @@ const (
 
 func (i OutputArtifactsItemType) IsValid() error {
 	switch i {
-	case OutputArtifactsItemUkis, OutputArtifactsItemShim, OutputArtifactsItemSystemdBoot,
+	case OutputArtifactsItemUkis, OutputArtifactsItemUkiAddons, OutputArtifactsItemShim, OutputArtifactsItemSystemdBoot,
 		OutputArtifactsItemVerityHash, OutputArtifactsItemDefault:
 		return nil
 	default:

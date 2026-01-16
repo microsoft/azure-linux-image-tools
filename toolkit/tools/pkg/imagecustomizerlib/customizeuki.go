@@ -21,7 +21,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -53,6 +52,7 @@ const (
 	EspDir             = "boot/efi"
 	DefaultGrubCfgPath = "grub2/grub.cfg"
 	UkiKernelInfoJson  = "uki-kernel-info.json"
+	UkiCmdlineFile     = "uki-cmdline.txt"
 	KernelPrefix       = "vmlinuz-"
 	UkiBuildDir        = "UkiBuildDir"
 	UkiOutputDir       = "EFI/Linux"
@@ -103,63 +103,19 @@ func baseImageHasUkiAddons(espPath string) (bool, error) {
 	return false, nil
 }
 
-// removeSELinuxArgsFromCmdline removes all SELinux-related kernel arguments from a command line string.
-func removeSELinuxArgsFromCmdline(cmdline string) string {
-	// SELinux argument names that need to be removed
-	selinuxArgPrefixes := []string{
-		"security=",
-		"selinux=",
-		"enforcing=",
-	}
-
-	tokens, err := grub.TokenizeConfig(cmdline)
-	if err != nil {
-		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
-		return cmdline
-	}
-
-	args, err := ParseCommandLineArgs(tokens)
-	if err != nil {
-		logger.Log.Errorf("Failed to parse command line args: %v", err)
-		return cmdline
-	}
-
-	filteredArgs := []string{}
-	for _, arg := range args {
-		if arg.ValueHasVarExpansion {
-			// Skip args with variable expansions
-			continue
-		}
-
-		isSELinuxArg := false
-		for _, prefix := range selinuxArgPrefixes {
-			if strings.HasPrefix(arg.Arg, prefix) {
-				isSELinuxArg = true
-				break
-			}
-		}
-
-		if !isSELinuxArg {
-			filteredArgs = append(filteredArgs, arg.Arg)
-		}
-	}
-
-	return GrubArgsToString(filteredArgs)
-}
-
 // validateUkiMode validates the UKI mode against the base image state.
 // Rules:
 // - If base image has NO UKIs:
 //   - No mode specified (os.uki == nil): No UKI created
 //   - mode: create: Create UKI
 //   - mode: passthrough: FAIL (can't passthrough if no UKIs exist)
-//   - mode: append: FAIL (can't append if no UKIs exist)
+//   - mode: modify: FAIL (can't modify if no UKIs exist)
 //
 // - If base image HAS UKIs:
 //   - No mode specified (os.uki == nil): FAIL (must explicitly specify mode)
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
-//   - mode: append: Check for addon, modify addon only (preserve main UKI)
+//   - mode: modify: Check for addon, modify addon only (preserve main UKI)
 func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
 	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
 	if err != nil {
@@ -176,9 +132,9 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 					"Use mode: create to create UKIs, or omit os.uki entirely",
 				)
 			}
-			if config.OS.Uki.Mode == imagecustomizerapi.UkiModeAppend {
-				return fmt.Errorf("base image does not contain UKIs but os.uki.mode is set to 'append': " +
-					"cannot append to UKIs when base image has no UKIs. " +
+			if config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+				return fmt.Errorf("base image does not contain UKIs but os.uki.mode is set to 'modify': " +
+					"cannot modify UKIs when base image has no UKIs. " +
 					"Use mode: create to create UKIs from GRUB-based image",
 				)
 			}
@@ -195,28 +151,67 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 			"with one of the following values:\n" +
 			"  - 'create': extract and regenerate UKIs with updated configurations\n" +
 			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)\n" +
-			"  - 'append': modify UKI addons only to append kernel command-line arguments")
+			"  - 'modify': modify UKI addons only to append kernel command-line arguments")
 	}
 
 	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeUnspecified {
 		return fmt.Errorf("base image contains UKI files but os.uki.mode is not specified: " +
-			"when base image has UKIs, you must explicitly set mode to 'create', 'passthrough', or 'append'")
+			"when base image has UKIs, you must explicitly set mode to 'create', 'passthrough', or 'modify'")
 	}
 
-	// For append mode, validate that base image has UKI addons
-	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeAppend {
+	// For modify mode, validate that base image has UKI addons
+	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
 		espDir := filepath.Join(imageConnection.Chroot().RootDir(), EspDir)
 		hasAddons, err := baseImageHasUkiAddons(espDir)
 		if err != nil {
 			return fmt.Errorf("failed to check for UKI addons:\n%w", err)
 		}
 		if !hasAddons {
-			return fmt.Errorf("base image has UKI without addons (legacy architecture) but os.uki.mode is set to 'append': " +
-				"append mode requires UKI addon architecture where kernel cmdline is in addon file. " +
+			return fmt.Errorf("base image has UKI without addons (combined architecture) but os.uki.mode is set to 'modify': " +
+				"modify mode requires UKI addon architecture where kernel cmdline is in addon file. " +
 				"Use mode: create to regenerate UKIs with addon architecture")
 		}
 	}
 
+	return nil
+}
+
+// extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addon and saves it to a file.
+func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot) error {
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	ukiFiles, err := getUkiFiles(espDir)
+	if err != nil {
+		return fmt.Errorf("failed to get UKI files:\n%w", err)
+	}
+
+	if len(ukiFiles) == 0 {
+		return fmt.Errorf("no UKI files found for cmdline extraction")
+	}
+
+	// Extract cmdline from the first UKI's addon
+	ukiFile := ukiFiles[0]
+	ukiFileName := filepath.Base(ukiFile)
+	kernelName := strings.TrimSuffix(ukiFileName, ".efi")
+	addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+	addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
+
+	if _, err := os.Stat(addonFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("addon file does not exist: %s", addonFilePath)
+	}
+
+	extractedCmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract cmdline from addon:\n%w", err)
+	}
+
+	// Save to file for BootCustomizer to modify
+	ukiCmdlineFile := filepath.Join(buildDir, UkiBuildDir, UkiCmdlineFile)
+	err = os.WriteFile(ukiCmdlineFile, []byte(extractedCmdline), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI cmdline to file:\n%w", err)
+	}
+
+	logger.Log.Infof("Extracted and saved UKI cmdline to file: %s", ukiCmdlineFile)
 	return nil
 }
 
@@ -246,9 +241,9 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return nil
 	}
 
-	// If mode is 'append', skip most UKI preparation but still copy the stub file needed for addon rebuild
-	if uki.Mode == imagecustomizerapi.UkiModeAppend {
-		logger.Log.Infof("UKI mode is 'append', skipping UKI preparation (will modify addon only)")
+	// If mode is 'modify', skip most UKI preparation but still copy the stub file needed for addon rebuild
+	if uki.Mode == imagecustomizerapi.UkiModeModify {
+		logger.Log.Infof("UKI mode is 'modify', skipping UKI preparation (will modify addon only)")
 
 		_, bootConfig, err := getBootArchConfig()
 		if err != nil {
@@ -261,14 +256,16 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
 		}
 
-		// Copy only the stub file needed for rebuilding addons
-		stubSrc := filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath)
-		stubDst := filepath.Join(ukiBuildDir, bootConfig.ukiEfiStubBinary)
-		err = file.Copy(stubSrc, stubDst)
+		err = copyUkiFiles(buildDir, nil, imageChroot, bootConfig, uki)
 		if err != nil {
-			return fmt.Errorf("failed to copy UKI stub for append mode:\n%w", err)
+			return err
 		}
-		logger.Log.Infof("Copied UKI stub file for addon rebuilding")
+
+		// Extract existing cmdline from UKI addon and save to file
+		err = extractAndSaveUkiCmdline(buildDir, imageChroot)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	}
@@ -356,7 +353,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
-	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig)
+	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig, uki)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
@@ -434,8 +431,25 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 }
 
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
-	bootConfig BootFilesArchConfig,
+	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki,
 ) error {
+	// In modify mode, only copy the stub file needed for rebuilding addons
+	if uki != nil && uki.Mode == imagecustomizerapi.UkiModeModify {
+		filesToCopy := map[string]string{
+			filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
+		}
+
+		for src, dest := range filesToCopy {
+			err := file.Copy(src, dest)
+			if err != nil {
+				return fmt.Errorf("failed to copy UKI stub for modify mode:\n%w", err)
+			}
+		}
+		logger.Log.Infof("Copied UKI stub file for addon rebuilding")
+		return nil
+	}
+
+	// In create mode, copy all UKI files (stub, os-release, kernels, initramfs)
 	filesToCopy := map[string]string{
 		filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
 		filepath.Join(imageChroot.RootDir(), "/etc/os-release"):               filepath.Join(buildDir, UkiBuildDir, "os-release"),
@@ -506,9 +520,9 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 	return kernelToInitramfs, nil
 }
 
-// createUkiInAppendMode modifies UKI addons without touching the main UKI files.
-func createUkiInAppendMode(ctx context.Context, rc *ResolvedConfig) error {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki_append_mode")
+// createUkiInModifyMode modifies UKI addons without touching the main UKI files.
+func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki_modify_mode")
 	defer span.End()
 
 	var err error
@@ -555,6 +569,12 @@ func createUkiInAppendMode(ctx context.Context, rc *ResolvedConfig) error {
 
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 
+	// Apply verity args to UKI cmdline if they exist
+	err = applyVerityArgsToUkiCmdline(rc.BuildDirAbs, true)
+	if err != nil {
+		return fmt.Errorf("failed to apply verity args to UKI cmdline:\n%w", err)
+	}
+
 	// Process each UKI file - regenerate its addon with updated cmdline
 	for _, ukiFile := range ukiFiles {
 		err := modifyUkiAddon(ukiFile, stubPath, rc)
@@ -577,73 +597,23 @@ func createUkiInAppendMode(ctx context.Context, rc *ResolvedConfig) error {
 }
 
 // modifyUkiAddon regenerates a UKI addon with updated kernel command line arguments.
+// The cmdline has already been modified by BootCustomizer and saved to a file.
 func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) error {
 	ukiFileName := filepath.Base(ukiFilePath)
 
 	// Extract kernel name from UKI filename (e.g., "vmlinuz-6.6.x.x.efi" -> "vmlinuz-6.6.x.x")
 	kernelName := strings.TrimSuffix(ukiFileName, ".efi")
 
-	// Determine base cmdline source
-	var baseCmdline string
-
-	// Extract from existing addon
-	logger.Log.Infof("Extracting existing cmdline from addon for kernel (%s)", kernelName)
-	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
-	addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
-
-	if _, err := os.Stat(addonFilePath); os.IsNotExist(err) {
-		return fmt.Errorf("addon file does not exist: %s", addonFilePath)
-	}
-
-	extractedCmdline, err := extractCmdlineFromSinglePE(addonFilePath, rc.BuildDirAbs)
+	// Read the final cmdline from file (already modified by BootCustomizer)
+	ukiCmdlineFile := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiCmdlineFile)
+	cmdlineBytes, err := os.ReadFile(ukiCmdlineFile)
 	if err != nil {
-		return fmt.Errorf("failed to extract cmdline from addon:\n%w", err)
+		return fmt.Errorf("failed to read UKI cmdline from file:\n%w", err)
 	}
-	baseCmdline = extractedCmdline
-
-	// Apply cmdline modifications
-	modifiedCmdline := baseCmdline
-
-	// 1. Handle verity args replacement
-	// In append mode with verity reinitialization, verity args are written to a temp file
-	// Remove old verity args first
-	modifiedCmdline = removeVerityArgsFromCmdline(modifiedCmdline)
-
-	// Check if there are new verity args to append (from verity reinitialization)
-	verityArgsPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "verity-args.txt")
-	if _, err := os.Stat(verityArgsPath); err == nil {
-		verityArgsBytes, err := os.ReadFile(verityArgsPath)
-		if err != nil {
-			return fmt.Errorf("failed to read verity args from temp file:\n%w", err)
-		}
-		verityArgs := strings.TrimSpace(string(verityArgsBytes))
-		if verityArgs != "" {
-			modifiedCmdline = appendKernelArgs(modifiedCmdline, verityArgs)
-			logger.Log.Debugf("Appended verity args from temp file: %s", verityArgs)
-		}
-	}
-
-	// 2. Handle SELinux args replacement
-	if rc.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault {
-		// Remove old SELinux args
-		modifiedCmdline = removeSELinuxArgsFromCmdline(modifiedCmdline)
-
-		// Append new SELinux args
-		selinuxArgs, err := selinuxModeToArgs(rc.SELinux.Mode)
-		if err != nil {
-			return fmt.Errorf("failed to build SELinux kernel args:\n%w", err)
-		}
-		selinuxArgsStr := strings.Join(selinuxArgs, " ")
-		modifiedCmdline = appendKernelArgs(modifiedCmdline, selinuxArgsStr)
-	}
-
-	// 3. Append extra cmdline args
-	if len(rc.OsKernelCommandLine.ExtraCommandLine) > 0 {
-		extraArgs := strings.Join(rc.OsKernelCommandLine.ExtraCommandLine, " ")
-		modifiedCmdline = appendKernelArgs(modifiedCmdline, extraArgs)
-	}
+	modifiedCmdline := strings.TrimSpace(string(cmdlineBytes))
 
 	// Rebuild the addon with modified cmdline
+	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
 	addonFullPath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
 
 	ukifyCmd := []string{
@@ -662,15 +632,79 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	return nil
 }
 
-// appendKernelArgs appends additional kernel arguments to an existing cmdline string.
-func appendKernelArgs(baseCmdline string, additionalArgs string) string {
-	if additionalArgs == "" {
-		return baseCmdline
+// applyVerityArgsToUkiCmdline reads verity-args.txt and appends the args to UKI cmdline.
+func applyVerityArgsToUkiCmdline(buildDir string, isModifyMode bool) error {
+	verityArgsPath := filepath.Join(buildDir, UkiBuildDir, "verity-args.txt")
+
+	// Check if verity-args.txt exists
+	if _, err := os.Stat(verityArgsPath); os.IsNotExist(err) {
+		// No verity args to apply
+		return nil
 	}
-	if baseCmdline == "" {
-		return additionalArgs
+
+	// Read verity args
+	verityArgsBytes, err := os.ReadFile(verityArgsPath)
+	if err != nil {
+		return fmt.Errorf("failed to read verity args file:\n%w", err)
 	}
-	return baseCmdline + " " + additionalArgs
+	verityArgs := strings.TrimSpace(string(verityArgsBytes))
+
+	if verityArgs == "" {
+		return nil
+	}
+
+	if isModifyMode {
+		// Modify mode: Update uki-cmdline.txt
+		ukiCmdlineFile := filepath.Join(buildDir, UkiBuildDir, UkiCmdlineFile)
+		ukiCmdlineBytes, err := os.ReadFile(ukiCmdlineFile)
+		if err != nil {
+			return fmt.Errorf("failed to read UKI cmdline file:\n%w", err)
+		}
+		currentCmdline := strings.TrimSpace(string(ukiCmdlineBytes))
+
+		// Append verity args to cmdline
+		updatedCmdline := currentCmdline
+		if updatedCmdline != "" {
+			updatedCmdline += " "
+		}
+		updatedCmdline += verityArgs
+
+		// Write updated cmdline back
+		err = os.WriteFile(ukiCmdlineFile, []byte(updatedCmdline), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write updated UKI cmdline:\n%w", err)
+		}
+	} else {
+		// Create mode: Update uki-kernel-info.json
+		cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+		kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to read kernel info file:\n%w", err)
+		}
+
+		// Append verity args to each kernel's cmdline
+		for kernel, info := range kernelInfo {
+			updatedCmdline := strings.TrimSpace(info.Cmdline)
+			if updatedCmdline != "" {
+				updatedCmdline += " "
+			}
+			updatedCmdline += verityArgs
+
+			kernelInfo[kernel] = UkiKernelInfo{
+				Cmdline:   updatedCmdline,
+				Initramfs: info.Initramfs,
+			}
+		}
+
+		// Write updated kernel info back
+		err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
+		if err != nil {
+			return fmt.Errorf("failed to write updated kernel info:\n%w", err)
+		}
+	}
+
+	logger.Log.Infof("Applied verity args to UKI cmdline")
+	return nil
 }
 
 func createUki(ctx context.Context, rc *ResolvedConfig) error {
@@ -682,12 +716,12 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 		return nil
 	}
 
-	// If mode is 'append', only modify UKI addons (preserve main UKI)
-	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeAppend {
-		logger.Log.Infof("UKI mode is 'append', modifying UKI addons only")
-		err := createUkiInAppendMode(ctx, rc)
+	// If mode is 'modify', only modify UKI addons (preserve main UKI)
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
+		logger.Log.Infof("UKI mode is 'modify', modifying UKI addons only")
+		err := createUkiInModifyMode(ctx, rc)
 		if err != nil {
-			return fmt.Errorf("failed to modify UKI addons in append mode:\n%w", err)
+			return fmt.Errorf("failed to modify UKI addons in modify mode:\n%w", err)
 		}
 		return nil
 	}
@@ -734,6 +768,12 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	osSubreleaseFullPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "os-release")
 	cmdlineFilePath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
+
+	// Apply verity args to kernel info if they exist
+	err = applyVerityArgsToUkiCmdline(rc.BuildDirAbs, false)
+	if err != nil {
+		return fmt.Errorf("failed to apply verity args to kernel info:\n%w", err)
+	}
 
 	// Read the kernel information (kernels, initramfs, and command line args) from the file created during prepareUki.
 	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
@@ -943,86 +983,6 @@ func cleanupUkiBuildDir(buildDir string) error {
 
 	logger.Log.Infof("Successfully cleaned up UkiBuildDir: (%s)", ukiBuildDirPath)
 	return nil
-}
-
-func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-
-	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
-	if err != nil {
-		return err
-	}
-
-	// Append newArgs.
-	newArgsStr := GrubArgsToString(newArgs)
-	for kernel, info := range kernelInfo {
-		// Remove old verity args before appending new ones to avoid duplicates.
-		cleanedCmdline := removeVerityArgsFromCmdline(info.Cmdline)
-		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(cleanedCmdline), strings.TrimSpace(newArgsStr))
-		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedArgs,
-			Initramfs: info.Initramfs,
-		}
-	}
-
-	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// removeVerityArgsFromCmdline removes all verity-related kernel arguments from a command line string.
-// This is used when updating verity parameters during UKI recustomization to prevent duplicate args.
-func removeVerityArgsFromCmdline(cmdline string) string {
-	// List of verity-related argument prefixes that need to be removed
-	verityArgPrefixes := []string{
-		"rd.systemd.verity=",
-		"roothash=",
-		"usrhash=",
-		"systemd.verity_root_data=",
-		"systemd.verity_root_hash=",
-		"systemd.verity_root_options=",
-		"systemd.verity_usr_data=",
-		"systemd.verity_usr_hash=",
-		"systemd.verity_usr_options=",
-		"pre.verity.mount=",
-	}
-
-	tokens, err := grub.TokenizeConfig(cmdline)
-	if err != nil {
-		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
-		return cmdline
-	}
-
-	args, err := ParseCommandLineArgs(tokens)
-	if err != nil {
-		logger.Log.Errorf("Failed to parse command line args: %v", err)
-		return cmdline
-	}
-
-	filteredArgs := []string{}
-	for _, arg := range args {
-		if arg.ValueHasVarExpansion {
-			// Skip args with variable expansions
-			continue
-		}
-
-		isVerityArg := false
-		for _, prefix := range verityArgPrefixes {
-			if strings.HasPrefix(arg.Arg, prefix) {
-				isVerityArg = true
-				break
-			}
-		}
-
-		if !isVerityArg {
-			filteredArgs = append(filteredArgs, arg.Arg)
-		}
-	}
-
-	return GrubArgsToString(filteredArgs)
 }
 
 func getKernelVersion(kernelName string) (string, error) {
