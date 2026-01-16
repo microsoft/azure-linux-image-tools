@@ -12,7 +12,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"go.opentelemetry.io/otel"
 )
 
@@ -78,17 +77,12 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
 	if rc.Config.CustomizePartitions() {
-		rootFileSystem, foundRootFileSystem := sliceutils.FindValueFunc(rc.Config.Storage.FileSystems,
-			func(fileSystem imagecustomizerapi.FileSystem) bool {
-				return fileSystem.MountPoint != nil &&
-					fileSystem.MountPoint.Path == "/"
-			},
-		)
-		if !foundRootFileSystem {
+		rootMountPoint := findRootMountPoint(rc.Config.Storage.FileSystems)
+		if rootMountPoint == nil {
 			return ErrBootloaderRootFilesystemFind
 		}
 
-		rootMountIdType = rootFileSystem.MountPoint.IdType
+		rootMountIdType = rootMountPoint.IdType
 		bootType = rc.Config.Storage.BootType
 	} else {
 		rootMountIdType, err = findRootMountIdType(partitionsLayout)
@@ -195,4 +189,26 @@ func findRootMountIdType(partitionsLayout []fstabEntryPartNum,
 	}
 
 	return rootMountIdType, nil
+}
+
+// findRootMountPoint searches for the root mount point ("/") in filesystems.
+// It checks both direct filesystem mount points and btrfs subvolume mount points.
+func findRootMountPoint(fileSystems []imagecustomizerapi.FileSystem) *imagecustomizerapi.MountPoint {
+	for _, fs := range fileSystems {
+		// Check direct filesystem mount point.
+		if fs.MountPoint != nil && fs.MountPoint.Path == "/" {
+			return fs.MountPoint
+		}
+
+		// Check btrfs subvolume mount points.
+		if fs.Btrfs != nil {
+			for i := range fs.Btrfs.Subvolumes {
+				subvol := &fs.Btrfs.Subvolumes[i]
+				if subvol.MountPoint != nil && subvol.MountPoint.Path == "/" {
+					return subvol.MountPoint
+				}
+			}
+		}
+	}
+	return nil
 }

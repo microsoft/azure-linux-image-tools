@@ -56,9 +56,19 @@ type Verity struct {
 	// Path to the root hash signature to inject into the image.
 	HashSignaturePath string `yaml:"hashSignaturePath" json:"hashSignaturePath,omitempty"`
 
-	// The mount point of the verity device.
+	// Mount information of the verity device.
 	// Value is filled in by ValidateVerityMounts() (via Storage.IsValid() or validateVerityMountPaths()).
-	MountPath string `json:"-"`
+	Mount VerityMount `json:"-"`
+}
+
+// VerityMount contains mount point information for a verity device.
+type VerityMount struct {
+	// MountPath is the path where the filesystem is mounted.
+	MountPath string
+	// MountOptions contains mount options for the filesystem.
+	MountOptions string
+	// SubvolumePath is the BTRFS subvolume path (if applicable).
+	SubvolumePath string
 }
 
 func (v *Verity) IsValid() error {

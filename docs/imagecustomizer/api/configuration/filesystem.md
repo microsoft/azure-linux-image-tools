@@ -25,10 +25,16 @@ The filesystem type of the partition.
 
 Supported options:
 
-- `btrfs` (requires `btrfs` preview feature)
+- `btrfs`:
+  This is a preview feature.
+  Its API and behavior is subject to change.
+  You must enable this feature by specifying `btrfs` in the [previewFeatures](./config.md#previewfeatures-string) API.
+
 - `ext4`
-- `fat32` (alias for `vfat`)
-- `vfat` (will select either FAT12, FAT16, or FAT32 based on the size of the partition)
+- `fat32`: This is an alias for `vfat`
+
+- `vfat`: This will select either FAT12, FAT16, or FAT32 based on the size of the partition.
+
 - `xfs`
 
 Added in v0.3.
@@ -37,4 +43,21 @@ Added in v0.3.
 
 Optional settings for where and how to mount the filesystem.
 
+As of v1.2, this can only be set when [.btrfs.subvolumes](./btrfsConfig.md#subvolumes-btrfssubvolume)
+is not set or empty. Otherwise, use mount points on individual BTRFS subvolumes instead.
+
 Added in v0.3.
+
+## btrfs [[btrfsConfig](./btrfsConfig.md)]
+
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `btrfs` in the [previewFeatures](./config.md#previewfeatures-string) API.
+
+Optional.
+
+BTRFS-specific configuration options.
+
+This can only be set when [.type](./filesystem.md#type-string) is `btrfs`.
+
+Added in v1.2.

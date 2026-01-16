@@ -117,13 +117,16 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 
 	// Update fstab entries so that verity mounts point to verity device paths.
 	for _, verity := range verityList {
-		mountPath := verity.MountPath
-
 		for j := range fstabEntries {
 			entry := &fstabEntries[j]
-			if entry.Target == mountPath {
+			if entry.Target == verity.Mount.MountPath {
 				// Replace mount's source with verity device.
 				entry.Source = verityDevicePath(verity)
+
+				// Update subvol= option if this is a BTRFS subvolume mount.
+				if verity.Mount.SubvolumePath != "" {
+					entry.Options = updateSubvolOption(entry.Options, verity.Mount.SubvolumePath)
+				}
 			}
 		}
 	}
@@ -137,6 +140,30 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
+// updateSubvolOption updates or adds the subvol= option in the mount options string.
+func updateSubvolOption(options string, subvolPath string) string {
+	subvolOpt := "subvol=/" + subvolPath
+	if options == "" {
+		return subvolOpt
+	}
+
+	optionsList := strings.Split(options, ",")
+	found := false
+	for i, opt := range optionsList {
+		if strings.HasPrefix(opt, "subvol=") {
+			optionsList[i] = subvolOpt
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		optionsList = append(optionsList, subvolOpt)
+	}
+
+	return strings.Join(optionsList, ",")
+}
+
 func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki, distroHandler DistroHandler) error {
 	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
@@ -144,9 +171,7 @@ func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi
 	}
 
 	for _, verity := range verityList {
-		mountPath := verity.MountPath
-
-		if mountPath == "/" {
+		if verity.Mount.MountPath == "/" {
 			if err := bootCustomizer.PrepareForVerity(); err != nil {
 				return err
 			}
@@ -484,7 +509,7 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		return err
 	}
 
-	verityDeviceMountPoint := make(map[*imagecustomizerapi.Verity]*imagecustomizerapi.MountPoint)
+	verityDeviceMount := make(map[*imagecustomizerapi.Verity]*imagecustomizerapi.VerityMount)
 	for i := range config.Storage.Verity {
 		verity := &config.Storage.Verity[i]
 
@@ -526,19 +551,41 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 			return fmt.Errorf("verity's (%s) hash partition cannot have a filesystem", verity.Id)
 		}
 
-		mountPoint := &imagecustomizerapi.MountPoint{
-			Path:    dataEntry.FstabEntry.Target,
-			Options: dataEntry.FstabEntry.Options,
+		verityMount := &imagecustomizerapi.VerityMount{
+			MountPath:     dataEntry.FstabEntry.Target,
+			MountOptions:  dataEntry.FstabEntry.Options,
+			SubvolumePath: extractSubvolPath(dataEntry.FstabEntry.Options),
 		}
-		verityDeviceMountPoint[verity] = mountPoint
+		verityDeviceMount[verity] = verityMount
 	}
 
-	err = imagecustomizerapi.ValidateVerityMounts(config.Storage.Verity, verityDeviceMountPoint)
+	err = imagecustomizerapi.ValidateVerityMounts(config.Storage.Verity, verityDeviceMount)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// extractSubvolPath extracts the subvolume path from mount options.
+// Returns an empty string if no subvol= option is present.
+// The path is cleaned to handle .., ., //, and trailing slashes.
+func extractSubvolPath(options string) string {
+	if options == "" {
+		return ""
+	}
+
+	optionsList := strings.Split(options, ",")
+	for _, opt := range optionsList {
+		if strings.HasPrefix(opt, "subvol=") {
+			subvol := strings.TrimPrefix(opt, "subvol=")
+			// Clean the path to handle .., ., //, and trailing slashes.
+			subvol = filepath.Clean(subvol)
+			// Remove leading "/" if present.
+			return strings.TrimPrefix(subvol, "/")
+		}
+	}
+	return ""
 }
 
 // Check if the partition is already being used for something else.

@@ -25,6 +25,7 @@ import (
 
 type btrfsOptions struct {
 	Features []string
+	Checksum string
 }
 
 type ext4Options struct {
@@ -54,14 +55,17 @@ var (
 	// - skinny-metadata (default since v3.18)
 	// - no-holes (default since v5.15)
 	// - free-space-tree (default since v5.15)
+	// Checksum default as of btrfs-progs v5.15: crc32c
 	azl2BtrfsOptions = btrfsOptions{
 		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
 	}
 
 	// The default btrfs options used by an Azure Linux 3.0 image (kernel v6.6).
-	// Same as AZL2 since no new default features were added since v5.15.
+	// Same as AZL2 since nothing has changed since v5.15.
 	azl3BtrfsOptions = btrfsOptions{
 		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
 	}
 
 	// The default ext4 options used by an Azure Linux 2.0 image.
@@ -105,6 +109,7 @@ var (
 	// The default btrfs options used by Fedora 42 (kernel v6.11+)
 	fedora42BtrfsOptions = btrfsOptions{
 		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
 	}
 
 	// The default ext4 options used by Fedora 42 (kernel v6.11+)
@@ -355,12 +360,16 @@ func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSy
 
 	allFeatures := append(enableFeatures, disableFeatures...)
 
-	if len(allFeatures) == 0 {
-		return []string(nil), nil
+	args := []string{}
+
+	if len(allFeatures) > 0 {
+		featuresArg := strings.Join(allFeatures, ",")
+		args = append(args, "-O", featuresArg)
 	}
 
-	featuresArg := strings.Join(allFeatures, ",")
-	args := []string{"-O", featuresArg}
+	if options.Btrfs.Checksum != "" {
+		args = append(args, "--csum", options.Btrfs.Checksum)
+	}
 
 	return args, nil
 }

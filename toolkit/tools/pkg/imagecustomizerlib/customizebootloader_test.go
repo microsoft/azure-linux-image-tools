@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/stretchr/testify/assert"
 )
@@ -69,4 +70,86 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 		// There should be multiple matching linux kernels, one for each installed kernel.
 		assert.GreaterOrEqual(t, len(matches), 2, "grub.cfg:\n%s", grubCfgContents)
 	}
+}
+
+func TestFindRootMountPoint_DirectFilesystem_Pass(t *testing.T) {
+	fileSystems := []imagecustomizerapi.FileSystem{
+		{
+			DeviceId: "esp",
+			Type:     imagecustomizerapi.FileSystemTypeFat32,
+			MountPoint: &imagecustomizerapi.MountPoint{
+				Path:   "/boot/efi",
+				IdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+			},
+		},
+		{
+			DeviceId: "rootfs",
+			Type:     imagecustomizerapi.FileSystemTypeXfs,
+			MountPoint: &imagecustomizerapi.MountPoint{
+				Path:   "/",
+				IdType: imagecustomizerapi.MountIdentifierTypeUuid,
+			},
+		},
+	}
+
+	result := findRootMountPoint(fileSystems)
+	assert.NotNil(t, result)
+	assert.Equal(t, "/", result.Path)
+	assert.Equal(t, imagecustomizerapi.MountIdentifierTypeUuid, result.IdType)
+}
+
+func TestFindRootMountPoint_BtrfsSubvolume_Pass(t *testing.T) {
+	fileSystems := []imagecustomizerapi.FileSystem{
+		{
+			DeviceId: "esp",
+			Type:     imagecustomizerapi.FileSystemTypeFat32,
+			MountPoint: &imagecustomizerapi.MountPoint{
+				Path:   "/boot/efi",
+				IdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+			},
+		},
+		{
+			DeviceId: "btrfspart",
+			Type:     imagecustomizerapi.FileSystemTypeBtrfs,
+			Btrfs: &imagecustomizerapi.BtrfsConfig{
+				Subvolumes: []imagecustomizerapi.BtrfsSubvolume{
+					{
+						Path: "root",
+						MountPoint: &imagecustomizerapi.MountPoint{
+							Path:   "/",
+							IdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+						},
+					},
+					{
+						Path: "home",
+						MountPoint: &imagecustomizerapi.MountPoint{
+							Path:   "/home",
+							IdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := findRootMountPoint(fileSystems)
+	assert.NotNil(t, result)
+	assert.Equal(t, "/", result.Path)
+	assert.Equal(t, imagecustomizerapi.MountIdentifierTypePartUuid, result.IdType)
+}
+
+func TestFindRootMountPoint_NoRoot_Fail(t *testing.T) {
+	fileSystems := []imagecustomizerapi.FileSystem{
+		{
+			DeviceId: "esp",
+			Type:     imagecustomizerapi.FileSystemTypeFat32,
+			MountPoint: &imagecustomizerapi.MountPoint{
+				Path:   "/boot/efi",
+				IdType: imagecustomizerapi.MountIdentifierTypePartUuid,
+			},
+		},
+	}
+
+	result := findRootMountPoint(fileSystems)
+	assert.Nil(t, result)
 }

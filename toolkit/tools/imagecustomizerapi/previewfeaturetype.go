@@ -47,7 +47,7 @@ const (
 	// PreviewFeatureCosiCompression enables custom compression settings for COSI output.
 	PreviewFeatureCosiCompression PreviewFeature = "cosi-compression"
 
-	// PreviewFeatureBtrfs enables support for creating BTRFS filesystems.
+	// PreviewFeatureBtrfs enables support for creating BTRFS file systems.
 	PreviewFeatureBtrfs PreviewFeature = "btrfs"
 
 	// PreviewFeatureCreate enables the create command for building new images from scratch.
