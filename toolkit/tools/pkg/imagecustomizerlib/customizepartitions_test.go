@@ -530,6 +530,68 @@ func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, 
 	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
 }
 
+func TestCustomizeImagePartitionsBtrfsSubvolumesBasic(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t,
+				"TestCustomizeImagePartitionsBtrfsSubvolumesBasic"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t *testing.T, testName string,
+	baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "partitions-btrfs-subvolumes-basic.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	loopback, err := safeloopback.NewLoopback(outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer loopback.Close()
+
+	btrfsPartitionPath := fmt.Sprintf("%sp2", loopback.DevicePath())
+
+	btrfsMountDir := filepath.Join(testTmpDir, "btrfsmount")
+	err = os.MkdirAll(btrfsMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		shell.ExecuteLive(true, "umount", btrfsMountDir)
+	}()
+
+	expectedSubvolumes := []string{"root", "home"}
+	verifyBtrfsSubvolumes(t, btrfsMountDir, expectedSubvolumes)
+
+	fstabPath := filepath.Join(btrfsMountDir, "root", "etc", "fstab")
+	expectedOptions := map[string]string{
+		"/":     "subvol=/root",
+		"/home": "subvol=/home",
+	}
+	verifyBtrfsFstabEntries(t, fstabPath, expectedOptions)
+
+	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
+}
+
 func TestCustomizeImagePartitionsBtrfsSubvolumesNested(t *testing.T) {
 	for _, baseImageInfo := range baseImageAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {

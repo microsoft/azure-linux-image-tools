@@ -168,15 +168,16 @@ func TestSortBtrfsSubvolumesByDepth_UnsortedInput_Pass(t *testing.T) {
 		{Path: "root/var/lib"},
 	}
 
+	// Sorted alphabetically by path. This ensures parent subvolumes are created before their children.
 	expected := []btrfsSubvolumeConfig{
-		{Path: "root"},
 		{Path: "home"},
-		{Path: "root/var"},
-		{Path: "var/log"},
 		{Path: "home/user"},
+		{Path: "home/user/documents/work"},
+		{Path: "root"},
+		{Path: "root/var"},
 		{Path: "root/var/lib"},
 		{Path: "root/var/lib/postgresql"},
-		{Path: "home/user/documents/work"},
+		{Path: "var/log"},
 	}
 
 	sorted := sortBtrfsSubvolumesByDepth(input)

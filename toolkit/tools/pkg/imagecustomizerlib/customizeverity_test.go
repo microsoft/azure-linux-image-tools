@@ -620,3 +620,182 @@ func TestExtractSubvolPath_MultipleAnomalies_Pass(t *testing.T) {
 	result := extractSubvolPath("subvol=/var//./tmp/../lib/")
 	assert.Equal(t, "var/lib", result)
 }
+
+// TestCustomizeImageVerityBtrfsRoot tests verity with a BTRFS root filesystem using a single subvolume.
+// This tests the critical path where:
+// 1. The root filesystem is BTRFS with a subvolume mounted at /
+// 2. Verity is enabled on the BTRFS partition
+// 3. The fstab is correctly updated to point to the verity device with proper subvol= option
+// 4. The grub configuration is updated with verity parameters
+func TestCustomizeImageVerityBtrfsRoot(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityBtrfsRootHelper(t, "TestCustomizeImageVerityBtrfsRoot"+baseImageInfo.Name,
+				baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityBtrfsRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-btrfs-root-subvolume.yaml")
+
+	// Customize image with verity + btrfs subvolume.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyBtrfsVerityRoot(t, baseImageInfo, outImageFilePath, testTempDir, "root")
+
+	// Recustomize the image to verify that verity-enabled btrfs images can be recustomized.
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyBtrfsVerityRoot(t, baseImageInfo, outImageFilePath, testTempDir, "root")
+}
+
+// TestCustomizeImageVerityBtrfsNoSubvolumes tests verity with a BTRFS root filesystem without subvolumes.
+// This tests the simpler case where the BTRFS filesystem is mounted directly at / without using subvolumes.
+func TestCustomizeImageVerityBtrfsNoSubvolumes(t *testing.T) {
+	for _, baseImageInfo := range baseImageAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityBtrfsNoSubvolumesHelper(t,
+				"TestCustomizeImageVerityBtrfsNoSubvolumes"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityBtrfsNoSubvolumesHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-btrfs-root-no-subvolumes.yaml")
+
+	// Customize image with verity + btrfs (no subvolumes).
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyBtrfsVerityRoot(t, baseImageInfo, outImageFilePath, testTempDir, "" /*subvolPath*/)
+
+	// Recustomize the image.
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyBtrfsVerityRoot(t, baseImageInfo, outImageFilePath, testTempDir, "" /*subvolPath*/)
+}
+
+// verifyBtrfsVerityRoot verifies that verity is correctly configured on a BTRFS root filesystem.
+// It checks the fstab entry has the correct subvol= option (if applicable) and verifies
+// the verity hash using veritysetup.
+func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outImageFilePath string, testTempDir string,
+	subvolPath string,
+) {
+	// Attach the image.
+	loopback, err := safeloopback.NewLoopback(outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer loopback.Close()
+
+	bootPartitionPath := fmt.Sprintf("%sp2", loopback.DevicePath())
+	rootPartitionPath := fmt.Sprintf("%sp3", loopback.DevicePath())
+	hashPartitionPath := fmt.Sprintf("%sp4", loopback.DevicePath())
+
+	partitions, err := getDiskPartitionsMap(loopback.DevicePath())
+	if !assert.NoError(t, err, "get disk partitions") {
+		return
+	}
+
+	bootMountDir := filepath.Join(testTempDir, "boot")
+	err = os.MkdirAll(bootMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	bootMount, err := safemount.NewMount(bootPartitionPath, bootMountDir, "ext4", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer bootMount.Close()
+
+	verifyVerityGrub(t, bootMountDir, rootPartitionPath, hashPartitionPath, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption")
+
+	err = bootMount.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	btrfsMountDir := filepath.Join(testTempDir, "btrfsroot")
+	err = os.MkdirAll(btrfsMountDir, 0o755)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	var mountArgs []string
+	if subvolPath != "" {
+		mountArgs = []string{"-o", "subvol=/" + subvolPath, rootPartitionPath, btrfsMountDir}
+	} else {
+		mountArgs = []string{rootPartitionPath, btrfsMountDir}
+	}
+
+	err = shell.ExecuteLive(true, "mount", mountArgs...)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer func() {
+		shell.ExecuteLive(true, "umount", btrfsMountDir)
+	}()
+
+	fstabPath := filepath.Join(btrfsMountDir, "etc", "fstab")
+	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
+	if !assert.NoError(t, err, "read fstab") {
+		return
+	}
+
+	rootFstabEntry := findFstabEntryByTarget(fstabEntries, "/")
+	if !assert.NotNil(t, rootFstabEntry, "fstab should have entry for /") {
+		return
+	}
+
+	assert.Equal(t, "/dev/mapper/root", rootFstabEntry.Source, "fstab root source should be verity device")
+
+	if subvolPath != "" {
+		expectedOptions := "subvol=/" + subvolPath
+		assert.Equal(t, expectedOptions, rootFstabEntry.Options,
+			"fstab root options should match expected subvol option")
+	}
+
+	assert.Equal(t, "btrfs", rootFstabEntry.FsType, "fstab root fstype should be btrfs")
+}
+
+// findFstabEntryByTarget finds an fstab entry by its target mount point.
+func findFstabEntryByTarget(entries []diskutils.FstabEntry, target string) *diskutils.FstabEntry {
+	for i := range entries {
+		if entries[i].Target == target {
+			return &entries[i]
+		}
+	}
+	return nil
+}
