@@ -42,6 +42,15 @@ func TestParseBtrfsSubvolumeOutput(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "Deeply nested subvolumes",
+			output: "ID 256 gen 7 top level 5 path root\n" +
+				"ID 257 gen 7 top level 5 path home\n" +
+				"ID 258 gen 7 top level 256 path root/var\n" +
+				"ID 259 gen 7 top level 258 path root/var/log",
+			expectedPaths: []string{"root", "home", "root/var", "root/var/log"},
+			expectedError: false,
+		},
+		{
 			name:          "Empty output",
 			output:        "",
 			expectedPaths: nil,

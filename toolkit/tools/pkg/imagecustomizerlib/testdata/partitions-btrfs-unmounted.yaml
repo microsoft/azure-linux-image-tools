@@ -1,0 +1,38 @@
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: rootfs
+      size: 1G
+
+    - id: btrfsunmounted
+      size: 500M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+  - deviceId: btrfsunmounted
+    type: btrfs
+    # No mountPoint - btrfs filesystem with no mount
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+previewFeatures:
+- btrfs

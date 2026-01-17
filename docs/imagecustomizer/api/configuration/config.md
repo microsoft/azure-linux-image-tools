@@ -136,9 +136,10 @@ Supported options:
 
   Added in v1.2.
 
-- `btrfs`: Enables support for creating BTRFS filesystems.
+- `btrfs`: Enables support for creating BTRFS file systems.
 
-  When this option is specified, the `storage.filesystems[].type` can be set to `btrfs`.
+  When this option is specified, the `btrfs` option for [storage.filesystems[].type](./filesystem.md#type-string)
+  and the [storage.filesystems[].btrfs](./filesystem.md#btrfs-btrfsconfig) become available.
 
   Added in v1.2.
 

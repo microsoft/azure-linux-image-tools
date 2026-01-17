@@ -174,8 +174,7 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 // Returns all paths where etc/fstab was found (empty string for top-level, BTRFS subvolume path otherwise).
 func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) ([]string, error) {
 	// For BTRFS, mount with subvolid=5 to ensure the top-level subvolume is mounted.
-	// This ensures that `btrfs subvolume list -a` returns consistent absolute paths
-	// without the <FS_TREE>/ prefix.
+	// This ensures that `btrfs subvolume list` returns consistent paths relative to the mount point.
 	mountOptions := ""
 	if diskPartition.FileSystemType == "btrfs" {
 		mountOptions = fmt.Sprintf("subvolid=%d", BtrfsTopLevelSubvolumeId)
@@ -229,9 +228,9 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) ([]st
 	return matchingPaths, nil
 }
 
-// listBtrfsSubvolumes uses btrfs tools to discover actual subvolumes in a mounted BTRFS filesystem
+// listBtrfsSubvolumes uses btrfs tools to discover actual subvolumes in a mounted BTRFS top-level subvolume.
 func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
-	stdout, _, err := shell.NewExecBuilder("btrfs", "subvolume", "list", "-a", mountPoint).
+	stdout, _, err := shell.NewExecBuilder("btrfs", "subvolume", "list", mountPoint).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		ExecuteCaptureOutput()
@@ -248,13 +247,21 @@ func listBtrfsSubvolumes(mountPoint string) ([]string, error) {
 	return subvolumes, nil
 }
 
-// parseBtrfsSubvolumeListOutput parses the output of `btrfs subvolume list -a` command.
+// parseBtrfsSubvolumeListOutput parses the output of `btrfs subvolume list` command.
 // When the top-level subvolume (subvolid=5) is mounted, the output shows paths without
-// the <FS_TREE>/ prefix. The -a flag ensures absolute paths from the filesystem root.
-// Example output:
+// the <FS_TREE>/ prefix, even for nested subvolumes.
 //
-//	ID 256 gen 7 top level 5 path root
-//	ID 257 gen 7 top level 5 path home
+// Example output (btrfs subvolume list -a):
+// ID 256 gen 7 top level 5 path root
+// ID 257 gen 7 top level 5 path snapshots
+// ID 258 gen 7 top level 256 path <FS_TREE>/root/var
+// ID 259 gen 7 top level 256 path <FS_TREE>/root/home
+//
+// Example output ((btrfs subvolume list, what is actually run):
+// ID 256 gen 7 top level 5 path root
+// ID 257 gen 7 top level 5 path snapshots
+// ID 258 gen 7 top level 256 path root/var
+// ID 259 gen 7 top level 256 path root/home
 func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 	subvolumeRegex := regexp.MustCompile(
 		`^ID\s+\d+\s+gen\s+\d+\s+top\s+level\s+\d+\s+path\s+(.+)$`)
