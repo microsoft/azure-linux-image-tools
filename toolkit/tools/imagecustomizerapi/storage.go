@@ -181,29 +181,24 @@ func (s *Storage) IsValid() error {
 				if hasFileSystem {
 					expectedMountPaths, hasExpectedMountPaths := PartitionTypeSupportedMountPaths[partition.Type]
 					if hasExpectedMountPaths {
-						// Check filesystem mount point
+						// BTRFS subvolume mounts are not supported for partition types with expected mount paths.
+						if fileSystem.Btrfs != nil {
+							for _, subvolume := range fileSystem.Btrfs.Subvolumes {
+								if subvolume.MountPoint != nil {
+									logger.Log.Infof(
+										"partition (%s) with type (%s) does not support BTRFS subvolume mounts",
+										partition.Id, partition.Type)
+									break
+								}
+							}
+						}
+
 						if fileSystem.MountPoint != nil {
 							supportedPath := sliceutils.ContainsValue(expectedMountPaths, fileSystem.MountPoint.Path)
 							if !supportedPath {
 								logger.Log.Infof(
 									"Unexpected mount path (%s) for partition (%s) with type (%s). Expected paths: %v",
 									fileSystem.MountPoint.Path, partition.Id, partition.Type, expectedMountPaths)
-							}
-						}
-
-						// Check BTRFS subvolume mount points
-						if fileSystem.Btrfs != nil {
-							for _, subvolume := range fileSystem.Btrfs.Subvolumes {
-								if subvolume.MountPoint != nil {
-									supportedPath := sliceutils.ContainsValue(expectedMountPaths, subvolume.MountPoint.Path)
-									if !supportedPath {
-										logger.Log.Infof(
-											"Unexpected mount path (%s) for btrfs subvolume (%s) on partition (%s) "+
-												"with type (%s). Expected paths: %v",
-											subvolume.MountPoint.Path, subvolume.Path, partition.Id, partition.Type,
-											expectedMountPaths)
-									}
-								}
 							}
 						}
 					}
