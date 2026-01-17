@@ -29,7 +29,7 @@ func TestCreateBtrfsSubvolumes_NoBtrfsConfig_Pass(t *testing.T) {
 	}
 
 	partIDToDevPathMap := map[string]string{
-		"part1": "/dev/sda1",
+		"part1": "/fake/device/path",
 	}
 	partIDToFsTypeMap := map[string]string{
 		"part1": "ext4",
@@ -51,7 +51,7 @@ func TestCreateBtrfsSubvolumes_NoSubvolumes_Pass(t *testing.T) {
 	}
 
 	partIDToDevPathMap := map[string]string{
-		"part1": "/dev/sda1",
+		"part1": "/fake/device/path",
 	}
 	partIDToFsTypeMap := map[string]string{
 		"part1": "btrfs",
@@ -100,7 +100,7 @@ func TestCreateBtrfsSubvolumes_FsTypeNotFound_Fail(t *testing.T) {
 	}
 
 	partIDToDevPathMap := map[string]string{
-		"part1": "/dev/sda1",
+		"part1": "/fake/device/path",
 	}
 	partIDToFsTypeMap := map[string]string{}
 
@@ -125,7 +125,7 @@ func TestCreateBtrfsSubvolumes_NotBtrfsFs_Fail(t *testing.T) {
 	}
 
 	partIDToDevPathMap := map[string]string{
-		"part1": "/dev/sda1",
+		"part1": "/fake/device/path",
 	}
 	partIDToFsTypeMap := map[string]string{
 		"part1": "ext4",
@@ -137,10 +137,10 @@ func TestCreateBtrfsSubvolumes_NotBtrfsFs_Fail(t *testing.T) {
 }
 
 func TestCreateBtrfsSubvolumesOnDevice_EmptyInput_Pass(t *testing.T) {
-	err := createBtrfsSubvolumesOnDevice("/dev/sda1", nil, "/tmp")
+	err := createBtrfsSubvolumesOnDevice("/fake/device/path", nil, "/tmp")
 	assert.NoError(t, err)
 
-	err = createBtrfsSubvolumesOnDevice("/dev/sda1", []btrfsSubvolumeConfig{}, "/tmp")
+	err = createBtrfsSubvolumesOnDevice("/fake/device/path", []btrfsSubvolumeConfig{}, "/tmp")
 	assert.NoError(t, err)
 }
 
