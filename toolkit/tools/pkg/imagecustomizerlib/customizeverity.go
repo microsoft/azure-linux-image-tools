@@ -460,7 +460,7 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 	}
 
 	// Write verity args to a file that will be read by modifyUkiAddon in customizeuki.go
-	verityArgsPath := filepath.Join(buildDir, UkiBuildDir, "verity-args.txt")
+	verityArgsPath := filepath.Join(buildDir, UkiBuildDir, VerityArgsFile)
 	argsStr := GrubArgsToString(newArgs)
 	err = os.WriteFile(verityArgsPath, []byte(argsStr), 0o644)
 	if err != nil {
@@ -687,8 +687,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		// Update kernel args.
 		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
 		isUki := config.OS.Uki != nil && config.OS.Uki.Mode != imagecustomizerapi.UkiModePassthrough
-		isModifyMode := config.OS.Uki != nil && config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, isModifyMode, partitionsLayout)
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err
 		}
@@ -767,7 +766,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 }
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
-	verityMetadata []verityDeviceMetadata, isUki bool, isModifyMode bool, partitionsLayout []fstabEntryPartNum,
+	verityMetadata []verityDeviceMetadata, isUki bool, partitionsLayout []fstabEntryPartNum,
 ) error {
 	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {

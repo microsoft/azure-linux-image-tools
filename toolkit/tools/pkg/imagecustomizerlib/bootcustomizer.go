@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
@@ -49,8 +49,8 @@ type BootCustomizer struct {
 	// The UKI mode when boot type is UKI (optional).
 	ukiMode imagecustomizerapi.UkiMode
 
-	// The path to the UKI cmdline file (for modify mode).
-	ukiCmdlineFilePath string
+	// The path to the UKI kernel info file (for modify mode).
+	ukiKernelInfoPath string
 }
 
 func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string) (*BootCustomizer, error) {
@@ -71,11 +71,11 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	}
 
 	ukiMode := imagecustomizerapi.UkiModeUnspecified
-	ukiCmdlineFilePath := ""
+	ukiKernelInfoPath := ""
 	if uki != nil {
 		ukiMode = uki.Mode
 		if ukiMode == imagecustomizerapi.UkiModeModify && buildDir != "" {
-			ukiCmdlineFilePath = filepath.Join(buildDir, "UkiBuildDir", "uki-cmdline.txt")
+			ukiKernelInfoPath = filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 		}
 	}
 
@@ -84,7 +84,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 		defaultGrubFileContent: defaultGrubFileContent,
 		bootConfigType:         bootConfigType,
 		ukiMode:                ukiMode,
-		ukiCmdlineFilePath:     ukiCmdlineFilePath,
+		ukiKernelInfoPath:      ukiKernelInfoPath,
 	}
 	return b, nil
 }
@@ -361,62 +361,101 @@ func (b *BootCustomizer) SetRootDevice(rootDevice string) error {
 	return nil
 }
 
-// appendToUkiCmdlineFile appends kernel arguments to the UKI cmdline file.
+// appendToUkiCmdlineFile appends kernel arguments to all kernels in the UKI kernel info file.
 func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
-	if b.ukiCmdlineFilePath == "" {
-		return fmt.Errorf("UKI cmdline file path not set")
+	if b.ukiKernelInfoPath == "" {
+		return fmt.Errorf("UKI kernel info file path not set")
 	}
 
-	currentCmdline, err := os.ReadFile(b.ukiCmdlineFilePath)
+	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
 	if err != nil {
-		return fmt.Errorf("failed to read UKI cmdline file:\n%w", err)
+		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
 	}
 
-	updatedCmdline := strings.TrimSpace(string(currentCmdline)) + " " + args
+	// Append args to each kernel's cmdline
+	for kernel, info := range kernelInfo {
+		updatedCmdline := strings.TrimSpace(info.Cmdline) + " " + args
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   updatedCmdline,
+			Initramfs: info.Initramfs,
+		}
+	}
 
-	err = os.WriteFile(b.ukiCmdlineFilePath, []byte(updatedCmdline), 0644)
+	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
 	if err != nil {
-		return fmt.Errorf("failed to write UKI cmdline file:\n%w", err)
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
 	}
 
 	return nil
 }
 
-// updateUkiCmdlineFile updates kernel arguments in the UKI cmdline file.
+// updateUkiCmdlineFile updates kernel arguments for all kernels in the UKI kernel info file.
 func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []string) error {
-	if b.ukiCmdlineFilePath == "" {
-		return fmt.Errorf("UKI cmdline file path not set")
+	if b.ukiKernelInfoPath == "" {
+		return fmt.Errorf("UKI kernel info file path not set")
 	}
 
-	currentCmdlineBytes, err := os.ReadFile(b.ukiCmdlineFilePath)
+	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
 	if err != nil {
-		return fmt.Errorf("failed to read UKI cmdline file:\n%w", err)
+		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
 	}
 
-	currentCmdline := strings.TrimSpace(string(currentCmdlineBytes))
-	currentArgs := strings.Fields(currentCmdline)
+	// Update each kernel's cmdline
+	for kernel, info := range kernelInfo {
+		currentCmdline := strings.TrimSpace(info.Cmdline)
+		tokens, err := grub.TokenizeConfig(currentCmdline)
+		if err != nil {
+			return fmt.Errorf("failed to tokenize UKI cmdline for kernel (%s):\n%w", kernel, err)
+		}
+		currentArgs, err := ParseCommandLineArgs(tokens)
+		if err != nil {
+			return fmt.Errorf("failed to parse UKI cmdline for kernel (%s):\n%w", kernel, err)
+		}
 
-	// Remove args that match any of the argsToRemove prefixes
-	var filteredArgs []string
-	for _, arg := range currentArgs {
-		shouldRemove := false
-		for _, removePrefix := range argsToRemove {
-			if strings.HasPrefix(arg, removePrefix) || strings.HasPrefix(arg, removePrefix+"=") {
-				shouldRemove = true
-				break
+		// Remove args that match any of the argsToRemove prefixes
+		var filteredArgs []grubConfigLinuxArg
+		for _, arg := range currentArgs {
+			shouldRemove := false
+			for _, removePrefix := range argsToRemove {
+				if arg.Name == removePrefix {
+					shouldRemove = true
+					break
+				}
+			}
+			if !shouldRemove {
+				filteredArgs = append(filteredArgs, arg)
 			}
 		}
-		if !shouldRemove {
-			filteredArgs = append(filteredArgs, arg)
+
+		// Parse and append new args
+		newArgsStr := strings.Join(newArgs, " ")
+		newTokens, err := grub.TokenizeConfig(newArgsStr)
+		if err != nil {
+			return fmt.Errorf("failed to tokenize new args for kernel (%s):\n%w", kernel, err)
+		}
+		newArgsParsed, err := ParseCommandLineArgs(newTokens)
+		if err != nil {
+			return fmt.Errorf("failed to parse new args for kernel (%s):\n%w", kernel, err)
+		}
+		filteredArgs = append(filteredArgs, newArgsParsed...)
+
+		// Convert back to string
+		var argStrings []string
+		for _, arg := range filteredArgs {
+			argStrings = append(argStrings, arg.Arg)
+		}
+		updatedCmdline := strings.Join(argStrings, " ")
+
+		// Update kernel info
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   updatedCmdline,
+			Initramfs: info.Initramfs,
 		}
 	}
 
-	filteredArgs = append(filteredArgs, newArgs...)
-
-	updatedCmdline := strings.Join(filteredArgs, " ")
-	err = os.WriteFile(b.ukiCmdlineFilePath, []byte(updatedCmdline), 0644)
+	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
 	if err != nil {
-		return fmt.Errorf("failed to write UKI cmdline file:\n%w", err)
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
 	}
 
 	return nil
