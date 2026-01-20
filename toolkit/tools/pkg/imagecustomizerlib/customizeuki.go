@@ -52,8 +52,6 @@ const (
 	EspDir             = "boot/efi"
 	DefaultGrubCfgPath = "grub2/grub.cfg"
 	UkiKernelInfoJson  = "uki-kernel-info.json"
-	UkiCmdlineFile     = "uki-cmdline.txt"
-	VerityArgsFile     = "verity-args.txt"
 	KernelPrefix       = "vmlinuz-"
 	UkiBuildDir        = "UkiBuildDir"
 	UkiOutputDir       = "EFI/Linux"
@@ -569,12 +567,6 @@ func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig) error {
 
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 
-	// Apply verity args to UKI cmdline if they exist
-	err = applyVerityArgsToUkiCmdline(rc.BuildDirAbs)
-	if err != nil {
-		return fmt.Errorf("failed to apply verity args to UKI cmdline:\n%w", err)
-	}
-
 	// Process each UKI file - regenerate its addon with updated cmdline
 	for _, ukiFile := range ukiFiles {
 		err := modifyUkiAddon(ukiFile, stubPath, rc)
@@ -634,59 +626,6 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	}
 
 	logger.Log.Infof("Successfully modified UKI addon: (%s)", addonFullPath)
-	return nil
-}
-
-// applyVerityArgsToUkiCmdline reads verity-args.txt and appends the args to UKI cmdline for each kernel.
-// Works for both create and modify modes by using uki-kernel-info.json.
-func applyVerityArgsToUkiCmdline(buildDir string) error {
-	verityArgsPath := filepath.Join(buildDir, UkiBuildDir, VerityArgsFile)
-
-	// Check if verity-args.txt exists
-	if _, err := os.Stat(verityArgsPath); os.IsNotExist(err) {
-		// No verity args to apply
-		return nil
-	}
-
-	// Read verity args
-	verityArgsBytes, err := os.ReadFile(verityArgsPath)
-	if err != nil {
-		return fmt.Errorf("failed to read verity args file:\n%w", err)
-	}
-	verityArgs := strings.TrimSpace(string(verityArgsBytes))
-
-	if verityArgs == "" {
-		return nil
-	}
-
-	// Update uki-kernel-info.json (used by both create and modify modes)
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read kernel info file:\n%w", err)
-	}
-
-	// Append verity args to each kernel's cmdline
-	for kernel, info := range kernelInfo {
-		updatedCmdline := strings.TrimSpace(info.Cmdline)
-		if updatedCmdline != "" {
-			updatedCmdline += " "
-		}
-		updatedCmdline += verityArgs
-
-		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedCmdline,
-			Initramfs: info.Initramfs,
-		}
-	}
-
-	// Write updated kernel info back
-	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
-	if err != nil {
-		return fmt.Errorf("failed to write updated kernel info:\n%w", err)
-	}
-
-	logger.Log.Infof("Applied verity args to UKI cmdline for all kernels")
 	return nil
 }
 
@@ -751,12 +690,6 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	osSubreleaseFullPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "os-release")
 	cmdlineFilePath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
-
-	// Apply verity args to kernel info if they exist
-	err = applyVerityArgsToUkiCmdline(rc.BuildDirAbs)
-	if err != nil {
-		return fmt.Errorf("failed to apply verity args to kernel info:\n%w", err)
-	}
 
 	// Read the kernel information (kernels, initramfs, and command line args) from the file created during prepareUki.
 	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)

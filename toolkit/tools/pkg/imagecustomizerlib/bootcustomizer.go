@@ -74,7 +74,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	ukiKernelInfoPath := ""
 	if uki != nil {
 		ukiMode = uki.Mode
-		if ukiMode == imagecustomizerapi.UkiModeModify && buildDir != "" {
+		if ukiMode == imagecustomizerapi.UkiModeModify {
 			ukiKernelInfoPath = filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 		}
 	}
@@ -412,8 +412,8 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 			return fmt.Errorf("failed to parse UKI cmdline for kernel (%s):\n%w", kernel, err)
 		}
 
-		// Remove args that match any of the argsToRemove prefixes
-		var filteredArgs []grubConfigLinuxArg
+		// Remove args that match any of the argsToRemove prefixes and build string array
+		var argStrings []string
 		for _, arg := range currentArgs {
 			shouldRemove := false
 			for _, removePrefix := range argsToRemove {
@@ -423,28 +423,14 @@ func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []s
 				}
 			}
 			if !shouldRemove {
-				filteredArgs = append(filteredArgs, arg)
+				argStrings = append(argStrings, arg.Arg)
 			}
 		}
 
-		// Parse and append new args
-		newArgsStr := strings.Join(newArgs, " ")
-		newTokens, err := grub.TokenizeConfig(newArgsStr)
-		if err != nil {
-			return fmt.Errorf("failed to tokenize new args for kernel (%s):\n%w", kernel, err)
-		}
-		newArgsParsed, err := ParseCommandLineArgs(newTokens)
-		if err != nil {
-			return fmt.Errorf("failed to parse new args for kernel (%s):\n%w", kernel, err)
-		}
-		filteredArgs = append(filteredArgs, newArgsParsed...)
+		// Append new args
+		argStrings = append(argStrings, newArgs...)
 
-		// Convert back to string
-		var argStrings []string
-		for _, arg := range filteredArgs {
-			argStrings = append(argStrings, arg.Arg)
-		}
-		updatedCmdline := strings.Join(argStrings, " ")
+		updatedCmdline := GrubArgsToString(argStrings)
 
 		// Update kernel info
 		kernelInfo[kernel] = UkiKernelInfo{
