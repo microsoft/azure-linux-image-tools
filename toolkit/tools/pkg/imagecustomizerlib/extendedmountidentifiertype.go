@@ -20,6 +20,9 @@ const (
 	// ExtendedMountIdentifierTypePartLabel mounts this partition via the GPT PARTLABEL.
 	ExtendedMountIdentifierTypePartLabel ExtendedMountIdentifierType = "part-label"
 
+	// ExtendedMountIdentifierTypeLabel mounts this partition via the filesystem LABEL.
+	ExtendedMountIdentifierTypeLabel ExtendedMountIdentifierType = "label"
+
 	// ExtendedMountIdentifierTypeDev mounts this partition via a device.
 	ExtendedMountIdentifierTypeDev ExtendedMountIdentifierType = "dev"
 

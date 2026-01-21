@@ -465,7 +465,7 @@ func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo,
 ) (diskutils.PartitionInfo, int, error) {
-	partition, partitionIndex, err := findPartitionHelper(mountIdType, mountId, partitions)
+	partition, partitionIndex, err := findPartitionHelper(ExtendedMountIdentifierType(mountIdType), mountId, partitions)
 	if err != nil {
 		return diskutils.PartitionInfo{}, 0, err
 	}
@@ -492,8 +492,7 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 		return partition, partitionIndex, verityMetadata, err
 
 	default:
-		partition, partitionIndex, err := findPartitionHelper(imagecustomizerapi.MountIdentifierType(mountIdType),
-			mountId, partitions)
+		partition, partitionIndex, err := findPartitionHelper(mountIdType, mountId, partitions)
 		if err != nil {
 			return diskutils.PartitionInfo{}, 0, nil, err
 		}
@@ -502,19 +501,21 @@ func findExtendedPartition(mountIdType ExtendedMountIdentifierType, mountId stri
 	}
 }
 
-func findPartitionHelper(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
+func findPartitionHelper(mountIdType ExtendedMountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo,
 ) (diskutils.PartitionInfo, int, error) {
 	matchedPartitionIndexes := []int(nil)
 	for i, partition := range partitions {
 		matches := false
 		switch mountIdType {
-		case imagecustomizerapi.MountIdentifierTypeUuid:
+		case ExtendedMountIdentifierTypeUuid:
 			matches = partition.Uuid == mountId
-		case imagecustomizerapi.MountIdentifierTypePartUuid:
+		case ExtendedMountIdentifierTypePartUuid:
 			matches = partition.PartUuid == mountId
-		case imagecustomizerapi.MountIdentifierTypePartLabel:
+		case ExtendedMountIdentifierTypePartLabel:
 			matches = partition.PartLabel == mountId
+		case ExtendedMountIdentifierTypeLabel:
+			matches = partition.Label == mountId
 		}
 		if matches {
 			matchedPartitionIndexes = append(matchedPartitionIndexes, i)
@@ -581,13 +582,13 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 
-	dataPartition, dataPartitionIndex, err := findPartitionHelper(dataIdType, dataId, partitions)
+	dataPartition, dataPartitionIndex, err := findPartitionHelper(ExtendedMountIdentifierType(dataIdType), dataId, partitions)
 	if err != nil {
 		err = fmt.Errorf("failed to find verity data partition:\n%w", err)
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 
-	hashPartition, _, err := findPartitionHelper(hashIdType, hashId, partitions)
+	hashPartition, _, err := findPartitionHelper(ExtendedMountIdentifierType(hashIdType), hashId, partitions)
 	if err != nil {
 		err = fmt.Errorf("failed to find verity data partition:\n%w", err)
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
@@ -680,8 +681,7 @@ func findBasicPartitionForPath(targetPath string, fstabEntries []diskutils.Fstab
 		return diskutils.PartitionInfo{}, "", fmt.Errorf("cannot process fstab source (source='%s')", fstabEntry.Source)
 	}
 
-	partition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierType(mountIdType),
-		mountId, diskPartitions)
+	partition, _, err := findPartitionHelper(mountIdType, mountId, diskPartitions)
 	if err != nil {
 		return diskutils.PartitionInfo{}, "", err
 	}
@@ -1000,6 +1000,11 @@ func parseExtendedSourcePartition(source string) (ExtendedMountIdentifierType, s
 	partLabel, isPartLabel := strings.CutPrefix(source, "PARTLABEL=")
 	if isPartLabel {
 		return ExtendedMountIdentifierTypePartLabel, partLabel, nil
+	}
+
+	label, isLabel := strings.CutPrefix(source, "LABEL=")
+	if isLabel {
+		return ExtendedMountIdentifierTypeLabel, label, nil
 	}
 
 	if strings.HasPrefix(source, "/dev") {

@@ -16,6 +16,8 @@ const (
 	TargetOsAzureLinux2 TargetOs = "azl2"
 	TargetOsAzureLinux3 TargetOs = "azl3"
 	TargetOsFedora42    TargetOs = "fedora42"
+	TargetOsUbuntu2204  TargetOs = "ubuntu2204"
+	TargetOsUbuntu2404  TargetOs = "ubuntu2404"
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
@@ -53,6 +55,18 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 
 		default:
 			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in /etc/os-release", versionId)
+		}
+
+	case "ubuntu":
+		switch versionId {
+		case "22.04":
+			return TargetOsUbuntu2204, nil
+
+		case "24.04":
+			return TargetOsUbuntu2404, nil
+
+		default:
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for Ubuntu in /etc/os-release", versionId)
 		}
 
 	default:

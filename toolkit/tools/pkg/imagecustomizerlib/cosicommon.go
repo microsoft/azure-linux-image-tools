@@ -373,10 +373,20 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
-	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
-		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
+	// Try RPM-based systems first (Azure Linux, Fedora)
+	if isPackageInstalled(imageConnection.Chroot(), "rpm") {
+		return getAllPackagesFromChrootRpm(imageConnection)
 	}
 
+	// Try dpkg-based systems (Ubuntu, Debian)
+	if isPackageInstalledDpkg(imageConnection.Chroot(), "dpkg") {
+		return getAllPackagesFromChrootDpkg(imageConnection)
+	}
+
+	return nil, fmt.Errorf("no supported package manager found (rpm or dpkg) in the image")
+}
+
+func getAllPackagesFromChrootRpm(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
 	var out string
 	err := imageConnection.Chroot().UnsafeRun(func() error {
 		var err error
@@ -401,6 +411,45 @@ func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) 
 			Version: parts[1],
 			Release: parts[2],
 			Arch:    parts[3],
+		})
+	}
+
+	return packages, nil
+}
+
+func getAllPackagesFromChrootDpkg(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
+	var out string
+	err := imageConnection.Chroot().UnsafeRun(func() error {
+		var err error
+		// Query format: package:arch version architecture
+		out, _, err = shell.Execute(
+			"dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n",
+		)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dpkg output from chroot:\n%w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var packages []OsPackage
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("malformed dpkg line encountered while parsing installed packages for COSI: %q", line)
+		}
+
+		// For dpkg, it does not have a separate release field
+		// Version contains epoch:version-release, use the whole thing as version
+		packages = append(packages, OsPackage{
+			Name:    parts[0],
+			Version: parts[1],
+			// dpkg doesn't have separate release
+			Release: "",
+			Arch:    parts[2],
 		})
 	}
 
@@ -594,10 +643,16 @@ func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderTyp
 	if isPackageInstalled(imageChroot, "grub2-efi-binary") || isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
 		return BootloaderTypeGrub, nil
 	}
-	if isPackageInstalled(imageChroot, "systemd-boot") {
+
+	// Check Ubuntu / Debian GRUB packages
+	if isPackageInstalledDpkg(imageChroot, "grub-efi-amd64") || isPackageInstalledDpkg(imageChroot, "grub-efi") {
+		return BootloaderTypeGrub, nil
+	}
+
+	if isPackageInstalled(imageChroot, "systemd-boot") || isPackageInstalledDpkg(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
+	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, grub-efi-amd64, nor systemd-boot found")
 }
 
 func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {

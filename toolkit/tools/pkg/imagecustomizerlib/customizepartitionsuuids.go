@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -215,8 +214,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Find the partition.
 		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
-		_, partitionIndex, err := findPartitionHelper(imagecustomizerapi.MountIdentifierType(mountIdType), mountId,
-			partitions)
+		_, partitionIndex, err := findPartitionHelper(mountIdType, mountId, partitions)
 		if err != nil {
 			return err
 		}

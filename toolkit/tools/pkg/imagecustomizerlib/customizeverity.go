@@ -609,13 +609,13 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		readonly := slices.Contains(readonlyPartUuids, metadata.dataPartUuid)
 		if !readonly {
 			// Find partitions.
-			dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
+			dataPartition, _, err := findPartitionHelper(ExtendedMountIdentifierType(imagecustomizerapi.MountIdentifierTypePartUuid),
 				metadata.dataPartUuid, diskPartitions)
 			if err != nil {
 				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityDataPartition, metadata.name, err)
 			}
 
-			hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
+			hashPartition, _, err := findPartitionHelper(ExtendedMountIdentifierType(imagecustomizerapi.MountIdentifierTypePartUuid),
 				metadata.hashPartUuid, diskPartitions)
 			if err != nil {
 				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityHashPartition, metadata.name, err)

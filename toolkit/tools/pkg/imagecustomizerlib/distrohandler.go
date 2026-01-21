@@ -51,6 +51,10 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) distroHandler {
 		return newAzureLinuxDistroHandler("2.0")
 	case targetos.TargetOsAzureLinux3:
 		return newAzureLinuxDistroHandler("3.0")
+	case targetos.TargetOsUbuntu2204:
+		return newUbuntuDistroHandler("22.04")
+	case targetos.TargetOsUbuntu2404:
+		return newUbuntuDistroHandler("24.04")
 	default:
 		panic("unsupported target OS: " + string(targetOs))
 	}

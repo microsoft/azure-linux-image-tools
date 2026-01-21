@@ -67,6 +67,9 @@ const (
 	// GrubCfgFile is the filepath of the grub config file.
 	GrubCfgFile = "/boot/grub2/grub.cfg"
 
+	// UbuntuGrubCfgFile is the filepath of the grub config file on Ubuntu/Debian systems.
+	UbuntuGrubCfgFile = "/boot/grub/grub.cfg"
+
 	// GrubDefFile is the filepath of the config file used by grub-mkconfig.
 	GrubDefFile = "/etc/default/grub"
 

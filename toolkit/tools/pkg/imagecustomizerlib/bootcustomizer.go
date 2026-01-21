@@ -172,7 +172,9 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 		}
 
 	case bootConfigTypeGrubLegacy:
-		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
+		// Detect if this is Ubuntu/Debian (allows multiple kernel entries)
+		allowMultipleKernels := isPackageInstalledDpkg(imageChroot, "dpkg")
+		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent, allowMultipleKernels)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false,
 				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.GrubCfgFile, err)
