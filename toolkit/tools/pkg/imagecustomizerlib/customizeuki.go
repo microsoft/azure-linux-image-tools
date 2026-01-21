@@ -221,7 +221,7 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot) e
 		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
 	}
 
-	logger.Log.Infof("Extracted and saved UKI cmdlines to: %s", ukiKernelInfoPath)
+	logger.Log.Debugf("Extracted and saved UKI cmdlines to: %s", ukiKernelInfoPath)
 	return nil
 }
 
@@ -267,12 +267,6 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		}
 
 		err = copyUkiFiles(buildDir, nil, imageChroot, bootConfig, uki)
-		if err != nil {
-			return err
-		}
-
-		// Extract existing cmdline from UKI addon and save to file
-		err = extractAndSaveUkiCmdline(buildDir, imageChroot)
 		if err != nil {
 			return err
 		}
@@ -402,6 +396,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrUKICmdlineFileWrite, cmdlineFilePath, err)
 	}
 
+	logger.Log.Debugf("Saved UKI kernel info to: %s", cmdlineFilePath)
 	return nil
 }
 

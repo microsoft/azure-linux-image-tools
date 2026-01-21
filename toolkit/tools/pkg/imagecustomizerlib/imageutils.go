@@ -5,7 +5,9 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"sort"
 
@@ -238,11 +240,15 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), nil, "")
+		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot())
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+
+		bootConfigType, err = determineBootConfigType(grubCfgContent, imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
-		bootConfigType = bootCustomizer.bootConfigType
 	}
 
 	grubMkconfigEnabled := (bootConfigType == bootConfigTypeGrubMkconfig)
