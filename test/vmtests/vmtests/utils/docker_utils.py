@@ -35,7 +35,7 @@ def container_log_and_wait(container: Container) -> "docker._types.WaitContainer
     # Log stdout and stderr.
     logs = container.logs(stdout=True, stderr=True, stream=True)
     for log in logs:
-        logging.debug(log.decode("utf-8").strip())
+        logging.debug(log.decode("utf-8", errors="replace").strip())
 
     # Wait for the container to close.
     result = container.wait()
