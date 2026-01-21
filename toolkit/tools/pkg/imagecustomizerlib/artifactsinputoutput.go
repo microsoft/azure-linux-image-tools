@@ -466,7 +466,7 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
 	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
 ) error {
-	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi {
+	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi || detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
 			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
 		if err != nil {
@@ -483,9 +483,11 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 			compressionLevel = *cosiCompressionLevel
 		}
 
+		includeVhdFooter := detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
+
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
 			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			compressionLevel, imagecustomizerapi.DefaultCosiCompressionLong)
+			compressionLevel, imagecustomizerapi.DefaultCosiCompressionLong, includeVhdFooter)
 		if err != nil {
 			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}

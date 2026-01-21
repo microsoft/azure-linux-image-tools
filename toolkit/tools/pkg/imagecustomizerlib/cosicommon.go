@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -42,7 +43,7 @@ type ImageBuildData struct {
 func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile string,
 	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
-	cosiBootMetadata *CosiBootloader, compressionLevel int, compressionLong int,
+	cosiBootMetadata *CosiBootloader, compressionLevel int, compressionLong int, includeVhdFooter bool,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -71,6 +72,25 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
+	}
+
+	if includeVhdFooter {
+		err = padToMegabyte(outputImageFile)
+		if err != nil {
+			return fmt.Errorf("failed to pad image file to megabyte boundary:\n%w", err)
+		}
+
+		// Reame outputImageFile to have .raw extension
+		tempOutputImageFile := outputImageFile + ".raw"
+		err = os.Rename(outputImageFile, tempOutputImageFile)
+		if err != nil {
+			return fmt.Errorf("failed to rename image file:\n%w", err)
+		}
+
+		err = ConvertImageFile(tempOutputImageFile, outputImageFile, imagecustomizerapi.ImageFormatVhdTypeFixed)
+		if err != nil {
+			return fmt.Errorf("failed to append VHD footer to image:\n%w", err)
+		}
 	}
 
 	logger.Log.Infof("Successfully converted to COSI: %s", outputImageFile)
@@ -211,6 +231,10 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		if err := addToCosi(data, tw); err != nil {
 			return fmt.Errorf("failed to add %s to COSI:\n%w", data.Source, err)
 		}
+	}
+
+	if err = tw.Flush(); err != nil {
+		return fmt.Errorf("failed to flush COSI tar writer:\n%w", err)
 	}
 
 	logger.Log.Infof("Finished building COSI: %s", outputFile)
@@ -561,4 +585,27 @@ func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
 		return CosiBootloader{}
 	}
 	return *bootloader
+}
+
+func padToMegabyte(imageFile string) error {
+	cosiFile, err := os.OpenFile(imageFile, os.O_WRONLY, fs.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to open image file for appending VHD footer:\n%w", err)
+	}
+	defer cosiFile.Close()
+
+	currentSize, err := cosiFile.Seek(0, io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("failed to get current size of image file:\n%w", err)
+	}
+
+	padSize := int64(1024*1024) - (currentSize % int64(1024*1024))
+	if padSize != int64(1024*1024) {
+		err = cosiFile.Truncate(currentSize + padSize)
+		if err != nil {
+			return fmt.Errorf("failed to pad image file to 1 MiB:\n%w", err)
+		}
+	}
+
+	return nil
 }
