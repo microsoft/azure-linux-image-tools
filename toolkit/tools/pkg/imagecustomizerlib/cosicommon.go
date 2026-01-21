@@ -44,6 +44,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	partitionsLayout []fstabEntryPartNum, verityMetadata []verityDeviceMetadata,
 	osRelease string, osPackages []OsPackage, imageUuid [randomization.UuidSize]byte, imageUuidStr string,
 	cosiBootMetadata *CosiBootloader, compressionLevel int, compressionLong int, includeVhdFooter bool,
+	partitionOriginalSizes map[string]uint64,
 ) error {
 	outputImageBase := strings.TrimSuffix(filepath.Base(outputImageFile), filepath.Ext(outputImageFile))
 	outputDir := filepath.Join(buildDirAbs, "cosiimages")
@@ -60,7 +61,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	defer imageLoopback.Close()
 
 	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
-		"raw-zst", imageUuid, compressionLevel, compressionLong)
+		"raw-zst", imageUuid, compressionLevel, compressionLong, partitionOriginalSizes)
 	if err != nil {
 		return err
 	}
@@ -120,6 +121,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	imageData := []ImageBuildData{}
+	outputPartitions := []Partition{}
 
 	for _, partition := range partitions {
 		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
@@ -152,6 +154,14 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			KnownInfo: partition,
 		}
 
+		outputPartitions = append(outputPartitions, Partition{
+			Path:         metadataImage.Image.Path,
+			PartUuid:     partition.PartUuid,
+			OriginalSize: partition.OriginalSize,
+			Label:        partition.PartLabel,
+			Number:       partition.PartitionNum,
+		})
+
 		// Add Verity metadata if the partition has a matching entry in verityMetadata
 		for _, verity := range verityMetadata {
 			if partition.PartUuid == verity.dataPartUuid {
@@ -170,6 +180,15 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)
 				imageDataEntry.VeritySource = veritySourcePath
+
+				outputPartitions = append(outputPartitions, Partition{
+					Path:         metadataImage.Verity.Image.Path,
+					OriginalSize: hashPartition.OriginalSize,
+					PartUuid:     hashPartition.PartUuid,
+					Label:        hashPartition.PartLabel,
+					Number:       hashPartition.PartitionNum,
+				})
+
 				break
 			}
 		}
@@ -188,10 +207,11 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	metadata := MetadataJson{
-		Version:    "1.1",
+		Version:    "1.2",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
 		Images:     make([]FileSystem, len(imageData)),
+		Partitions: outputPartitions,
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
 		Bootloader: handleBootloaderMetadata(cosiBootMetadata),

@@ -42,6 +42,7 @@ type outputPartitionMetadata struct {
 	PartUuid          string `json:"partuuid"`         // Example: 7b1367a6-5845-43f2-99b1-a742d873f590
 	Mountpoint        string `json:"mountpoint"`       // Example: /mnt/os/boot
 	UncompressedSize  uint64 `json:"uncompressedsize"` // Example: 104857600
+	OriginalSize      uint64 `json:"originalsize"`     // Example: 104857600
 }
 
 const (
@@ -53,6 +54,7 @@ const (
 // Extract all partitions of connected image into separate files with specified format.
 func extractPartitions(imageLoopDevice string, outDir string, basename string, partitionFormat string,
 	imageUuid [randomization.UuidSize]byte, compressionLevel int, compressionLong int,
+	partitionOriginalSizes map[string]uint64,
 ) ([]outputPartitionMetadata, error) {
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
@@ -114,7 +116,7 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 			return nil, fmt.Errorf("%w (format='%s', supported: raw, raw-zst)", ErrPartitionExtractUnsupportedFormat, partitionFormat)
 		}
 
-		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath)
+		partitionMetadata, err := constructOutputPartitionMetadata(partition, partitionNum, partitionFilepath, partitionOriginalSizes)
 		if err != nil {
 			return nil, fmt.Errorf("%w (partition=%d, file='%s'):\n%w", ErrPartitionExtractMetadataConstruct, partitionNum, partitionFilepath, err)
 		}
@@ -255,7 +257,8 @@ func createSkippableFrame(magicNumber uint32, frameSize uint32, skippableFrameMe
 }
 
 // Construct outputPartitionMetadata for given partition.
-func constructOutputPartitionMetadata(diskPartition diskutils.PartitionInfo, partitionNum int, partitionFilepath string) (partitionMetadata outputPartitionMetadata, err error) {
+func constructOutputPartitionMetadata(diskPartition diskutils.PartitionInfo, partitionNum int, partitionFilepath string,
+	partitionOriginalSizes map[string]uint64) (partitionMetadata outputPartitionMetadata, err error) {
 	partitionMetadata.PartitionNum = partitionNum
 	partitionMetadata.PartitionFilename = filepath.Base(partitionFilepath)
 	partitionMetadata.PartLabel = diskPartition.PartLabel
@@ -264,6 +267,14 @@ func constructOutputPartitionMetadata(diskPartition diskutils.PartitionInfo, par
 	partitionMetadata.Uuid = diskPartition.Uuid
 	partitionMetadata.PartUuid = diskPartition.PartUuid
 	partitionMetadata.Mountpoint = diskPartition.Mountpoint
+
+	// Use the original partition size from before shrinking
+	if originalSize, exists := partitionOriginalSizes[diskPartition.PartUuid]; exists {
+		partitionMetadata.OriginalSize = originalSize
+	} else {
+		// Fallback to current size if original size is not available
+		partitionMetadata.OriginalSize = diskPartition.SizeInBytes
+	}
 
 	return partitionMetadata, nil
 }

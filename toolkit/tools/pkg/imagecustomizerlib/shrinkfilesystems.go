@@ -24,42 +24,50 @@ var (
 	ErrFilesystemResize2fs     = NewImageCustomizerError("Filesystem:Resize2fs", "failed to resize filesystem with resize2fs")
 )
 
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string) error {
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string) (map[string]uint64, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
 	imageLoopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer imageLoopback.Close()
 
-	// Shrink the filesystems.
-	err = shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids)
+	// Shrink the filesystems and capture original sizes.
+	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = imageLoopback.CleanClose()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return partitionOriginalSizes, nil
 }
 
-func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error {
+func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) (map[string]uint64, error) {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
 	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopDevice)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	// Capture original partition sizes before shrinking (partUuid -> size in bytes)
+	partitionOriginalSizes := make(map[string]uint64)
+	for _, diskPartition := range diskPartitions {
+		if diskPartition.Type == "part" {
+			partitionOriginalSizes[diskPartition.PartUuid] = diskPartition.SizeInBytes
+		}
 	}
 
 	sectorSize, _, err := diskutils.GetSectorSize(imageLoopDevice)
 	if err != nil {
-		return fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemSectorSizeGet, imageLoopDevice, err)
+		return nil, fmt.Errorf("%w (device='%s'):\n%w", ErrFilesystemSectorSizeGet, imageLoopDevice, err)
 	}
 
 	for _, diskPartition := range diskPartitions {
@@ -89,7 +97,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error
 		case "ext2", "ext3", "ext4":
 			fileSystemSizeInBytes, err = shrinkExt4FileSystem(partitionLoopDevice, imageLoopDevice)
 			if err != nil {
-				return fmt.Errorf("%w (type='%s', device='%s'):\n%w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
+				return nil, fmt.Errorf("%w (type='%s', device='%s'):\n%w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
 			}
 
 		default:
@@ -106,10 +114,10 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) error
 
 		err = resizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return partitionOriginalSizes, nil
 }
 
 func shrinkExt4FileSystem(partitionDevice string, diskDevice string) (uint64, error) {
