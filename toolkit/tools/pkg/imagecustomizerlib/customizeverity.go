@@ -459,33 +459,9 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
 	}
 
-	// Directly update uki-kernel-info.json with verity args
-	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
+	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
 	if err != nil {
-		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
-	}
-
-	verityArgsStr := GrubArgsToString(newArgs)
-
-	// Append verity args to each kernel's cmdline
-	for kernel, info := range kernelInfo {
-		updatedCmdline := strings.TrimSpace(info.Cmdline)
-		if updatedCmdline != "" {
-			updatedCmdline += " "
-		}
-		updatedCmdline += verityArgsStr
-
-		kernelInfo[kernel] = UkiKernelInfo{
-			Cmdline:   updatedCmdline,
-			Initramfs: info.Initramfs,
-		}
-	}
-
-	// Write updated kernel info back
-	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
-	if err != nil {
-		return fmt.Errorf("failed to write updated UKI kernel info:\n%w", err)
+		return fmt.Errorf("failed to append verity args to UKI cmdline:\n%w", err)
 	}
 
 	logger.Log.Infof("Applied verity args to UKI cmdline for all kernels")

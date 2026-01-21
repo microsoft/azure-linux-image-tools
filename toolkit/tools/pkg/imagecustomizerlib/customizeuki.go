@@ -21,6 +21,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -899,6 +900,86 @@ func cleanupUkiBuildDir(buildDir string) error {
 
 	logger.Log.Infof("Successfully cleaned up UkiBuildDir: (%s)", ukiBuildDirPath)
 	return nil
+}
+
+func appendKernelArgsToUkiCmdlineFile(buildDir string, newArgs []string) error {
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+
+	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+	if err != nil {
+		return err
+	}
+
+	// Append newArgs.
+	newArgsStr := GrubArgsToString(newArgs)
+	for kernel, info := range kernelInfo {
+		// Remove old verity args before appending new ones to avoid duplicates.
+		cleanedCmdline := removeVerityArgsFromCmdline(info.Cmdline)
+		updatedArgs := fmt.Sprintf("%s %s", strings.TrimSpace(cleanedCmdline), strings.TrimSpace(newArgsStr))
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   updatedArgs,
+			Initramfs: info.Initramfs,
+		}
+	}
+
+	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// removeVerityArgsFromCmdline removes all verity-related kernel arguments from a command line string.
+// This is used when updating verity parameters during UKI recustomization to prevent duplicate args.
+func removeVerityArgsFromCmdline(cmdline string) string {
+	// List of verity-related argument prefixes that need to be removed
+	verityArgPrefixes := []string{
+		"rd.systemd.verity=",
+		"roothash=",
+		"usrhash=",
+		"systemd.verity_root_data=",
+		"systemd.verity_root_hash=",
+		"systemd.verity_root_options=",
+		"systemd.verity_usr_data=",
+		"systemd.verity_usr_hash=",
+		"systemd.verity_usr_options=",
+		"pre.verity.mount=",
+	}
+
+	tokens, err := grub.TokenizeConfig(cmdline)
+	if err != nil {
+		logger.Log.Errorf("Failed to tokenize cmdline with GRUB parser: %v", err)
+		return cmdline
+	}
+
+	args, err := ParseCommandLineArgs(tokens)
+	if err != nil {
+		logger.Log.Errorf("Failed to parse command line args: %v", err)
+		return cmdline
+	}
+
+	filteredArgs := []string{}
+	for _, arg := range args {
+		if arg.ValueHasVarExpansion {
+			// Skip args with variable expansions
+			continue
+		}
+
+		isVerityArg := false
+		for _, prefix := range verityArgPrefixes {
+			if strings.HasPrefix(arg.Arg, prefix) {
+				isVerityArg = true
+				break
+			}
+		}
+
+		if !isVerityArg {
+			filteredArgs = append(filteredArgs, arg.Arg)
+		}
+	}
+
+	return GrubArgsToString(filteredArgs)
 }
 
 func getKernelVersion(kernelName string) (string, error) {
