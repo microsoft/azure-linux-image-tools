@@ -601,9 +601,9 @@ func padToMegabyte(imageFile string) error {
 
 	padSize := int64(1024*1024) - (currentSize % int64(1024*1024))
 	if padSize != int64(1024*1024) {
-		_, err = cosiFile.Write(make([]byte, padSize))
+		err = cosiFile.Truncate(currentSize + padSize)
 		if err != nil {
-			return fmt.Errorf("failed to pad image file to 1 MB:\n%w", err)
+			return fmt.Errorf("failed to pad image file to 1 MiB:\n%w", err)
 		}
 	}
 
