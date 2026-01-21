@@ -76,6 +76,14 @@ func (c *Config) IsValid() (err error) {
 					return err
 				}
 			}
+
+			// Validate modify mode compatibility
+			if c.OS.Uki.Mode == UkiModeModify {
+				err = c.validateUkiModifyMode()
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		if c.OS.Packages.SnapshotTime != "" && !sliceutils.ContainsValue(c.PreviewFeatures, PreviewFeaturePackageSnapshotTime) {
@@ -174,6 +182,44 @@ func (c *Config) IsValid() (err error) {
 
 func (c *Config) CustomizePartitions() bool {
 	return c.Storage.CustomizePartitions()
+}
+
+func (c *Config) validateUkiModifyMode() error {
+	var incompatibleConfigs []string
+
+	// Modify mode adds arguments without replacing existing ones. Hard-reset would replace
+	// the entire bootloader configuration, conflicting with modify mode's additive nature.
+	if c.OS != nil && c.OS.BootLoader.ResetType == ResetBootLoaderTypeHard {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.bootloader.resetType: hard-reset requires mounting root partition which is incompatible with UKI modify mode")
+	}
+
+	// Adding new verity devices requires adding the systemd-verity dracut module to initramfs.
+	// Since modify mode cannot modify the initramfs (embedded in main UKI), this is blocked.
+	if len(c.Storage.Verity) > 0 {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"storage.verity: adding new verity devices requires modifying initramfs to add drivers, which UKI modify mode cannot do")
+	}
+
+	// Overlays require adding the overlay driver to initramfs via enableOverlays().
+	// Since modify mode cannot modify the initramfs, overlays are incompatible.
+	if c.OS != nil && c.OS.Overlays != nil && len(*c.OS.Overlays) > 0 {
+		incompatibleConfigs = append(incompatibleConfigs,
+			"os.overlays: overlay filesystems require adding overlay driver to initramfs, which UKI modify mode cannot do")
+	}
+
+	if len(incompatibleConfigs) > 0 {
+		errorMsg := "UKI modify mode is incompatible with the following configurations:\n"
+		for _, cfg := range incompatibleConfigs {
+			errorMsg += fmt.Sprintf("  - %s\n", cfg)
+		}
+		errorMsg += "\nUKI modify mode only modifies the addon cmdline. Use mode: create to make changes requiring initramfs or kernel modification."
+		return fmt.Errorf("%s", errorMsg)
+	}
+
+	// Note: Kernel package modifications are validated at runtime by checking
+	// /boot for new kernel binaries after package operations.
+	return nil
 }
 
 func (c *Config) validateUkiPassthroughMode() error {

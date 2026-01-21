@@ -64,7 +64,7 @@ var ukiNamePattern = regexp.MustCompile(`^vmlinuz-(.+)\.efi$`)
 // UkiKernelInfo holds both command line arguments and initramfs name for a UKI kernel
 type UkiKernelInfo struct {
 	Cmdline   string `json:"cmdline"`
-	Initramfs string `json:"initramfs"`
+	Initramfs string `json:"initramfs,omitempty"` // Optional: empty in modify mode
 }
 
 func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
@@ -76,17 +76,46 @@ func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
 	return len(ukiFiles) > 0, nil
 }
 
+func baseImageHasUkiAddons(espPath string) (bool, error) {
+	ukiFiles, err := getUkiFiles(espPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to get UKI files:\n%w", err)
+	}
+
+	if len(ukiFiles) == 0 {
+		return false, nil
+	}
+
+	// Check if at least one UKI has an addon directory
+	for _, ukiFile := range ukiFiles {
+		ukiFileName := filepath.Base(ukiFile)
+		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+
+		if entries, err := os.ReadDir(addonDirPath); err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".addon.efi") {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // validateUkiMode validates the UKI mode against the base image state.
 // Rules:
 // - If base image has NO UKIs:
 //   - No mode specified (os.uki == nil): No UKI created
 //   - mode: create: Create UKI
 //   - mode: passthrough: FAIL (can't passthrough if no UKIs exist)
+//   - mode: modify: FAIL (can't modify if no UKIs exist)
 //
 // - If base image HAS UKIs:
 //   - No mode specified (os.uki == nil): FAIL (must explicitly specify mode)
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
+//   - mode: modify: Check for addon, modify addon only (preserve main UKI)
 func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
 	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
 	if err != nil {
@@ -103,6 +132,12 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 					"Use mode: create to create UKIs, or omit os.uki entirely",
 				)
 			}
+			if config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+				return fmt.Errorf("base image does not contain UKIs but os.uki.mode is set to 'modify': " +
+					"cannot modify UKIs when base image has no UKIs. " +
+					"Use mode: create to create UKIs from GRUB-based image",
+				)
+			}
 			// mode: create or unspecified (with os.uki present) - both are OK for creating UKIs
 		}
 		// No os.uki specified - that's fine, no UKI will be created
@@ -115,14 +150,78 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.mode " +
 			"with one of the following values:\n" +
 			"  - 'create': extract and regenerate UKIs with updated configurations\n" +
-			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)")
+			"  - 'passthrough': preserve existing UKIs without modification (e.g., to keep signatures intact)\n" +
+			"  - 'modify': modify UKI addons only to append kernel command-line arguments")
 	}
 
 	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeUnspecified {
 		return fmt.Errorf("base image contains UKI files but os.uki.mode is not specified: " +
-			"when base image has UKIs, you must explicitly set mode to either 'create' or 'passthrough'")
+			"when base image has UKIs, you must explicitly set mode to 'create', 'passthrough', or 'modify'")
 	}
 
+	// For modify mode, validate that base image has UKI addons
+	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+		espDir := filepath.Join(imageConnection.Chroot().RootDir(), EspDir)
+		hasAddons, err := baseImageHasUkiAddons(espDir)
+		if err != nil {
+			return fmt.Errorf("failed to check for UKI addons:\n%w", err)
+		}
+		if !hasAddons {
+			return fmt.Errorf("base image has UKI without addons (combined architecture) but os.uki.mode is set to 'modify': " +
+				"modify mode requires UKI addon architecture where kernel cmdline is in addon file. " +
+				"Use mode: create to regenerate UKIs with addon architecture")
+		}
+	}
+
+	return nil
+}
+
+// extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
+func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot) error {
+	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	ukiFiles, err := getUkiFiles(espDir)
+	if err != nil {
+		return fmt.Errorf("failed to get UKI files:\n%w", err)
+	}
+
+	if len(ukiFiles) == 0 {
+		return fmt.Errorf("no UKI files found for cmdline extraction")
+	}
+
+	// Extract cmdline from each UKI addon and create per-kernel entries
+	kernelInfo := make(map[string]UkiKernelInfo)
+	for _, ukiFile := range ukiFiles {
+		ukiFileName := filepath.Base(ukiFile)
+		kernelName := strings.TrimSuffix(ukiFileName, ".efi")
+		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
+		addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
+
+		if _, err := os.Stat(addonFilePath); os.IsNotExist(err) {
+			return fmt.Errorf("addon file does not exist: %s", addonFilePath)
+		}
+
+		cmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
+		if err != nil {
+			return fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
+		}
+
+		// In modify mode, we don't have initramfs info, so leave it empty
+		kernelInfo[kernelName] = UkiKernelInfo{
+			Cmdline:   cmdline,
+			Initramfs: "", // Empty for modify mode
+		}
+
+		logger.Log.Debugf("Extracted cmdline from UKI (%s): %s", ukiFileName, cmdline)
+	}
+
+	// Save to uki-kernel-info.json for consistency with create mode
+	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
+	}
+
+	logger.Log.Debugf("Extracted and saved UKI cmdlines to: %s", ukiKernelInfoPath)
 	return nil
 }
 
@@ -149,6 +248,29 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// If mode is 'passthrough', skip UKI regeneration to preserve existing UKIs
 	if uki.Mode == imagecustomizerapi.UkiModePassthrough {
 		logger.Log.Infof("UKI mode is 'passthrough', skipping UKI regeneration")
+		return nil
+	}
+
+	// If mode is 'modify', skip most UKI preparation but still copy the stub file needed for addon rebuild
+	if uki.Mode == imagecustomizerapi.UkiModeModify {
+		logger.Log.Infof("UKI mode is 'modify', skipping UKI preparation (will modify addon only)")
+
+		_, bootConfig, err := getBootArchConfig()
+		if err != nil {
+			return err
+		}
+
+		ukiBuildDir := filepath.Join(buildDir, UkiBuildDir)
+		err = os.MkdirAll(ukiBuildDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
+		}
+
+		err = copyUkiFiles(buildDir, nil, imageChroot, bootConfig, uki)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	}
 
@@ -235,7 +357,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	}
 
 	// Copy UKI-specific files such as kernel, initramfs, and UKI stub file.
-	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig)
+	err = copyUkiFiles(buildDir, kernelToInitramfs, imageChroot, bootConfig, uki)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
@@ -274,6 +396,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrUKICmdlineFileWrite, cmdlineFilePath, err)
 	}
 
+	logger.Log.Debugf("Saved UKI kernel info to: %s", cmdlineFilePath)
 	return nil
 }
 
@@ -313,27 +436,33 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 }
 
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
-	bootConfig BootFilesArchConfig,
+	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki,
 ) error {
+	// Both create and modify modes need the stub file
 	filesToCopy := map[string]string{
 		filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
-		filepath.Join(imageChroot.RootDir(), "/etc/os-release"):               filepath.Join(buildDir, UkiBuildDir, "os-release"),
 	}
 
-	for kernel, initramfs := range kernelToInitramfs {
-		kernelSource := filepath.Join(imageChroot.RootDir(), BootDir, kernel)
-		kernelDest := filepath.Join(buildDir, UkiBuildDir, kernel)
-		filesToCopy[kernelSource] = kernelDest
+	// Create mode needs additional files (os-release, kernels, initramfs)
+	if uki == nil || uki.Mode != imagecustomizerapi.UkiModeModify {
+		filesToCopy[filepath.Join(imageChroot.RootDir(), "/etc/os-release")] = filepath.Join(buildDir, UkiBuildDir, "os-release")
 
-		initramfsSource := filepath.Join(imageChroot.RootDir(), BootDir, initramfs)
-		initramfsDest := filepath.Join(buildDir, UkiBuildDir, initramfs)
-		filesToCopy[initramfsSource] = initramfsDest
+		for kernel, initramfs := range kernelToInitramfs {
+			kernelSource := filepath.Join(imageChroot.RootDir(), BootDir, kernel)
+			kernelDest := filepath.Join(buildDir, UkiBuildDir, kernel)
+			filesToCopy[kernelSource] = kernelDest
+
+			initramfsSource := filepath.Join(imageChroot.RootDir(), BootDir, initramfs)
+			initramfsDest := filepath.Join(buildDir, UkiBuildDir, initramfs)
+			filesToCopy[initramfsSource] = initramfsDest
+		}
 	}
 
+	// Single copy loop for all files
 	for src, dest := range filesToCopy {
 		err := file.Copy(src, dest)
 		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
+			return fmt.Errorf("failed to copy UKI files:\n%w", err)
 		}
 	}
 
@@ -385,12 +514,133 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 	return kernelToInitramfs, nil
 }
 
-func createUki(ctx context.Context, buildDir string, buildImageFile string, uki *imagecustomizerapi.Uki) error {
+// createUkiInModifyMode modifies UKI addons without touching the main UKI files.
+func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig) error {
+	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki_modify_mode")
+	defer span.End()
+
+	var err error
+
+	_, bootConfig, err := getBootArchConfig()
+	if err != nil {
+		return err
+	}
+
+	loopback, err := safeloopback.NewLoopback(rc.RawImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to connect to image file:\n%w", err)
+	}
+	defer loopback.Close()
+
+	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
+	if err != nil {
+		return err
+	}
+
+	systemBootPartition, err := findSystemBootPartition(diskPartitions)
+	if err != nil {
+		return err
+	}
+
+	systemBootPartitionTmpDir := filepath.Join(rc.BuildDirAbs, tmpEspPartitionDirName)
+	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
+	if err != nil {
+		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
+	}
+	defer systemBootPartitionMount.Close()
+
+	// Get all UKI files from the ESP partition
+	// Note: getUkiFiles will append UkiOutputDir internally, so we just pass the mount point
+	ukiFiles, err := getUkiFiles(systemBootPartitionTmpDir)
+	if err != nil {
+		return fmt.Errorf("failed to get UKI files:\n%w", err)
+	}
+
+	logger.Log.Infof("Found %d UKI files in ESP partition", len(ukiFiles))
+	for i, ukiFile := range ukiFiles {
+		logger.Log.Debugf("UKI file [%d]: %s", i, ukiFile)
+	}
+
+	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
+
+	// Process each UKI file - regenerate its addon with updated cmdline
+	for _, ukiFile := range ukiFiles {
+		err := modifyUkiAddon(ukiFile, stubPath, rc)
+		if err != nil {
+			return fmt.Errorf("failed to modify UKI addon for (%s):\n%w", filepath.Base(ukiFile), err)
+		}
+	}
+
+	err = systemBootPartitionMount.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	err = loopback.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// modifyUkiAddon regenerates a UKI addon with updated kernel command line arguments.
+// The cmdline has already been modified by BootCustomizer and saved to uki-kernel-info.json.
+func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) error {
+	ukiFileName := filepath.Base(ukiFilePath)
+
+	// Extract kernel name from UKI filename (e.g., "vmlinuz-6.6.x.x.efi" -> "vmlinuz-6.6.x.x")
+	kernelName := strings.TrimSuffix(ukiFileName, ".efi")
+
+	// Read the final cmdline from uki-kernel-info.json (already modified by BootCustomizer)
+	ukiKernelInfoPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
+	kernelInfo, err := readUkiKernelInfoFile(ukiKernelInfoPath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI kernel info:\n%w", err)
+	}
+
+	info, exists := kernelInfo[kernelName]
+	if !exists {
+		return fmt.Errorf("no cmdline found for kernel (%s) in uki-kernel-info.json", kernelName)
+	}
+	modifiedCmdline := strings.TrimSpace(info.Cmdline)
+
+	// Rebuild the addon with modified cmdline
+	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
+	addonFullPath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
+
+	ukifyCmd := []string{
+		"build",
+		fmt.Sprintf("--cmdline=%s", modifiedCmdline),
+		fmt.Sprintf("--stub=%s", stubPath),
+		fmt.Sprintf("--output=%s", addonFullPath),
+	}
+
+	err = shell.ExecuteLiveWithErr(1, "ukify", ukifyCmd...)
+	if err != nil {
+		return fmt.Errorf("failed to rebuild UKI addon:\n%w", err)
+	}
+
+	logger.Log.Infof("Successfully modified UKI addon: (%s)", addonFullPath)
+	return nil
+}
+
+func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	logger.Log.Infof("Creating UKIs")
 
 	// If mode is 'passthrough', skip UKI creation to preserve existing UKIs
-	if uki != nil && uki.Mode == imagecustomizerapi.UkiModePassthrough {
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
 		logger.Log.Infof("UKI mode is 'passthrough', skipping UKI creation")
+		return nil
+	}
+
+	// If mode is 'modify', only modify UKI addons (preserve main UKI)
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
+		logger.Log.Infof("UKI mode is 'modify', modifying UKI addons only")
+		err := createUkiInModifyMode(ctx, rc)
+		if err != nil {
+			return fmt.Errorf("failed to modify UKI addons in modify mode:\n%w", err)
+		}
 		return nil
 	}
 
@@ -404,7 +654,7 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string, uki 
 		return err
 	}
 
-	loopback, err := safeloopback.NewLoopback(buildImageFile)
+	loopback, err := safeloopback.NewLoopback(rc.RawImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to image file to provision UKI:\n%w", err)
 	}
@@ -420,7 +670,7 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string, uki 
 		return err
 	}
 
-	systemBootPartitionTmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
+	systemBootPartitionTmpDir := filepath.Join(rc.BuildDirAbs, tmpEspPartitionDirName)
 	systemBootPartitionMount, err := safemount.NewMount(systemBootPartition.Path, systemBootPartitionTmpDir, systemBootPartition.FileSystemType, 0, "", true)
 	if err != nil {
 		return fmt.Errorf("failed to mount esp partition (%s):\n%w", systemBootPartition.Path, err)
@@ -433,9 +683,9 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string, uki 
 		return fmt.Errorf("%w:\n%w", ErrUKICleanOldFiles, err)
 	}
 
-	stubPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary)
-	osSubreleaseFullPath := filepath.Join(buildDir, UkiBuildDir, "os-release")
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
+	osSubreleaseFullPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "os-release")
+	cmdlineFilePath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
 
 	// Read the kernel information (kernels, initramfs, and command line args) from the file created during prepareUki.
 	kernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
@@ -444,7 +694,7 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string, uki 
 	}
 
 	for kernel, info := range kernelInfo {
-		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, buildDir,
+		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, rc.BuildDirAbs,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {
@@ -452,7 +702,7 @@ func createUki(ctx context.Context, buildDir string, buildImageFile string, uki 
 		}
 	}
 
-	err = cleanupUkiBuildDir(buildDir)
+	err = cleanupUkiBuildDir(rc.BuildDirAbs)
 	if err != nil {
 		return fmt.Errorf("Error during cleanup UKI build dir:\n%w", err)
 	}
@@ -544,7 +794,7 @@ func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFu
 	}
 
 	// Build UKI addon
-	err = buildUkiAddon(kernel, kernelArgs, stubPath, buildDir, systemBootPartitionTmpDir, kernelVersion)
+	err = buildUkiAddon(kernel, kernelArgs, stubPath, systemBootPartitionTmpDir)
 	if err != nil {
 		return fmt.Errorf("failed to build UKI addon:\n%w", err)
 	}
@@ -603,9 +853,7 @@ func buildMainUki(kernel string, initramfs string, osSubreleaseFullPath string, 
 	return nil
 }
 
-func buildUkiAddon(kernel string, kernelArgs string, stubPath string,
-	buildDir string, systemBootPartitionTmpDir string, kernelVersion string,
-) error {
+func buildUkiAddon(kernel string, kernelArgs string, stubPath string, systemBootPartitionTmpDir string) error {
 	// Create addon directory: <uki-path>.extra.d/
 	ukiFileName := fmt.Sprintf("%s.efi", kernel)
 	ukiFullPath := filepath.Join(systemBootPartitionTmpDir, UkiOutputDir, ukiFileName)

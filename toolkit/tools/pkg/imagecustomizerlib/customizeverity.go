@@ -65,8 +65,8 @@ const (
 	DracutModuleScriptFileMode = 0o755
 )
 
-func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Verity,
-	imageChroot *safechroot.Chroot, distroHandler distroHandler,
+func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
+	imageChroot *safechroot.Chroot, distroHandler distroHandler, uki *imagecustomizerapi.Uki,
 ) (bool, error) {
 	var err error
 
@@ -95,7 +95,7 @@ func enableVerityPartition(ctx context.Context, verity []imagecustomizerapi.Veri
 		return false, fmt.Errorf("%w:\n%w", ErrVerityFstabUpdate, err)
 	}
 
-	err = prepareGrubConfigForVerity(verity, imageChroot)
+	err = prepareGrubConfigForVerity(buildDir, verity, imageChroot, uki)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityGrubConfigPrepare, err)
 	}
@@ -137,8 +137,8 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
-func prepareGrubConfigForVerity(verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot) error {
-	bootCustomizer, err := NewBootCustomizer(imageChroot)
+func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki) error {
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
 	if err != nil {
 		return err
 	}
@@ -461,9 +461,10 @@ func updateUkiKernelArgsForVerity(verityMetadata []verityDeviceMetadata,
 
 	err = appendKernelArgsToUkiCmdlineFile(buildDir, newArgs)
 	if err != nil {
-		return fmt.Errorf("failed to append verity kernel arguments to UKI cmdline file:\n%w", err)
+		return fmt.Errorf("failed to append verity args to UKI cmdline:\n%w", err)
 	}
 
+	logger.Log.Infof("Applied verity args to UKI cmdline for all kernels")
 	return nil
 }
 
@@ -681,7 +682,8 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 		}
 
 		// Update kernel args.
-		isUki := config.OS.Uki != nil && config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate
+		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
+		isUki := config.OS.Uki != nil && config.OS.Uki.Mode != imagecustomizerapi.UkiModePassthrough
 		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
 			return nil, err

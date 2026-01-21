@@ -181,7 +181,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 								Partition:   espInjectFilePartition,
 								Source:      addonSource,
 								Destination: addonDestination,
-								Type:        imagecustomizerapi.OutputArtifactsItemUkis,
+								Type:        imagecustomizerapi.OutputArtifactsItemUkiAddons,
 							})
 
 							logger.Log.Debugf("Added UKI addon file to metadata: %s", addonFileName)

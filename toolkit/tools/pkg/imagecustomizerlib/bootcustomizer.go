@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
@@ -43,9 +45,15 @@ type BootCustomizer struct {
 
 	// The type of boot configuration used by the image.
 	bootConfigType bootConfigType
+
+	// The UKI mode when boot type is UKI (optional).
+	ukiMode imagecustomizerapi.UkiMode
+
+	// The path to the UKI kernel info file (for modify mode).
+	ukiKernelInfoPath string
 }
 
-func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer, error) {
+func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string) (*BootCustomizer, error) {
 	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
@@ -62,10 +70,21 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface) (*BootCustomizer,
 		return nil, err
 	}
 
+	ukiMode := imagecustomizerapi.UkiModeUnspecified
+	ukiKernelInfoPath := ""
+	if uki != nil {
+		ukiMode = uki.Mode
+		if ukiMode == imagecustomizerapi.UkiModeModify {
+			ukiKernelInfoPath = filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+		}
+	}
+
 	b := &BootCustomizer{
 		grubCfgContent:         grubCfgContent,
 		defaultGrubFileContent: defaultGrubFileContent,
 		bootConfigType:         bootConfigType,
+		ukiMode:                ukiMode,
+		ukiKernelInfoPath:      ukiKernelInfoPath,
 	}
 	return b, nil
 }
@@ -119,8 +138,15 @@ func (b *BootCustomizer) AddKernelCommandLine(extraCommandLine []string) error {
 
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args are embedded in UKI files and cannot be modified in passthrough mode.
-		return ErrBootUkiPassthroughCmdlineModified
+		// Cmdline args cannot be modified in passthrough mode.
+		if b.ukiMode != imagecustomizerapi.UkiModeModify {
+			return ErrBootUkiPassthroughCmdlineModified
+		}
+		// For modify mode, append args to the UKI cmdline file.
+		err := b.appendToUkiCmdlineFile(combinedArgs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -247,8 +273,15 @@ func (b *BootCustomizer) UpdateKernelCommandLineArgs(defaultGrubFileVarName defa
 
 	case bootConfigTypeUki:
 		// UKI passthrough mode: preserve existing UKI boot configuration.
-		// Cmdline args are embedded in UKI files and cannot be modified in passthrough mode.
-		return ErrBootUkiPassthroughCmdlineModified
+		// Cmdline args cannot be modified in passthrough mode.
+		if b.ukiMode != imagecustomizerapi.UkiModeModify {
+			return ErrBootUkiPassthroughCmdlineModified
+		}
+		// For modify mode, update the UKI cmdline file.
+		err := b.updateUkiCmdlineFile(argsToRemove, newArgs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -324,6 +357,92 @@ func (b *BootCustomizer) SetRootDevice(rootDevice string) error {
 	}
 
 	b.defaultGrubFileContent = updatedGrubFileContent
+
+	return nil
+}
+
+// appendToUkiCmdlineFile appends kernel arguments to all kernels in the UKI kernel info file.
+func (b *BootCustomizer) appendToUkiCmdlineFile(args string) error {
+	if b.ukiKernelInfoPath == "" {
+		return fmt.Errorf("UKI kernel info file path not set")
+	}
+
+	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
+	}
+
+	// Append args to each kernel's cmdline
+	for kernel, info := range kernelInfo {
+		updatedCmdline := strings.TrimSpace(info.Cmdline) + " " + args
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   updatedCmdline,
+			Initramfs: info.Initramfs,
+		}
+	}
+
+	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
+	}
+
+	return nil
+}
+
+// updateUkiCmdlineFile updates kernel arguments for all kernels in the UKI kernel info file.
+func (b *BootCustomizer) updateUkiCmdlineFile(argsToRemove []string, newArgs []string) error {
+	if b.ukiKernelInfoPath == "" {
+		return fmt.Errorf("UKI kernel info file path not set")
+	}
+
+	kernelInfo, err := readUkiKernelInfoFile(b.ukiKernelInfoPath)
+	if err != nil {
+		return fmt.Errorf("failed to read UKI kernel info file:\n%w", err)
+	}
+
+	// Update each kernel's cmdline
+	for kernel, info := range kernelInfo {
+		currentCmdline := strings.TrimSpace(info.Cmdline)
+		tokens, err := grub.TokenizeConfig(currentCmdline)
+		if err != nil {
+			return fmt.Errorf("failed to tokenize UKI cmdline for kernel (%s):\n%w", kernel, err)
+		}
+		currentArgs, err := ParseCommandLineArgs(tokens)
+		if err != nil {
+			return fmt.Errorf("failed to parse UKI cmdline for kernel (%s):\n%w", kernel, err)
+		}
+
+		// Remove args that match any of the argsToRemove prefixes and build string array
+		var argStrings []string
+		for _, arg := range currentArgs {
+			shouldRemove := false
+			for _, removePrefix := range argsToRemove {
+				if arg.Name == removePrefix {
+					shouldRemove = true
+					break
+				}
+			}
+			if !shouldRemove {
+				argStrings = append(argStrings, arg.Arg)
+			}
+		}
+
+		// Append new args
+		argStrings = append(argStrings, newArgs...)
+
+		updatedCmdline := GrubArgsToString(argStrings)
+
+		// Update kernel info
+		kernelInfo[kernel] = UkiKernelInfo{
+			Cmdline:   updatedCmdline,
+			Initramfs: info.Initramfs,
+		}
+	}
+
+	err = writeUkiKernelInfoFile(b.ukiKernelInfoPath, kernelInfo)
+	if err != nil {
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
+	}
 
 	return nil
 }

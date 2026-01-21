@@ -536,7 +536,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	}
 
 	if rc.Uki != nil {
-		err = createUki(ctx, rc.BuildDirAbs, rc.RawImageFile, rc.Uki)
+		err = createUki(ctx, rc)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeCreateUkis, err)
 		}

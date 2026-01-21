@@ -5,6 +5,7 @@ package osmodifierlib
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -22,13 +23,20 @@ var grubArgs = []string{
 
 func modifyDefaultGrub() error {
 	var dummyChroot safechroot.ChrootInterface = &safechroot.DummyChroot{}
+
+	buildDir, err := os.MkdirTemp("", "osmodifier-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary build directory: %w", err)
+	}
+	defer os.RemoveAll(buildDir)
+
 	// Get verity, selinux, overlayfs, and root device values from /boot/grub2/grub.cfg
 	values, rootDevice, err := extractValuesFromGrubConfig(dummyChroot)
 	if err != nil {
 		return fmt.Errorf("error getting verity, selinux and overlayfs values from grub.cfg:\n%w", err)
 	}
 
-	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot)
+	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot, nil, buildDir)
 	if err != nil {
 		return err
 	}

@@ -42,7 +42,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(ctx, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot())
+		err := AddKernelCommandLine(ctx, rc.BuildDirAbs, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), rc.Uki)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
@@ -64,7 +64,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
 
 	if !newImage {
-		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot())
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), nil, rc.BuildDirAbs)
 		if err != nil {
 			return err
 		}
@@ -113,8 +113,8 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 }
 
 // Inserts new kernel command-line args into the grub config file.
-func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface,
+func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine []string,
+	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki,
 ) error {
 	var err error
 
@@ -128,7 +128,7 @@ func AddKernelCommandLine(ctx context.Context, extraCommandLine []string,
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot)
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
 	if err != nil {
 		return err
 	}

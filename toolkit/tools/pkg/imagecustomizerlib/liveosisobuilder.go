@@ -203,8 +203,17 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	}
 	defer rawImageConnection.Close()
 
+	// Check if the base image is a UKI image
+	hasUkis, err := baseImageHasUkis(rawImageConnection.Chroot())
+	if err != nil {
+		return fmt.Errorf("failed to check if base image has UKIs:\n%w", err)
+	}
+	if hasUkis {
+		return fmt.Errorf("converting UKI images to LiveOS ISO is not supported")
+	}
+
 	// Find out if selinux is enabled
-	bootCustomizer, err := NewBootCustomizer(rawImageConnection.Chroot())
+	bootCustomizer, err := NewBootCustomizer(rawImageConnection.Chroot(), nil, isoBuildDir)
 	if err != nil {
 		return fmt.Errorf("failed to attach to raw image to inspect selinux status:\n%w", err)
 	}
