@@ -173,7 +173,10 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 
 	case bootConfigTypeGrubLegacy:
 		// Detect if this is Ubuntu/Debian (allows multiple kernel entries)
-		allowMultipleKernels := isPackageInstalledDpkg(imageChroot, "dpkg")
+		allowMultipleKernels := false
+		if imageChroot != nil {
+			allowMultipleKernels = isPackageInstalledDpkg(imageChroot, "dpkg")
+		}
 		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent, allowMultipleKernels)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false,
