@@ -94,8 +94,9 @@ test-imagecustomizer:
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
-		--show-capture=all \
+		--show-capture=no \
 		--tb=short \
+		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/imagecustomizer/test_min_change.py
 
@@ -109,8 +110,9 @@ test-imagecreator-azurelinux:
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
-		--show-capture=all \
+		--show-capture=no \
 		--tb=short \
+		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/imagecreator/test_imagecreator_azurelinux.py
 
@@ -124,8 +126,9 @@ test-imagecreator-fedora:
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
-		--show-capture=all \
+		--show-capture=no \
 		--tb=short \
+		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/imagecreator/test_imagecreator_fedora.py
 
@@ -139,8 +142,9 @@ test-osmodifier:
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
-		--show-capture=all \
+		--show-capture=no \
 		--tb=short \
+		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
 		./vmtests/osmodifier/test_osmodifier.py
 
