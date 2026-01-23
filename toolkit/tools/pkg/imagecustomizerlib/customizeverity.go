@@ -623,7 +623,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 			// Format hash partition.
 			rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
-				shrinkHashPartition, sectorSize)
+				shrinkHashPartition, sectorSize, metadata.name)
 			if err != nil {
 				return nil, err
 			}
@@ -650,7 +650,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 
 		// Format hash partition.
 		rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
-			shrinkHashPartition, sectorSize)
+			shrinkHashPartition, sectorSize, verityConfig.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -705,7 +705,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, config *im
 }
 
 func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartitionPath string, shrinkHashPartition bool,
-	sectorSize uint64,
+	sectorSize uint64, name string,
 ) (string, error) {
 	// Write hash partition.
 	verityOutput, _, err := shell.NewExecBuilder("veritysetup", "format", dataPartitionPath, hashPartitionPath).
@@ -734,17 +734,21 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		return "", fmt.Errorf("%w (device='%s'):\n%w", ErrUpdateDisk, diskDevicePath, err)
 	}
 
+	// Calculate the size of the hash partition from it's superblock.
+	// In newer `veritysetup` versions, `veritysetup format` returns the size in its output. But that feature
+	// is too new for now.
+	hashPartitionSizeInBytes, err := calculateHashFileSizeInBytes(hashPartitionPath)
+	if err != nil {
+		return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateHashSize, hashPartitionPath, err)
+	}
+
+	hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
+
+	hashPartitionSizeInRoundedBytes := hashPartitionSizeInSectors * sectorSize
+	logger.Log.Infof("Verity hash partition formatted (name=%s, size=%s)", name,
+		imagecustomizerapi.DiskSize(hashPartitionSizeInRoundedBytes).HumanReadable())
+
 	if shrinkHashPartition {
-		// Calculate the size of the hash partition from it's superblock.
-		// In newer `veritysetup` versions, `veritysetup format` returns the size in its output. But that feature
-		// is too new for now.
-		hashPartitionSizeInBytes, err := calculateHashFileSizeInBytes(hashPartitionPath)
-		if err != nil {
-			return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateHashSize, hashPartitionPath, err)
-		}
-
-		hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
-
 		err = resizePartition(hashPartitionPath, diskDevicePath, hashPartitionSizeInSectors)
 		if err != nil {
 			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
