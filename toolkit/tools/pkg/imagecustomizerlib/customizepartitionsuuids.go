@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -204,7 +205,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		}
 
 		switch mountIdType {
-		case ExtendedMountIdentifierTypeUuid, ExtendedMountIdentifierTypePartUuid:
+		case imagecustomizerapi.MountIdentifierTypeUuid, imagecustomizerapi.MountIdentifierTypePartUuid:
 
 		default:
 			// fstab entry doesn't need to be changed.
@@ -222,10 +223,10 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Create a new value for the source.
 		newSource := fstabEntry.Source
 		switch mountIdType {
-		case ExtendedMountIdentifierTypeUuid:
+		case imagecustomizerapi.MountIdentifierTypeUuid:
 			newSource = fmt.Sprintf("UUID=%s", newUuids[partitionIndex])
 
-		case ExtendedMountIdentifierTypePartUuid:
+		case imagecustomizerapi.MountIdentifierTypePartUuid:
 			newSource = fmt.Sprintf("PARTUUID=%s", newPartUuids[partitionIndex])
 		}
 

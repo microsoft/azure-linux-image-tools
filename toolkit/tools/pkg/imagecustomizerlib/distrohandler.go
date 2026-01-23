@@ -40,6 +40,15 @@ type distroHandler interface {
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
 	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
+
+	// Get all installed packages from the chroot
+	getAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
+
+	// Detect the bootloader type installed in the image
+	detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
+
+	// Get the path to the grub configuration file
+	getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
@@ -70,4 +79,13 @@ func NewDistroHandler(distroName string, version string) distroHandler {
 	default:
 		panic("unsupported distro name: " + distroName)
 	}
+}
+
+// NewDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
+func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (distroHandler, error) {
+	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
+	if err != nil {
+		return nil, err
+	}
+	return NewDistroHandlerFromTargetOs(targetOs), nil
 }

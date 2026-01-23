@@ -170,16 +170,16 @@ func findRootMountIdType(partitionsLayout []fstabEntryPartNum,
 
 	rootMountIdType := imagecustomizerapi.MountIdentifierTypeDefault
 	switch mountIdType {
-	case ExtendedMountIdentifierTypeUuid:
+	case imagecustomizerapi.MountIdentifierTypeUuid:
 		rootMountIdType = imagecustomizerapi.MountIdentifierTypeUuid
 
-	case ExtendedMountIdentifierTypePartUuid:
+	case imagecustomizerapi.MountIdentifierTypePartUuid:
 		rootMountIdType = imagecustomizerapi.MountIdentifierTypePartUuid
 
-	case ExtendedMountIdentifierTypePartLabel:
+	case imagecustomizerapi.MountIdentifierTypePartLabel:
 		rootMountIdType = imagecustomizerapi.MountIdentifierTypePartLabel
 
-	case ExtendedMountIdentifierTypeDev:
+	case MountIdentifierTypeDev:
 		switch mountId {
 		case imagecustomizerapi.VerityRootDevicePath:
 			// The root partition is a verity partition.

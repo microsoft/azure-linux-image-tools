@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -314,16 +313,12 @@ type grubConfigLinuxArg struct {
 
 // Finds the linux command within a grub config and returns a list of kernel command-line arguments.
 //
-// Parameters:
-//   - allowMultipleKernels: If true, allows multiple linux entries and uses the first one.
-//     Should be true for Ubuntu/Debian (which have recovery entries), false for Azure Linux/Fedora.
-//
 // Returns:
 //   - args: A list of kernel command-line arguments.
 //   - insertAt: An index that represents an appropriate insert point for any new args.
 //     For Azure Linux 2.0 images, this points to the index of the $kernelopts token.
-func getLinuxCommandLineArgs(grub2Config string, allowMultipleKernels bool) ([]grubConfigLinuxArg, int, error) {
-	linuxLines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, allowMultipleKernels)
+func getLinuxCommandLineArgs(grub2Config string) ([]grubConfigLinuxArg, int, error) {
+	linuxLines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, false)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -824,20 +819,14 @@ func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInter
 }
 
 func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface) string {
-	// Try the default path for Azure Linux/Fedora first
-	grub2Path := filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
-	if _, err := os.Stat(grub2Path); err == nil {
-		return grub2Path
+	// Detect the distro and use its specific grub config path
+	distroHandler, err := NewDistroHandlerFromChroot(imageChroot)
+	if err != nil {
+		// Fallback to default path if distro detection fails
+		return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 	}
 
-	// Try Ubuntu/Debian path
-	ubuntuGrubPath := filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
-	if _, err := os.Stat(ubuntuGrubPath); err == nil {
-		return ubuntuGrubPath
-	}
-
-	// Return the default path anyway - the caller should handle the error
-	return grub2Path
+	return distroHandler.getGrubConfigFilePath(imageChroot)
 }
 
 // Regenerates the initramfs file.

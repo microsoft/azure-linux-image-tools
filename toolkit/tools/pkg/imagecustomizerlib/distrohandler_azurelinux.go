@@ -5,8 +5,11 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -48,4 +51,22 @@ func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir s
 // isPackageInstalled implements distroHandler.
 func (d *azureLinuxDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+}
+
+func (d *azureLinuxDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+	return getAllPackagesFromChrootRpm(imageChroot)
+}
+
+func (d *azureLinuxDistroHandler) detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+	if d.isPackageInstalled(imageChroot, "grub2-efi-binary") || d.isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
+		return BootloaderTypeGrub, nil
+	}
+	if d.isPackageInstalled(imageChroot, "systemd-boot") {
+		return BootloaderTypeSystemdBoot, nil
+	}
+	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
+}
+
+func (d *azureLinuxDistroHandler) getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
+	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }

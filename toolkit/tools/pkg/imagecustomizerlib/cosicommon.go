@@ -373,22 +373,17 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
-	// Try RPM-based systems first (Azure Linux, Fedora)
-	if isPackageInstalled(imageConnection.Chroot(), "rpm") {
-		return getAllPackagesFromChrootRpm(imageConnection)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect distribution:\n%w", err)
 	}
 
-	// Try dpkg-based systems (Ubuntu, Debian)
-	if isPackageInstalledDpkg(imageConnection.Chroot(), "dpkg") {
-		return getAllPackagesFromChrootDpkg(imageConnection)
-	}
-
-	return nil, fmt.Errorf("no supported package manager found (rpm or dpkg) in the image")
+	return distroHandler.getAllPackagesFromChroot(imageConnection.Chroot())
 }
 
-func getAllPackagesFromChrootRpm(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
+func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	var out string
-	err := imageConnection.Chroot().UnsafeRun(func() error {
+	err := imageChroot.UnsafeRun(func() error {
 		var err error
 		out, _, err = shell.Execute(
 			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
@@ -417,9 +412,9 @@ func getAllPackagesFromChrootRpm(imageConnection *imageconnection.ImageConnectio
 	return packages, nil
 }
 
-func getAllPackagesFromChrootDpkg(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
+func getAllPackagesFromChrootDpkg(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	var out string
-	err := imageConnection.Chroot().UnsafeRun(func() error {
+	err := imageChroot.UnsafeRun(func() error {
 		var err error
 		// Query format: package:arch version architecture
 		out, _, err = shell.Execute(
@@ -640,19 +635,13 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 }
 
 func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if isPackageInstalled(imageChroot, "grub2-efi-binary") || isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
-		return BootloaderTypeGrub, nil
+	// Use distroHandler to detect bootloader type
+	distroHandler, err := NewDistroHandlerFromChroot(imageChroot)
+	if err != nil {
+		return "", fmt.Errorf("failed to detect distribution:\n%w", err)
 	}
 
-	// Check Ubuntu / Debian GRUB packages
-	if isPackageInstalledDpkg(imageChroot, "grub-efi-amd64") || isPackageInstalledDpkg(imageChroot, "grub-efi") {
-		return BootloaderTypeGrub, nil
-	}
-
-	if isPackageInstalled(imageChroot, "systemd-boot") || isPackageInstalledDpkg(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
-	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, grub-efi-amd64, nor systemd-boot found")
+	return distroHandler.detectBootloaderType(imageChroot)
 }
 
 func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {
