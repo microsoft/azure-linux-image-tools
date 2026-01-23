@@ -95,7 +95,7 @@ func enableVerityPartition(ctx context.Context, buildDir string, verity []imagec
 		return false, fmt.Errorf("%w:\n%w", ErrVerityFstabUpdate, err)
 	}
 
-	err = prepareGrubConfigForVerity(buildDir, verity, imageChroot, uki)
+	err = prepareGrubConfigForVerity(buildDir, verity, imageChroot, uki, distroHandler)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityGrubConfigPrepare, err)
 	}
@@ -137,8 +137,8 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
-func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki) error {
-	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
+func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki, distroHandler distroHandler) error {
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi
 		}
 	}
 
-	if err := bootCustomizer.WriteToFile(imageChroot); err != nil {
+	if err := bootCustomizer.WriteToFile(imageChroot, distroHandler); err != nil {
 		return err
 	}
 

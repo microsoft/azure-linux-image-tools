@@ -47,7 +47,12 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	}
 
 	// Add a check to make sure BootCustomizer can be initialized
-	bootloaderType, err := imagecustomizerlib.DetectBootloaderType(dummyChroot)
+	distroHandler, err := imagecustomizerlib.NewDistroHandlerFromChroot(dummyChroot)
+	if err != nil {
+		return err
+	}
+
+	bootloaderType, err := imagecustomizerlib.DetectBootloaderType(dummyChroot, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -61,7 +66,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 
 	var bootCustomizer *imagecustomizerlib.BootCustomizer
 	if needsBootCustomizer {
-		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot, nil, buildDir)
+		bootCustomizer, err = imagecustomizerlib.NewBootCustomizer(dummyChroot, nil, buildDir, distroHandler)
 		if err != nil {
 			return err
 		}
@@ -101,7 +106,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 			}
 		}
 
-		err = bootCustomizer.WriteToFile(dummyChroot)
+		err = bootCustomizer.WriteToFile(dummyChroot, distroHandler)
 		if err != nil {
 			return err
 		}

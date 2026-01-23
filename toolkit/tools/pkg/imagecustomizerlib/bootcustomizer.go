@@ -53,8 +53,8 @@ type BootCustomizer struct {
 	ukiKernelInfoPath string
 }
 
-func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string) (*BootCustomizer, error) {
-	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot)
+func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string, distroHandler distroHandler) (*BootCustomizer, error) {
+	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot, distroHandler)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func (b *BootCustomizer) PrepareForVerity() error {
 	return nil
 }
 
-func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) error {
+func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) error {
 	switch b.bootConfigType {
 	case bootConfigTypeGrubMkconfig:
 		// Update /etc/default/grub file.
@@ -336,7 +336,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 
 	case bootConfigTypeGrubLegacy:
 		// Update grub.cfg file.
-		err := writeGrub2ConfigFile(b.grubCfgContent, imageChroot)
+		err := writeGrub2ConfigFile(b.grubCfgContent, imageChroot, distroHandler)
 		if err != nil {
 			return err
 		}

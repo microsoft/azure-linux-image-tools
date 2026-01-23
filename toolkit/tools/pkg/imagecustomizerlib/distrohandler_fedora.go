@@ -56,13 +56,13 @@ func (d *fedoraDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *fedoraDistroHandler) detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.isPackageInstalled(imageChroot, "grub2-efi-binary") || d.isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
+	if d.isPackageInstalled(imageChroot, "grub2-efi-x64") || d.isPackageInstalled(imageChroot, "grub2-efi-aa64") {
 		return BootloaderTypeGrub, nil
 	}
 	if d.isPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
+	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
 }
 
 func (d *fedoraDistroHandler) getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {

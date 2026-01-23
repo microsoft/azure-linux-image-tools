@@ -72,14 +72,3 @@ func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName stri
 	}
 	return true
 }
-
-func isPackageInstalledDpkg(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("dpkg-query", "-W", "-f='${Status}'", packageName)
-		return err
-	})
-	if err != nil {
-		return false
-	}
-	return true
-}

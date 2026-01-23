@@ -20,7 +20,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
@@ -372,87 +371,12 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
-	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect distribution:\n%w", err)
-	}
-
+func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler distroHandler) ([]OsPackage, error) {
 	return distroHandler.getAllPackagesFromChroot(imageConnection.Chroot())
 }
 
-func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	var out string
-	err := imageChroot.UnsafeRun(func() error {
-		var err error
-		out, _, err = shell.Execute(
-			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
-		)
-		return err
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
-	}
-
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var packages []OsPackage
-	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) != 4 {
-			return nil, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs for COSI: %q", line)
-		}
-		packages = append(packages, OsPackage{
-			Name:    parts[0],
-			Version: parts[1],
-			Release: parts[2],
-			Arch:    parts[3],
-		})
-	}
-
-	return packages, nil
-}
-
-func getAllPackagesFromChrootDpkg(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	var out string
-	err := imageChroot.UnsafeRun(func() error {
-		var err error
-		// Query format: package:arch version architecture
-		out, _, err = shell.Execute(
-			"dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n",
-		)
-		return err
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dpkg output from chroot:\n%w", err)
-	}
-
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var packages []OsPackage
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		parts := strings.Split(line, "\t")
-		if len(parts) != 3 {
-			return nil, fmt.Errorf("malformed dpkg line encountered while parsing installed packages for COSI: %q", line)
-		}
-
-		// For dpkg, it does not have a separate release field
-		// Version contains epoch:version-release, use the whole thing as version
-		packages = append(packages, OsPackage{
-			Name:    parts[0],
-			Version: parts[1],
-			// dpkg doesn't have separate release
-			Release: "",
-			Arch:    parts[2],
-		})
-	}
-
-	return packages, nil
-}
-
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection) (*CosiBootloader, error) {
-	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot())
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler distroHandler) (*CosiBootloader, error) {
+	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot(), distroHandler)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
@@ -634,13 +558,7 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 	return entry, nil
 }
 
-func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	// Use distroHandler to detect bootloader type
-	distroHandler, err := NewDistroHandlerFromChroot(imageChroot)
-	if err != nil {
-		return "", fmt.Errorf("failed to detect distribution:\n%w", err)
-	}
-
+func DetectBootloaderType(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) (BootloaderType, error) {
 	return distroHandler.detectBootloaderType(imageChroot)
 }
 

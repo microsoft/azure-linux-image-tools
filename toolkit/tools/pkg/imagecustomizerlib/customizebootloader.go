@@ -31,18 +31,18 @@ var (
 )
 
 func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsLayout []fstabEntryPartNum, newImage bool,
+	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler distroHandler,
 ) error {
 	switch {
 	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
-		err := hardResetBootLoader(ctx, rc, imageConnection, partitionsLayout, newImage)
+		err := hardResetBootLoader(ctx, rc, imageConnection, partitionsLayout, newImage, distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderHardReset, err)
 		}
 
 	default:
 		// Append the kernel command-line args to the existing grub config.
-		err := AddKernelCommandLine(ctx, rc.BuildDirAbs, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), rc.Uki)
+		err := AddKernelCommandLine(ctx, rc.BuildDirAbs, rc.OsKernelCommandLine.ExtraCommandLine, imageConnection.Chroot(), rc.Uki, distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootloaderKernelCommandLineAdd, err)
 		}
@@ -52,7 +52,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 }
 
 func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsLayout []fstabEntryPartNum, newImage bool,
+	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler distroHandler,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -64,7 +64,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
 
 	if !newImage {
-		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), nil, rc.BuildDirAbs)
+		bootCustomizer, err := NewBootCustomizer(imageConnection.Chroot(), nil, rc.BuildDirAbs, distroHandler)
 		if err != nil {
 			return err
 		}
@@ -114,7 +114,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 // Inserts new kernel command-line args into the grub config file.
 func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki,
+	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, distroHandler distroHandler,
 ) error {
 	var err error
 
@@ -128,7 +128,7 @@ func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "add_kernel_command_line")
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine
 		return err
 	}
 
-	err = bootCustomizer.WriteToFile(imageChroot)
+	err = bootCustomizer.WriteToFile(imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}

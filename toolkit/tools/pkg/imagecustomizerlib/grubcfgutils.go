@@ -323,10 +323,6 @@ func getLinuxCommandLineArgs(grub2Config string) ([]grubConfigLinuxArg, int, err
 		return nil, 0, err
 	}
 
-	if len(linuxLines) == 0 {
-		return nil, 0, fmt.Errorf("no linux command found in grub config")
-	}
-
 	// Skip the "linux" command and the kernel binary path arg.
 	linuxLine := linuxLines[0]
 	argTokens := linuxLine.Tokens[2:]
@@ -789,10 +785,10 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 }
 
 // Reads the /boot/grub2/grub.cfg file.
-func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
+func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) (string, error) {
 	logger.Log.Debugf("Reading grub.cfg file")
 
-	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot)
+	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot, distroHandler)
 
 	// Read the existing grub.cfg file.
 	grub2Config, err := file.Read(grub2ConfigFilePath)
@@ -804,10 +800,10 @@ func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error)
 }
 
 // Writes the /boot/grub2/grub.cfg file.
-func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface) error {
+func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, distroHandler distroHandler) error {
 	logger.Log.Debugf("Writing grub.cfg file")
 
-	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot)
+	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot, distroHandler)
 
 	// Update grub.cfg file.
 	err := file.Write(grub2Config, grub2ConfigFilePath)
@@ -818,14 +814,7 @@ func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInter
 	return nil
 }
 
-func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface) string {
-	// Detect the distro and use its specific grub config path
-	distroHandler, err := NewDistroHandlerFromChroot(imageChroot)
-	if err != nil {
-		// Fallback to default path if distro detection fails
-		return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
-	}
-
+func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) string {
 	return distroHandler.getGrubConfigFilePath(imageChroot)
 }
 

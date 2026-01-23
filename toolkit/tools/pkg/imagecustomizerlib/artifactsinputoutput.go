@@ -520,7 +520,12 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}

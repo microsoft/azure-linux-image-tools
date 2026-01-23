@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -298,4 +299,36 @@ func cleanRpmCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroo
 		return fmt.Errorf("%w:\n%w", ErrPackageCacheClean, err)
 	}
 	return nil
+}
+
+// getAllPackagesFromChrootRpm retrieves all installed packages from an RPM-based system
+func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+	var out string
+	err := imageChroot.UnsafeRun(func() error {
+		var err error
+		out, _, err = shell.Execute(
+			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
+		)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var packages []OsPackage
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) != 4 {
+			return nil, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs for COSI: %q", line)
+		}
+		packages = append(packages, OsPackage{
+			Name:    parts[0],
+			Version: parts[1],
+			Release: parts[2],
+			Arch:    parts[3],
+		})
+	}
+
+	return packages, nil
 }

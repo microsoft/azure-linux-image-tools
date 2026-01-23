@@ -58,13 +58,13 @@ func (d *ubuntuDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *ubuntuDistroHandler) detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.isPackageInstalled(imageChroot, "grub-efi-amd64") || d.isPackageInstalled(imageChroot, "grub-efi") {
+	if d.isPackageInstalled(imageChroot, "grub-efi-amd64") || d.isPackageInstalled(imageChroot, "grub-efi-arm64") || d.isPackageInstalled(imageChroot, "grub-efi") {
 		return BootloaderTypeGrub, nil
 	}
 	if d.isPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
-	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi, nor systemd-boot found")
+	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi-arm64, nor systemd-boot found")
 }
 
 func (d *ubuntuDistroHandler) getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {

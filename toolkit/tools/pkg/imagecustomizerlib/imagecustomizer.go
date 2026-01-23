@@ -745,7 +745,12 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 	}
 	defer imageConnection.Close()
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -758,15 +763,15 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 	return osPackages, cosiBootMetadata, nil
 }
 
-func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection, distroHandler distroHandler) ([]OsPackage, *CosiBootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
-	osPackages, err := getAllPackagesFromChroot(imageConnection)
+	osPackages, err := getAllPackagesFromChroot(imageConnection, distroHandler)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractPackages, err)
 	}
 
-	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection)
+	cosiBootMetadata, err := extractCosiBootMetadata(buildDir, imageConnection, distroHandler)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w:\n%w", ErrExtractBootloaderMetadata, err)
 	}

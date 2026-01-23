@@ -98,7 +98,12 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 }
 
 func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
-	bootCustomizer, err := NewBootCustomizer(imageChroot, nil, buildDir)
+	distroHandler, err := NewDistroHandlerFromChroot(imageChroot)
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
+	bootCustomizer, err := NewBootCustomizer(imageChroot, nil, buildDir, distroHandler)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
