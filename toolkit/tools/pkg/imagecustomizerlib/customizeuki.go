@@ -226,7 +226,7 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot) e
 }
 
 func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
-	imageChroot *safechroot.Chroot, distroHandler distroHandler,
+	imageChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
 	err := prepareUkiHelper(ctx, buildDir, uki, imageChroot, distroHandler)
 	if err != nil {
@@ -237,7 +237,7 @@ func prepareUki(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uk
 }
 
 func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizerapi.Uki,
-	imageChroot *safechroot.Chroot, distroHandler distroHandler,
+	imageChroot *safechroot.Chroot, distroHandler DistroHandler,
 ) error {
 	var err error
 
@@ -400,7 +400,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	return nil
 }
 
-func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler distroHandler) error {
+func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	// The following packages are required for the UKI feature:
 	// - "systemd-boot": Checked as a package dependency here to ensure installation,
 	//    but additional configuration is handled elsewhere in the UKI workflow.

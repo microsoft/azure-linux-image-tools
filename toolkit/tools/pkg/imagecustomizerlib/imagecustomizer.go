@@ -28,21 +28,23 @@ import (
 
 var (
 	// Validation errors
-	ErrInvalidOutputFormat            = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
-	ErrCannotGenerateOutputFormat     = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
-	ErrCannotValidateTargetOS         = NewImageCustomizerError("Validation:CannotValidateTargetOS", "cannot validate target OS of the base image")
-	ErrCannotCustomizePartitionsOnIso = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
-	ErrInvalidBaseConfigs             = NewImageCustomizerError("Validation:InvalidBaseConfigs", "base configs contain invalid image config")
-	ErrInvalidImageConfig             = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
-	ErrInvalidParameters              = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
-	ErrVerityValidation               = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
-	ErrUnsupportedQemuImageFormat     = NewImageCustomizerError("Validation:UnsupportedQemuImageFormat", "unsupported qemu-img format")
-	ErrToolNotRunAsRoot               = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
-	ErrPackageSnapshotPreviewRequired = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
-	ErrVerityPreviewFeatureRequired   = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
-	ErrFedora42PreviewFeatureRequired = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
-	ErrInputImageOciPreviewRequired   = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
-	ErrCosiCompressionPreviewRequired = NewImageCustomizerError("Validation:CosiCompressionPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify custom COSI compression settings", imagecustomizerapi.PreviewFeatureCosiCompression))
+	ErrInvalidOutputFormat              = NewImageCustomizerError("Validation:InvalidOutputFormat", "invalid output image format")
+	ErrCannotGenerateOutputFormat       = NewImageCustomizerError("Validation:CannotGenerateOutputFormat", "cannot generate output format from input format")
+	ErrCannotValidateTargetOS           = NewImageCustomizerError("Validation:CannotValidateTargetOS", "cannot validate target OS of the base image")
+	ErrCannotCustomizePartitionsOnIso   = NewImageCustomizerError("Validation:CannotCustomizePartitionsOnIso", "cannot customize partitions when input is ISO")
+	ErrInvalidBaseConfigs               = NewImageCustomizerError("Validation:InvalidBaseConfigs", "base configs contain invalid image config")
+	ErrInvalidImageConfig               = NewImageCustomizerError("Validation:InvalidImageConfig", "invalid image config")
+	ErrInvalidParameters                = NewImageCustomizerError("Validation:InvalidParameters", "invalid parameters")
+	ErrVerityValidation                 = NewImageCustomizerError("Validation:VerityValidation", "verity validation failed")
+	ErrUnsupportedQemuImageFormat       = NewImageCustomizerError("Validation:UnsupportedQemuImageFormat", "unsupported qemu-img format")
+	ErrToolNotRunAsRoot                 = NewImageCustomizerError("Validation:ToolNotRunAsRoot", "tool should be run as root (e.g. by using sudo)")
+	ErrPackageSnapshotPreviewRequired   = NewImageCustomizerError("Validation:PackageSnapshotPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify package snapshot time", imagecustomizerapi.PreviewFeaturePackageSnapshotTime))
+	ErrVerityPreviewFeatureRequired     = NewImageCustomizerError("Validation:VerityPreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize verity enabled base image", imagecustomizerapi.PreviewFeatureReinitializeVerity))
+	ErrFedora42PreviewFeatureRequired   = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
+	ErrUbuntu2204PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2204PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 22.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2204))
+	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
+	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
+	ErrCosiCompressionPreviewRequired   = NewImageCustomizerError("Validation:CosiCompressionPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify custom COSI compression settings", imagecustomizerapi.PreviewFeatureCosiCompression))
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -763,7 +765,7 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 	return osPackages, cosiBootMetadata, nil
 }
 
-func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection, distroHandler distroHandler) ([]OsPackage, *CosiBootloader, error) {
+func collectOSInfoHelper(ctx context.Context, buildDir string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]OsPackage, *CosiBootloader, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "collect_os_info")
 	defer span.End()
 	osPackages, err := getAllPackagesFromChroot(imageConnection, distroHandler)
@@ -910,6 +912,20 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 
 		if hasPackageSnapshotTime {
 			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
+		}
+	}
+
+	// Check if Ubuntu 22.04 is being used and if it has the required preview feature
+	if targetOs == targetos.TargetOsUbuntu2204 {
+		if !slices.Contains(rc.Config.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
+			return targetOs, ErrUbuntu2204PreviewFeatureRequired
+		}
+	}
+
+	// Check if Ubuntu 24.04 is being used and if it has the required preview feature
+	if targetOs == targetos.TargetOsUbuntu2404 {
+		if !slices.Contains(rc.Config.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
+			return targetOs, ErrUbuntu2404PreviewFeatureRequired
 		}
 	}
 

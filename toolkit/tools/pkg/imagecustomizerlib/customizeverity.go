@@ -66,7 +66,7 @@ const (
 )
 
 func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
-	imageChroot *safechroot.Chroot, distroHandler distroHandler, uki *imagecustomizerapi.Uki,
+	imageChroot *safechroot.Chroot, distroHandler DistroHandler, uki *imagecustomizerapi.Uki,
 ) (bool, error) {
 	var err error
 
@@ -137,7 +137,7 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
-func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki, distroHandler distroHandler) error {
+func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki, distroHandler DistroHandler) error {
 	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi
 		}
 	}
 
-	if err := bootCustomizer.WriteToFile(imageChroot, distroHandler); err != nil {
+	if err := bootCustomizer.WriteToFile(imageChroot); err != nil {
 		return err
 	}
 
@@ -434,7 +434,7 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 	return corruptionOption, hashSigPath, nil
 }
 
-func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler distroHandler) error {
+func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	// "device-mapper" is required for dm-verity support because it provides "dmsetup",
 	// which Dracut needs to install the "dm" module (a dependency of "systemd-veritysetup").
 	requiredRpms := []string{"device-mapper"}

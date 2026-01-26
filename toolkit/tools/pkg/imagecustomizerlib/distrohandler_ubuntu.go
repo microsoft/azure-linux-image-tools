@@ -57,7 +57,7 @@ func (d *ubuntuDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootDpkg(imageChroot)
 }
 
-func (d *ubuntuDistroHandler) detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
 	if d.isPackageInstalled(imageChroot, "grub-efi-amd64") || d.isPackageInstalled(imageChroot, "grub-efi-arm64") || d.isPackageInstalled(imageChroot, "grub-efi") {
 		return BootloaderTypeGrub, nil
 	}

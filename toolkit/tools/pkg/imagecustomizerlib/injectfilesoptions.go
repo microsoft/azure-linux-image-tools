@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
 type InjectFilesOptions struct {
@@ -16,6 +17,7 @@ type InjectFilesOptions struct {
 	OutputImageFile      string
 	OutputImageFormat    string
 	CosiCompressionLevel *int
+	TargetOs             targetos.TargetOs
 }
 
 func (o *InjectFilesOptions) IsValid() error {
@@ -34,6 +36,18 @@ func (o *InjectFilesOptions) verifyPreviewFeatures(previewFeatures []imagecustom
 	if o.CosiCompressionLevel != nil {
 		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
 			return ErrCosiCompressionPreviewRequired
+		}
+	}
+
+	if o.TargetOs == targetos.TargetOsUbuntu2204 {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
+			return ErrUbuntu2204PreviewFeatureRequired
+		}
+	}
+
+	if o.TargetOs == targetos.TargetOsUbuntu2404 {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
+			return ErrUbuntu2404PreviewFeatureRequired
 		}
 	}
 

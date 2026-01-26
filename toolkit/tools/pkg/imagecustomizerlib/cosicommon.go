@@ -18,7 +18,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
@@ -371,12 +370,12 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler distroHandler) ([]OsPackage, error) {
+func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]OsPackage, error) {
 	return distroHandler.getAllPackagesFromChroot(imageConnection.Chroot())
 }
 
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler distroHandler) (*CosiBootloader, error) {
-	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot(), distroHandler)
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) (*CosiBootloader, error) {
+	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot())
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
@@ -556,10 +555,6 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 	}
 
 	return entry, nil
-}
-
-func DetectBootloaderType(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) (BootloaderType, error) {
-	return distroHandler.detectBootloaderType(imageChroot)
 }
 
 func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {

@@ -27,7 +27,7 @@ var (
 )
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler distroHandler,
+	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
 ) error {
 	var err error
 

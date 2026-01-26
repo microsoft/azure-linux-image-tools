@@ -30,8 +30,8 @@ const (
 	distroNameFedora     DistroName = "fedora"
 )
 
-// distroHandler represents the interface for distribution-specific configuration
-type distroHandler interface {
+// DistroHandler represents the interface for distribution-specific configuration
+type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
 
 	// Package management operations
@@ -45,14 +45,14 @@ type distroHandler interface {
 	getAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 
 	// Detect the bootloader type installed in the image
-	detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
+	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
 	// Get the path to the grub configuration file
 	getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
-func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) distroHandler {
+func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 	switch targetOs {
 	case targetos.TargetOsFedora42:
 		return newFedoraDistroHandler("42")
@@ -70,7 +70,7 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) distroHandler {
 }
 
 // NewDistroHandler creates the appropriate distro handler with version support (legacy)
-func NewDistroHandler(distroName string, version string) distroHandler {
+func NewDistroHandler(distroName string, version string) DistroHandler {
 	switch distroName {
 	case string(distroNameFedora):
 		return newFedoraDistroHandler(version)
@@ -82,7 +82,7 @@ func NewDistroHandler(distroName string, version string) distroHandler {
 }
 
 // NewDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
-func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (distroHandler, error) {
+func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroHandler, error) {
 	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
 	if err != nil {
 		return nil, err

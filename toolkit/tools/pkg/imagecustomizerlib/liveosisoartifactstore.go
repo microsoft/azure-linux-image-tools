@@ -97,12 +97,7 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 	return false, nil
 }
 
-func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot) (imagecustomizerapi.SELinuxMode, error) {
-	distroHandler, err := NewDistroHandlerFromChroot(imageChroot)
-	if err != nil {
-		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to detect distribution:\n%w", err)
-	}
-
+func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) (imagecustomizerapi.SELinuxMode, error) {
 	bootCustomizer, err := NewBootCustomizer(imageChroot, nil, buildDir, distroHandler)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
@@ -389,7 +384,12 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string) (i
 		return nil, fmt.Errorf("failed to initialize chroot object for (%s):\n%w", imageRootDir, err)
 	}
 
-	imageSELinuxMode, err := getSELinuxMode(buildDir, chroot)
+	distroHandler, err := NewDistroHandlerFromChroot(chroot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
+	imageSELinuxMode, err := getSELinuxMode(buildDir, chroot, distroHandler)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine SELinux mode for (%s):\n%w", imageRootDir, err)
 	}

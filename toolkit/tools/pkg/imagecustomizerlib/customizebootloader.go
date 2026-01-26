@@ -31,7 +31,7 @@ var (
 )
 
 func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler distroHandler,
+	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler DistroHandler,
 ) error {
 	switch {
 	case rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard || newImage:
@@ -52,7 +52,7 @@ func handleBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *
 }
 
 func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler distroHandler,
+	partitionsLayout []fstabEntryPartNum, newImage bool, distroHandler DistroHandler,
 ) error {
 	var err error
 	logger.Log.Infof("Hard reset bootloader config")
@@ -114,7 +114,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 // Inserts new kernel command-line args into the grub config file.
 func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine []string,
-	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, distroHandler distroHandler,
+	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, distroHandler DistroHandler,
 ) error {
 	var err error
 
@@ -138,7 +138,7 @@ func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine
 		return err
 	}
 
-	err = bootCustomizer.WriteToFile(imageChroot, distroHandler)
+	err = bootCustomizer.WriteToFile(imageChroot)
 	if err != nil {
 		return err
 	}

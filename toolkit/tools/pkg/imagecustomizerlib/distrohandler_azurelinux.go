@@ -57,7 +57,7 @@ func (d *azureLinuxDistroHandler) getAllPackagesFromChroot(imageChroot safechroo
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
-func (d *azureLinuxDistroHandler) detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
 	if d.isPackageInstalled(imageChroot, "grub2-efi-binary") || d.isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
 		return BootloaderTypeGrub, nil
 	}

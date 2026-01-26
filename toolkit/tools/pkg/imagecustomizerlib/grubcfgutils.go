@@ -318,7 +318,7 @@ type grubConfigLinuxArg struct {
 //   - insertAt: An index that represents an appropriate insert point for any new args.
 //     For Azure Linux 2.0 images, this points to the index of the $kernelopts token.
 func getLinuxCommandLineArgs(grub2Config string) ([]grubConfigLinuxArg, int, error) {
-	linuxLines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, false)
+	linuxLines, err := findLinuxOrInitrdLineAll(grub2Config, linuxCommand, false /*allowMultiple*/)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -785,10 +785,10 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 }
 
 // Reads the /boot/grub2/grub.cfg file.
-func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) (string, error) {
+func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (string, error) {
 	logger.Log.Debugf("Reading grub.cfg file")
 
-	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot, distroHandler)
+	grub2ConfigFilePath := distroHandler.getGrubConfigFilePath(imageChroot)
 
 	// Read the existing grub.cfg file.
 	grub2Config, err := file.Read(grub2ConfigFilePath)
@@ -800,10 +800,10 @@ func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler d
 }
 
 // Writes the /boot/grub2/grub.cfg file.
-func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, distroHandler distroHandler) error {
+func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) error {
 	logger.Log.Debugf("Writing grub.cfg file")
 
-	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot, distroHandler)
+	grub2ConfigFilePath := distroHandler.getGrubConfigFilePath(imageChroot)
 
 	// Update grub.cfg file.
 	err := file.Write(grub2Config, grub2ConfigFilePath)
@@ -812,10 +812,6 @@ func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInter
 	}
 
 	return nil
-}
-
-func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface, distroHandler distroHandler) string {
-	return distroHandler.getGrubConfigFilePath(imageChroot)
 }
 
 // Regenerates the initramfs file.

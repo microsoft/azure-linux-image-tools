@@ -55,7 +55,7 @@ func (d *fedoraDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.Ch
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
-func (d *fedoraDistroHandler) detectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
 	if d.isPackageInstalled(imageChroot, "grub2-efi-x64") || d.isPackageInstalled(imageChroot, "grub2-efi-aa64") {
 		return BootloaderTypeGrub, nil
 	}
