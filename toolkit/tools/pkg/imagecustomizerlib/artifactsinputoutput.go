@@ -343,16 +343,6 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 		return err
 	}
 
-	options.TargetOs, err = detectTargetOsFromImage(ctx, options.InputImageFile, options.BuildDir)
-	if err != nil {
-		return fmt.Errorf("failed to detect target OS from input image:\n%w", err)
-	}
-
-	err = options.verifyPreviewFeatures(config.PreviewFeatures)
-	if err != nil {
-		return err
-	}
-
 	baseConfigPath, _ := filepath.Split(configFile)
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
@@ -360,7 +350,7 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
-	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options)
+	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options, config.PreviewFeatures)
 	if err != nil {
 		return err
 	}
@@ -370,6 +360,7 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 
 func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	metadata []imagecustomizerapi.InjectArtifactMetadata, options InjectFilesOptions,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
@@ -383,6 +374,28 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
 	detectedImageFormat, err := convertImageToRaw(options.InputImageFile, rawImageFile)
+	if err != nil {
+		return err
+	}
+
+	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDirAbs,
+		"imageroot", false, true, false, false)
+	if err != nil {
+		return fmt.Errorf("failed to connect to image:\n%w", err)
+	}
+	defer imageConnection.Close()
+
+	options.TargetOs, err = targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
+	if err != nil {
+		return fmt.Errorf("failed to determine target OS:\n%w", err)
+	}
+
+	err = imageConnection.CleanClose()
+	if err != nil {
+		return err
+	}
+
+	err = options.verifyPreviewFeatures(previewFeatures)
 	if err != nil {
 		return err
 	}
@@ -575,37 +588,4 @@ func extractImageUUID(imageConnection *imageconnection.ImageConnection) ([random
 	}
 
 	return parsed, uuidStr, nil
-}
-
-// detectTargetOsFromImage detects the target OS from an image file.
-func detectTargetOsFromImage(ctx context.Context, imageFile string, buildDir string) (targetos.TargetOs, error) {
-	buildDirAbs, err := filepath.Abs(buildDir)
-	if err != nil {
-		return "", err
-	}
-
-	// Convert image to raw format if needed
-	rawImageFile := filepath.Join(buildDirAbs, "temp-inject-detect-os.raw")
-	_, err = convertImageToRaw(imageFile, rawImageFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to convert image to raw format:\n%w", err)
-	}
-	defer os.Remove(rawImageFile)
-
-	// Connect to the image to read target OS
-	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDirAbs,
-		"temp-inject-detect-os", false /* include-default-mounts */, true, /* read-only */
-		false /* read-only-verity */, false /* ignore-overlays */)
-	if err != nil {
-		return "", fmt.Errorf("failed to connect to image:\n%w", err)
-	}
-	defer imageConnection.Close()
-
-	targetOs, err := targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
-	if err != nil {
-		return "", fmt.Errorf("failed to determine target OS:\n%w", err)
-	}
-
-	imageConnection.CleanClose()
-	return targetOs, nil
 }
