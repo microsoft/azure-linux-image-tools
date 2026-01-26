@@ -27,7 +27,7 @@ var (
 )
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler distroHandler,
+	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
 ) error {
 	var err error
 
@@ -159,13 +159,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false)
+	err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, false, distroHandler)
 	if err != nil {
 		return err
 	}
 
 	selinuxMode, err := handleSELinux(ctx, rc.BuildDirAbs, rc.SELinux.Mode, rc.BootLoader.ResetType,
-		imageChroot, rc.Uki)
+		imageChroot, rc.Uki, distroHandler)
 	if err != nil {
 		return err
 	}

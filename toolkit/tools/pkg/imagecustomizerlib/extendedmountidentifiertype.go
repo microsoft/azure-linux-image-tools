@@ -3,26 +3,17 @@
 
 package imagecustomizerlib
 
-// ExtendedMountIdentifierType indicates how a partition should be identified in the fstab file.
-// This type was introduced to extend the functionality of MountIdentifierType while preserving
-// the original public API structure. MountIdentifierType is part of a public API and cannot be
-// modified to include new identifiers without breaking backward compatibility.
-// ExtendedMountIdentifierType provides additional flexibility for internal use without affecting the public API.
-type ExtendedMountIdentifierType string
+import "github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 
 const (
-	// ExtendedMountIdentifierTypeUuid mounts this partition via the filesystem UUID.
-	ExtendedMountIdentifierTypeUuid ExtendedMountIdentifierType = "uuid"
+	// Internal use only:
+	// Used for reading Ubuntu images, which use filesystem label to identify partitions
+	// in the fstab file.
+	// Future: Move this value into MountIdentifierType when support for filesystem labels
+	// are added to the API.
+	MountIdentifierTypeLabel imagecustomizerapi.MountIdentifierType = "label"
 
-	// ExtendedMountIdentifierTypePartUuid mounts this partition via the GPT/MBR PARTUUID.
-	ExtendedMountIdentifierTypePartUuid ExtendedMountIdentifierType = "part-uuid"
-
-	// ExtendedMountIdentifierTypePartLabel mounts this partition via the GPT PARTLABEL.
-	ExtendedMountIdentifierTypePartLabel ExtendedMountIdentifierType = "part-label"
-
-	// ExtendedMountIdentifierTypeDev mounts this partition via a device.
-	ExtendedMountIdentifierTypeDev ExtendedMountIdentifierType = "dev"
-
-	// ExtendedMountIdentifierTypeDefault uses the default type, which is PARTUUID.
-	ExtendedMountIdentifierTypeDefault ExtendedMountIdentifierType = ""
+	// Internal use only:
+	// Used for handling verity device mappings (e.g., /dev/mapper/root).
+	MountIdentifierTypeDev imagecustomizerapi.MountIdentifierType = "dev"
 )

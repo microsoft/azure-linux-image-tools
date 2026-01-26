@@ -24,6 +24,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"golang.org/x/sys/unix"
 )
 
@@ -342,11 +343,6 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 		return err
 	}
 
-	err = options.verifyPreviewFeatures(config.PreviewFeatures)
-	if err != nil {
-		return err
-	}
-
 	baseConfigPath, _ := filepath.Split(configFile)
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
@@ -354,7 +350,7 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
-	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options)
+	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options, config.PreviewFeatures)
 	if err != nil {
 		return err
 	}
@@ -364,6 +360,7 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 
 func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	metadata []imagecustomizerapi.InjectArtifactMetadata, options InjectFilesOptions,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
@@ -380,6 +377,12 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	if err != nil {
 		return err
 	}
+
+	err = options.verifyPreviewFeatures(previewFeatures)
+	if err != nil {
+		return err
+	}
+
 	if options.OutputImageFormat != "" {
 		detectedImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
 	}
@@ -395,7 +398,7 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	}
 
 	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
-		options.CosiCompressionLevel)
+		options.CosiCompressionLevel, previewFeatures)
 	if err != nil {
 		return err
 	}
@@ -465,10 +468,11 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 
 func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
 	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi || detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
+			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot", previewFeatures)
 		if err != nil {
 			return err
 		}
@@ -503,7 +507,7 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 }
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
-	chrootDir string,
+	chrootDir string, previewFeatures []imagecustomizerapi.PreviewFeature,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
@@ -515,12 +519,27 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	}
 	defer imageConnection.Close()
 
+	targetOs, err := targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, fmt.Errorf("failed to determine target OS:\n%w", err)
+	}
+
+	err = validateDistroPreviewFeatures(targetOs, previewFeatures)
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
+	}
+
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 
-	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
+	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}

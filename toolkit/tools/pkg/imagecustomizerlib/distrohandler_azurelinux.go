@@ -5,8 +5,11 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -35,8 +38,8 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 	}
 }
 
-// managePackages handles the complete package management workflow for Azure Linux
-func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir string, baseConfigPath string,
+// ManagePackages handles the complete package management workflow for Azure Linux
+func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
@@ -45,7 +48,25 @@ func (d *azureLinuxDistroHandler) managePackages(ctx context.Context, buildDir s
 		snapshotTime, d.packageManager)
 }
 
-// isPackageInstalled implements distroHandler.
-func (d *azureLinuxDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+// IsPackageInstalled implements DistroHandler.
+func (d *azureLinuxDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+}
+
+func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+	return getAllPackagesFromChrootRpm(imageChroot)
+}
+
+func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+	if d.IsPackageInstalled(imageChroot, "grub2-efi-binary") || d.IsPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
+		return BootloaderTypeGrub, nil
+	}
+	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
+		return BootloaderTypeSystemdBoot, nil
+	}
+	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
+}
+
+func (d *azureLinuxDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
+	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }

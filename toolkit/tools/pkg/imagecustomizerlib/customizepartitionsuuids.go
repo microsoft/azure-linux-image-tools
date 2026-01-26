@@ -205,7 +205,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		}
 
 		switch mountIdType {
-		case ExtendedMountIdentifierTypeUuid, ExtendedMountIdentifierTypePartUuid:
+		case imagecustomizerapi.MountIdentifierTypeUuid, imagecustomizerapi.MountIdentifierTypePartUuid:
 
 		default:
 			// fstab entry doesn't need to be changed.
@@ -215,8 +215,7 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Find the partition.
 		// Note: The 'partitions' list was collected before all the changes were made. So, the fstab entries will still
 		// match the values in the `partitions` list.
-		_, partitionIndex, err := findPartitionHelper(imagecustomizerapi.MountIdentifierType(mountIdType), mountId,
-			partitions)
+		_, partitionIndex, err := findPartitionHelper(mountIdType, mountId, partitions)
 		if err != nil {
 			return err
 		}
@@ -224,10 +223,10 @@ func fixPartitionUuidsInFstabFile(partitions []diskutils.PartitionInfo, newUuids
 		// Create a new value for the source.
 		newSource := fstabEntry.Source
 		switch mountIdType {
-		case ExtendedMountIdentifierTypeUuid:
+		case imagecustomizerapi.MountIdentifierTypeUuid:
 			newSource = fmt.Sprintf("UUID=%s", newUuids[partitionIndex])
 
-		case ExtendedMountIdentifierTypePartUuid:
+		case imagecustomizerapi.MountIdentifierTypePartUuid:
 			newSource = fmt.Sprintf("PARTUUID=%s", newPartUuids[partitionIndex])
 		}
 

@@ -16,7 +16,7 @@ import (
 )
 
 func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, tarFile string,
-	distroHandler distroHandler,
+	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
 
@@ -71,7 +71,7 @@ func doOsCustomizationsImageCreator(
 	imageConnection *imageconnection.ImageConnection,
 	toolsChroot *safechroot.Chroot,
 	partitionsLayout []fstabEntryPartNum,
-	distroHandler distroHandler,
+	distroHandler DistroHandler,
 ) error {
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)
@@ -103,7 +103,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, true); err != nil {
+	if err = handleBootLoader(ctx, rc, imageConnection, partitionsLayout, true, distroHandler); err != nil {
 		return err
 	}
 

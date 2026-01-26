@@ -66,7 +66,7 @@ const (
 )
 
 func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
-	imageChroot *safechroot.Chroot, distroHandler distroHandler, uki *imagecustomizerapi.Uki,
+	imageChroot *safechroot.Chroot, distroHandler DistroHandler, uki *imagecustomizerapi.Uki,
 ) (bool, error) {
 	var err error
 
@@ -95,7 +95,7 @@ func enableVerityPartition(ctx context.Context, buildDir string, verity []imagec
 		return false, fmt.Errorf("%w:\n%w", ErrVerityFstabUpdate, err)
 	}
 
-	err = prepareGrubConfigForVerity(buildDir, verity, imageChroot, uki)
+	err = prepareGrubConfigForVerity(buildDir, verity, imageChroot, uki, distroHandler)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityGrubConfigPrepare, err)
 	}
@@ -137,8 +137,8 @@ func updateFstabForVerity(verityList []imagecustomizerapi.Verity, imageChroot *s
 	return nil
 }
 
-func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki) error {
-	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
+func prepareGrubConfigForVerity(buildDir string, verityList []imagecustomizerapi.Verity, imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki, distroHandler DistroHandler) error {
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -434,7 +434,7 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 	return corruptionOption, hashSigPath, nil
 }
 
-func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler distroHandler) error {
+func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	// "device-mapper" is required for dm-verity support because it provides "dmsetup",
 	// which Dracut needs to install the "dm" module (a dependency of "systemd-veritysetup").
 	requiredRpms := []string{"device-mapper"}
@@ -442,7 +442,7 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler di
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		installed := distroHandler.isPackageInstalled(imageChroot, pkg)
+		installed := distroHandler.IsPackageInstalled(imageChroot, pkg)
 		if !installed {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Verity: %v", pkg, requiredRpms)
 		}

@@ -29,7 +29,7 @@ var (
 )
 
 func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustomizerapi.SELinuxMode, resetBootLoaderType imagecustomizerapi.ResetBootLoaderType,
-	imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki,
+	imageChroot *safechroot.Chroot, uki *imagecustomizerapi.Uki, distroHandler DistroHandler,
 ) (imagecustomizerapi.SELinuxMode, error) {
 	var err error
 
@@ -39,7 +39,7 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 	)
 	defer span.End()
 
-	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir)
+	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}

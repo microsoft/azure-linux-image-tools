@@ -785,10 +785,10 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 }
 
 // Reads the /boot/grub2/grub.cfg file.
-func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
+func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (string, error) {
 	logger.Log.Debugf("Reading grub.cfg file")
 
-	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot)
+	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageChroot)
 
 	// Read the existing grub.cfg file.
 	grub2Config, err := file.Read(grub2ConfigFilePath)
@@ -800,10 +800,10 @@ func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error)
 }
 
 // Writes the /boot/grub2/grub.cfg file.
-func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface) error {
+func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) error {
 	logger.Log.Debugf("Writing grub.cfg file")
 
-	grub2ConfigFilePath := getGrub2ConfigFilePath(imageChroot)
+	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageChroot)
 
 	// Update grub.cfg file.
 	err := file.Write(grub2Config, grub2ConfigFilePath)
@@ -812,10 +812,6 @@ func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInter
 	}
 
 	return nil
-}
-
-func getGrub2ConfigFilePath(imageChroot safechroot.ChrootInterface) string {
-	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }
 
 // Regenerates the initramfs file.

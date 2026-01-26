@@ -240,7 +240,12 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot())
+		distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+		if err != nil {
+			return fmt.Errorf("failed to detect distribution:\n%w", err)
+		}
+
+		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot(), distroHandler)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}

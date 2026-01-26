@@ -18,9 +18,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
@@ -372,43 +370,12 @@ func getArchitectureForCosi() string {
 	return runtime.GOARCH
 }
 
-func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection) ([]OsPackage, error) {
-	if !isPackageInstalled(imageConnection.Chroot(), "rpm") {
-		return nil, fmt.Errorf("'rpm' is not installed in the image to enable package listing for COSI output. You may add it via the 'packages:' section in your configuration YAML")
-	}
-
-	var out string
-	err := imageConnection.Chroot().UnsafeRun(func() error {
-		var err error
-		out, _, err = shell.Execute(
-			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
-		)
-		return err
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
-	}
-
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var packages []OsPackage
-	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) != 4 {
-			return nil, fmt.Errorf("malformed RPM line encountered while parsing installed RPMs for COSI: %q", line)
-		}
-		packages = append(packages, OsPackage{
-			Name:    parts[0],
-			Version: parts[1],
-			Release: parts[2],
-			Arch:    parts[3],
-		})
-	}
-
-	return packages, nil
+func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]OsPackage, error) {
+	return distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot())
 }
 
-func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection) (*CosiBootloader, error) {
-	bootloaderType, err := DetectBootloaderType(imageConnection.Chroot())
+func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) (*CosiBootloader, error) {
+	bootloaderType, err := distroHandler.DetectBootloaderType(imageConnection.Chroot())
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
@@ -588,16 +555,6 @@ func parseSystemdBootEntryFromFile(entryDir string, file fs.DirEntry) (*SystemDB
 	}
 
 	return entry, nil
-}
-
-func DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if isPackageInstalled(imageChroot, "grub2-efi-binary") || isPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
-		return BootloaderTypeGrub, nil
-	}
-	if isPackageInstalled(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
-	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
 }
 
 func handleBootloaderMetadata(bootloader *CosiBootloader) CosiBootloader {

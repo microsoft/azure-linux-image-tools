@@ -30,13 +30,18 @@ func modifyDefaultGrub() error {
 	}
 	defer os.RemoveAll(buildDir)
 
+	distroHandler, err := imagecustomizerlib.NewDistroHandlerFromChroot(dummyChroot)
+	if err != nil {
+		return fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
 	// Get verity, selinux, overlayfs, and root device values from /boot/grub2/grub.cfg
-	values, rootDevice, err := extractValuesFromGrubConfig(dummyChroot)
+	values, rootDevice, err := extractValuesFromGrubConfig(dummyChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("error getting verity, selinux and overlayfs values from grub.cfg:\n%w", err)
 	}
 
-	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot, nil, buildDir)
+	bootCustomizer, err := imagecustomizerlib.NewBootCustomizer(dummyChroot, nil, buildDir, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -63,8 +68,8 @@ func modifyDefaultGrub() error {
 	return nil
 }
 
-func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface) ([]string, string, error) {
-	grubCfgContent, err := imagecustomizerlib.ReadGrub2ConfigFile(imageChroot)
+func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface, distroHandler imagecustomizerlib.DistroHandler) ([]string, string, error) {
+	grubCfgContent, err := imagecustomizerlib.ReadGrub2ConfigFile(imageChroot, distroHandler)
 	if err != nil {
 		return nil, "", err
 	}

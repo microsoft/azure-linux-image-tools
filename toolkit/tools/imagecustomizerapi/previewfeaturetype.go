@@ -29,6 +29,12 @@ const (
 	// PreviewFeatureFedora42 enables support for Fedora 42 images.
 	PreviewFeatureFedora42 PreviewFeature = "fedora-42"
 
+	// PreviewFeatureUbuntu2204 enables support for Ubuntu 22.04 images.
+	PreviewFeatureUbuntu2204 PreviewFeature = "ubuntu-22.04"
+
+	// PreviewFeatureUbuntu2404 enables support for Ubuntu 24.04 images.
+	PreviewFeatureUbuntu2404 PreviewFeature = "ubuntu-24.04"
+
 	// PreviewFeatureBaseConfigs enables support for base configuration.
 	PreviewFeatureBaseConfigs PreviewFeature = "base-configs"
 
@@ -52,8 +58,9 @@ func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
-		PreviewFeatureBaseConfigs, PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
-		PreviewFeatureCosiCompression, PreviewFeatureBtrfs, PreviewFeatureCreate:
+		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
+		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression,
+		PreviewFeatureBtrfs, PreviewFeatureCreate:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)
