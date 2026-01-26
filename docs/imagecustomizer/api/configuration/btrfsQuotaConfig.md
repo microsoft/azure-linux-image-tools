@@ -10,23 +10,31 @@ Defines quota settings for a BTRFS subvolume.
 Example:
 
 ```yaml
-subvolumes:
-- path: root
-  mountPoint:
-    path: /
-  quota:
-    referencedLimit: 10G
-    exclusiveLimit: 8G
-- path: home
-  mountPoint:
-    path: /home
-  quota:
-    referencedLimit: 50G
-- path: var
-  mountPoint:
-    path: /var
-  quota:
-    referencedLimit: 20G
+previewFeatures:
+- btrfs
+
+storage:
+  filesystems:
+  - deviceId: btrfs
+    type: btrfs
+    btrfs:
+      subvolumes:
+      - path: root
+        mountPoint:
+          path: /
+        quota:
+          referencedLimit: 10G
+          exclusiveLimit: 8G
+      - path: home
+        mountPoint:
+          path: /home
+        quota:
+          referencedLimit: 50G
+      - path: var
+        mountPoint:
+          path: /var
+        quota:
+          referencedLimit: 20G
 ```
 
 Added in v1.2.
