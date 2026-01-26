@@ -788,7 +788,7 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (string, error) {
 	logger.Log.Debugf("Reading grub.cfg file")
 
-	grub2ConfigFilePath := distroHandler.getGrubConfigFilePath(imageChroot)
+	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageChroot)
 
 	// Read the existing grub.cfg file.
 	grub2Config, err := file.Read(grub2ConfigFilePath)
@@ -803,7 +803,7 @@ func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler D
 func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) error {
 	logger.Log.Debugf("Writing grub.cfg file")
 
-	grub2ConfigFilePath := distroHandler.getGrubConfigFilePath(imageChroot)
+	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageChroot)
 
 	// Update grub.cfg file.
 	err := file.Write(grub2Config, grub2ConfigFilePath)

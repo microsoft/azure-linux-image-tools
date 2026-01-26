@@ -35,20 +35,20 @@ type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
 
 	// Package management operations
-	managePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
+	ManagePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
 		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
-	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
+	IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
 
 	// Get all installed packages from the chroot
-	getAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
+	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
 	// Get the path to the grub configuration file
-	getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
+	GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

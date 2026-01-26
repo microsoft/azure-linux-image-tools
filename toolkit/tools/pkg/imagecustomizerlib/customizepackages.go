@@ -37,7 +37,7 @@ func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfig
 	defer span.End()
 
 	// Delegate the entire package management workflow to the distribution-specific implementation
-	return distroHandler.managePackages(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot,
+	return distroHandler.ManagePackages(ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot,
 		rpmsSources, useBaseImageRpmRepos, snapshotTime)
 }
 

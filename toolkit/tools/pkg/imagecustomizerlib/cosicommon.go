@@ -371,7 +371,7 @@ func getArchitectureForCosi() string {
 }
 
 func getAllPackagesFromChroot(imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) ([]OsPackage, error) {
-	return distroHandler.getAllPackagesFromChroot(imageConnection.Chroot())
+	return distroHandler.GetAllPackagesFromChroot(imageConnection.Chroot())
 }
 
 func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnection.ImageConnection, distroHandler DistroHandler) (*CosiBootloader, error) {

@@ -872,6 +872,28 @@ func CheckEnvironmentVars() error {
 	return nil
 }
 
+func validateDistroPreviewFeatures(targetOs targetos.TargetOs, previewFeatures []imagecustomizerapi.PreviewFeature) error {
+	if targetOs == targetos.TargetOsFedora42 {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+			return ErrFedora42PreviewFeatureRequired
+		}
+	}
+
+	if targetOs == targetos.TargetOsUbuntu2204 {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
+			return ErrUbuntu2204PreviewFeatureRequired
+		}
+	}
+
+	if targetOs == targetos.TargetOsUbuntu2404 {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
+			return ErrUbuntu2404PreviewFeatureRequired
+		}
+	}
+
+	return nil
+}
+
 // validateTargetOs checks if the current distro/version is supported and has the required preview
 // features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
@@ -889,12 +911,14 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		return "", fmt.Errorf("failed to determine the target OS:\n%w", err)
 	}
 
-	// Check if Fedora 42 is being used and if it has the required preview feature
-	if targetOs == targetos.TargetOsFedora42 {
-		if !slices.Contains(rc.Config.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
-			return targetOs, ErrFedora42PreviewFeatureRequired
-		}
+	// Validate distro-specific preview features
+	err = validateDistroPreviewFeatures(targetOs, rc.Config.PreviewFeatures)
+	if err != nil {
+		return targetOs, err
+	}
 
+	// Check if Fedora 42 is being used and if package snapshot time is specified
+	if targetOs == targetos.TargetOsFedora42 {
 		hasPackageSnapshotTime := false
 
 		if rc.Options.PackageSnapshotTime != "" {
@@ -912,20 +936,6 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 
 		if hasPackageSnapshotTime {
 			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
-		}
-	}
-
-	// Check if Ubuntu 22.04 is being used and if it has the required preview feature
-	if targetOs == targetos.TargetOsUbuntu2204 {
-		if !slices.Contains(rc.Config.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
-			return targetOs, ErrUbuntu2204PreviewFeatureRequired
-		}
-	}
-
-	// Check if Ubuntu 24.04 is being used and if it has the required preview feature
-	if targetOs == targetos.TargetOsUbuntu2404 {
-		if !slices.Contains(rc.Config.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
-			return targetOs, ErrUbuntu2404PreviewFeatureRequired
 		}
 	}
 

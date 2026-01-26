@@ -36,8 +36,8 @@ func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
 	}
 }
 
-// managePackages handles the complete package management workflow for Ubuntu
-func (d *ubuntuDistroHandler) managePackages(ctx context.Context, buildDir string, baseConfigPath string,
+// ManagePackages handles the complete package management workflow for Ubuntu
+func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
@@ -48,25 +48,25 @@ func (d *ubuntuDistroHandler) managePackages(ctx context.Context, buildDir strin
 	return nil
 }
 
-// isPackageInstalled checks if a package is installed using dpkg
-func (d *ubuntuDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+// IsPackageInstalled checks if a package is installed using dpkg
+func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	return isPackageInstalledDpkg(imageChroot, packageName)
 }
 
-func (d *ubuntuDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	return getAllPackagesFromChrootDpkg(imageChroot)
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.isPackageInstalled(imageChroot, "grub-efi-amd64") || d.isPackageInstalled(imageChroot, "grub-efi-arm64") || d.isPackageInstalled(imageChroot, "grub-efi") {
+	if d.IsPackageInstalled(imageChroot, "grub-efi-amd64") || d.IsPackageInstalled(imageChroot, "grub-efi-arm64") || d.IsPackageInstalled(imageChroot, "grub-efi") {
 		return BootloaderTypeGrub, nil
 	}
-	if d.isPackageInstalled(imageChroot, "systemd-boot") {
+	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
 	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi-arm64, nor systemd-boot found")
 }
 
-func (d *ubuntuDistroHandler) getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
+func (d *ubuntuDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 	return filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
 }

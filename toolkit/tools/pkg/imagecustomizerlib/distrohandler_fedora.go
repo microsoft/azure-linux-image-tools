@@ -36,8 +36,8 @@ func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 	}
 }
 
-// managePackages handles the complete package management workflow for Fedora
-func (d *fedoraDistroHandler) managePackages(ctx context.Context, buildDir string, baseConfigPath string,
+// ManagePackages handles the complete package management workflow for Fedora
+func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
@@ -47,24 +47,24 @@ func (d *fedoraDistroHandler) managePackages(ctx context.Context, buildDir strin
 	)
 }
 
-func (d *fedoraDistroHandler) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	return d.packageManager.isPackageInstalled(imageChroot, packageName)
 }
 
-func (d *fedoraDistroHandler) getAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.isPackageInstalled(imageChroot, "grub2-efi-x64") || d.isPackageInstalled(imageChroot, "grub2-efi-aa64") {
+	if d.IsPackageInstalled(imageChroot, "grub2-efi-x64") || d.IsPackageInstalled(imageChroot, "grub2-efi-aa64") {
 		return BootloaderTypeGrub, nil
 	}
-	if d.isPackageInstalled(imageChroot, "systemd-boot") {
+	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
 	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
 }
 
-func (d *fedoraDistroHandler) getGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
+func (d *fedoraDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }

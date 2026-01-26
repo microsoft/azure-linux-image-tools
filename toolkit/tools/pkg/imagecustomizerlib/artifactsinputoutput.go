@@ -378,27 +378,11 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 		return err
 	}
 
-	imageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, buildDirAbs,
-		"imageroot", false, true, false, false)
-	if err != nil {
-		return fmt.Errorf("failed to connect to image:\n%w", err)
-	}
-	defer imageConnection.Close()
-
-	options.TargetOs, err = targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
-	if err != nil {
-		return fmt.Errorf("failed to determine target OS:\n%w", err)
-	}
-
-	err = imageConnection.CleanClose()
-	if err != nil {
-		return err
-	}
-
 	err = options.verifyPreviewFeatures(previewFeatures)
 	if err != nil {
 		return err
 	}
+
 	if options.OutputImageFormat != "" {
 		detectedImageFormat = imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
 	}
@@ -414,7 +398,7 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	}
 
 	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
-		options.CosiCompressionLevel)
+		options.CosiCompressionLevel, previewFeatures)
 	if err != nil {
 		return err
 	}
@@ -484,10 +468,11 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 
 func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
 	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi || detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
+			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot", previewFeatures)
 		if err != nil {
 			return err
 		}
@@ -522,7 +507,7 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 }
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
-	chrootDir string,
+	chrootDir string, previewFeatures []imagecustomizerapi.PreviewFeature,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
@@ -533,6 +518,16 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
 	}
 	defer imageConnection.Close()
+
+	targetOs, err := targetos.GetInstalledTargetOs(imageConnection.Chroot().RootDir())
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, fmt.Errorf("failed to determine target OS:\n%w", err)
+	}
+
+	err = validateDistroPreviewFeatures(targetOs, previewFeatures)
+	if err != nil {
+		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
+	}
 
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {

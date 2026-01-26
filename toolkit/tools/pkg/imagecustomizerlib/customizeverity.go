@@ -442,7 +442,7 @@ func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler Di
 	// Iterate over each required package and check if it's installed.
 	for _, pkg := range requiredRpms {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		installed := distroHandler.isPackageInstalled(imageChroot, pkg)
+		installed := distroHandler.IsPackageInstalled(imageChroot, pkg)
 		if !installed {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to use Verity: %v", pkg, requiredRpms)
 		}
