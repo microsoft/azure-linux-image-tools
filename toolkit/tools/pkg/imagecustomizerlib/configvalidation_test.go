@@ -23,7 +23,15 @@ func TestResolveCosiCompressionLevel_EmptyBareMetalImage_Pass(t *testing.T) {
 
 	resolvedLevel := resolveCosiCompressionLevel(configChain, nil, imagecustomizerapi.ImageFormatTypeBareMetalImage)
 
-	assert.Equal(t, imagecustomizerapi.DefaultBareMetalCompressionLevel, resolvedLevel)
+	assert.Equal(t, imagecustomizerapi.DefaultBareMetalCosiCompressionLevel, resolvedLevel)
+}
+
+func TestResolveCosiCompressionLevel_EmptyOtherFormat_Pass(t *testing.T) {
+	configChain := []*ConfigWithBasePath{}
+
+	resolvedLevel := resolveCosiCompressionLevel(configChain, nil, imagecustomizerapi.ImageFormatTypeVhdx)
+
+	assert.Equal(t, imagecustomizerapi.DefaultCosiCompressionLevel, resolvedLevel)
 }
 
 func TestResolveCosiCompressionLevel_SingleConfigCosi_Pass(t *testing.T) {
@@ -204,16 +212,16 @@ func TestResolveCosiCompressionLevel_OnlyBaseConfigCompressionLevel_Pass(t *test
 	assert.Equal(t, 19, resolvedLevel)
 }
 
-func TestResolveCosiCompressionLong_Cosi_Pass(t *testing.T) {
-	resolvedLong := resolveCosiCompressionLong(imagecustomizerapi.ImageFormatTypeCosi)
+func TestDefaultCosiCompressionLong_Cosi_Pass(t *testing.T) {
+	resolvedLong := defaultCosiCompressionLong(imagecustomizerapi.ImageFormatTypeCosi)
 
 	assert.Equal(t, imagecustomizerapi.DefaultCosiCompressionLong, resolvedLong)
 }
 
-func TestResolveCosiCompressionLong_BareMetalImage_Pass(t *testing.T) {
-	resolvedLong := resolveCosiCompressionLong(imagecustomizerapi.ImageFormatTypeBareMetalImage)
+func TestDefaultCosiCompressionLong_BareMetalImage_Pass(t *testing.T) {
+	resolvedLong := defaultCosiCompressionLong(imagecustomizerapi.ImageFormatTypeBareMetalImage)
 
-	assert.Equal(t, imagecustomizerapi.DefaultBareMetalCompressionLong, resolvedLong)
+	assert.Equal(t, imagecustomizerapi.DefaultBareMetalCosiCompressionLong, resolvedLong)
 }
 
 func TestResolveIsoAdditionalFiles_Empty(t *testing.T) {

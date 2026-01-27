@@ -15,32 +15,32 @@ type CosiCompression struct {
 }
 
 const (
-	// MinZstdCompressionLevel is the minimum zstd compression level.
-	MinZstdCompressionLevel = 1
+	// MinCosiCompressionLevel is the minimum zstd compression level.
+	MinCosiCompressionLevel = 1
 
-	// MaxZstdCompressionLevel is the maximum zstd compression level.
-	MaxZstdCompressionLevel = 22
+	// MaxCosiCompressionLevel is the maximum zstd compression level.
+	MaxCosiCompressionLevel = 22
 
-	// UltraZstdCompressionThreshold is the level at which --ultra is required.
-	UltraZstdCompressionThreshold = 20
+	// UltraCosiCompressionThreshold is the level at which --ultra is required.
+	UltraCosiCompressionThreshold = 20
 
-	// DefaultCosiCompressionLevel is the default zstd compression level for cosi format.
+	// DefaultBareMetalCosiCompressionLevel is the default zstd compression level for baremetal-image format.
+	DefaultBareMetalCosiCompressionLevel = 22
+
+	// DefaultBareMetalCosiCompressionLong is the default zstd --long window size for baremetal-image format (2^31 = 2 GiB).
+	DefaultBareMetalCosiCompressionLong = 31
+
+	// DefaultCosiCompressionLevel is the default zstd compression level for other formats.
 	DefaultCosiCompressionLevel = 9
 
-	// DefaultCosiCompressionLong is the zstd --long window size for cosi format (2^27 = 128 MiB).
+	// DefaultCosiCompressionLong is the default zstd --long window size (2^27 = 128 MiB) for other formats.
 	DefaultCosiCompressionLong = 27
-
-	// DefaultBareMetalCompressionLevel is the default zstd compression level for baremetal-image format.
-	DefaultBareMetalCompressionLevel = 22
-
-	// DefaultBareMetalCompressionLong is the zstd --long window size for baremetal-image format (2^31 = 2 GiB).
-	DefaultBareMetalCompressionLong = 31
 )
 
 func (c *CosiCompression) IsValid() error {
-	if c.Level != nil && (*c.Level < MinZstdCompressionLevel || *c.Level > MaxZstdCompressionLevel) {
+	if c.Level != nil && (*c.Level < MinCosiCompressionLevel || *c.Level > MaxCosiCompressionLevel) {
 		return fmt.Errorf("invalid 'level' value (%d): must be between %d and %d",
-			*c.Level, MinZstdCompressionLevel, MaxZstdCompressionLevel)
+			*c.Level, MinCosiCompressionLevel, MaxCosiCompressionLevel)
 	}
 
 	return nil

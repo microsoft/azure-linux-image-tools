@@ -159,7 +159,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel,
 		rc.OutputImageFormat)
-	rc.CosiCompressionLong = resolveCosiCompressionLong(rc.OutputImageFormat)
+	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
 
 	return rc, nil
 }
@@ -824,19 +824,19 @@ func resolveCosiCompressionLevel(configChain []*ConfigWithBasePath, cliLevel *in
 		}
 	}
 
-	return defaultCompressionLevel(format)
+	return defaultCosiCompressionLevel(format)
 }
 
-func resolveCosiCompressionLong(format imagecustomizerapi.ImageFormatType) int {
+func defaultCosiCompressionLong(format imagecustomizerapi.ImageFormatType) int {
 	if format == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		return imagecustomizerapi.DefaultBareMetalCompressionLong
+		return imagecustomizerapi.DefaultBareMetalCosiCompressionLong
 	}
 	return imagecustomizerapi.DefaultCosiCompressionLong
 }
 
-func defaultCompressionLevel(format imagecustomizerapi.ImageFormatType) int {
+func defaultCosiCompressionLevel(format imagecustomizerapi.ImageFormatType) int {
 	if format == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		return imagecustomizerapi.DefaultBareMetalCompressionLevel
+		return imagecustomizerapi.DefaultBareMetalCosiCompressionLong
 	}
 	return imagecustomizerapi.DefaultCosiCompressionLevel
 }
