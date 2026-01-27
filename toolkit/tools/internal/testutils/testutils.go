@@ -23,6 +23,7 @@ type MountPoint struct {
 	Path           string
 	FileSystemType string
 	Flags          uintptr
+	Data           string
 }
 
 func GetImageFileType(filePath string) (string, error) {
@@ -162,9 +163,9 @@ func ConnectToImage(buildDir string, imageFilePath string, includeDefaultMounts 
 		var mountPoint *safechroot.MountPoint
 		if mount.Path == "/" {
 			mountPoint = safechroot.NewPreDefaultsMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags,
-				"")
+				mount.Data)
 		} else {
-			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags, "")
+			mountPoint = safechroot.NewMountPoint(devPath, mount.Path, mount.FileSystemType, mount.Flags, mount.Data)
 		}
 
 		mountPoints = append(mountPoints, mountPoint)
