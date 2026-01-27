@@ -181,16 +181,11 @@ func (s *Storage) IsValid() error {
 				if hasFileSystem {
 					expectedMountPaths, hasExpectedMountPaths := PartitionTypeSupportedMountPaths[partition.Type]
 					if hasExpectedMountPaths {
-						// BTRFS subvolume mounts are not supported for partition types with expected mount paths.
-						if fileSystem.Btrfs != nil {
-							for _, subvolume := range fileSystem.Btrfs.Subvolumes {
-								if subvolume.MountPoint != nil {
-									logger.Log.Infof(
-										"partition (%s) with type (%s) does not support BTRFS subvolume mounts",
-										partition.Id, partition.Type)
-									break
-								}
-							}
+						// BTRFS subvolumes are unexpected for partition types with expected mount paths.
+						if fileSystem.Btrfs != nil && len(fileSystem.Btrfs.Subvolumes) > 0 {
+							logger.Log.Infof(
+								"unexpected for partition (%s) with type (%s) to have btrfs subvolumes",
+								partition.Id, partition.Type)
 						}
 
 						if fileSystem.MountPoint != nil {
