@@ -836,7 +836,7 @@ func defaultCosiCompressionLong(format imagecustomizerapi.ImageFormatType) int {
 
 func defaultCosiCompressionLevel(format imagecustomizerapi.ImageFormatType) int {
 	if format == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		return imagecustomizerapi.DefaultBareMetalCosiCompressionLong
+		return imagecustomizerapi.DefaultBareMetalCosiCompressionLevel
 	}
 	return imagecustomizerapi.DefaultCosiCompressionLevel
 }
