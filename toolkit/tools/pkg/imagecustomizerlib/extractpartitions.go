@@ -196,7 +196,7 @@ func compressWithZstd(partitionRawFilepath string, outputPartitionFilepath strin
 func buildZstdArgs(inputFile string, outputFile string, compressionLevel int, compressionLong int) []string {
 	args := []string{"--force"} // Overwrite a file with same name if it exists.
 
-	if compressionLevel >= imagecustomizerapi.UltraCosiCompressionThreshold {
+	if compressionLevel >= imagecustomizerapi.UltraZstdCompressionThreshold {
 		args = append(args, "--ultra") // Needed for the highest compression levels.
 	}
 

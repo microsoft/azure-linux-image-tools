@@ -51,11 +51,11 @@ func (o *ImageCustomizerOptions) IsValid() error {
 	}
 
 	if o.CosiCompressionLevel != nil &&
-		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
-			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
+		(*o.CosiCompressionLevel < imagecustomizerapi.MinZstdCompressionLevel ||
+			*o.CosiCompressionLevel > imagecustomizerapi.MaxZstdCompressionLevel) {
 		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
 			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
-			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
+			imagecustomizerapi.MinZstdCompressionLevel, imagecustomizerapi.MaxZstdCompressionLevel)
 	}
 
 	return nil
