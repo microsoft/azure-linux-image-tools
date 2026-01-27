@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import logging
 from threading import Event
 from typing import IO, Any, Optional, Union
 
@@ -17,6 +18,7 @@ class LibvirtConsoleLogger:
         self._console_stream_callback_started = False
         self._console_stream_callback_added = False
         self._log_file: Optional[IO[Any]] = None
+        self._logging_buffer = bytearray()
 
     # Attach logger to a libvirt VM.
     def attach(
@@ -99,12 +101,20 @@ class LibvirtConsoleLogger:
                     self._close_stream(False)
                     break
 
+                # Write to file.
                 assert self._log_file
                 self._log_file.write(data)
 
-                # Ideally we would also write to logging here.
-                # But the console bytes aren't sent in full lines.
-                # So, buffering and line splitting would need to be implemented manually.
+                # Write to logging.
+                newline_index = data.find(b"\n")
+                if newline_index == -1:
+                    # No newline found.
+                    # So, save the data for later.
+                    self._logging_buffer.extend(data)
+                else:
+                    self._logging_buffer.extend(data[:newline_index])
+                    self._write_logging()
+                    self._logging_buffer.extend(data[newline_index + 1 :])
 
         if events & libvirt.VIR_STREAM_EVENT_ERROR or events & libvirt.VIR_STREAM_EVENT_HANGUP:
             # Stream is shutting down. So, close it.
@@ -118,6 +128,9 @@ class LibvirtConsoleLogger:
             return
 
         try:
+            # Write final log line.
+            self._write_logging()
+
             # Close the log file
             assert self._log_file
             self._log_file.close()
@@ -135,3 +148,11 @@ class LibvirtConsoleLogger:
         finally:
             # Signal that the stream has closed.
             self._stream_completed.set()
+
+    # Write the current buffered contents to the log.
+    # Threading: Must only be called on libvirt events thread.
+    def _write_logging(self) -> None:
+        line = self._logging_buffer.decode("utf-8", errors="replace").rstrip()
+        logging.debug(line)
+
+        self._logging_buffer.clear()
