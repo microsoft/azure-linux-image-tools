@@ -753,20 +753,16 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 		return
 	}
 
-	var mountArgs []string
+	var mountData string
 	if subvolPath != "" {
-		mountArgs = []string{"-o", "subvol=/" + subvolPath, rootPartitionPath, btrfsMountDir}
-	} else {
-		mountArgs = []string{rootPartitionPath, btrfsMountDir}
+		mountData = "subvol=/" + subvolPath
 	}
 
-	err = shell.ExecuteLive(true, "mount", mountArgs...)
+	btrfsMount, err := safemount.NewMount(rootPartitionPath, btrfsMountDir, "btrfs", 0, mountData, true)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer func() {
-		shell.ExecuteLive(true, "umount", btrfsMountDir)
-	}()
+	defer btrfsMount.Close()
 
 	fstabPath := filepath.Join(btrfsMountDir, "etc", "fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)

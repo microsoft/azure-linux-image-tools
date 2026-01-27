@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/kernelversion"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
@@ -518,13 +519,11 @@ func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, 
 		return
 	}
 
-	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	btrfsMount, err := safemount.NewMount(btrfsPartitionPath, btrfsMountDir, "btrfs", 0, "", true)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer func() {
-		shell.ExecuteLive(true, "umount", btrfsMountDir)
-	}()
+	defer btrfsMount.Close()
 
 	verifyBtrfsSubvolumes(t, btrfsMountDir, nil)
 	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
@@ -571,13 +570,11 @@ func testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t *testing.T, testNa
 		return
 	}
 
-	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	btrfsMount, err := safemount.NewMount(btrfsPartitionPath, btrfsMountDir, "btrfs", 0, "", true)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer func() {
-		shell.ExecuteLive(true, "umount", btrfsMountDir)
-	}()
+	defer btrfsMount.Close()
 
 	expectedSubvolumes := []string{"root", "home"}
 	verifyBtrfsSubvolumes(t, btrfsMountDir, expectedSubvolumes)
@@ -633,13 +630,11 @@ func testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t *testing.T, testN
 		return
 	}
 
-	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	btrfsMount, err := safemount.NewMount(btrfsPartitionPath, btrfsMountDir, "btrfs", 0, "", true)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer func() {
-		shell.ExecuteLive(true, "umount", btrfsMountDir)
-	}()
+	defer btrfsMount.Close()
 
 	expectedSubvolumes := []string{"root", "home", "root/var", "root/var/log", "snapshots"}
 	verifyBtrfsSubvolumes(t, btrfsMountDir, expectedSubvolumes)
@@ -701,13 +696,11 @@ func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName str
 		return
 	}
 
-	err = shell.ExecuteLive(true, "mount", rootPartitionPath, rootMountDir)
+	rootMount, err := safemount.NewMount(rootPartitionPath, rootMountDir, "ext4", 0, "", true)
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer func() {
-		shell.ExecuteLive(true, "umount", rootMountDir)
-	}()
+	defer rootMount.Close()
 
 	fstabPath := filepath.Join(rootMountDir, "etc", "fstab")
 	verifyBtrfsFstabEntries(t, fstabPath, nil)
@@ -720,13 +713,11 @@ func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName str
 		return
 	}
 
-	err = shell.ExecuteLive(true, "mount", btrfsPartitionPath, btrfsMountDir)
+	btrfsMount, err := safemount.NewMount(btrfsPartitionPath, btrfsMountDir, "btrfs", 0, "", true)
 	if !assert.NoError(t, err, "should be able to mount btrfs partition") {
 		return
 	}
-	defer func() {
-		shell.ExecuteLive(true, "umount", btrfsMountDir)
-	}()
+	defer btrfsMount.Close()
 
 	_, err = os.ReadDir(btrfsMountDir)
 	assert.NoError(t, err, "should be able to read btrfs filesystem")
