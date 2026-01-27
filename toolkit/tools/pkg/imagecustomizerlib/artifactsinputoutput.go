@@ -482,16 +482,17 @@ func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImage
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 
-		compressionLevel := imagecustomizerapi.DefaultCosiCompressionLevel
+		compressionLevel := defaultCompressionLevel(detectedImageFormat)
 		if cosiCompressionLevel != nil {
 			compressionLevel = *cosiCompressionLevel
 		}
 
+		compressionLong := resolveCosiCompressionLong(detectedImageFormat)
 		includeVhdFooter := detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 
 		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
 			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			compressionLevel, imagecustomizerapi.DefaultCosiCompressionLong, includeVhdFooter, partitionOriginalSizes)
+			compressionLevel, compressionLong, includeVhdFooter, partitionOriginalSizes)
 		if err != nil {
 			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
 		}
