@@ -159,6 +159,4 @@ Enable a preview feature via the command line without modifying the configuratio
 
 This option can be specified multiple times to enable multiple preview features.
 
-Features specified via CLI are merged with any features specified in the [previewFeatures](../../imagecustomizer/api/configuration/config.md#previewfeatures-string) API. Please refer to that API for the list of supported preview features.
-
 Added in v1.2.
