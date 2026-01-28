@@ -70,15 +70,15 @@ PACKAGE_LIST=""
 # Declarative configuration maps
 TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
 
-# Map distro to config file
+# Map distro to config files (space-separated list of config files)
 declare -A DISTRO_CONFIG_MAP
-DISTRO_CONFIG_MAP["azurelinux"]="minimal-os.yaml"
+DISTRO_CONFIG_MAP["azurelinux"]="minimal-os.yaml minimal-os-btrfs.yaml"
 DISTRO_CONFIG_MAP["fedora"]="fedora.yaml"
 
-# Get configuration file for the distro
-CONFIG_FILE="${DISTRO_CONFIG_MAP[$DISTRO]}"
+# Get configuration files for the distro
+CONFIG_FILES="${DISTRO_CONFIG_MAP[$DISTRO]}"
 # Validate that we have configuration for this distro
-if [[ -z "$CONFIG_FILE" ]]; then
+if [[ -z "$CONFIG_FILES" ]]; then
   echo "Error: Unsupported distro '$DISTRO'"
   echo "Supported distros: ${!DISTRO_CONFIG_MAP[@]}"
   exit 1
@@ -98,16 +98,19 @@ if [ "$IMAGE_CREATOR" = "true" ]; then
     exit 1
   fi
 
-  # Extract package list from config file
-  CONFIG_PATH="$TESTDATA_DIR/$CONFIG_FILE"
-  if [[ ! -f "$CONFIG_PATH" ]]; then
-    echo "Error: Config file '$CONFIG_PATH' not found"
-    echo "Expected config file at: $CONFIG_PATH"
-    exit 1
-  fi
-  
-  PACKAGE_LIST=$(python3 "$SCRIPT_DIR/extract_packages.py" "$CONFIG_PATH")
-  echo "Package list from $CONFIG_FILE: $PACKAGE_LIST"
+  # Extract package list from all config files for this distro
+  for CONFIG_FILE in $CONFIG_FILES; do
+    CONFIG_PATH="$TESTDATA_DIR/$CONFIG_FILE"
+    if [[ ! -f "$CONFIG_PATH" ]]; then
+      echo "Error: Config file '$CONFIG_PATH' not found"
+      echo "Expected config file at: $CONFIG_PATH"
+      exit 1
+    fi
+
+    FILE_PACKAGES=$(python3 "$SCRIPT_DIR/extract_packages.py" "$CONFIG_PATH")
+    echo "Package list from $CONFIG_FILE: $FILE_PACKAGES"
+    PACKAGE_LIST="$PACKAGE_LIST $FILE_PACKAGES"
+  done
 else
   echo "Skipping tools file creation and package extraction."
 fi
