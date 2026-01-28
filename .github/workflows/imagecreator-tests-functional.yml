@@ -40,7 +40,7 @@ jobs:
         # Install Image Customizer prerequisities.
         sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
           sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-          xfsprogs zstd veritysetup grub2 binutils lsof \
+          xfsprogs btrfs-progs zstd veritysetup grub2 binutils lsof \
           git
 
         # grub2-pc is only available on x86.
@@ -63,7 +63,7 @@ jobs:
 
         sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
           sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs zstd cryptsetup-bin grub2-common binutils lsof \
+          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof \
 
     - name: Checkout
       uses: actions/checkout@v6

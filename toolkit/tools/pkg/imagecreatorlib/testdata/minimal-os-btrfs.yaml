@@ -67,4 +67,5 @@ os:
     - kernel
 
 previewFeatures:
+- create
 - btrfs
