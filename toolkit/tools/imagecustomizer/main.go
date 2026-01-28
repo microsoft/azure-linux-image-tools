@@ -64,6 +64,7 @@ type RootCmd struct {
 	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
 	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
+	PreviewFeature   []string         `name:"preview-feature" placeholder:"(base-configs|btrfs|cosi-compression|create|fedora-42|inject-files|input-image-oci|kdump-boot-files|output-artifacts|output-selinux-policy|package-snapshot-time|reinitialize-verity|ubuntu-22.04|ubuntu-24.04|uki)" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
 	exekong.LogFlags
 }
 
@@ -75,6 +76,7 @@ func main() {
 	vars := kong.Vars{
 		"imageformat":       strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ",") + ",",
 		"imageformatcreate": strings.Join(imagecustomizerapi.SupportedImageFormatTypesImageCreator(), ",") + ",",
+		"previewfeatures":   strings.Join(imagecustomizerapi.SupportedPreviewFeatures(), ",") + ",",
 		"version":           imagecustomizerlib.ToolVersion,
 	}
 	maps.Copy(vars, exekong.KongVars)
@@ -112,21 +114,23 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 		defer timestamp.CompleteTiming()
 	}
 
+	cliPreviewFeatures := imagecustomizerlib.StringsToPreviewFeatures(cli.PreviewFeature)
+
 	switch command {
 	case "create":
-		err = createImage(ctx, cli.Create)
+		err = createImage(ctx, cli.Create, cliPreviewFeatures)
 		if err != nil {
 			return fmt.Errorf("image creation failed:\n%w", err)
 		}
 
 	case "customize":
-		err = customizeImage(ctx, cli.Customize)
+		err = customizeImage(ctx, cli.Customize, cliPreviewFeatures)
 		if err != nil {
 			return fmt.Errorf("image customization failed:\n%w", err)
 		}
 
 	case "inject-files":
-		err = injectFiles(ctx, cli.InjectFiles)
+		err = injectFiles(ctx, cli.InjectFiles, cliPreviewFeatures)
 		if err != nil {
 			return fmt.Errorf("inject-files failed:\n%w", err)
 		}
@@ -138,8 +142,10 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 	return nil
 }
 
-func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
+func customizeImage(ctx context.Context, cmd CustomizeCmd,
+	cliPreviewFeatures []imagecustomizerapi.PreviewFeature,
+) error {
+	err := imagecustomizerlib.CustomizeImageWithConfigFileAndPreviewFeatures(ctx, cmd.ConfigFile, cliPreviewFeatures,
 		imagecustomizerlib.ImageCustomizerOptions{
 			BuildDir:                cmd.BuildDir,
 			InputImageFile:          cmd.InputImageFile,
@@ -160,8 +166,10 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 	return nil
 }
 
-func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
-	err := imagecustomizerlib.InjectFilesWithConfigFile(ctx, cmd.ConfigFile,
+func injectFiles(ctx context.Context, cmd InjectFilesCmd,
+	cliPreviewFeatures []imagecustomizerapi.PreviewFeature,
+) error {
+	err := imagecustomizerlib.InjectFilesWithConfigFileAndPreviewFeatures(ctx, cmd.ConfigFile, cliPreviewFeatures,
 		imagecustomizerlib.InjectFilesOptions{
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,
@@ -176,10 +184,12 @@ func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
 	return nil
 }
 
-func createImage(ctx context.Context, cmd CreateCmd) error {
-	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
+func createImage(ctx context.Context, cmd CreateCmd,
+	cliPreviewFeatures []imagecustomizerapi.PreviewFeature,
+) error {
+	err := imagecreatorlib.CreateImageWithConfigFileAndPreviewFeatures(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
 		cmd.ToolsTar, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.Distro, cmd.DistroVersion,
-		cmd.PackageSnapshotTime)
+		cmd.PackageSnapshotTime, cliPreviewFeatures)
 	if err != nil {
 		return err
 	}
