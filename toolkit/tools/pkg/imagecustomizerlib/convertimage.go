@@ -34,17 +34,8 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 		return err
 	}
 
-	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
-
-	detectedImageFormat, err := convertImageToRaw(options.InputImageFile, rawImageFile)
-	if err != nil {
-		return err
-	}
-
+	// OutputImageFormat is required, so no need to fall back to detected format
 	outputFormat := imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
-	if outputFormat == "" {
-		outputFormat = detectedImageFormat
-	}
 
 	if options.CosiCompressionLevel != nil {
 		if outputFormat != imagecustomizerapi.ImageFormatTypeCosi &&
@@ -53,15 +44,38 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 		}
 	}
 
+	// TODO: Once --preview-features CLI flag is added, preview features should be passed from CLI args
+	// and the auto-add logic below should be removed.
+	// Preview features list - currently auto-populated to maintain functionality until CLI flag is available
 	var previewFeatures []imagecustomizerapi.PreviewFeature
+	previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureConvert)
 	if options.CosiCompressionLevel != nil {
 		previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression)
 	}
 
-	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, outputFormat,
-		options.OutputImageFile, options.CosiCompressionLevel, previewFeatures)
+	err = options.verifyPreviewFeatures(previewFeatures)
 	if err != nil {
 		return err
+	}
+
+	if outputFormat == imagecustomizerapi.ImageFormatTypeCosi || outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
+		rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
+		_, err = convertImageToRaw(options.InputImageFile, rawImageFile)
+		if err != nil {
+			return err
+		}
+
+		err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, outputFormat,
+			options.OutputImageFile, options.CosiCompressionLevel, previewFeatures)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = ConvertImageFile(options.InputImageFile, options.OutputImageFile, outputFormat)
+		if err != nil {
+			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion,
+				options.OutputImageFile, outputFormat, err)
+		}
 	}
 
 	logger.Log.Infof("Success!")

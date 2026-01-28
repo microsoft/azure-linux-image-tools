@@ -47,6 +47,9 @@ const (
 	// PreviewFeatureCosiCompression enables custom compression settings for COSI output.
 	PreviewFeatureCosiCompression PreviewFeature = "cosi-compression"
 
+	// PreviewFeatureConvert enables the convert subcommand for image format conversion.
+	PreviewFeatureConvert PreviewFeature = "convert"
+
 	// PreviewFeatureBtrfs enables support for creating BTRFS filesystems.
 	PreviewFeatureBtrfs PreviewFeature = "btrfs"
 
@@ -60,7 +63,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
 		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
 		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression,
-		PreviewFeatureBtrfs, PreviewFeatureCreate:
+		PreviewFeatureConvert, PreviewFeatureBtrfs, PreviewFeatureCreate:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)
