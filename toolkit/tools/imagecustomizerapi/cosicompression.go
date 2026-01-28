@@ -15,9 +15,6 @@ type CosiCompression struct {
 }
 
 const (
-	// DefaultCosiCompressionLevel is the default zstd compression level.
-	DefaultCosiCompressionLevel = 9
-
 	// MinCosiCompressionLevel is the minimum zstd compression level.
 	MinCosiCompressionLevel = 1
 
@@ -27,7 +24,16 @@ const (
 	// UltraCosiCompressionThreshold is the level at which --ultra is required.
 	UltraCosiCompressionThreshold = 20
 
-	// DefaultCosiCompressionLong is the zstd --long window size for COSI format (2^27 = 128 MiB).
+	// DefaultBareMetalCosiCompressionLevel is the default zstd compression level for baremetal-image format.
+	DefaultBareMetalCosiCompressionLevel = 22
+
+	// DefaultBareMetalCosiCompressionLong is the default zstd --long window size for baremetal-image format (2^31 = 2 GiB).
+	DefaultBareMetalCosiCompressionLong = 31
+
+	// DefaultCosiCompressionLevel is the default zstd compression level for other formats.
+	DefaultCosiCompressionLevel = 9
+
+	// DefaultCosiCompressionLong is the default zstd --long window size (2^27 = 128 MiB) for other formats.
 	DefaultCosiCompressionLong = 27
 )
 

@@ -157,8 +157,9 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel)
-	rc.CosiCompressionLong = imagecustomizerapi.DefaultCosiCompressionLong
+	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel,
+		rc.OutputImageFormat)
+	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
 
 	return rc, nil
 }
@@ -810,7 +811,9 @@ func resolvePxeConfig(configChain []*ConfigWithBasePath) imagecustomizerapi.Pxe 
 	return pxe
 }
 
-func resolveCosiCompressionLevel(configChain []*ConfigWithBasePath, cliLevel *int) int {
+func resolveCosiCompressionLevel(configChain []*ConfigWithBasePath, cliLevel *int,
+	format imagecustomizerapi.ImageFormatType,
+) int {
 	if cliLevel != nil {
 		return *cliLevel
 	}
@@ -821,5 +824,19 @@ func resolveCosiCompressionLevel(configChain []*ConfigWithBasePath, cliLevel *in
 		}
 	}
 
+	return defaultCosiCompressionLevel(format)
+}
+
+func defaultCosiCompressionLong(format imagecustomizerapi.ImageFormatType) int {
+	if format == imagecustomizerapi.ImageFormatTypeBareMetalImage {
+		return imagecustomizerapi.DefaultBareMetalCosiCompressionLong
+	}
+	return imagecustomizerapi.DefaultCosiCompressionLong
+}
+
+func defaultCosiCompressionLevel(format imagecustomizerapi.ImageFormatType) int {
+	if format == imagecustomizerapi.ImageFormatTypeBareMetalImage {
+		return imagecustomizerapi.DefaultBareMetalCosiCompressionLevel
+	}
 	return imagecustomizerapi.DefaultCosiCompressionLevel
 }
