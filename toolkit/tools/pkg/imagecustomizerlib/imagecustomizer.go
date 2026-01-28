@@ -141,6 +141,12 @@ func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFi
 }
 
 func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string, options ImageCustomizerOptions) error {
+	return CustomizeImageWithConfigFileAndPreviewFeatures(ctx, configFile, nil, options)
+}
+
+func CustomizeImageWithConfigFileAndPreviewFeatures(ctx context.Context, configFile string,
+	previewFeatures []imagecustomizerapi.PreviewFeature, options ImageCustomizerOptions,
+) error {
 	var err error
 
 	var config imagecustomizerapi.Config
@@ -149,6 +155,9 @@ func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string,
 	if err != nil {
 		return err
 	}
+
+	// Merge CLI preview features with config preview features
+	config.PreviewFeatures = MergePreviewFeatures(config.PreviewFeatures, previewFeatures)
 
 	baseConfigPath, _ := filepath.Split(configFile)
 

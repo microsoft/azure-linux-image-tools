@@ -20,11 +20,22 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
 	packageSnapshotTime string,
 ) error {
+	return CreateImageWithConfigFileAndPreviewFeatures(ctx, buildDir, configFile, rpmsSources, toolsTar, outputImageFile,
+		outputImageFormat, distro, distroVersion, packageSnapshotTime, nil)
+}
+
+func CreateImageWithConfigFileAndPreviewFeatures(ctx context.Context, buildDir string, configFile string,
+	rpmsSources []string, toolsTar string, outputImageFile string, outputImageFormat string, distro string,
+	distroVersion string, packageSnapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature,
+) error {
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config file %s:\n%w", configFile, err)
 	}
+
+	// Merge CLI preview features with config preview features
+	config.PreviewFeatures = imagecustomizerlib.MergePreviewFeatures(config.PreviewFeatures, previewFeatures)
 
 	baseConfigPath, _ := filepath.Split(configFile)
 

@@ -46,3 +46,13 @@ Added in v0.3.
 ## --version
 
 Prints the version of the tool.
+
+## --preview-feature=FEATURE
+
+Enable a preview feature via the command line without modifying the configuration file.
+
+This option can be specified multiple times to enable multiple preview features.
+
+Features specified via CLI are merged with any features specified in the inject-files's [previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API (for the `inject-files` subcommand) or the main [previewFeatures](../configuration/config.md#previewfeatures-string) API (for the `customize` and `create` subcommands). Please refer to the main [previewFeatures](../configuration/config.md#previewfeatures-string) API for the list of supported preview features.
+
+Added in v1.2.
