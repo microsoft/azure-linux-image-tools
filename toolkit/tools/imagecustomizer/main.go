@@ -58,11 +58,12 @@ type InjectFilesCmd struct {
 }
 
 type ConvertCmd struct {
-	BuildDir             string `name:"build-dir" help:"Directory to run build out of." required:""`
-	InputImageFile       string `name:"image-file" help:"Path of the image to convert." required:""`
-	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
-	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
-	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	BuildDir             string   `name:"build-dir" help:"Directory to run build out of." required:""`
+	InputImageFile       string   `name:"image-file" help:"Path of the image to convert." required:""`
+	OutputImageFile      string   `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
+	OutputImageFormat    string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
+	PreviewFeatures      []string `name:"preview-features" help:"Comma-separated list of preview features to enable."`
+	CosiCompressionLevel *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 }
 
 type RootCmd struct {
@@ -193,12 +194,18 @@ func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
 }
 
 func convertImage(ctx context.Context, cmd ConvertCmd) error {
+	previewFeatures := make([]imagecustomizerapi.PreviewFeature, len(cmd.PreviewFeatures))
+	for i, pf := range cmd.PreviewFeatures {
+		previewFeatures[i] = imagecustomizerapi.PreviewFeature(pf)
+	}
+
 	err := imagecustomizerlib.ConvertImageWithOptions(ctx,
 		imagecustomizerlib.ConvertImageOptions{
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    cmd.OutputImageFormat,
+			PreviewFeatures:      previewFeatures,
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
 		})
 	if err != nil {

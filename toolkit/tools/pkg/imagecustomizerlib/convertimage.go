@@ -44,16 +44,7 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 		}
 	}
 
-	// TODO: Once --preview-features CLI flag is added, preview features should be passed from CLI args
-	// and the auto-add logic below should be removed.
-	// Preview features list - currently auto-populated to maintain functionality until CLI flag is available
-	var previewFeatures []imagecustomizerapi.PreviewFeature
-	previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureConvert)
-	if options.CosiCompressionLevel != nil {
-		previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression)
-	}
-
-	err = options.verifyPreviewFeatures(previewFeatures)
+	err = options.verifyPreviewFeatures(options.PreviewFeatures)
 	if err != nil {
 		return err
 	}
@@ -66,7 +57,7 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 		}
 
 		err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, outputFormat,
-			options.OutputImageFile, options.CosiCompressionLevel, previewFeatures)
+			options.OutputImageFile, options.CosiCompressionLevel, options.PreviewFeatures)
 		if err != nil {
 			return err
 		}

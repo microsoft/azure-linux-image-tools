@@ -17,6 +17,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func getDefaultPreviewFeatures(cosiCompressionLevel *int) []imagecustomizerapi.PreviewFeature {
+	previewFeatures := []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureConvert}
+	if cosiCompressionLevel != nil {
+		previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression)
+	}
+	return previewFeatures
+}
+
 func TestConvertImageRawToVhdx(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
 
@@ -31,6 +39,7 @@ func TestConvertImageRawToVhdx(t *testing.T) {
 		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: "vhdx",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err := ConvertImageWithOptions(t.Context(), options)
@@ -61,6 +70,7 @@ func TestConvertImageRawToVhd(t *testing.T) {
 		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: "vhd",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err := ConvertImageWithOptions(t.Context(), options)
@@ -91,6 +101,7 @@ func TestConvertImageRawToQcow2(t *testing.T) {
 		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: "qcow2",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err := ConvertImageWithOptions(t.Context(), options)
@@ -125,6 +136,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 		InputImageFile:    baseImage,
 		OutputImageFile:   intermediateVhdx,
 		OutputImageFormat: "vhdx",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err := ConvertImageWithOptions(t.Context(), options1)
@@ -139,6 +151,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 		InputImageFile:    intermediateVhdx,
 		OutputImageFile:   outputQcow2,
 		OutputImageFormat: "qcow2",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err = ConvertImageWithOptions(t.Context(), options2)
@@ -196,6 +209,7 @@ func TestConvertImageRawToCosi(t *testing.T) {
 		InputImageFile:    customizedImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: "cosi",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err = ConvertImageWithOptions(t.Context(), options)
@@ -254,6 +268,7 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 		InputImageFile:       customizedImage,
 		OutputImageFile:      outputImageFile,
 		OutputImageFormat:    "cosi",
+		PreviewFeatures:      getDefaultPreviewFeatures(nil),
 		CosiCompressionLevel: &compressionLevel,
 	}
 
@@ -312,6 +327,7 @@ func TestConvertImageRawToBareMetalImage(t *testing.T) {
 		InputImageFile:    customizedImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: "baremetal-image",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err = ConvertImageWithOptions(t.Context(), options)
@@ -342,6 +358,7 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 		InputImageFile:    "/nonexistent/image.raw",
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: "vhdx",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err := ConvertImageWithOptions(t.Context(), options)
@@ -365,6 +382,7 @@ func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 		InputImageFile:       baseImage,
 		OutputImageFile:      outputImageFile,
 		OutputImageFormat:    "vhdx",
+		PreviewFeatures:      getDefaultPreviewFeatures(nil),
 		CosiCompressionLevel: &compressionLevel,
 	}
 
@@ -406,6 +424,7 @@ func TestConvertImageAutoDetectFormat(t *testing.T) {
 		InputImageFile:    intermediateVhdx,
 		OutputImageFile:   outputRaw,
 		OutputImageFormat: "raw",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 
 	err = ConvertImageWithOptions(t.Context(), options)
@@ -439,6 +458,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		InputImageFile:    baseImage,
 		OutputImageFile:   vhdxImage,
 		OutputImageFormat: "vhdx",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 	err := ConvertImageWithOptions(t.Context(), options1)
 	if !assert.NoError(t, err) {
@@ -453,6 +473,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		InputImageFile:    vhdxImage,
 		OutputImageFile:   qcow2Image,
 		OutputImageFormat: "qcow2",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 	err = ConvertImageWithOptions(t.Context(), options2)
 	if !assert.NoError(t, err) {
@@ -467,6 +488,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		InputImageFile:    qcow2Image,
 		OutputImageFile:   vhdImage,
 		OutputImageFormat: "vhd",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 	err = ConvertImageWithOptions(t.Context(), options3)
 	if !assert.NoError(t, err) {
@@ -481,6 +503,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		InputImageFile:    vhdImage,
 		OutputImageFile:   rawImage,
 		OutputImageFormat: "raw",
+		PreviewFeatures:   getDefaultPreviewFeatures(nil),
 	}
 	err = ConvertImageWithOptions(t.Context(), options4)
 	if !assert.NoError(t, err) {
