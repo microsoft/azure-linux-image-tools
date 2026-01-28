@@ -397,7 +397,7 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 		return err
 	}
 
-	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
+	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
 		options.CosiCompressionLevel, previewFeatures)
 	if err != nil {
 		return err
@@ -461,48 +461,6 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 	err = loopback.CleanClose()
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
-	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
-	previewFeatures []imagecustomizerapi.PreviewFeature,
-) error {
-	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi || detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot", previewFeatures)
-		if err != nil {
-			return err
-		}
-
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
-		}
-
-		compressionLevel := defaultCosiCompressionLevel(detectedImageFormat)
-		if cosiCompressionLevel != nil {
-			compressionLevel = *cosiCompressionLevel
-		}
-
-		compressionLong := defaultCosiCompressionLong(detectedImageFormat)
-
-		includeVhdFooter := detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
-
-		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
-			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			compressionLevel, compressionLong, includeVhdFooter, partitionOriginalSizes)
-		if err != nil {
-			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
-		}
-	} else {
-		err := ConvertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
-		if err != nil {
-			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion, outputImageFile,
-				detectedImageFormat, err)
-		}
 	}
 
 	return nil
