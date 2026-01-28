@@ -29,6 +29,8 @@ Required.
 
 The temporary workspace directory where the tool will place its working files.
 
+Added in v1.2.
+
 ## --image-file=FILE-PATH
 
 Required.
@@ -37,15 +39,21 @@ The path to the image to convert.
 
 Supported input formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, and `iso`.
 
+Added in v1.2.
+
 ## --output-image-file=FILE-PATH
 
 Required.
 
 The file path to write the converted image to.
 
+Added in v1.2.
+
 ## --output-path=FILE-PATH
 
 An alias to `--output-image-file`.
+
+Added in v1.2.
 
 ## --output-image-format=FORMAT
 
@@ -62,20 +70,23 @@ Supported formats:
 - `cosi`: Compressed image format with metadata
 - `baremetal-image`: COSI format with VHD footer for bare-metal deployments
 
+Added in v1.2.
+
 ## --cosi-compression-level=LEVEL
 
-Optional.
+Optional. Default: `9`
 
-Zstd compression level for COSI output (valid range: 1-22, default: 9).
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying `cosi-compression` in the
+[previewFeatures](../configuration/config.md#previewfeatures-string) API.
 
-Higher values provide better compression but take longer to compress.
-Lower values compress faster but result in larger files.
+The zstd compression level (1-22) for COSI partition images.
 
-This option is only applicable when `--output-image-format` is set to `cosi`
-or `baremetal-image`.
+Higher compression levels produce smaller files but take significantly longer to
+compress. Decompression speed is largely unaffected by the compression level.
 
-When using custom compression levels, the `cosi-compression` preview feature
-must be enabled in the configuration file (if applicable).
+Added in v1.2.
 
 ## Examples
 
