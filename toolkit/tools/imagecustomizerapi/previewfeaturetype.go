@@ -50,6 +50,9 @@ const (
 	// PreviewFeatureBtrfs enables support for creating BTRFS file systems.
 	PreviewFeatureBtrfs PreviewFeature = "btrfs"
 
+	// PreviewFeatureConvert enables the convert subcommand for image format conversion.
+	PreviewFeatureConvert PreviewFeature = "convert"
+
 	// PreviewFeatureCreate enables the create command for building new images from scratch.
 	PreviewFeatureCreate PreviewFeature = "create"
 )
@@ -60,7 +63,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
 		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
 		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression,
-		PreviewFeatureBtrfs, PreviewFeatureCreate:
+		PreviewFeatureConvert, PreviewFeatureBtrfs, PreviewFeatureCreate:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

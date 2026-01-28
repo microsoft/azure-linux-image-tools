@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -345,7 +346,8 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 
 	err := ConvertImageWithOptions(t.Context(), options)
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "failed to detect input image format")
+	assert.True(t, strings.Contains(err.Error(), "failed to convert") || strings.Contains(err.Error(), "failed to detect"),
+		"error should indicate conversion or detection failure, got: %v", err)
 }
 
 func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {

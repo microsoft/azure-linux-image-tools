@@ -45,6 +45,7 @@ var (
 	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
 	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
 	ErrCosiCompressionPreviewRequired   = NewImageCustomizerError("Validation:CosiCompressionPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify custom COSI compression settings", imagecustomizerapi.PreviewFeatureCosiCompression))
+	ErrConvertPreviewRequired           = NewImageCustomizerError("Validation:ConvertPreviewRequired", fmt.Sprintf("preview feature '%s' required to use convert subcommand", imagecustomizerapi.PreviewFeatureConvert))
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")

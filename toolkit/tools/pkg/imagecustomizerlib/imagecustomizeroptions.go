@@ -50,12 +50,8 @@ func (o *ImageCustomizerOptions) IsValid() error {
 		return ErrMultipleInputImageOptions
 	}
 
-	if o.CosiCompressionLevel != nil &&
-		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
-			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
-		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
-			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
-			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
+	if err := validateCosiCompressionLevel(o.CosiCompressionLevel); err != nil {
+		return err
 	}
 
 	return nil
@@ -74,10 +70,8 @@ func (o *ImageCustomizerOptions) verifyPreviewFeatures(previewFeatures []imagecu
 		}
 	}
 
-	if o.CosiCompressionLevel != nil {
-		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
-			return ErrCosiCompressionPreviewRequired
-		}
+	if err := verifyCosiCompressionPreviewFeature(o.CosiCompressionLevel, previewFeatures); err != nil {
+		return err
 	}
 
 	return nil

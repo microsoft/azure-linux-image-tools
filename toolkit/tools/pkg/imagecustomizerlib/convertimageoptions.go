@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
@@ -34,13 +35,43 @@ func (o *ConvertImageOptions) IsValid() error {
 		return fmt.Errorf("output image format must be specified")
 	}
 
-	if o.CosiCompressionLevel != nil &&
-		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
-			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
-		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
-			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
-			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
+	if err := validateCosiCompressionLevel(o.CosiCompressionLevel); err != nil {
+		return err
 	}
 
+	return nil
+}
+
+func (o *ConvertImageOptions) verifyPreviewFeatures(previewFeatures []imagecustomizerapi.PreviewFeature) error {
+	if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureConvert) {
+		return ErrConvertPreviewRequired
+	}
+
+	if err := verifyCosiCompressionPreviewFeature(o.CosiCompressionLevel, previewFeatures); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateCosiCompressionLevel validates the COSI compression level value.
+func validateCosiCompressionLevel(level *int) error {
+	if level != nil &&
+		(*level < imagecustomizerapi.MinCosiCompressionLevel ||
+			*level > imagecustomizerapi.MaxCosiCompressionLevel) {
+		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
+			ErrInvalidCosiCompressionLevelArg, *level,
+			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
+	}
+	return nil
+}
+
+// verifyCosiCompressionPreviewFeature verifies the COSI compression preview feature is enabled when needed.
+func verifyCosiCompressionPreviewFeature(level *int, previewFeatures []imagecustomizerapi.PreviewFeature) error {
+	if level != nil {
+		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
+			return ErrCosiCompressionPreviewRequired
+		}
+	}
 	return nil
 }

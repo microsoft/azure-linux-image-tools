@@ -15,7 +15,7 @@ when converting to COSI or bare-metal-image formats.
 
 ```bash
 imagecustomizer convert \
-  --build-dir /tmp/build \
+  --build-dir ./build \
   --image-file input.vhdx \
   --output-image-file output.cosi \
   --output-image-format cosi
@@ -37,7 +37,7 @@ Required.
 
 The path to the image to convert.
 
-Supported input formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, and `iso`.
+Supported input formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, and `raw`.
 
 Added in v1.2.
 
@@ -62,6 +62,7 @@ Required.
 The format type of the output image.
 
 Supported formats:
+
 - `vhd`: Dynamic VHD format
 - `vhd-fixed`: Fixed-size VHD format (required for Azure VMs)
 - `vhdx`: Hyper-V VHDX format

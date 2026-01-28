@@ -4,9 +4,6 @@
 package imagecustomizerlib
 
 import (
-	"fmt"
-	"slices"
-
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
@@ -19,23 +16,9 @@ type InjectFilesOptions struct {
 }
 
 func (o *InjectFilesOptions) IsValid() error {
-	if o.CosiCompressionLevel != nil &&
-		(*o.CosiCompressionLevel < imagecustomizerapi.MinCosiCompressionLevel ||
-			*o.CosiCompressionLevel > imagecustomizerapi.MaxCosiCompressionLevel) {
-		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
-			ErrInvalidCosiCompressionLevelArg, *o.CosiCompressionLevel,
-			imagecustomizerapi.MinCosiCompressionLevel, imagecustomizerapi.MaxCosiCompressionLevel)
-	}
-
-	return nil
+	return validateCosiCompressionLevel(o.CosiCompressionLevel)
 }
 
 func (o *InjectFilesOptions) verifyPreviewFeatures(previewFeatures []imagecustomizerapi.PreviewFeature) error {
-	if o.CosiCompressionLevel != nil {
-		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
-			return ErrCosiCompressionPreviewRequired
-		}
-	}
-
-	return nil
+	return verifyCosiCompressionPreviewFeature(o.CosiCompressionLevel, previewFeatures)
 }
