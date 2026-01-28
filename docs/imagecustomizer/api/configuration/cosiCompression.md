@@ -33,7 +33,7 @@ You must enable this feature by specifying `cosi-compression` in the
 Optional. Default: `9`
 
 If both `output.image.cosi.compression.level` and
-[--cosi-compression-level](../cli/cli.md#--cosi-compression-levellevel) are provided, then the
+[--cosi-compression-level](../cli/customize.md#--cosi-compression-levellevel) are provided, then the
 `--cosi-compression-level` value is used.
 
 The zstd compression level (1-22) for COSI partition images.

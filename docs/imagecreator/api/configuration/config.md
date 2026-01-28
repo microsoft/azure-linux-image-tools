@@ -56,7 +56,7 @@ Supported options:
 
 - `package-snapshot-time`: Enables snapshot-based package filtering during image
   customization. This allows specifying a cutoff timestamp using the
-  [`--package-snapshot-time`](../../../imagecustomizer/api/cli/cli.md#--package-snapshot-time) CLI option or
+  [`--package-snapshot-time`](../../../imagecustomizer/api/cli/customize.md#--package-snapshot-time) CLI option or
   [`os.packages.snapshotTime`](../../../imagecustomizer/api/configuration/packages.md#snapshottime-string) API field.
   If both are provided, the CLI value takes precedence.
 

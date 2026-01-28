@@ -28,7 +28,7 @@ input:
 ```
 
 To use this feature, you must pass in a
-[--image-cache-dir](../cli/cli.md#--image-cache-dir) value when calling
+[--image-cache-dir](../cli/customize.md#--image-cache-dir) value when calling
 `imagecustomizer`.
 
 This feature is in preview and may be subject to breaking changes.

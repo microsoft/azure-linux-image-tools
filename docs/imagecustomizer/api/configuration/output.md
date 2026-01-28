@@ -63,7 +63,7 @@ files. The policy type is determined by reading the `SELINUXTYPE` value from
 from `/etc/selinux/<type>` is extracted.
 
 This field can be overridden by the
-[--output-selinux-policy-path](../cli/cli.md#--output-selinux-policy-pathdirectory-path)
+[--output-selinux-policy-path](../cli/customize.md#--output-selinux-policy-pathdirectory-path)
 command line option. If both are provided, the command line value is used.
 
 The path can be either:
