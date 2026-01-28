@@ -283,3 +283,15 @@ You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
 Added in v1.1.
+
+## convert
+
+Converts an image from one format to another without performing customization
+or file injection.
+
+This is a streamlined command for simple format conversions, especially useful
+when converting to COSI format.
+
+See [convert subcommand](./convert.md) for full documentation.
+
+Added in v1.2.
