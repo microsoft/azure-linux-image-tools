@@ -182,7 +182,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	// Check partition sizes.
 	assert.Equal(t, int64(500*diskutils.MiB), espStat.Size())
 	assert.Equal(t, int64(2*diskutils.GiB), rootStat.Size())
-	assert.Equal(t, int64(100*diskutils.MiB), rootHashStat.Size())
+	assert.Equal(t, int64(17*diskutils.MiB), rootHashStat.Size())
 
 	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
 	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
