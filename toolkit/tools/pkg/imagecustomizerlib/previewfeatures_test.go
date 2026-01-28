@@ -38,14 +38,14 @@ func TestMergePreviewFeatures_NoDuplicates_Pass(t *testing.T) {
 		imagecustomizerapi.PreviewFeatureUki,
 	}
 	cliFeatures := []imagecustomizerapi.PreviewFeature{
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 
 	result := MergePreviewFeatures(configFeatures, cliFeatures)
 
 	expected := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 	assert.Equal(t, expected, result)
 }
@@ -53,7 +53,7 @@ func TestMergePreviewFeatures_NoDuplicates_Pass(t *testing.T) {
 func TestMergePreviewFeatures_WithDuplicates_Pass(t *testing.T) {
 	configFeatures := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 	cliFeatures := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
@@ -64,7 +64,7 @@ func TestMergePreviewFeatures_WithDuplicates_Pass(t *testing.T) {
 
 	expected := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 		imagecustomizerapi.PreviewFeatureOutputArtifacts,
 	}
 	assert.Equal(t, expected, result)
@@ -73,11 +73,11 @@ func TestMergePreviewFeatures_WithDuplicates_Pass(t *testing.T) {
 func TestMergePreviewFeatures_AllDuplicates_Pass(t *testing.T) {
 	configFeatures := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 	cliFeatures := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 
 	result := MergePreviewFeatures(configFeatures, cliFeatures)
@@ -89,15 +89,15 @@ func TestMergePreviewFeatures_CliDuplicates_Pass(t *testing.T) {
 		imagecustomizerapi.PreviewFeatureUki,
 	}
 	cliFeatures := []imagecustomizerapi.PreviewFeature{
-		imagecustomizerapi.PreviewFeatureValidateConfig,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 
 	result := MergePreviewFeatures(configFeatures, cliFeatures)
 
 	expected := []imagecustomizerapi.PreviewFeature{
 		imagecustomizerapi.PreviewFeatureUki,
-		imagecustomizerapi.PreviewFeatureValidateConfig,
+		imagecustomizerapi.PreviewFeatureBaseConfigs,
 	}
 	assert.Equal(t, expected, result)
 }
