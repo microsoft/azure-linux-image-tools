@@ -13,6 +13,12 @@
         <rpm-check-signatures>false</rpm-check-signatures>
         <locale>en_US</locale>
         <keytable>us</keytable>
+    </preferences>
+    <profiles>
+        <profile name="Container" description="Container image profile">
+        </profile>
+    </profiles>
+    <preferences profiles="Container">
         <type image="docker">
             <containerconfig name="fedora-43-simple"/>
         </type>
