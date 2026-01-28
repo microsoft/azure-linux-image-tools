@@ -15,6 +15,7 @@ type ConvertImageOptions struct {
 	InputImageFile       string
 	OutputImageFile      string
 	OutputImageFormat    string
+	PreviewFeatures      []imagecustomizerapi.PreviewFeature
 	CosiCompressionLevel *int
 }
 
@@ -37,6 +38,12 @@ func (o *ConvertImageOptions) IsValid() error {
 
 	if err := validateCosiCompressionLevel(o.CosiCompressionLevel); err != nil {
 		return err
+	}
+
+	for _, pf := range o.PreviewFeatures {
+		if err := pf.IsValid(); err != nil {
+			return fmt.Errorf("invalid preview feature: %w", err)
+		}
 	}
 
 	return nil
