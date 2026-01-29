@@ -19,7 +19,7 @@ output::
 ## path [string]
 
 Required, unless
-[--output-image-file](../cli/cli.md#--output-image-filefile-path) is provided
+[--output-image-file](../cli/customize.md#--output-image-filefile-path) is provided
 on the command line. If both `--output-image-file` and `output.image.path`
 are provided, then the value of `--output-image-file` is used.
 
@@ -30,7 +30,7 @@ Added in v0.13.
 ## format [string]
 
 Required, unless
-[--output-image-format](../cli/cli.md#--output-image-formatformat) is provided
+[--output-image-format](../cli/customize.md#--output-image-formatformat) is provided
 on the command line. If both `--output-image-format` and
 `output.image.format` are provided, then the value of
 `--output-image-format` is used.
