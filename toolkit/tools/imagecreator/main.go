@@ -30,7 +30,7 @@ type ImageCreatorCmd struct {
 	Distro              string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" default:"azurelinux"`
 	DistroVersion       string   `name:"distro-version" help:"Target distribution version (e.g., 3.0 for Azure Linux, 42 for Fedora)." default:""`
 	PackageSnapshotTime string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
-	PreviewFeature      []string `name:"preview-feature" placeholder:"(base-configs|btrfs|cosi-compression|create|fedora-42|inject-files|input-image-oci|kdump-boot-files|output-artifacts|output-selinux-policy|package-snapshot-time|reinitialize-verity|ubuntu-22.04|ubuntu-24.04|uki)" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
+	PreviewFeature      []string `name:"preview-feature" placeholder:"FEATURE" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
 	exekong.LogFlags
 }
 

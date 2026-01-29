@@ -64,7 +64,7 @@ type RootCmd struct {
 	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
 	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
-	PreviewFeature   []string         `name:"preview-feature" placeholder:"(base-configs|btrfs|cosi-compression|create|fedora-42|inject-files|input-image-oci|kdump-boot-files|output-artifacts|output-selinux-policy|package-snapshot-time|reinitialize-verity|ubuntu-22.04|ubuntu-24.04|uki)" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
+	PreviewFeature   []string         `name:"preview-feature" placeholder:"FEATURE" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
 	exekong.LogFlags
 }
 
