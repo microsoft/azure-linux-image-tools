@@ -2530,7 +2530,7 @@ func TestStorageIsValid_BtrfsSubvolumeMountWithPartitionTypeVar_LogsWarning(t *t
 
 	assert.NoError(t, err)
 	assert.Contains(t, logMessages, logger.MemoryLogMessage{
-		Message: "partition (part1) with type (var) does not support BTRFS subvolume mounts",
+		Message: "unexpected for partition (part1) with type (var) to have btrfs subvolumes",
 		Level:   logrus.InfoLevel,
 	})
 }
@@ -2590,12 +2590,12 @@ func TestStorageIsValid_BtrfsSubvolumeMountWithPartitionTypeRoot_LogsWarning(t *
 
 	assert.NoError(t, err)
 	assert.Contains(t, logMessages, logger.MemoryLogMessage{
-		Message: "partition (root) with type (root) does not support BTRFS subvolume mounts",
+		Message: "unexpected for partition (root) with type (root) to have btrfs subvolumes",
 		Level:   logrus.InfoLevel,
 	})
 }
 
-func TestStorageIsValid_BtrfsSubvolumeUnmountedWithPartitionTypeRoot_Pass(t *testing.T) {
+func TestStorageIsValid_BtrfsSubvolumeUnmountedWithPartitionTypeRoot_LogsWarning(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
 			PartitionTableType: "gpt",
@@ -2645,7 +2645,10 @@ func TestStorageIsValid_BtrfsSubvolumeUnmountedWithPartitionTypeRoot_Pass(t *tes
 	logMessages := logMessagesHook.ConsumeMessages()
 
 	assert.NoError(t, err)
-	assert.Empty(t, logMessages)
+	assert.Contains(t, logMessages, logger.MemoryLogMessage{
+		Message: "unexpected for partition (root) with type (root) to have btrfs subvolumes",
+		Level:   logrus.InfoLevel,
+	})
 }
 
 func TestStorageIsValid_BtrfsNoSubvolumesWithPartitionTypeRoot_Pass(t *testing.T) {
