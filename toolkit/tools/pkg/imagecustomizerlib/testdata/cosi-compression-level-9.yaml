@@ -1,0 +1,9 @@
+toolkit/tools/pkg/imagecustomizerlib/testdata/cosi-compression-level-9.yamlpreviewFeatures:
+- cosi-compression
+
+output:
+  image:
+    format: cosi
+    cosi:
+      compression:
+        level: 9

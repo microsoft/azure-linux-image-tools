@@ -1,0 +1,9 @@
+previewFeatures:
+- cosi-compression
+
+output:
+  image:
+    format: cosi
+    cosi:
+      compression:
+        level: 1

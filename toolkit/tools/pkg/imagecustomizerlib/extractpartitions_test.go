@@ -448,3 +448,64 @@ func TestBuildZstdArgs_UltraLevel(t *testing.T) {
 		})
 	}
 }
+
+// TestCustomizeImageWithConfigFile_CosiCompressionLevel_Pass verifies that the COSI compression level
+// can be configured via the config file. This test compares compression level 1 (fastest, least compression)
+// against level 9 (default) and verifies that level 1 produces larger files.
+func TestCustomizeImageWithConfigFile_CosiCompressionLevel_Pass(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+
+	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageCosiCompressionLevel")
+	defer os.RemoveAll(testTempDir)
+
+	// Build with compression level 1 (fastest, least compression).
+	configLevel1 := filepath.Join(testDir, "cosi-compression-level-1.yaml")
+	buildDirLevel1 := filepath.Join(testTempDir, "build-level1")
+	outImageLevel1 := filepath.Join(testTempDir, "image-level1.cosi")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDirLevel1, configLevel1, baseImage, nil, outImageLevel1,
+		"cosi", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Build with compression level 9 (default, better compression).
+	configLevel9 := filepath.Join(testDir, "cosi-compression-level-9.yaml")
+	buildDirDefault := filepath.Join(testTempDir, "build-default")
+	outImageDefault := filepath.Join(testTempDir, "image-default.cosi")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDirDefault, configLevel9, baseImage, nil, outImageDefault,
+		"cosi", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Get file sizes.
+	level1Stat, err := os.Stat(outImageLevel1)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defaultStat, err := os.Stat(outImageDefault)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Level 1 (fastest, least compression) should produce a larger file than level 9 (default).
+	// This verifies that the compression level setting is actually being applied.
+	assert.Greater(t, level1Stat.Size(), defaultStat.Size(),
+		"Level 1 compression (%d bytes) should produce larger files than level 9 (%d bytes)",
+		level1Stat.Size(), defaultStat.Size())
+
+	// Extract partitions from COSI to verify both are valid archives.
+	partitionsLevel1, err := extractPartitionsFromCosi(outImageLevel1, buildDirLevel1)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.GreaterOrEqual(t, len(partitionsLevel1), 1, "Level 1 COSI should contain at least one partition")
+
+	partitionsDefault, err := extractPartitionsFromCosi(outImageDefault, buildDirDefault)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.GreaterOrEqual(t, len(partitionsDefault), 1, "Default COSI should contain at least one partition")
+}
