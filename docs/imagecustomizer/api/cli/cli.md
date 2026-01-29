@@ -290,4 +290,8 @@ Enable a preview feature via the command line without modifying the configuratio
 
 This option can be specified multiple times to enable multiple preview features.
 
+Supported options: `base-configs`, `btrfs`, `cosi-compression`, `create`, `fedora-42`, `inject-files`,
+`input-image-oci`, `kdump-boot-files`, `output-artifacts`, `output-selinux-policy`, `package-snapshot-time`,
+`reinitialize-verity`, `ubuntu-22.04`, `ubuntu-24.04`, `uki`
+
 Added in v1.2.
