@@ -3,7 +3,10 @@
 
 package imagecustomizerapi
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type PreviewFeature string
 
@@ -54,15 +57,33 @@ const (
 	PreviewFeatureCreate PreviewFeature = "create"
 )
 
+// supportedPreviewFeatures is a sorted list of all valid preview features.
+var supportedPreviewFeatures = []string{
+	string(PreviewFeatureBaseConfigs),
+	string(PreviewFeatureBtrfs),
+	string(PreviewFeatureCosiCompression),
+	string(PreviewFeatureCreate),
+	string(PreviewFeatureFedora42),
+	string(PreviewFeatureInjectFiles),
+	string(PreviewFeatureInputImageOci),
+	string(PreviewFeatureKdumpBootFiles),
+	string(PreviewFeatureOutputArtifacts),
+	string(PreviewFeatureOutputSelinuxPolicy),
+	string(PreviewFeaturePackageSnapshotTime),
+	string(PreviewFeatureReinitializeVerity),
+	string(PreviewFeatureUbuntu2204),
+	string(PreviewFeatureUbuntu2404),
+	string(PreviewFeatureUki),
+}
+
+// SupportedPreviewFeatures returns all valid preview feature values.
+func SupportedPreviewFeatures() []string {
+	return supportedPreviewFeatures
+}
+
 func (pf PreviewFeature) IsValid() error {
-	switch pf {
-	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
-		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
-		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
-		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression,
-		PreviewFeatureBtrfs, PreviewFeatureCreate:
-		return nil
-	default:
+	if !slices.Contains(SupportedPreviewFeatures(), string(pf)) {
 		return fmt.Errorf("invalid preview feature: %s", pf)
 	}
+	return nil
 }
