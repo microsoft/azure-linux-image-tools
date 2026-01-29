@@ -127,7 +127,8 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			continue
 		}
 
-		// Add all partitions to outputPartitions (including unmounted ones like ESP, boot, etc.)
+		// Add ALL non-verity partitions to outputPartitions (including unmounted ones like ESP, boot, BIOS boot, etc.)
+		// Note: Verity hash partitions are added separately below in the verity metadata loop
 		outputPartitions = append(outputPartitions, Partition{
 			Path:         path.Join("images", partition.PartitionFilename),
 			PartUuid:     partition.PartUuid,
