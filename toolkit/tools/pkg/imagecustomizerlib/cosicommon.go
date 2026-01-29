@@ -127,6 +127,15 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			continue
 		}
 
+		// Add all partitions to outputPartitions (including unmounted ones like ESP, boot, etc.)
+		outputPartitions = append(outputPartitions, Partition{
+			Path:         path.Join("images", partition.PartitionFilename),
+			PartUuid:     partition.PartUuid,
+			OriginalSize: partition.OriginalSize,
+			Label:        partition.PartLabel,
+			Number:       partition.PartitionNum,
+		})
+
 		// Skip partitions that are unmounted or have no filesystem type
 		entry, hasMount := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
 			return partition.PartUuid == entry.PartUuid
@@ -151,14 +160,6 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			Metadata:  &metadataImage,
 			KnownInfo: partition,
 		}
-
-		outputPartitions = append(outputPartitions, Partition{
-			Path:         metadataImage.Image.Path,
-			PartUuid:     partition.PartUuid,
-			OriginalSize: partition.OriginalSize,
-			Label:        partition.PartLabel,
-			Number:       partition.PartitionNum,
-		})
 
 		// Add Verity metadata if the partition has a matching entry in verityMetadata
 		for _, verity := range verityMetadata {
