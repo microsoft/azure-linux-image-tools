@@ -170,13 +170,63 @@ func partitionSettingsToImager(fileSystems []imagecustomizerapi.FileSystem,
 ) ([]configuration.PartitionSetting, error) {
 	imagerPartitionSettings := []configuration.PartitionSetting(nil)
 	for _, fileSystem := range fileSystems {
-		imagerPartitionSetting, err := partitionSettingToImager(fileSystem)
+		settings, err := partitionSettingsForFileSystem(fileSystem)
 		if err != nil {
 			return nil, err
 		}
-		imagerPartitionSettings = append(imagerPartitionSettings, imagerPartitionSetting)
+		imagerPartitionSettings = append(imagerPartitionSettings, settings...)
 	}
 	return imagerPartitionSettings, nil
+}
+
+func partitionSettingsForFileSystem(fileSystem imagecustomizerapi.FileSystem,
+) ([]configuration.PartitionSetting, error) {
+	// For BTRFS filesystems with subvolumes, create a partition setting for each subvolume
+	if fileSystem.Type == imagecustomizerapi.FileSystemTypeBtrfs &&
+		fileSystem.Btrfs != nil && len(fileSystem.Btrfs.Subvolumes) > 0 {
+		return partitionSettingsForBtrfsSubvolumes(fileSystem)
+	}
+
+	// For other filesystems or BTRFS without subvolumes, use the standard conversion
+	imagerPartitionSetting, err := partitionSettingToImager(fileSystem)
+	if err != nil {
+		return nil, err
+	}
+	return []configuration.PartitionSetting{imagerPartitionSetting}, nil
+}
+
+func partitionSettingsForBtrfsSubvolumes(fileSystem imagecustomizerapi.FileSystem,
+) ([]configuration.PartitionSetting, error) {
+	settings := []configuration.PartitionSetting{}
+
+	for _, subvolume := range fileSystem.Btrfs.Subvolumes {
+		mountIdType := imagecustomizerapi.MountIdentifierTypeDefault
+		mountPath := ""
+		mountOptions := ""
+		if subvolume.MountPoint != nil {
+			mountIdType = subvolume.MountPoint.IdType
+			mountPath = subvolume.MountPoint.Path
+			mountOptions = "subvol=/" + subvolume.Path
+			if subvolume.MountPoint.Options != "" {
+				mountOptions = mountOptions + "," + subvolume.MountPoint.Options
+			}
+		}
+
+		imagerMountIdentifierType, err := mountIdentifierTypeToImager(mountIdType)
+		if err != nil {
+			return nil, err
+		}
+
+		setting := configuration.PartitionSetting{
+			ID:              fileSystem.PartitionId,
+			MountIdentifier: imagerMountIdentifierType,
+			MountPoint:      mountPath,
+			MountOptions:    mountOptions,
+		}
+		settings = append(settings, setting)
+	}
+
+	return settings, nil
 }
 
 func partitionSettingToImager(fileSystem imagecustomizerapi.FileSystem,

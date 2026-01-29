@@ -167,7 +167,7 @@ func (s *Storage) IsValid() error {
 				biosBootPartitionExists = true
 
 				if hasFileSystem {
-					if fileSystem.Type != "" {
+					if fileSystem.Type != FileSystemTypeNone {
 						return fmt.Errorf("BIOS boot partition (%s) must not have a filesystem 'type'",
 							partition.Id)
 					}
@@ -178,14 +178,23 @@ func (s *Storage) IsValid() error {
 				}
 
 			default:
-				if hasFileSystem && fileSystem.MountPoint != nil {
+				if hasFileSystem {
 					expectedMountPaths, hasExpectedMountPaths := PartitionTypeSupportedMountPaths[partition.Type]
 					if hasExpectedMountPaths {
-						supportedPath := sliceutils.ContainsValue(expectedMountPaths, fileSystem.MountPoint.Path)
-						if !supportedPath {
+						// BTRFS subvolumes are unexpected for partition types with expected mount paths.
+						if fileSystem.Btrfs != nil && len(fileSystem.Btrfs.Subvolumes) > 0 {
 							logger.Log.Infof(
-								"Unexpected mount path (%s) for partition (%s) with type (%s). Expected paths: %v",
-								fileSystem.MountPoint.Path, partition.Id, partition.Type, expectedMountPaths)
+								"unexpected for partition (%s) with type (%s) to have btrfs subvolumes",
+								partition.Id, partition.Type)
+						}
+
+						if fileSystem.MountPoint != nil {
+							supportedPath := sliceutils.ContainsValue(expectedMountPaths, fileSystem.MountPoint.Path)
+							if !supportedPath {
+								logger.Log.Infof(
+									"Unexpected mount path (%s) for partition (%s) with type (%s). Expected paths: %v",
+									fileSystem.MountPoint.Path, partition.Id, partition.Type, expectedMountPaths)
+							}
 						}
 					}
 				}
@@ -208,18 +217,48 @@ func (s *Storage) IsValid() error {
 
 	// Validate verity filesystem settings.
 	if s.VerityPartitionsType == VerityPartitionsUsesConfig {
-		verityDeviceMountPoint := make(map[*Verity]*MountPoint)
+		verityDeviceMount := make(map[*Verity]*VerityMount)
 
 		for i := range s.Verity {
 			verity := &s.Verity[i]
+			verityDeviceMounts := []*VerityMount{}
 
 			filesystem, hasFileSystem := deviceParents[verity.Id].(*FileSystem)
-			if hasFileSystem && filesystem.MountPoint != nil {
-				verityDeviceMountPoint[verity] = filesystem.MountPoint
+			if hasFileSystem {
+				if filesystem.MountPoint != nil {
+					verityMount := &VerityMount{
+						MountPath:     filesystem.MountPoint.Path,
+						MountOptions:  filesystem.MountPoint.Options,
+						SubvolumePath: "",
+					}
+					verityDeviceMounts = append(verityDeviceMounts, verityMount)
+				}
+
+				// Also collect mount points from BTRFS subvolumes
+				if filesystem.Btrfs != nil {
+					for j := range filesystem.Btrfs.Subvolumes {
+						subvolume := &filesystem.Btrfs.Subvolumes[j]
+						if subvolume.MountPoint != nil {
+							verityMount := &VerityMount{
+								MountPath:     subvolume.MountPoint.Path,
+								MountOptions:  subvolume.MountPoint.Options,
+								SubvolumePath: subvolume.Path,
+							}
+							verityDeviceMounts = append(verityDeviceMounts, verityMount)
+						}
+					}
+				}
+			}
+
+			// The empty case is handled in ValidateVerityMounts() to consolidate error handling.
+			if len(verityDeviceMounts) == 1 {
+				verityDeviceMount[verity] = verityDeviceMounts[0]
+			} else if len(verityDeviceMounts) > 1 {
+				return fmt.Errorf("verity device (%s) has multiple mount points, which is not supported", verity.Id)
 			}
 		}
 
-		err := ValidateVerityMounts(s.Verity, verityDeviceMountPoint)
+		err := ValidateVerityMounts(s.Verity, verityDeviceMount)
 		if err != nil {
 			return err
 		}
@@ -228,26 +267,26 @@ func (s *Storage) IsValid() error {
 	return nil
 }
 
-func ValidateVerityMounts(verityDevices []Verity, verityDeviceMountPoint map[*Verity]*MountPoint) error {
+func ValidateVerityMounts(verityDevices []Verity, verityDeviceMount map[*Verity]*VerityMount) error {
 	for i := range verityDevices {
 		verity := &verityDevices[i]
 
-		mountPoint, hasMountPoint := verityDeviceMountPoint[verity]
-		if !hasMountPoint || (mountPoint.Path != "/" && mountPoint.Path != "/usr") {
+		mount, hasMount := verityDeviceMount[verity]
+		if !hasMount || (mount.MountPath != "/" && mount.MountPath != "/usr") {
 			return fmt.Errorf("mount path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
 		}
 
-		verity.MountPath = mountPoint.Path
+		verity.Mount = *mount
 
-		expectedVerityName, validMount := verityMountMap[mountPoint.Path]
+		expectedVerityName, validMount := verityMountMap[mount.MountPath]
 		if !validMount || verity.Name != expectedVerityName {
 			return fmt.Errorf(
 				"mount path of verity device (%s) must match verity name: '%s' for '%s'",
-				verity.Id, expectedVerityName, mountPoint.Path,
+				verity.Id, expectedVerityName, mount.MountPath,
 			)
 		}
 
-		mountOptions := strings.Split(mountPoint.Options, ",")
+		mountOptions := strings.Split(mount.MountOptions, ",")
 		if !sliceutils.ContainsValue(mountOptions, "ro") {
 			return fmt.Errorf("verity device's (%s) mount must include the 'ro' mount option", verity.Id)
 		}
@@ -362,6 +401,7 @@ func checkDeviceTreeFileSystemItem(filesystem *FileSystem, deviceMap map[string]
 		return fmt.Errorf("invalid 'deviceId':\n%w", err)
 	}
 
+	// Check for a duplicate mount path on the filesystem itself.
 	if filesystem.MountPoint != nil {
 		if _, existingMountPath := mountPaths[filesystem.MountPoint.Path]; existingMountPath {
 			return fmt.Errorf("duplicate 'mountPoint.path' (%s)", filesystem.MountPoint.Path)
@@ -370,27 +410,68 @@ func checkDeviceTreeFileSystemItem(filesystem *FileSystem, deviceMap map[string]
 		mountPaths[filesystem.MountPoint.Path] = true
 	}
 
+	// Check for duplicate mount paths in BTRFS subvolumes.
+	if filesystem.Btrfs != nil {
+		for _, subvolume := range filesystem.Btrfs.Subvolumes {
+			if subvolume.MountPoint != nil {
+				if _, existingMountPath := mountPaths[subvolume.MountPoint.Path]; existingMountPath {
+					return fmt.Errorf("duplicate 'mountPoint.path' (%s) in btrfs subvolume (%s)",
+						subvolume.MountPoint.Path, subvolume.Path)
+				}
+				mountPaths[subvolume.MountPoint.Path] = true
+			}
+		}
+	}
+
 	switch device := device.(type) {
 	case *Partition:
 		filesystem.PartitionId = filesystem.DeviceId
+		checkDeviceLabelCount := false
 
+		// Check partition label requirements for main mount point
 		if filesystem.MountPoint != nil && filesystem.MountPoint.IdType == MountIdentifierTypePartLabel {
+			checkDeviceLabelCount = true
 			if device.Label == "" {
-				return fmt.Errorf("idType is set to (part-label) but partition (%s) has no label set", device.Id)
+				return fmt.Errorf("idType set to 'part-label' but partition (%s) has no label set", device.Id)
 			}
+		}
 
-			labelCount := partitionLabelCounts[device.Label]
-			if labelCount > 1 {
-				return fmt.Errorf("more than one partition has a label of (%s)", device.Label)
+		// Check partition label requirements for BTRFS subvolume mount points
+		if filesystem.Btrfs != nil {
+			for _, subvolume := range filesystem.Btrfs.Subvolumes {
+				if subvolume.MountPoint != nil && subvolume.MountPoint.IdType == MountIdentifierTypePartLabel {
+					checkDeviceLabelCount = true
+					if device.Label == "" {
+						return fmt.Errorf(
+							"idType set to 'part-label' for btrfs subvolume (%s) but partition (%s) has no label set",
+							subvolume.Path, device.Id)
+					}
+				}
 			}
+		}
+
+		if checkDeviceLabelCount && partitionLabelCounts[device.Label] > 1 {
+			return fmt.Errorf("more than one partition has a label of (%s)", device.Label)
 		}
 
 	case *Verity:
 		filesystem.PartitionId = device.DataDeviceId
 
+		// Check filesystem mount point for verity devices
 		if filesystem.MountPoint != nil && filesystem.MountPoint.IdType != MountIdentifierTypeDefault {
 			return fmt.Errorf("filesystem for verity device (%s) may not specify 'mountPoint.idType'",
 				filesystem.DeviceId)
+		}
+
+		// Check BTRFS subvolume mount points for verity devices
+		if filesystem.Btrfs != nil {
+			for _, subvolume := range filesystem.Btrfs.Subvolumes {
+				if subvolume.MountPoint != nil && subvolume.MountPoint.IdType != MountIdentifierTypeDefault {
+					return fmt.Errorf(
+						"btrfs subvolume (%s) for verity device (%s) may not specify 'mountPoint.idType'",
+						subvolume.Path, filesystem.DeviceId)
+				}
+			}
 		}
 
 	default:

@@ -192,7 +192,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 
 	// Create imager boilerplate.
 	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(targetOs, imageConnection, filename, buildDir,
-		chrootDirName, imagerDiskConfig, imagerPartitionSettings)
+		chrootDirName, imagerDiskConfig, imagerPartitionSettings, fileSystems)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 
 func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageconnection.ImageConnection, filename string,
 	buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
-	imagerPartitionSettings []configuration.PartitionSetting,
+	imagerPartitionSettings []configuration.PartitionSetting, fileSystems []imagecustomizerapi.FileSystem,
 ) (map[string]string, string, error) {
 	// Create raw disk image file.
 	err := diskutils.CreateSparseDisk(filename, imagerDiskConfig.MaxSize, 0o644)
@@ -296,6 +296,12 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageco
 		targetOs, imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{})
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
+	}
+
+	// Create BTRFS subvolumes for any file systems that have them defined.
+	err = createBtrfsSubvolumes(fileSystems, partIDToDevPathMap, partIDToFsTypeMap, buildDir)
+	if err != nil {
+		return nil, "", err
 	}
 
 	// Read the disk partitions.

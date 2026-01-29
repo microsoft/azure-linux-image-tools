@@ -1,0 +1,96 @@
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: boot
+      size: 1G
+
+    - id: root
+      size: 2G
+
+    - id: roothash
+      size: 100M
+
+    - id: var
+      size: 2G
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: roothash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: btrfs
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+    - device-mapper
+
+  additionalFiles:
+    # Change the directory that the sshd-keygen service writes the SSH host keys to.
+  - source: files/sshd-keygen.service
+    destination: /usr/lib/systemd/system/sshd-keygen.service
+
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+
+  services:
+    enable:
+    - sshd
+    
+  users:
+  - name: test
+    sshPublicKeys:
+      # Your SSH public key here.
+    secondaryGroups:
+    - sudo
+
+scripts:
+  postCustomization:
+    # Move the SSH host keys off of the read-only /etc directory, so that sshd can run.
+  - path: scripts/ssh-move-host-keys.sh
+
+previewFeatures:
+- btrfs

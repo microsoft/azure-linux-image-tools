@@ -75,6 +75,45 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "BtrfsConfig": {
+      "properties": {
+        "subvolumes": {
+          "items": {
+            "$ref": "#/$defs/BtrfsSubvolume"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BtrfsQuotaConfig": {
+      "properties": {
+        "referencedLimit": {
+          "$ref": "#/$defs/DiskSize"
+        },
+        "exclusiveLimit": {
+          "$ref": "#/$defs/DiskSize"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "BtrfsSubvolume": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "mountPoint": {
+          "$ref": "#/$defs/MountPoint"
+        },
+        "quota": {
+          "$ref": "#/$defs/BtrfsQuotaConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
     "Config": {
       "properties": {
         "input": {
@@ -210,6 +249,9 @@
         },
         "mountPoint": {
           "$ref": "#/$defs/MountPoint"
+        },
+        "btrfs": {
+          "$ref": "#/$defs/BtrfsConfig"
         }
       },
       "additionalProperties": false,

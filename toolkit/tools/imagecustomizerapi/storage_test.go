@@ -319,7 +319,7 @@ func TestStorageIsValidDuplicatePartitionId(t *testing.T) {
 	assert.ErrorContains(t, err, "duplicate id (a)")
 }
 
-func TestStorageIsValidNoLabel(t *testing.T) {
+func TestStorageIsValid_FilesystemMountPartLabelWithoutLabel_Fail(t *testing.T) {
 	storage := Storage{
 		BootType: BootTypeEfi,
 		Disks: []Disk{
@@ -341,7 +341,7 @@ func TestStorageIsValidNoLabel(t *testing.T) {
 				DeviceId: "a",
 				Type:     FileSystemTypeFat32,
 				MountPoint: &MountPoint{
-					IdType: MountIdentifierTypePartLabel,
+					IdType: MountIdentifierTypePartLabel, // Invalid: no label on partition a
 					Path:   "/",
 				},
 			},
@@ -350,7 +350,59 @@ func TestStorageIsValidNoLabel(t *testing.T) {
 
 	err := storage.IsValid()
 	assert.ErrorContains(t, err, "invalid filesystem item at index 0")
-	assert.ErrorContains(t, err, "idType is set to (part-label) but partition (a) has no label set")
+	assert.ErrorContains(t, err, "idType set to 'part-label' but partition (a) has no label set")
+}
+
+func TestStorageIsValid_BtrfsSubvolumeMountPartLabelWithoutLabel_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+					Label: "esp",
+				},
+				{
+					Id:    "btrfs",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfs",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								IdType: MountIdentifierTypePartLabel, // Invalid: no label on partition btrfs
+								Path:   "/",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err,
+		"idType set to 'part-label' for btrfs subvolume (root) but partition (btrfs) has no label set")
 }
 
 func TestStorageIsValidUniqueLabel(t *testing.T) {
@@ -400,7 +452,7 @@ func TestStorageIsValidUniqueLabel(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStorageIsValidDuplicateLabel(t *testing.T) {
+func TestStorageIsValid_FilesystemMountPointPartLabelWithDuplicateLabeL_Fail(t *testing.T) {
 	storage := Storage{
 		BootType: BootTypeEfi,
 		Disks: []Disk{
@@ -428,7 +480,7 @@ func TestStorageIsValidDuplicateLabel(t *testing.T) {
 				DeviceId: "a",
 				Type:     FileSystemTypeFat32,
 				MountPoint: &MountPoint{
-					IdType: MountIdentifierTypePartLabel,
+					IdType: MountIdentifierTypePartLabel, // Invalid: duplicate label on partition a
 					Path:   "/",
 				},
 			},
@@ -446,6 +498,59 @@ func TestStorageIsValidDuplicateLabel(t *testing.T) {
 	err := storage.IsValid()
 	assert.ErrorContains(t, err, "invalid filesystem item at index 0")
 	assert.ErrorContains(t, err, "more than one partition has a label of (a)")
+}
+
+func TestStorageIsValid_BtrfsSubvolumeMountPointPartLabelWithDuplicateLabel_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+					Label: "mypartition",
+				},
+				{
+					Id:    "btrfs",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Label: "mypartition",
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfs",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								IdType: MountIdentifierTypePartLabel, // Invalid: duplicate label on partition btrfs
+								Path:   "/",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "invalid filesystem item at index 1")
+	assert.ErrorContains(t, err, "more than one partition has a label of (mypartition)")
 }
 
 func TestStorageIsValidBothDisksAndResetUuid(t *testing.T) {
@@ -490,7 +595,7 @@ func TestStorageIsValidBothDisksAndResetUuid(t *testing.T) {
 	assert.ErrorContains(t, err, "cannot specify both 'resetPartitionsUuidsType' and 'disks'")
 }
 
-func TestStorageIsValidDuplicateMountPoint(t *testing.T) {
+func TestStorageIsValid_DuplicateMountPointBetweenFilesystems_Fail(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
 			PartitionTableType: "gpt",
@@ -530,6 +635,214 @@ func TestStorageIsValidDuplicateMountPoint(t *testing.T) {
 	err := value.IsValid()
 	assert.ErrorContains(t, err, "invalid filesystem item at index 1:\n"+
 		"duplicate 'mountPoint.path' (/)")
+}
+
+func TestStorageIsValid_DuplicateMountPointBetweenBtrfsSubvolumesSameFilesystem_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "btrfs",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfs",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+						{
+							Path: "home",
+							MountPoint: &MountPoint{
+								Path: "/home",
+							},
+						},
+						{
+							Path: "var",
+							MountPoint: &MountPoint{
+								Path: "/home", // Duplicate!
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "duplicate 'mountPoint.path' (/home) in btrfs subvolume (var)")
+}
+
+func TestStorageIsValid_DuplicateMountPointBetweenBtrfsSubvolumesDifferentFilesystems_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "btrfs1",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(10 * diskutils.GiB)),
+				},
+				{
+					Id:    "btrfs2",
+					Start: ptrutils.PtrTo(DiskSize(10 * diskutils.GiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfs1",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+						{
+							Path: "home",
+							MountPoint: &MountPoint{
+								Path: "/home",
+							},
+						},
+					},
+				},
+			},
+			{
+				DeviceId: "btrfs2",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "var",
+							MountPoint: &MountPoint{
+								Path: "/var",
+							},
+						},
+						{
+							Path: "home2",
+							MountPoint: &MountPoint{
+								Path: "/home", // Duplicate with btrfs1!
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "duplicate 'mountPoint.path' (/home) in btrfs subvolume (home2)")
+}
+
+func TestStorageIsValid_DuplicateMountPointBetweenBtrfsSubvolumeAndFilesystem_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "boot",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(1024 * diskutils.MiB)),
+				},
+				{
+					Id:    "btrfs",
+					Start: ptrutils.PtrTo(DiskSize(1024 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "boot",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/boot",
+				},
+			},
+			{
+				DeviceId: "btrfs",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+						{
+							Path: "boot",
+							MountPoint: &MountPoint{
+								Path: "/boot", // Duplicate with ext4 filesystem!
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "duplicate 'mountPoint.path' (/boot) in btrfs subvolume (boot)")
 }
 
 func TestStorageIsValidFileSystemsWithoutDisks(t *testing.T) {
@@ -1116,7 +1429,7 @@ func TestStorageIsValidVerityBadHashId(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid 'hashDeviceId':\ndevice (usrhash) not found")
 }
 
-func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
+func TestStorageIsValid_VerityFilesystemWrongRootName_Fail(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
 			PartitionTableType: "gpt",
@@ -1166,7 +1479,7 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 		Verity: []Verity{
 			{
 				Id:           "rootverity",
-				Name:         "user",
+				Name:         "usr",
 				DataDeviceId: "root",
 				HashDeviceId: "roothash",
 			},
@@ -1175,6 +1488,158 @@ func TestStorageIsValidVerityWrongDeviceName(t *testing.T) {
 
 	err := value.IsValid()
 	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must match verity name: 'root' for '/'")
+}
+
+func TestStorageIsValid_VerityBtrfsSubvolumesWrongRootName_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path:    "/",
+								Options: "ro",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "usr",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must match verity name: 'root' for '/'")
+}
+
+func TestStorageIsValid_VerityBtrfsSubvolumesWrongUsrName_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "usr",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "usrhash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "root",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+			{
+				DeviceId: "usrverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "usr",
+							MountPoint: &MountPoint{
+								Path:    "/usr",
+								Options: "ro",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "usrverity",
+				Name:         "root",
+				DataDeviceId: "usr",
+				HashDeviceId: "usrhash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mount path of verity device (usrverity) must match verity name: 'usr' for '/usr'")
 }
 
 func TestStorageIsValidVerityHashFileSystem(t *testing.T) {
@@ -1244,7 +1709,7 @@ func TestStorageIsValidVerityHashFileSystem(t *testing.T) {
 	assert.ErrorContains(t, err, "device (roothash) is used by multiple things")
 }
 
-func TestStorageIsValidVerityFileSystemHasIdType(t *testing.T) {
+func TestStorageIsValid_VerityFileSystemHasIdType_Fail(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
 			PartitionTableType: "gpt",
@@ -1306,6 +1771,76 @@ func TestStorageIsValidVerityFileSystemHasIdType(t *testing.T) {
 	assert.ErrorContains(t, err, "filesystem for verity device (rootverity) may not specify 'mountPoint.idType'")
 }
 
+func TestStorageIsValid_VerityBtrfsSubvolumeHasIdType_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path:    "/",
+								IdType:  MountIdentifierTypeUuid,
+								Options: "ro",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err,
+		"btrfs subvolume (root) for verity device (rootverity) may not specify 'mountPoint.idType'")
+}
+
 func TestStorageIsValidVerityFileSystemMissing(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
@@ -1344,6 +1879,7 @@ func TestStorageIsValidVerityFileSystemMissing(t *testing.T) {
 					Path: "/boot/efi",
 				},
 			},
+			// Invalid: no filesystem for verity device
 		},
 		Verity: []Verity{
 			{
@@ -1356,7 +1892,340 @@ func TestStorageIsValidVerityFileSystemMissing(t *testing.T) {
 	}
 
 	err := value.IsValid()
+	assert.Error(t, err)
 	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must be set to '/' or '/usr'")
+}
+
+func TestStorageIsValidVerityFileSystemMountPointMissing(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "ext4",
+				// Invalid: no mount point
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must be set to '/' or '/usr'")
+}
+
+func TestStorageIsValid_VerityBtrfsSubvolumeMountPointMissing_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							// Invalid: no mount point
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must be set to '/' or '/usr'")
+}
+
+func TestStorageIsValid_VerityFilesystemWithMountPointInvalidPath_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "ext4",
+				MountPoint: &MountPoint{
+					Path:    "/var", // Invalid: should be "/" for "root" verity device
+					Options: "ro",
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must be set to '/' or '/usr'")
+}
+
+func TestStorageIsValid_VerityBtrfsSubvolumeWithMountPointInvalidPath_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path:    "/var", // Invalid: should be "/" for "root" verity device
+								Options: "ro",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "mount path of verity device (rootverity) must be set to '/' or '/usr'")
+}
+
+func TestStorageIsValid_VerityMultipleBtrfsSubvolumeMountPoints_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path:    "/",
+								Options: "ro",
+							},
+						},
+						{
+							Path: "var",
+							MountPoint: &MountPoint{
+								Path:    "/var",
+								Options: "ro",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "verity device (rootverity) has multiple mount points, which is not supported")
 }
 
 func TestStorageIsValidVerityTwoVerity(t *testing.T) {
@@ -1428,6 +2297,73 @@ func TestStorageIsValidVerityTwoVerity(t *testing.T) {
 	assert.ErrorContains(t, err, "device (root) is used by multiple things")
 }
 
+func TestStorageIsValid_VerityBtrfsSubvolumeMissingReadonly_Fail(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.ErrorContains(t, err, "verity device's (rootverity) mount must include the 'ro' mount option")
+}
+
 func TestStorageIsValidVerityMissingReadonly(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
@@ -1488,7 +2424,7 @@ func TestStorageIsValidVerityMissingReadonly(t *testing.T) {
 	assert.ErrorContains(t, err, "verity device's (rootverity) mount must include the 'ro' mount option")
 }
 
-func TestStorageIsValidExpectedMountPath(t *testing.T) {
+func TestStorageIsValid_FilesystemUnexpectedMountPath_LogsWarning(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
 			PartitionTableType: "gpt",
@@ -1540,6 +2476,230 @@ func TestStorageIsValidExpectedMountPath(t *testing.T) {
 	})
 }
 
+func TestStorageIsValid_BtrfsSubvolumeMountWithPartitionTypeVar_LogsWarning(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "part1",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeVar,
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "part1",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "vol1",
+							MountPoint: &MountPoint{ // Invalid
+								Path: "/home",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	logMessagesHook := logMessagesHook.AddSubHook()
+	defer logMessagesHook.Close()
+
+	err := value.IsValid()
+
+	logMessages := logMessagesHook.ConsumeMessages()
+
+	assert.NoError(t, err)
+	assert.Contains(t, logMessages, logger.MemoryLogMessage{
+		Message: "unexpected for partition (part1) with type (var) to have btrfs subvolumes",
+		Level:   logrus.InfoLevel,
+	})
+}
+
+func TestStorageIsValid_BtrfsSubvolumeMountWithPartitionTypeRoot_LogsWarning(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+					Label: "esp",
+				},
+				{
+					Id:    "root",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeRoot,
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "root",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "@",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	logMessagesHook := logMessagesHook.AddSubHook()
+	defer logMessagesHook.Close()
+
+	err := value.IsValid()
+
+	logMessages := logMessagesHook.ConsumeMessages()
+
+	assert.NoError(t, err)
+	assert.Contains(t, logMessages, logger.MemoryLogMessage{
+		Message: "unexpected for partition (root) with type (root) to have btrfs subvolumes",
+		Level:   logrus.InfoLevel,
+	})
+}
+
+func TestStorageIsValid_BtrfsSubvolumeUnmountedWithPartitionTypeRoot_LogsWarning(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "root",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeRoot,
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "root",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "snapshots", // No mount point - just for snapshots
+						},
+					},
+				},
+			},
+		},
+	}
+
+	logMessagesHook := logMessagesHook.AddSubHook()
+	defer logMessagesHook.Close()
+
+	err := value.IsValid()
+
+	logMessages := logMessagesHook.ConsumeMessages()
+
+	assert.NoError(t, err)
+	assert.Contains(t, logMessages, logger.MemoryLogMessage{
+		Message: "unexpected for partition (root) with type (root) to have btrfs subvolumes",
+		Level:   logrus.InfoLevel,
+	})
+}
+
+func TestStorageIsValid_BtrfsNoSubvolumesWithPartitionTypeRoot_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "root",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeRoot,
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "root",
+				Type:     "btrfs",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+			},
+		},
+	}
+
+	logMessagesHook := logMessagesHook.AddSubHook()
+	defer logMessagesHook.Close()
+
+	err := value.IsValid()
+
+	logMessages := logMessagesHook.ConsumeMessages()
+
+	assert.NoError(t, err)
+	assert.Empty(t, logMessages)
+}
+
 func TestStorageIsValidBadEspPath(t *testing.T) {
 	value := Storage{
 		Disks: []Disk{{
@@ -1579,4 +2739,390 @@ func TestStorageIsValidBadEspPath(t *testing.T) {
 
 	err := value.IsValid()
 	assert.ErrorContains(t, err, "ESP partition (esp) must be mounted at /boot/efi")
+}
+
+func TestStorageIsValid_BtrfsWithSubvolumes_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "btrfspart",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfspart",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+						{
+							Path: "home",
+							MountPoint: &MountPoint{
+								Path: "/home",
+							},
+						},
+						{
+							Path: "var",
+							MountPoint: &MountPoint{
+								Path:    "/var",
+								Options: "noatime",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestStorageIsValid_BtrfsEmptySubvolumesWithMountPoint_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "btrfspart",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfspart",
+				Type:     "btrfs",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{}, // Empty subvolumes, can have MountPoint on filesystem
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestStorageIsValid_BtrfsNoSubvolumesWithMountPoint_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "btrfspart",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfspart",
+				Type:     "btrfs",
+				MountPoint: &MountPoint{
+					Path: "/",
+				},
+				// No Btrfs config at all
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestStorageIsValid_BtrfsSubvolumeWithoutMountPoint_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+				},
+				{
+					Id:    "btrfspart",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfspart",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path: "/",
+							},
+						},
+						{
+							Path: "snapshots", // No mount point - just for snapshots
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestStorageIsValid_VerityBtrfsSubvolume_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								Path:    "/",
+								Options: "ro",
+							},
+						},
+					},
+				},
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestStorageIsValid_VerityBtrfsNoSubvolumes_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			Partitions: []Partition{
+				{
+					Id: "esp",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 8 * diskutils.MiB,
+					},
+					Type: PartitionTypeESP,
+				},
+				{
+					Id: "root",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 1 * diskutils.GiB,
+					},
+				},
+				{
+					Id: "roothash",
+					Size: PartitionSize{
+						Type: PartitionSizeTypeExplicit,
+						Size: 100 * diskutils.MiB,
+					},
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "vfat",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "rootverity",
+				Type:     "btrfs",
+				MountPoint: &MountPoint{
+					Path:    "/",
+					Options: "ro",
+				},
+				// No Btrfs subvolumes - using filesystem-level mount point
+			},
+		},
+		Verity: []Verity{
+			{
+				Id:           "rootverity",
+				Name:         "root",
+				DataDeviceId: "root",
+				HashDeviceId: "roothash",
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
+}
+
+func TestStorageIsValid_BtrfsSubvolumeMountPointIdTypePartLabel_Pass(t *testing.T) {
+	value := Storage{
+		Disks: []Disk{{
+			PartitionTableType: "gpt",
+			MaxSize:            ptrutils.PtrTo(DiskSize(20 * diskutils.GiB)),
+			Partitions: []Partition{
+				{
+					Id:    "esp",
+					Start: ptrutils.PtrTo(DiskSize(1 * diskutils.MiB)),
+					End:   ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Type:  PartitionTypeESP,
+					Label: "esp",
+				},
+				{
+					Id:    "btrfspart",
+					Start: ptrutils.PtrTo(DiskSize(512 * diskutils.MiB)),
+					Label: "btrfsroot",
+				},
+			},
+		}},
+		BootType: "efi",
+		FileSystems: []FileSystem{
+			{
+				DeviceId: "esp",
+				Type:     "fat32",
+				MountPoint: &MountPoint{
+					Path: "/boot/efi",
+				},
+			},
+			{
+				DeviceId: "btrfspart",
+				Type:     "btrfs",
+				Btrfs: &BtrfsConfig{
+					Subvolumes: []BtrfsSubvolume{
+						{
+							Path: "root",
+							MountPoint: &MountPoint{
+								IdType: MountIdentifierTypePartLabel,
+								Path:   "/",
+							},
+						},
+						{
+							Path: "home",
+							MountPoint: &MountPoint{
+								IdType: MountIdentifierTypePartLabel,
+								Path:   "/home",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := value.IsValid()
+	assert.NoError(t, err)
 }

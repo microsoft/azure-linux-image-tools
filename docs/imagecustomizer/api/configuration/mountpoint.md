@@ -92,12 +92,15 @@ Added in v0.3.
 
 ## options [string]
 
-The additional options used when mounting the file system.
+The additional options used when mounting the file system or BTRFS subvolume.
 
 These options are in the same format as
 [mount](https://man7.org/linux/man-pages/man8/mount.8.html)'s
 `-o` option or the `fs_mntops` field of the
 [fstab](https://man7.org/linux/man-pages/man5/fstab.5.html) file.
+
+When specifying a BTRFS subvolume's mount options, the `subvol=` and `subvolid=` mount options cannot be specified,
+since the tool automatically includes `subvol=` based on the subvolume's path.
 
 Added in v0.3.
 
@@ -105,7 +108,7 @@ Added in v0.3.
 
 Required.
 
-The absolute path of where the partition should be mounted.
+The absolute path of where the file system or BTRFS subvolume should be mounted.
 
 The mounts will be sorted to ensure that parent directories are mounted before child
 directories.
