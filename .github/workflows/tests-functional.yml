@@ -14,6 +14,10 @@ on:
       hostDistro:
         required: true
         type: string
+      testFilter:
+        required: false
+        type: string
+        default: ''
 
 env:
   EXPECTED_GO_VERSION: "1.24.1"
@@ -119,10 +123,17 @@ jobs:
         AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
         AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
 
+        # Build test filter args if provided.
+        RUN_ARGS=""
+        if [[ -n "$TEST_FILTER" ]]; then
+          RUN_ARGS="-run $TEST_FILTER"
+        fi
+
         FAILED=0
 
         sudo env "PATH=$PATH" go test -v \
           -coverprofile=out/testResults/api.cov -covermode count \
+          $RUN_ARGS \
           ./imagecustomizerapi \
           2>&1 \
           | tee out/testResults/api.txt \
@@ -131,6 +142,7 @@ jobs:
         sudo env "PATH=$PATH" go test -v \
           -coverprofile=out/testResults/lib.cov -covermode count \
           -timeout 90m \
+          $RUN_ARGS \
           ./pkg/imagecustomizerlib \
           -args \
           --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
@@ -140,6 +152,8 @@ jobs:
           || FAILED=$(( $FAILED | 2 ))
 
         exit $FAILED
+      env:
+        TEST_FILTER: ${{ inputs.testFilter }}
 
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}

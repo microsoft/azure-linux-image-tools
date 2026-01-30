@@ -14,6 +14,10 @@ on:
       runFunctionalTests:
         required: true
         type: boolean
+      functionalTestFilter:
+        required: false
+        type: string
+        default: ''
       runVMTests:
         required: true
         type: boolean
@@ -52,6 +56,7 @@ jobs:
     with:
       hostArch: amd64
       hostDistro: azl3
+      testFilter: ${{ inputs.functionalTestFilter }}
     permissions:
       contents: read
       # Azure login.
@@ -64,6 +69,7 @@ jobs:
     with:
       hostArch: arm64
       hostDistro: azl3
+      testFilter: ${{ inputs.functionalTestFilter }}
     permissions:
       contents: read
       # Azure login.
@@ -76,6 +82,7 @@ jobs:
     with:
       hostArch: amd64
       hostDistro: ubuntu2404
+      testFilter: ${{ inputs.functionalTestFilter }}
     permissions:
       contents: read
       # Azure login.
@@ -88,6 +95,7 @@ jobs:
     with:
       hostArch: arm64
       hostDistro: ubuntu2404
+      testFilter: ${{ inputs.functionalTestFilter }}
     permissions:
       contents: read
       # Azure login.
