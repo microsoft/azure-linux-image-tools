@@ -152,7 +152,6 @@ Supported versions:
 
 Added in v1.2.
 
-
 ## --package-snapshot-time=TIMESTAMP
 
 Optional.
