@@ -71,14 +71,24 @@ jobs:
         set -eux
 
         # Install Image Customizer prerequisities.
-        sudo apt list --installed
-        sudo apt update -y
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt list --installed
 
-        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt update -y
 
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+            xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
+
+        # Install Azure CLI with retries.
+        install_azure_cli() {
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        }
+        export -f install_azure_cli
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          bash -c install_azure_cli
 
     - name: Azure Login
       uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
@@ -93,6 +103,11 @@ jobs:
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+
+        if [ "$HOST_ARCH" == "amd64" ]; then
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
+        fi
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -119,6 +134,13 @@ jobs:
         AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
         AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
 
+        CORE_LEGACY_AZL2=""
+        CORE_LEGACY_AZL3=""
+        if [ "$HOST_ARCH" == "amd64" ]; then
+          CORE_LEGACY_AZL2="../../../azl-core-legacy-2.0/image.vhd"
+          CORE_LEGACY_AZL3="../../../azl-core-legacy-3.0/image.vhd"
+        fi
+
         FAILED=0
 
         sudo env "PATH=$PATH" go test -v \
@@ -135,11 +157,15 @@ jobs:
           -args \
           --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
           --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
+          --base-image-bare-metal-azl2 "../../$CORE_LEGACY_AZL2" \
+          --base-image-bare-metal-azl3 "../../$CORE_LEGACY_AZL3" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))
 
         exit $FAILED
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
 
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
