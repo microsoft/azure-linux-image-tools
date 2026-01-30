@@ -145,7 +145,7 @@ Added in v0.3.
 
 This is a preview feature.
 Its API and behavior is subject to change.
-You must enable this feature by specifying`package-snapshot-time` in the
+You must enable this feature by specifying `package-snapshot-time` in the
 [previewFeatures](./config.md#previewfeatures-string) API or
 via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
