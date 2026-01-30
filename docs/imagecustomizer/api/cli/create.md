@@ -108,7 +108,7 @@ Can be one of:
 
 This option can be specified multiple times.
 
-RPM sources are specified in the order or priority from lowest to highest.
+RPM sources are specified in the order of priority from lowest to highest.
 
 See, [Building custom packages](../../reference/building-packages.md) for a guide on how to
 build your own packages for Azure Linux.
