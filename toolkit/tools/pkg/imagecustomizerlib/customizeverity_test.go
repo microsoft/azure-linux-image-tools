@@ -778,7 +778,7 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 	assert.Equal(t, "/dev/mapper/root", rootFstabEntry.Source, "fstab root source should be verity device")
 
 	if subvolPath != "" {
-		expectedOptions := "subvol=/" + subvolPath
+		expectedOptions := fmt.Sprintf("subvol=/%s,ro", subvolPath)
 		assert.Equal(t, expectedOptions, rootFstabEntry.Options,
 			"fstab root options should match expected subvol option")
 	}
