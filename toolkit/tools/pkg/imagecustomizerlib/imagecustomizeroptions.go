@@ -29,6 +29,7 @@ type ImageCustomizerOptions struct {
 	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
 	ImageCacheDir           string
 	CosiCompressionLevel    *int
+	PreviewFeatures         []imagecustomizerapi.PreviewFeature
 }
 
 func (o *ImageCustomizerOptions) IsValid() error {

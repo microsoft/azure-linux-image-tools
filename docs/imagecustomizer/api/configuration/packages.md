@@ -143,14 +143,17 @@ Added in v0.3.
 
 ## snapshotTime [string]
 
+This is a preview feature.
+Its API and behavior is subject to change.
+You must enable this feature by specifying`package-snapshot-time` in the
+[previewFeatures](./config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
+
 Filters packages by publication time.
 
 Only packages published before the specified timestamp will be considered during
 install or update. This supports both ISO 8601 date-only format (`YYYY-MM-DD`)
 and full RFC 3339 timestamp (`YYYY-MM-DDTHH:MM:SSZ`).
-
-If this value is specified, then a `package-snapshot-time` entry must be added to
-[previewFeatures](./config.md#previewfeatures-string)
 
 Example:
 

@@ -27,7 +27,8 @@ Added in v0.13.
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `output-artifacts` in the
-[previewFeatures](./injectFilesConfig.md#previewfeatures-string) API.
+[previewFeatures](./injectFilesConfig.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Specifies the configuration for the output directory containing the generated artifacts.
 
@@ -55,7 +56,8 @@ Optional.
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `output-selinux-policy` in the
-[previewFeatures](./config.md#previewfeatures-string) API.
+[previewFeatures](./config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Specifies the directory path where Image Customizer will output the SELinux policy
 files. The policy type is determined by reading the `SELINUXTYPE` value from

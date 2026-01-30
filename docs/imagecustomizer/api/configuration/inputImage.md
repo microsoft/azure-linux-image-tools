@@ -51,7 +51,8 @@ If verity is enabled in the base image, then:
 
   This feature is in preview and may be subject to breaking changes.
   You may enable this feature by adding `reinitialize-verity` to the
-  [previewfeatures](config.md#previewfeatures-string) API.
+  [previewFeatures](config.md#previewfeatures-string) API or
+  via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Added in v0.13.
 
@@ -61,7 +62,8 @@ Download the base image file from an OCI artifact.
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Added in v1.1.
 
@@ -71,6 +73,7 @@ Download an Azure Linux image file to use as the base image.
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Added in v1.1.

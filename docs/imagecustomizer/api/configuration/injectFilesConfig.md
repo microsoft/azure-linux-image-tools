@@ -8,7 +8,8 @@ ancestor: Image Customizer
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `inject-files` in the
-[previewFeatures](#previewfeatures-string) API.
+[previewFeatures](#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Specifies the configuration for injecting files into specified partitions of
 an image.

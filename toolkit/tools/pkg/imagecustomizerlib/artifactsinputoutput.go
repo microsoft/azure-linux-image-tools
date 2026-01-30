@@ -329,12 +329,6 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 }
 
 func InjectFilesWithConfigFile(ctx context.Context, configFile string, options InjectFilesOptions) error {
-	return InjectFilesWithConfigFileAndPreviewFeatures(ctx, configFile, nil, options)
-}
-
-func InjectFilesWithConfigFileAndPreviewFeatures(ctx context.Context, configFile string,
-	previewFeatures []imagecustomizerapi.PreviewFeature, options InjectFilesOptions,
-) error {
 	var config imagecustomizerapi.InjectFilesConfig
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
@@ -356,8 +350,9 @@ func InjectFilesWithConfigFileAndPreviewFeatures(ctx context.Context, configFile
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
-	// Merge CLI preview features with config preview features
-	mergedPreviewFeatures := MergePreviewFeatures(config.PreviewFeatures, previewFeatures)
+	// Merge CLI preview features with config preview features.
+	// CLI features take priority and are placed first.
+	mergedPreviewFeatures := slices.Concat(options.PreviewFeatures, config.PreviewFeatures)
 
 	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options, mergedPreviewFeatures)
 	if err != nil {

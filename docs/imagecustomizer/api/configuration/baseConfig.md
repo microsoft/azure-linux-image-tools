@@ -8,7 +8,8 @@ ancestor: Image Customizer
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `base-configs` in the
-[previewFeatures](./config.md#previewfeatures-string) API.
+[previewFeatures](./config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Defines a single configuration file to inherit from.
 

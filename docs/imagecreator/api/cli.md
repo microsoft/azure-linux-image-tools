@@ -151,7 +151,8 @@ Supports:
 - A full RFC 3339 timestamp (e.g. `2024-05-20T23:59:59Z`)
 
 You may enable this feature by adding `package-snapshot-time` to the
-[previewfeatures](../../imagecustomizer/api/configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../../imagecustomizer/api/configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](#--preview-featurefeature) flag.
 
 ## --preview-feature=FEATURE
 

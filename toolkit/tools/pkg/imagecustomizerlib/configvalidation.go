@@ -68,7 +68,9 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	err = options.verifyPreviewFeatures(config.PreviewFeatures)
+	rc.PreviewFeatures = slices.Concat(config.PreviewFeatures, options.PreviewFeatures)
+
+	err = options.verifyPreviewFeatures(rc.PreviewFeatures)
 	if err != nil {
 		return nil, err
 	}

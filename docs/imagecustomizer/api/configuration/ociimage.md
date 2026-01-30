@@ -33,7 +33,8 @@ To use this feature, you must pass in a
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 When using official Azure Linux images from the Microsoft Artifact Registry (MCR), it is
 recommended that you use the dedicated
