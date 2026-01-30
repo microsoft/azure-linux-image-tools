@@ -76,25 +76,37 @@ jobs:
       run: |
         set -eux
 
-        sudo apt update -y
         sudo apt list --installed
 
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt update -y
+
         # Install all prerequisites in a single batch
-        sudo apt -y install \
-          qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof \
-          python3-venv python3-pip python3-dev \
-          libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
-          qemu-kvm virt-manager
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt -y install \
+            qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+            xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof \
+            python3-venv python3-pip python3-dev \
+            libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
+            qemu-kvm virt-manager
 
         # Install arm64 specific packages
         if [[ "$HOST_ARCH" == "arm64" ]]; then
-          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+          sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+            apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
         fi
 
-        sudo apt list --installed
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt list --installed
+
+        # Install Azure CLI with retries.
+        install_azure_cli() {
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        }
+        export -f install_azure_cli
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          bash -c install_azure_cli
 
     - name: Build imagecreator and imagecustomizer
       run: |

@@ -64,19 +64,30 @@ jobs:
       run: |
         set -eux
 
-        sudo apt update -y
-        sudo apt -y install python3-venv python3-pip python3-dev \
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt update -y
+
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt -y install python3-venv python3-pip python3-dev \
             libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
             qemu-kvm virt-manager
 
         # Install arm64 specific
         if [[ "$HOST_ARCH" == "arm64" ]]; then
-          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
+          sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+            apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
         fi
 
-        sudo apt list --installed
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt list --installed
 
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        # Install Azure CLI with retries.
+        install_azure_cli() {
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        }
+        export -f install_azure_cli
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          bash -c install_azure_cli
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
 

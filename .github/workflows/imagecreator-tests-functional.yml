@@ -58,12 +58,16 @@ jobs:
         set -eux
 
         # Install Image Customizer prerequisities.
-        sudo apt list --installed
-        sudo apt update -y
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt list --installed
 
-        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof \
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt update -y
+
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+            xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof
 
     - name: Checkout
       uses: actions/checkout@v6

@@ -109,8 +109,11 @@ jobs:
       run: |
         set -eux
 
-        sudo apt -y update
-        sudo apt -y install libvirt-dev
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt -y update
+
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt -y install libvirt-dev
 
         pushd repo/test/vmtests
 
