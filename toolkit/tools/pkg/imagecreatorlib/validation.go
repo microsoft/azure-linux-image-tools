@@ -69,11 +69,8 @@ func validateSupportedOsFields(osConfig *imagecustomizerapi.OS) error {
 
 func validateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config, rpmsSources []string,
 	toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string, buildDir string,
+	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) (*imagecustomizerlib.ResolvedConfig, error) {
-	if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
-		return nil, fmt.Errorf("the 'create' feature is currently in preview; please add 'create' to 'previewFeatures' to enable it")
-	}
-
 	err := validateSupportedFields(config)
 	if err != nil {
 		return nil, fmt.Errorf("invalid config file (%s):\n%w", baseConfigPath, err)
@@ -93,13 +90,20 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 			OutputImageFormat:   imagecustomizerapi.ImageFormatType(outputImageFormat),
 			PackageSnapshotTime: imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 			BuildDir:            buildDir,
+			PreviewFeatures:     previewFeatures,
 		})
 	if err != nil {
 		return nil, err
 	}
 
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
+		return nil, fmt.Errorf("the 'create' feature is currently in preview; " +
+			"please add 'create' to 'previewFeatures' to enable it")
+	}
+
 	if len(config.OS.Packages.Install) == 0 {
-		return nil, fmt.Errorf("no packages to install specified, please specify at least one package to install for a new image")
+		return nil, fmt.Errorf("no packages to install specified, " +
+			"please specify at least one package to install for a new image")
 	}
 
 	return rc, nil

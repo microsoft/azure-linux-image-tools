@@ -8,7 +8,8 @@ ancestor: Image Customizer
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `output-artifacts` in the
-[previewFeatures](./config.md#previewfeatures-string) API.
+[previewFeatures](./config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Specifies the configuration for the output directory containing the generated
 artifacts, including UKI PE images, shim, systemd-boot, and Verity hash files.

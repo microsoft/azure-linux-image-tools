@@ -9,7 +9,8 @@ Specifies an Azure Linux image to be used as the base image.
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 Example:
 

@@ -18,24 +18,13 @@ const (
 
 func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string, rpmsSources []string,
 	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
-	packageSnapshotTime string,
-) error {
-	return CreateImageWithConfigFileAndPreviewFeatures(ctx, buildDir, configFile, rpmsSources, toolsTar, outputImageFile,
-		outputImageFormat, distro, distroVersion, packageSnapshotTime, nil)
-}
-
-func CreateImageWithConfigFileAndPreviewFeatures(ctx context.Context, buildDir string, configFile string,
-	rpmsSources []string, toolsTar string, outputImageFile string, outputImageFormat string, distro string,
-	distroVersion string, packageSnapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature,
+	packageSnapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config file %s:\n%w", configFile, err)
 	}
-
-	// Merge CLI preview features with config preview features
-	config.PreviewFeatures = imagecustomizerlib.MergePreviewFeatures(config.PreviewFeatures, previewFeatures)
 
 	baseConfigPath, _ := filepath.Split(configFile)
 
@@ -46,7 +35,7 @@ func CreateImageWithConfigFileAndPreviewFeatures(ctx context.Context, buildDir s
 
 	err = createNewImage(
 		ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile,
-		outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
+		outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime, previewFeatures)
 	if err != nil {
 		return err
 	}
@@ -56,11 +45,11 @@ func CreateImageWithConfigFileAndPreviewFeatures(ctx context.Context, buildDir s
 
 func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
-	distroVersion string, packageSnapshotTime string,
+	distroVersion string, packageSnapshotTime string, previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	rc, err := validateConfig(
 		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
-		outputImageFormat, packageSnapshotTime, buildDir)
+		outputImageFormat, packageSnapshotTime, buildDir, previewFeatures)
 	if err != nil {
 		return err
 	}

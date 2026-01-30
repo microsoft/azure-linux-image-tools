@@ -58,13 +58,13 @@ type InjectFilesCmd struct {
 }
 
 type RootCmd struct {
-	Create           CreateCmd        `name:"create" cmd:"" help:"Creates a new Azure Linux image from scratch."`
-	Customize        CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
-	InjectFiles      InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
-	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
-	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
-	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
-	PreviewFeature   []string         `name:"preview-feature" placeholder:"FEATURE" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
+	Create           CreateCmd                           `name:"create" cmd:"" help:"Creates a new Azure Linux image from scratch."`
+	Customize        CustomizeCmd                        `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
+	InjectFiles      InjectFilesCmd                      `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
+	Version          kong.VersionFlag                    `name:"version" help:"Print version information and quit"`
+	TimeStampFile    string                              `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	DisableTelemetry bool                                `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
+	PreviewFeature   []imagecustomizerapi.PreviewFeature `name:"preview-feature" placeholder:"FEATURE" help:"Enable a preview feature. Can be specified multiple times to enable multiple features." enum:"${previewfeatures}"`
 	exekong.LogFlags
 }
 
@@ -114,23 +114,21 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 		defer timestamp.CompleteTiming()
 	}
 
-	cliPreviewFeatures := imagecustomizerlib.StringsToPreviewFeatures(cli.PreviewFeature)
-
 	switch command {
 	case "create":
-		err = createImage(ctx, cli.Create, cliPreviewFeatures)
+		err = createImage(ctx, cli.Create, cli.PreviewFeature)
 		if err != nil {
 			return fmt.Errorf("image creation failed:\n%w", err)
 		}
 
 	case "customize":
-		err = customizeImage(ctx, cli.Customize, cliPreviewFeatures)
+		err = customizeImage(ctx, cli.Customize, cli.PreviewFeature)
 		if err != nil {
 			return fmt.Errorf("image customization failed:\n%w", err)
 		}
 
 	case "inject-files":
-		err = injectFiles(ctx, cli.InjectFiles, cliPreviewFeatures)
+		err = injectFiles(ctx, cli.InjectFiles, cli.PreviewFeature)
 		if err != nil {
 			return fmt.Errorf("inject-files failed:\n%w", err)
 		}
@@ -145,7 +143,7 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 func customizeImage(ctx context.Context, cmd CustomizeCmd,
 	cliPreviewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFileAndPreviewFeatures(ctx, cmd.ConfigFile, cliPreviewFeatures,
+	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
 		imagecustomizerlib.ImageCustomizerOptions{
 			BuildDir:                cmd.BuildDir,
 			InputImageFile:          cmd.InputImageFile,
@@ -158,6 +156,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd,
 			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
 			ImageCacheDir:           cmd.ImageCacheDir,
 			CosiCompressionLevel:    cmd.CosiCompressionLevel,
+			PreviewFeatures:         cliPreviewFeatures,
 		})
 	if err != nil {
 		return err
@@ -169,13 +168,14 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd,
 func injectFiles(ctx context.Context, cmd InjectFilesCmd,
 	cliPreviewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
-	err := imagecustomizerlib.InjectFilesWithConfigFileAndPreviewFeatures(ctx, cmd.ConfigFile, cliPreviewFeatures,
+	err := imagecustomizerlib.InjectFilesWithConfigFile(ctx, cmd.ConfigFile,
 		imagecustomizerlib.InjectFilesOptions{
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    cmd.OutputImageFormat,
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
+			PreviewFeatures:      cliPreviewFeatures,
 		})
 	if err != nil {
 		return err
@@ -187,7 +187,7 @@ func injectFiles(ctx context.Context, cmd InjectFilesCmd,
 func createImage(ctx context.Context, cmd CreateCmd,
 	cliPreviewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
-	err := imagecreatorlib.CreateImageWithConfigFileAndPreviewFeatures(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
+	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
 		cmd.ToolsTar, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.Distro, cmd.DistroVersion,
 		cmd.PackageSnapshotTime, cliPreviewFeatures)
 	if err != nil {

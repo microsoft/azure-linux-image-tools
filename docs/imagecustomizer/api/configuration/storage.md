@@ -142,7 +142,8 @@ Added in v0.7.
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `reinitialize-verity` in the
-[previewFeatures](./config.md#previewfeatures-string) API.
+[previewFeatures](./config.md#previewfeatures-string) API or
+via the [--preview-feature](../cli/cli.md#--preview-featurefeature) flag.
 
 When the base image contains verity partitions, controls whether or not the verity
 partitions can be modified.

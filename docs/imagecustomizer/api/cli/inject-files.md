@@ -10,7 +10,8 @@ nav_order: 1
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `inject-files` in the
-[previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API.
+[previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API or
+via the [--preview-feature](cli.md#--preview-featurefeature) flag.
 
 This subcommand takes a base image and a config file (typically auto-generated
 from the [output.artifacts](../configuration/outputArtifacts.md) API) and injects
@@ -86,7 +87,8 @@ Optional. Default: `9`
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API.
+[previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API or
+via the [--preview-feature](cli.md#--preview-featurefeature) flag.
 
 The zstd compression level (1-22) for COSI partition images.
 

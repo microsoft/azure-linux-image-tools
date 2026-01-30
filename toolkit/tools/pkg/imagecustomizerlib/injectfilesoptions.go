@@ -16,6 +16,7 @@ type InjectFilesOptions struct {
 	OutputImageFile      string
 	OutputImageFormat    string
 	CosiCompressionLevel *int
+	PreviewFeatures      []imagecustomizerapi.PreviewFeature
 }
 
 func (o *InjectFilesOptions) IsValid() error {

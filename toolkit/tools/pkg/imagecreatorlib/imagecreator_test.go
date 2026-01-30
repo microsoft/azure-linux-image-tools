@@ -32,7 +32,7 @@ func TestCreateImageRaw(t *testing.T) {
 
 	err := CreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
-		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "")
+		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -80,7 +80,7 @@ func TestCreateImageBtrfs(t *testing.T) {
 
 	err := CreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
-		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "")
+		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "", nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -134,7 +134,7 @@ func TestCreateImageRawNoTar(t *testing.T) {
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
-		outputImageFilePath, "raw", "azurelinux", "3.0", "")
+		outputImageFilePath, "raw", "azurelinux", "3.0", "", nil)
 
 	assert.ErrorContains(t, err, "tools tar file is required for image creation")
 }
@@ -150,11 +150,11 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 	emptyConfigFile := filepath.Join(testDir, "empty-config.yaml")
 
 	err := CreateImageWithConfigFile(t.Context(), buildDir, "", []string{}, "", outputImageFilePath, "raw",
-		"azurelinux", "3.0", "")
+		"azurelinux", "3.0", "", nil)
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 
 	err = CreateImageWithConfigFile(t.Context(), buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw",
-		"azurelinux", "3.0", "")
+		"azurelinux", "3.0", "", nil)
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 }
 
@@ -189,7 +189,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	// Pass the output image file relative to the current working directory through the argument.
 	// This will create the file at the absolute path.
 	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "azurelinux", "3.0", "")
+		outputImageFormat, toolsFile, "azurelinux", "3.0", "", nil)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -201,7 +201,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	// Pass the output image file relative to the config file through the config. This will create
 	// the file at the absolute path.
 	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "azurelinux", "3.0", "")
+		outputImageFormat, toolsFile, "azurelinux", "3.0", "", nil)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)

@@ -53,7 +53,8 @@ If verity is enabled in the base image, then:
 
   This feature is in preview and may be subject to breaking changes.
   You may enable this feature by adding `reinitialize-verity` to the
-  [previewfeatures](../configuration/config.md#previewfeatures-string) API.
+  [previewFeatures](../configuration/config.md#previewfeatures-string) API or
+  via the [--preview-feature](#--preview-featurefeature) flag.
 
 Added in v0.3.
 
@@ -83,7 +84,8 @@ Supported formats:
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](#--preview-featurefeature) flag.
 
 Added in v1.1.
 
@@ -131,7 +133,8 @@ Optional. Default: `9`
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](#--preview-featurefeature) flag.
 
 If both
 [output.image.cosi.compression.level](../configuration/cosiCompression.md#level-int) and
@@ -152,7 +155,8 @@ Optional.
 This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `output-selinux-policy` in the
-[previewFeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](#--preview-featurefeature) flag.
 
 If both
 [output.selinuxPolicyPath](../configuration/output.md#selinuxpolicypath-string) and
@@ -266,7 +270,8 @@ Supports:
 - A full RFC 3339 timestamp (e.g. `2024-05-20T23:59:59Z`)
 
 You may enable this feature by adding `package-snapshot-time` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](#--preview-featurefeature) flag.
 
 Added in v0.15.
 
@@ -280,7 +285,8 @@ This option is used in conjunction with the
 
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
-[previewfeatures](../configuration/config.md#previewfeatures-string) API.
+[previewFeatures](../configuration/config.md#previewfeatures-string) API or
+via the [--preview-feature](#--preview-featurefeature) flag.
 
 Added in v1.1.
 
