@@ -155,6 +155,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		outputPartitions = append(outputPartitions, Partition{
 			Path:         metadataImage.Image.Path,
 			PartUuid:     partition.PartUuid,
+			PartType:     partition.PartitionTypeUuid,
 			OriginalSize: partition.OriginalSize,
 			Label:        partition.PartLabel,
 			Number:       partition.PartitionNum,
@@ -183,6 +184,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 					Path:         metadataImage.Verity.Image.Path,
 					OriginalSize: hashPartition.OriginalSize,
 					PartUuid:     hashPartition.PartUuid,
+					PartType:     hashPartition.PartitionTypeUuid,
 					Label:        hashPartition.PartLabel,
 					Number:       hashPartition.PartitionNum,
 				})

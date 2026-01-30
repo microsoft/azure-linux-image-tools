@@ -67,6 +67,7 @@ type Partition struct {
 	Path         string `json:"path"`
 	OriginalSize uint64 `json:"originalSize"`
 	PartUuid     string `json:"partUuid"`
+	PartType     string `json:"partType"`
 	Label        string `json:"label"`
 	Number       int    `json:"number"`
 }
