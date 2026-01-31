@@ -19,6 +19,7 @@ class LibvirtVm:
         self.vm_name: str = vm_name
         self.console_log_file_path: str = console_log_file_path
         self.domain: libvirt.virDomain = None
+        self.console_logger: Optional[LibvirtConsoleLogger] = None
 
         self.domain = libvirt_conn.defineXML(domain_xml)
 
