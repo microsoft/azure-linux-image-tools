@@ -26,7 +26,7 @@ type CreateCmd struct {
 	ConfigFile          string   `name:"config-file" help:"Path of the image creator config file." required:""`
 	RpmSources          []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs." required:""`
 	ToolsTar            string   `name:"tools-file" help:"Path to tdnf/dnf worker tarball" required:""`
-	OutputImageFile     string   `name:"output-image-file" help:"Path to write the customized image to."`
+	OutputImageFile     string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image to."`
 	OutputImageFormat   string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw)" help:"Format of output image." enum:"${imageformatcreate}" default:""`
 	Distro              string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" default:"azurelinux"`
 	DistroVersion       string   `name:"distro-version" help:"Target distribution version (e.g., 3.0 for Azure Linux, 42 for Fedora)." default:""`
