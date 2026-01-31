@@ -119,15 +119,40 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	imageData := []ImageBuildData{}
-	outputPartitions := []Partition{}
-
+	outputPartitions := make([]Partition, 0, len(partitions))
 	for _, partition := range partitions {
+		partitionPath := path.Join("images", partition.PartitionFilename)
+		partitionSource := path.Join(sourceDir, partition.PartitionFilename)
+
+		// Create and populate ImageFile for partition
+		partitionImageFile := ImageFile{
+			Path:             partitionPath,
+			UncompressedSize: partition.UncompressedSize,
+		}
+
+		// Populate compressed size and checksum
+		if err := populateImageFile(partitionSource, &partitionImageFile); err != nil {
+			return fmt.Errorf("failed to populate partition metadata (partition=%d, source='%s'):\n%w",
+				partition.PartitionNum, partitionSource, err)
+		}
+
+		outputPartitions = append(outputPartitions, Partition{
+			Image:        partitionImageFile,
+			PartUuid:     partition.PartUuid,
+			OriginalSize: partition.OriginalSize,
+			Label:        partition.PartLabel,
+			Number:       partition.PartitionNum,
+		})
+	}
+
+	// Build imageData only for mounted filesystems
+	for i, partition := range partitions {
 		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
 		if _, isVerityHash := verityHashUuids[partition.PartUuid]; isVerityHash {
 			continue
 		}
 
-		// Skip partitions that are unmounted or have no filesystem type
+		// Skip partitions that are unmounted or have no filesystem type for imageData
 		entry, hasMount := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
 			return partition.PartUuid == entry.PartUuid
 		})
@@ -137,7 +162,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 		metadataImage := FileSystem{
 			Image: ImageFile{
-				Path:             path.Join("images", partition.PartitionFilename),
+				Path:             outputPartitions[i].Image.Path,
 				UncompressedSize: partition.UncompressedSize,
 			},
 			PartType:   partition.PartitionTypeUuid,
@@ -151,14 +176,6 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 			Metadata:  &metadataImage,
 			KnownInfo: partition,
 		}
-
-		outputPartitions = append(outputPartitions, Partition{
-			Path:         metadataImage.Image.Path,
-			PartUuid:     partition.PartUuid,
-			OriginalSize: partition.OriginalSize,
-			Label:        partition.PartLabel,
-			Number:       partition.PartitionNum,
-		})
 
 		// Add Verity metadata if the partition has a matching entry in verityMetadata
 		for _, verity := range verityMetadata {
@@ -178,15 +195,6 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)
 				imageDataEntry.VeritySource = veritySourcePath
-
-				outputPartitions = append(outputPartitions, Partition{
-					Path:         metadataImage.Verity.Image.Path,
-					OriginalSize: hashPartition.OriginalSize,
-					PartUuid:     hashPartition.PartUuid,
-					Label:        hashPartition.PartLabel,
-					Number:       hashPartition.PartitionNum,
-				})
-
 				break
 			}
 		}
@@ -245,10 +253,39 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	})
 	tw.Write(metadataJson)
 
+	// Track which partition UUIDs have been added via imageData
+	addedPartitionUuids := make(map[string]bool)
+
 	for _, data := range imageData {
 		if err := addToCosi(data, tw); err != nil {
 			return fmt.Errorf("failed to add %s to COSI:\n%w", data.Source, err)
 		}
+		addedPartitionUuids[data.KnownInfo.PartUuid] = true
+
+		// Track verity hash partition if present
+		if data.VeritySource != "" && data.Metadata.Verity != nil {
+			for _, verity := range verityMetadata {
+				if data.KnownInfo.PartUuid == verity.dataPartUuid {
+					addedPartitionUuids[verity.hashPartUuid] = true
+					break
+				}
+			}
+		}
+	}
+
+	// Add unmounted partition files to the tar
+	for i, partition := range partitions {
+		if addedPartitionUuids[partition.PartUuid] {
+			// Already added via imageData
+			continue
+		}
+
+		partitionSource := path.Join(sourceDir, partition.PartitionFilename)
+		if err := addFileToCosi(tw, partitionSource, outputPartitions[i].Image); err != nil {
+			return fmt.Errorf("failed to add unmounted partition %s to COSI:\n%w", partitionSource, err)
+		}
+
+		logger.Log.Infof("Added unmounted partition to COSI: %s", partitionSource)
 	}
 
 	if err = tw.Flush(); err != nil {
