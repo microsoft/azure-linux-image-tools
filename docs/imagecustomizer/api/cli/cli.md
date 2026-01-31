@@ -7,6 +7,14 @@ nav_order: 1
 
 # Image Customizer command line
 
+## create
+
+Creates a new Azure Linux image from scratch.
+
+See [create subcommand](./create.md) for full documentation.
+
+Added in v1.2.
+
 ## customize
 
 Customizes a base OS image.
