@@ -24,6 +24,8 @@ SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
 
 KEEP_ENVIRONMENT ?= n
 
+LOG_CLI_LEVEL ?= DEBUG
+
 DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
 
 .PHONY: create-venv
@@ -93,7 +95,7 @@ test-imagecustomizer:
 		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
+		--log-cli-level=${LOG_CLI_LEVEL} \
 		--show-capture=no \
 		--tb=short \
 		-vv \
@@ -109,7 +111,7 @@ test-imagecreator-azurelinux:
 		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
+		--log-cli-level=${LOG_CLI_LEVEL} \
 		--show-capture=no \
 		--tb=short \
 		-vv \
@@ -125,7 +127,7 @@ test-imagecreator-fedora:
 		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
+		--log-cli-level=${LOG_CLI_LEVEL} \
 		--show-capture=no \
 		--tb=short \
 		-vv \
@@ -141,7 +143,7 @@ test-osmodifier:
 		--input-image="${INPUT_IMAGE}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
+		--log-cli-level=${LOG_CLI_LEVEL} \
 		--show-capture=no \
 		--tb=short \
 		-vv \
