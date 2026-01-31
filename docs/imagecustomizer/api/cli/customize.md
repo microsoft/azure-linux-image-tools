@@ -238,7 +238,9 @@ installation.
 
 Added in v0.3.
 
-## --package-snapshot-time
+## --package-snapshot-time=TIMESTAMP
+
+Optional.
 
 Limits package selection to those published before the specified timestamp.
 
