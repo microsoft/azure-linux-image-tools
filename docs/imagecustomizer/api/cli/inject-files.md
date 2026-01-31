@@ -73,7 +73,8 @@ Optional.
 
 The image format of the final image written to `--output-image-file`.
 
-Options: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, `pxe-dir`, `pxe-tar`, `iso`, and `cosi`.
+See [output.image.format](../configuration/outputImage.md#format-string) for the full list of
+supported options and their descriptions.
 
 If this option is not provided, the format of the input image is preserved.
 

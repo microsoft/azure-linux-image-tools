@@ -37,14 +37,27 @@ on the command line. If both `--output-image-format` and
 
 The image format of the final customized image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw, iso, and [cosi](../cosi.md).
+Supported options:
 
-The vhd-fixed option outputs a fixed size VHD image. This is the required format for
-VMs in Azure.
+- `vhd`: Outputs a dynamic VHD image.
 
-When the output image format is set to iso, the generated image is a LiveOS
-iso image. For more details on this format, see:
-[Image Customizer ISO Support](../../concepts/iso.md).
+- `vhd-fixed`: Outputs a fixed size VHD image. This is the required format for VMs in Azure.
+
+- `vhdx`: Outputs a VHDX image.
+
+- `qcow2`: Outputs a QCOW2 image.
+
+- `raw`: Outputs a raw disk image.
+
+- `iso`: Outputs a LiveOS ISO image. For more details, see: [Image Customizer ISO Support](../../concepts/iso.md).
+
+- `pxe-dir`: Outputs a PXE boot directory.
+
+- `pxe-tar`: Outputs a tarball containing a PXE boot directory.
+
+- `cosi`: Outputs a [Composable Operating System Image](../cosi.md).
+
+- `baremetal-image`: Outputs a [Composable Operating System Image](../cosi.md) for baremetal deployments.
 
 Added in v0.13.
 
