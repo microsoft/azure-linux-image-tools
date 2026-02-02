@@ -19,9 +19,8 @@ type ConvertImageOptions struct {
 }
 
 func (o *ConvertImageOptions) IsValid() error {
-	if o.BuildDir == "" {
-		return fmt.Errorf("build directory must be specified")
-	}
+	// Note: BuildDir is validated in ConvertImageWithOptions() because it's only required
+	// for COSI/bare-metal-image output formats, not for simple format conversions.
 
 	if o.InputImageFile == "" {
 		return fmt.Errorf("input image file must be specified")

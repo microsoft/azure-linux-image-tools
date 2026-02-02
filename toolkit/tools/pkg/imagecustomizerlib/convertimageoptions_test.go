@@ -23,16 +23,17 @@ func TestConvertImageOptions_IsValid_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestConvertImageOptions_IsValid_MissingBuildDir(t *testing.T) {
+func TestConvertImageOptions_IsValid_NoBuildDir(t *testing.T) {
+	// BuildDir is optional in IsValid() - it's validated at runtime in ConvertImageWithOptions()
+	// based on the output format (required only for COSI/bare-metal-image).
 	options := ConvertImageOptions{
 		InputImageFile:    "/tmp/input.vhdx",
-		OutputImageFile:   "/tmp/output.cosi",
-		OutputImageFormat: "cosi",
+		OutputImageFile:   "/tmp/output.vhdx",
+		OutputImageFormat: "vhdx",
 	}
 
 	err := options.IsValid()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "build directory must be specified")
+	assert.NoError(t, err)
 }
 
 func TestConvertImageOptions_IsValid_MissingInputFile(t *testing.T) {

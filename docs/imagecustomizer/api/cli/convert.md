@@ -25,9 +25,12 @@ Added in v1.2.
 
 ## --build-dir=DIRECTORY-PATH
 
-Required.
+Optional. Required for `cosi` and `baremetal-image` output formats.
 
 The temporary workspace directory where the tool will place its working files.
+This is required for COSI and bare-metal-image conversions which need workspace
+for intermediate RAW files and partition processing. For direct format conversions
+(e.g., VHD to QCOW2), the build directory is not required.
 
 Added in v1.2.
 
@@ -105,7 +108,6 @@ imagecustomizer convert \
 
 ```bash
 imagecustomizer convert \
-  --build-dir ./build \
   --image-file vm-image.qcow2 \
   --output-image-file azure-image.vhd \
   --output-image-format vhd-fixed

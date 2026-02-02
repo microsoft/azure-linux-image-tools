@@ -24,18 +24,24 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 		return err
 	}
 
-	buildDirAbs, err := filepath.Abs(options.BuildDir)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(buildDirAbs, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
 	// OutputImageFormat is required, so no need to fall back to detected format
 	outputFormat := imagecustomizerapi.ImageFormatType(options.OutputImageFormat)
+
+	// Validate build directory is provided for COSI/bare-metal-image output formats
+	requiresBuildDir := outputFormat == imagecustomizerapi.ImageFormatTypeCosi ||
+		outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
+	if requiresBuildDir && options.BuildDir == "" {
+		return ErrConvertBuildDirRequired
+	}
+
+	// Detect input image format and reject unsupported formats
+	inputImageInfo, err := GetImageFileInfo(options.InputImageFile)
+	if err != nil {
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrDetectImageFormat, options.InputImageFile, err)
+	}
+	if inputImageInfo.Format == "iso" {
+		return fmt.Errorf("%w (format='%s')", ErrConvertUnsupportedInputFormat, inputImageInfo.Format)
+	}
 
 	if options.CosiCompressionLevel != nil {
 		if outputFormat != imagecustomizerapi.ImageFormatTypeCosi &&
@@ -58,7 +64,17 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 		return err
 	}
 
-	if outputFormat == imagecustomizerapi.ImageFormatTypeCosi || outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
+	if requiresBuildDir {
+		buildDirAbs, err := filepath.Abs(options.BuildDir)
+		if err != nil {
+			return err
+		}
+
+		err = os.MkdirAll(buildDirAbs, os.ModePerm)
+		if err != nil {
+			return err
+		}
+
 		rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 		_, err = convertImageToRaw(options.InputImageFile, rawImageFile)
 		if err != nil {
@@ -71,7 +87,7 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 			return err
 		}
 	} else {
-		err = ConvertImageFile(options.InputImageFile, options.OutputImageFile, outputFormat)
+		err = ConvertImageFileFromAnyFormat(options.InputImageFile, options.OutputImageFile, outputFormat)
 		if err != nil {
 			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion,
 				options.OutputImageFile, outputFormat, err)
