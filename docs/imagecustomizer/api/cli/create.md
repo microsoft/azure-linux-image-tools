@@ -53,10 +53,10 @@ value is used.
 
 The image format of the created image.
 
-Options: vhd, vhd-fixed, vhdx, qcow2, raw.
+Supported image formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, and `raw`.
 
-The vhd-fixed option outputs a fixed size VHD image. This is the required format for
-VMs in Azure.
+See [output.image.format](../configuration/outputImage.md#format-string) for detailed descriptions
+of each format.
 
 Added in v1.2.
 

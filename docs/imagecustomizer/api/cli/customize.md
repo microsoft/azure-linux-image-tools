@@ -119,8 +119,11 @@ value is used.
 
 The image format of the final customized image.
 
-See [output.image.format](../configuration/outputImage.md#format-string) for the full list of
-supported options and their descriptions.
+Supported image formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, `iso`, `pxe-dir`, `pxe-tar`, `cosi`,
+and `baremetal-image`.
+
+See [output.image.format](../configuration/outputImage.md#format-string) for detailed descriptions
+of each format.
 
 ## --cosi-compression-level=LEVEL
 
