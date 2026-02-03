@@ -1,12 +1,16 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import logging
+import re
 from threading import Event
 from typing import IO, Any, Optional, Union
 
 import libvirt  # type: ignore
 
 from . import libvirt_events_thread
+
+ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 # Reads serial console log from libvirt VM and writes it to a file.
@@ -17,6 +21,7 @@ class LibvirtConsoleLogger:
         self._console_stream_callback_started = False
         self._console_stream_callback_added = False
         self._log_file: Optional[IO[Any]] = None
+        self._logging_buffer = bytearray()
 
     # Attach logger to a libvirt VM.
     def attach(
@@ -83,8 +88,9 @@ class LibvirtConsoleLogger:
             while True:
                 try:
                     data = stream.recv(libvirt.virStorageVol.streamBufSize)
-                except libvirt.libvirtError:
+                except libvirt.libvirtError as ex:
                     # An error occured. So, close the stream.
+                    logging.warning(f"VM console recv error. {ex}")
                     self._close_stream(True)
                     break
 
@@ -96,17 +102,23 @@ class LibvirtConsoleLogger:
 
                 if len(data) == 0:
                     # EOF reached.
+                    logging.warning(f"VM console EOF")
                     self._close_stream(False)
                     break
 
+                # Write to file.
                 assert self._log_file
                 self._log_file.write(data)
 
-                # Ideally we would also write to logging here.
-                # But the console bytes aren't sent in full lines.
-                # So, buffering and line splitting would need to be implemented manually.
+                # Write to logging.
+                self._log_data(data)
 
         if events & libvirt.VIR_STREAM_EVENT_ERROR or events & libvirt.VIR_STREAM_EVENT_HANGUP:
+            if events & libvirt.VIR_STREAM_EVENT_ERROR:
+                logging.warning(f"VM console error")
+            else:
+                logging.warning(f"VM console hangup")
+
             # Stream is shutting down. So, close it.
             self._close_stream(True)
 
@@ -118,6 +130,9 @@ class LibvirtConsoleLogger:
             return
 
         try:
+            # Write final log line.
+            self._write_logging()
+
             # Close the log file
             assert self._log_file
             self._log_file.close()
@@ -135,3 +150,37 @@ class LibvirtConsoleLogger:
         finally:
             # Signal that the stream has closed.
             self._stream_completed.set()
+
+    # Add the current data to the log, splitting on newlines.
+    # Threading: Must only be called on libvirt events thread.
+    def _log_data(self, data: bytes) -> None:
+        remaining = data
+
+        while True:
+            newline_index = remaining.find(b"\n")
+            if newline_index == -1:
+                break
+
+            # Write pre-newline data to log.
+            self._logging_buffer.extend(remaining[:newline_index])
+            self._write_logging()
+
+            # Process remaining data.
+            remaining = remaining[newline_index + 1 :]
+
+        # No more newlines found.
+        # So, save the remaining data for later.
+        self._logging_buffer.extend(remaining)
+
+    # Write the current buffered contents to the log.
+    # Threading: Must only be called on libvirt events thread.
+    def _write_logging(self) -> None:
+        line = self._logging_buffer.decode("utf-8", errors="replace").rstrip()
+
+        # The QEMU firmware can be pretty obnoxious with its ANSI escape sequences.
+        # So, remove all of them.
+        line = ANSI_ESCAPE.sub("", line)
+
+        logging.debug(line)
+
+        self._logging_buffer.clear()
