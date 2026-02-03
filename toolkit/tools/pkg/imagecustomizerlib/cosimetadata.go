@@ -64,11 +64,11 @@ type ImageFile struct {
 }
 
 type Partition struct {
-	Path         string `json:"path"`
-	OriginalSize uint64 `json:"originalSize"`
-	PartUuid     string `json:"partUuid"`
-	Label        string `json:"label"`
-	Number       int    `json:"number"`
+	Image        ImageFile `json:"image"`
+	OriginalSize uint64    `json:"originalSize"`
+	PartUuid     string    `json:"partUuid"`
+	Label        string    `json:"label"`
+	Number       int       `json:"number"`
 }
 
 type OsPackage struct {
