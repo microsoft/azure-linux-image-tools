@@ -19,7 +19,7 @@ type ConvertImageOptions struct {
 }
 
 func (o *ConvertImageOptions) IsValid() error {
-	// Note: BuildDir is validated in ConvertImageWithOptions() because it's only required
+	// Note: BuildDir is validated in ConvertImage() because it's only required
 	// for COSI/bare-metal-image output formats, not for simple format conversions.
 
 	if o.InputImageFile == "" {
@@ -42,10 +42,6 @@ func (o *ConvertImageOptions) IsValid() error {
 }
 
 func (o *ConvertImageOptions) verifyPreviewFeatures(previewFeatures []imagecustomizerapi.PreviewFeature) error {
-	if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureConvert) {
-		return ErrConvertPreviewRequired
-	}
-
 	if err := verifyCosiCompressionPreviewFeature(o.CosiCompressionLevel, previewFeatures); err != nil {
 		return err
 	}

@@ -193,7 +193,7 @@ func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
 }
 
 func convertImage(ctx context.Context, cmd ConvertCmd) error {
-	err := imagecustomizerlib.ConvertImageWithOptions(ctx,
+	err := imagecustomizerlib.ConvertImage(ctx,
 		imagecustomizerlib.ConvertImageOptions{
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,

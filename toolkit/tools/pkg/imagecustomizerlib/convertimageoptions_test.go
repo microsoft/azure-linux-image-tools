@@ -24,7 +24,7 @@ func TestConvertImageOptions_IsValid_Success(t *testing.T) {
 }
 
 func TestConvertImageOptions_IsValid_NoBuildDir(t *testing.T) {
-	// BuildDir is optional in IsValid() - it's validated at runtime in ConvertImageWithOptions()
+	// BuildDir is optional in IsValid() - it's validated at runtime in ConvertImage()
 	// based on the output format (required only for COSI/bare-metal-image).
 	options := ConvertImageOptions{
 		InputImageFile:    "/tmp/input.vhdx",

@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) error {
+func ConvertImage(ctx context.Context, options ConvertImageOptions) error {
 	logger.Log.Infof("Converting image from one format to another")
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "convert_image")
@@ -54,7 +54,6 @@ func ConvertImageWithOptions(ctx context.Context, options ConvertImageOptions) e
 	// and the auto-add logic below should be removed.
 	// Preview features list - currently auto-populated to maintain functionality until CLI flag is available
 	var previewFeatures []imagecustomizerapi.PreviewFeature
-	previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureConvert)
 	if options.CosiCompressionLevel != nil {
 		previewFeatures = append(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression)
 	}

@@ -33,7 +33,7 @@ func TestConvertImageRawToVhdx(t *testing.T) {
 		OutputImageFormat: "vhdx",
 	}
 
-	err := ConvertImageWithOptions(t.Context(), options)
+	err := ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -63,7 +63,7 @@ func TestConvertImageRawToVhd(t *testing.T) {
 		OutputImageFormat: "vhd",
 	}
 
-	err := ConvertImageWithOptions(t.Context(), options)
+	err := ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -93,7 +93,7 @@ func TestConvertImageRawToQcow2(t *testing.T) {
 		OutputImageFormat: "qcow2",
 	}
 
-	err := ConvertImageWithOptions(t.Context(), options)
+	err := ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -127,7 +127,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 		OutputImageFormat: "vhdx",
 	}
 
-	err := ConvertImageWithOptions(t.Context(), options1)
+	err := ConvertImage(t.Context(), options1)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -141,7 +141,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 		OutputImageFormat: "qcow2",
 	}
 
-	err = ConvertImageWithOptions(t.Context(), options2)
+	err = ConvertImage(t.Context(), options2)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -198,7 +198,7 @@ func TestConvertImageRawToCosi(t *testing.T) {
 		OutputImageFormat: "cosi",
 	}
 
-	err = ConvertImageWithOptions(t.Context(), options)
+	err = ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -257,7 +257,7 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 		CosiCompressionLevel: &compressionLevel,
 	}
 
-	err = ConvertImageWithOptions(t.Context(), options)
+	err = ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -314,7 +314,7 @@ func TestConvertImageRawToBareMetalImage(t *testing.T) {
 		OutputImageFormat: "baremetal-image",
 	}
 
-	err = ConvertImageWithOptions(t.Context(), options)
+	err = ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -344,7 +344,7 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 		OutputImageFormat: "vhdx",
 	}
 
-	err := ConvertImageWithOptions(t.Context(), options)
+	err := ConvertImage(t.Context(), options)
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "failed to convert") || strings.Contains(err.Error(), "failed to detect"),
 		"error should indicate conversion or detection failure, got: %v", err)
@@ -368,7 +368,7 @@ func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 		CosiCompressionLevel: &compressionLevel,
 	}
 
-	err := ConvertImageWithOptions(t.Context(), options)
+	err := ConvertImage(t.Context(), options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "COSI compression level can only be specified for COSI or bare-metal-image output formats")
 }
@@ -408,7 +408,7 @@ func TestConvertImageAutoDetectFormat(t *testing.T) {
 		OutputImageFormat: "raw",
 	}
 
-	err = ConvertImageWithOptions(t.Context(), options)
+	err = ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -440,7 +440,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		OutputImageFile:   vhdxImage,
 		OutputImageFormat: "vhdx",
 	}
-	err := ConvertImageWithOptions(t.Context(), options1)
+	err := ConvertImage(t.Context(), options1)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -454,7 +454,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		OutputImageFile:   qcow2Image,
 		OutputImageFormat: "qcow2",
 	}
-	err = ConvertImageWithOptions(t.Context(), options2)
+	err = ConvertImage(t.Context(), options2)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -468,7 +468,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		OutputImageFile:   vhdImage,
 		OutputImageFormat: "vhd",
 	}
-	err = ConvertImageWithOptions(t.Context(), options3)
+	err = ConvertImage(t.Context(), options3)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -482,7 +482,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		OutputImageFile:   rawImage,
 		OutputImageFormat: "raw",
 	}
-	err = ConvertImageWithOptions(t.Context(), options4)
+	err = ConvertImage(t.Context(), options4)
 	if !assert.NoError(t, err) {
 		return
 	}
