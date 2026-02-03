@@ -57,6 +57,14 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 	defer imageLoopback.Close()
 
+	// Extract GPT/MBR partition table data
+	gptData, err := extractGptData(imageLoopback.DevicePath(), rawImageFile, outputDir, outputImageBase,
+		imageUuid, compressionLevel, compressionLong)
+	if err != nil {
+		return fmt.Errorf("failed to extract GPT data:\n%w", err)
+	}
+	defer os.Remove(gptData.CompressedFilePath)
+
 	partitionMetadataOutput, err := extractPartitions(imageLoopback.DevicePath(), outputDir, outputImageBase,
 		"raw-zst", imageUuid, compressionLevel, compressionLong, partitionOriginalSizes)
 	if err != nil {
@@ -67,7 +75,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
-		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata)
+		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata, gptData)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
 	}
@@ -104,6 +112,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partitionsLayout []fstabEntryPartNum,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
+	gptData *GptExtractedData,
 ) error {
 	// Pre-compute a map from partition UUID to index for quick lookup
 	partUuidToIndex := make(map[string]int)
@@ -196,10 +205,29 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		imageData = append(imageData, imageDataEntry)
 	}
 
+	// Build GPT image file metadata
+	gptImageFile := ImageFile{
+		Path:             path.Join("images", filepath.Base(gptData.CompressedFilePath)),
+		UncompressedSize: gptData.UncompressedSize,
+	}
+	err := populateImageFile(gptData.CompressedFilePath, &gptImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to populate GPT image metadata:\n%w", err)
+	}
+
+	// Build partition images map for disk metadata
+	partitionImages := make(map[int]ImageFile)
+	for i, partition := range partitions {
+		partitionImages[partition.PartitionNum] = outputPartitions[i].Image
+	}
+
+	diskInfo := buildDiskMetadata(gptData, gptImageFile, partitionImages)
+
 	metadata := MetadataJson{
 		Version:    "1.2",
 		OsArch:     getArchitectureForCosi(),
 		Id:         imageUuidStr,
+		Disk:       diskInfo,
 		Images:     make([]FileSystem, len(imageData)),
 		Partitions: outputPartitions,
 		OsRelease:  osRelease,
@@ -236,6 +264,13 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		Format:   tar.FormatPAX,
 	})
 	tw.Write(metadataJson)
+
+	// Add GPT file to COSI (first, after metadata.json)
+	err = addFileToCosi(tw, gptData.CompressedFilePath, gptImageFile)
+	if err != nil {
+		return fmt.Errorf("failed to add GPT file to COSI:\n%w", err)
+	}
+	logger.Log.Infof("Added GPT file to COSI: %s", gptImageFile.Path)
 
 	// Add all partition files to the tar
 	for i, partition := range partitions {
