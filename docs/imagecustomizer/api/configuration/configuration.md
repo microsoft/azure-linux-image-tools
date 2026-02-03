@@ -79,7 +79,7 @@ The top level type for the YAML file is the [config](./config.md) type.
 
 20. Run finalize image scripts. ([finalizeCustomization](./scripts.md#finalizecustomization-script))
 
-21. If `--output-image-format` is `cosi`, then shrink the file systems.
+21. If `--output-image-format` is `cosi` or `baremetal-image`, then shrink the file systems.
 
 22. If a ([verity](./storage.md#verity-verity)) device is specified, then
     create the hash tree and update the grub config.
