@@ -109,7 +109,11 @@ func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawI
 			return err
 		}
 
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids)
+		// For convert subcommand, we're dealing with arbitrary input images.
+		// Only shrink filesystems that completely cover their partition (requireCoverage=true).
+		// If there's a gap between filesystem and partition end, we don't know what's in it,
+		// so we preserve the partition as-is (just compress, no shrink).
+		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids, true /*requireCoverage*/)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}

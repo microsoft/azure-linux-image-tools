@@ -532,7 +532,9 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids)
+		// For customize subcommand, we control the image creation, so filesystems always cover their partitions.
+		// Therefore, requireCoverage=false - we can safely shrink all filesystems.
+		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids, false /*requireCoverage*/)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
