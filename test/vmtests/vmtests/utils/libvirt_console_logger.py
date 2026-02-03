@@ -111,18 +111,7 @@ class LibvirtConsoleLogger:
                 self._log_file.write(data)
 
                 # Write to logging.
-                newline_index = data.find(b"\n")
-                if newline_index == -1:
-                    # No newline found.
-                    # So, save the data for later.
-                    self._logging_buffer.extend(data)
-                else:
-                    # Write pre-newline data to log.
-                    self._logging_buffer.extend(data[:newline_index])
-                    self._write_logging()
-
-                    # Save the remaining data for later.
-                    self._logging_buffer.extend(data[newline_index + 1 :])
+                self._log_data(data)
 
         if events & libvirt.VIR_STREAM_EVENT_ERROR or events & libvirt.VIR_STREAM_EVENT_HANGUP:
             if events & libvirt.VIR_STREAM_EVENT_ERROR:
@@ -161,6 +150,27 @@ class LibvirtConsoleLogger:
         finally:
             # Signal that the stream has closed.
             self._stream_completed.set()
+
+    # Add the current data to the log, splitting on newlines.
+    # Threading: Must only be called on libvirt events thread.
+    def _log_data(self, data: bytes) -> None:
+        remaining = data
+
+        while True:
+            newline_index = remaining.find(b"\n")
+            if newline_index == -1:
+                break
+
+            # Write pre-newline data to log.
+            self._logging_buffer.extend(remaining[:newline_index])
+            self._write_logging()
+
+            # Process remaining data.
+            remaining = remaining[newline_index + 1 :]
+
+        # No more newlines found.
+        # So, save the remaining data for later.
+        self._logging_buffer.extend(remaining)
 
     # Write the current buffered contents to the log.
     # Threading: Must only be called on libvirt events thread.
