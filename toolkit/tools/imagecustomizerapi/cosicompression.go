@@ -3,7 +3,13 @@
 
 package imagecustomizerapi
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrInvalidCosiCompressionLevelArg is returned when an invalid --cosi-compression-level CLI argument is provided.
+var ErrInvalidCosiCompressionLevelArg = errors.New("invalid --cosi-compression-level value")
 
 // CosiCompression specifies the compression settings for COSI output format.
 type CosiCompression struct {
@@ -43,5 +49,16 @@ func (c *CosiCompression) IsValid() error {
 			*c.Level, MinCosiCompressionLevel, MaxCosiCompressionLevel)
 	}
 
+	return nil
+}
+
+// ValidateCosiCompressionLevel validates a COSI compression level CLI argument.
+func ValidateCosiCompressionLevel(level *int) error {
+	if level != nil &&
+		(*level < MinCosiCompressionLevel || *level > MaxCosiCompressionLevel) {
+		return fmt.Errorf("%w (level=%d, valid range: %d-%d)",
+			ErrInvalidCosiCompressionLevelArg, *level,
+			MinCosiCompressionLevel, MaxCosiCompressionLevel)
+	}
 	return nil
 }

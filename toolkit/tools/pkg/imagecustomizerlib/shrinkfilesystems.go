@@ -26,11 +26,11 @@ var (
 )
 
 // shrinkFilesystemsHelper shrinks filesystems to minimize their size.
-// When requireCoverage is true (used by convert subcommand), filesystems will only be shrunk
-// if they completely cover their partition (filesystem size == partition size).
-// When requireCoverage is false (used by customize subcommand), filesystems are always shrunk
-// since IC controls the image creation and all filesystems should cover their partitions.
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string, requireCoverage bool) (map[string]uint64, error) {
+// isExternalImage indicates whether the image was created externally (not by IC). When true
+// (convert/inject-files subcommands), filesystems are only shrunk if they completely cover
+// their partition. When false (customize subcommand), filesystems are always shrunk since
+// IC controls the image creation.
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string, isExternalImage bool) (map[string]uint64, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
@@ -41,7 +41,7 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonl
 	defer imageLoopback.Close()
 
 	// Shrink the filesystems and capture original sizes.
-	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids, requireCoverage)
+	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids, isExternalImage)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonl
 	return partitionOriginalSizes, nil
 }
 
-func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, requireCoverage bool) (map[string]uint64, error) {
+func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, isExternalImage bool) (map[string]uint64, error) {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
@@ -82,13 +82,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, requi
 		}
 
 		partitionLoopDevice := diskPartition.Path
-
-		// Check if the filesystem type is supported
 		fstype := diskPartition.FileSystemType
-		if !supportedShrinkFsType(fstype) {
-			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
-			continue
-		}
 
 		readonly := slices.Contains(readonlyPartUuids, diskPartition.PartUuid)
 		if readonly {
@@ -96,31 +90,34 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, requi
 			continue
 		}
 
-		// When requireCoverage is true (convert subcommand), only shrink if filesystem
-		// completely covers the partition. This is a safety check for arbitrary input images
-		// where we can't guarantee what's in the gap between filesystem and partition end.
-		if requireCoverage {
-			covers, err := filesystemCoversPartition(partitionLoopDevice, fstype, diskPartition.SizeInBytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check filesystem coverage (device='%s'):\n%w", partitionLoopDevice, err)
-			}
-			if !covers {
-				logger.Log.Infof("Shrinking partition (%s): skipping - filesystem does not cover entire partition", partitionLoopDevice)
-				continue
-			}
-		}
-
 		logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)
 
 		fileSystemSizeInBytes := uint64(0)
+		// Note: Only ext* filesystems support shrinking. Other filesystem types (xfs, btrfs, vfat)
+		// do not support shrinking or require more complex handling.
 		switch fstype {
 		case "ext2", "ext3", "ext4":
+			// For external images, only shrink if filesystem completely covers the partition.
+			// A gap between the filesystem and partition end may indicate the image was created
+			// with specific requirements that we should respect.
+			if isExternalImage {
+				covers, err := extFilesystemCoversPartition(partitionLoopDevice, diskPartition.SizeInBytes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to check filesystem coverage (device='%s'):\n%w", partitionLoopDevice, err)
+				}
+				if !covers {
+					logger.Log.Infof("Shrinking partition (%s): skipping - filesystem does not cover entire partition", partitionLoopDevice)
+					continue
+				}
+			}
+
 			fileSystemSizeInBytes, err = shrinkExt4FileSystem(partitionLoopDevice, imageLoopDevice)
 			if err != nil {
 				return nil, fmt.Errorf("%w (type='%s', device='%s'):\n%w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
 			}
 
 		default:
+			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
 			continue
 		}
 
@@ -247,31 +244,11 @@ func convertBytesToSectors(sizeInBytes uint64, sectorSizeInBytes uint64) uint64 
 	return sizeInSectors
 }
 
-// Checks if the provided fstype is supported by shrink filesystems.
-func supportedShrinkFsType(fstype string) (isSupported bool) {
-	switch fstype {
-	// Currently only support ext2, ext3, ext4 filesystem types
-	case "ext2", "ext3", "ext4":
-		return true
-	default:
-		return false
-	}
-}
-
-// filesystemCoversPartition checks if the filesystem completely covers the partition.
-func filesystemCoversPartition(partitionDevice string, fstype string, partitionSizeInBytes uint64) (bool, error) {
-	var filesystemSizeInBytes uint64
-	var err error
-
-	switch fstype {
-	case "ext2", "ext3", "ext4":
-		filesystemSizeInBytes, err = getExt4CurrentFilesystemSize(partitionDevice)
-		if err != nil {
-			return false, err
-		}
-	default:
-		// For unsupported filesystem types, assume they don't cover (be conservative)
-		return false, nil
+// extFilesystemCoversPartition checks if an ext2/ext3/ext4 filesystem completely covers the partition.
+func extFilesystemCoversPartition(partitionDevice string, partitionSizeInBytes uint64) (bool, error) {
+	filesystemSizeInBytes, err := getExtFilesystemSize(partitionDevice)
+	if err != nil {
+		return false, err
 	}
 
 	covers := filesystemSizeInBytes == partitionSizeInBytes
@@ -282,7 +259,8 @@ func filesystemCoversPartition(partitionDevice string, fstype string, partitionS
 	return covers, nil
 }
 
-func getExt4CurrentFilesystemSize(partitionDevice string) (uint64, error) {
+// getExtFilesystemSize returns the current size of an ext2/ext3/ext4 filesystem in bytes.
+func getExtFilesystemSize(partitionDevice string) (uint64, error) {
 	stdout, stderr, err := shell.Execute("tune2fs", "-l", partitionDevice)
 	if err != nil {
 		return 0, fmt.Errorf("%w (device='%s', stderr='%s'):\n%w", ErrFilesystemTune2fs, partitionDevice, stderr, err)

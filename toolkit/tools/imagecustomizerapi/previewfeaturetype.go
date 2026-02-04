@@ -44,9 +44,6 @@ const (
 	// PreviewFeatureOutputSelinuxPolicy enables extraction of SELinux policy contents.
 	PreviewFeatureOutputSelinuxPolicy PreviewFeature = "output-selinux-policy"
 
-	// PreviewFeatureCosiCompression enables custom compression settings for COSI output.
-	PreviewFeatureCosiCompression PreviewFeature = "cosi-compression"
-
 	// PreviewFeatureBtrfs enables support for creating BTRFS file systems.
 	PreviewFeatureBtrfs PreviewFeature = "btrfs"
 
@@ -59,7 +56,7 @@ func (pf PreviewFeature) IsValid() error {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
 		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
-		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy, PreviewFeatureCosiCompression,
+		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
 		PreviewFeatureBtrfs, PreviewFeatureCreate:
 		return nil
 	default:

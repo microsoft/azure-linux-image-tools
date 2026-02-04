@@ -2,7 +2,7 @@
 title: convert
 parent: Command line
 ancestor: Image Customizer
-nav_order: 3
+nav_order: 2
 ---
 
 # convert subcommand
@@ -27,10 +27,7 @@ Added in v1.2.
 
 Optional. Required for `cosi` and `baremetal-image` output formats.
 
-The temporary workspace directory where the tool will place its working files.
-This is required for COSI and bare-metal-image conversions which need workspace
-for intermediate RAW files and partition processing. For direct format conversions
-(e.g., VHD to QCOW2), the build directory is not required.
+The directory where the tool will place its temporary files, if required.
 
 Added in v1.2.
 
@@ -40,7 +37,7 @@ Required.
 
 The path to the image to convert.
 
-Supported input formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, and `raw`.
+Supported image formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, and `raw`.
 
 Added in v1.2.
 
@@ -62,28 +59,18 @@ Added in v1.2.
 
 Required.
 
-The format type of the output image.
+The image format of the output image.
 
-Supported formats:
+Supported image formats: `vhd`, `vhd-fixed`, `vhdx`, `qcow2`, `raw`, `cosi`, and `baremetal-image`.
 
-- `vhd`: Dynamic VHD format
-- `vhd-fixed`: Fixed-size VHD format (required for Azure VMs)
-- `vhdx`: Hyper-V VHDX format
-- `qcow2`: QEMU QCOW2 format
-- `raw`: Raw disk image format
-- `cosi`: Compressed image format with metadata
-- `baremetal-image`: COSI format with VHD footer for bare-metal deployments
+See [output.image.format](../configuration/outputImage.md#format-string) for detailed descriptions
+of each format.
 
 Added in v1.2.
 
 ## --cosi-compression-level=LEVEL
 
 Optional. Default: `9`
-
-This is a preview feature.
-Its API and behavior is subject to change.
-You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](../configuration/config.md#previewfeatures-string) API.
 
 The zstd compression level (1-22) for COSI partition images.
 

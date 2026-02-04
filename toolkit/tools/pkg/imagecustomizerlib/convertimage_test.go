@@ -30,7 +30,7 @@ func TestConvertImageRawToVhdx(t *testing.T) {
 		BuildDir:          buildDir,
 		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: "vhdx",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
 	}
 
 	err := ConvertImage(t.Context(), options)
@@ -60,7 +60,7 @@ func TestConvertImageRawToVhd(t *testing.T) {
 		BuildDir:          buildDir,
 		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: "vhd",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhd,
 	}
 
 	err := ConvertImage(t.Context(), options)
@@ -90,7 +90,7 @@ func TestConvertImageRawToQcow2(t *testing.T) {
 		BuildDir:          buildDir,
 		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: "qcow2",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeQcow2,
 	}
 
 	err := ConvertImage(t.Context(), options)
@@ -124,7 +124,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 		BuildDir:          buildDir,
 		InputImageFile:    baseImage,
 		OutputImageFile:   intermediateVhdx,
-		OutputImageFormat: "vhdx",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
 	}
 
 	err := ConvertImage(t.Context(), options1)
@@ -138,7 +138,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 		BuildDir:          buildDir2,
 		InputImageFile:    intermediateVhdx,
 		OutputImageFile:   outputQcow2,
-		OutputImageFormat: "qcow2",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeQcow2,
 	}
 
 	err = ConvertImage(t.Context(), options2)
@@ -195,7 +195,7 @@ func TestConvertImageRawToCosi(t *testing.T) {
 		BuildDir:          buildDir2,
 		InputImageFile:    customizedImage,
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: "cosi",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeCosi,
 	}
 
 	err = ConvertImage(t.Context(), options)
@@ -253,7 +253,7 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 		BuildDir:             buildDir2,
 		InputImageFile:       customizedImage,
 		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    "cosi",
+		OutputImageFormat:    imagecustomizerapi.ImageFormatTypeCosi,
 		CosiCompressionLevel: &compressionLevel,
 	}
 
@@ -311,7 +311,7 @@ func TestConvertImageRawToBareMetalImage(t *testing.T) {
 		BuildDir:          buildDir2,
 		InputImageFile:    customizedImage,
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: "baremetal-image",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeBareMetalImage,
 	}
 
 	err = ConvertImage(t.Context(), options)
@@ -341,7 +341,7 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 		BuildDir:          buildDir,
 		InputImageFile:    "/nonexistent/image.raw",
 		OutputImageFile:   outputImageFile,
-		OutputImageFormat: "vhdx",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
 	}
 
 	err := ConvertImage(t.Context(), options)
@@ -364,7 +364,7 @@ func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    "vhdx",
+		OutputImageFormat:    imagecustomizerapi.ImageFormatTypeVhdx,
 		CosiCompressionLevel: &compressionLevel,
 	}
 
@@ -405,7 +405,7 @@ func TestConvertImageAutoDetectFormat(t *testing.T) {
 		BuildDir:          buildDir2,
 		InputImageFile:    intermediateVhdx,
 		OutputImageFile:   outputRaw,
-		OutputImageFormat: "raw",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeRaw,
 	}
 
 	err = ConvertImage(t.Context(), options)
@@ -438,7 +438,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		BuildDir:          buildDir1,
 		InputImageFile:    baseImage,
 		OutputImageFile:   vhdxImage,
-		OutputImageFormat: "vhdx",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
 	}
 	err := ConvertImage(t.Context(), options1)
 	if !assert.NoError(t, err) {
@@ -452,7 +452,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		BuildDir:          buildDir2,
 		InputImageFile:    vhdxImage,
 		OutputImageFile:   qcow2Image,
-		OutputImageFormat: "qcow2",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeQcow2,
 	}
 	err = ConvertImage(t.Context(), options2)
 	if !assert.NoError(t, err) {
@@ -466,7 +466,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		BuildDir:          buildDir3,
 		InputImageFile:    qcow2Image,
 		OutputImageFile:   vhdImage,
-		OutputImageFormat: "vhd",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhd,
 	}
 	err = ConvertImage(t.Context(), options3)
 	if !assert.NoError(t, err) {
@@ -480,7 +480,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		BuildDir:          buildDir4,
 		InputImageFile:    vhdImage,
 		OutputImageFile:   rawImage,
-		OutputImageFormat: "raw",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeRaw,
 	}
 	err = ConvertImage(t.Context(), options4)
 	if !assert.NoError(t, err) {

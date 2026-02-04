@@ -198,7 +198,7 @@ func convertImage(ctx context.Context, cmd ConvertCmd) error {
 			BuildDir:             cmd.BuildDir,
 			InputImageFile:       cmd.InputImageFile,
 			OutputImageFile:      cmd.OutputImageFile,
-			OutputImageFormat:    cmd.OutputImageFormat,
+			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
 		})
 	if err != nil {

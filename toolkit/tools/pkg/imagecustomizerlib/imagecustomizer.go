@@ -44,9 +44,8 @@ var (
 	ErrUbuntu2204PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2204PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 22.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2204))
 	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
 	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
-	ErrCosiCompressionPreviewRequired   = NewImageCustomizerError("Validation:CosiCompressionPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify custom COSI compression settings", imagecustomizerapi.PreviewFeatureCosiCompression))
-	ErrConvertUnsupportedInputFormat    = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported by convert subcommand; use the 'customize' subcommand instead")
-	ErrConvertBuildDirRequired          = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for COSI and bare-metal-image output formats")
+	ErrConvertUnsupportedInputFormat    = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")
+	ErrConvertBuildDirRequired          = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for cosi and baremetal-image output formats")
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -393,15 +392,16 @@ func convertImageToRaw(inputImageFile string, rawImageFile string) (imagecustomi
 		return "", err
 	}
 
+	format, err := qemuStringtoImageFormatType(detectedImageFormat)
+	if err != nil {
+		return "", err
+	}
+
 	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
 	if err != nil {
 		return "", fmt.Errorf("%w:\n%w", ErrConvertImageToRawFormat, err)
 	}
 
-	format, err := qemuStringtoImageFormatType(detectedImageFormat)
-	if err != nil {
-		return "", err
-	}
 	return format, nil
 }
 
@@ -533,8 +533,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {
 		// For customize subcommand, we control the image creation, so filesystems always cover their partitions.
-		// Therefore, requireCoverage=false - we can safely shrink all filesystems.
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids, false /*requireCoverage*/)
+		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids, false /*isExternalImage*/)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}

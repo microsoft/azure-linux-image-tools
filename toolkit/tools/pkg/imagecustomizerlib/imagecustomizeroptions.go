@@ -12,9 +12,8 @@ import (
 )
 
 var (
-	ErrInvalidInputImageStringFormat  = NewImageCustomizerError("Validation:InvalidInputImageStringFormat", "invalid --image string format")
-	ErrMultipleInputImageOptions      = NewImageCustomizerError("Validation:MultipleInputImageOptions", "cannot specify both --image and --image-file")
-	ErrInvalidCosiCompressionLevelArg = NewImageCustomizerError("Validation:InvalidCosiCompressionLevelArg", "invalid --cosi-compression-level value")
+	ErrInvalidInputImageStringFormat = NewImageCustomizerError("Validation:InvalidInputImageStringFormat", "invalid --image string format")
+	ErrMultipleInputImageOptions     = NewImageCustomizerError("Validation:MultipleInputImageOptions", "cannot specify both --image and --image-file")
 )
 
 type ImageCustomizerOptions struct {
@@ -50,7 +49,7 @@ func (o *ImageCustomizerOptions) IsValid() error {
 		return ErrMultipleInputImageOptions
 	}
 
-	if err := validateCosiCompressionLevel(o.CosiCompressionLevel); err != nil {
+	if err := imagecustomizerapi.ValidateCosiCompressionLevel(o.CosiCompressionLevel); err != nil {
 		return err
 	}
 
@@ -68,10 +67,6 @@ func (o *ImageCustomizerOptions) verifyPreviewFeatures(previewFeatures []imagecu
 		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureInputImageOci) {
 			return ErrInputImageOciPreviewRequired
 		}
-	}
-
-	if err := verifyCosiCompressionPreviewFeature(o.CosiCompressionLevel, previewFeatures); err != nil {
-		return err
 	}
 
 	return nil

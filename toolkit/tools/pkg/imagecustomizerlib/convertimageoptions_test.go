@@ -16,7 +16,7 @@ func TestConvertImageOptions_IsValid_Success(t *testing.T) {
 		BuildDir:          "/tmp/build",
 		InputImageFile:    "/tmp/input.vhdx",
 		OutputImageFile:   "/tmp/output.cosi",
-		OutputImageFormat: "cosi",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeCosi,
 	}
 
 	err := options.IsValid()
@@ -29,7 +29,7 @@ func TestConvertImageOptions_IsValid_NoBuildDir(t *testing.T) {
 	options := ConvertImageOptions{
 		InputImageFile:    "/tmp/input.vhdx",
 		OutputImageFile:   "/tmp/output.vhdx",
-		OutputImageFormat: "vhdx",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
 	}
 
 	err := options.IsValid()
@@ -40,7 +40,7 @@ func TestConvertImageOptions_IsValid_MissingInputFile(t *testing.T) {
 	options := ConvertImageOptions{
 		BuildDir:          "/tmp/build",
 		OutputImageFile:   "/tmp/output.cosi",
-		OutputImageFormat: "cosi",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeCosi,
 	}
 
 	err := options.IsValid()
@@ -52,7 +52,7 @@ func TestConvertImageOptions_IsValid_MissingOutputFile(t *testing.T) {
 	options := ConvertImageOptions{
 		BuildDir:          "/tmp/build",
 		InputImageFile:    "/tmp/input.vhdx",
-		OutputImageFormat: "cosi",
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeCosi,
 	}
 
 	err := options.IsValid()
@@ -60,16 +60,17 @@ func TestConvertImageOptions_IsValid_MissingOutputFile(t *testing.T) {
 	assert.Contains(t, err.Error(), "output image file must be specified")
 }
 
-func TestConvertImageOptions_IsValid_MissingOutputFormat(t *testing.T) {
+func TestConvertImageOptions_IsValid_InvalidOutputFormat(t *testing.T) {
 	options := ConvertImageOptions{
-		BuildDir:        "/tmp/build",
-		InputImageFile:  "/tmp/input.vhdx",
-		OutputImageFile: "/tmp/output.cosi",
+		BuildDir:          "/tmp/build",
+		InputImageFile:    "/tmp/input.vhdx",
+		OutputImageFile:   "/tmp/output.cosi",
+		OutputImageFormat: "invalid-format",
 	}
 
 	err := options.IsValid()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "output image format must be specified")
+	assert.ErrorIs(t, err, ErrInvalidOutputFormat)
 }
 
 func TestConvertImageOptions_IsValid_InvalidCosiCompressionLevel(t *testing.T) {
@@ -80,12 +81,12 @@ func TestConvertImageOptions_IsValid_InvalidCosiCompressionLevel(t *testing.T) {
 			BuildDir:             "/tmp/build",
 			InputImageFile:       "/tmp/input.vhdx",
 			OutputImageFile:      "/tmp/output.cosi",
-			OutputImageFormat:    "cosi",
+			OutputImageFormat:    imagecustomizerapi.ImageFormatTypeCosi,
 			CosiCompressionLevel: ptrutils.PtrTo(level),
 		}
 
 		err := options.IsValid()
-		assert.ErrorIs(t, err, ErrInvalidCosiCompressionLevelArg, "level %d should be invalid", level)
+		assert.ErrorIs(t, err, imagecustomizerapi.ErrInvalidCosiCompressionLevelArg, "level %d should be invalid", level)
 	}
 }
 
@@ -103,7 +104,7 @@ func TestConvertImageOptions_IsValid_ValidCosiCompressionLevel(t *testing.T) {
 			BuildDir:             "/tmp/build",
 			InputImageFile:       "/tmp/input.vhdx",
 			OutputImageFile:      "/tmp/output.cosi",
-			OutputImageFormat:    "cosi",
+			OutputImageFormat:    imagecustomizerapi.ImageFormatTypeCosi,
 			CosiCompressionLevel: ptrutils.PtrTo(level),
 		}
 
