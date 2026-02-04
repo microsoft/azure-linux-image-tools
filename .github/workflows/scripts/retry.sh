@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
@@ -6,6 +7,8 @@
 # Usage:
 #
 #   retry.sh RETRY_COUNT SLEEP_TIME COMMAND ARGS...
+
+set -eu
 
 RETRY_COUNT="$1"
 SLEEP_TIME="$2"
@@ -17,7 +20,7 @@ for ((i = 1; ; i++)); do
         && break \
         || err=$?
 
-    if [ "$i" == 5 ]; then
+    if [ "$i" -ge "$RETRY_COUNT" ]; then
         exit $err
     fi
 
