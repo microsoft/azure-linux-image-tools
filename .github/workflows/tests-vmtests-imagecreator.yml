@@ -102,12 +102,8 @@ jobs:
           apt list --installed
 
         # Install Azure CLI with retries.
-        install_azure_cli() {
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-        }
-        export -f install_azure_cli
-        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
-          bash -c install_azure_cli
+        ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          bash -c 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash'
 
     - name: Build imagecreator and imagecustomizer
       run: |
