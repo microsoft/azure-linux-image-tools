@@ -367,7 +367,8 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	// Attach partition files.
 	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, buildDir)
 
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 2) {
+	// Expect 3 partitions: ESP, rootfs, and the empty/unformatted partition.
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 3) {
 		return
 	}
 
