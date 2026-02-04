@@ -76,7 +76,8 @@ jobs:
       run: |
         set -eux
 
-        sudo apt list --installed
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          apt list --installed
 
         sudo ./repo/.github/workflows/scripts/retry.sh 5 10 \
           apt update -y
@@ -143,7 +144,8 @@ jobs:
       run: |
         set -eux
         # login to ACR
-        az acr login -n "${AZURE_CR_CACHE}"
+        ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          az acr login -n "${AZURE_CR_CACHE}"
 
     - name: Download RPMS and tools file
       env:

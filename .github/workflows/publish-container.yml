@@ -21,7 +21,14 @@ jobs:
         path: out
 
     - name: Login to GHCR
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+      run: |
+        set -eux
+        login_to_ghcr() {
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+        }
+        export -f login_to_ghcr
+        ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          bash -c login_to_ghcr
 
     - name: Install cosign
       uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
@@ -43,17 +50,30 @@ jobs:
 
           DOCKER_ARCH_FULL_PATH="$DOCKER_FULL_PATH-$HOST_ARCH"
 
-          # Push arch specific tag.
           docker tag "$TARBALL_TAG" "$DOCKER_ARCH_FULL_PATH"
-          IMAGE_PUSH_OUT="$(docker image push "$DOCKER_ARCH_FULL_PATH")"
 
-          DIGEST="$(grep -E --only-matching 'digest: \S*' <<< "$IMAGE_PUSH_OUT" | cut -d ' ' -f 2)"
-          cosign sign --yes "${DOCKER_ARCH_FULL_PATH}@${DIGEST}"
+          push_image_and_sign() {
+            local image_push_out="$(docker image push "$1")"
+            local digest="$(grep -E --only-matching 'digest: \S*' <<< "$image_push_out" | cut -d ' ' -f 2)"
+            cosign sign --yes "$1@${digest}"
+          }
+          export -f push_image_and_sign
+
+          # Push and sign arch specific tag.
+          ./repo/.github/workflows/scripts/retry.sh 5 10 \
+            bash -c 'push_image_and_sign "$@"' _ "$DOCKER_ARCH_FULL_PATH"
 
           # Create multi-arch manifest.
-          docker manifest create "$DOCKER_FULL_PATH" --amend "$DOCKER_ARCH_FULL_PATH"
+          ./repo/.github/workflows/scripts/retry.sh 5 10 \
+            docker manifest create "$DOCKER_FULL_PATH" --amend "$DOCKER_ARCH_FULL_PATH"
         done
 
-        # Push multi-arch manifest.
-        DIGEST="$(docker manifest push "$DOCKER_FULL_PATH")"
-        cosign sign --yes "${DOCKER_FULL_PATH}@${DIGEST}"
+        push_manifest_and_sign() {
+          local digest="$(docker manifest push "$1")"
+          cosign sign --yes "$1@${digest}"
+        }
+        export -f push_manifest_and_sign
+
+        # Push and sign multi-arch manifest.
+        ./repo/.github/workflows/scripts/retry.sh 5 10 \
+          bash -c 'push_manifest_and_sign "$@"' _ "$DOCKER_FULL_PATH"

@@ -38,14 +38,16 @@ jobs:
         set -eux
 
         # Install Image Customizer prerequisities.
-        sudo tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
-          sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd veritysetup grub2 binutils lsof \
-          git
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
+            sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
+            xfsprogs btrfs-progs zstd veritysetup grub2 binutils lsof \
+            git
 
         # grub2-pc is only available on x86.
         if [[ "$HOST_ARCH" == "amd64" ]]; then
-          sudo tdnf install -y grub2-pc
+          sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
+            tdnf install -y grub2-pc
         fi
 
         sudo tdnf list installed
