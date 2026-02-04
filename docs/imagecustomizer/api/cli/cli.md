@@ -15,6 +15,17 @@ See [create subcommand](./create.md) for full documentation.
 
 Added in v1.2.
 
+## convert
+
+Converts an image from one format to another without performing customization.
+
+This is a streamlined command for simple format conversions, especially useful
+when converting to COSI format.
+
+See [convert subcommand](./convert.md) for full documentation.
+
+Added in v1.2.
+
 ## customize
 
 Customizes a base OS image.

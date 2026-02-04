@@ -60,44 +60,6 @@ func TestOptionsIsValid_CosiCompressionLevel_Fail(t *testing.T) {
 			CosiCompressionLevel: &level,
 		}
 		err := options.IsValid()
-		assert.ErrorIs(t, err, ErrInvalidCosiCompressionLevelArg, "level %d should be invalid", level)
+		assert.ErrorIs(t, err, imagecustomizerapi.ErrInvalidCosiCompressionLevelArg, "level %d should be invalid", level)
 	}
-}
-
-func TestVerifyPreviewFeatures_CosiCompressionLevelNoFeature_Fail(t *testing.T) {
-	level := 15
-	options := ImageCustomizerOptions{
-		CosiCompressionLevel: &level,
-	}
-	previewFeatures := []imagecustomizerapi.PreviewFeature{}
-	err := options.verifyPreviewFeatures(previewFeatures)
-	assert.ErrorIs(t, err, ErrCosiCompressionPreviewRequired)
-}
-
-func TestVerifyPreviewFeatures_CosiCompressionLevelWithFeature_Pass(t *testing.T) {
-	level := 15
-	options := ImageCustomizerOptions{
-		CosiCompressionLevel: &level,
-	}
-	previewFeatures := []imagecustomizerapi.PreviewFeature{
-		imagecustomizerapi.PreviewFeatureCosiCompression,
-	}
-	err := options.verifyPreviewFeatures(previewFeatures)
-	assert.NoError(t, err)
-}
-
-func TestVerifyPreviewFeatures_NoCosiCompressionLevelWithFeature_Pass(t *testing.T) {
-	options := ImageCustomizerOptions{}
-	previewFeatures := []imagecustomizerapi.PreviewFeature{
-		imagecustomizerapi.PreviewFeatureCosiCompression,
-	}
-	err := options.verifyPreviewFeatures(previewFeatures)
-	assert.NoError(t, err)
-}
-
-func TestVerifyPreviewFeatures_NoCosiCompressionLevelNoFeature_Pass(t *testing.T) {
-	options := ImageCustomizerOptions{}
-	previewFeatures := []imagecustomizerapi.PreviewFeature{}
-	err := options.verifyPreviewFeatures(previewFeatures)
-	assert.NoError(t, err)
 }

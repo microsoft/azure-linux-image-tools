@@ -22,9 +22,15 @@ var (
 	ErrFilesystemShrink        = NewImageCustomizerError("Filesystem:Shrink", "failed to shrink filesystem")
 	ErrFilesystemE2fsckResize  = NewImageCustomizerError("Filesystem:E2fsckResize", "failed to check filesystem with e2fsck")
 	ErrFilesystemResize2fs     = NewImageCustomizerError("Filesystem:Resize2fs", "failed to resize filesystem with resize2fs")
+	ErrFilesystemTune2fs       = NewImageCustomizerError("Filesystem:Tune2fs", "failed to get filesystem info with tune2fs")
 )
 
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string) (map[string]uint64, error) {
+// shrinkFilesystemsHelper shrinks filesystems to minimize their size.
+// isExternalImage indicates whether the image was created externally (not by IC). When true
+// (convert/inject-files subcommands), filesystems are only shrunk if they completely cover
+// their partition. When false (customize subcommand), filesystems are always shrunk since
+// IC controls the image creation.
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string, isExternalImage bool) (map[string]uint64, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
@@ -35,7 +41,7 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonl
 	defer imageLoopback.Close()
 
 	// Shrink the filesystems and capture original sizes.
-	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids)
+	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids, isExternalImage)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +54,7 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonl
 	return partitionOriginalSizes, nil
 }
 
-func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) (map[string]uint64, error) {
+func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, isExternalImage bool) (map[string]uint64, error) {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
@@ -76,13 +82,7 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) (map[
 		}
 
 		partitionLoopDevice := diskPartition.Path
-
-		// Check if the filesystem type is supported
 		fstype := diskPartition.FileSystemType
-		if !supportedShrinkFsType(fstype) {
-			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
-			continue
-		}
 
 		readonly := slices.Contains(readonlyPartUuids, diskPartition.PartUuid)
 		if readonly {
@@ -90,17 +90,34 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string) (map[
 			continue
 		}
 
-		logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)
-
 		fileSystemSizeInBytes := uint64(0)
+		// Note: Only ext* filesystems support shrinking. Other filesystem types (xfs, btrfs, vfat)
+		// do not support shrinking or require more complex handling.
 		switch fstype {
 		case "ext2", "ext3", "ext4":
+			// For external images, only shrink if filesystem completely covers the partition.
+			// A gap between the filesystem and partition end may indicate the image was created
+			// with specific requirements that we should respect.
+			if isExternalImage {
+				covers, err := extFilesystemCoversPartition(partitionLoopDevice, diskPartition.SizeInBytes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to check filesystem coverage (device='%s'):\n%w", partitionLoopDevice, err)
+				}
+				if !covers {
+					logger.Log.Infof("Shrinking partition (%s): skipping - filesystem does not cover entire partition", partitionLoopDevice)
+					continue
+				}
+			}
+
+			logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)
+
 			fileSystemSizeInBytes, err = shrinkExt4FileSystem(partitionLoopDevice, imageLoopDevice)
 			if err != nil {
 				return nil, fmt.Errorf("%w (type='%s', device='%s'):\n%w", ErrFilesystemShrink, fstype, partitionLoopDevice, err)
 			}
 
 		default:
+			logger.Log.Infof("Shrinking partition (%s): unsupported filesystem type (%s)", partitionLoopDevice, fstype)
 			continue
 		}
 
@@ -227,13 +244,50 @@ func convertBytesToSectors(sizeInBytes uint64, sectorSizeInBytes uint64) uint64 
 	return sizeInSectors
 }
 
-// Checks if the provided fstype is supported by shrink filesystems.
-func supportedShrinkFsType(fstype string) (isSupported bool) {
-	switch fstype {
-	// Currently only support ext2, ext3, ext4 filesystem types
-	case "ext2", "ext3", "ext4":
-		return true
-	default:
-		return false
+// extFilesystemCoversPartition checks if an ext2/ext3/ext4 filesystem completely covers the partition.
+func extFilesystemCoversPartition(partitionDevice string, partitionSizeInBytes uint64) (bool, error) {
+	filesystemSizeInBytes, err := getExtFilesystemSize(partitionDevice)
+	if err != nil {
+		return false, err
 	}
+
+	covers := filesystemSizeInBytes == partitionSizeInBytes
+	if !covers {
+		logger.Log.Debugf("Filesystem coverage check: filesystem=%d bytes, partition=%d bytes, delta=%d bytes",
+			filesystemSizeInBytes, partitionSizeInBytes, int64(partitionSizeInBytes)-int64(filesystemSizeInBytes))
+	}
+	return covers, nil
+}
+
+// getExtFilesystemSize returns the current size of an ext2/ext3/ext4 filesystem in bytes.
+func getExtFilesystemSize(partitionDevice string) (uint64, error) {
+	stdout, stderr, err := shell.Execute("tune2fs", "-l", partitionDevice)
+	if err != nil {
+		return 0, fmt.Errorf("%w (device='%s', stderr='%s'):\n%w", ErrFilesystemTune2fs, partitionDevice, stderr, err)
+	}
+
+	// Parse "Block count:" line
+	blockCountRegex := regexp.MustCompile(`(?m)^Block count:\s+(\d+)`)
+	blockCountMatch := blockCountRegex.FindStringSubmatch(stdout)
+	if blockCountMatch == nil {
+		return 0, fmt.Errorf("failed to parse 'Block count' from tune2fs output:\n%s", stdout)
+	}
+	blockCount, err := strconv.ParseUint(blockCountMatch[1], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse block count value (%s):\n%w", blockCountMatch[1], err)
+	}
+
+	// Parse "Block size:" line
+	blockSizeRegex := regexp.MustCompile(`(?m)^Block size:\s+(\d+)`)
+	blockSizeMatch := blockSizeRegex.FindStringSubmatch(stdout)
+	if blockSizeMatch == nil {
+		return 0, fmt.Errorf("failed to parse 'Block size' from tune2fs output:\n%s", stdout)
+	}
+	blockSize, err := strconv.ParseUint(blockSizeMatch[1], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse block size value (%s):\n%w", blockSizeMatch[1], err)
+	}
+
+	filesystemSizeInBytes := blockCount * blockSize
+	return filesystemSizeInBytes, nil
 }

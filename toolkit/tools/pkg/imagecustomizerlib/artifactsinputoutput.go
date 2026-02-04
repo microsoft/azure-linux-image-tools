@@ -306,9 +306,6 @@ func writeInjectFilesYaml(metadata []imagecustomizerapi.InjectArtifactMetadata, 
 	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	injectPreviewFeatures := []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureInjectFiles}
-	if slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression) {
-		injectPreviewFeatures = append(injectPreviewFeatures, imagecustomizerapi.PreviewFeatureCosiCompression)
-	}
 
 	yamlStruct := imagecustomizerapi.InjectFilesConfig{
 		InjectFiles:     metadata,
@@ -350,7 +347,7 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrArtifactInjectFilesPathResolution, baseConfigPath, err)
 	}
 
-	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options, config.PreviewFeatures)
+	err = injectFilesWithOptions(ctx, absBaseConfigPath, config.InjectFiles, options)
 	if err != nil {
 		return err
 	}
@@ -360,7 +357,6 @@ func InjectFilesWithConfigFile(ctx context.Context, configFile string, options I
 
 func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	metadata []imagecustomizerapi.InjectArtifactMetadata, options InjectFilesOptions,
-	previewFeatures []imagecustomizerapi.PreviewFeature,
 ) error {
 	logger.Log.Debugf("Injecting Files")
 
@@ -374,11 +370,6 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
 	detectedImageFormat, err := convertImageToRaw(options.InputImageFile, rawImageFile)
-	if err != nil {
-		return err
-	}
-
-	err = options.verifyPreviewFeatures(previewFeatures)
 	if err != nil {
 		return err
 	}
@@ -397,8 +388,8 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 		return err
 	}
 
-	err = exportImageForInjectFiles(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
-		options.CosiCompressionLevel, previewFeatures)
+	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
+		options.CosiCompressionLevel)
 	if err != nil {
 		return err
 	}
@@ -461,48 +452,6 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 	err = loopback.CleanClose()
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func exportImageForInjectFiles(ctx context.Context, buildDirAbs string, rawImageFile string,
-	detectedImageFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
-	previewFeatures []imagecustomizerapi.PreviewFeature,
-) error {
-	if detectedImageFormat == imagecustomizerapi.ImageFormatTypeCosi || detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot", previewFeatures)
-		if err != nil {
-			return err
-		}
-
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rawImageFile, readonlyPartUuids)
-		if err != nil {
-			return fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
-		}
-
-		compressionLevel := defaultCosiCompressionLevel(detectedImageFormat)
-		if cosiCompressionLevel != nil {
-			compressionLevel = *cosiCompressionLevel
-		}
-
-		compressionLong := defaultCosiCompressionLong(detectedImageFormat)
-
-		includeVhdFooter := detectedImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
-
-		err = convertToCosi(buildDirAbs, rawImageFile, outputImageFile, partitionsLayout,
-			baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			compressionLevel, compressionLong, includeVhdFooter, partitionOriginalSizes)
-		if err != nil {
-			return fmt.Errorf("%w (output='%s'):\n%w", ErrArtifactCosiImageConversion, outputImageFile, err)
-		}
-	} else {
-		err := ConvertImageFile(rawImageFile, outputImageFile, detectedImageFormat)
-		if err != nil {
-			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion, outputImageFile,
-				detectedImageFormat, err)
-		}
 	}
 
 	return nil

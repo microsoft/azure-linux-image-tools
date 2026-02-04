@@ -57,10 +57,19 @@ type InjectFilesCmd struct {
 	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 }
 
+type ConvertCmd struct {
+	BuildDir             string `name:"build-dir" help:"Directory to run build out of. Required when --output-image-format is 'baremetal-image' or 'cosi'."`
+	InputImageFile       string `name:"image-file" help:"Path of the image to convert." required:""`
+	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
+	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
+	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+}
+
 type RootCmd struct {
 	Create           CreateCmd        `name:"create" cmd:"" help:"Creates a new Azure Linux image from scratch."`
 	Customize        CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
 	InjectFiles      InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
+	Convert          ConvertCmd       `name:"convert" cmd:"" help:"Converts an image from one format to another."`
 	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
 	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
@@ -73,9 +82,10 @@ func main() {
 	cli := &RootCmd{}
 
 	vars := kong.Vars{
-		"imageformat":       strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ",") + ",",
-		"imageformatcreate": strings.Join(imagecustomizerapi.SupportedImageFormatTypesImageCreator(), ",") + ",",
-		"version":           imagecustomizerlib.ToolVersion,
+		"imageformat":        strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ",") + ",",
+		"imageformatcreate":  strings.Join(imagecustomizerapi.SupportedImageFormatTypesImageCreator(), ",") + ",",
+		"imageformatconvert": strings.Join(imagecustomizerapi.SupportedImageFormatTypesConvert(), ",") + ",",
+		"version":            imagecustomizerlib.ToolVersion,
 	}
 	maps.Copy(vars, exekong.KongVars)
 
@@ -131,6 +141,12 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 			return fmt.Errorf("inject-files failed:\n%w", err)
 		}
 
+	case "convert":
+		err = convertImage(ctx, cli.Convert)
+		if err != nil {
+			return fmt.Errorf("image conversion failed:\n%w", err)
+		}
+
 	default:
 		panic(command)
 	}
@@ -167,6 +183,22 @@ func injectFiles(ctx context.Context, cmd InjectFilesCmd) error {
 			InputImageFile:       cmd.InputImageFile,
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    cmd.OutputImageFormat,
+			CosiCompressionLevel: cmd.CosiCompressionLevel,
+		})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func convertImage(ctx context.Context, cmd ConvertCmd) error {
+	err := imagecustomizerlib.ConvertImage(ctx,
+		imagecustomizerlib.ConvertImageOptions{
+			BuildDir:             cmd.BuildDir,
+			InputImageFile:       cmd.InputImageFile,
+			OutputImageFile:      cmd.OutputImageFile,
+			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
 		})
 	if err != nil {

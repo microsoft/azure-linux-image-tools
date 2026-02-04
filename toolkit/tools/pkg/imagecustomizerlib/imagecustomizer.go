@@ -22,7 +22,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sys/unix"
 )
 
@@ -44,7 +43,8 @@ var (
 	ErrUbuntu2204PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2204PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 22.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2204))
 	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
 	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
-	ErrCosiCompressionPreviewRequired   = NewImageCustomizerError("Validation:CosiCompressionPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify custom COSI compression settings", imagecustomizerapi.PreviewFeatureCosiCompression))
+	ErrConvertUnsupportedInputFormat    = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")
+	ErrConvertBuildDirRequired          = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for cosi and baremetal-image output formats")
 
 	// Generic customization errors
 	ErrGetAbsoluteConfigPath    = NewImageCustomizerError("Customizer:GetAbsoluteConfigPath", "failed to get absolute path of config file directory")
@@ -196,22 +196,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	span.SetAttributes(
 		attribute.String("output_image_format", string(options.OutputImageFormat)),
 	)
-	defer func() {
-		if err != nil {
-			errorNames := []string{"Unset"} // default
-			if namedErrors := GetAllImageCustomizerErrors(err); len(namedErrors) > 0 {
-				errorNames = make([]string, len(namedErrors))
-				for i, namedError := range namedErrors {
-					errorNames[i] = namedError.Name()
-				}
-			}
-			span.SetAttributes(
-				attribute.StringSlice("errors.name", errorNames),
-			)
-			span.SetStatus(codes.Error, errorNames[len(errorNames)-1])
-		}
-		span.End()
-	}()
+	defer finishSpanWithError(span, &err)
 
 	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {
@@ -386,9 +371,28 @@ func convertInputImageToWriteableFormat(ctx context.Context, rc *ResolvedConfig)
 }
 
 func convertImageToRaw(inputImageFile string, rawImageFile string) (imagecustomizerapi.ImageFormatType, error) {
+	sourceArg, detectedImageFormat, err := buildQemuSourceArg(inputImageFile)
+	if err != nil {
+		return "", err
+	}
+
+	format, err := qemuStringtoImageFormatType(detectedImageFormat)
+	if err != nil {
+		return "", err
+	}
+
+	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
+	if err != nil {
+		return "", fmt.Errorf("%w:\n%w", ErrConvertImageToRawFormat, err)
+	}
+
+	return format, nil
+}
+
+func buildQemuSourceArg(inputImageFile string) (string, string, error) {
 	imageInfo, err := GetImageFileInfo(inputImageFile)
 	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrDetectImageFormat, inputImageFile, err)
+		return "", "", fmt.Errorf("%w (file='%s'):\n%w", ErrDetectImageFormat, inputImageFile, err)
 	}
 
 	detectedImageFormat := imageInfo.Format
@@ -396,16 +400,16 @@ func convertImageToRaw(inputImageFile string, rawImageFile string) (imagecustomi
 
 	if detectedImageFormat == "raw" || detectedImageFormat == "vpc" {
 		// The fixed-size VHD format is just a raw disk file with small metadata footer appended to the end.
-		// Unfortunatley, qemu-img doesn't look at the VHD footer when detecting file formats. So, it reports
+		// Unfortunately, qemu-img doesn't look at the VHD footer when detecting file formats. So, it reports
 		// fixed-sized VHDs as raw disk images. So, manually detect if a raw image is a VHD.
 		vhdFileType, err := vhdutils.GetVhdFileSizeCalcType(inputImageFile)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		switch vhdFileType {
 		case vhdutils.VhdFileSizeCalcTypeDiskGeometry:
-			return "", fmt.Errorf("rejecting VHD file that uses 'Disk Geometry' based size:\npass '-o force_size=on' to qemu-img when outputting as 'vpc' (i.e. VHD)")
+			return "", "", fmt.Errorf("rejecting VHD file that uses 'Disk Geometry' based size:\npass '-o force_size=on' to qemu-img when outputting as 'vpc' (i.e. VHD)")
 
 		case vhdutils.VhdFileSizeCalcTypeCurrentSize:
 			sourceArg += ",driver=vpc,force_size_calc=current_size"
@@ -416,16 +420,7 @@ func convertImageToRaw(inputImageFile string, rawImageFile string) (imagecustomi
 		}
 	}
 
-	err = shell.ExecuteLiveWithErr(1, "qemu-img", "convert", "-O", "raw", "--image-opts", sourceArg, rawImageFile)
-	if err != nil {
-		return "", fmt.Errorf("%w:\n%w", ErrConvertImageToRawFormat, err)
-	}
-
-	format, err := qemuStringtoImageFormatType(detectedImageFormat)
-	if err != nil {
-		return "", err
-	}
-	return format, nil
+	return sourceArg, detectedImageFormat, nil
 }
 
 func qemuStringtoImageFormatType(qemuFormat string) (imagecustomizerapi.ImageFormatType, error) {
@@ -521,7 +516,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids)
+		// For customize subcommand, we control the image creation, so filesystems always cover their partitions.
+		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids, false /*isExternalImage*/)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
@@ -641,6 +637,9 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 	return nil
 }
 
+// ConvertImageFile converts an image file from raw format to the specified output format.
+// This function assumes the input is a raw disk image. For converting from other formats
+// (VHD, VHDX, QCOW2, etc.), use ConvertImageFileFromAnyFormat instead.
 func ConvertImageFile(inputPath string, outputPath string, format imagecustomizerapi.ImageFormatType) error {
 	qemuImageFormat, qemuOptions := toQemuImageFormat(format)
 
@@ -651,6 +650,29 @@ func ConvertImageFile(inputPath string, outputPath string, format imagecustomize
 	qemuImgArgs = append(qemuImgArgs, inputPath, outputPath)
 
 	err := shell.ExecuteLiveWithErr(1, "qemu-img", qemuImgArgs...)
+	if err != nil {
+		return fmt.Errorf("%w (format='%s'):\n%w", ErrConvertImageToFormat, format, err)
+	}
+
+	return nil
+}
+
+// ConvertImageFileFromAnyFormat converts an image file from any supported format to the specified output format.
+func ConvertImageFileFromAnyFormat(inputPath string, outputPath string, format imagecustomizerapi.ImageFormatType) error {
+	sourceArg, _, err := buildQemuSourceArg(inputPath)
+	if err != nil {
+		return err
+	}
+
+	qemuImageFormat, qemuOptions := toQemuImageFormat(format)
+
+	qemuImgArgs := []string{"convert", "-O", qemuImageFormat}
+	if qemuOptions != "" {
+		qemuImgArgs = append(qemuImgArgs, "-o", qemuOptions)
+	}
+	qemuImgArgs = append(qemuImgArgs, "--image-opts", sourceArg, outputPath)
+
+	err = shell.ExecuteLiveWithErr(1, "qemu-img", qemuImgArgs...)
 	if err != nil {
 		return fmt.Errorf("%w (format='%s'):\n%w", ErrConvertImageToFormat, format, err)
 	}
