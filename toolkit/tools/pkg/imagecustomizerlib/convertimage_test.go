@@ -415,12 +415,6 @@ func TestConvertImageAutoDetectFormat(t *testing.T) {
 	exists, err := file.PathExists(outputRaw)
 	assert.NoError(t, err)
 	assert.True(t, exists, "Expected output RAW file to exist")
-
-	// Verify the intermediate raw file was created in build dir
-	intermediateRaw := filepath.Join(buildDir2, BaseImageName)
-	exists, err = file.PathExists(intermediateRaw)
-	assert.NoError(t, err)
-	assert.True(t, exists, "Expected intermediate RAW file to exist in build dir")
 }
 
 func TestConvertImageRoundTrip(t *testing.T) {

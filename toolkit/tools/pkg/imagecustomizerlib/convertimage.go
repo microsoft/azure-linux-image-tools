@@ -66,6 +66,13 @@ func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) 
 	// Add input image format attribute after detection
 	span.SetAttributes(attribute.String("input_image_format", inputImageInfo.Format))
 
+	// Ensure output folder is created up front
+	outputImageDir := filepath.Dir(options.OutputImageFile)
+	err = os.MkdirAll(outputImageDir, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
 	isCosiOutput := outputFormat == imagecustomizerapi.ImageFormatTypeCosi ||
 		outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if isCosiOutput {
