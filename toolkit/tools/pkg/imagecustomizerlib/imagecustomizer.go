@@ -22,7 +22,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sys/unix"
 )
 
@@ -197,22 +196,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	span.SetAttributes(
 		attribute.String("output_image_format", string(options.OutputImageFormat)),
 	)
-	defer func() {
-		if err != nil {
-			errorNames := []string{"Unset"} // default
-			if namedErrors := GetAllImageCustomizerErrors(err); len(namedErrors) > 0 {
-				errorNames = make([]string, len(namedErrors))
-				for i, namedError := range namedErrors {
-					errorNames[i] = namedError.Name()
-				}
-			}
-			span.SetAttributes(
-				attribute.StringSlice("errors.name", errorNames),
-			)
-			span.SetStatus(codes.Error, errorNames[len(errorNames)-1])
-		}
-		span.End()
-	}()
+	defer finishSpanWithError(span, &err)
 
 	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
 	if err != nil {

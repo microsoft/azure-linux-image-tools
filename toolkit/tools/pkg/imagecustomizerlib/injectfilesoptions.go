@@ -14,5 +14,10 @@ type InjectFilesOptions struct {
 }
 
 func (o *InjectFilesOptions) IsValid() error {
-	return imagecustomizerapi.ValidateCosiCompressionLevel(o.CosiCompressionLevel)
+	err := imagecustomizerapi.ValidateCosiCompressionLevel(o.CosiCompressionLevel)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

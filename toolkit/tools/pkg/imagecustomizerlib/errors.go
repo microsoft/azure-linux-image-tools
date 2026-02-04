@@ -6,6 +6,10 @@ package imagecustomizerlib
 import (
 	"container/list"
 	"errors"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // ImageCustomizerError represents a structured error with a descriptive name
@@ -60,4 +64,21 @@ func GetAllImageCustomizerErrors(err error) []*ImageCustomizerError {
 	}
 
 	return result
+}
+
+func finishSpanWithError(span trace.Span, err *error) {
+	if *err != nil {
+		errorNames := []string{"Unset"} // default
+		if namedErrors := GetAllImageCustomizerErrors(*err); len(namedErrors) > 0 {
+			errorNames = make([]string, len(namedErrors))
+			for i, namedError := range namedErrors {
+				errorNames[i] = namedError.Name()
+			}
+		}
+		span.SetAttributes(
+			attribute.StringSlice("errors.name", errorNames),
+		)
+		span.SetStatus(codes.Error, errorNames[len(errorNames)-1])
+	}
+	span.End()
 }

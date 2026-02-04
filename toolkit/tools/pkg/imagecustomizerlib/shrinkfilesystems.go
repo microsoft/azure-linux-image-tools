@@ -90,8 +90,6 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, isExt
 			continue
 		}
 
-		logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)
-
 		fileSystemSizeInBytes := uint64(0)
 		// Note: Only ext* filesystems support shrinking. Other filesystem types (xfs, btrfs, vfat)
 		// do not support shrinking or require more complex handling.
@@ -110,6 +108,8 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, isExt
 					continue
 				}
 			}
+
+			logger.Log.Infof("Shrinking partition (%s)", partitionLoopDevice)
 
 			fileSystemSizeInBytes, err = shrinkExt4FileSystem(partitionLoopDevice, imageLoopDevice)
 			if err != nil {

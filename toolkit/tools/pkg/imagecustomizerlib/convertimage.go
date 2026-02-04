@@ -14,7 +14,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 )
 
 func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) {
@@ -27,22 +26,7 @@ func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) 
 	if options.CosiCompressionLevel != nil {
 		span.SetAttributes(attribute.Int("cosi_compression_level", *options.CosiCompressionLevel))
 	}
-	defer func() {
-		if err != nil {
-			errorNames := []string{"Unset"} // default
-			if namedErrors := GetAllImageCustomizerErrors(err); len(namedErrors) > 0 {
-				errorNames = make([]string, len(namedErrors))
-				for i, namedError := range namedErrors {
-					errorNames[i] = namedError.Name()
-				}
-			}
-			span.SetAttributes(
-				attribute.StringSlice("errors.name", errorNames),
-			)
-			span.SetStatus(codes.Error, errorNames[len(errorNames)-1])
-		}
-		span.End()
-	}()
+	defer finishSpanWithError(span, &err)
 
 	if err := options.IsValid(); err != nil {
 		return err
