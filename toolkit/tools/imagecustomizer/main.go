@@ -58,7 +58,7 @@ type InjectFilesCmd struct {
 }
 
 type ConvertCmd struct {
-	BuildDir             string `name:"build-dir" help:"Directory to run build out of. Required for COSI and bare-metal-image output formats."`
+	BuildDir             string `name:"build-dir" help:"Directory to run build out of. Required when --output-image-format is 'baremetal-image' or 'cosi'."`
 	InputImageFile       string `name:"image-file" help:"Path of the image to convert." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
