@@ -12,7 +12,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/dir"
 	"github.com/notaryproject/notation-go/registry"
@@ -36,15 +35,6 @@ type ociSignatureCheckOptions struct {
 	TrustStoreName    string
 	CertificateFs     fs.FS
 	CertificateFsPath string
-}
-
-func getAzureLinuxOciSignatureCheckOptions() *ociSignatureCheckOptions {
-	return &ociSignatureCheckOptions{
-		TrustPolicyName:   "mcr-azure-linux",
-		TrustStoreName:    "microsoft-supplychain",
-		CertificateFs:     resources.ResourcesFS,
-		CertificateFsPath: resources.MicrosoftSupplyChainRSARootCA2022File,
-	}
 }
 
 func checkNotationSignature(ctx context.Context, buildDir string, remoteRepo *remote.Repository,

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -70,4 +71,13 @@ func parseInputImageAzureLinuxValue(value string) (imagecustomizerapi.InputImage
 	}
 
 	return inputImage, nil
+}
+
+func getAzureLinuxOciSignatureCheckOptions() *ociSignatureCheckOptions {
+	return &ociSignatureCheckOptions{
+		TrustPolicyName:   "mcr-azure-linux",
+		TrustStoreName:    "microsoft-supplychain",
+		CertificateFs:     resources.ResourcesFS,
+		CertificateFsPath: resources.MicrosoftSupplyChainRSARootCA2022File,
+	}
 }

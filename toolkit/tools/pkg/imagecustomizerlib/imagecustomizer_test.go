@@ -138,7 +138,7 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	_, err := ValidateConfig(t.Context(), testDir, config, false, true, nil,
+	_, err := ValidateConfig(t.Context(), testDir, config, false, false, nil,
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
 			OutputImageFormat: "vhdx",
@@ -152,7 +152,7 @@ func TestValidateConfig_CallsValidateInput_NewImage(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	_, err := ValidateConfig(t.Context(), testDir, config, true, true, nil,
+	_, err := ValidateConfig(t.Context(), testDir, config, true, false, nil,
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.raw",
 			OutputImageFormat: "raw",
@@ -187,19 +187,19 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	}
 
 	// The input image file can be specified as an argument without being specified in the config.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.InputImageFile = inputImageFileRealRelativeCwd
 
 	// The input image file specified as an argument can be relative to the current working directory.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.InputImageFile = inputImageFileFake
 
 	// The input image file, specified as an argument, must be a file.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 
@@ -207,19 +207,19 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified in the config without being specified as an argument.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileRealRelativeConfig
 
 	// The input image file specified in the config can be relative to the bash config path.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file, specified in the config, must be a file.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "doesnotexist.xxx: no such file or directory")
 
@@ -227,13 +227,13 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	config.Input.Image.Path = inputImageFileReal
 
 	// The input image file can be specified both as an argument and in the config.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Input.Image.Path = inputImageFileFake
 
 	// The input image file can even be invalid in the config if it is specified as an argument.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 }
 
@@ -254,7 +254,7 @@ func TestValidateConfigValidAdditionalFiles(t *testing.T) {
 				},
 			},
 		},
-		false, true, nil,
+		false, false, nil,
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
 			OutputImageFormat: "vhdx",
@@ -278,7 +278,7 @@ func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
 					Path: "testimages/empty.vhdx",
 				},
 			},
-		}, false, true,
+		}, false, false,
 		imagecustomizerapi.ValidateResourceTypes{
 			imagecustomizerapi.ValidateResourceTypeFiles,
 		},
@@ -305,7 +305,7 @@ func TestValidateConfigdditionalFilesIsDir(t *testing.T) {
 					Path: "testimages/empty.vhdx",
 				},
 			},
-		}, false, true,
+		}, false, false,
 		imagecustomizerapi.ValidateResourceTypes{
 			imagecustomizerapi.ValidateResourceTypeFiles,
 		},
@@ -357,7 +357,7 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 	}
 
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
-	_, err := ValidateConfig(t.Context(), baseConfigPath, config, false, true, nil, options)
+	_, err := ValidateConfig(t.Context(), baseConfigPath, config, false, false, nil, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "output image file must be specified")
 }
@@ -413,91 +413,91 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	options.OutputImageFormat = imagecustomizerapi.ImageFormatType(filepath.Ext(options.OutputImageFile)[1:])
 
 	// The output image file can be sepcified as an argument without being in specified the config.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileNewRelativeCwd
 
 	// The output image file can be specified as an argument relative to the current working directory.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageDir
 
 	// The output image file, specified as an argument, must not be a directory.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	options.OutputImageFile = outputImageDirRelativeCwd
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	options.OutputImageFile = outputImageFileExists
 
 	// The output image file, specified as an argument, may be a file that already exists.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileExistsRelativeCwd
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = ""
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file cab be specified in the config without being specified as an argument.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileNewRelativeConfig
 
 	// The output image file can be specified in the config relative to the base config path.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file, specified in the config, must not be a directory.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageDirRelativeConfig
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageFileExists
 
 	// The output image file, specified in the config, may be a file that already exists.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileExistsRelativeConfig
 
 	// The above is also true for relative paths.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	options.OutputImageFile = outputImageFileNew
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file can be specified both as an argument and in the config.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file can even be invalid in the config if it is specified as an argument.
-	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, true, validateResources, options)
+	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 }
 
@@ -860,7 +860,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	}
 
 	// The input image file should be set to the value in the config.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileAsConfig)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
@@ -871,7 +871,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	options.InputImageFile = inputImageFileAsArg
 
 	// The input image file should be set to the value passed as an argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileAsArg)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
@@ -881,7 +881,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	config.Input.Image.Path = inputImageFileAsConfig
 
 	// The input image file should be set to the value passed as an argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileAsArg)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
@@ -891,7 +891,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	options.InputImageFile = inputImageFileIsoAsArg
 	options.OutputImageFormat = "iso"
 	options.OutputImageFile = "out/image.iso"
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileIsoAsArg)
 	assert.Equal(t, rc.InputFileExt(), "iso")
@@ -923,14 +923,14 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 	}
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.ErrorContains(t, err, "output image file must be specified")
 
 	// Pass the output image file only in the config.
 	config.Output.Image.Path = outputImageFilePathAsConfig
 
 	// The output image file should be set to the value in the config.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsConfig)
 
@@ -939,7 +939,7 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 	options.OutputImageFile = outputImageFilePathAsArg
 
 	// The output image file should be set to the value passed as an argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsArg)
 
@@ -948,7 +948,7 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsArg)
 }
@@ -979,14 +979,14 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image format is not specified in the config or as an
 	// argument, so an error will be reported.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.ErrorContains(t, err, "output image format must be specified")
 
 	// Pass the output image format only in the config.
 	config.Output.Image.Format = outputImageFormatAsConfig
 
 	// The output image file should be set to the value in the config.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsConfig)
 
@@ -996,7 +996,7 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsArg)
 
@@ -1005,7 +1005,7 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, true, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsArg)
 }

@@ -93,20 +93,6 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 		return err
 	}
 
-	// Pre-populate config fields to allow validation of minimal configs that omit settings
-	// normally provided via CLI during actual customization runs.
-	if config.Input.Image.Path == "" &&
-		config.Input.Image.Oci == nil &&
-		config.Input.Image.AzureLinux == nil {
-		config.Input.Image.Path = "/dev/null"
-	}
-	if config.Output.Image.Format == "" {
-		config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeVhd
-	}
-	if config.Output.Image.Path == "" {
-		config.Output.Image.Path = "/dev/null"
-	}
-
 	// The build directory is required when validating Azure Linux (OCI) input images for signature verification to
 	// create a temporary notary trust store.
 	customizeOptions := ImageCustomizerOptions{
@@ -114,7 +100,8 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 	}
 
 	// Pass newImage=false to emulate validation during an actual customization run.
-	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, false, options.ValidateResources, customizeOptions)
+	// Pass allowPartialConfig=true to allow configs that omit input/output fields (provided via CLI during customize).
+	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, true, options.ValidateResources, customizeOptions)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -125,7 +112,7 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 }
 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	newImage bool, createUuid bool, validateResources imagecustomizerapi.ValidateResourceTypes,
+	newImage bool, allowPartialConfig bool, validateResources imagecustomizerapi.ValidateResourceTypes,
 	options ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
@@ -162,12 +149,10 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		len(config.Scripts.PostCustomization) > 0 ||
 		len(config.Scripts.FinalizeCustomization) > 0
 
-	// Create a UUID for the image. This may panic, so only call if needed.
-	if createUuid {
-		rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
-		if err != nil {
-			return nil, err
-		}
+	// Create a UUID for the image.
+	rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
+	if err != nil {
+		return nil, err
 	}
 
 	// Resolve build dir path.
@@ -189,7 +174,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	if !newImage {
 		rc.InputImage, rc.InputImageOciDescriptor, err = validateInput(ctx, rc.BuildDirAbs, rc.ConfigChain,
-			options.InputImageFile, options.InputImage, validateFiles, validateOci)
+			options.InputImageFile, options.InputImage, validateFiles, validateOci, allowPartialConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -225,13 +210,13 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, options.OutputImageFormat)
+	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, options.OutputImageFormat, allowPartialConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, options.OutputImageFile, rc.OutputImageFormat,
-		validateFiles)
+		validateFiles, allowPartialConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +246,7 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 }
 
 func validateInput(ctx context.Context, buildDir string, configChain []*ConfigWithBasePath, inputImageFile string,
-	inputImage string, validateFiles bool, validateOci bool,
+	inputImage string, validateFiles bool, validateOci bool, allowPartialConfig bool,
 ) (imagecustomizerapi.InputImage, *ociv1.Descriptor, error) {
 	if inputImageFile != "" {
 		if validateFiles {
@@ -356,6 +341,9 @@ func validateInput(ctx context.Context, buildDir string, configChain []*ConfigWi
 		}
 	}
 
+	if allowPartialConfig {
+		return imagecustomizerapi.InputImage{}, nil, nil
+	}
 	return imagecustomizerapi.InputImage{}, nil, ErrInputImageFileRequired
 }
 
@@ -578,6 +566,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 }
 
 func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImageFormat imagecustomizerapi.ImageFormatType,
+	allowPartialConfig bool,
 ) (imagecustomizerapi.ImageFormatType, error) {
 	if cliOutputImageFormat != "" {
 		return cliOutputImageFormat, nil
@@ -590,11 +579,14 @@ func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImage
 		}
 	}
 
+	if allowPartialConfig {
+		return "", nil
+	}
 	return "", ErrOutputImageFormatRequired
 }
 
 func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string,
-	outputImageFormat imagecustomizerapi.ImageFormatType, validateFiles bool,
+	outputImageFormat imagecustomizerapi.ImageFormatType, validateFiles bool, allowPartialConfig bool,
 ) (string, error) {
 	if cliOutputImageFile != "" {
 		if validateFiles && outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
@@ -630,6 +622,9 @@ func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFi
 		}
 	}
 
+	if allowPartialConfig {
+		return "", nil
+	}
 	return "", ErrOutputImageFileRequired
 }
 
@@ -679,14 +674,15 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath,
 	// CLI parameter takes precedence.
 	if cliOutputSelinuxPolicyPath != "" {
 		if validateFiles {
-			if isDir, err := file.DirExists(cliOutputSelinuxPolicyPath); err != nil {
+			if isFile, err := file.IsFile(cliOutputSelinuxPolicyPath); err != nil {
+				if os.IsNotExist(err) {
+					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotDirArg,
+						cliOutputSelinuxPolicyPath)
+				}
 				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathArg,
 					cliOutputSelinuxPolicyPath, err)
-			} else if !isDir {
-				if isFile, _ := file.PathExists(cliOutputSelinuxPolicyPath); isFile {
-					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileArg, cliOutputSelinuxPolicyPath)
-				}
-				return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotDirArg, cliOutputSelinuxPolicyPath)
+			} else if isFile {
+				return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileArg, cliOutputSelinuxPolicyPath)
 			}
 		}
 		return cliOutputSelinuxPolicyPath, nil
@@ -701,15 +697,15 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath,
 			)
 
 			if validateFiles {
-				if isDir, err := file.DirExists(outputSelinuxPolicyPath); err != nil {
-					return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
-						configWithBase.Config.Output.SelinuxPolicyPath, err)
-				} else if !isDir {
-					if isFile, _ := file.PathExists(outputSelinuxPolicyPath); isFile {
-						return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileConfig,
+				if isFile, err := file.IsFile(outputSelinuxPolicyPath); err != nil {
+					if os.IsNotExist(err) {
+						return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotDirConfig,
 							configWithBase.Config.Output.SelinuxPolicyPath)
 					}
-					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotDirConfig,
+					return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
+						configWithBase.Config.Output.SelinuxPolicyPath, err)
+				} else if isFile {
+					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileConfig,
 						configWithBase.Config.Output.SelinuxPolicyPath)
 				}
 			}

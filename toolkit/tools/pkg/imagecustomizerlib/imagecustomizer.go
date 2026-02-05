@@ -213,7 +213,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		imagecustomizerapi.ValidateResourceTypeAll,
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, true, validateResources, options)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, false, validateResources, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
