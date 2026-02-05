@@ -765,7 +765,7 @@ func TestValidateConfig_AdditionalDirsSourceIsFile_Fail(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAdditionalDirsSourceIsFile)
 }
 
-func TestValidateConfig_AdditionalDirsSourceNotDir_Fail(t *testing.T) {
+func TestValidateConfig_AdditionalDirsSourceNotFound_Fail(t *testing.T) {
 	ctx := context.Background()
 	baseConfigPath := t.TempDir()
 	config := &imagecustomizerapi.Config{
@@ -800,7 +800,7 @@ func TestValidateConfig_AdditionalDirsSourceNotDir_Fail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
-	assert.ErrorIs(t, err, ErrAdditionalDirsSourceNotDir)
+	assert.ErrorIs(t, err, ErrAdditionalDirsSourceNotFound)
 }
 
 func TestValidateConfig_OutputImageFileIsDirectory_Fail(t *testing.T) {

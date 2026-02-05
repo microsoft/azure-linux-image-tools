@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -42,9 +43,9 @@ var (
 	ErrSSHPublicKeyNotFile                  = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
 	ErrInvalidPasswordFile                  = NewImageCustomizerError("Validation:InvalidPasswordFile", "failed to find password file")
 	ErrPasswordFileNotFile                  = NewImageCustomizerError("Validation:PasswordFileNotFile", "password file is not a file")
-	ErrInvalidAdditionalDirsSource          = NewImageCustomizerError("Validation:InvalidAdditionalDirsSource", "invalid additionalDirs source directory")
+	ErrAdditionalDirsSourceNotReadable      = NewImageCustomizerError("Validation:AdditionalDirsSourceNotReadable", "failed to read additionalDirs source")
 	ErrAdditionalDirsSourceIsFile           = NewImageCustomizerError("Validation:AdditionalDirsSourceIsFile", "additionalDirs source exists but is a file")
-	ErrAdditionalDirsSourceNotDir           = NewImageCustomizerError("Validation:AdditionalDirsSourceNotDir", "additionalDirs source is not a directory")
+	ErrAdditionalDirsSourceNotFound         = NewImageCustomizerError("Validation:AdditionalDirsSourceNotFound", "additionalDirs source does not exist")
 	ErrInvalidPackageSnapshotTime           = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 	ErrUnsupportedFedoraFeature             = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
 	ErrInvalidOutputSelinuxPolicyPathArg    = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathArg", "invalid command-line option '--output-selinux-policy-path'")
@@ -371,7 +372,9 @@ func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomi
 	return errors.Join(errs...)
 }
 
-func validateAdditionalDirs(baseConfigPath string, additionalDirs imagecustomizerapi.DirConfigList, validateFiles bool) error {
+func validateAdditionalDirs(baseConfigPath string, additionalDirs imagecustomizerapi.DirConfigList,
+	validateFiles bool,
+) error {
 	if !validateFiles {
 		return nil
 	}
@@ -380,17 +383,17 @@ func validateAdditionalDirs(baseConfigPath string, additionalDirs imagecustomize
 	for _, additionalDir := range additionalDirs {
 		if additionalDir.Source != "" {
 			sourceDirFullPath := file.GetAbsPathWithBase(baseConfigPath, additionalDir.Source)
-			if isDir, err := file.DirExists(sourceDirFullPath); err != nil {
-				errs = append(errs,
-					fmt.Errorf("%w (source='%s'):\n%w", ErrInvalidAdditionalDirsSource, additionalDir.Source, err))
-			} else if !isDir {
-				if isFile, _ := file.PathExists(sourceDirFullPath); isFile {
+			if isFile, err := file.IsFile(sourceDirFullPath); err != nil {
+				if os.IsNotExist(err) {
 					errs = append(errs,
-						fmt.Errorf("%w (source='%s')", ErrAdditionalDirsSourceIsFile, additionalDir.Source))
+						fmt.Errorf("%w (source='%s')", ErrAdditionalDirsSourceNotFound, additionalDir.Source))
 				} else {
 					errs = append(errs,
-						fmt.Errorf("%w (source='%s')", ErrAdditionalDirsSourceNotDir, additionalDir.Source))
+						fmt.Errorf("%w (source='%s'):\n%w", ErrAdditionalDirsSourceNotReadable, additionalDir.Source, err))
 				}
+			} else if isFile {
+				errs = append(errs,
+					fmt.Errorf("%w (source='%s')", ErrAdditionalDirsSourceIsFile, additionalDir.Source))
 			}
 		}
 	}
