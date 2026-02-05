@@ -88,6 +88,11 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 	)
 	defer finishSpanWithError(span, &err)
 
+	err = options.IsValid()
+	if err != nil {
+		return err
+	}
+
 	// Pre-populate config fields to allow validation of minimal configs that omit settings
 	// normally provided via CLI during actual customization runs.
 	if config.Input.Image.Path == "" &&
@@ -102,8 +107,14 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 		config.Output.Image.Path = "/dev/null"
 	}
 
+	// The build directory is required when validating Azure Linux (OCI) input images for signature verification to
+	// create a temporary notary trust store.
+	customizeOptions := ImageCustomizerOptions{
+		BuildDir: options.BuildDir,
+	}
+
 	// Pass newImage=false to emulate validation during an actual customization run.
-	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, false, options, ImageCustomizerOptions{})
+	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, false, options.ValidateResources, customizeOptions)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -114,7 +125,8 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 }
 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	newImage bool, createUuid bool, validateOptions ValidateConfigOptions, customizeOptions ImageCustomizerOptions,
+	newImage bool, createUuid bool, validateResources imagecustomizerapi.ValidateResourceTypes,
+	options ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
@@ -122,15 +134,10 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc := &ResolvedConfig{
 		BaseConfigPath: baseConfigPath,
 		Config:         config,
-		Options:        customizeOptions,
+		Options:        options,
 	}
 
-	err := validateOptions.IsValid()
-	if err != nil {
-		return nil, err
-	}
-
-	err = customizeOptions.IsValid()
+	err := options.IsValid()
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +147,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	err = customizeOptions.verifyPreviewFeatures(config.PreviewFeatures)
+	err = options.verifyPreviewFeatures(config.PreviewFeatures)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +171,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	// Resolve build dir path.
-	rc.BuildDirAbs, err = filepath.Abs(customizeOptions.BuildDir)
+	rc.BuildDirAbs, err = filepath.Abs(options.BuildDir)
 	if err != nil {
 		return nil, err
 	}
@@ -172,22 +179,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	// Intermediate writeable image
 	rc.RawImageFile = filepath.Join(rc.BuildDirAbs, BaseImageName)
 
-	err = ValidateRpmSources(customizeOptions.RpmsSources)
+	err = ValidateRpmSources(options.RpmsSources)
 	if err != nil {
 		return nil, err
 	}
 
-	validateFiles := validateOptions.ValidateResources.ValidateFiles()
-	validateOci := validateOptions.ValidateResources.ValidateOci()
-
-	buildDir := validateOptions.BuildDir
-	if buildDir == "" {
-		buildDir = customizeOptions.BuildDir
-	}
+	validateFiles := validateResources.ValidateFiles()
+	validateOci := validateResources.ValidateOci()
 
 	if !newImage {
-		rc.InputImage, rc.InputImageOciDescriptor, err = validateInput(ctx, buildDir, rc.ConfigChain,
-			customizeOptions.InputImageFile, customizeOptions.InputImage, validateFiles, validateOci)
+		rc.InputImage, rc.InputImageOciDescriptor, err = validateInput(ctx, rc.BuildDirAbs, rc.ConfigChain,
+			options.InputImageFile, options.InputImage, validateFiles, validateOci)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +209,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
-	err = validateOsConfig(baseConfigPath, config.OS, customizeOptions.RpmsSources, customizeOptions.UseBaseImageRpmRepos, validateFiles)
+	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -223,12 +225,12 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, customizeOptions.OutputImageFormat)
+	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, options.OutputImageFormat)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, customizeOptions.OutputImageFile, rc.OutputImageFormat,
+	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, options.OutputImageFile, rc.OutputImageFormat,
 		validateFiles)
 	if err != nil {
 		return nil, err
@@ -236,13 +238,13 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
-	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, customizeOptions.OutputSelinuxPolicyPath,
+	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, options.OutputSelinuxPolicyPath,
 		validateFiles)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, customizeOptions.CosiCompressionLevel,
+	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel,
 		rc.OutputImageFormat)
 	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
 
