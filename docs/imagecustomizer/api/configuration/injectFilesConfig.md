@@ -13,7 +13,7 @@ You must enable this feature by specifying `inject-files` in the
 Specifies the configuration for injecting files into specified partitions of
 an image.
 
-This file is typically generated automatically by Prism when the
+This file is typically generated automatically by Image Customizer when the
 [`output.artifacts`](./outputArtifacts.md) feature is used. The generated file
 is named `inject-files.yaml` and placed under the specified output directory.
 You can modify this file if needed (e.g. to add IPE policies or customize
