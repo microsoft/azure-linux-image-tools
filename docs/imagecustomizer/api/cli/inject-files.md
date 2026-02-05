@@ -2,7 +2,7 @@
 title: inject-files
 parent: Command line
 ancestor: Image Customizer
-nav_order: 3
+nav_order: 4
 ---
 
 # inject-files subcommand

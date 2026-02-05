@@ -28,6 +28,9 @@ var OciSupportedFileExtensions = []string{".vhdx", ".vhd", ".qcow2", ".img", ".r
 var (
 	ErrOciDownloadMissingCacheDir = NewImageCustomizerError("Oci:MissingImageCacheDir", "image cache directory (--image-cache-dir) must be provided to download images")
 	ErrOciDownloadCreateCacheDir  = NewImageCustomizerError("Oci:CreateCacheDir", "failed to create image cache directory")
+	ErrOciImageNotFound           = NewImageCustomizerError("Oci:ImageNotFound", "OCI image not found")
+	ErrOciSignatureCheckFailed    = NewImageCustomizerError("Oci:SignatureCheckFailed", "OCI signature check failed")
+	ErrOciOpenRepository          = NewImageCustomizerError("Oci:OpenRepository", "failed to open OCI repository")
 )
 
 func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, buildDir string, imageCacheDir string,
@@ -40,24 +43,9 @@ func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage,
 		return "", err
 	}
 
-	remoteRepo, err := remote.NewRepository(ociImage.Uri)
-	if err != nil {
-		return "", fmt.Errorf("failed to open OCI repository (%s):\n%w", ociImage.Uri, err)
-	}
-
-	// remote.NewRepository() also parses the tag from the URL for us.
-	tag := remoteRepo.Reference.Reference
-
-	descriptor, err := resolveOciReference(ctx, ociImage, remoteRepo, tag)
+	remoteRepo, descriptor, err := openOciImage(ctx, ociImage, buildDir, signatureCheckOptions)
 	if err != nil {
 		return "", err
-	}
-
-	if signatureCheckOptions != nil {
-		err = checkNotationSignature(ctx, buildDir, remoteRepo, descriptor, *signatureCheckOptions)
-		if err != nil {
-			return "", fmt.Errorf("OCI signature check failed:\n%w", err)
-		}
 	}
 
 	digestsDir := filepath.Join(imageCacheDir, "digests", string(descriptor.Digest.Algorithm()))
@@ -104,6 +92,34 @@ func validateImageCacheDir(imageCacheDir string) error {
 	}
 
 	return nil
+}
+
+// openOciImage opens the remote OCI repository, resolves the image reference to get a descriptor,
+// and optionally verifies the signature. The build directory is only required if signature verification is enabled.
+func openOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, buildDir string,
+	signatureCheckOptions *ociSignatureCheckOptions,
+) (*remote.Repository, ociv1.Descriptor, error) {
+	remoteRepo, err := remote.NewRepository(ociImage.Uri)
+	if err != nil {
+		return nil, ociv1.Descriptor{}, fmt.Errorf("%w (%s):\n%w", ErrOciOpenRepository, ociImage.Uri, err)
+	}
+
+	// remote.NewRepository() also parses the tag from the URL for us.
+	tag := remoteRepo.Reference.Reference
+
+	descriptor, err := resolveOciReference(ctx, ociImage, remoteRepo, tag)
+	if err != nil {
+		return nil, ociv1.Descriptor{}, fmt.Errorf("%w:\n%w", ErrOciImageNotFound, err)
+	}
+
+	if signatureCheckOptions != nil {
+		err = checkNotationSignature(ctx, buildDir, remoteRepo, descriptor, *signatureCheckOptions)
+		if err != nil {
+			return nil, ociv1.Descriptor{}, fmt.Errorf("%w:\n%w", ErrOciSignatureCheckFailed, err)
+		}
+	}
+
+	return remoteRepo, descriptor, nil
 }
 
 func resolveOciReference(ctx context.Context, ociImage imagecustomizerapi.OciImage, targetRepo oras.ReadOnlyTarget,

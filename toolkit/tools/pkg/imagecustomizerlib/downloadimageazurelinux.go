@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 )
 
 func downloadAzureLinuxImage(ctx context.Context, inputImage imagecustomizerapi.AzureLinuxImage, buildDir string,
@@ -20,14 +19,8 @@ func downloadAzureLinuxImage(ctx context.Context, inputImage imagecustomizerapi.
 		return "", err
 	}
 
-	signatureOptions := &ociSignatureCheckOptions{
-		TrustPolicyName:   "mcr-azure-linux",
-		TrustStoreName:    "microsoft-supplychain",
-		CertificateFs:     resources.ResourcesFS,
-		CertificateFsPath: resources.MicrosoftSupplyChainRSARootCA2022File,
-	}
-
-	inputImageFilePath, err := downloadOciImage(ctx, ociImage, buildDir, imageCacheDir, signatureOptions)
+	inputImageFilePath, err := downloadOciImage(ctx, ociImage, buildDir, imageCacheDir,
+		getAzureLinuxOciSignatureCheckOptions())
 	if err != nil {
 		return "", err
 	}

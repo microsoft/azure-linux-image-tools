@@ -28,6 +28,7 @@ var (
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
+	imageUuidStr string,
 ) error {
 	var err error
 
@@ -147,13 +148,13 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr)
+	err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuidStr)
 	if err != nil {
 		return err
 	}
 
 	if rc.Config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, rc.BaseConfigPath, ToolVersion, buildTime, rc.Config)
+		err = addImageHistory(ctx, imageChroot, imageUuidStr, rc.BaseConfigPath, ToolVersion, buildTime, rc.Config)
 		if err != nil {
 			return err
 		}
