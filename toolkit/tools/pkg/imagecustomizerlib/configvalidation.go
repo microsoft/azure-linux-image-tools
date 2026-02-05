@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -102,7 +103,7 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 	}
 
 	// Pass newImage=false to emulate validation during an actual customization run.
-	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, options, ImageCustomizerOptions{})
+	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, false, options, ImageCustomizerOptions{})
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -113,7 +114,7 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 }
 
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	newImage bool, validateOptions ValidateConfigOptions, customizeOptions ImageCustomizerOptions,
+	newImage bool, createUuid bool, validateOptions ValidateConfigOptions, customizeOptions ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
@@ -153,6 +154,14 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		config.OS != nil ||
 		len(config.Scripts.PostCustomization) > 0 ||
 		len(config.Scripts.FinalizeCustomization) > 0
+
+	// Create a UUID for the image. This may panic, so only call if needed.
+	if createUuid {
+		rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Resolve build dir path.
 	rc.BuildDirAbs, err = filepath.Abs(customizeOptions.BuildDir)

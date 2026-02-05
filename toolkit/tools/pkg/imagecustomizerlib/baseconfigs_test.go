@@ -32,7 +32,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
 	assert.NoError(t, err)
 
-	rc, err := ValidateConfig(t.Context(), testDir, &config, false, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(t.Context(), testDir, &config, false, true, validateOptions, customizeOptions)
 	assert.NoError(t, err)
 
 	// Verify resolved values

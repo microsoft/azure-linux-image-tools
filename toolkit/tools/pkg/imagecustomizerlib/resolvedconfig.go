@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -18,6 +19,10 @@ type ResolvedConfig struct {
 	Config                *imagecustomizerapi.Config
 	Options               ImageCustomizerOptions
 	CustomizeOSPartitions bool
+
+	// UUID
+	ImageUuid    [randomization.UuidSize]byte
+	ImageUuidStr string
 
 	// Build dirs
 	BuildDirAbs string
