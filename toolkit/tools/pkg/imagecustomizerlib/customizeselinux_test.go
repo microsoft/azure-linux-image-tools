@@ -18,7 +18,7 @@ import (
 )
 
 func TestCustomizeImageSELinux(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageSELinuxHelper(t, "TestCustomizeImageSELinux"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -44,7 +44,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	}
 
 	// Connect to customized image.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -73,7 +73,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	}
 
 	// Connect to customized image.
-	imageConnection, err = connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err = connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -102,7 +102,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	}
 
 	// Connect to customized image.
-	imageConnection, err = connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err = connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -114,7 +114,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 }
 
 func TestCustomizeImageSELinuxAndPartitions(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageSELinuxAndPartitionsHelper(t, "TestCustomizeImageSELinuxAndPartitions"+baseImageInfo.Name, baseImageInfo)
 		})

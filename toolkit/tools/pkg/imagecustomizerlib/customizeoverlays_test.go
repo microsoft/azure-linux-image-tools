@@ -83,7 +83,7 @@ func TestCustomizeImageOverlays(t *testing.T) {
 }
 
 func TestCustomizeImageOverlaysSELinux(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageOverlaysSELinuxHelper(t, "TestCustomizeImageOverlaysSELinux"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -111,7 +111,7 @@ func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, base
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

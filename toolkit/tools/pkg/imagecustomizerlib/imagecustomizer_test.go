@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemd"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,6 +39,19 @@ var (
 			PartitionNum:   2,
 			Path:           "/",
 			FileSystemType: "ext4",
+		},
+	}
+
+	ubuntuMountPoints = []testutils.MountPoint{
+		{
+			PartitionNum:   1,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   15,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
 		},
 	}
 )
@@ -129,8 +143,12 @@ func TestCustomizeImageVhd(t *testing.T) {
 	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
 }
 
-func connectToCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
+func connectToAzureLinuxCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
 	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
+}
+
+func connectToUbuntuImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
+	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, ubuntuMountPoints)
 }
 
 func TestValidateConfig_CallsValidateInput(t *testing.T) {
@@ -614,7 +632,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 }
 
 func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageKernelCommandLineAddHelper(t, "TestCustomizeImageKernelCommandLineAdd"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -645,7 +663,7 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 	}
 
 	// Mount the output disk image so that its contents can be checked.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -1100,4 +1118,340 @@ func checkFileType(t *testing.T, filePath string, expectedFileType string) {
 	fileType, err := testutils.GetImageFileType(filePath)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedFileType, fileType)
+}
+
+func TestUbuntuCustomizeImageServicesEnableDisable(t *testing.T) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testUbuntuServicesEnableDisable(t, baseImageInfo)
+		})
+	}
+}
+
+func testUbuntuServicesEnableDisable(
+	t *testing.T, baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir,
+		"TestUbuntuServicesEnableDisable_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			ubuntuPreviewFeature(baseImageInfo),
+		},
+		OS: &imagecustomizerapi.OS{
+			Services: imagecustomizerapi.Services{
+				Enable: []string{
+					"console-getty",
+				},
+				Disable: []string{
+					"systemd-timesyncd",
+				},
+			},
+		},
+	}
+
+	err := CustomizeImage(
+		t.Context(), buildDir, testDir, &config, baseImage,
+		nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := testutils.ConnectToImage(
+		buildDir, outImageFilePath,
+		true /*includeDefaultMounts*/, ubuntuMountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	consoleGettyEnabled, err := systemd.IsServiceEnabled(
+		"console-getty", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.True(t, consoleGettyEnabled)
+
+	timesyncdEnabled, err := systemd.IsServiceEnabled(
+		"systemd-timesyncd", imageConnection.Chroot())
+	assert.NoError(t, err)
+	assert.False(t, timesyncdEnabled)
+}
+
+func TestUbuntuCustomizeImageServicesEnableUnknown(t *testing.T) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testUbuntuServicesEnableUnknown(t, baseImageInfo)
+		})
+	}
+}
+
+func testUbuntuServicesEnableUnknown(
+	t *testing.T, baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir,
+		"TestUbuntuCustomizeImageServicesEnableUnknown_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			ubuntuPreviewFeature(baseImageInfo),
+		},
+		OS: &imagecustomizerapi.OS{
+			Services: imagecustomizerapi.Services{
+				Enable: []string{
+					"chocolate-chip-muffin",
+				},
+			},
+		},
+	}
+
+	err := CustomizeImage(
+		t.Context(), buildDir, testDir, &config, baseImage,
+		nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err,
+		"failed to enable service (service='chocolate-chip-muffin')")
+}
+
+func TestUbuntuCustomizeImageKernelModules(t *testing.T) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testUbuntuKernelModules(t, baseImageInfo)
+		})
+	}
+}
+
+func testUbuntuKernelModules(
+	t *testing.T, baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir,
+		"TestUbuntuKernelModules_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			ubuntuPreviewFeature(baseImageInfo),
+		},
+		OS: &imagecustomizerapi.OS{
+			Modules: []imagecustomizerapi.Module{
+				{
+					Name:     "vfio",
+					LoadMode: imagecustomizerapi.ModuleLoadModeAlways,
+					Options: map[string]string{
+						"enable_unsafe_noiommu_mode": "Y",
+						"disable_vga":                "Y",
+					},
+				},
+				{
+					Name:     "br_netfilter",
+					LoadMode: imagecustomizerapi.ModuleLoadModeAuto,
+				},
+				{
+					Name:     "mousedev",
+					LoadMode: imagecustomizerapi.ModuleLoadModeDisable,
+				},
+			},
+		},
+	}
+
+	err := CustomizeImage(
+		t.Context(), buildDir, testDir, &config, baseImage,
+		nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToUbuntuImage(
+		buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	rootDir := imageConnection.Chroot().RootDir()
+
+	// Verify 'loadMode: always'.
+	loadContent, err := file.Read(
+		filepath.Join(rootDir, moduleLoadPath))
+	assert.NoError(t, err)
+	assert.Regexp(t, "(?m)^vfio$", loadContent)
+
+	// Verify 'loadMode: disable'.
+	disabledContent, err := file.Read(
+		filepath.Join(rootDir, moduleDisabledPath))
+	assert.NoError(t, err)
+	assert.Regexp(t, "(?m)^blacklist mousedev$", disabledContent)
+
+	// Verify 'options'.
+	optionsContent, err := file.Read(
+		filepath.Join(rootDir, moduleOptionsPath))
+	assert.NoError(t, err)
+	assert.Regexp(t, "(?m)^options vfio.* enable_unsafe_noiommu_mode=Y",
+		optionsContent)
+	assert.Regexp(t, "(?m)^options vfio.* disable_vga=Y",
+		optionsContent)
+}
+
+func TestUbuntuCustomizeImageRunScripts(t *testing.T) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testUbuntuRunScripts(t, baseImageInfo)
+		})
+	}
+}
+
+func testUbuntuRunScripts(
+	t *testing.T, baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir,
+		"TestUbuntuRunScripts_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			ubuntuPreviewFeature(baseImageInfo),
+		},
+		Scripts: imagecustomizerapi.Scripts{
+			PostCustomization: []imagecustomizerapi.Script{
+				{
+					Content: "set -eux\n" +
+						"echo \"PostScript\" | tee --append /log.txt\n" +
+						"echo \"Working dir: $(pwd)\" | tee --append /log.txt\n" +
+						"echo \"Arg 1: $1\" | tee --append /log.txt\n" +
+						"echo \"ENV_VAR: $MY_ENV\" | tee --append /log.txt\n" +
+						"stat /etc/resolv.conf 2>/dev/null && \\\n" +
+						"  echo \"resolv.conf exists\" | tee --append /log.txt || \\\n" +
+						"  echo \"resolv.conf does not exist\" | tee --append /log.txt\n",
+					Arguments: []string{"hello"},
+					EnvironmentVariables: map[string]string{
+						"MY_ENV": "world",
+					},
+					Name: "ubuntu-post-script",
+				},
+			},
+			FinalizeCustomization: []imagecustomizerapi.Script{
+				{
+					Content: "set -eux\n" +
+						"echo \"FinalizeScript\" | tee --append /log.txt\n" +
+						"stat /etc/resolv.conf 2>/dev/null && \\\n" +
+						"  echo \"resolv.conf exists\" | tee --append /log.txt || \\\n" +
+						"  echo \"resolv.conf does not exist\" | tee --append /log.txt\n",
+					Name: "ubuntu-finalize-script",
+				},
+			},
+		},
+	}
+
+	err := CustomizeImage(
+		t.Context(), buildDir, testDir, &config, baseImage,
+		nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToUbuntuImage(
+		buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	expectedLogFileContents := `PostScript
+Working dir: /
+Arg 1: hello
+ENV_VAR: world
+resolv.conf exists
+FinalizeScript
+resolv.conf exists
+`
+
+	fileContents, err := os.ReadFile(filepath.Join(
+		imageConnection.Chroot().RootDir(), "/log.txt"))
+	assert.NoError(t, err)
+	assert.Equal(t, expectedLogFileContents, string(fileContents))
+}
+
+func TestUbuntuCustomizeImageHistory(t *testing.T) {
+	for _, baseImageInfo := range baseImageUbuntuAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testUbuntuImageHistory(t, baseImageInfo)
+		})
+	}
+}
+
+func testUbuntuImageHistory(
+	t *testing.T, baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir,
+		"TestUbuntuImageHistory_"+baseImageInfo.Name)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	config := imagecustomizerapi.Config{
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			ubuntuPreviewFeature(baseImageInfo),
+		},
+		OS: &imagecustomizerapi.OS{
+			Hostname: "ubuntu-history-test",
+		},
+	}
+
+	err := CustomizeImage(
+		t.Context(), buildDir, testDir, &config, baseImage,
+		nil, outImageFilePath, "raw",
+		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToUbuntuImage(
+		buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	verifyImageHistoryFile(t, 1, config,
+		imageConnection.Chroot().RootDir())
+}
+
+// ubuntuPreviewFeature returns the preview feature for the given Ubuntu base image info.
+func ubuntuPreviewFeature(
+	baseImageInfo testBaseImageInfo,
+) imagecustomizerapi.PreviewFeature {
+	switch baseImageInfo.Version {
+	case baseImageVersionUbuntu2204:
+		return imagecustomizerapi.PreviewFeatureUbuntu2204
+	case baseImageVersionUbuntu2404:
+		return imagecustomizerapi.PreviewFeatureUbuntu2404
+	default:
+		panic("unsupported Ubuntu version: " + baseImageInfo.Version)
+	}
 }
