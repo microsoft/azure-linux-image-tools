@@ -35,7 +35,7 @@ func TestValidateConfig_InvalidValidateOptions_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Nil(t, rc)
 	assert.ErrorContains(t, err, "invalid-resource-type")
@@ -63,7 +63,7 @@ func TestValidateConfig_InvalidCustomizeOptions_Fail(t *testing.T) {
 		OutputImageFormat: "invalid-format",
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrInvalidOutputFormat)
@@ -94,7 +94,7 @@ func TestValidateConfig_InvalidConfig_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Nil(t, rc)
 	assert.Contains(t, err.Error(), "must only specify one of")
@@ -123,7 +123,7 @@ func TestValidateConfig_MissingPreviewFeature_Fail(t *testing.T) {
 		PackageSnapshotTime: "2024-01-01",
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrPackageSnapshotPreviewRequired)
@@ -157,7 +157,7 @@ func TestValidateConfig_InvalidRpmSource_Fail(t *testing.T) {
 		RpmsSources: []string{tmpFile},
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -192,7 +192,7 @@ func TestValidateConfig_InvalidScript_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -233,7 +233,7 @@ func TestValidateConfig_ScriptPathIsDirectory_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -270,7 +270,7 @@ func TestValidateConfig_SelinuxPolicyPathIsFile_Fail(t *testing.T) {
 		OutputSelinuxPolicyPath: tmpFile,
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -308,7 +308,7 @@ func TestValidateConfig_InvalidIsoAdditionalFiles_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -346,7 +346,7 @@ func TestValidateConfig_InvalidPxeAdditionalFiles_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -380,7 +380,7 @@ func TestValidateConfig_InvalidBaseConfig_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -424,7 +424,7 @@ func TestValidateConfig_SSHKeyPathIsDirectory_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -471,7 +471,7 @@ func TestValidateConfig_PasswordFileIsDirectory_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -502,7 +502,7 @@ func TestValidateConfig_SelinuxPolicyPathNotDir_Fail(t *testing.T) {
 		OutputSelinuxPolicyPath: "/nonexistent/path/to/selinux",
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -542,7 +542,7 @@ func TestValidateConfig_SelinuxPolicyConfigPathIsFile_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -576,7 +576,7 @@ func TestValidateConfig_SelinuxPolicyConfigPathNotDir_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -616,7 +616,7 @@ func TestValidateConfig_SelinuxPolicyConfigPathValid_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -648,7 +648,7 @@ func TestValidateConfig_InvalidPackageRemoveList_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -681,7 +681,7 @@ func TestValidateConfig_InvalidPackageInstallList_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -714,7 +714,7 @@ func TestValidateConfig_InvalidPackageUpdateList_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -758,7 +758,7 @@ func TestValidateConfig_AdditionalDirsSourceIsFile_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -796,7 +796,7 @@ func TestValidateConfig_AdditionalDirsSourceNotFound_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -832,7 +832,7 @@ func TestValidateConfig_OutputImageFileIsDirectory_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -907,7 +907,7 @@ func TestValidateConfigWithConfigFileOptions_EmptyConfig_Pass(t *testing.T) {
 	ctx := context.Background()
 	configDir := t.TempDir()
 	configFile := configDir + "/config.yaml"
-	// Minimal config that relies on defaults for input.image.path, output.image.format, and output.image.path
+	// Minimal config doesn't have the required input.image.path, output.image.format, and output.image.path settings
 	configContent := `---
 `
 	err := os.WriteFile(configFile, []byte(configContent), 0o644)
@@ -997,7 +997,7 @@ func TestValidateConfig_DeletedWorkingDir_Fail(t *testing.T) {
 	customizeOptions := ImageCustomizerOptions{}
 
 	// filepath.Abs will fail because the working directory no longer exists
-	rc, err := ValidateConfig(ctx, ".", config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, ".", config, true, true, validateOptions, customizeOptions)
 
 	assert.Nil(t, rc)
 	assert.Error(t, err)
@@ -2263,7 +2263,7 @@ func TestValidateConfig_PasswordFileNotFound_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2302,7 +2302,7 @@ func TestValidateConfig_SSHKeyPathNotFound_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2355,7 +2355,7 @@ func TestValidateConfig_ValidUserFiles_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2389,7 +2389,7 @@ func TestValidateConfig_InvalidFinalizeScript_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2424,7 +2424,7 @@ func TestValidateConfig_ScriptFileNotFound_Fail(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2469,7 +2469,7 @@ func TestValidateConfig_ValidScripts_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2509,7 +2509,7 @@ func TestValidateConfig_ValidIsoAdditionalFiles_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2549,7 +2549,7 @@ func TestValidateConfig_ValidPxeAdditionalFiles_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2591,7 +2591,7 @@ func TestValidateConfig_ValidAdditionalDirs_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2628,7 +2628,7 @@ func TestValidateConfig_PackageInstallWithRpmSource_Pass(t *testing.T) {
 		RpmsSources: []string{rpmDir},
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2661,7 +2661,7 @@ func TestValidateConfig_BootLoaderHardReset_Pass(t *testing.T) {
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
