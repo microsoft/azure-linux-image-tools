@@ -9,17 +9,18 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func downloadAzureLinuxImage(ctx context.Context, inputImage imagecustomizerapi.AzureLinuxImage, buildDir string,
-	imageCacheDir string,
+func downloadAzureLinuxImage(ctx context.Context, inputImage imagecustomizerapi.AzureLinuxImage,
+	ociDescriptor *ociv1.Descriptor, buildDir string, imageCacheDir string,
 ) (string, error) {
 	ociImage, err := generateAzureLinuxOciUri(inputImage)
 	if err != nil {
 		return "", err
 	}
 
-	inputImageFilePath, err := downloadOciImage(ctx, ociImage, buildDir, imageCacheDir,
+	inputImageFilePath, err := downloadOciImage(ctx, ociImage, ociDescriptor, buildDir, imageCacheDir,
 		getAzureLinuxOciSignatureCheckOptions())
 	if err != nil {
 		return "", err

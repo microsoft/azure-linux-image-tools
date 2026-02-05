@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -53,11 +54,8 @@ var (
 	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is a file")
 	ErrOutputSelinuxPolicyPathNotDirConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathNotDirConfig", "path exists but is not a directory")
 	ErrInvalidInputImageAzureLinux          = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
-	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azurelinux not found")
-	ErrInputImageAzureLinuxSignature        = NewImageCustomizerError("Validation:InputImageAzureLinuxSignature", "input.image.azurelinux is not validly signed")
-	ErrInvalidInputImageOci                 = NewImageCustomizerError("Validation:InvalidInputImageOci", "invalid input.image.oci config")
+	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
 	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
-	ErrInputImageOciSignature               = NewImageCustomizerError("Validation:InputImageOciSignature", "input.image.oci is not validly signed")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -178,8 +176,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	if !newImage {
-		rc.InputImage, err = validateInput(ctx, buildDir, rc.ConfigChain, customizeOptions.InputImageFile,
-			customizeOptions.InputImage, validateFiles, validateOci)
+		rc.InputImage, rc.InputImageOciDescriptor, err = validateInput(ctx, buildDir, rc.ConfigChain,
+			customizeOptions.InputImageFile, customizeOptions.InputImage, validateFiles, validateOci)
 		if err != nil {
 			return nil, err
 		}
@@ -252,30 +250,30 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 
 func validateInput(ctx context.Context, buildDir string, configChain []*ConfigWithBasePath, inputImageFile string,
 	inputImage string, validateFiles bool, validateOci bool,
-) (imagecustomizerapi.InputImage, error) {
+) (imagecustomizerapi.InputImage, *ociv1.Descriptor, error) {
 	if inputImageFile != "" {
 		if validateFiles {
 			if yes, err := file.IsFile(inputImageFile); err != nil {
 				err = fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
-				return imagecustomizerapi.InputImage{}, err
+				return imagecustomizerapi.InputImage{}, nil, err
 			} else if !yes {
 				err = fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
-				return imagecustomizerapi.InputImage{}, err
+				return imagecustomizerapi.InputImage{}, nil, err
 			}
 		}
 
 		return imagecustomizerapi.InputImage{
 			Path: inputImageFile,
-		}, nil
+		}, nil, nil
 	}
 
 	if inputImage != "" {
 		inputImage, err := parseInputImage(inputImage)
 		if err != nil {
-			return imagecustomizerapi.InputImage{}, err
+			return imagecustomizerapi.InputImage{}, nil, err
 		}
 
-		return inputImage, nil
+		return inputImage, nil, nil
 	}
 
 	// Resolve input image path
@@ -290,57 +288,63 @@ func validateInput(ctx context.Context, buildDir string, configChain []*ConfigWi
 				if yes, err := file.IsFile(inputImageAbsPath); err != nil {
 					err = fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig,
 						configWithBase.Config.Input.Image.Path, err)
-					return imagecustomizerapi.InputImage{}, err
+					return imagecustomizerapi.InputImage{}, nil, err
 				} else if !yes {
 					err = fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
-					return imagecustomizerapi.InputImage{}, err
+					return imagecustomizerapi.InputImage{}, nil, err
 				}
 			}
 
 			return imagecustomizerapi.InputImage{
 				Path: inputImageAbsPath,
-			}, nil
+			}, nil, nil
 		}
 
 		if configWithBase.Config.Input.Image.Oci != nil {
+			var descriptor *ociv1.Descriptor
 			if validateOci {
-				_, _, err := openOciImage(ctx, *configWithBase.Config.Input.Image.Oci, "", nil)
+				_, desc, err := openOciImage(ctx, *configWithBase.Config.Input.Image.Oci, nil, nil, "")
 				if err != nil {
-					return imagecustomizerapi.InputImage{}, wrapInputImageOciError(err,
-						configWithBase.Config.Input.Image.Oci.Uri)
+					err = fmt.Errorf("%w (uri='%s'):\n%w", ErrInputImageOciNotFound,
+						configWithBase.Config.Input.Image.Oci.Uri, err)
+					return imagecustomizerapi.InputImage{}, nil, err
 				}
+				descriptor = &desc
 			}
 
 			return imagecustomizerapi.InputImage{
 				Oci: configWithBase.Config.Input.Image.Oci,
-			}, nil
+			}, descriptor, nil
 		}
 
 		if configWithBase.Config.Input.Image.AzureLinux != nil {
+			var descriptor *ociv1.Descriptor
 			if validateOci {
 				ociImage, err := generateAzureLinuxOciUri(*configWithBase.Config.Input.Image.AzureLinux)
 				if err != nil {
-					return imagecustomizerapi.InputImage{}, fmt.Errorf("%w (variant='%s', version='%s'):\n%w",
+					return imagecustomizerapi.InputImage{}, nil, fmt.Errorf("%w (variant='%s', version='%s'):\n%w",
 						ErrInvalidInputImageAzureLinux, configWithBase.Config.Input.Image.AzureLinux.Variant,
 						configWithBase.Config.Input.Image.AzureLinux.Version, err)
 				}
 
 				signatureCheckOptions := getAzureLinuxOciSignatureCheckOptions()
-				_, _, err = openOciImage(ctx, ociImage, buildDir, signatureCheckOptions)
+				_, desc, err := openOciImage(ctx, ociImage, nil, signatureCheckOptions, buildDir)
 				if err != nil {
-					return imagecustomizerapi.InputImage{}, wrapInputImageAzureLinuxError(err,
+					err := fmt.Errorf("%w (variant='%s', version='%s'):\n%w", ErrInputImageAzureLinuxNotFound,
 						configWithBase.Config.Input.Image.AzureLinux.Variant,
-						configWithBase.Config.Input.Image.AzureLinux.Version)
+						configWithBase.Config.Input.Image.AzureLinux.Version, err)
+					return imagecustomizerapi.InputImage{}, nil, err
 				}
+				descriptor = &desc
 			}
 
 			return imagecustomizerapi.InputImage{
 				AzureLinux: configWithBase.Config.Input.Image.AzureLinux,
-			}, nil
+			}, descriptor, nil
 		}
 	}
 
-	return imagecustomizerapi.InputImage{}, ErrInputImageFileRequired
+	return imagecustomizerapi.InputImage{}, nil, ErrInputImageFileRequired
 }
 
 func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList,
@@ -1006,31 +1010,4 @@ func defaultCosiCompressionLevel(format imagecustomizerapi.ImageFormatType) int 
 		return imagecustomizerapi.DefaultBareMetalCosiCompressionLevel
 	}
 	return imagecustomizerapi.DefaultCosiCompressionLevel
-}
-
-// wrapInputImageOciError maps low-level OCI validation errors to appropriate Validation types.
-func wrapInputImageOciError(err error, uri string) error {
-	if errors.Is(err, ErrOciSignatureCheckFailed) {
-		return fmt.Errorf("%w (uri='%s'):\n%v", ErrInputImageOciSignature, uri, err)
-	}
-	if errors.Is(err, ErrOciImageNotFound) {
-		return fmt.Errorf("%w (uri='%s'):\n%v", ErrInputImageOciNotFound, uri, err)
-	}
-	// ErrOciOpenRepository and other errors
-	return fmt.Errorf("%w (uri='%s'):\n%v", ErrInvalidInputImageOci, uri, err)
-}
-
-// wrapInputImageAzureLinuxError maps low-level OCI validation errors to appropriate Validation types.
-func wrapInputImageAzureLinuxError(err error, variant, version string) error {
-	if errors.Is(err, ErrOciSignatureCheckFailed) {
-		return fmt.Errorf("%w (variant='%s', version='%s'):\n%v",
-			ErrInputImageAzureLinuxSignature, variant, version, err)
-	}
-	if errors.Is(err, ErrOciImageNotFound) {
-		return fmt.Errorf("%w (variant='%s', version='%s'):\n%v",
-			ErrInputImageAzureLinuxNotFound, variant, version, err)
-	}
-	// ErrOciOpenRepository and other errors
-	return fmt.Errorf("%w (variant='%s', version='%s'):\n%v",
-		ErrInvalidInputImageAzureLinux, variant, version, err)
 }

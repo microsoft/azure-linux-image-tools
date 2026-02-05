@@ -33,8 +33,8 @@ var (
 	ErrOciOpenRepository          = NewImageCustomizerError("Oci:OpenRepository", "failed to open OCI repository")
 )
 
-func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, buildDir string, imageCacheDir string,
-	signatureCheckOptions *ociSignatureCheckOptions,
+func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, ociDescriptor *ociv1.Descriptor,
+	buildDir string, imageCacheDir string, signatureCheckOptions *ociSignatureCheckOptions,
 ) (string, error) {
 	logger.Log.Debugf("Downloading OCI image (%s)", ociImage.Uri)
 
@@ -43,7 +43,7 @@ func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage,
 		return "", err
 	}
 
-	remoteRepo, descriptor, err := openOciImage(ctx, ociImage, buildDir, signatureCheckOptions)
+	remoteRepo, descriptor, err := openOciImage(ctx, ociImage, ociDescriptor, signatureCheckOptions, buildDir)
 	if err != nil {
 		return "", err
 	}
@@ -94,14 +94,20 @@ func validateImageCacheDir(imageCacheDir string) error {
 	return nil
 }
 
-// openOciImage opens the remote OCI repository, resolves the image reference to get a descriptor,
-// and optionally verifies the signature. The build directory is only required if signature verification is enabled.
-func openOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, buildDir string,
-	signatureCheckOptions *ociSignatureCheckOptions,
+// openOciImage opens the remote OCI repository and optionally resolves and verifies the OCI image artifact.
+//
+// The build directory is only required when signature verification is performed, i.e., when
+// an OCI descriptor is not provided but signature check options are.
+func openOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, ociDescriptor *ociv1.Descriptor,
+	signatureCheckOptions *ociSignatureCheckOptions, buildDir string,
 ) (*remote.Repository, ociv1.Descriptor, error) {
 	remoteRepo, err := remote.NewRepository(ociImage.Uri)
 	if err != nil {
 		return nil, ociv1.Descriptor{}, fmt.Errorf("%w (%s):\n%w", ErrOciOpenRepository, ociImage.Uri, err)
+	}
+
+	if ociDescriptor != nil {
+		return remoteRepo, *ociDescriptor, nil
 	}
 
 	// remote.NewRepository() also parses the tag from the URL for us.
