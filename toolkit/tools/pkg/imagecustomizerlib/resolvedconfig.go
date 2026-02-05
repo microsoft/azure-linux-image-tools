@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // ResolvedConfig contains the final image configuration, including the merged CLI and config values.
@@ -23,6 +24,10 @@ type ResolvedConfig struct {
 
 	// Input image
 	InputImage imagecustomizerapi.InputImage
+
+	// Resolved OCI descriptor from validation (to avoid resolving and verifying more than once during customization).
+	// This is only set when the input image is an OCI or Azure Linux image.
+	InputImageOciDescriptor *ociv1.Descriptor
 
 	// Output artifacts
 	OutputArtifacts *imagecustomizerapi.Artifacts

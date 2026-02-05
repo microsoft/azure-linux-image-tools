@@ -233,7 +233,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	}
 
 	// Download base image (if neccessary)
-	inputImageFilePath, err := downloadImage(ctx, rc.InputImage, options.BuildDir,
+	inputImageFilePath, err := downloadImage(ctx, rc.InputImage, rc.InputImageOciDescriptor, options.BuildDir,
 		options.ImageCacheDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCustomizeDownloadImage, err)
