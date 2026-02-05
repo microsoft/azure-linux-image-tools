@@ -198,6 +198,17 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	)
 	defer finishSpanWithError(span, &err)
 
+	// Ensure build folder is created before validation (needed for OCI signature check temp files).
+	buildDirAbs, err := filepath.Abs(options.BuildDir)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(buildDirAbs, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
 	validateResources := imagecustomizerapi.ValidateResourceTypes{
 		imagecustomizerapi.ValidateResourceTypeAll,
 	}
@@ -216,12 +227,6 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 			}
 		}
 	}()
-
-	// Ensure build and output folders are created up front
-	err = os.MkdirAll(rc.BuildDirAbs, os.ModePerm)
-	if err != nil {
-		return err
-	}
 
 	outputImageDir := filepath.Dir(rc.OutputImageFile)
 	err = os.MkdirAll(outputImageDir, os.ModePerm)
