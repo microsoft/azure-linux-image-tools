@@ -17,7 +17,7 @@ Added in v1.2.
 
 Required.
 
-The file path of the YAML (or JSON) configuration file that specifies how an image should be customize.
+The file path of the YAML (or JSON) configuration file that specifies how an image should be customized.
 
 For documentation on the supported configuration options, see:
 [Image Customizer configuration](../configuration/configuration.md)
