@@ -198,13 +198,11 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	)
 	defer finishSpanWithError(span, &err)
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, true,
-		ValidateConfigOptions{
-			ValidateResources: imagecustomizerapi.ValidateResourceTypes{
-				imagecustomizerapi.ValidateResourceTypeAll,
-			},
-		},
-		options)
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
+
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, true, validateResources, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}

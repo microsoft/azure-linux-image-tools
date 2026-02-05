@@ -12,35 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateConfig_InvalidValidateOptions_Fail(t *testing.T) {
-	ctx := context.Background()
-	baseConfigPath := t.TempDir()
-	config := &imagecustomizerapi.Config{
-		Input: imagecustomizerapi.Input{
-			Image: imagecustomizerapi.InputImage{
-				Path: "test.vhdx",
-			},
-		},
-		Output: imagecustomizerapi.Output{
-			Image: imagecustomizerapi.OutputImage{
-				Path:   "output.vhdx",
-				Format: imagecustomizerapi.ImageFormatTypeVhdx,
-			},
-		},
-	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{"invalid-resource-type"},
-	}
-	customizeOptions := ImageCustomizerOptions{
-		BuildDir: t.TempDir(),
-	}
-
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
-
-	assert.Nil(t, rc)
-	assert.ErrorContains(t, err, "invalid-resource-type")
-}
-
 func TestValidateConfig_InvalidCustomizeOptions_Fail(t *testing.T) {
 	ctx := context.Background()
 	baseConfigPath := t.TempDir()
@@ -57,13 +28,12 @@ func TestValidateConfig_InvalidCustomizeOptions_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir:          t.TempDir(),
 		OutputImageFormat: "invalid-format",
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrInvalidOutputFormat)
@@ -89,13 +59,11 @@ func TestValidateConfig_InvalidConfig_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
-
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 	assert.Nil(t, rc)
 	assert.Contains(t, err.Error(), "must only specify one of")
 }
@@ -117,13 +85,12 @@ func TestValidateConfig_MissingPreviewFeature_Fail(t *testing.T) {
 		},
 		// Not including PreviewFeaturePackageSnapshotTime
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir:            t.TempDir(),
 		PackageSnapshotTime: "2024-01-01",
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrPackageSnapshotPreviewRequired)
@@ -145,19 +112,18 @@ func TestValidateConfig_InvalidRpmSource_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
 
 	// Create a real file with invalid extension
 	tmpFile := baseConfigPath + "/invalid.xyz"
 	err := os.WriteFile(tmpFile, []byte("test"), 0o644)
 	assert.NoError(t, err)
 
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir:    t.TempDir(),
 		RpmsSources: []string{tmpFile},
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -185,14 +151,12 @@ func TestValidateConfig_InvalidScript_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -226,15 +190,12 @@ func TestValidateConfig_ScriptPathIsDirectory_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
-
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 	assert.Error(t, err)
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrScriptFileNotFile)
@@ -262,15 +223,13 @@ func TestValidateConfig_SelinuxPolicyPathIsFile_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir:                t.TempDir(),
 		OutputSelinuxPolicyPath: tmpFile,
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -301,15 +260,12 @@ func TestValidateConfig_InvalidIsoAdditionalFiles_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
-
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 	assert.Error(t, err)
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrInvalidAdditionalFilesSource)
@@ -339,15 +295,12 @@ func TestValidateConfig_InvalidPxeAdditionalFiles_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
-
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 	assert.Error(t, err)
 	assert.Nil(t, rc)
 	assert.ErrorIs(t, err, ErrInvalidAdditionalFilesSource)
@@ -375,12 +328,11 @@ func TestValidateConfig_InvalidBaseConfig_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -417,14 +369,12 @@ func TestValidateConfig_SSHKeyPathIsDirectory_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -464,14 +414,12 @@ func TestValidateConfig_PasswordFileIsDirectory_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -494,15 +442,13 @@ func TestValidateConfig_SelinuxPolicyPathNotDir_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir:                t.TempDir(),
 		OutputSelinuxPolicyPath: "/nonexistent/path/to/selinux",
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -535,14 +481,12 @@ func TestValidateConfig_SelinuxPolicyConfigPathIsFile_Fail(t *testing.T) {
 			SelinuxPolicyPath: "selinux_policy",
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -569,14 +513,12 @@ func TestValidateConfig_SelinuxPolicyConfigPathNotDir_Fail(t *testing.T) {
 			SelinuxPolicyPath: "nonexistent_selinux_path",
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -609,14 +551,12 @@ func TestValidateConfig_SelinuxPolicyConfigPathValid_Pass(t *testing.T) {
 			SelinuxPolicyPath: "selinux_policy",
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -643,12 +583,11 @@ func TestValidateConfig_InvalidPackageRemoveList_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -676,12 +615,11 @@ func TestValidateConfig_InvalidPackageInstallList_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -709,12 +647,11 @@ func TestValidateConfig_InvalidPackageUpdateList_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -751,14 +688,12 @@ func TestValidateConfig_AdditionalDirsSourceIsFile_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -789,14 +724,12 @@ func TestValidateConfig_AdditionalDirsSourceNotFound_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -825,14 +758,12 @@ func TestValidateConfig_OutputImageFileIsDirectory_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -993,11 +924,10 @@ func TestValidateConfig_DeletedWorkingDir_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{}
+	options := ImageCustomizerOptions{}
 
 	// filepath.Abs will fail because the working directory no longer exists
-	rc, err := ValidateConfig(ctx, ".", config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, ".", config, true, true, nil, options)
 
 	assert.Nil(t, rc)
 	assert.Error(t, err)
@@ -2256,14 +2186,12 @@ func TestValidateConfig_PasswordFileNotFound_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2295,14 +2223,12 @@ func TestValidateConfig_SSHKeyPathNotFound_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2348,14 +2274,12 @@ func TestValidateConfig_ValidUserFiles_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2382,14 +2306,12 @@ func TestValidateConfig_InvalidFinalizeScript_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2417,14 +2339,12 @@ func TestValidateConfig_ScriptFileNotFound_Fail(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.Error(t, err)
 	assert.Nil(t, rc)
@@ -2462,14 +2382,12 @@ func TestValidateConfig_ValidScripts_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2502,14 +2420,12 @@ func TestValidateConfig_ValidIsoAdditionalFiles_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2542,14 +2458,12 @@ func TestValidateConfig_ValidPxeAdditionalFiles_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2584,14 +2498,12 @@ func TestValidateConfig_ValidAdditionalDirs_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{
-		ValidateResources: imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles},
-	}
-	customizeOptions := ImageCustomizerOptions{
+	validateResources := imagecustomizerapi.ValidateResourceTypes{imagecustomizerapi.ValidateResourceTypeFiles}
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateResources, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2622,13 +2534,12 @@ func TestValidateConfig_PackageInstallWithRpmSource_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir:    t.TempDir(),
 		RpmsSources: []string{rpmDir},
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
@@ -2656,12 +2567,11 @@ func TestValidateConfig_BootLoaderHardReset_Pass(t *testing.T) {
 			},
 		},
 	}
-	validateOptions := ValidateConfigOptions{}
-	customizeOptions := ImageCustomizerOptions{
+	options := ImageCustomizerOptions{
 		BuildDir: t.TempDir(),
 	}
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, validateOptions, customizeOptions)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, true, true, nil, options)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, rc)
