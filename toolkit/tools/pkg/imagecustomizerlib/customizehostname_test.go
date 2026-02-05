@@ -59,7 +59,7 @@ func TestCustomizeImageHostname(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

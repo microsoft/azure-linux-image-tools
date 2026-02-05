@@ -16,14 +16,22 @@ import (
 
 const (
 	baseImageDistroAzureLinux = "azurelinux"
+	baseImageDistroUbuntu     = "ubuntu"
 
 	// Azure Linux versions
 	baseImageVersionAzl2 = "2.0"
 	baseImageVersionAzl3 = "3.0"
 
+	// Ubuntu versions
+	baseImageVersionUbuntu2204 = "22.04"
+	baseImageVersionUbuntu2404 = "24.04"
+
 	// Azure Linux variants
 	baseImageVariantCoreEfi   = "core-efi"
 	baseImageVariantBareMetal = "bare-metal"
+
+	// Ubuntu variants (currently unused)
+	baseImageVariantUbuntuCloud = "cloud"
 )
 
 type testBaseImageInfo struct {
@@ -72,11 +80,34 @@ var (
 		Param:     baseImageBareMetalAzl3,
 	}
 
-	baseImageAll = []testBaseImageInfo{
+	testBaseImageUbuntu2204 = testBaseImageInfo{
+		Name:      "Ubuntu2204",
+		Distro:    baseImageDistroUbuntu,
+		Version:   baseImageVersionUbuntu2204,
+		Variant:   baseImageVariantUbuntuCloud,
+		ParamName: "base-image-ubuntu2204",
+		Param:     baseImageUbuntu2204,
+	}
+
+	testBaseImageUbuntu2404 = testBaseImageInfo{
+		Name:      "Ubuntu2404",
+		Distro:    baseImageDistroUbuntu,
+		Version:   baseImageVersionUbuntu2404,
+		Variant:   baseImageVariantUbuntuCloud,
+		ParamName: "base-image-ubuntu2404",
+		Param:     baseImageUbuntu2404,
+	}
+
+	baseImageAzureLinuxAll = []testBaseImageInfo{
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl2BareMetal,
 		testBaseImageAzl3BareMetal,
+	}
+
+	baseImageUbuntuAll = []testBaseImageInfo{
+		testBaseImageUbuntu2204,
+		testBaseImageUbuntu2404,
 	}
 
 	defaultBaseImagePriorityList = []testBaseImageInfo{
@@ -92,6 +123,8 @@ var (
 	baseImageCoreEfiAzl3   = flag.String("base-image-core-efi-azl3", "", "An Azure Linux 3.0 core-efi image to use as a base image.")
 	baseImageBareMetalAzl2 = flag.String("base-image-bare-metal-azl2", "", "An Azure Linux 2.0 bare-metal image to use as a base image.")
 	baseImageBareMetalAzl3 = flag.String("base-image-bare-metal-azl3", "", "An Azure Linux 3.0 bare-metal image to use as a base image.")
+	baseImageUbuntu2204    = flag.String("base-image-ubuntu2204", "", "An Ubuntu 22.04 image to use as a base image.")
+	baseImageUbuntu2404    = flag.String("base-image-ubuntu2404", "", "An Ubuntu 24.04 image to use as a base image.")
 	logLevel               = flag.String("log-level", "info", "The log level (error, warning, info, debug, or trace)")
 )
 

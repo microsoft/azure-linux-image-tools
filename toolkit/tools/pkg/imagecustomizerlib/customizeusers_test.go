@@ -88,7 +88,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -245,7 +245,7 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 	}
 
 	// Connect to image.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -375,7 +375,7 @@ func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
 	}
 
 	// Verify that password was not cleared.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

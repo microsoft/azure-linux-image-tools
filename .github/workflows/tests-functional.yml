@@ -98,6 +98,20 @@ jobs:
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
+    - name: Download Ubuntu base images
+      run: |
+        set -eux
+
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+            ./repo/.github/workflows/scripts/download-ubuntu-image.sh \
+            "22.04" "$HOST_ARCH" ubuntu-2204
+
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+            ./repo/.github/workflows/scripts/download-ubuntu-image.sh \
+            "24.04" "$HOST_ARCH" ubuntu-2404
+      env:
+        HOST_ARCH: ${{ inputs.hostArch }}
+
     - name: Test setup
       run: |
         set -eux
@@ -119,6 +133,9 @@ jobs:
         AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
         AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
 
+        UBUNTU2204_RAW="../../../ubuntu-2204/image.raw"
+        UBUNTU2404_RAW="../../../ubuntu-2404/image.raw"
+
         FAILED=0
 
         sudo env "PATH=$PATH" go test -v \
@@ -135,6 +152,8 @@ jobs:
           -args \
           --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
           --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
+          --base-image-ubuntu2204 "../../$UBUNTU2204_RAW" \
+          --base-image-ubuntu2404 "../../$UBUNTU2404_RAW" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))

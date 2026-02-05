@@ -15,7 +15,7 @@ import (
 )
 
 func TestCustomizeImageMultiKernel(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageMultiKernel(t, "TestCustomizeImageMultiKernel"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -47,7 +47,7 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

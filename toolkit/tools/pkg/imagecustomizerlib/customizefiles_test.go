@@ -95,7 +95,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 	checkFileType(t, outImageFilePath, "raw")
 
 	// Connect to customized image.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -221,7 +221,7 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 	}
 
 	// Connect to customized image.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
