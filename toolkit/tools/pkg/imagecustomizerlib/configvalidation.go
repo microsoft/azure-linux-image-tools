@@ -7,14 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var (
@@ -29,6 +29,7 @@ var (
 	ErrInvalidFinalizeScript                = NewImageCustomizerError("Validation:InvalidFinalizeScript", "invalid finalizeCustomization script")
 	ErrScriptNotUnderConfigDir              = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
 	ErrScriptFileNotReadable                = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
+	ErrScriptFileNotFile                    = NewImageCustomizerError("Validation:ScriptFileNotFile", "script file is not a file")
 	ErrNoRpmSourcesSpecified                = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
 	ErrOutputImageFileRequired              = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
 	ErrInvalidOutputImageFileArg            = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
@@ -38,16 +39,82 @@ var (
 	ErrInvalidUser                          = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
 	ErrInvalidSSHPublicKeyFile              = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
 	ErrSSHPublicKeyNotFile                  = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
+	ErrInvalidPasswordFile                  = NewImageCustomizerError("Validation:InvalidPasswordFile", "failed to find password file")
+	ErrPasswordFileNotFile                  = NewImageCustomizerError("Validation:PasswordFileNotFile", "password file is not a file")
+	ErrInvalidAdditionalDirsSource          = NewImageCustomizerError("Validation:InvalidAdditionalDirsSource", "invalid additionalDirs source directory")
+	ErrAdditionalDirsSourceIsFile           = NewImageCustomizerError("Validation:AdditionalDirsSourceIsFile", "additionalDirs source exists but is a file")
+	ErrAdditionalDirsSourceNotDir           = NewImageCustomizerError("Validation:AdditionalDirsSourceNotDir", "additionalDirs source is not a directory")
 	ErrInvalidPackageSnapshotTime           = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
 	ErrUnsupportedFedoraFeature             = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
 	ErrInvalidOutputSelinuxPolicyPathArg    = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathArg", "invalid command-line option '--output-selinux-policy-path'")
-	ErrOutputSelinuxPolicyPathIsFileArg     = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileArg", "path exists but is not a directory")
+	ErrOutputSelinuxPolicyPathIsFileArg     = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileArg", "path exists but is a file")
+	ErrOutputSelinuxPolicyPathNotDirArg     = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathNotDirArg", "path exists but is not a directory")
 	ErrInvalidOutputSelinuxPolicyPathConfig = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathConfig", "invalid config file property 'output.selinuxPolicyPath'")
-	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is not a directory")
+	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is a file")
+	ErrOutputSelinuxPolicyPathNotDirConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathNotDirConfig", "path exists but is not a directory")
+	ErrInvalidInputImageAzureLinux          = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
+	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azurelinux not found")
+	ErrInputImageAzureLinuxSignature        = NewImageCustomizerError("Validation:InputImageAzureLinuxSignature", "input.image.azurelinux is not validly signed")
+	ErrInvalidInputImageOci                 = NewImageCustomizerError("Validation:InvalidInputImageOci", "invalid input.image.oci config")
+	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
+	ErrInputImageOciSignature               = NewImageCustomizerError("Validation:InputImageOciSignature", "input.image.oci is not validly signed")
 )
 
+// ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
+// This function does not require root permissions and can be used to validate config files
+// before running the actual customization process.
+func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string, options ValidateConfigOptions,
+) (err error) {
+	var config imagecustomizerapi.Config
+
+	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
+	if err != nil {
+		return err
+	}
+
+	baseConfigPath, _ := filepath.Split(configFile)
+
+	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
+	}
+
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config_command")
+	span.SetAttributes(
+		attribute.Bool("validate_resources_files", options.ValidateResources.ValidateFiles()),
+		attribute.Bool("validate_resources_oci", options.ValidateResources.ValidateOci()),
+		attribute.Bool("validate_resources_all",
+			options.ValidateResources.Contains(imagecustomizerapi.ValidateResourceTypeAll)),
+	)
+	defer finishSpanWithError(span, &err)
+
+	// Pre-populate config fields to allow validation of minimal configs that omit settings
+	// normally provided via CLI during actual customization runs.
+	if config.Input.Image.Path == "" &&
+		config.Input.Image.Oci == nil &&
+		config.Input.Image.AzureLinux == nil {
+		config.Input.Image.Path = "/dev/null"
+	}
+	if config.Output.Image.Format == "" {
+		config.Output.Image.Format = imagecustomizerapi.ImageFormatTypeVhd
+	}
+	if config.Output.Image.Path == "" {
+		config.Output.Image.Path = "/dev/null"
+	}
+
+	// Pass newImage=false to emulate validation during an actual customization run.
+	_, err = ValidateConfig(ctx, absBaseConfigPath, &config, false, options, ImageCustomizerOptions{})
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
+	}
+
+	logger.Log.Infof("Config validation succeeded")
+
+	return nil
+}
+
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	newImage bool, options ImageCustomizerOptions,
+	newImage bool, validateOptions ValidateConfigOptions, customizeOptions ImageCustomizerOptions,
 ) (*ResolvedConfig, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config")
 	defer span.End()
@@ -55,10 +122,15 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc := &ResolvedConfig{
 		BaseConfigPath: baseConfigPath,
 		Config:         config,
-		Options:        options,
+		Options:        customizeOptions,
 	}
 
-	err := options.IsValid()
+	err := validateOptions.IsValid()
+	if err != nil {
+		return nil, err
+	}
+
+	err = customizeOptions.IsValid()
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +140,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	err = options.verifyPreviewFeatures(config.PreviewFeatures)
+	err = customizeOptions.verifyPreviewFeatures(config.PreviewFeatures)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +155,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		len(config.Scripts.PostCustomization) > 0 ||
 		len(config.Scripts.FinalizeCustomization) > 0
 
-	// Create a UUID for the image.
-	rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
-	if err != nil {
-		return nil, err
-	}
-
 	// Resolve build dir path.
-	rc.BuildDirAbs, err = filepath.Abs(options.BuildDir)
+	rc.BuildDirAbs, err = filepath.Abs(customizeOptions.BuildDir)
 	if err != nil {
 		return nil, err
 	}
@@ -98,33 +164,42 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	// Intermediate writeable image
 	rc.RawImageFile = filepath.Join(rc.BuildDirAbs, BaseImageName)
 
-	err = ValidateRpmSources(options.RpmsSources)
+	err = ValidateRpmSources(customizeOptions.RpmsSources)
 	if err != nil {
 		return nil, err
 	}
 
+	validateFiles := validateOptions.ValidateResources.ValidateFiles()
+	validateOci := validateOptions.ValidateResources.ValidateOci()
+
+	buildDir := validateOptions.BuildDir
+	if buildDir == "" {
+		buildDir = customizeOptions.BuildDir
+	}
+
 	if !newImage {
-		rc.InputImage, err = validateInput(rc.ConfigChain, options.InputImageFile, options.InputImage)
+		rc.InputImage, err = validateInput(ctx, buildDir, rc.ConfigChain, customizeOptions.InputImageFile,
+			customizeOptions.InputImage, validateFiles, validateOci)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	err = validateIsoConfigChain(rc.ConfigChain)
+	err = validateIsoConfigChain(rc.ConfigChain, validateFiles)
 	if err != nil {
 		return nil, err
 	}
 
 	rc.Iso = resolveIsoConfig(rc.ConfigChain)
 
-	err = validatePxeConfigChain(rc.ConfigChain)
+	err = validatePxeConfigChain(rc.ConfigChain, validateFiles)
 	if err != nil {
 		return nil, err
 	}
 
 	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
-	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos)
+	err = validateOsConfig(baseConfigPath, config.OS, customizeOptions.RpmsSources, customizeOptions.UseBaseImageRpmRepos, validateFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -135,29 +210,31 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.OsKernelCommandLine = resolveOsKernelCommandLine(rc.ConfigChain)
 
-	err = validateScripts(baseConfigPath, &config.Scripts)
+	err = validateScripts(baseConfigPath, &config.Scripts, validateFiles)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, options.OutputImageFormat)
+	rc.OutputImageFormat, err = validateOutputImageFormat(rc.ConfigChain, customizeOptions.OutputImageFormat)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, options.OutputImageFile, rc.OutputImageFormat)
+	rc.OutputImageFile, err = validateOutputImageFile(rc.ConfigChain, customizeOptions.OutputImageFile, rc.OutputImageFormat,
+		validateFiles)
 	if err != nil {
 		return nil, err
 	}
 
 	rc.OutputArtifacts = resolveOutputArtifacts(rc.ConfigChain)
 
-	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, options.OutputSelinuxPolicyPath)
+	rc.OutputSelinuxPolicyPath, err = validateOutputSelinuxPolicyPath(rc.ConfigChain, customizeOptions.OutputSelinuxPolicyPath,
+		validateFiles)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, options.CosiCompressionLevel,
+	rc.CosiCompressionLevel = resolveCosiCompressionLevel(rc.ConfigChain, customizeOptions.CosiCompressionLevel,
 		rc.OutputImageFormat)
 	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
 
@@ -173,15 +250,18 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 	return nil
 }
 
-func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inputImage string,
+func validateInput(ctx context.Context, buildDir string, configChain []*ConfigWithBasePath, inputImageFile string,
+	inputImage string, validateFiles bool, validateOci bool,
 ) (imagecustomizerapi.InputImage, error) {
 	if inputImageFile != "" {
-		if yes, err := file.IsFile(inputImageFile); err != nil {
-			err = fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
-			return imagecustomizerapi.InputImage{}, err
-		} else if !yes {
-			err = fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
-			return imagecustomizerapi.InputImage{}, err
+		if validateFiles {
+			if yes, err := file.IsFile(inputImageFile); err != nil {
+				err = fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidInputImageFileArg, inputImageFile, err)
+				return imagecustomizerapi.InputImage{}, err
+			} else if !yes {
+				err = fmt.Errorf("%w (file='%s')", ErrInputImageFileNotFile, inputImageFile)
+				return imagecustomizerapi.InputImage{}, err
+			}
 		}
 
 		return imagecustomizerapi.InputImage{
@@ -206,13 +286,15 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inp
 				configWithBase.Config.Input.Image.Path,
 			)
 
-			// Validate the path
-			if yes, err := file.IsFile(inputImageAbsPath); err != nil {
-				err = fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig, configWithBase.Config.Input.Image.Path, err)
-				return imagecustomizerapi.InputImage{}, err
-			} else if !yes {
-				err = fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
-				return imagecustomizerapi.InputImage{}, err
+			if validateFiles {
+				if yes, err := file.IsFile(inputImageAbsPath); err != nil {
+					err = fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidInputImageFileConfig,
+						configWithBase.Config.Input.Image.Path, err)
+					return imagecustomizerapi.InputImage{}, err
+				} else if !yes {
+					err = fmt.Errorf("%w (path='%s')", ErrInputImageFileNotFile, configWithBase.Config.Input.Image.Path)
+					return imagecustomizerapi.InputImage{}, err
+				}
 			}
 
 			return imagecustomizerapi.InputImage{
@@ -221,12 +303,37 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inp
 		}
 
 		if configWithBase.Config.Input.Image.Oci != nil {
+			if validateOci {
+				_, _, err := openOciImage(ctx, *configWithBase.Config.Input.Image.Oci, "", nil)
+				if err != nil {
+					return imagecustomizerapi.InputImage{}, wrapInputImageOciError(err,
+						configWithBase.Config.Input.Image.Oci.Uri)
+				}
+			}
+
 			return imagecustomizerapi.InputImage{
 				Oci: configWithBase.Config.Input.Image.Oci,
 			}, nil
 		}
 
 		if configWithBase.Config.Input.Image.AzureLinux != nil {
+			if validateOci {
+				ociImage, err := generateAzureLinuxOciUri(*configWithBase.Config.Input.Image.AzureLinux)
+				if err != nil {
+					return imagecustomizerapi.InputImage{}, fmt.Errorf("%w (variant='%s', version='%s'):\n%w",
+						ErrInvalidInputImageAzureLinux, configWithBase.Config.Input.Image.AzureLinux.Variant,
+						configWithBase.Config.Input.Image.AzureLinux.Version, err)
+				}
+
+				signatureCheckOptions := getAzureLinuxOciSignatureCheckOptions()
+				_, _, err = openOciImage(ctx, ociImage, buildDir, signatureCheckOptions)
+				if err != nil {
+					return imagecustomizerapi.InputImage{}, wrapInputImageAzureLinuxError(err,
+						configWithBase.Config.Input.Image.AzureLinux.Variant,
+						configWithBase.Config.Input.Image.AzureLinux.Version)
+				}
+			}
+
 			return imagecustomizerapi.InputImage{
 				AzureLinux: configWithBase.Config.Input.Image.AzureLinux,
 			}, nil
@@ -236,18 +343,21 @@ func validateInput(configChain []*ConfigWithBasePath, inputImageFile string, inp
 	return imagecustomizerapi.InputImage{}, ErrInputImageFileRequired
 }
 
-func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList) error {
+func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomizerapi.AdditionalFileList,
+	validateFiles bool,
+) error {
+	if !validateFiles {
+		return nil
+	}
+
 	errs := []error(nil)
 	for _, additionalFile := range additionalFiles {
 		switch {
 		case additionalFile.Source != "":
 			sourceFileFullPath := file.GetAbsPathWithBase(baseConfigPath, additionalFile.Source)
-			isFile, err := file.IsFile(sourceFileFullPath)
-			if err != nil {
+			if yes, err := file.IsFile(sourceFileFullPath); err != nil {
 				errs = append(errs, fmt.Errorf("%w (source='%s'):\n%w", ErrInvalidAdditionalFilesSource, additionalFile.Source, err))
-			}
-
-			if !isFile {
+			} else if !yes {
 				errs = append(errs, fmt.Errorf("%w (source='%s')", ErrAdditionalFilesSourceNotFile,
 					additionalFile.Source))
 			}
@@ -257,12 +367,39 @@ func validateAdditionalFiles(baseConfigPath string, additionalFiles imagecustomi
 	return errors.Join(errs...)
 }
 
-func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso) error {
+func validateAdditionalDirs(baseConfigPath string, additionalDirs imagecustomizerapi.DirConfigList, validateFiles bool) error {
+	if !validateFiles {
+		return nil
+	}
+
+	errs := []error(nil)
+	for _, additionalDir := range additionalDirs {
+		if additionalDir.Source != "" {
+			sourceDirFullPath := file.GetAbsPathWithBase(baseConfigPath, additionalDir.Source)
+			if isDir, err := file.DirExists(sourceDirFullPath); err != nil {
+				errs = append(errs,
+					fmt.Errorf("%w (source='%s'):\n%w", ErrInvalidAdditionalDirsSource, additionalDir.Source, err))
+			} else if !isDir {
+				if isFile, _ := file.PathExists(sourceDirFullPath); isFile {
+					errs = append(errs,
+						fmt.Errorf("%w (source='%s')", ErrAdditionalDirsSourceIsFile, additionalDir.Source))
+				} else {
+					errs = append(errs,
+						fmt.Errorf("%w (source='%s')", ErrAdditionalDirsSourceNotDir, additionalDir.Source))
+				}
+			}
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso, validateFiles bool) error {
 	if config == nil {
 		return nil
 	}
 
-	err := validateAdditionalFiles(baseConfigPath, config.AdditionalFiles)
+	err := validateAdditionalFiles(baseConfigPath, config.AdditionalFiles, validateFiles)
 	if err != nil {
 		return err
 	}
@@ -270,9 +407,9 @@ func validateIsoConfig(baseConfigPath string, config *imagecustomizerapi.Iso) er
 	return nil
 }
 
-func validateIsoConfigChain(configChain []*ConfigWithBasePath) error {
+func validateIsoConfigChain(configChain []*ConfigWithBasePath, validateFiles bool) error {
 	for _, configWithBase := range configChain {
-		err := validateIsoConfig(configWithBase.BaseConfigPath, configWithBase.Config.Iso)
+		err := validateIsoConfig(configWithBase.BaseConfigPath, configWithBase.Config.Iso, validateFiles)
 		if err != nil {
 			return fmt.Errorf("invalid 'iso' config:\n%w", err)
 		}
@@ -280,12 +417,12 @@ func validateIsoConfigChain(configChain []*ConfigWithBasePath) error {
 	return nil
 }
 
-func validatePxeConfig(baseConfigPath string, config *imagecustomizerapi.Pxe) error {
+func validatePxeConfig(baseConfigPath string, config *imagecustomizerapi.Pxe, validateFiles bool) error {
 	if config == nil {
 		return nil
 	}
 
-	err := validateAdditionalFiles(baseConfigPath, config.AdditionalFiles)
+	err := validateAdditionalFiles(baseConfigPath, config.AdditionalFiles, validateFiles)
 	if err != nil {
 		return err
 	}
@@ -293,9 +430,9 @@ func validatePxeConfig(baseConfigPath string, config *imagecustomizerapi.Pxe) er
 	return nil
 }
 
-func validatePxeConfigChain(configChain []*ConfigWithBasePath) error {
+func validatePxeConfigChain(configChain []*ConfigWithBasePath, validateFiles bool) error {
 	for _, configWithBase := range configChain {
-		err := validatePxeConfig(configWithBase.BaseConfigPath, configWithBase.Config.Pxe)
+		err := validatePxeConfig(configWithBase.BaseConfigPath, configWithBase.Config.Pxe, validateFiles)
 		if err != nil {
 			return fmt.Errorf("invalid 'pxe' config:\n%w", err)
 		}
@@ -303,8 +440,8 @@ func validatePxeConfigChain(configChain []*ConfigWithBasePath) error {
 	return nil
 }
 
-func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS,
-	rpmsSources []string, useBaseImageRpmRepos bool,
+func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
+	useBaseImageRpmRepos bool, validateFiles bool,
 ) error {
 	if config == nil {
 		return nil
@@ -317,12 +454,17 @@ func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS,
 		return err
 	}
 
-	err = validateAdditionalFiles(baseConfigPath, config.AdditionalFiles)
+	err = validateAdditionalFiles(baseConfigPath, config.AdditionalFiles, validateFiles)
 	if err != nil {
 		return err
 	}
 
-	err = validateUsers(baseConfigPath, config.Users)
+	err = validateAdditionalDirs(baseConfigPath, config.AdditionalDirs, validateFiles)
+	if err != nil {
+		return err
+	}
+
+	err = validateUsers(baseConfigPath, config.Users, validateFiles)
 	if err != nil {
 		return err
 	}
@@ -330,20 +472,20 @@ func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS,
 	return nil
 }
 
-func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts) error {
+func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts, validateFile bool) error {
 	if scripts == nil {
 		return nil
 	}
 
 	for i, script := range scripts.PostCustomization {
-		err := validateScript(baseConfigPath, &script)
+		err := validateScript(baseConfigPath, &script, validateFile)
 		if err != nil {
 			return fmt.Errorf("%w (index=%d):\n%w", ErrInvalidPostCustomizationScript, i, err)
 		}
 	}
 
 	for i, script := range scripts.FinalizeCustomization {
-		err := validateScript(baseConfigPath, &script)
+		err := validateScript(baseConfigPath, &script, validateFile)
 		if err != nil {
 			return fmt.Errorf("%w (index=%d):\n%w", ErrInvalidFinalizeScript, i, err)
 		}
@@ -352,7 +494,7 @@ func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts)
 	return nil
 }
 
-func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) error {
+func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, validateFile bool) error {
 	if script.Path != "" {
 		// Ensure that install scripts sit under the config file's parent directory.
 		// This allows the install script to be run in the chroot environment by bind mounting the config directory.
@@ -360,12 +502,13 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script) er
 			return fmt.Errorf("%w (script='%s', config='%s')", ErrScriptNotUnderConfigDir, script.Path, baseConfigPath)
 		}
 
-		fullPath := filepath.Join(baseConfigPath, script.Path)
-
-		// Verify that the file exists.
-		_, err := os.Stat(fullPath)
-		if err != nil {
-			return fmt.Errorf("%w (script='%s'):\n%w", ErrScriptFileNotReadable, script.Path, err)
+		if validateFile {
+			fullPath := filepath.Join(baseConfigPath, script.Path)
+			if isFile, err := file.IsFile(fullPath); err != nil {
+				return fmt.Errorf("%w (script='%s'):\n%w", ErrScriptFileNotReadable, script.Path, err)
+			} else if !isFile {
+				return fmt.Errorf("%w (script='%s')", ErrScriptFileNotFile, script.Path)
+			}
 		}
 	}
 
@@ -433,10 +576,10 @@ func validateOutputImageFormat(configChain []*ConfigWithBasePath, cliOutputImage
 }
 
 func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFile string,
-	outputImageFormat imagecustomizerapi.ImageFormatType,
+	outputImageFormat imagecustomizerapi.ImageFormatType, validateFiles bool,
 ) (string, error) {
 	if cliOutputImageFile != "" {
-		if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+		if validateFiles && outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 			if isDir, err := file.DirExists(cliOutputImageFile); err != nil {
 				return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileArg, cliOutputImageFile, err)
 			} else if isDir {
@@ -455,7 +598,7 @@ func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFi
 			)
 
 			// PXE output format allows the output to be a directory
-			if outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
+			if validateFiles && outputImageFormat != imagecustomizerapi.ImageFormatTypePxeDir {
 				if isDir, err := file.DirExists(outputImageFile); err != nil {
 					return "", fmt.Errorf("%w (file='%s'):\n%w", ErrInvalidOutputImageFileConfig,
 						configWithBase.Config.Output.Image.Path, err)
@@ -472,9 +615,9 @@ func validateOutputImageFile(configChain []*ConfigWithBasePath, cliOutputImageFi
 	return "", ErrOutputImageFileRequired
 }
 
-func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error {
+func validateUsers(baseConfigPath string, users []imagecustomizerapi.User, validateFiles bool) error {
 	for _, user := range users {
-		err := validateUser(baseConfigPath, user)
+		err := validateUser(baseConfigPath, user, validateFiles)
 		if err != nil {
 			return fmt.Errorf("%w (user='%s'):\n%w", ErrInvalidUser, user.Name, err)
 		}
@@ -483,29 +626,49 @@ func validateUsers(baseConfigPath string, users []imagecustomizerapi.User) error
 	return nil
 }
 
-func validateUser(baseConfigPath string, user imagecustomizerapi.User) error {
+func validateUser(baseConfigPath string, user imagecustomizerapi.User, validateFiles bool) error {
+	if !validateFiles {
+		return nil
+	}
+
 	for _, path := range user.SSHPublicKeyPaths {
 		absPath := file.GetAbsPathWithBase(baseConfigPath, path)
-		isFile, err := file.IsFile(absPath)
-		if err != nil {
+		if isFile, err := file.IsFile(absPath); err != nil {
 			return fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidSSHPublicKeyFile, path, err)
-		}
-		if !isFile {
+		} else if !isFile {
 			return fmt.Errorf("%w (path='%s')", ErrSSHPublicKeyNotFile, path)
+		}
+	}
+
+	// Validate password file if type is plain-text-file or hashed-file
+	if user.Password != nil &&
+		(user.Password.Type == imagecustomizerapi.PasswordTypePlainTextFile ||
+			user.Password.Type == imagecustomizerapi.PasswordTypeHashedFile) {
+		absPath := file.GetAbsPathWithBase(baseConfigPath, user.Password.Value)
+		if isFile, err := file.IsFile(absPath); err != nil {
+			return fmt.Errorf("%w (value='%s'):\n%w", ErrInvalidPasswordFile, user.Password.Value, err)
+		} else if !isFile {
+			return fmt.Errorf("%w (value='%s')", ErrPasswordFileNotFile, user.Password.Value)
 		}
 	}
 
 	return nil
 }
 
-func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutputSelinuxPolicyPath string) (string, error) {
+func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath,
+	cliOutputSelinuxPolicyPath string, validateFiles bool,
+) (string, error) {
 	// CLI parameter takes precedence.
 	if cliOutputSelinuxPolicyPath != "" {
-		if isDir, err := file.DirExists(cliOutputSelinuxPolicyPath); err != nil {
-			return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathArg, cliOutputSelinuxPolicyPath, err)
-		} else if !isDir {
-			if fileExists, _ := file.PathExists(cliOutputSelinuxPolicyPath); fileExists {
-				return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileArg, cliOutputSelinuxPolicyPath)
+		if validateFiles {
+			if isDir, err := file.DirExists(cliOutputSelinuxPolicyPath); err != nil {
+				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathArg,
+					cliOutputSelinuxPolicyPath, err)
+			} else if !isDir {
+				if isFile, _ := file.PathExists(cliOutputSelinuxPolicyPath); isFile {
+					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileArg, cliOutputSelinuxPolicyPath)
+				}
+				return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotDirArg, cliOutputSelinuxPolicyPath)
 			}
 		}
 		return cliOutputSelinuxPolicyPath, nil
@@ -519,12 +682,16 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutpu
 				configWithBase.Config.Output.SelinuxPolicyPath,
 			)
 
-			if isDir, err := file.DirExists(outputSelinuxPolicyPath); err != nil {
-				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
-					configWithBase.Config.Output.SelinuxPolicyPath, err)
-			} else if !isDir {
-				if fileExists, _ := file.PathExists(outputSelinuxPolicyPath); fileExists {
-					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileConfig,
+			if validateFiles {
+				if isDir, err := file.DirExists(outputSelinuxPolicyPath); err != nil {
+					return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
+						configWithBase.Config.Output.SelinuxPolicyPath, err)
+				} else if !isDir {
+					if isFile, _ := file.PathExists(outputSelinuxPolicyPath); isFile {
+						return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileConfig,
+							configWithBase.Config.Output.SelinuxPolicyPath)
+					}
+					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotDirConfig,
 						configWithBase.Config.Output.SelinuxPolicyPath)
 				}
 			}
@@ -839,4 +1006,31 @@ func defaultCosiCompressionLevel(format imagecustomizerapi.ImageFormatType) int 
 		return imagecustomizerapi.DefaultBareMetalCosiCompressionLevel
 	}
 	return imagecustomizerapi.DefaultCosiCompressionLevel
+}
+
+// wrapInputImageOciError maps low-level OCI validation errors to appropriate Validation types.
+func wrapInputImageOciError(err error, uri string) error {
+	if errors.Is(err, ErrOciSignatureCheckFailed) {
+		return fmt.Errorf("%w (uri='%s'):\n%v", ErrInputImageOciSignature, uri, err)
+	}
+	if errors.Is(err, ErrOciImageNotFound) {
+		return fmt.Errorf("%w (uri='%s'):\n%v", ErrInputImageOciNotFound, uri, err)
+	}
+	// ErrOciOpenRepository and other errors
+	return fmt.Errorf("%w (uri='%s'):\n%v", ErrInvalidInputImageOci, uri, err)
+}
+
+// wrapInputImageAzureLinuxError maps low-level OCI validation errors to appropriate Validation types.
+func wrapInputImageAzureLinuxError(err error, variant, version string) error {
+	if errors.Is(err, ErrOciSignatureCheckFailed) {
+		return fmt.Errorf("%w (variant='%s', version='%s'):\n%v",
+			ErrInputImageAzureLinuxSignature, variant, version, err)
+	}
+	if errors.Is(err, ErrOciImageNotFound) {
+		return fmt.Errorf("%w (variant='%s', version='%s'):\n%v",
+			ErrInputImageAzureLinuxNotFound, variant, version, err)
+	}
+	// ErrOciOpenRepository and other errors
+	return fmt.Errorf("%w (variant='%s', version='%s'):\n%v",
+		ErrInvalidInputImageAzureLinux, variant, version, err)
 }

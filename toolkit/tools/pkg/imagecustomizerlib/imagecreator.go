@@ -16,7 +16,7 @@ import (
 )
 
 func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, tarFile string,
-	distroHandler DistroHandler,
+	distroHandler DistroHandler, imageUuidStr string,
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
 
@@ -36,7 +36,8 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsImageCreator(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler)
+	err = doOsCustomizationsImageCreator(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler,
+		imageUuidStr)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -72,6 +73,7 @@ func doOsCustomizationsImageCreator(
 	toolsChroot *safechroot.Chroot,
 	partitionsLayout []fstabEntryPartNum,
 	distroHandler DistroHandler,
+	imageUuidStr string,
 ) error {
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)
@@ -99,7 +101,7 @@ func doOsCustomizationsImageCreator(
 		return err
 	}
 
-	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, rc.ImageUuidStr); err != nil {
+	if err = addCustomizerRelease(ctx, imageChroot.RootDir(), ToolVersion, buildTime, imageUuidStr); err != nil {
 		return err
 	}
 

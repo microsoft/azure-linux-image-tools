@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
@@ -198,7 +199,13 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	)
 	defer finishSpanWithError(span, &err)
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, false,
+		ValidateConfigOptions{
+			ValidateResources: imagecustomizerapi.ValidateResourceTypes{
+				imagecustomizerapi.ValidateResourceTypeAll,
+			},
+		},
+		options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -263,7 +270,13 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		}
 	}()
 
-	im, err := customizeOSContents(ctx, rc)
+	// Create a UUID for the image.
+	imageUuid, imageUuidStr, err := randomization.CreateUuid()
+	if err != nil {
+		return fmt.Errorf("failed to create image UUID:\n%w", err)
+	}
+
+	im, err := customizeOSContents(ctx, rc, imageUuidStr)
 	if err != nil {
 		return err
 	}
@@ -285,7 +298,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		}
 	}
 
-	err = convertWriteableFormatToOutputImage(ctx, rc, im, inputIsoArtifacts)
+	err = convertWriteableFormatToOutputImage(ctx, rc, im, inputIsoArtifacts, imageUuid, imageUuidStr)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrConvertToOutputFormat, err)
 	}
@@ -445,7 +458,7 @@ func qemuImgEscapeOptionValue(value string) string {
 	return strings.ReplaceAll(value, ",", ",,")
 }
 
-func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata, error) {
+func customizeOSContents(ctx context.Context, rc *ResolvedConfig, imageUuidStr string) (imageMetadata, error) {
 	im := imageMetadata{}
 
 	// If there are OS customizations, then we proceed as usual.
@@ -496,7 +509,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	// Customize the raw image file.
 	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
-		partitionsCustomized, im.targetOS)
+		partitionsCustomized, im.targetOS, imageUuidStr)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
@@ -564,7 +577,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 }
 
 func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig, im imageMetadata,
-	inputIsoArtifacts *IsoArtifactsStore,
+	inputIsoArtifacts *IsoArtifactsStore, imageUuid [16]byte, imageUuidStr string,
 ) error {
 	logger.Log.Infof("Converting customized OS partitions into the final image")
 
@@ -589,7 +602,7 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 	case imagecustomizerapi.ImageFormatTypeCosi, imagecustomizerapi.ImageFormatTypeBareMetalImage:
 		includeVhdFooter := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 		err := convertToCosi(rc.BuildDirAbs, rc.RawImageFile, rc.OutputImageFile, im.partitionsLayout,
-			im.verityMetadata, im.osRelease, im.osPackages, rc.ImageUuid, rc.ImageUuidStr, im.cosiBootMetadata,
+			im.verityMetadata, im.osRelease, im.osPackages, imageUuid, imageUuidStr, im.cosiBootMetadata,
 			rc.CosiCompressionLevel, rc.CosiCompressionLong, includeVhdFooter, im.partitionOriginalSizes)
 		if err != nil {
 			return err
@@ -702,7 +715,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
-	targetOS targetos.TargetOs,
+	targetOS targetos.TargetOs, imageUuidStr string,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -741,7 +754,8 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler)
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler,
+		imageUuidStr)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.

@@ -8,6 +8,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
@@ -92,11 +93,17 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 		return err
 	}
 
+	// Create a UUID for the image.
+	_, imageUuidStr, err := randomization.CreateUuid()
+	if err != nil {
+		return fmt.Errorf("failed to create image UUID:\n%w", err)
+	}
+
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
-	logger.Log.Infof("Image UUID: %s", rc.ImageUuidStr)
+	logger.Log.Infof("Image UUID: %s", imageUuidStr)
 
 	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, rc, toolsTar,
-		distroHandler)
+		distroHandler, imageUuidStr)
 	if err != nil {
 		return err
 	}
