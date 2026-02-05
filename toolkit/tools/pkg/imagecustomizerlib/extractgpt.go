@@ -27,17 +27,30 @@ var (
 const (
 	gptHeaderLba = 1
 
-	// GPT Header field offsets (UEFI Specification 2.10, Table 5-5)
-	gptHeaderPartitionEntryLbaOffset   = 72
-	gptHeaderNumPartitionEntriesOffset = 80
-	gptHeaderPartitionEntrySizeOffset  = 84
-
 	// Default fallback values (used only if header read fails)
 	defaultNumPartitionEntries   = 128
 	defaultPartitionEntrySize    = 128
 	defaultGptEntriesStartLba    = 2
 	defaultGptPartitionEntryLbas = 32
 )
+
+// gptHeader represents the GPT header structure (UEFI Specification 2.10, Table 5-5)
+type gptHeader struct {
+	Signature                [8]byte
+	Revision                 uint32
+	HeaderSize               uint32
+	HeaderCRC32              uint32
+	Reserved                 uint32
+	MyLBA                    uint64
+	AlternateLBA             uint64
+	FirstUsableLBA           uint64
+	LastUsableLBA            uint64
+	DiskGUID                 [16]byte
+	PartitionEntryLBA        uint64
+	NumberOfPartitionEntries uint32
+	SizeOfPartitionEntry     uint32
+	PartitionEntryArrayCRC32 uint32
+}
 
 type GptExtractedData struct {
 	CompressedFilePath string
@@ -162,27 +175,28 @@ func readGptEndOffset(diskDevPath string, sectorSize int) (uint64, error) {
 	defer file.Close()
 
 	gptHeaderOffset := int64(gptHeaderLba * sectorSize)
-	headerData := make([]byte, sectorSize)
-	_, err = file.ReadAt(headerData, gptHeaderOffset)
+	_, err = file.Seek(gptHeaderOffset, io.SeekStart)
+	if err != nil {
+		return 0, fmt.Errorf("failed to seek to GPT header:\n%w", err)
+	}
+
+	var header gptHeader
+	err = binary.Read(file, binary.LittleEndian, &header)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read GPT header:\n%w", err)
 	}
 
-	partitionEntryLba := binary.LittleEndian.Uint64(headerData[gptHeaderPartitionEntryLbaOffset : gptHeaderPartitionEntryLbaOffset+8])
-	numPartitionEntries := binary.LittleEndian.Uint32(headerData[gptHeaderNumPartitionEntriesOffset : gptHeaderNumPartitionEntriesOffset+4])
-	partitionEntrySize := binary.LittleEndian.Uint32(headerData[gptHeaderPartitionEntrySizeOffset : gptHeaderPartitionEntrySizeOffset+4])
-
-	if numPartitionEntries == 0 || partitionEntrySize == 0 {
+	if header.NumberOfPartitionEntries == 0 || header.SizeOfPartitionEntry == 0 {
 		return 0, fmt.Errorf("invalid GPT header: numPartitionEntries=%d, partitionEntrySize=%d",
-			numPartitionEntries, partitionEntrySize)
+			header.NumberOfPartitionEntries, header.SizeOfPartitionEntry)
 	}
 
-	partitionArraySize := uint64(numPartitionEntries) * uint64(partitionEntrySize)
-	partitionArrayStart := partitionEntryLba * uint64(sectorSize)
+	partitionArraySize := uint64(header.NumberOfPartitionEntries) * uint64(header.SizeOfPartitionEntry)
+	partitionArrayStart := header.PartitionEntryLBA * uint64(sectorSize)
 	gptEndOffset := partitionArrayStart + partitionArraySize
 
 	logger.Log.Debugf("GPT header parsed: PartitionEntryLBA=%d, NumEntries=%d, EntrySize=%d, EndOffset=%d",
-		partitionEntryLba, numPartitionEntries, partitionEntrySize, gptEndOffset)
+		header.PartitionEntryLBA, header.NumberOfPartitionEntries, header.SizeOfPartitionEntry, gptEndOffset)
 
 	return gptEndOffset, nil
 }
