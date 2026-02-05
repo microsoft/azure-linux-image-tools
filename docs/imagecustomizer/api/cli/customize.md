@@ -89,6 +89,8 @@ This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
+When using this option, you must also specify [--image-cache-dir](#--image-cache-dir).
+
 Added in v1.1.
 
 ## --output-image-file=FILE-PATH

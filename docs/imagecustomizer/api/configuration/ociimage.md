@@ -39,6 +39,9 @@ When using official Azure Linux images from the Microsoft Artifact Registry (MCR
 recommended that you use the dedicated
 [input.image.azureLinux](./inputImage.md#azurelinux-azurelinuximage) API.
 
+When using this API, you must specify
+[--image-cache-dir](../cli/customize.md#--image-cache-dir) on the command line.
+
 Added in v1.1.
 
 ## uri [string]

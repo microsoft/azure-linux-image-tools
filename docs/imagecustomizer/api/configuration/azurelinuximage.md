@@ -40,6 +40,9 @@ The list of Azure Linux image versions is available on MCR.
 For example: the
 [Azure Linux 3.0 minimal-os versions](https://mcr.microsoft.com/en-us/artifact/mar/azurelinux/3.0/image/minimal-os/tags).
 
+When using this API, you must specify
+[--image-cache-dir](../cli/customize.md#--image-cache-dir) on the command line.
+
 Added in v1.1.
 
 ## version [string]
