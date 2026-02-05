@@ -32,25 +32,27 @@ type CosiBootloader struct {
 }
 
 type MetadataJson struct {
-	Version    string         `json:"version"`
-	OsArch     string         `json:"osArch"`
-	Disk       *Disk          `json:"disk,omitempty"`
-	Images     []FileSystem   `json:"images"`
-	Partitions []Partition    `json:"partitions"`
-	OsRelease  string         `json:"osRelease"`
-	Id         string         `json:"id,omitempty"`
-	Bootloader CosiBootloader `json:"bootloader"`
-	OsPackages []OsPackage    `json:"osPackages"`
+	Version     string         `json:"version"`
+	OsArch      string         `json:"osArch"`
+	Disk        *Disk          `json:"disk,omitempty"`
+	Images      []FileSystem   `json:"images"`
+	OsRelease   string         `json:"osRelease"`
+	Id          string         `json:"id,omitempty"`
+	Bootloader  CosiBootloader `json:"bootloader"`
+	OsPackages  []OsPackage    `json:"osPackages"`
+	Compression *Compression   `json:"compression,omitempty"`
 }
 
-// DiskType represents the partitioning table type
+type Compression struct {
+	MaxWindowLog int `json:"maxWindowLog"`
+}
+
 type DiskType string
 
 const (
 	DiskTypeGpt DiskType = "gpt"
 )
 
-// RegionType represents the type of region in the original disk image
 type RegionType string
 
 const (
@@ -61,20 +63,18 @@ const (
 	RegionTypeUnknown     RegionType = "unknown"
 )
 
-// Disk holds information about the original disk layout
 type Disk struct {
 	Size       uint64          `json:"size"`       // Size of the original disk in bytes
-	Type       DiskType        `json:"type"`       // Partitioning type ("gpt")
-	LbaSize    int             `json:"lbaSize"`    // Logical block address size in bytes (usually 512)
+	Type       DiskType        `json:"type"`       // Partitioning type "gpt"
+	LbaSize    int             `json:"lbaSize"`    // Logical block address size in bytes
 	GptRegions []GptDiskRegion `json:"gptRegions"` // Regions in the GPT disk
 }
 
-// GptDiskRegion holds information about a specific region of the original disk image
 type GptDiskRegion struct {
 	Image    ImageFile  `json:"image"`              // Details of the image file in the tarball
 	Type     RegionType `json:"type"`               // The type of region this image represents
-	StartLba *int64     `json:"startLba,omitempty"` // The first LBA of the region (for backup-gpt, unallocated, unknown)
-	Number   *int       `json:"number,omitempty"`   // Partition number (1-based, for partition type only)
+	StartLba *int64     `json:"startLba,omitempty"` // The first LBA of the region
+	Number   *int       `json:"number,omitempty"`   // Partition number
 }
 
 type FileSystem struct {
@@ -96,14 +96,6 @@ type ImageFile struct {
 	CompressedSize   uint64 `json:"compressedSize"`
 	UncompressedSize uint64 `json:"uncompressedSize"`
 	Sha384           string `json:"sha384"`
-}
-
-type Partition struct {
-	Image        ImageFile `json:"image"`
-	OriginalSize uint64    `json:"originalSize"`
-	PartUuid     string    `json:"partUuid"`
-	Label        string    `json:"label"`
-	Number       int       `json:"number"`
 }
 
 type OsPackage struct {

@@ -75,7 +75,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 	}
 
 	err = buildCosiFile(outputDir, outputImageFile, partitionMetadataOutput, verityMetadata,
-		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata, gptData)
+		partitionsLayout, imageUuidStr, osRelease, osPackages, cosiBootMetadata, gptData, compressionLong)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCosiBuildFile, err)
 	}
@@ -112,7 +112,7 @@ func convertToCosi(buildDirAbs string, rawImageFile string, outputImageFile stri
 func buildCosiFile(sourceDir string, outputFile string, partitions []outputPartitionMetadata,
 	verityMetadata []verityDeviceMetadata, partitionsLayout []fstabEntryPartNum,
 	imageUuidStr string, osRelease string, osPackages []OsPackage, cosiBootMetadata *CosiBootloader,
-	gptData *GptExtractedData,
+	gptData *GptExtractedData, compressionLong int,
 ) error {
 	// Pre-compute a map from partition UUID to index for quick lookup
 	partUuidToIndex := make(map[string]int)
@@ -127,7 +127,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	}
 
 	imageData := []ImageBuildData{}
-	outputPartitions := make([]Partition, 0, len(partitions))
+	partitionImageFiles := make(map[int]ImageFile)
 	for _, partition := range partitions {
 		partitionPath := path.Join("images", partition.PartitionFilename)
 		partitionSource := path.Join(sourceDir, partition.PartitionFilename)
@@ -144,17 +144,11 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 				partition.PartitionNum, partitionSource, err)
 		}
 
-		outputPartitions = append(outputPartitions, Partition{
-			Image:        partitionImageFile,
-			PartUuid:     partition.PartUuid,
-			OriginalSize: partition.OriginalSize,
-			Label:        partition.PartLabel,
-			Number:       partition.PartitionNum,
-		})
+		partitionImageFiles[partition.PartitionNum] = partitionImageFile
 	}
 
 	// Build imageData only for mounted filesystems
-	for i, partition := range partitions {
+	for _, partition := range partitions {
 		// Skip verity hash partitions as their metadata will be assigned to the corresponding data partitions
 		if _, isVerityHash := verityHashUuids[partition.PartUuid]; isVerityHash {
 			continue
@@ -169,7 +163,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		}
 
 		metadataImage := FileSystem{
-			Image:      outputPartitions[i].Image,
+			Image:      partitionImageFiles[partition.PartitionNum],
 			PartType:   partition.PartitionTypeUuid,
 			MountPoint: entry.FstabEntry.Target,
 			FsType:     partition.FileSystemType,
@@ -190,12 +184,12 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
 				}
 
+				hashPartition := partitions[hashPartitionIndex]
 				metadataImage.Verity = &VerityConfig{
 					Roothash: verity.rootHash,
-					Image:    outputPartitions[hashPartitionIndex].Image,
+					Image:    partitionImageFiles[hashPartition.PartitionNum],
 				}
 
-				hashPartition := partitions[hashPartitionIndex]
 				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)
 				imageDataEntry.VeritySource = veritySourcePath
 				break
@@ -215,13 +209,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		return fmt.Errorf("failed to populate GPT image metadata:\n%w", err)
 	}
 
-	// Build partition images map for disk metadata
-	partitionImages := make(map[int]ImageFile)
-	for i, partition := range partitions {
-		partitionImages[partition.PartitionNum] = outputPartitions[i].Image
-	}
-
-	diskInfo := buildDiskMetadata(gptData, gptImageFile, partitionImages)
+	diskInfo := buildDiskMetadata(gptData, gptImageFile, partitionImageFiles)
 
 	metadata := MetadataJson{
 		Version:    "1.2",
@@ -229,10 +217,12 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		Id:         imageUuidStr,
 		Disk:       diskInfo,
 		Images:     make([]FileSystem, len(imageData)),
-		Partitions: outputPartitions,
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
 		Bootloader: handleBootloaderMetadata(cosiBootMetadata),
+		Compression: &Compression{
+			MaxWindowLog: compressionLong,
+		},
 	}
 
 	// Copy updated metadata
@@ -256,16 +246,33 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	tw := tar.NewWriter(cosiFile)
 	defer tw.Close()
 
-	tw.WriteHeader(&tar.Header{
+	err = tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     "cosi-marker",
+		Size:     0,
+		Mode:     0o400,
+		Format:   tar.FormatUSTAR,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to write cosi-marker header:\n%w", err)
+	}
+
+	err = tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeReg,
 		Name:     "metadata.json",
 		Size:     int64(len(metadataJson)),
 		Mode:     0o400,
 		Format:   tar.FormatPAX,
 	})
-	tw.Write(metadataJson)
+	if err != nil {
+		return fmt.Errorf("failed to write metadata.json header:\n%w", err)
+	}
+	_, err = tw.Write(metadataJson)
+	if err != nil {
+		return fmt.Errorf("failed to write metadata.json content:\n%w", err)
+	}
 
-	// Add GPT file to COSI (first, after metadata.json)
+	// Add GPT file to COSI (first image, after metadata.json)
 	err = addFileToCosi(tw, gptData.CompressedFilePath, gptImageFile)
 	if err != nil {
 		return fmt.Errorf("failed to add GPT file to COSI:\n%w", err)
@@ -273,9 +280,9 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	logger.Log.Infof("Added GPT file to COSI: %s", gptImageFile.Path)
 
 	// Add all partition files to the tar
-	for i, partition := range partitions {
+	for _, partition := range partitions {
 		partitionSource := path.Join(sourceDir, partition.PartitionFilename)
-		if err := addFileToCosi(tw, partitionSource, outputPartitions[i].Image); err != nil {
+		if err := addFileToCosi(tw, partitionSource, partitionImageFiles[partition.PartitionNum]); err != nil {
 			return fmt.Errorf("failed to add partition %s to COSI:\n%w", partitionSource, err)
 		}
 	}

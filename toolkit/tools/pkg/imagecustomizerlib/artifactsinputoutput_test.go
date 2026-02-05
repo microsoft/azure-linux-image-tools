@@ -154,15 +154,19 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 
 	// Connect to image.
 	partitionsPaths, err := extractPartitionsFromCosi(cosiFilePath, testTempDir)
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 5) {
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 6) {
 		return
 	}
 
+	gptPath := filepath.Join(testTempDir, "image_gpt.raw")
 	espPartitionPath := filepath.Join(testTempDir, "image_1.raw")
 	bootPartitionPath := filepath.Join(testTempDir, "image_2.raw")
 	rootPartitionPath := filepath.Join(testTempDir, "image_3.raw")
 	rootHashPartitionPath := filepath.Join(testTempDir, "image_4.raw")
 	varPartitionPath := filepath.Join(testTempDir, "image_5.raw")
+
+	gptStat, err := os.Stat(gptPath)
+	assert.NoError(t, err)
 
 	espStat, err := os.Stat(espPartitionPath)
 	assert.NoError(t, err)
@@ -180,6 +184,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check partition sizes.
+	assert.Greater(t, gptStat.Size(), int64(0))
 	assert.Equal(t, int64(500*diskutils.MiB), espStat.Size())
 	assert.Equal(t, int64(2*diskutils.GiB), rootStat.Size())
 	assert.Equal(t, int64(17*diskutils.MiB), rootHashStat.Size())
