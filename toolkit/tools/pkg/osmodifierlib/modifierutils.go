@@ -31,6 +31,11 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		return err
 	}
 
+	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault && !distroHandler.SupportsSELinux() {
+		return fmt.Errorf("%w: cannot set SELinux mode (%s)", imagecustomizerlib.ErrSELinuxNotSupported,
+			osConfig.SELinux.Mode)
+	}
+
 	err = imagecustomizerlib.AddOrUpdateUsers(ctx, osConfig.Users, baseConfigPath, dummyChroot)
 	if err != nil {
 		return err
@@ -60,7 +65,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	needsBootCustomizer := bootloaderType == imagecustomizerlib.BootloaderTypeGrub &&
 		(osConfig.KernelCommandLine.ExtraCommandLine != nil ||
 			osConfig.Overlays != nil ||
-			osConfig.SELinux.Mode != "" ||
+			osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault ||
 			osConfig.Verity != nil ||
 			osConfig.RootDevice != "")
 
@@ -99,7 +104,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 			}
 		}
 
-		if osConfig.SELinux.Mode != "" {
+		if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault {
 			err = updateSELinuxForGrubBasedBoot(buildDir, osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
 			if err != nil {
 				return err
@@ -112,7 +117,8 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		}
 	}
 
-	if osConfig.SELinux.Mode != "" && bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
+	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault &&
+			bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
 		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
 		if err != nil {
 			return err

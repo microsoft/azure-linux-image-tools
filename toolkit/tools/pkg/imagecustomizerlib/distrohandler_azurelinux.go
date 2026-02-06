@@ -70,3 +70,7 @@ func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.Ch
 func (d *azureLinuxDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }
+
+func (d *azureLinuxDistroHandler) SupportsSELinux() bool {
+	return true
+}
