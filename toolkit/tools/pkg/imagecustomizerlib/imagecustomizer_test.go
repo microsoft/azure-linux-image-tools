@@ -129,7 +129,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 	assert.Equal(t, int64(4*diskutils.GiB), imageInfo.VirtualSize)
 }
 
-func connectToCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
+func connectToAzureLinuxCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
 	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
 }
 
@@ -614,7 +614,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 }
 
 func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageKernelCommandLineAddHelper(t, "TestCustomizeImageKernelCommandLineAdd"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -645,7 +645,7 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 	}
 
 	// Mount the output disk image so that its contents can be checked.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

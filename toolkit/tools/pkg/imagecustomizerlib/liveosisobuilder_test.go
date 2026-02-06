@@ -419,7 +419,7 @@ func VerifyBootstrapPXEArtifacts(t *testing.T, packageInfo *PackageVersionInform
 }
 
 func TestCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		if *baseImageInfo.Param == "" || baseImageInfo.Version == baseImageVersionAzl2 {
 			continue
 		}
@@ -540,7 +540,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 }
 
 func TestCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		if *baseImageInfo.Param == "" || baseImageInfo.Version == baseImageVersionAzl2 {
 			continue
 		}
@@ -605,7 +605,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 }
 
 func TestCustomizeImageLiveOSMultiKernel(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		if *baseImageInfo.Param == "" {
 			continue
 		}
@@ -850,7 +850,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 }
 
 func TestCustomizeImageLiveOSIsoNoShimEfi(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageLiveOSIsoNoShimEfi(t, "TestCustomizeImageLiveCdIsoNoShimEfi"+baseImageInfo.Name, baseImageInfo)
 		})

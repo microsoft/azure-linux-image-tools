@@ -72,7 +72,7 @@ var (
 		Param:     baseImageBareMetalAzl3,
 	}
 
-	baseImageAll = []testBaseImageInfo{
+	baseImageAzureLinuxAll = []testBaseImageInfo{
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl2BareMetal,
