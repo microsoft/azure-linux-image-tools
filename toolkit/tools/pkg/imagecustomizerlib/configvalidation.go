@@ -93,10 +93,14 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 		return err
 	}
 
-	// The build directory is required when validating Azure Linux (OCI) input images for signature verification to
-	// create a temporary notary trust store.
 	customizeOptions := ImageCustomizerOptions{
+		// BuildDir is required when validating Azure Linux (OCI) input images for signature verification to
+		// create a temporary notary trust store.
 		BuildDir: options.BuildDir,
+
+		// UseBaseImageRpmRepos is required when there are packages to install/update in the config,
+		// since no RPM sources are specified.
+		UseBaseImageRpmRepos: true,
 	}
 
 	// Pass newImage=false to emulate validation during an actual customization run.
