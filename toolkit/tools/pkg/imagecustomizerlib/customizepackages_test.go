@@ -355,7 +355,8 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, /*includeDefaultMounts*/
+		azureLinuxCoreEfiMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -407,7 +408,8 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 		return
 	}
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, /*includeDefaultMounts*/
+		azureLinuxCoreEfiMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	coreEfiMountPoints = []testutils.MountPoint{
+	azureLinuxCoreEfiMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -33,7 +33,7 @@ var (
 		},
 	}
 
-	coreLegacyMountPoints = []testutils.MountPoint{
+	azureLinuxCoreLegacyMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -130,7 +130,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 }
 
 func connectToAzureLinuxCoreEfiImage(buildDir string, imageFilePath string) (*imageconnection.ImageConnection, error) {
-	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, coreEfiMountPoints)
+	return testutils.ConnectToImage(buildDir, imageFilePath, false /*includeDefaultMounts*/, azureLinuxCoreEfiMountPoints)
 }
 
 func TestValidateConfig_CallsValidateInput(t *testing.T) {

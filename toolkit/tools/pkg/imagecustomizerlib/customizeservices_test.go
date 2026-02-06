@@ -32,7 +32,8 @@ func TestCustomizeImageServicesEnableDisable(t *testing.T) {
 	}
 
 	// Connect to image.
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/, coreEfiMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/,
+		azureLinuxCoreEfiMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

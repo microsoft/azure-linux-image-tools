@@ -268,7 +268,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	checkFileType(t, outImageFilePath, "raw")
 
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
-		coreLegacyMountPoints)
+		azureLinuxCoreLegacyMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -278,10 +278,10 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, coreLegacyMountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions)
 	verifyBootGrubCfg(t, imageConnection, "",
-		partitions[coreLegacyMountPoints[0].PartitionNum],
-		partitions[coreLegacyMountPoints[0].PartitionNum],
+		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
+		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		baseImageInfo)
 
 	// Check the partition types.
@@ -414,10 +414,10 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	}
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, coreEfiMountPoints, newImagePartitions)
+	verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions)
 	verifyBootloaderConfig(t, imageConnection, "",
-		newImagePartitions[coreEfiMountPoints[0].PartitionNum],
-		newImagePartitions[coreEfiMountPoints[0].PartitionNum],
+		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
+		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
 		baseImageInfo)
 }
 
