@@ -209,7 +209,10 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		return fmt.Errorf("failed to populate GPT image metadata:\n%w", err)
 	}
 
-	diskInfo := buildDiskMetadata(gptData, gptImageFile, partitionImageFiles)
+	diskInfo, err := buildDiskMetadata(gptData, gptImageFile, partitionImageFiles)
+	if err != nil {
+		return fmt.Errorf("failed to build disk metadata:\n%w", err)
+	}
 
 	metadata := MetadataJson{
 		Version:    "1.2",

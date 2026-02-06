@@ -192,11 +192,11 @@ func extractSectorsFromFile(srcFile *os.File, outFile string, sectorSize int,
 	if err != nil {
 		return fmt.Errorf("failed to create output file (%s):\n%w", outFile, err)
 	}
+	defer dstFile.Close()
 
 	bytesToCopy := sectorCount * int64(sectorSize)
 	_, err = io.Copy(dstFile, io.LimitReader(srcFile, bytesToCopy))
 	if err != nil {
-		dstFile.Close()
 		return fmt.Errorf("failed to copy %d bytes:\n%w", bytesToCopy, err)
 	}
 
@@ -209,7 +209,7 @@ func extractSectorsFromFile(srcFile *os.File, outFile string, sectorSize int,
 }
 
 // buildDiskMetadata constructs the Disk struct from extracted GPT data and partition metadata.
-func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partitionImages map[int]ImageFile) *Disk {
+func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partitionImages map[int]ImageFile) (*Disk, error) {
 	pt := gptData.PartitionTable
 
 	sectorSize := pt.SectorSize
@@ -224,8 +224,12 @@ func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partit
 		Type:  RegionTypePrimaryGpt,
 	})
 
-	for i := range pt.Partitions {
-		partNum := i + 1
+	for _, partition := range pt.Partitions {
+		partNum, err := getPartitionNum(partition.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get partition number from path (%s):\n%w", partition.Path, err)
+		}
+
 		partImage, exists := partitionImages[partNum]
 		if !exists {
 			continue
@@ -244,5 +248,5 @@ func buildDiskMetadata(gptData *GptExtractedData, gptImageFile ImageFile, partit
 		Type:       DiskTypeGpt,
 		LbaSize:    sectorSize,
 		GptRegions: gptRegions,
-	}
+	}, nil
 }
