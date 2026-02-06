@@ -184,7 +184,8 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check partition sizes.
-	assert.Greater(t, gptStat.Size(), int64(0))
+	// Standard GPT size = MBR (512) + GPT Header (512) + Partition Entries (128 × 128 = 16384) = 17408 bytes
+	assert.Equal(t, int64(17408), gptStat.Size())
 	assert.Equal(t, int64(500*diskutils.MiB), espStat.Size())
 	assert.Equal(t, int64(2*diskutils.GiB), rootStat.Size())
 	assert.Equal(t, int64(17*diskutils.MiB), rootHashStat.Size())

@@ -16,22 +16,14 @@ import (
 )
 
 var (
-	ErrGptExtractReadTable      = NewImageCustomizerError("GptExtract:ReadTable", "failed to read partition table")
-	ErrGptExtractNoTable        = NewImageCustomizerError("GptExtract:NoTable", "no partition table found")
-	ErrGptExtractPrimary        = NewImageCustomizerError("GptExtract:Primary", "failed to extract primary GPT")
-	ErrGptExtractCompress       = NewImageCustomizerError("GptExtract:Compress", "failed to compress GPT data")
-	ErrGptExtractUnsupported    = NewImageCustomizerError("GptExtract:Unsupported", "unsupported partition table type")
-	ErrGptExtractRemoveTempFile = NewImageCustomizerError("GptExtract:RemoveTempFile", "failed to remove temporary file")
+	ErrGptExtractReadTable   = NewImageCustomizerError("GptExtract:ReadTable", "failed to read partition table")
+	ErrGptExtractNoTable     = NewImageCustomizerError("GptExtract:NoTable", "no partition table found")
+	ErrGptExtractPrimary     = NewImageCustomizerError("GptExtract:Primary", "failed to extract primary GPT")
+	ErrGptExtractUnsupported = NewImageCustomizerError("GptExtract:Unsupported", "unsupported partition table type")
 )
 
 const (
 	gptHeaderLba = 1
-
-	// Default fallback values (used only if header read fails)
-	defaultNumPartitionEntries   = 128
-	defaultPartitionEntrySize    = 128
-	defaultGptEntriesStartLba    = 2
-	defaultGptPartitionEntryLbas = 32
 )
 
 // gptHeader represents the GPT header structure (UEFI Specification 2.10, Table 5-5)
@@ -59,7 +51,7 @@ type GptExtractedData struct {
 	DiskSize           uint64
 }
 
-// extractGptData extracts the GPT/MBR partition table data from a disk image.
+// extractGptData extracts the GPT partition table data from a disk image.
 func extractGptData(diskDevPath string, rawImageFile string, outDir string, basename string,
 	imageUuid [randomization.UuidSize]byte, compressionLevel int, compressionLong int,
 ) (*GptExtractedData, error) {
@@ -84,26 +76,15 @@ func extractGptData(diskDevPath string, rawImageFile string, outDir string, base
 			return nil, err
 		}
 
-	case "dos":
-		rawGptFilePath, uncompressedSize, err = extractMbrData(diskDevPath, outDir, basename, partitionTable)
-		if err != nil {
-			return nil, err
-		}
-
 	default:
 		return nil, fmt.Errorf("%w (type='%s')", ErrGptExtractUnsupported, partitionTable.Label)
 	}
 
 	gptFilename := basename + "_gpt"
-	compressedFilePath, err := compressGptData(rawGptFilePath, outDir, gptFilename, imageUuid,
+	compressedFilePath, err := extractRawZstPartition(rawGptFilePath, imageUuid, gptFilename, outDir,
 		compressionLevel, compressionLong)
 	if err != nil {
 		return nil, err
-	}
-
-	err = os.Remove(rawGptFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("%w (file='%s'):\n%w", ErrGptExtractRemoveTempFile, rawGptFilePath, err)
 	}
 
 	logger.Log.Infof("GPT data extracted and compressed: %s (uncompressed size: %d bytes)",
@@ -140,22 +121,25 @@ func extractGptTableData(diskDevPath string, outDir string, basename string,
 		sectorSize = 512
 	}
 
-	gptEndBytes, err := readGptEndOffset(diskDevPath, sectorSize)
+	srcFile, err := os.Open(diskDevPath)
 	if err != nil {
-		logger.Log.Warnf("Failed to read GPT header, using default 34 sectors: %v", err)
-		gptEndBytes = uint64((defaultGptEntriesStartLba + defaultGptPartitionEntryLbas) * sectorSize)
+		return "", 0, fmt.Errorf("failed to open disk device (%s):\n%w", diskDevPath, err)
+	}
+	defer srcFile.Close()
+
+	gptEndBytes, err := readGptEndOffset(srcFile, sectorSize)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to read GPT header:\n%w", err)
 	}
 
 	// Round up to sector boundary
-	uncompressedSize := gptEndBytes
-	if remainder := gptEndBytes % uint64(sectorSize); remainder != 0 {
-		uncompressedSize = gptEndBytes + uint64(sectorSize) - remainder
+	sectorsToExtract := gptEndBytes / uint64(sectorSize)
+	if gptEndBytes%uint64(sectorSize) != 0 {
+		sectorsToExtract += 1
 	}
 
-	sectorsToExtract := int64(uncompressedSize) / int64(sectorSize)
-
 	rawFile := filepath.Join(outDir, basename+"_gpt.raw")
-	err = extractSectors(diskDevPath, rawFile, sectorSize, 0, sectorsToExtract)
+	err = extractSectorsFromFile(srcFile, rawFile, sectorSize, 0, int64(sectorsToExtract))
 	if err != nil {
 		return "", 0, fmt.Errorf("%w:\n%w", ErrGptExtractPrimary, err)
 	}
@@ -167,15 +151,9 @@ func extractGptTableData(diskDevPath string, outDir string, basename string,
 }
 
 // readGptEndOffset reads the GPT header and calculates the byte offset of the end of the GPT entries.
-func readGptEndOffset(diskDevPath string, sectorSize int) (uint64, error) {
-	file, err := os.Open(diskDevPath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to open disk device %s:\n%w", diskDevPath, err)
-	}
-	defer file.Close()
-
+func readGptEndOffset(file *os.File, sectorSize int) (uint64, error) {
 	gptHeaderOffset := int64(gptHeaderLba * sectorSize)
-	_, err = file.Seek(gptHeaderOffset, io.SeekStart)
+	_, err := file.Seek(gptHeaderOffset, io.SeekStart)
 	if err != nil {
 		return 0, fmt.Errorf("failed to seek to GPT header:\n%w", err)
 	}
@@ -201,34 +179,11 @@ func readGptEndOffset(diskDevPath string, sectorSize int) (uint64, error) {
 	return gptEndOffset, nil
 }
 
-func extractMbrData(diskDevPath string, outDir string, basename string,
-	partitionTable *diskutils.PartitionTable,
-) (string, uint64, error) {
-	sectorSize := partitionTable.SectorSize
-	if sectorSize == 0 {
-		sectorSize = 512
-	}
-
-	rawFile := filepath.Join(outDir, basename+"_mbr.raw")
-	err := extractSectors(diskDevPath, rawFile, sectorSize, 0, 1)
-	if err != nil {
-		return "", 0, fmt.Errorf("failed to extract MBR:\n%w", err)
-	}
-
-	return rawFile, uint64(sectorSize), nil
-}
-
-func extractSectors(diskDevPath string, outFile string, sectorSize int,
+func extractSectorsFromFile(srcFile *os.File, outFile string, sectorSize int,
 	startSector int64, sectorCount int64,
 ) error {
-	srcFile, err := os.Open(diskDevPath)
-	if err != nil {
-		return fmt.Errorf("failed to open source device (%s):\n%w", diskDevPath, err)
-	}
-	defer srcFile.Close()
-
 	startOffset := startSector * int64(sectorSize)
-	_, err = srcFile.Seek(startOffset, io.SeekStart)
+	_, err := srcFile.Seek(startOffset, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("failed to seek to offset %d:\n%w", startOffset, err)
 	}
@@ -237,39 +192,20 @@ func extractSectors(diskDevPath string, outFile string, sectorSize int,
 	if err != nil {
 		return fmt.Errorf("failed to create output file (%s):\n%w", outFile, err)
 	}
-	defer dstFile.Close()
 
 	bytesToCopy := sectorCount * int64(sectorSize)
 	_, err = io.Copy(dstFile, io.LimitReader(srcFile, bytesToCopy))
 	if err != nil {
-		return fmt.Errorf("failed to copy %d bytes from %s:\n%w", bytesToCopy, diskDevPath, err)
+		dstFile.Close()
+		return fmt.Errorf("failed to copy %d bytes:\n%w", bytesToCopy, err)
+	}
+
+	err = dstFile.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close output file (%s):\n%w", outFile, err)
 	}
 
 	return nil
-}
-
-func compressGptData(rawFilePath string, outDir string, filename string,
-	imageUuid [randomization.UuidSize]byte, compressionLevel int, compressionLong int,
-) (string, error) {
-	tempCompressedPath := filepath.Join(outDir, filename+"_temp.raw.zst")
-
-	err := compressWithZstd(rawFilePath, tempCompressedPath, compressionLevel, compressionLong)
-	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrGptExtractCompress, rawFilePath, err)
-	}
-
-	finalPath, err := addSkippableFrame(tempCompressedPath, imageUuid, filename, outDir)
-	if err != nil {
-		os.Remove(tempCompressedPath)
-		return "", fmt.Errorf("failed to add skippable frame to GPT file:\n%w", err)
-	}
-
-	err = os.Remove(tempCompressedPath)
-	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrGptExtractRemoveTempFile, tempCompressedPath, err)
-	}
-
-	return finalPath, nil
 }
 
 // buildDiskMetadata constructs the Disk struct from extracted GPT data and partition metadata.

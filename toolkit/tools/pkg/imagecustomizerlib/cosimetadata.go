@@ -56,11 +56,8 @@ const (
 type RegionType string
 
 const (
-	RegionTypePrimaryGpt  RegionType = "primary-gpt"
-	RegionTypePartition   RegionType = "partition"
-	RegionTypeBackupGpt   RegionType = "backup-gpt"
-	RegionTypeUnallocated RegionType = "unallocated"
-	RegionTypeUnknown     RegionType = "unknown"
+	RegionTypePrimaryGpt RegionType = "primary-gpt"
+	RegionTypePartition  RegionType = "partition"
 )
 
 type Disk struct {
