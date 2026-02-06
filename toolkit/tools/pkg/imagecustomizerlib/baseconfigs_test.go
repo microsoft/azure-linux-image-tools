@@ -21,7 +21,9 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 
 	buildDir := filepath.Join(testTempDir, "build")
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
-
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
 	options := ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		UseBaseImageRpmRepos: true,
@@ -31,7 +33,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
 	assert.NoError(t, err)
 
-	rc, err := ValidateConfig(t.Context(), testDir, &config, false, false, nil, options)
+	rc, err := ValidateConfig(t.Context(), testDir, &config, false, false, validateResources, options)
 	assert.NoError(t, err)
 
 	// Verify resolved values

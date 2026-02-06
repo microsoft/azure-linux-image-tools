@@ -138,7 +138,10 @@ func TestValidateConfig_CallsValidateInput(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	_, err := ValidateConfig(t.Context(), testDir, config, false, false, nil,
+	_, err := ValidateConfig(t.Context(), testDir, config, false, false,
+		imagecustomizerapi.ValidateResourceTypes{
+			imagecustomizerapi.ValidateResourceTypeAll,
+		},
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
 			OutputImageFormat: "vhdx",
@@ -152,7 +155,10 @@ func TestValidateConfig_CallsValidateInput_NewImage(t *testing.T) {
 
 	// Test that the input is being validated in validateConfig by
 	// triggering an error in validateInput.
-	_, err := ValidateConfig(t.Context(), testDir, config, true, false, nil,
+	_, err := ValidateConfig(t.Context(), testDir, config, true, false,
+		imagecustomizerapi.ValidateResourceTypes{
+			imagecustomizerapi.ValidateResourceTypeAll,
+		},
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.raw",
 			OutputImageFormat: "raw",
@@ -178,7 +184,7 @@ func TestValidateInput_AcceptsValidPaths(t *testing.T) {
 	defer os.Remove(outputImageFile)
 
 	validateResources := imagecustomizerapi.ValidateResourceTypes{
-		imagecustomizerapi.ValidateResourceTypeFiles,
+		imagecustomizerapi.ValidateResourceTypeAll,
 	}
 	options := ImageCustomizerOptions{
 		InputImageFile:    inputImageFileReal,
@@ -254,7 +260,10 @@ func TestValidateConfigValidAdditionalFiles(t *testing.T) {
 				},
 			},
 		},
-		false, false, nil,
+		false, false,
+		imagecustomizerapi.ValidateResourceTypes{
+			imagecustomizerapi.ValidateResourceTypeAll,
+		},
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
 			OutputImageFormat: "vhdx",
@@ -280,7 +289,7 @@ func TestValidateConfigMissingAdditionalFiles(t *testing.T) {
 			},
 		}, false, false,
 		imagecustomizerapi.ValidateResourceTypes{
-			imagecustomizerapi.ValidateResourceTypeFiles,
+			imagecustomizerapi.ValidateResourceTypeAll,
 		},
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
@@ -307,7 +316,7 @@ func TestValidateConfigdditionalFilesIsDir(t *testing.T) {
 			},
 		}, false, false,
 		imagecustomizerapi.ValidateResourceTypes{
-			imagecustomizerapi.ValidateResourceTypeFiles,
+			imagecustomizerapi.ValidateResourceTypeAll,
 		},
 		ImageCustomizerOptions{
 			OutputImageFile:   "./out/image.vhdx",
@@ -352,12 +361,15 @@ func TestValidateConfig_CallsValidateOutput(t *testing.T) {
 			},
 		},
 	}
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
 	options := ImageCustomizerOptions{
 		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhd,
 	}
 
 	// Test that the output is being validated in validateConfig by triggering an error in validateOutput.
-	_, err := ValidateConfig(t.Context(), baseConfigPath, config, false, false, nil, options)
+	_, err := ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "output image file must be specified")
 }
@@ -383,7 +395,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	}
 
 	validateResources := imagecustomizerapi.ValidateResourceTypes{
-		imagecustomizerapi.ValidateResourceTypeFiles,
+		imagecustomizerapi.ValidateResourceTypeAll,
 	}
 	options := ImageCustomizerOptions{}
 
@@ -853,6 +865,9 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 			},
 		},
 	}
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
 	options := ImageCustomizerOptions{
 		BuildDir:          buildDir,
 		OutputImageFormat: "vhdx",
@@ -860,7 +875,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	}
 
 	// The input image file should be set to the value in the config.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileAsConfig)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
@@ -871,7 +886,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	options.InputImageFile = inputImageFileAsArg
 
 	// The input image file should be set to the value passed as an argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileAsArg)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
@@ -881,7 +896,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	config.Input.Image.Path = inputImageFileAsConfig
 
 	// The input image file should be set to the value passed as an argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileAsArg)
 	assert.Equal(t, rc.InputFileExt(), "vhdx")
@@ -891,7 +906,7 @@ func TestValidateConfig_InputImageFileSelection(t *testing.T) {
 	options.InputImageFile = inputImageFileIsoAsArg
 	options.OutputImageFormat = "iso"
 	options.OutputImageFile = "out/image.iso"
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.InputImage.Path, inputImageFileIsoAsArg)
 	assert.Equal(t, rc.InputFileExt(), "iso")
@@ -915,7 +930,9 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 
 	configPath := "config.yaml"
 	config := &imagecustomizerapi.Config{}
-
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
 	options := ImageCustomizerOptions{
 		BuildDir:          buildDir,
 		OutputImageFormat: "vhd",
@@ -923,14 +940,14 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 	}
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.ErrorContains(t, err, "output image file must be specified")
 
 	// Pass the output image file only in the config.
 	config.Output.Image.Path = outputImageFilePathAsConfig
 
 	// The output image file should be set to the value in the config.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsConfig)
 
@@ -939,7 +956,7 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 	options.OutputImageFile = outputImageFilePathAsArg
 
 	// The output image file should be set to the value passed as an argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsArg)
 
@@ -948,7 +965,7 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsArg)
 }
@@ -970,7 +987,9 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	configPath := "config.yaml"
 	config := &imagecustomizerapi.Config{}
-
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
 	options := ImageCustomizerOptions{
 		BuildDir:        buildDir,
 		OutputImageFile: filepath.Join(testTmpDir, "image.vhd"),
@@ -979,14 +998,14 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image format is not specified in the config or as an
 	// argument, so an error will be reported.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.ErrorContains(t, err, "output image format must be specified")
 
 	// Pass the output image format only in the config.
 	config.Output.Image.Format = outputImageFormatAsConfig
 
 	// The output image file should be set to the value in the config.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsConfig)
 
@@ -996,7 +1015,7 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsArg)
 
@@ -1005,7 +1024,7 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image file should be set to the value passed as an
 	// argument.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, nil, options)
+	rc, err = ValidateConfig(t.Context(), configPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsArg)
 }
