@@ -9,7 +9,7 @@
 #     ACCOUNT: Name of an Azure Storage Account.
 #     CONTAINER: Name of a container in the Azure Storage Account.
 #     IMAGE_NAME: Name of the image.
-#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.vhdx" within the blob container.
+#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.<vhdx|vhd>" within the blob container.
 #       IMAGE_NAME typically has the format "<DISTRO>/<IMAGE-TYPE>".
 #       For example, "azure-linux/core-efi-vhdx-3.0-amd64/3.0.20250702/image.vhdx".
 #     OUTPUT_DIR: The directory to output files to.
