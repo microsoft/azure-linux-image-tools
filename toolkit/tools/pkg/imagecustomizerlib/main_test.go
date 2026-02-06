@@ -22,8 +22,8 @@ const (
 	baseImageVersionAzl3 = "3.0"
 
 	// Azure Linux variants
-	baseImageVariantCoreEfi   = "core-efi"
-	baseImageVariantBareMetal = "bare-metal"
+	baseImageAzureLinuxVariantCoreEfi   = "core-efi"
+	baseImageAzureLinuxVariantBareMetal = "bare-metal"
 )
 
 type testBaseImageInfo struct {
@@ -40,7 +40,7 @@ var (
 		Name:      "AzureLinux2CoreEfi",
 		Distro:    baseImageDistroAzureLinux,
 		Version:   baseImageVersionAzl2,
-		Variant:   baseImageVariantCoreEfi,
+		Variant:   baseImageAzureLinuxVariantCoreEfi,
 		ParamName: "base-image-core-efi-azl2",
 		Param:     baseImageCoreEfiAzl2,
 	}
@@ -49,7 +49,7 @@ var (
 		Name:      "AzureLinux3CoreEfi",
 		Distro:    baseImageDistroAzureLinux,
 		Version:   baseImageVersionAzl3,
-		Variant:   baseImageVariantCoreEfi,
+		Variant:   baseImageAzureLinuxVariantCoreEfi,
 		ParamName: "base-image-core-efi-azl3",
 		Param:     baseImageCoreEfiAzl3,
 	}
@@ -58,7 +58,7 @@ var (
 		Name:      "AzureLinux2BareMetal",
 		Distro:    baseImageDistroAzureLinux,
 		Version:   baseImageVersionAzl2,
-		Variant:   baseImageVariantBareMetal,
+		Variant:   baseImageAzureLinuxVariantBareMetal,
 		ParamName: "base-image-bare-metal-azl2",
 		Param:     baseImageBareMetalAzl2,
 	}
@@ -67,7 +67,7 @@ var (
 		Name:      "AzureLinux3BareMetal",
 		Distro:    baseImageDistroAzureLinux,
 		Version:   baseImageVersionAzl3,
-		Variant:   baseImageVariantBareMetal,
+		Variant:   baseImageAzureLinuxVariantBareMetal,
 		ParamName: "base-image-bare-metal-azl3",
 		Param:     baseImageBareMetalAzl3,
 	}
