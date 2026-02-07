@@ -32,14 +32,46 @@ type CosiBootloader struct {
 }
 
 type MetadataJson struct {
-	Version    string         `json:"version"`
-	OsArch     string         `json:"osArch"`
-	Images     []FileSystem   `json:"images"`
-	Partitions []Partition    `json:"partitions"`
-	OsRelease  string         `json:"osRelease"`
-	Id         string         `json:"id,omitempty"`
-	Bootloader CosiBootloader `json:"bootloader"`
-	OsPackages []OsPackage    `json:"osPackages"`
+	Version     string         `json:"version"`
+	OsArch      string         `json:"osArch"`
+	Disk        *Disk          `json:"disk,omitempty"`
+	Images      []FileSystem   `json:"images"`
+	OsRelease   string         `json:"osRelease"`
+	Id          string         `json:"id,omitempty"`
+	Bootloader  CosiBootloader `json:"bootloader"`
+	OsPackages  []OsPackage    `json:"osPackages"`
+	Compression *Compression   `json:"compression,omitempty"`
+}
+
+type Compression struct {
+	MaxWindowLog int `json:"maxWindowLog"`
+}
+
+type DiskType string
+
+const (
+	DiskTypeGpt DiskType = "gpt"
+)
+
+type RegionType string
+
+const (
+	RegionTypePrimaryGpt RegionType = "primary-gpt"
+	RegionTypePartition  RegionType = "partition"
+)
+
+type Disk struct {
+	Size       uint64          `json:"size"`       // Size of the original disk in bytes
+	Type       DiskType        `json:"type"`       // Partitioning type "gpt"
+	LbaSize    int             `json:"lbaSize"`    // Logical block address size in bytes
+	GptRegions []GptDiskRegion `json:"gptRegions"` // Regions in the GPT disk
+}
+
+type GptDiskRegion struct {
+	Image    ImageFile  `json:"image"`              // Details of the image file in the tarball
+	Type     RegionType `json:"type"`               // The type of region this image represents
+	StartLba *int64     `json:"startLba,omitempty"` // The first LBA of the region
+	Number   *int       `json:"number,omitempty"`   // Partition number
 }
 
 type FileSystem struct {
@@ -61,14 +93,6 @@ type ImageFile struct {
 	CompressedSize   uint64 `json:"compressedSize"`
 	UncompressedSize uint64 `json:"uncompressedSize"`
 	Sha384           string `json:"sha384"`
-}
-
-type Partition struct {
-	Image        ImageFile `json:"image"`
-	OriginalSize uint64    `json:"originalSize"`
-	PartUuid     string    `json:"partUuid"`
-	Label        string    `json:"label"`
-	Number       int       `json:"number"`
 }
 
 type OsPackage struct {

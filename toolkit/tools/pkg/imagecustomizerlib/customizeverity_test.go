@@ -150,15 +150,19 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 
 	// Attach partition files.
 	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 5) {
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 6) {
 		return
 	}
 
+	gptPath := filepath.Join(testTempDir, "image_gpt.raw")
 	espPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", espPartitionNum))
 	bootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", bootPartitionNum))
 	rootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", rootPartitionNum))
 	hashPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", hashPartitionNum))
 	varPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", varPartitionNum))
+
+	gptStat, err := os.Stat(gptPath)
+	assert.NoError(t, err)
 
 	espStat, err := os.Stat(espPartitionPath)
 	assert.NoError(t, err)
@@ -176,6 +180,8 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	assert.NoError(t, err)
 
 	// Check partition sizes.
+	// Standard GPT size = MBR (512) + GPT Header (512) + Partition Entries (128 × 128 = 16384) = 17408 bytes
+	assert.Equal(t, int64(17408), gptStat.Size())
 	assert.Equal(t, int64(8*diskutils.MiB), espStat.Size())
 
 	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem

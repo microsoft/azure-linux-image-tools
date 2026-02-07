@@ -272,7 +272,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	// Attach partition files.
 	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
 
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 2) {
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 3) {
 		return
 	}
 
@@ -367,8 +367,8 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	// Attach partition files.
 	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, buildDir)
 
-	// Expect 3 partitions: ESP, rootfs, and the empty/unformatted partition.
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 3) {
+	// Expect 4 items: GPT, ESP, rootfs, and the empty/unformatted partition.
+	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 4) {
 		return
 	}
 

@@ -139,6 +139,8 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	if err != nil {
 		return "", err
 	}
+	defer os.Remove(tempPartitionFilepath)
+
 	// Remove raw file since output partition format is raw-zst
 	err = os.Remove(partitionRawFilepath)
 	if err != nil {
@@ -148,11 +150,6 @@ func extractRawZstPartition(partitionRawFilepath string, skippableFrameMetadata 
 	partitionFilepath, err = addSkippableFrame(tempPartitionFilepath, skippableFrameMetadata, partitionFilename, outDir)
 	if err != nil {
 		return "", err
-	}
-	// Remove temp partition file
-	err = os.Remove(tempPartitionFilepath)
-	if err != nil {
-		return "", fmt.Errorf("%w (file='%s'):\n%w", ErrPartitionExtractRemoveTempFile, tempPartitionFilepath, err)
 	}
 	return partitionFilepath, nil
 }
