@@ -45,6 +45,14 @@ See [inject-files subcommand](./inject-files.md) for full documentation.
 
 Added in v0.14.
 
+## validate-config
+
+Validates a configuration file without running the actual customization process.
+
+See [validate-config subcommand](./validate-config.md) for full documentation.
+
+Added in v1.2.
+
 ## --help
 
 Displays the tool's quick help.

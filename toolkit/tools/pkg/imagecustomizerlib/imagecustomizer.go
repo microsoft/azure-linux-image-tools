@@ -198,7 +198,11 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	)
 	defer finishSpanWithError(span, &err)
 
-	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, options)
+	validateResources := imagecustomizerapi.ValidateResourceTypes{
+		imagecustomizerapi.ValidateResourceTypeAll,
+	}
+
+	rc, err := ValidateConfig(ctx, baseConfigPath, config, false, true, validateResources, options)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrInvalidImageConfig, err)
 	}
@@ -226,7 +230,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	}
 
 	// Download base image (if neccessary)
-	inputImageFilePath, err := downloadImage(ctx, rc.InputImage, options.BuildDir,
+	inputImageFilePath, err := downloadImage(ctx, rc.InputImage, rc.InputImageOciDescriptor, options.BuildDir,
 		options.ImageCacheDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrCustomizeDownloadImage, err)
