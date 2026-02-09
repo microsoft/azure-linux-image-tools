@@ -97,10 +97,6 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 		// BuildDir is required when validating Azure Linux (OCI) input images for signature verification to
 		// create a temporary notary trust store.
 		BuildDir: options.BuildDir,
-
-		// UseBaseImageRpmRepos is required when there are packages to install/update in the config,
-		// since no RPM sources are specified.
-		UseBaseImageRpmRepos: true,
 	}
 
 	// Pass newImage=false to emulate validation during an actual customization run.
@@ -209,7 +205,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
-	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles)
+	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles,
+		allowPartialConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +461,7 @@ func validatePxeConfigChain(configChain []*ConfigWithBasePath, validateFiles boo
 }
 
 func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
-	useBaseImageRpmRepos bool, validateFiles bool,
+	useBaseImageRpmRepos bool, validateFiles bool, allowPartialConfig bool,
 ) error {
 	if config == nil {
 		return nil
@@ -472,7 +469,7 @@ func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpms
 
 	var err error
 
-	err = validatePackageLists(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos)
+	err = validatePackageLists(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos, allowPartialConfig)
 	if err != nil {
 		return err
 	}
@@ -539,7 +536,7 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, va
 }
 
 func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
-	useBaseImageRpmRepos bool,
+	useBaseImageRpmRepos bool, allowPartialConfig bool,
 ) error {
 	if config == nil {
 		return nil
@@ -560,15 +557,12 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 		return err
 	}
 
+	needRpmsSources := len(allPackagesInstall) > 0 || len(allPackagesUpdate) > 0 ||
+		config.Packages.UpdateExistingPackages
 	hasRpmSources := len(rpmsSources) > 0 || useBaseImageRpmRepos
 
-	if !hasRpmSources {
-		needRpmsSources := len(allPackagesInstall) > 0 || len(allPackagesUpdate) > 0 ||
-			config.Packages.UpdateExistingPackages
-
-		if needRpmsSources {
-			return ErrNoRpmSourcesSpecified
-		}
+	if needRpmsSources && !hasRpmSources && !allowPartialConfig {
+		return ErrNoRpmSourcesSpecified
 	}
 
 	config.Packages.Remove = allPackagesRemove
