@@ -14,9 +14,11 @@ type ValidateResourceType string
 const (
 	// ValidateResourceTypeFiles validates local files and directories.
 	ValidateResourceTypeFiles ValidateResourceType = "files"
+
 	// ValidateResourceTypeOci validates OCI artifacts.
 	ValidateResourceTypeOci ValidateResourceType = "oci"
-	// ValidateResourceTypeAll validates all resources (files and OCI).
+
+	// ValidateResourceTypeAll validates all resources.
 	ValidateResourceTypeAll ValidateResourceType = "all"
 )
 
