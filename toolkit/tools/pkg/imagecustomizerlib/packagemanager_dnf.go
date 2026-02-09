@@ -112,7 +112,7 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 		case strings.Contains(trimmedLine, "MB/s") &&
 			(strings.Contains(trimmedLine, ".rpm") || strings.Contains(trimmedLine, "kB")):
 			match := dnfDownloadRegex.FindStringSubmatch(line)
-			if match != nil && len(match) > 1 {
+			if len(match) > 1 {
 				packageName := match[1]
 				if packageName != lastDownloadPackageSeen {
 					lastDownloadPackageSeen = packageName
@@ -184,8 +184,5 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 		_, _, err := shell.Execute("dnf", "info", "--installed", packageName)
 		return err
 	})
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }

@@ -957,7 +957,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		}
 
 		if hasPackageSnapshotTime {
-			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
+			return targetOs, fmt.Errorf("fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
 		}
 	}
 

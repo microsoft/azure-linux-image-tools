@@ -61,7 +61,7 @@ func encryptRootPartition(partDevPath string, partition configuration.Partition,
 		defaultHash    = "sha512"
 		defaultLuks    = "luks1"
 	)
-	if encrypt.Enable == false {
+	if !encrypt.Enable {
 		err = fmt.Errorf("encryption not enabled for partition %v", partition.ID)
 		return
 	}

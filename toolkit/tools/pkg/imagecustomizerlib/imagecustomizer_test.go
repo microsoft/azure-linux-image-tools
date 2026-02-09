@@ -911,14 +911,14 @@ func TestValidateConfig_OutputImageFileSelection(t *testing.T) {
 	}
 
 	// The output image file is not specified in the config or as an argument, so the output image file will be empty.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, options)
+	_, err = ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.ErrorContains(t, err, "output image file must be specified")
 
 	// Pass the output image file only in the config.
 	config.Output.Image.Path = outputImageFilePathAsConfig
 
 	// The output image file should be set to the value in the config.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFile, outputImageFilePathAsConfig)
 
@@ -967,14 +967,14 @@ func TestValidateConfig_OutputImageFormatSelection(t *testing.T) {
 
 	// The output image format is not specified in the config or as an
 	// argument, so an error will be reported.
-	rc, err := ValidateConfig(t.Context(), configPath, config, false, options)
+	_, err = ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.ErrorContains(t, err, "output image format must be specified")
 
 	// Pass the output image format only in the config.
 	config.Output.Image.Format = outputImageFormatAsConfig
 
 	// The output image file should be set to the value in the config.
-	rc, err = ValidateConfig(t.Context(), configPath, config, false, options)
+	rc, err := ValidateConfig(t.Context(), configPath, config, false, options)
 	assert.NoError(t, err)
 	assert.Equal(t, rc.OutputImageFormat, outputImageFormatAsConfig)
 

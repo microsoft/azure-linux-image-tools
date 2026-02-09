@@ -914,7 +914,7 @@ func GetSectorSize(diskDevPath string) (logicalSectorSize, physicalSectorSize ui
 		err = fmt.Errorf("input disk device path (%s) is of invalud format", diskDevPath)
 		return
 	}
-	diskName := diskDevPath[diskNameStartIndex:len(diskDevPath)]
+	diskName := diskDevPath[diskNameStartIndex:]
 
 	hw_sector_size_file := fmt.Sprintf("/sys/block/%s/queue/hw_sector_size", diskName)
 	physical_sector_size_file := fmt.Sprintf("/sys/block/%s/queue/physical_block_size", diskName)

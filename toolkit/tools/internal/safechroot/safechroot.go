@@ -681,8 +681,6 @@ func (c *Chroot) restoreRoot(originalRoot, originalWd *os.File) {
 	if err != nil {
 		logger.Log.Panicf("Failed to change directory to original root. Error: %s", err)
 	}
-
-	return
 }
 
 // createMountPoints will create a provided list of mount points

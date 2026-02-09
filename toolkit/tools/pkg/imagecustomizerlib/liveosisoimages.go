@@ -46,10 +46,6 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-var (
-	kdumpInitramfsRegEx = regexp.MustCompile(`/initramfs-(.*)kdump\.img$`)
-)
-
 type StageFile struct {
 	sourcePath    string
 	targetRelPath string
@@ -441,7 +437,7 @@ func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
 	// parse and get count and unit
 	diskSizeRegex := regexp.MustCompile(`^(\d+)\s+`)
 	matches := diskSizeRegex.FindStringSubmatch(duStdout)
-	if matches == nil || len(matches) < 2 {
+	if len(matches) < 2 {
 		return 0, fmt.Errorf("failed to parse 'du -s' output (%s)", duStdout)
 	}
 

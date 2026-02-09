@@ -83,12 +83,6 @@ const (
 	rootMountPoint = "/"
 	bootMountPoint = "/boot"
 
-	// rpmDependenciesDirectory is the directory which contains RPM database. It is not required for images that do not contain RPM.
-	rpmDependenciesDirectory = "/var/lib/rpm"
-
-	// rpmManifestDirectory is the directory containing manifests of installed packages to support distroless vulnerability scanning tools.
-	rpmManifestDirectory = "/var/lib/rpmmanifest"
-
 	// /boot directory should be only accesible by root. The directories need the execute bit as well.
 	bootDirectoryFileMode = 0400
 	bootDirectoryDirMode  = 0700
@@ -1129,7 +1123,7 @@ func setGrubCfgFIPS(isBootPartitionSeparate bool, bootUUID, grubPath string, ker
 	// This second step is required for fips boot-time self tests to find the kernel's .hmac file in the /boot partition.
 	fipsKernelArgument := ""
 	if kernelCommandline.EnableFIPS {
-		fipsKernelArgument = fmt.Sprintf("%s", enableFIPS)
+		fipsKernelArgument = enableFIPS
 		if isBootPartitionSeparate {
 			fipsKernelArgument = fmt.Sprintf("%s %s%s%s", fipsKernelArgument, bootPrefix, uuidPrefix, bootUUID)
 		}
@@ -1153,9 +1147,9 @@ func setGrubCfgCGroup(grubPath string, kernelCommandline configuration.KernelCom
 
 	switch kernelCommandline.CGroup {
 	case configuration.CGroupV2:
-		cgroup = fmt.Sprintf("%s", cgroupv2FlagValue)
+		cgroup = cgroupv2FlagValue
 	case configuration.CGroupV1:
-		cgroup = fmt.Sprintf("%s", cgroupv1FlagValue)
+		cgroup = cgroupv1FlagValue
 	case configuration.CGroupDefault:
 		cgroup = ""
 	}

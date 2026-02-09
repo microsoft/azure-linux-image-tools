@@ -17,10 +17,7 @@ func isPackageInstalledDpkg(imageChroot safechroot.ChrootInterface, packageName 
 		_, _, err := shell.Execute("dpkg-query", "-W", "-f='${Status}'", packageName)
 		return err
 	})
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // getAllPackagesFromChrootDpkg retrieves all installed packages from a dpkg-based system

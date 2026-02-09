@@ -67,8 +67,5 @@ func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName stri
 		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
 		return err
 	})
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
