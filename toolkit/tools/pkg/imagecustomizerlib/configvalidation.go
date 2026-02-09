@@ -115,6 +115,9 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 	return nil
 }
 
+// ValidateConfig validates the configuration and returns a resolved configuration.
+// options.BuildDir must be non-empty if newImage=false and the resolved input image may be an OCI Azure Linux image.
+// The directory will be created if it doesn't exist. ResolvedConfig.BuildDirAbs will be set to its absolute path.
 func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
 	newImage bool, allowPartialConfig bool, validateResources imagecustomizerapi.ValidateResourceTypes,
 	options ImageCustomizerOptions,
@@ -160,15 +163,17 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	// Resolve build dir path.
-	rc.BuildDirAbs, err = filepath.Abs(options.BuildDir)
-	if err != nil {
-		return nil, err
-	}
+	if options.BuildDir != "" {
+		rc.BuildDirAbs, err = filepath.Abs(options.BuildDir)
+		if err != nil {
+			return nil, err
+		}
 
-	// Ensure build fold dir exists.
-	err = os.MkdirAll(rc.BuildDirAbs, os.ModePerm)
-	if err != nil {
-		return nil, err
+		// Ensure build fold dir exists.
+		err = os.MkdirAll(rc.BuildDirAbs, os.ModePerm)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Intermediate writeable image
