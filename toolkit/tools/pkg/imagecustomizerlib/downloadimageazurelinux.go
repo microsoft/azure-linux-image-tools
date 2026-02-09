@@ -13,6 +13,8 @@ import (
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// downloadAzureLinuxImage downloads an Azure Linux image from MCR.
+// buildDir must exist and be a writable directory when a descriptor is not provided.
 func downloadAzureLinuxImage(ctx context.Context, inputImage imagecustomizerapi.AzureLinuxImage,
 	ociDescriptor *ociv1.Descriptor, buildDir string, imageCacheDir string,
 ) (string, error) {

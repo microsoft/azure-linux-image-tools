@@ -17,6 +17,8 @@ var (
 	ErrDownloadImageAzureLinux = NewImageCustomizerError("DownloadImage:AzureLinux", "failed to download Azure Linux image")
 )
 
+// downloadImage downloads the input image from a remote source if necessary.
+// buildDir must exist and be a writable directory when an Azure Linux image is specified without a descriptor.
 func downloadImage(ctx context.Context, inputImage imagecustomizerapi.InputImage, ociDescriptor *ociv1.Descriptor,
 	buildDir string, imageCacheDir string,
 ) (string, error) {

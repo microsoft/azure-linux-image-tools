@@ -37,6 +37,8 @@ type ociSignatureCheckOptions struct {
 	CertificateFsPath string
 }
 
+// checkNotationSignature verifies the Notation signature of an OCI artifact.
+// buildDir must exist and be a writable directory, as it is used to create a temporary trust store.
 func checkNotationSignature(ctx context.Context, buildDir string, remoteRepo *remote.Repository,
 	descriptor ociv1.Descriptor, options ociSignatureCheckOptions,
 ) error {

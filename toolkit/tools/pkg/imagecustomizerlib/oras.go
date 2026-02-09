@@ -33,6 +33,8 @@ var (
 	ErrOciOpenRepository          = NewImageCustomizerError("Oci:OpenRepository", "failed to open OCI repository")
 )
 
+// downloadOciImage downloads an OCI image to the local cache directory.
+// buildDir must exist and be a writable directory when an descriptor is not provided but signature check options are.
 func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, ociDescriptor *ociv1.Descriptor,
 	buildDir string, imageCacheDir string, signatureCheckOptions *ociSignatureCheckOptions,
 ) (string, error) {
@@ -95,9 +97,7 @@ func validateImageCacheDir(imageCacheDir string) error {
 }
 
 // openOciImage opens the remote OCI repository and optionally resolves and verifies the OCI image artifact.
-//
-// The build directory is only required when signature verification is performed, i.e., when
-// an OCI descriptor is not provided but signature check options are.
+// buildDir must exist and be a writable directory when an descriptor is not provided but signature check options are.
 func openOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, ociDescriptor *ociv1.Descriptor,
 	signatureCheckOptions *ociSignatureCheckOptions, buildDir string,
 ) (*remote.Repository, ociv1.Descriptor, error) {
