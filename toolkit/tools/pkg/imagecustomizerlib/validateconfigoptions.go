@@ -4,8 +4,6 @@
 package imagecustomizerlib
 
 import (
-	"fmt"
-
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
@@ -30,7 +28,7 @@ func (o *ValidateConfigOptions) IsValid() error {
 	}
 
 	if o.ValidateResources.ValidateOci() && o.BuildDir == "" {
-		return fmt.Errorf("%w", ErrValidateConfigOptionsBuildDirRequiredForOci)
+		return ErrValidateConfigOptionsBuildDirRequiredForOci
 	}
 
 	return nil
