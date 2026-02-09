@@ -81,8 +81,10 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config_command")
 	span.SetAttributes(
-		attribute.Bool("validate_resources_files", options.ValidateResources.ValidateFiles()),
-		attribute.Bool("validate_resources_oci", options.ValidateResources.ValidateOci()),
+		attribute.Bool("validate_resources_files",
+			options.ValidateResources.Contains(imagecustomizerapi.ValidateResourceTypeFiles)),
+		attribute.Bool("validate_resources_oci",
+			options.ValidateResources.Contains(imagecustomizerapi.ValidateResourceTypeOci)),
 		attribute.Bool("validate_resources_all",
 			options.ValidateResources.Contains(imagecustomizerapi.ValidateResourceTypeAll)),
 	)
