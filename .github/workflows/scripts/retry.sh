@@ -17,7 +17,7 @@ for ((i = 1; ; i++)); do
         && break \
         || err=$?
 
-    if [ "$i" == 5 ]; then
+    if [ "$i" == "$RETRY_COUNT" ]; then
         exit $err
     fi
 
