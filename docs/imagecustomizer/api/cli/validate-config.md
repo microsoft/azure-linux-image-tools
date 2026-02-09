@@ -44,20 +44,14 @@ Without this flag, only the configuration syntax and structure are validated.
 Supported options:
 
 - `files`: Validates that local files and directories exist:
-  - [`iso.additionalFiles[].source`](../configuration/iso.md#additionalfiles-additionalfile): Must point to
-    existing files.
-  - [`os.additionalDirs[].source`](../configuration/os.md#additionaldirs-dirconfig): Must point to existing
-    directories.
-  - [`os.additionalFiles[].source`](../configuration/os.md#additionalfiles-additionalfile): Must point to
-    existing files.
+  - [`iso.additionalFiles[].source`](../configuration/iso.md#additionalfiles-additionalfile): Must point to existing files.
+  - [`os.additionalDirs[].source`](../configuration/os.md#additionaldirs-dirconfig): Must point to existing directories.
+  - [`os.additionalFiles[].source`](../configuration/os.md#additionalfiles-additionalfile): Must point to existing files.
   - [`os.users[].password.value`](../configuration/password.md#value-string): Must point to an existing file
     when [`.type`](../configuration/password.md#type-string) is `plain-text-file` or `hashed-file`.
-  - [`os.users[].sshPublicKeyPaths[]`](../configuration/user.md#sshpublickeypaths-string): Must point to
-    existing files.
-  - [`pxe.additionalFiles[].source`](../configuration/pxe.md#additionalfiles-additionalfile): Must point to
-    existing files.
-  - [`scripts.finalizeCustomization[].path`](../configuration/script.md#path-string): Must point to existing
-    files.
+  - [`os.users[].sshPublicKeyPaths[]`](../configuration/user.md#sshpublickeypaths-string): Must point to existing files.
+  - [`pxe.additionalFiles[].source`](../configuration/pxe.md#additionalfiles-additionalfile): Must point to existing files.
+  - [`scripts.finalizeCustomization[].path`](../configuration/script.md#path-string): Must point to existing files.
   - [`scripts.postCustomization[].path`](../configuration/script.md#path-string): Must point to existing files.
 
 - `oci`: Validates that OCI artifacts exist:
