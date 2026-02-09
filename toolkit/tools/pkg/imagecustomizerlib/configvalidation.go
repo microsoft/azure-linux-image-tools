@@ -67,16 +67,16 @@ func ValidateConfigWithConfigFileOptions(ctx context.Context, configFile string,
 ) (err error) {
 	var config imagecustomizerapi.Config
 
-	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
-	if err != nil {
-		return err
-	}
-
 	baseConfigPath, _ := filepath.Split(configFile)
 
 	absBaseConfigPath, err := filepath.Abs(baseConfigPath)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
+	}
+
+	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
+	if err != nil {
+		return err
 	}
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "validate_config_command")
