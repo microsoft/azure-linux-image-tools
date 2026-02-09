@@ -482,20 +482,20 @@ func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpms
 	return nil
 }
 
-func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts, validateFile bool) error {
+func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts, validateFiles bool) error {
 	if scripts == nil {
 		return nil
 	}
 
 	for i, script := range scripts.PostCustomization {
-		err := validateScript(baseConfigPath, &script, validateFile)
+		err := validateScript(baseConfigPath, &script, validateFiles)
 		if err != nil {
 			return fmt.Errorf("%w (index=%d):\n%w", ErrInvalidPostCustomizationScript, i, err)
 		}
 	}
 
 	for i, script := range scripts.FinalizeCustomization {
-		err := validateScript(baseConfigPath, &script, validateFile)
+		err := validateScript(baseConfigPath, &script, validateFiles)
 		if err != nil {
 			return fmt.Errorf("%w (index=%d):\n%w", ErrInvalidFinalizeScript, i, err)
 		}
@@ -504,7 +504,7 @@ func validateScripts(baseConfigPath string, scripts *imagecustomizerapi.Scripts,
 	return nil
 }
 
-func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, validateFile bool) error {
+func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, validateFiles bool) error {
 	if script.Path != "" {
 		// Ensure that install scripts sit under the config file's parent directory.
 		// This allows the install script to be run in the chroot environment by bind mounting the config directory.
@@ -512,7 +512,7 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, va
 			return fmt.Errorf("%w (script='%s', config='%s')", ErrScriptNotUnderConfigDir, script.Path, baseConfigPath)
 		}
 
-		if validateFile {
+		if validateFiles {
 			fullPath := filepath.Join(baseConfigPath, script.Path)
 			if isFile, err := file.IsFile(fullPath); err != nil {
 				return fmt.Errorf("%w (script='%s'):\n%w", ErrScriptFileNotReadable, script.Path, err)
