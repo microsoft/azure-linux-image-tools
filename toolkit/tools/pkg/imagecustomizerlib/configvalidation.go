@@ -672,8 +672,8 @@ func validateUser(baseConfigPath string, user imagecustomizerapi.User, validateF
 	return nil
 }
 
-func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath,
-	cliOutputSelinuxPolicyPath string, validateFiles bool,
+func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutputSelinuxPolicyPath string,
+	validateFiles bool,
 ) (string, error) {
 	// CLI parameter takes precedence.
 	if cliOutputSelinuxPolicyPath != "" {
