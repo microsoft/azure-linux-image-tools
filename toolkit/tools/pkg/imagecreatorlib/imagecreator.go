@@ -61,12 +61,6 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	imagecustomizerlib.LogVersionsOfToolDeps()
 
-	// ensure build and output folders are created up front
-	err = os.MkdirAll(rc.BuildDirAbs, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
 	outputImageDir := filepath.Dir(rc.OutputImageFile)
 	err = os.MkdirAll(outputImageDir, os.ModePerm)
 	if err != nil {

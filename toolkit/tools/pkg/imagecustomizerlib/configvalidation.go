@@ -165,6 +165,12 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	// Ensure build fold dir exists.
+	err = os.MkdirAll(rc.BuildDirAbs, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
 	// Intermediate writeable image
 	rc.RawImageFile = filepath.Join(rc.BuildDirAbs, BaseImageName)
 
@@ -249,6 +255,8 @@ func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
 	return nil
 }
 
+// validateInput validates the input image configuration and returns the resolved input image.
+// buildDir must exist and be a writable directory if the resolved image is an OCI Azure Linux image.
 func validateInput(ctx context.Context, buildDir string, configChain []*ConfigWithBasePath, inputImageFile string,
 	inputImage string, validateFiles bool, validateOci bool, allowPartialConfig bool,
 ) (imagecustomizerapi.InputImage, *ociv1.Descriptor, error) {
