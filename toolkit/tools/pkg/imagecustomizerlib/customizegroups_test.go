@@ -4,18 +4,28 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCustomizeImageGroupsExistingGid(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageGroupsExistingGid(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageGroupExistingGid")
+func testCustomizeImageGroupsExistingGid(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGroupsExistingGid_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -29,9 +39,17 @@ func TestCustomizeImageGroupsExistingGid(t *testing.T) {
 }
 
 func TestCustomizeImageGroupsNewGid(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageGroupsNewGid(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageGroupNewGid")
+func testCustomizeImageGroupsNewGid(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGroupsNewGid_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -45,7 +63,7 @@ func TestCustomizeImageGroupsNewGid(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -53,20 +71,28 @@ func TestCustomizeImageGroupsNewGid(t *testing.T) {
 
 	groupEntry, err := userutils.GetGroupEntry(imageConnection.Chroot().RootDir(), "question")
 	if assert.NoError(t, err) {
-		assert.Equal(t, 42, groupEntry.GID)
+		assert.Equal(t, 99, groupEntry.GID)
 	}
 
 	passwdEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "question")
 	if assert.NoError(t, err) {
-		assert.Equal(t, 42, passwdEntry.Uid)
-		assert.Equal(t, 42, passwdEntry.Gid)
+		assert.Equal(t, 99, passwdEntry.Uid)
+		assert.Equal(t, 99, passwdEntry.Gid)
 	}
 }
 
 func TestCustomizeImageGroupsNew(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageGroupsNew(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageGroupNew")
+func testCustomizeImageGroupsNew(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGroupsNew_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -80,7 +106,7 @@ func TestCustomizeImageGroupsNew(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

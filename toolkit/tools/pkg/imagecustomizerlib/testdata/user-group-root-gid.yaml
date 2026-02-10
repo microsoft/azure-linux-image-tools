@@ -1,3 +1,7 @@
+previewFeatures:
+- ubuntu-22.04
+- ubuntu-24.04
+
 os:
   groups:
   - name: root
