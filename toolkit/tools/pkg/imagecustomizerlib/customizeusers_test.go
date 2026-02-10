@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -25,9 +27,17 @@ import (
 var shadowPasswordRegexp = regexp.MustCompile(`^\$([a-zA-Z0-9]*)\$((rounds=[0-9]+\$)?[a-zA-Z0-9./]*)\$[a-zA-Z0-9./]*$`)
 
 func TestCustomizeImageUsers(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageUsers(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsers")
+func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestUsers_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -44,6 +54,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	test2PasswordExpiresDays := int64(10)
 
 	config := imagecustomizerapi.Config{
+		PreviewFeatures: baseImageInfo.PreviewFeatures,
 		OS: &imagecustomizerapi.OS{
 			Users: []imagecustomizerapi.User{
 				{
@@ -86,7 +97,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

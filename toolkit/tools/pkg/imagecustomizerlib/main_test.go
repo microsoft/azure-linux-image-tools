@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/sirupsen/logrus"
@@ -48,14 +49,15 @@ const (
 )
 
 type testBaseImageInfo struct {
-	Name         string
-	Distro       string
-	Version      string
-	Variant      string
-	ParamName    string
-	Param        *string
-	MountPoints  []testutils.MountPoint
-	DefaultShell string
+	Name            string
+	Distro          string
+	Version         string
+	Variant         string
+	ParamName       string
+	Param           *string
+	MountPoints     []testutils.MountPoint
+	DefaultShell    string
+	PreviewFeatures []imagecustomizerapi.PreviewFeature
 }
 
 var (
@@ -146,6 +148,9 @@ var (
 		Param:        baseImageUbuntuAzureCloud2204,
 		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: ubuntuDefaultShell,
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureUbuntu2204,
+		},
 	}
 
 	testBaseImageUbuntu2404AzureCloud = testBaseImageInfo{
@@ -157,6 +162,9 @@ var (
 		Param:        baseImageUbuntuAzureCloud2404,
 		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: ubuntuDefaultShell,
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureUbuntu2404,
+		},
 	}
 
 	baseImageAzureLinuxAll = []testBaseImageInfo{
