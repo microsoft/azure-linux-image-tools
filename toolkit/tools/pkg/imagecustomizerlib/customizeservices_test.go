@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,9 +16,17 @@ import (
 )
 
 func TestCustomizeImageServicesEnableDisable(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageServicesEnableDisable(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageServicesEnableDisable")
+func testCustomizeImageServicesEnableDisable(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestServicesEnableDisable_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -32,8 +41,8 @@ func TestCustomizeImageServicesEnableDisable(t *testing.T) {
 	}
 
 	// Connect to image.
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true /*includeDefaultMounts*/,
-		azureLinuxCoreEfiMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, true, /*includeDefaultMounts*/
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -50,9 +59,17 @@ func TestCustomizeImageServicesEnableDisable(t *testing.T) {
 }
 
 func TestCustomizeImageServicesEnableUnknown(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageServicesEnableUnknown(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageServicesEnableUnknown")
+func testCustomizeImageServicesEnableUnknown(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestServicesEnableUnknown_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -76,9 +93,17 @@ func TestCustomizeImageServicesEnableUnknown(t *testing.T) {
 }
 
 func TestCustomizeImageServicesDisableUnknown(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageServicesDisableUnknown(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageServicesDisableUnknown")
+func testCustomizeImageServicesDisableUnknown(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestServicesDisableUnknown_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -86,6 +111,7 @@ func TestCustomizeImageServicesDisableUnknown(t *testing.T) {
 
 	// Customize image.
 	config := imagecustomizerapi.Config{
+		PreviewFeatures: baseImageInfo.PreviewFeatures,
 		OS: &imagecustomizerapi.OS{
 			Services: imagecustomizerapi.Services{
 				Disable: []string{
