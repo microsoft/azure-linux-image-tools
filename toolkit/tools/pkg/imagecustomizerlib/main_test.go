@@ -33,6 +33,10 @@ const (
 	// Ubuntu variants
 	baseImageVariantUbuntuAzureCloud = "azure-cloud"
 
+	// Default shells
+	azureLinuxDefaultShell = "/bin/bash"
+	ubuntuDefaultShell     = "/bin/sh"
+
 	// Flag names
 	paramBaseImageCoreEfiAzl2          = "base-image-core-efi-azl2"
 	paramBaseImageCoreEfiAzl3          = "base-image-core-efi-azl3"
@@ -44,13 +48,14 @@ const (
 )
 
 type testBaseImageInfo struct {
-	Name        string
-	Distro      string
-	Version     string
-	Variant     string
-	ParamName   string
-	Param       *string
-	MountPoints []testutils.MountPoint
+	Name         string
+	Distro       string
+	Version      string
+	Variant      string
+	ParamName    string
+	Param        *string
+	MountPoints  []testutils.MountPoint
+	DefaultShell string
 }
 
 var (
@@ -89,63 +94,69 @@ var (
 	}
 
 	testBaseImageAzl2CoreEfi = testBaseImageInfo{
-		Name:        "AzureLinux2CoreEfi",
-		Distro:      baseImageDistroAzureLinux,
-		Version:     baseImageVersionAzl2,
-		Variant:     baseImageAzureLinuxVariantCoreEfi,
-		ParamName:   paramBaseImageCoreEfiAzl2,
-		Param:       baseImageCoreEfiAzl2,
-		MountPoints: azureLinuxCoreEfiMountPoints,
+		Name:         "AzureLinux2CoreEfi",
+		Distro:       baseImageDistroAzureLinux,
+		Version:      baseImageVersionAzl2,
+		Variant:      baseImageAzureLinuxVariantCoreEfi,
+		ParamName:    paramBaseImageCoreEfiAzl2,
+		Param:        baseImageCoreEfiAzl2,
+		MountPoints:  azureLinuxCoreEfiMountPoints,
+		DefaultShell: azureLinuxDefaultShell,
 	}
 
 	testBaseImageAzl3CoreEfi = testBaseImageInfo{
-		Name:        "AzureLinux3CoreEfi",
-		Distro:      baseImageDistroAzureLinux,
-		Version:     baseImageVersionAzl3,
-		Variant:     baseImageAzureLinuxVariantCoreEfi,
-		ParamName:   paramBaseImageCoreEfiAzl3,
-		Param:       baseImageCoreEfiAzl3,
-		MountPoints: azureLinuxCoreEfiMountPoints,
+		Name:         "AzureLinux3CoreEfi",
+		Distro:       baseImageDistroAzureLinux,
+		Version:      baseImageVersionAzl3,
+		Variant:      baseImageAzureLinuxVariantCoreEfi,
+		ParamName:    paramBaseImageCoreEfiAzl3,
+		Param:        baseImageCoreEfiAzl3,
+		MountPoints:  azureLinuxCoreEfiMountPoints,
+		DefaultShell: azureLinuxDefaultShell,
 	}
 
 	testBaseImageAzl2BareMetal = testBaseImageInfo{
-		Name:        "AzureLinux2BareMetal",
-		Distro:      baseImageDistroAzureLinux,
-		Version:     baseImageVersionAzl2,
-		Variant:     baseImageAzureLinuxVariantBareMetal,
-		ParamName:   paramBaseImageBareMetalAzl2,
-		Param:       baseImageBareMetalAzl2,
-		MountPoints: azureLinuxBaremetalMountPoints,
+		Name:         "AzureLinux2BareMetal",
+		Distro:       baseImageDistroAzureLinux,
+		Version:      baseImageVersionAzl2,
+		Variant:      baseImageAzureLinuxVariantBareMetal,
+		ParamName:    paramBaseImageBareMetalAzl2,
+		Param:        baseImageBareMetalAzl2,
+		MountPoints:  azureLinuxBaremetalMountPoints,
+		DefaultShell: azureLinuxDefaultShell,
 	}
 
 	testBaseImageAzl3BareMetal = testBaseImageInfo{
-		Name:        "AzureLinux3BareMetal",
-		Distro:      baseImageDistroAzureLinux,
-		Version:     baseImageVersionAzl3,
-		Variant:     baseImageAzureLinuxVariantBareMetal,
-		ParamName:   paramBaseImageBareMetalAzl3,
-		Param:       baseImageBareMetalAzl3,
-		MountPoints: azureLinuxBaremetalMountPoints,
+		Name:         "AzureLinux3BareMetal",
+		Distro:       baseImageDistroAzureLinux,
+		Version:      baseImageVersionAzl3,
+		Variant:      baseImageAzureLinuxVariantBareMetal,
+		ParamName:    paramBaseImageBareMetalAzl3,
+		Param:        baseImageBareMetalAzl3,
+		MountPoints:  azureLinuxBaremetalMountPoints,
+		DefaultShell: azureLinuxDefaultShell,
 	}
 
 	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
-		Name:        "Ubuntu2204AzureCloud",
-		Distro:      baseImageDistroUbuntu,
-		Version:     baseImageVersionUbuntu2204,
-		Variant:     baseImageVariantUbuntuAzureCloud,
-		ParamName:   paramBaseImageAzureCloudUbuntu2204,
-		Param:       baseImageUbuntuAzureCloud2204,
-		MountPoints: ubuntuAzureCloudMountPoints,
+		Name:         "Ubuntu2204AzureCloud",
+		Distro:       baseImageDistroUbuntu,
+		Version:      baseImageVersionUbuntu2204,
+		Variant:      baseImageVariantUbuntuAzureCloud,
+		ParamName:    paramBaseImageAzureCloudUbuntu2204,
+		Param:        baseImageUbuntuAzureCloud2204,
+		MountPoints:  ubuntuAzureCloudMountPoints,
+		DefaultShell: ubuntuDefaultShell,
 	}
 
 	testBaseImageUbuntu2404AzureCloud = testBaseImageInfo{
-		Name:        "Ubuntu2404AzureCloud",
-		Distro:      baseImageDistroUbuntu,
-		Version:     baseImageVersionUbuntu2404,
-		Variant:     baseImageVariantUbuntuAzureCloud,
-		ParamName:   paramBaseImageAzureCloudUbuntu2404,
-		Param:       baseImageUbuntuAzureCloud2404,
-		MountPoints: ubuntuAzureCloudMountPoints,
+		Name:         "Ubuntu2404AzureCloud",
+		Distro:       baseImageDistroUbuntu,
+		Version:      baseImageVersionUbuntu2404,
+		Variant:      baseImageVariantUbuntuAzureCloud,
+		ParamName:    paramBaseImageAzureCloudUbuntu2404,
+		Param:        baseImageUbuntuAzureCloud2404,
+		MountPoints:  ubuntuAzureCloudMountPoints,
+		DefaultShell: ubuntuDefaultShell,
 	}
 
 	baseImageAzureLinuxAll = []testBaseImageInfo{

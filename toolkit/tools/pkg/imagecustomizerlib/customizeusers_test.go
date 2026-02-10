@@ -112,7 +112,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	test1PasswdEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test1")
 	if assert.NoError(t, err) {
 		assert.Equal(t, "/home/test1", test1PasswdEntry.HomeDirectory)
-		assert.Equal(t, "/bin/bash", test1PasswdEntry.Shell)
+		assert.Equal(t, baseImageInfo.DefaultShell, test1PasswdEntry.Shell)
 	}
 
 	test1UserGroups, err := userutils.GetUserGroups(imageConnection.Chroot().RootDir(), "test1")
