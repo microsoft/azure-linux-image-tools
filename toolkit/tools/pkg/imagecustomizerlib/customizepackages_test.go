@@ -24,7 +24,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesAddOfflineDir")
 	defer os.RemoveAll(testTmpDir)
 
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	downloadedRpmsDir := testutils.GetDownloadedRpmsDir(t, testutilsDir, baseImageInfo.Distro, baseImageInfo.Version,
 		false)
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -154,7 +154,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
 
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, baseImageInfo.Distro,
 		baseImageInfo.Version, withGpgKey, false)
@@ -185,7 +185,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 }
 
 func TestCustomizeImagePackagesUpdate(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUpdate")
 	defer os.RemoveAll(testTmpDir)
@@ -223,7 +223,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesDiskSpace")
 	defer os.RemoveAll(testTmpDir)

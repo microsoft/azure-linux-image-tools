@@ -17,7 +17,7 @@ import (
 )
 
 func TestCustomizeImageOverlays(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageOverlays")
 	defer os.RemoveAll(testTempDir)

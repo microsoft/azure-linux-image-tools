@@ -159,7 +159,7 @@ func checkSkipForCustomizeImage(t *testing.T, baseImage testBaseImageInfo) strin
 	return *baseImage.Param
 }
 
-func checkSkipForCustomizeDefaultImage(t *testing.T) (string, testBaseImageInfo) {
+func checkSkipForCustomizeDefaultAzureLinuxImage(t *testing.T) (string, testBaseImageInfo) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	for _, imageInfo := range defaultAzureLinuxPriorityList {

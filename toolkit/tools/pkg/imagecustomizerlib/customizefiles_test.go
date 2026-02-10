@@ -123,7 +123,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFilesInfiniteFile")
 	defer os.RemoveAll(testTmpDir)
@@ -235,7 +235,7 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsInfiniteFile")
 	defer os.RemoveAll(testTmpDir)

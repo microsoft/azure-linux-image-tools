@@ -254,7 +254,7 @@ func verifySkippableFrameMetadataFromFile(partitionFilepath string, magicNumber 
 func TestCustomizeImageNopShrink(t *testing.T) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
 	defer os.RemoveAll(testTempDir)
@@ -349,7 +349,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageExtractEmptyPartition")
 	defer os.RemoveAll(testTempDir)
@@ -412,7 +412,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 func TestCustomizeImageFstabDelete(t *testing.T) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageFstabDelete")
 	defer os.RemoveAll(testTempDir)

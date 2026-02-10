@@ -140,7 +140,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePartitionsSizeOnly")
 	defer os.RemoveAll(testTmpDir)

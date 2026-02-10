@@ -148,7 +148,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 }
 
 func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserHomeDir")
 	defer os.RemoveAll(testTmpDir)
@@ -174,7 +174,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 }
 
 func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserUid")
 	defer os.RemoveAll(testTmpDir)
@@ -200,7 +200,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 }
 
 func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersMissingSshPublicKeyFile")
 	defer os.RemoveAll(testTmpDir)
@@ -228,7 +228,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 }
 
 func TestCustomizeImageUsersAddFiles(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersAddFiles")
 	defer os.RemoveAll(testTmpDir)
@@ -326,7 +326,7 @@ func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword st
 }
 
 func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserPassword")
 	defer os.RemoveAll(testTmpDir)

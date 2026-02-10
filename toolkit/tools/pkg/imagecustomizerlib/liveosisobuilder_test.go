@@ -659,7 +659,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 // - ISO  {bootstrap}  to ISO {bootstrap}    , with no OS changes
 // - ISO  {bootstrap}  to ISO {full-os}      , with selinux disabled
 func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs1")
 	defer os.RemoveAll(testTempDir)
@@ -720,7 +720,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 // - ISO  {full-os}    to ISO {full-os}      , with selinux disabled
 // - ISO  {full-os}    to ISO {bootstrap}    , with selinux enforcing + bootstrap prereqs
 func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs2")
 	defer os.RemoveAll(testTempDir)
@@ -778,7 +778,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 // Tests:
 // - vhdx {raw} to ISO {full-os}, with selinux enabled -> error
 func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSInitramfs3")
 	defer os.RemoveAll(testTempDir)
@@ -799,7 +799,7 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 // Tests:
 // - vhdx {raw} to PXE {bootstrap}, with selinux enforcing
 func TestCustomizeImageLiveOSPxe1(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("Skipping - PXE bootstrap is not supported for Azure Linux 2")
@@ -828,7 +828,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 // Tests:
 // - vhdx {raw} to PXE {full-os}, with selinux disabled
 func TestCustomizeImageLiveOSPxe2(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSPxe2")
 	defer os.RemoveAll(testTempDir)
@@ -890,7 +890,7 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 }
 
 func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
 	defer os.RemoveAll(testTempDir)

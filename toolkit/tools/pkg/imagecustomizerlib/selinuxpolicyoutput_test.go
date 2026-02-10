@@ -13,7 +13,7 @@ import (
 )
 
 func TestOutputSelinuxPolicy(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputSelinuxPolicy")
 	defer os.RemoveAll(testTempDir)

@@ -174,7 +174,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 }
 
 func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageSELinuxNoPolicy")
 	defer os.RemoveAll(testTmpDir)

@@ -45,7 +45,7 @@ var (
 func TestCustomizeImageEmptyConfig(t *testing.T) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageEmptyConfig")
 	defer os.RemoveAll(testTmpDir)
@@ -66,7 +66,7 @@ func TestCustomizeImageEmptyConfig(t *testing.T) {
 }
 
 func TestCustomizeImageVhd(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageVhd")
 	defer os.RemoveAll(testTmpDir)
@@ -498,7 +498,7 @@ func TestCustomizeImage_InputImageFileSelection(t *testing.T) {
 	config := &imagecustomizerapi.Config{}
 
 	inputImageFileFake := filepath.Join(testTempDir, "doesnotexist.xxx")
-	inputImageFileReal, _ := checkSkipForCustomizeDefaultImage(t)
+	inputImageFileReal, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	inputImageFile := inputImageFileReal
 	rpmSources := []string{}
@@ -550,7 +550,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 	config := &imagecustomizerapi.Config{}
 
 	inputImageFileAbsoluteFake := filepath.Join(testTempDir, "doesnotexist.xxx")
-	inputImageFileReal, _ := checkSkipForCustomizeDefaultImage(t)
+	inputImageFileReal, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	inputImageFileAbsoluteReal, err := filepath.Abs(inputImageFileReal)
 	assert.NoError(t, err)
@@ -669,7 +669,7 @@ func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {
 	buildDir := filepath.Join(testTmpDir, "build")
 	baseConfigPath := testTmpDir
 	config := &imagecustomizerapi.Config{}
-	inputImageFile, _ := checkSkipForCustomizeDefaultImage(t)
+	inputImageFile, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	rpmSources := []string{}
 
 	outputImageFileAsArgument := filepath.Join(testTmpDir, "image-as-arg.vhd")
@@ -720,7 +720,7 @@ func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
 	buildDir := filepath.Join(testTmpDir, "build")
 	baseConfigPath := testTmpDir
 	config := &imagecustomizerapi.Config{}
-	inputImageFile, _ := checkSkipForCustomizeDefaultImage(t)
+	inputImageFile, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	rpmSources := []string{}
 
 	outputImageFileAbsolute := filepath.Join(testTmpDir, "image.vhdx")
@@ -761,7 +761,7 @@ func TestCustomizeImage_OutputImageFileAsRelativePath(t *testing.T) {
 }
 
 func TestCustomizeImage_OutputImageFormatSelection(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImage_OutputImageFormatSelection")
 	defer os.RemoveAll(testTmpDir)
