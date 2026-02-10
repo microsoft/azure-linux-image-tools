@@ -115,13 +115,13 @@ func openOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, oci
 
 	descriptor, err := resolveOciReference(ctx, ociImage, remoteRepo, tag)
 	if err != nil {
-		return nil, ociv1.Descriptor{}, fmt.Errorf("%w:\n%w", ErrOciImageNotFound, err)
+		return nil, ociv1.Descriptor{}, fmt.Errorf("%w for OCI image %q (reference %q):\n%w", ErrOciImageNotFound, ociImage.Uri, tag, err)
 	}
 
 	if signatureCheckOptions != nil {
 		err = checkNotationSignature(ctx, buildDir, remoteRepo, descriptor, *signatureCheckOptions)
 		if err != nil {
-			return nil, ociv1.Descriptor{}, fmt.Errorf("%w:\n%w", ErrOciSignatureCheckFailed, err)
+			return nil, ociv1.Descriptor{}, fmt.Errorf("%w for OCI image %q (reference %q):\n%w", ErrOciSignatureCheckFailed, ociImage.Uri, tag, err)
 		}
 	}
 
