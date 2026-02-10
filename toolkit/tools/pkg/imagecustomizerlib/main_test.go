@@ -79,7 +79,7 @@ var (
 		testBaseImageAzl3BareMetal,
 	}
 
-	defaultBaseImagePriorityList = []testBaseImageInfo{
+	defaultAzureLinuxPriorityList = []testBaseImageInfo{
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
 		testBaseImageAzl2CoreEfi,
@@ -162,12 +162,12 @@ func checkSkipForCustomizeImage(t *testing.T, baseImage testBaseImageInfo) strin
 func checkSkipForCustomizeDefaultImage(t *testing.T) (string, testBaseImageInfo) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	for _, imageInfo := range defaultBaseImagePriorityList {
+	for _, imageInfo := range defaultAzureLinuxPriorityList {
 		if imageInfo.Param != nil && *imageInfo.Param != "" {
 			return *imageInfo.Param, imageInfo
 		}
 	}
 
-	t.Skipf("--%s is required for this test", defaultBaseImagePriorityList[0].ParamName)
+	t.Skipf("--%s is required for this test", defaultAzureLinuxPriorityList[0].ParamName)
 	return "", testBaseImageInfo{}
 }
