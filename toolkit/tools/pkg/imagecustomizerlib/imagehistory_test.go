@@ -2,6 +2,7 @@ package imagecustomizerlib
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,7 +25,15 @@ func createTestConfig(configFilePath string, t *testing.T) imagecustomizerapi.Co
 }
 
 func TestAddImageHistory(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestAddImageHistory")
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testAddImageHistory(t, baseImageInfo)
+		})
+	}
+}
+
+func testAddImageHistory(t *testing.T, baseImageInfo testBaseImageInfo) {
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestAddImageHistory_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	historyDir := filepath.Join(testTmpDir, customizerLoggingDir)
