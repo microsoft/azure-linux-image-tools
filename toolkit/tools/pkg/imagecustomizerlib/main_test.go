@@ -49,7 +49,7 @@ var (
 		},
 	}
 
-	azureLinuxCoreLegacyMountPoints = []testutils.MountPoint{
+	azureLinuxBaremetalMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",

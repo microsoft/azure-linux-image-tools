@@ -267,8 +267,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
-		azureLinuxCoreLegacyMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, azureLinuxBaremetalMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -278,10 +277,10 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, azureLinuxBaremetalMountPoints, partitions)
 	verifyBootGrubCfg(t, imageConnection, "",
-		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
-		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
+		partitions[azureLinuxBaremetalMountPoints[0].PartitionNum],
+		partitions[azureLinuxBaremetalMountPoints[0].PartitionNum],
 		baseImageInfo)
 
 	// Check the partition types.
