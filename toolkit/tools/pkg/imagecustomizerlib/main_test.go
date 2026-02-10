@@ -36,6 +36,27 @@ type testBaseImageInfo struct {
 }
 
 var (
+	azureLinuxCoreEfiMountPoints = []testutils.MountPoint{
+		{
+			PartitionNum:   2,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+	}
+
+	azureLinuxCoreLegacyMountPoints = []testutils.MountPoint{
+		{
+			PartitionNum:   2,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+	}
+
 	testBaseImageAzl2CoreEfi = testBaseImageInfo{
 		Name:      "AzureLinux2CoreEfi",
 		Distro:    baseImageDistroAzureLinux,

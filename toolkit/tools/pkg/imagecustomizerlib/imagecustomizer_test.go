@@ -19,29 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	azureLinuxCoreEfiMountPoints = []testutils.MountPoint{
-		{
-			PartitionNum:   2,
-			Path:           "/",
-			FileSystemType: "ext4",
-		},
-		{
-			PartitionNum:   1,
-			Path:           "/boot/efi",
-			FileSystemType: "vfat",
-		},
-	}
-
-	azureLinuxCoreLegacyMountPoints = []testutils.MountPoint{
-		{
-			PartitionNum:   2,
-			Path:           "/",
-			FileSystemType: "ext4",
-		},
-	}
-)
-
 func TestCustomizeImageEmptyConfig(t *testing.T) {
 	var err error
 
