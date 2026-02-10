@@ -77,6 +77,7 @@ func testCustomizeImageServicesEnableUnknown(t *testing.T, baseImageInfo testBas
 
 	// Customize image.
 	config := imagecustomizerapi.Config{
+		PreviewFeatures: baseImageInfo.PreviewFeatures,
 		OS: &imagecustomizerapi.OS{
 			Services: imagecustomizerapi.Services{
 				Enable: []string{
