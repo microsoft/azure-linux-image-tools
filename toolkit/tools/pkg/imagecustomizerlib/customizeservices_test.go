@@ -53,9 +53,9 @@ func testCustomizeImageServicesEnableDisable(t *testing.T, baseImageInfo testBas
 	assert.NoError(t, err)
 	assert.True(t, consoleGettyEnabled)
 
-	chronydEnabled, err := systemd.IsServiceEnabled("chronyd", imageConnection.Chroot())
+	systemdPstoreEnabled, err := systemd.IsServiceEnabled("systemd-pstore", imageConnection.Chroot())
 	assert.NoError(t, err)
-	assert.False(t, chronydEnabled)
+	assert.False(t, systemdPstoreEnabled)
 }
 
 func TestCustomizeImageServicesEnableUnknown(t *testing.T) {
