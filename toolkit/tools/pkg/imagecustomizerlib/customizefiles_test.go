@@ -77,9 +77,17 @@ func TestCopyAdditionalFiles(t *testing.T) {
 }
 
 func TestCustomizeImageAdditionalFiles(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageAdditionalFiles(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFiles")
+func testCustomizeImageAdditionalFiles(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestAdditionalFiles_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -97,7 +105,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 	checkFileType(t, outImageFilePath, "raw")
 
 	// Connect to customized image.
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
