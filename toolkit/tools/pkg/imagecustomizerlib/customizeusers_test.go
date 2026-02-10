@@ -21,10 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	// Parses the password field in the /etc/shadow file, extracting the rounds count and the salt.
-	shadowPasswordRegexp = regexp.MustCompile(`^\$([a-zA-Z0-9]*)\$((rounds=[0-9]+\$)?[a-zA-Z0-9./]*)\$[a-zA-Z0-9./]*$`)
-)
+// Parses the password field in the /etc/shadow file, extracting the rounds count and the salt.
+var shadowPasswordRegexp = regexp.MustCompile(`^\$([a-zA-Z0-9]*)\$((rounds=[0-9]+\$)?[a-zA-Z0-9./]*)\$[a-zA-Z0-9./]*$`)
 
 func TestCustomizeImageUsers(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
