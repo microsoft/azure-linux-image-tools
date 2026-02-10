@@ -118,7 +118,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	}
 
 	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault &&
-			bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
+		bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
 		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
 		if err != nil {
 			return err
