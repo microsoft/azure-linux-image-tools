@@ -167,7 +167,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 			return nil, err
 		}
 
-		// Ensure build fold dir exists.
+		// Ensure build directory exists.
 		err = os.MkdirAll(rc.BuildDirAbs, os.ModePerm)
 		if err != nil {
 			return nil, err

@@ -34,7 +34,7 @@ var (
 )
 
 // downloadOciImage downloads an OCI image to the local cache directory.
-// buildDir must exist and be a writable directory when an descriptor is not provided but signature check options are.
+// buildDir must exist and be a writable directory when a descriptor is not provided but signature check options are.
 func downloadOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, ociDescriptor *ociv1.Descriptor,
 	buildDir string, imageCacheDir string, signatureCheckOptions *ociSignatureCheckOptions,
 ) (string, error) {
@@ -97,7 +97,7 @@ func validateImageCacheDir(imageCacheDir string) error {
 }
 
 // openOciImage opens the remote OCI repository and optionally resolves and verifies the OCI image artifact.
-// buildDir must exist and be a writable directory when an descriptor is not provided but signature check options are.
+// buildDir must exist and be a writable directory when a descriptor is not provided but signature check options are.
 func openOciImage(ctx context.Context, ociImage imagecustomizerapi.OciImage, ociDescriptor *ociv1.Descriptor,
 	signatureCheckOptions *ociSignatureCheckOptions, buildDir string,
 ) (*remote.Repository, ociv1.Descriptor, error) {
