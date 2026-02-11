@@ -98,7 +98,7 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 }
 
 func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) (imagecustomizerapi.SELinuxMode, error) {
-	if !distroHandler.SupportsSELinux() {
+	if !distroHandler.SELinuxSupported() {
 		return imagecustomizerapi.SELinuxModeDisabled, nil
 	}
 

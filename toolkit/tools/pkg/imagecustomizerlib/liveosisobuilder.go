@@ -223,7 +223,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 		return fmt.Errorf("failed to attach to raw image to inspect selinux status:\n%w", err)
 	}
 
-	if distroHandler.SupportsSELinux() {
+	if distroHandler.SELinuxSupported() {
 		selinuxMode, err := bootCustomizer.GetSELinuxMode(isoBuildDir, rawImageConnection.Chroot())
 		if err != nil {
 			return fmt.Errorf("failed to get selinux mode:\n%w", err)

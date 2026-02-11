@@ -69,6 +69,6 @@ func (d *fedoraDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.Chroo
 	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }
 
-func (d *fedoraDistroHandler) SupportsSELinux() bool {
+func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }

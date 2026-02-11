@@ -50,9 +50,8 @@ type DistroHandler interface {
 	// Get the path to the grub configuration file
 	GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
 
-	// Reports whether the distro uses SELinux for mandatory access control.
-	// Distros that use AppArmor (e.g. Ubuntu) return false.
-	SupportsSELinux() bool
+	// Reports whether SELinux configuration is supported by the tool for this distro.
+	SELinuxSupported() bool
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

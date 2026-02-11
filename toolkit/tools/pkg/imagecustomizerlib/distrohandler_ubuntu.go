@@ -71,6 +71,6 @@ func (d *ubuntuDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.Chroo
 	return filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
 }
 
-func (d *ubuntuDistroHandler) SupportsSELinux() bool {
+func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }

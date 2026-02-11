@@ -31,7 +31,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		return err
 	}
 
-	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault && !distroHandler.SupportsSELinux() {
+	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault && !distroHandler.SELinuxSupported() {
 		return fmt.Errorf("%w: cannot set SELinux mode (%s)", imagecustomizerlib.ErrSELinuxNotSupported,
 			osConfig.SELinux.Mode)
 	}

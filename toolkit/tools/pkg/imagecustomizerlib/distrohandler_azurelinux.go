@@ -71,6 +71,6 @@ func (d *azureLinuxDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.C
 	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }
 
-func (d *azureLinuxDistroHandler) SupportsSELinux() bool {
+func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
 }
