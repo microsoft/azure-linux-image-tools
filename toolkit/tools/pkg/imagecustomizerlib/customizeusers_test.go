@@ -37,7 +37,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestUsers_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsers_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")

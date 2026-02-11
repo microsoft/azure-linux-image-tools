@@ -33,8 +33,13 @@ func testCustomizeImageGroupsExistingGid(t *testing.T, baseImageInfo testBaseIma
 	configFile := filepath.Join(testDir, "user-group-root-gid.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outImageFilePath,
+		OutputImageFormat: "raw",
+		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+	})
 	assert.ErrorContains(t, err, "cannot set GID on a group that already exists (GID='42', group='root')")
 }
 
@@ -57,8 +62,13 @@ func testCustomizeImageGroupsNewGid(t *testing.T, baseImageInfo testBaseImageInf
 	configFile := filepath.Join(testDir, "user-group-new-gid.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outImageFilePath,
+		OutputImageFormat: "raw",
+		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -100,8 +110,13 @@ func testCustomizeImageGroupsNew(t *testing.T, baseImageInfo testBaseImageInfo) 
 	configFile := filepath.Join(testDir, "user-group-new.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outImageFilePath,
+		OutputImageFormat: "raw",
+		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}

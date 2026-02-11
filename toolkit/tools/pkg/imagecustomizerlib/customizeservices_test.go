@@ -34,8 +34,14 @@ func testCustomizeImageServicesEnableDisable(t *testing.T, baseImageInfo testBas
 
 	// Customize image.
 	configFile := filepath.Join(testDir, "services-config.yaml")
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
