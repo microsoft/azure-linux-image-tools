@@ -68,11 +68,9 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 			return err
 		}
 
-		if distroHandler.SupportsSELinux() {
-			currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(rc.BuildDirAbs, imageConnection.Chroot())
-			if err != nil {
-				return fmt.Errorf("%w:\n%w", ErrBootloaderSelinuxModeGet, err)
-			}
+		currentSelinuxMode, err = bootCustomizer.GetSELinuxMode(rc.BuildDirAbs, imageConnection.Chroot())
+		if err != nil {
+			return fmt.Errorf("%w:\n%w", ErrBootloaderSelinuxModeGet, err)
 		}
 	}
 
