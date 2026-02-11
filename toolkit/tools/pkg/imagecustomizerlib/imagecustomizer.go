@@ -272,7 +272,7 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
 
 		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
-			rc.RawImageFile, im.verityMetadata, rc.Config.PreviewFeatures)
+			rc.RawImageFile, im.verityMetadata, rc.PreviewFeatures)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
 		}
@@ -502,7 +502,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	}
 
 	if len(baseImageVerityMetadata) > 0 {
-		previewFeatureEnabled := slices.Contains(rc.Config.PreviewFeatures,
+		previewFeatureEnabled := slices.Contains(rc.PreviewFeatures,
 			imagecustomizerapi.PreviewFeatureReinitializeVerity)
 		if !previewFeatureEnabled {
 			return im, ErrVerityPreviewFeatureRequired
@@ -934,7 +934,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 	}
 
 	// Validate distro-specific preview features
-	err = validateDistroPreviewFeatures(targetOs, rc.Config.PreviewFeatures)
+	err = validateDistroPreviewFeatures(targetOs, rc.PreviewFeatures)
 	if err != nil {
 		return targetOs, err
 	}

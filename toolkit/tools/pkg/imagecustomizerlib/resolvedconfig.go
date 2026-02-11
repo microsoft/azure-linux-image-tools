@@ -19,6 +19,9 @@ type ResolvedConfig struct {
 	Options               ImageCustomizerOptions
 	CustomizeOSPartitions bool
 
+	// Preview features (merged from config and options)
+	PreviewFeatures []imagecustomizerapi.PreviewFeature
+
 	// UUID
 	ImageUuid    [randomization.UuidSize]byte
 	ImageUuidStr string

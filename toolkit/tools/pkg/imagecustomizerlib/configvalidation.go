@@ -63,12 +63,16 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
+	// The config will be invalid in the event of a missing preview feature, despite options containing it.
 	err = config.IsValid()
 	if err != nil {
 		return nil, err
 	}
 
-	err = options.verifyPreviewFeatures(config.PreviewFeatures)
+	rc.PreviewFeatures = append(rc.PreviewFeatures, config.PreviewFeatures...)
+	rc.PreviewFeatures = append(rc.PreviewFeatures, options.PreviewFeatures...)
+
+	err = options.verifyPreviewFeatures(rc.PreviewFeatures)
 	if err != nil {
 		return nil, err
 	}
