@@ -8,10 +8,12 @@
 #
 #     ACCOUNT: Name of an Azure Storage Account.
 #     CONTAINER: Name of a container in the Azure Storage Account.
-#     IMAGE_NAME: Name of the image.
-#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.<vhdx|vhd>" within the blob container.
-#       IMAGE_NAME typically has the format "<DISTRO>/<IMAGE-TYPE>".
+#     IMAGE_NAME: Image path prefix (i.e. "<DISTRO>/<IMAGE-TYPE>").
+#       Image files are expected to be stored at <IMAGE_NAME>/<VERSION>/image.<vhdx|vhd|tar.gz> in <CONTAINER>.
 #       For example, "azure-linux/core-efi-vhdx-3.0-amd64/3.0.20250702/image.vhdx".
+#       The lexicographically latest <VERSION> will be downloaded.
+#       .tar.gz archives are transparently extracted and deleted. It is expected to contain a singe file.
+#       For example, "image.vhd.tar.gz" should extract to "image.vhd".
 #     OUTPUT_DIR: The directory to output files to.
 
 set -eu
@@ -35,7 +37,7 @@ LATEST_IMAGE=$(
     jq \
     -r \
     --arg image "$IMAGE_NAME" \
-    '[.[].name | select(endswith("/image.vhdx") or endswith("/image.vhd"))] | sort | last' \
+    '[.[].name | select(endswith("/image.vhdx") or endswith("/image.vhd") or endswith("/image.vhd.tar.gz"))] | sort | last' \
     <<< "$CONTAINERS_JSON" \
 )
 
@@ -50,3 +52,8 @@ az storage blob download \
     --name "$LATEST_IMAGE" \
     --file "$OUTPUT_DIR/$FILENAME" \
     --output none
+
+if [[ "$FILENAME" == *.tar.gz ]]; then
+    tar -xzf "$OUTPUT_DIR/$FILENAME" -C "$OUTPUT_DIR"
+    rm "$OUTPUT_DIR/$FILENAME"
+fi
