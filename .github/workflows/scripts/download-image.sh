@@ -8,12 +8,13 @@
 #
 #     ACCOUNT: Name of an Azure Storage Account.
 #     CONTAINER: Name of a container in the Azure Storage Account.
-#     IMAGE_NAME: Image path prefix (i.e. "<DISTRO>/<IMAGE-TYPE>").
-#       Image files are expected to be stored at <IMAGE_NAME>/<VERSION>/image.<vhdx|vhd|tar.gz> in <CONTAINER>.
+#     IMAGE_NAME: Name of the image.
+#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.<vhd|vhdx|vhd.tar.gz>"
+#       within the blob container.
+#       IMAGE_NAME typically has the format "<DISTRO>/<IMAGE-TYPE>".
+#       .vhd.tar.gz files will be extracted and converted to .vhdx after download for space efficiency,
+#       as they are assumed to be in fixed VHD format.
 #       For example, "azure-linux/core-efi-vhdx-3.0-amd64/3.0.20250702/image.vhdx".
-#       The lexicographically latest <VERSION> will be downloaded.
-#       .tar.gz archives are transparently extracted and deleted. It is expected to contain a singe file.
-#       For example, "image.vhd.tar.gz" should extract to "image.vhd".
 #     OUTPUT_DIR: The directory to output files to.
 
 set -eu
@@ -53,7 +54,8 @@ az storage blob download \
     --file "$OUTPUT_DIR/$FILENAME" \
     --output none
 
-if [[ "$FILENAME" == *.tar.gz ]]; then
+if [[ "$FILENAME" == *.vhd.tar.gz ]]; then
     tar -xzf "$OUTPUT_DIR/$FILENAME" -C "$OUTPUT_DIR"
     rm "$OUTPUT_DIR/$FILENAME"
+    qemu-img convert -O vhdx "$OUTPUT_DIR/image.vhd" "$OUTPUT_DIR/image.vhdx"
 fi
