@@ -40,15 +40,6 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 	)
 	defer span.End()
 
-	if !distroHandler.SELinuxSupported() {
-		if selinuxMode != imagecustomizerapi.SELinuxModeDefault {
-			return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("%w: cannot set SELinux mode (%s)",
-				ErrSELinuxNotSupported, selinuxMode)
-		}
-
-		return imagecustomizerapi.SELinuxModeDisabled, nil
-	}
-
 	bootCustomizer, err := NewBootCustomizer(imageChroot, uki, buildDir, distroHandler)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
@@ -63,6 +54,11 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		}
 
 		return currentSELinuxMode, nil
+	}
+
+	if !distroHandler.SELinuxSupported() {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("%w: cannot set SELinux mode (%s)",
+			ErrSELinuxNotSupported, selinuxMode)
 	}
 
 	logger.Log.Infof("Configuring SELinux mode")

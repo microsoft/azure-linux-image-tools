@@ -184,11 +184,10 @@ func GetDefaultGrubFileLinuxArgs(defaultGrubFileContent string, varName defaultG
 //   - defaultGrubFileContent: The content of the /etc/default/grub file
 //
 // Returns:
-//   - args: The merged list of kernel command-line args from all found variables
-//   - error: Error if parsing fails or no variables are found
+//   - args: The merged list of kernel command-line args from all found variables.
+//     If neither variable exists, an empty list is returned.
 func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string) ([]grubConfigLinuxArg, error) {
 	var allArgs []grubConfigLinuxArg
-	var foundAny bool
 
 	// Check both standard GRUB variables in order of preference from low to high
 	varNames := []defaultGrubFileVarName{
@@ -205,12 +204,6 @@ func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string) 
 
 		// Merge the args from this variable
 		allArgs = append(allArgs, args...)
-		foundAny = true
-	}
-
-	if !foundAny {
-		return nil, fmt.Errorf("failed to find any of the specified GRUB variables in %s: %v",
-			installutils.GrubDefFile, varNames)
 	}
 
 	return allArgs, nil
