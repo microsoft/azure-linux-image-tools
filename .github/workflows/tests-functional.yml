@@ -93,8 +93,8 @@ jobs:
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "ubuntu/azure-cloud-2204-$HOST_ARCH" ubuntu-2204
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "ubuntu/azure-cloud-2404-$HOST_ARCH" ubuntu-2404
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu-22.04
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu-24.04
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -120,8 +120,8 @@ jobs:
 
         AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
         AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
-        UBUNTU2204_VHD="../../../ubuntu-2204/image.vhd"
-        UBUNTU2404_VHD="../../../ubuntu-2404/image.vhd"
+        UBUNTU2204_VHD="../../../ubuntu-22.04/image.vhd"
+        UBUNTU2404_VHD="../../../ubuntu-24.04/image.vhd"
 
         FAILED=0
 
