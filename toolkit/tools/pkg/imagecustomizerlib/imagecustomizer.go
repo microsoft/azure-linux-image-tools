@@ -42,6 +42,7 @@ var (
 	ErrFedora42PreviewFeatureRequired   = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
 	ErrUbuntu2204PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2204PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 22.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2204))
 	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
+	ErrUbuntuBootLoaderHardReset        = NewImageCustomizerError("Validation:UbuntuBootLoaderHardReset", "bootloader hard-reset is not supported for Ubuntu images")
 	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
 	ErrConvertUnsupportedInputFormat    = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")
 	ErrConvertBuildDirRequired          = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for cosi and baremetal-image output formats")
@@ -937,6 +938,13 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 	err = validateDistroPreviewFeatures(targetOs, rc.PreviewFeatures)
 	if err != nil {
 		return targetOs, err
+	}
+
+	// Check if Ubuntu is being used with bootloader hard-reset.
+	// Ubuntu bootloader config logic is not yet fully implemented.
+	if (targetOs == targetos.TargetOsUbuntu2204 || targetOs == targetos.TargetOsUbuntu2404) &&
+		rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
+		return targetOs, ErrUbuntuBootLoaderHardReset
 	}
 
 	// Check if Fedora 42 is being used and if package snapshot time is specified
