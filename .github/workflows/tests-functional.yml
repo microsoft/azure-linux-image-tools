@@ -111,7 +111,8 @@ jobs:
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
-    - name: Test setup
+    - name: Download test utils (AZL3)
+      if: inputs.hostDistro == 'azl3'
       run: |
         set -eux
 
