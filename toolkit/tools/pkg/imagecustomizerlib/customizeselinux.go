@@ -40,7 +40,7 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 	)
 	defer span.End()
 
-	if !distroHandler.SupportsSELinux() {
+	if !distroHandler.SELinuxSupported() {
 		if selinuxMode != imagecustomizerapi.SELinuxModeDefault {
 			return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("%w: cannot set SELinux mode (%s)",
 				ErrSELinuxNotSupported, selinuxMode)
