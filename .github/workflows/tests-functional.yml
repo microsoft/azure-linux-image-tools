@@ -121,8 +121,6 @@ jobs:
         # Download the test RPM files.
         ./internal/testutils/testrpms/download-test-utils.sh -t 3.0 -d azurelinux
 
-        mkdir -p out/testResults
-
     - name: Run tests
       run: |
         set -euxo pipefail
@@ -145,6 +143,8 @@ jobs:
         fi
 
         FAILED=0
+
+        mkdir -p out/testResults
 
         sudo env "PATH=$PATH" go test -v \
           -coverprofile=out/testResults/api.cov -covermode count \
