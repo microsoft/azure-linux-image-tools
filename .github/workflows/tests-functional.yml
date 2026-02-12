@@ -68,7 +68,7 @@ jobs:
     - name: Install prerequisites (Ubuntu 24.04)
       if: inputs.hostDistro == 'ubuntu2404'
       run: |
-        set -eux
+        set -euxo pipefail
 
         # Install Image Customizer prerequisities.
         sudo apt list --installed
