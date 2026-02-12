@@ -57,5 +57,13 @@ az storage blob download \
 if [[ "$FILENAME" == *.vhd.tar.gz ]]; then
     tar -xzf "$OUTPUT_DIR/$FILENAME" -C "$OUTPUT_DIR"
     rm "$OUTPUT_DIR/$FILENAME"
-    qemu-img convert -O vhdx "$OUTPUT_DIR/image.vhd" "$OUTPUT_DIR/image.vhdx"
+
+    # qemu-img detects fixed VHDs as "raw" format, so it must be told to use the VPC driver.
+    # Without this, the 512-byte VHD footer ("conectix") is included as disk data.
+    qemu-img convert \
+        --image-opts "file.filename=$OUTPUT_DIR/image.vhd,driver=vpc,force_size_calc=current_size" \
+        -O vhdx \
+        "$OUTPUT_DIR/image.vhdx"
+
+    rm "$OUTPUT_DIR/image.vhd"
 fi
