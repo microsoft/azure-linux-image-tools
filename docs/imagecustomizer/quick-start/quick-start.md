@@ -144,5 +144,6 @@ run-container.sh \
 ## Next Steps
 
 - Learn how to [deploy the customized image as an Azure VM](../how-to/azure-vm/azure-vm.md)
+- Learn how to [create a new image from scratch](quick-start-create.md)
 - Learn more about the [Image Customizer command line](../api/cli/cli.md)
 - Learn more about the [Image Customizer config options](../api/configuration/configuration.md)
