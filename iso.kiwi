@@ -61,7 +61,7 @@
     <packages type="image" patternType="plusRecommended" profiles="BaseCommon">
         <package name="abrt-cli"/>
         <package name="acl"/>
-        <package name="amd-ucode-firmware"/>
+        <package name="amd-ucode-firmware" arch="x86_64"/>
         <package name="at"/>
         <package name="attr"/>
         <package name="bash-color-prompt"/>
@@ -95,9 +95,9 @@
         <package name="lsof"/>
         <package name="mailcap"/>
         <package name="man-pages"/>
-        <package name="mcelog"/>
+        <package name="mcelog" arch="x86_64"/>
         <package name="mdadm"/>
-        <package name="microcode_ctl"/>
+        <package name="microcode_ctl" arch="x86_64"/>
         <package name="mtr"/>
         <package name="net-tools"/>
         <package name="nfs-utils"/>
