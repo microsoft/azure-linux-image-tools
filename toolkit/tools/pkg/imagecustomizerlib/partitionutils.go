@@ -746,7 +746,7 @@ func getUkiFiles(espPath string) ([]string, error) {
 		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
 	}
 
-	logger.Log.Infof("Found %d UKI files matching pattern", len(ukiFiles))
+	logger.Log.Debugf("Found %d UKI files matching pattern", len(ukiFiles))
 	return ukiFiles, nil
 }
 
