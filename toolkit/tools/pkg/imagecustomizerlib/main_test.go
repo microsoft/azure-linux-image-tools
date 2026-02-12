@@ -74,7 +74,7 @@ var (
 		},
 	}
 
-	azureLinuxBaremetalMountPoints = []testutils.MountPoint{
+	azureLinuxCoreLegacyMountPoints = []testutils.MountPoint{
 		{
 			PartitionNum:   2,
 			Path:           "/",
@@ -124,7 +124,7 @@ var (
 		Variant:      baseImageAzureLinuxVariantBareMetal,
 		ParamName:    paramBaseImageBareMetalAzl2,
 		Param:        baseImageBareMetalAzl2,
-		MountPoints:  azureLinuxBaremetalMountPoints,
+		MountPoints:  azureLinuxCoreLegacyMountPoints,
 		DefaultShell: azureLinuxDefaultShell,
 	}
 
@@ -135,7 +135,7 @@ var (
 		Variant:      baseImageAzureLinuxVariantBareMetal,
 		ParamName:    paramBaseImageBareMetalAzl3,
 		Param:        baseImageBareMetalAzl3,
-		MountPoints:  azureLinuxBaremetalMountPoints,
+		MountPoints:  azureLinuxCoreLegacyMountPoints,
 		DefaultShell: azureLinuxDefaultShell,
 	}
 
