@@ -125,15 +125,24 @@ jobs:
 
     - name: Run tests
       run: |
-        set -eux
-        set -o pipefail
+        set -euxo pipefail
 
         pushd repo/toolkit/tools
 
-        AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
-        AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
-        UBUNTU2204_VHD="../../../ubuntu-22.04/image.vhd"
-        UBUNTU2404_VHD="../../../ubuntu-24.04/image.vhd"
+        if [[ "$HOST_DISTRO" == "azl3" ]]; then
+          BASE_IMAGE_ARGS=( \
+            --base-image-core-efi-azl2 "../../azl-core-efi-2.0/image.vhdx" \
+            --base-image-core-efi-azl3 "../../azl-core-efi-3.0/image.vhdx" \
+          )
+        elif [[ "$HOST_DISTRO" == "ubuntu2404" ]]; then
+          BASE_IMAGE_ARGS=( \
+            --base-image-azure-cloud-ubuntu2204 "../../ubuntu-22.04/image.vhdx" \
+            --base-image-azure-cloud-ubuntu2404 "../../ubuntu-24.04/image.vhdx" \
+          )
+        else
+          echo "ERROR: unsupported hostDistro: $HOST_DISTRO" >&2
+          exit 1
+        fi
 
         FAILED=0
 
@@ -149,15 +158,14 @@ jobs:
           -timeout 120m \
           ./pkg/imagecustomizerlib \
           -args \
-          --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
-          --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
-          --base-image-azure-cloud-ubuntu2204 "../../$UBUNTU2204_VHD" \
-          --base-image-azure-cloud-ubuntu2404 "../../$UBUNTU2404_VHD" \
+          "${BASE_IMAGE_ARGS[@]}" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))
 
         exit $FAILED
+      env:
+        HOST_DISTRO: ${{ inputs.hostDistro }}
 
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
