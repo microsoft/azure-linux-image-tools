@@ -1,4 +1,4 @@
-This is a Go based repository with tools for os image creation and customization. The repo includes 3 main tools: imagecustomizer, osmodifier (aka EMU) and imagecreator. Please follow these guidelines when contributing:
+This is a Go based repository with tools for os image creation and customization. The repo includes 2 main tools: imagecustomizer and osmodifier (aka EMU). Please follow these guidelines when contributing:
 
 ## Code Standards
 
