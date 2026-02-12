@@ -2,7 +2,7 @@
 title: customize
 parent: Command line
 ancestor: Image Customizer
-nav_order: 2
+nav_order: 3
 ---
 
 # customize subcommand

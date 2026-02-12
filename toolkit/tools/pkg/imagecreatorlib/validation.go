@@ -86,7 +86,10 @@ func validateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	}
 
 	// TODO: Validate for distro and release
-	rc, err := imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config, true,
+	rc, err := imagecustomizerlib.ValidateConfig(ctx, baseConfigPath, config, true, false,
+		imagecustomizerapi.ValidateResourceTypes{
+			imagecustomizerapi.ValidateResourceTypeAll,
+		},
 		imagecustomizerlib.ImageCustomizerOptions{
 			RpmsSources:         rpmsSources,
 			OutputImageFile:     outputImageFile,

@@ -65,14 +65,21 @@ type ConvertCmd struct {
 	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 }
 
+type ValidateConfigCmd struct {
+	BuildDir          string   `name:"build-dir" help:"Directory to store temporary files. Required when --validate-resources includes 'oci' or 'all'."`
+	ConfigFile        string   `name:"config-file" help:"Path of the image customization config file." required:""`
+	ValidateResources []string `name:"validate-resources" sep:"," placeholder:"(files|oci|all)" help:"Validate resources referenced in the config file." enum:"${validateresources}"`
+}
+
 type RootCmd struct {
-	Create           CreateCmd        `name:"create" cmd:"" help:"Creates a new Azure Linux image from scratch."`
-	Customize        CustomizeCmd     `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
-	InjectFiles      InjectFilesCmd   `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
-	Convert          ConvertCmd       `name:"convert" cmd:"" help:"Converts an image from one format to another."`
-	Version          kong.VersionFlag `name:"version" help:"Print version information and quit"`
-	TimeStampFile    string           `name:"timestamp-file" help:"File that stores timestamps for this program."`
-	DisableTelemetry bool             `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
+	Create           CreateCmd         `name:"create" cmd:"" help:"Creates a new Azure Linux image from scratch."`
+	Customize        CustomizeCmd      `name:"customize" cmd:"" default:"withargs" help:"Customizes a pre-built Azure Linux image."`
+	InjectFiles      InjectFilesCmd    `name:"inject-files" cmd:"" help:"Injects files into a partition based on an inject-files.yaml file."`
+	Convert          ConvertCmd        `name:"convert" cmd:"" help:"Converts an image from one format to another."`
+	ValidateConfig   ValidateConfigCmd `name:"validate-config" cmd:"" help:"Validates an image customization config file."`
+	Version          kong.VersionFlag  `name:"version" help:"Print version information and quit"`
+	TimeStampFile    string            `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	DisableTelemetry bool              `name:"disable-telemetry" help:"Disable telemetry collection of the tool."`
 	exekong.LogFlags
 }
 
@@ -85,6 +92,7 @@ func main() {
 		"imageformat":        strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ",") + ",",
 		"imageformatcreate":  strings.Join(imagecustomizerapi.SupportedImageFormatTypesImageCreator(), ",") + ",",
 		"imageformatconvert": strings.Join(imagecustomizerapi.SupportedImageFormatTypesConvert(), ",") + ",",
+		"validateresources":  strings.Join(imagecustomizerapi.SupportedValidateResourceTypes(), ",") + ",",
 		"version":            imagecustomizerlib.ToolVersion,
 	}
 	maps.Copy(vars, exekong.KongVars)
@@ -138,13 +146,19 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 	case "inject-files":
 		err = injectFiles(ctx, cli.InjectFiles)
 		if err != nil {
-			return fmt.Errorf("inject-files failed:\n%w", err)
+			return fmt.Errorf("file injection failed:\n%w", err)
 		}
 
 	case "convert":
 		err = convertImage(ctx, cli.Convert)
 		if err != nil {
 			return fmt.Errorf("image conversion failed:\n%w", err)
+		}
+
+	case "validate-config":
+		err = validateConfig(ctx, cli.ValidateConfig)
+		if err != nil {
+			return fmt.Errorf("config validation failed:\n%w", err)
 		}
 
 	default:
@@ -212,6 +226,25 @@ func createImage(ctx context.Context, cmd CreateCmd) error {
 	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
 		cmd.ToolsTar, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.Distro, cmd.DistroVersion,
 		cmd.PackageSnapshotTime)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateConfig(ctx context.Context, cmd ValidateConfigCmd) error {
+	// Convert []string to ValidateResourceTypes
+	validateResources := make(imagecustomizerapi.ValidateResourceTypes, len(cmd.ValidateResources))
+	for i, r := range cmd.ValidateResources {
+		validateResources[i] = imagecustomizerapi.ValidateResourceType(r)
+	}
+
+	err := imagecustomizerlib.ValidateConfigWithConfigFileOptions(ctx, cmd.ConfigFile,
+		imagecustomizerlib.ValidateConfigOptions{
+			BuildDir:          cmd.BuildDir,
+			ValidateResources: validateResources,
+		})
 	if err != nil {
 		return err
 	}

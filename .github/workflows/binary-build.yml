@@ -122,7 +122,9 @@ jobs:
       run: |
         set -eux
 
-        curl -sSL https://github.com/zizmorcore/zizmor/releases/download/v1.12.1/zizmor-x86_64-unknown-linux-gnu.tar.gz -o zizmor-x86_64-unknown-linux-gnu.tar.gz
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          curl -sSLo zizmor-x86_64-unknown-linux-gnu.tar.gz \
+            https://github.com/zizmorcore/zizmor/releases/download/v1.12.1/zizmor-x86_64-unknown-linux-gnu.tar.gz
 
         tarHash="$(sha256sum zizmor-x86_64-unknown-linux-gnu.tar.gz | cut -d ' ' -f 1)"
         if [ "$tarHash" != "d73cd379078cae18d5439ce1f8716d30de5a4d2d29cac62cfbe01e6a8251fe0e" ]; then
