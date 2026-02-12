@@ -131,13 +131,13 @@ jobs:
 
         if [[ "$HOST_DISTRO" == "azl3" ]]; then
           BASE_IMAGE_ARGS=( \
-            --base-image-core-efi-azl2 "../../azl-core-efi-2.0/image.vhdx" \
-            --base-image-core-efi-azl3 "../../azl-core-efi-3.0/image.vhdx" \
+            --base-image-core-efi-azl2 "../../../../../azl-core-efi-2.0/image.vhdx" \
+            --base-image-core-efi-azl3 "../../../../../azl-core-efi-3.0/image.vhdx" \
           )
         elif [[ "$HOST_DISTRO" == "ubuntu2404" ]]; then
           BASE_IMAGE_ARGS=( \
-            --base-image-azure-cloud-ubuntu2204 "../../ubuntu-22.04/image.vhdx" \
-            --base-image-azure-cloud-ubuntu2404 "../../ubuntu-24.04/image.vhdx" \
+            --base-image-azure-cloud-ubuntu2204 "../../../../../ubuntu-22.04/image.vhdx" \
+            --base-image-azure-cloud-ubuntu2404 "../../../../../ubuntu-24.04/image.vhdx" \
           )
         else
           echo "ERROR: unsupported hostDistro: $HOST_DISTRO" >&2
