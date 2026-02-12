@@ -91,11 +91,22 @@ jobs:
       run: |
         set -eux
 
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu-22.04
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu-24.04
+        if [[ "$HOST_DISTRO" == "azl3" ]]; then
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        elif [[ "$HOST_DISTRO" == "ubuntu2404" ]]; then
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu-22.04
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu-24.04
+        else
+          echo "ERROR: unsupported hostDistro: $HOST_DISTRO" >&2
+          exit 1
+        fi
       env:
+        HOST_DISTRO: ${{ inputs.hostDistro }}
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
