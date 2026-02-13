@@ -65,8 +65,8 @@ sudo go test -C ./toolkit/tools ./...
    sudo go test -C ./toolkit/tools ./pkg/imagecustomizerlib -args \
      --base-image-core-efi-azl2 "$AZURE_LINUX_2_CORE_EFI_VHDX" \
      --base-image-core-efi-azl3 "$AZURE_LINUX_3_CORE_EFI_VHDX" \
-     --base-image-core-legacy-azl2 "$AZURE_LINUX_2_CORE_LEGACY_VHD" \
-     --base-image-core-legacy-azl3 "$AZURE_LINUX_3_CORE_LEGACY_VHD" \
+     --base-image-bare-metal-azl2 "$AZURE_LINUX_2_CORE_LEGACY_VHD" \
+     --base-image-bare-metal-azl3 "$AZURE_LINUX_3_CORE_LEGACY_VHD" \
      --base-image-azure-cloud-ubuntu2204 "$UBUNTU_2204_AZURE_CLOUD_VHD" \
      --base-image-azure-cloud-ubuntu2404 "$UBUNTU_2404_AZURE_CLOUD_VHD"
    ```
