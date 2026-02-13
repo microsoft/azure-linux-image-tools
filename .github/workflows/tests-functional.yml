@@ -139,10 +139,10 @@ jobs:
           -timeout 120m \
           ./pkg/imagecustomizerlib \
           -args \
-          --base-image-azl2-core-efi "../../$AZL2_CORE_EFI_VHDX" \
-          --base-image-azl3-core-efi "../../$AZL3_CORE_EFI_VHDX" \
-          --base-image-ubuntu22.04-azure-cloud "../../$UBUNTU2204_AZURE_CLOUD_VHDX" \
-          --base-image-ubuntu2404-azure-cloud "../../$UBUNTU2404_AZURE_CLOUD_VHDX" \
+          --base-image-core-efi-azl2 "../../$AZL2_CORE_EFI_VHDX" \
+          --base-image-core-efi-azl3 "../../$AZL3_CORE_EFI_VHDX" \
+          --base-image-azure-cloud-ubuntu2204 "../../$UBUNTU2204_AZURE_CLOUD_VHDX" \
+          --base-image-azure-cloud-ubuntu2404 "../../$UBUNTU2404_AZURE_CLOUD_VHDX" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))

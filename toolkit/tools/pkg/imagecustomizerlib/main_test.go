@@ -39,12 +39,12 @@ const (
 	ubuntuDefaultShell     = "/bin/sh"
 
 	// Flag names
-	paramBaseImageAzl2CoreEfi          = "base-image-azl2-core-efi"
-	paramBaseImageAzl3CoreEfi          = "base-image-azl3-core-efi"
-	paramBaseImageAzl2BareMetal        = "base-image-azl2-bare-metal"
-	paramBaseImageAzl3BareMetal        = "base-image-azl3-bare-metal"
-	paramBaseImageUbuntu2204AzureCloud = "base-image-ubuntu2204-azure-cloud"
-	paramBaseImageUbuntu2404AzureCloud = "base-image-ubuntu2404-azure-cloud"
+	paramBaseImageAzl2CoreEfi          = "base-image-core-efi-azl2"
+	paramBaseImageAzl3CoreEfi          = "base-image-core-efi-azl3"
+	paramBaseImageAzl2BareMetal        = "base-image-bare-metal-azl2"
+	paramBaseImageAzl3BareMetal        = "base-image-bare-metal-azl3"
+	paramBaseImageUbuntu2204AzureCloud = "base-image-azure-cloud-ubuntu2204"
+	paramBaseImageUbuntu2404AzureCloud = "base-image-azure-cloud-ubuntu2404"
 	paramLogLevel                      = "log-level"
 )
 

@@ -63,12 +63,12 @@ sudo go test -C ./toolkit/tools ./...
    UBUNTU_2404_AZURE_CLOUD_VHD="<ubuntu-24.04-azure-cloud.vhd>"
 
    sudo go test -C ./toolkit/tools ./pkg/imagecustomizerlib -args \
-     --base-image-azl2-core-efi "$AZURE_LINUX_2_CORE_EFI_VHDX" \
-     --base-image-azl3-core-efi "$AZURE_LINUX_3_CORE_EFI_VHDX" \
-     --base-image-azl2-bare-metal "$AZURE_LINUX_2_CORE_LEGACY_VHD" \
-     --base-image-azl3-bare-metal "$AZURE_LINUX_3_CORE_LEGACY_VHD" \
-     --base-image-ubuntu2204-azure-cloud "$UBUNTU_2204_AZURE_CLOUD_VHD" \
-     --base-image-ubuntu2404-azure-cloud "$UBUNTU_2404_AZURE_CLOUD_VHD"
+     --base-image-core-efi-azl2 "$AZURE_LINUX_2_CORE_EFI_VHDX" \
+     --base-image-core-efi-azl3 "$AZURE_LINUX_3_CORE_EFI_VHDX" \
+     --base-image-bare-metal-azl2 "$AZURE_LINUX_2_CORE_LEGACY_VHD" \
+     --base-image-bare-metal-azl3 "$AZURE_LINUX_3_CORE_LEGACY_VHD" \
+     --base-image-azure-cloud-ubuntu2204 "$UBUNTU_2204_AZURE_CLOUD_VHD" \
+     --base-image-azure-cloud-ubuntu2404 "$UBUNTU_2404_AZURE_CLOUD_VHD"
    ```
 
 4. To update go dependencies (direct and indirect) to minor or patch versions,
