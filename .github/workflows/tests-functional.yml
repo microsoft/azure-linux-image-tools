@@ -91,22 +91,15 @@ jobs:
       run: |
         set -eux
 
-        if [[ "$HOST_DISTRO" == "azl3" ]]; then
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
-        elif [[ "$HOST_DISTRO" == "ubuntu2404" ]]; then
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu-22.04
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu-24.04
-        else
-          echo "ERROR: unsupported hostDistro: $HOST_DISTRO" >&2
-          exit 1
-        fi
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl2-core-efi
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl3-core-efi
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu22.04-azure-cloud
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu24.04-azure-cloud
       env:
-        HOST_DISTRO: ${{ inputs.hostDistro }}
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
@@ -119,7 +112,7 @@ jobs:
         pushd repo/toolkit/tools
 
         # Download the test RPM files.
-        ./internal/testutils/testrpms/download-test-utils.sh -t 3.0 -d azurelinux
+        ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0
 
     - name: Run tests
       run: |
@@ -127,24 +120,12 @@ jobs:
 
         pushd repo/toolkit/tools
 
-        if [[ "$HOST_DISTRO" == "azl3" ]]; then
-          BASE_IMAGE_ARGS=( \
-            --base-image-core-efi-azl2 "../../../../../azl-core-efi-2.0/image.vhdx" \
-            --base-image-core-efi-azl3 "../../../../../azl-core-efi-3.0/image.vhdx" \
-          )
-        elif [[ "$HOST_DISTRO" == "ubuntu2404" ]]; then
-          BASE_IMAGE_ARGS=( \
-            --base-image-azure-cloud-ubuntu2204 "../../../../../ubuntu-22.04/image.vhdx" \
-            --base-image-azure-cloud-ubuntu2404 "../../../../../ubuntu-24.04/image.vhdx" \
-          )
-        else
-          echo "ERROR: unsupported hostDistro: $HOST_DISTRO" >&2
-          exit 1
-        fi
+        AZL2_CORE_EFI_VHDX="../../../azl2-core-efi/image.vhdx"
+        AZL3_CORE_EFI_VHDX="../../../azl3-core-efi/image.vhdx"
+        UBUNTU2204_AZURE_CLOUD_VHDX="../../../ubuntu22.04-azure-cloud/image.vhdx"
+        UBUNTU2404_AZURE_CLOUD_VHDX="../../../ubuntu24.04-azure-cloud/image.vhdx"
 
         FAILED=0
-
-        mkdir -p out/testResults
 
         sudo env "PATH=$PATH" go test -v \
           -coverprofile=out/testResults/api.cov -covermode count \
@@ -158,14 +139,15 @@ jobs:
           -timeout 120m \
           ./pkg/imagecustomizerlib \
           -args \
-          "${BASE_IMAGE_ARGS[@]}" \
+          --base-image-azl2-core-efi "../../$AZL2_CORE_EFI_VHDX" \
+          --base-image-azl3-core-efi "../../$AZL3_CORE_EFI_VHDX" \
+          --base-image-ubuntu22.04-azure-cloud "../../$UBUNTU2204_AZURE_CLOUD_VHDX" \
+          --base-image-ubuntu2404-azure-cloud "../../$UBUNTU2404_AZURE_CLOUD_VHDX" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))
 
         exit $FAILED
-      env:
-        HOST_DISTRO: ${{ inputs.hostDistro }}
 
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
