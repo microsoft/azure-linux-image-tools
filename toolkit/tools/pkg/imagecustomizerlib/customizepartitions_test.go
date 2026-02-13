@@ -24,7 +24,7 @@ import (
 )
 
 func TestCustomizeImagePartitions(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsToEfi(t, "TestCustomizeImagePartitions"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -140,7 +140,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 }
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePartitionsSizeOnly")
 	defer os.RemoveAll(testTmpDir)
@@ -217,7 +217,7 @@ func TestCustomizeImagePartitionsLegacy(t *testing.T) {
 		t.Skip("Skipping legacy test for arm64")
 	}
 
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsLegacy(t, "TestCustomizeImagePartitionsLegacy"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -267,8 +267,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
-	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
-		coreLegacyMountPoints)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, azureLinuxCoreLegacyMountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -278,10 +277,10 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, coreLegacyMountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions)
 	verifyBootGrubCfg(t, imageConnection, "",
-		partitions[coreLegacyMountPoints[0].PartitionNum],
-		partitions[coreLegacyMountPoints[0].PartitionNum],
+		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
+		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		baseImageInfo)
 
 	// Check the partition types.
@@ -294,7 +293,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageKernelCommandLineHelper(t, "TestCustomizeImageKernelCommandLine"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -318,7 +317,7 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -332,7 +331,7 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 }
 
 func TestCustomizeImageNewUUIDs(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageNewUUIDsHelper(t, "TestCustomizeImageNewUUIDs"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -386,7 +385,7 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -414,15 +413,15 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	}
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, coreEfiMountPoints, newImagePartitions)
+	verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions)
 	verifyBootloaderConfig(t, imageConnection, "",
-		newImagePartitions[coreEfiMountPoints[0].PartitionNum],
-		newImagePartitions[coreEfiMountPoints[0].PartitionNum],
+		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
+		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
 		baseImageInfo)
 }
 
 func TestCustomizeImagePartitionsXfsBoot(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsXfsBootHelper(t, "TestCustomizeImagePartitionsXfsBoot"+baseImageInfo.Name,
 				baseImageInfo)
@@ -481,7 +480,7 @@ func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, ba
 }
 
 func TestCustomizeImagePartitionsBtrfsBoot(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsBtrfsBootHelper(t, "TestCustomizeImagePartitionsBtrfsBoot"+baseImageInfo.Name,
 				baseImageInfo)
@@ -530,7 +529,7 @@ func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, 
 }
 
 func TestCustomizeImagePartitionsBtrfsSubvolumesBasic(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t,
 				"TestCustomizeImagePartitionsBtrfsSubvolumesBasic"+baseImageInfo.Name, baseImageInfo)
@@ -590,7 +589,7 @@ func testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t *testing.T, testNa
 }
 
 func TestCustomizeImagePartitionsBtrfsSubvolumesNested(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t,
 				"TestCustomizeImagePartitionsBtrfsSubvolumesNested"+baseImageInfo.Name, baseImageInfo)
@@ -656,7 +655,7 @@ func testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t *testing.T, testN
 }
 
 func TestCustomizeImagePartitionsBtrfsUnmounted(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsBtrfsUnmountedHelper(t,
 				"TestCustomizeImagePartitionsBtrfsUnmounted"+baseImageInfo.Name, baseImageInfo)

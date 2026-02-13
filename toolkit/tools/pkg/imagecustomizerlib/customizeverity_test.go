@@ -23,7 +23,7 @@ import (
 )
 
 func TestCustomizeImageVerity(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityHelper(t, "TestCustomizeImageVerity"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -111,7 +111,7 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 }
 
 func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityCosiExtractHelper(t, "TestCustomizeImageVerityShrinkExtract"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -342,7 +342,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 }
 
 func TestCustomizeImageVerityUsr(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityUsrHelper(t, "TestCustomizeImageVerityUsr"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -420,7 +420,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 }
 
 func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityUsr2StageHelper(t, "testCustomizeImageVerityUsr2Stage"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -465,7 +465,7 @@ func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, base
 }
 
 func TestCustomizeImageVerityReinitRoot(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityReinitRootHelper(t, "TestCustomizeImageVerityReinitRoot"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -514,7 +514,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 }
 
 func TestCustomizeImageVerityReinitUsr(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityReinitUsrHelper(t, "TestCustomizeImageVerityReinitUsr"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -634,7 +634,7 @@ func TestExtractSubvolPath_MultipleAnomalies_Pass(t *testing.T) {
 // 3. The fstab is correctly updated to point to the verity device with proper subvol= option
 // 4. The grub configuration is updated with verity parameters
 func TestCustomizeImageVerityBtrfsRoot(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityBtrfsRootHelper(t, "TestCustomizeImageVerityBtrfsRoot"+baseImageInfo.Name,
 				baseImageInfo)
@@ -674,7 +674,7 @@ func testCustomizeImageVerityBtrfsRootHelper(t *testing.T, testName string, base
 // TestCustomizeImageVerityBtrfsNoSubvolumes tests verity with a BTRFS root filesystem without subvolumes.
 // This tests the simpler case where the BTRFS filesystem is mounted directly at / without using subvolumes.
 func TestCustomizeImageVerityBtrfsNoSubvolumes(t *testing.T) {
-	for _, baseImageInfo := range baseImageAll {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityBtrfsNoSubvolumesHelper(t,
 				"TestCustomizeImageVerityBtrfsNoSubvolumes"+baseImageInfo.Name, baseImageInfo)

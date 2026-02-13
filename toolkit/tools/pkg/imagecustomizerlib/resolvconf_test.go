@@ -14,7 +14,7 @@ import (
 )
 
 func TestCustomizeImageResolvConfDelete(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfDelete")
 	defer os.RemoveAll(testTmpDir)
@@ -37,7 +37,7 @@ func TestCustomizeImageResolvConfDelete(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -53,7 +53,7 @@ func TestCustomizeImageResolvConfDelete(t *testing.T) {
 }
 
 func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfRestoreFile")
 	defer os.RemoveAll(testTmpDir)
@@ -71,7 +71,7 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -102,7 +102,7 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 		return
 	}
 
-	imageConnection, err = connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err = connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -126,7 +126,7 @@ func TestCustomizeImageResolvConfRestoreFile(t *testing.T) {
 }
 
 func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfRestoreSymlink")
 	defer os.RemoveAll(testTmpDir)
@@ -144,7 +144,7 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -174,7 +174,7 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 		return
 	}
 
-	imageConnection, err = connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err = connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -191,7 +191,7 @@ func TestCustomizeImageResolvConfRestoreSymlink(t *testing.T) {
 }
 
 func TestCustomizeImageResolvConfNewSymlink(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageResolvConfNewSymlink")
 	defer os.RemoveAll(testTmpDir)
@@ -214,7 +214,7 @@ func TestCustomizeImageResolvConfNewSymlink(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

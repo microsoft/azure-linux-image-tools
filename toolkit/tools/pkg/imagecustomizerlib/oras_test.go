@@ -86,7 +86,7 @@ func TestCustomizeImageOciBaseImageValid(t *testing.T) {
 	logMessages = logMessagesHook.ConsumeMessages()
 	assert.NotContains(t, logMessages, expectedDownloadLogMessage)
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -159,7 +159,7 @@ func TestCustomizeImageOciBaseImageCliValid(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

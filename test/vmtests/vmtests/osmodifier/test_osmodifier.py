@@ -189,7 +189,7 @@ def test_modify_services(
     )
 
     check_services(ssh_client, "console-getty", "enabled")
-    check_services(ssh_client, "chronyd", "disabled")
+    check_services(ssh_client, "systemd-pstore", "disabled")
 
 
 def test_modify_kernel_modules(

@@ -17,7 +17,7 @@ import (
 )
 
 func TestConvertImageRawToVhdx(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToVhdx")
 	defer os.RemoveAll(testTempDir)
@@ -47,7 +47,7 @@ func TestConvertImageRawToVhdx(t *testing.T) {
 }
 
 func TestConvertImageRawToVhd(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToVhd")
 	defer os.RemoveAll(testTempDir)
@@ -77,7 +77,7 @@ func TestConvertImageRawToVhd(t *testing.T) {
 }
 
 func TestConvertImageRawToQcow2(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToQcow2")
 	defer os.RemoveAll(testTempDir)
@@ -109,7 +109,7 @@ func TestConvertImageRawToQcow2(t *testing.T) {
 }
 
 func TestConvertImageVhdxToQcow2(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestConvertImageVhdxToQcow2")
 	defer os.RemoveAll(testTempDir)
@@ -157,7 +157,7 @@ func TestConvertImageVhdxToQcow2(t *testing.T) {
 }
 
 func TestConvertImageRawToCosi(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
@@ -214,7 +214,7 @@ func TestConvertImageRawToCosi(t *testing.T) {
 }
 
 func TestConvertImageRawToCosiWithCompression(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
@@ -273,7 +273,7 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 }
 
 func TestConvertImageRawToBareMetalImage(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
@@ -349,7 +349,7 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 }
 
 func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestConvertImageCosiCompressionInvalidFormat")
 	defer os.RemoveAll(testTempDir)
@@ -372,7 +372,7 @@ func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 }
 
 func TestConvertImageAutoDetectFormat(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	qemuimgExists, err := file.CommandExists("qemu-img")
 	assert.NoError(t, err)
@@ -418,7 +418,7 @@ func TestConvertImageAutoDetectFormat(t *testing.T) {
 }
 
 func TestConvertImageRoundTrip(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestConvertImageRoundTrip")
 	defer os.RemoveAll(testTempDir)

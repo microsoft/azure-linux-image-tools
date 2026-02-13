@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,20 +17,27 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	// Parses the password field in the /etc/shadow file, extracting the rounds count and the salt.
-	shadowPasswordRegexp = regexp.MustCompile(`^\$([a-zA-Z0-9]*)\$((rounds=[0-9]+\$)?[a-zA-Z0-9./]*)\$[a-zA-Z0-9./]*$`)
-)
+// Parses the password field in the /etc/shadow file, extracting the rounds count and the salt.
+var shadowPasswordRegexp = regexp.MustCompile(`^\$([a-zA-Z0-9]*)\$((rounds=[0-9]+\$)?[a-zA-Z0-9./]*)\$[a-zA-Z0-9./]*$`)
 
 func TestCustomizeImageUsers(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageUsers(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsers")
+func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsers_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -46,6 +54,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	test2PasswordExpiresDays := int64(10)
 
 	config := imagecustomizerapi.Config{
+		PreviewFeatures: baseImageInfo.PreviewFeatures,
 		OS: &imagecustomizerapi.OS{
 			Users: []imagecustomizerapi.User{
 				{
@@ -88,7 +97,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 		return
 	}
 
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -114,7 +123,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 	test1PasswdEntry, err := userutils.GetPasswdFileEntryForUser(imageConnection.Chroot().RootDir(), "test1")
 	if assert.NoError(t, err) {
 		assert.Equal(t, "/home/test1", test1PasswdEntry.HomeDirectory)
-		assert.Equal(t, "/bin/bash", test1PasswdEntry.Shell)
+		assert.Equal(t, baseImageInfo.DefaultShell, test1PasswdEntry.Shell)
 	}
 
 	test1UserGroups, err := userutils.GetUserGroups(imageConnection.Chroot().RootDir(), "test1")
@@ -148,7 +157,7 @@ func TestCustomizeImageUsers(t *testing.T) {
 }
 
 func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserHomeDir")
 	defer os.RemoveAll(testTmpDir)
@@ -174,7 +183,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 }
 
 func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserUid")
 	defer os.RemoveAll(testTmpDir)
@@ -200,7 +209,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 }
 
 func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersMissingSshPublicKeyFile")
 	defer os.RemoveAll(testTmpDir)
@@ -228,7 +237,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 }
 
 func TestCustomizeImageUsersAddFiles(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersAddFiles")
 	defer os.RemoveAll(testTmpDir)
@@ -245,7 +254,7 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 	}
 
 	// Connect to image.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -326,7 +335,7 @@ func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword st
 }
 
 func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserPassword")
 	defer os.RemoveAll(testTmpDir)
@@ -375,7 +384,7 @@ func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
 	}
 
 	// Verify that password was not cleared.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 func TestCustomizeImageMissingKernel(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageMissingKernel")
 	defer os.RemoveAll(testTmpDir)

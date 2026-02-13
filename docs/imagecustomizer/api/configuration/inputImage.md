@@ -26,8 +26,8 @@ input:
 
 The base image file to customize.
 
-This file is typically one of the standard Azure Linux core images.
-But it can also be an Azure Linux image that has been customized.
+For a list of supported input images, see
+[Supported Input Images](../../README.md#supported-input-images).
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
 
@@ -62,6 +62,8 @@ Download the base image file from an OCI artifact.
 This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
+
+Customizing Ubuntu images using this API is not currently tested or supported.
 
 Added in v1.1.
 

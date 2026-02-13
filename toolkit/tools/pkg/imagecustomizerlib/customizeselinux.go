@@ -26,6 +26,7 @@ var (
 	ErrSELinuxPolicyMissing   = NewImageCustomizerError("SELinux:PolicyMissing", "SELinux is enabled but policy file is missing")
 	ErrSELinuxConfigUpdate    = NewImageCustomizerError("SELinux:ConfigUpdate", "failed to set SELinux mode in config file")
 	ErrSELinuxRelabelFiles    = NewImageCustomizerError("SELinux:RelabelFiles", "failed to set SELinux file labels")
+	ErrSELinuxNotSupported    = NewImageCustomizerError("SELinux:NotSupported", "SELinux is not supported on this distro")
 )
 
 func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustomizerapi.SELinuxMode, resetBootLoaderType imagecustomizerapi.ResetBootLoaderType,
@@ -53,6 +54,11 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		}
 
 		return currentSELinuxMode, nil
+	}
+
+	if !distroHandler.SELinuxSupported() {
+		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("%w: cannot set SELinux mode (%s)",
+			ErrSELinuxNotSupported, selinuxMode)
 	}
 
 	logger.Log.Infof("Configuring SELinux mode")

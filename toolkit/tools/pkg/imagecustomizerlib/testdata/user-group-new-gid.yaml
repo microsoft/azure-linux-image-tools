@@ -1,9 +1,9 @@
 os:
   groups:
   - name: question
-    gid: 42
+    gid: 99
 
   users:
   - name: question
     primaryGroup: question
-    uid: 42
+    uid: 99
