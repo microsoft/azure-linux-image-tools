@@ -72,11 +72,14 @@ jobs:
 
         # Install Image Customizer prerequisities.
         sudo apt list --installed
-        sudo apt update -y
 
-        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          apt update -y
+
+        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
+            sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
+            xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
 
         curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
@@ -91,14 +94,21 @@ jobs:
       run: |
         set -eux
 
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl2-core-efi
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl3-core-efi
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu22.04-azure-cloud
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu24.04-azure-cloud
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl2-core-efi
+
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl3-core-efi
+
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu22.04-azure-cloud
+
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu24.04-azure-cloud
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -112,7 +122,8 @@ jobs:
         pushd repo/toolkit/tools
 
         # Download the test RPM files.
-        ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0
+        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0
 
     - name: Run tests
       run: |
