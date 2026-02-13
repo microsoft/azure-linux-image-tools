@@ -94,21 +94,17 @@ jobs:
       run: |
         set -eux
 
-        ./repo/.github/workflows/scripts/retry.sh 5 5 \
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl2-core-efi
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl2-core-efi
 
-        ./repo/.github/workflows/scripts/retry.sh 5 5 \
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl3-core-efi
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl3-core-efi
 
-        ./repo/.github/workflows/scripts/retry.sh 5 5 \
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu22.04-azure-cloud
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "ubuntu/azure-cloud-22.04-$HOST_ARCH" ubuntu22.04-azure-cloud
 
-        ./repo/.github/workflows/scripts/retry.sh 5 5 \
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-            "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu24.04-azure-cloud
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+          "ubuntu/azure-cloud-24.04-$HOST_ARCH" ubuntu24.04-azure-cloud
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
