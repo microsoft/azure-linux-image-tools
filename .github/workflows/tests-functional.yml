@@ -118,7 +118,7 @@ jobs:
         pushd repo/toolkit/tools
 
         # Download the test RPM files.
-        ./repo/.github/workflows/scripts/retry.sh 5 5 \
+        ../../.github/workflows/scripts/retry.sh 5 5 \
           ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0
 
     - name: Run tests
