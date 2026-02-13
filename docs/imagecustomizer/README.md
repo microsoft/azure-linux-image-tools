@@ -49,6 +49,16 @@ environments:
 While officially tested on these platforms, Image Customizer will likely work on
 other Linux distributions as well.
 
+## Supported Input Images
+
+Image Customizer supports customizing images from the following distro versions:
+
+- Azure Linux 3.0
+- Ubuntu 22.04
+- Ubuntu 24.04
+
+Not all APIs support Ubuntu images. See the individual API documentation for details on Ubuntu compatibility.
+
 ## Getting Started with Image Customizer
 
 - [Quick Start](./quick-start/quick-start.md) - A beginner-friendly guide to
