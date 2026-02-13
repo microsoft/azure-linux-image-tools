@@ -22,42 +22,40 @@ import (
 
 var (
 	// Validation errors
-	ErrInputImageFileRequired                = NewImageCustomizerError("Validation:InputImageFileRequired", "input image file must be specified")
-	ErrInvalidInputImageFileArg              = NewImageCustomizerError("Validation:InvalidInputImageFileArg", "invalid command-line option '--image-file'")
-	ErrInputImageFileNotFile                 = NewImageCustomizerError("Validation:InputImageFileNotFile", "input image file is not a file")
-	ErrInvalidInputImageFileConfig           = NewImageCustomizerError("Validation:InvalidInputImageFileConfig", "invalid config file property 'input.image.path'")
-	ErrInvalidAdditionalFilesSource          = NewImageCustomizerError("Validation:InvalidAdditionalFilesSource", "invalid additionalFiles source file")
-	ErrAdditionalFilesSourceNotFile          = NewImageCustomizerError("Validation:AdditionalFilesSourceNotFile", "additionalFiles source file is not a file")
-	ErrInvalidPostCustomizationScript        = NewImageCustomizerError("Validation:InvalidPostCustomizationScript", "invalid postCustomization script")
-	ErrInvalidFinalizeScript                 = NewImageCustomizerError("Validation:InvalidFinalizeScript", "invalid finalizeCustomization script")
-	ErrScriptNotUnderConfigDir               = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
-	ErrScriptFileNotReadable                 = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
-	ErrScriptFileNotFile                     = NewImageCustomizerError("Validation:ScriptFileNotFile", "script file is not a file")
-	ErrNoRpmSourcesSpecified                 = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
-	ErrOutputImageFileRequired               = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
-	ErrInvalidOutputImageFileArg             = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
-	ErrOutputImageFileIsDirectory            = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
-	ErrInvalidOutputImageFileConfig          = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
-	ErrOutputImageFormatRequired             = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
-	ErrInvalidUser                           = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
-	ErrInvalidSSHPublicKeyFile               = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
-	ErrSSHPublicKeyNotFile                   = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
-	ErrInvalidPasswordFile                   = NewImageCustomizerError("Validation:InvalidPasswordFile", "failed to find password file")
-	ErrPasswordFileNotFile                   = NewImageCustomizerError("Validation:PasswordFileNotFile", "password file is not a file")
-	ErrAdditionalDirsSourceNotReadable       = NewImageCustomizerError("Validation:AdditionalDirsSourceNotReadable", "failed to read additionalDirs source")
-	ErrAdditionalDirsSourceIsFile            = NewImageCustomizerError("Validation:AdditionalDirsSourceIsFile", "additionalDirs source exists but is a file")
-	ErrAdditionalDirsSourceNotFound          = NewImageCustomizerError("Validation:AdditionalDirsSourceNotFound", "additionalDirs source does not exist")
-	ErrInvalidPackageSnapshotTime            = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
-	ErrUnsupportedFedoraFeature              = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
-	ErrInvalidOutputSelinuxPolicyPathArg     = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathArg", "invalid command-line option '--output-selinux-policy-path'")
-	ErrOutputSelinuxPolicyPathIsFileArg      = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileArg", "path exists but is a file")
-	ErrOutputSelinuxPolicyPathNotFoundArg    = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathNotDirArg", "path does not exist")
-	ErrInvalidOutputSelinuxPolicyPathConfig  = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathConfig", "invalid config file property 'output.selinuxPolicyPath'")
-	ErrOutputSelinuxPolicyPathIsFileConfig   = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is a file")
-	ErrOutputSelinuxPolicyPathNotFoundConfig = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathNotDirConfig", "path does not exist")
-	ErrInvalidInputImageAzureLinux           = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
-	ErrInputImageAzureLinuxNotFound          = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
-	ErrInputImageOciNotFound                 = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
+	ErrInputImageFileRequired               = NewImageCustomizerError("Validation:InputImageFileRequired", "input image file must be specified")
+	ErrInvalidInputImageFileArg             = NewImageCustomizerError("Validation:InvalidInputImageFileArg", "invalid command-line option '--image-file'")
+	ErrInputImageFileNotFile                = NewImageCustomizerError("Validation:InputImageFileNotFile", "input image file is not a file")
+	ErrInvalidInputImageFileConfig          = NewImageCustomizerError("Validation:InvalidInputImageFileConfig", "invalid config file property 'input.image.path'")
+	ErrInvalidAdditionalFilesSource         = NewImageCustomizerError("Validation:InvalidAdditionalFilesSource", "invalid additionalFiles source file")
+	ErrAdditionalFilesSourceNotFile         = NewImageCustomizerError("Validation:AdditionalFilesSourceNotFile", "additionalFiles source file is not a file")
+	ErrInvalidPostCustomizationScript       = NewImageCustomizerError("Validation:InvalidPostCustomizationScript", "invalid postCustomization script")
+	ErrInvalidFinalizeScript                = NewImageCustomizerError("Validation:InvalidFinalizeScript", "invalid finalizeCustomization script")
+	ErrScriptNotUnderConfigDir              = NewImageCustomizerError("Validation:ScriptNotUnderConfigDir", "script file is not under config directory")
+	ErrScriptFileNotReadable                = NewImageCustomizerError("Validation:ScriptFileNotReadable", "couldn't read script file")
+	ErrScriptFileNotFile                    = NewImageCustomizerError("Validation:ScriptFileNotFile", "script file is not a file")
+	ErrNoRpmSourcesSpecified                = NewImageCustomizerError("Validation:NoRpmSourcesSpecified", "have packages to install or update but no RPM sources were specified")
+	ErrOutputImageFileRequired              = NewImageCustomizerError("Validation:OutputImageFileRequired", "output image file must be specified")
+	ErrInvalidOutputImageFileArg            = NewImageCustomizerError("Validation:InvalidOutputImageFileArg", "invalid command-line option '--output-image-file'")
+	ErrOutputImageFileIsDirectory           = NewImageCustomizerError("Validation:OutputImageFileIsDirectory", "output image file is a directory")
+	ErrInvalidOutputImageFileConfig         = NewImageCustomizerError("Validation:InvalidOutputImageFileConfig", "invalid config file property 'output.image.path'")
+	ErrOutputImageFormatRequired            = NewImageCustomizerError("Validation:OutputImageFormatRequired", "output image format must be specified")
+	ErrInvalidUser                          = NewImageCustomizerError("Validation:InvalidUser", "invalid user")
+	ErrInvalidSSHPublicKeyFile              = NewImageCustomizerError("Validation:InvalidSSHPublicKeyFile", "failed to find SSH public key file")
+	ErrSSHPublicKeyNotFile                  = NewImageCustomizerError("Validation:SSHPublicKeyNotFile", "SSH public key path is not a file")
+	ErrInvalidPasswordFile                  = NewImageCustomizerError("Validation:InvalidPasswordFile", "failed to find password file")
+	ErrPasswordFileNotFile                  = NewImageCustomizerError("Validation:PasswordFileNotFile", "password file is not a file")
+	ErrAdditionalDirsSourceNotReadable      = NewImageCustomizerError("Validation:AdditionalDirsSourceNotReadable", "failed to read additionalDirs source")
+	ErrAdditionalDirsSourceIsFile           = NewImageCustomizerError("Validation:AdditionalDirsSourceIsFile", "additionalDirs source exists but is a file")
+	ErrAdditionalDirsSourceNotFound         = NewImageCustomizerError("Validation:AdditionalDirsSourceNotFound", "additionalDirs source does not exist")
+	ErrInvalidPackageSnapshotTime           = NewImageCustomizerError("Validation:InvalidPackageSnapshotTime", "invalid command-line option '--package-snapshot-time'")
+	ErrUnsupportedFedoraFeature             = NewImageCustomizerError("Validation:UnsupportedFedoraFeature", "unsupported feature for Fedora images")
+	ErrInvalidOutputSelinuxPolicyPathArg    = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathArg", "invalid command-line option '--output-selinux-policy-path'")
+	ErrOutputSelinuxPolicyPathIsFileArg     = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileArg", "path exists but is a file")
+	ErrInvalidOutputSelinuxPolicyPathConfig = NewImageCustomizerError("Validation:InvalidOutputSelinuxPolicyPathConfig", "invalid config file property 'output.selinuxPolicyPath'")
+	ErrOutputSelinuxPolicyPathIsFileConfig  = NewImageCustomizerError("Validation:OutputSelinuxPolicyPathIsFileConfig", "path exists but is a file")
+	ErrInvalidInputImageAzureLinux          = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
+	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
+	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -688,12 +686,10 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutpu
 	if cliOutputSelinuxPolicyPath != "" {
 		if validateFiles {
 			if isFile, err := file.IsFile(cliOutputSelinuxPolicyPath); err != nil {
-				if os.IsNotExist(err) {
-					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotFoundArg,
-						cliOutputSelinuxPolicyPath)
+				if !os.IsNotExist(err) {
+					return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathArg,
+						cliOutputSelinuxPolicyPath, err)
 				}
-				return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathArg,
-					cliOutputSelinuxPolicyPath, err)
 			} else if isFile {
 				return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileArg, cliOutputSelinuxPolicyPath)
 			}
@@ -711,12 +707,10 @@ func validateOutputSelinuxPolicyPath(configChain []*ConfigWithBasePath, cliOutpu
 
 			if validateFiles {
 				if isFile, err := file.IsFile(outputSelinuxPolicyPath); err != nil {
-					if os.IsNotExist(err) {
-						return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathNotFoundConfig,
-							configWithBase.Config.Output.SelinuxPolicyPath)
+					if !os.IsNotExist(err) {
+						return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
+							configWithBase.Config.Output.SelinuxPolicyPath, err)
 					}
-					return "", fmt.Errorf("%w (path='%s'):\n%w", ErrInvalidOutputSelinuxPolicyPathConfig,
-						configWithBase.Config.Output.SelinuxPolicyPath, err)
 				} else if isFile {
 					return "", fmt.Errorf("%w (path='%s')", ErrOutputSelinuxPolicyPathIsFileConfig,
 						configWithBase.Config.Output.SelinuxPolicyPath)
