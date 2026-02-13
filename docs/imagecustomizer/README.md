@@ -53,8 +53,6 @@ other Linux distributions as well.
 
 - [Quick Start](./quick-start/quick-start.md) - A beginner-friendly guide to
   quickly customize an Azure Linux image using Image Customizer
-- [Quick Start - Create](./quick-start/quick-start-create.md) - A guide to creating a new image from scratch using the
-  [create subcommand](./api/cli/create.md)
 - [Things to Avoid](./concepts/things-to-avoid.md) - Best practices to ensure a
   smooth customization experience
 - API Documentation:

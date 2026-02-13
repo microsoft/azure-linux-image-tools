@@ -1,7 +1,7 @@
 ---
-title: Quick Start - Create
-parent: Image Customizer
-nav_order: 2
+title: Create Image
+parent: How To
+nav_order: 8
 has_toc: false
 ---
 
@@ -9,6 +9,10 @@ has_toc: false
 
 This guide shows how to use the Image Customizer [create subcommand](../api/cli/create.md) to build a new Azure Linux
 image from scratch.
+
+This command is a preview feature.
+Its API and behavior is subject to change.
+As such, the example configuration files below must specify `create` in the [previewFeatures](../configuration/config.md#previewfeatures-string) field.
 
 ## Prerequisites
 
@@ -21,76 +25,6 @@ image from scratch.
 
     This file has the same API as configuration files for the [customize subcommand](../api/cli/customize.md), but must
     contain all the settings needed to create the image from scratch.
-
-    For Azure Linux 2.0, create `$HOME/staging/config-azl2.yaml`:
-
-    ```yaml
-    previewFeatures:
-    - create
-
-    storage:
-      disks:
-      - partitionTableType: gpt
-        maxSize: 1G
-        partitions:
-        - id: boot
-          type: esp
-          start: 1M
-          end: 15M
-
-        - id: rootfs
-          start: 15M
-
-      bootType: efi
-
-      filesystems:
-      - deviceId: boot
-        type: fat32
-        mountPoint:
-          path: /boot/efi
-          options: umask=0077
-
-      - deviceId: rootfs
-        type: ext4
-        mountPoint:
-          path: /
-
-    os:
-      bootloader:
-        resetType: hard-reset
-
-      packages:
-        install:
-        - mariner-release
-        - mariner-repos
-        - mariner-rpm-macros
-        - bash
-        - ca-certificates
-        - ca-certificates-base
-        - dbus
-        - e2fsprogs
-        - filesystem
-        - grub2
-        - grub2-efi-binary
-        - iana-etc
-        - initramfs
-        - iproute
-        - iputils
-        - irqbalance
-        - ncurses-libs
-        - openssl
-        - rpm
-        - rpm-libs
-        - shadow-utils
-        - shim
-        - sudo
-        - systemd
-        - tdnf
-        - tdnf-plugin-repogpgcheck
-        - util-linux
-        - zlib
-        - kernel
-    ```
 
     For Azure Linux 3.0, create `$HOME/staging/config-azl3.yaml`:
 
@@ -243,13 +177,6 @@ image from scratch.
 
    The tools file contains bootstrap utilities needed to create an image from scratch.
 
-   To create a tools file for a new Azure Linux 2.0:
-
-    ```bash
-    ./toolkit/tools/internal/testutils/testrpms/create-tools-file.sh \
-      "mcr.microsoft.com/cbl-mariner/base/core:2.0" "$HOME/staging/azure-linux-2.0-tools.tar.gz"
-    ```
-
    To create a tools file for a new Azure Linux 3.0:
 
     ```bash
@@ -267,18 +194,6 @@ image from scratch.
 3. Create a repository configuration file and, if needed, a GPG key file.
 
    The repository configuration file (`.repo` file) tells the Image Customizer where to download RPM packages from.
-
-   For Azure Linux 2.0, create `$HOME/staging/azure-linux-2.0-rpms.repo` with the following contents:
-
-    ```ini
-    [azurelinux-base]
-    name=Azure Linux 2.0 Base
-    baseurl=https://packages.microsoft.com/cbl-mariner/2.0/prod/base/$basearch/
-    gpgcheck=1
-    repo_gpgcheck=1
-    enabled=1
-    gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY
-    ```
 
    For Azure Linux 3.0, create `$HOME/staging/azure-linux-3.0-rpms.repo` with the following contents:
 
@@ -319,25 +234,6 @@ image from scratch.
 
 5. Run the Image Customizer container. Here is a sample command to run it:
 
-   To create a new Azure Linux 2.0 image:
-
-    ```bash
-    docker run \
-      --rm \
-      --privileged=true \
-      -v /dev:/dev \
-      -v "$HOME/staging:/mnt/staging:z" \
-      mcr.microsoft.com/azurelinux/imagecustomizer:1.12.0 create \
-        --distro azurelinux \
-        --distro-version 2.0 \
-        --tools-file /mnt/staging/azure-linux-2.0-tools.tar.gz \
-        --rpm-source /mnt/staging/azure-linux-2.0-rpms.repo \
-        --config-file /mnt/staging/config-azl2.yaml \
-        --build-dir /build \
-        --output-image-format vhdx \
-        --output-image-file /mnt/staging/out/azure-linux-2.0-image.vhdx
-    ```
-
    To create a new Azure Linux 3.0 image:
 
     ```bash
@@ -346,7 +242,7 @@ image from scratch.
       --privileged=true \
       -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
-      mcr.microsoft.com/azurelinux/imagecustomizer:1.12.0 create \
+      mcr.microsoft.com/azurelinux/imagecustomizer:latest create \
         --distro azurelinux \
         --distro-version 3.0 \
         --tools-file /mnt/staging/azure-linux-3.0-tools.tar.gz \
@@ -365,7 +261,7 @@ image from scratch.
       --privileged=true \
       -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
-      mcr.microsoft.com/azurelinux/imagecustomizer:1.12.0 create \
+      mcr.microsoft.com/azurelinux/imagecustomizer:latest create \
         --distro fedora \
         --distro-version 42 \
         --tools-file /mnt/staging/fedora-42-tools.tar.gz \
@@ -395,7 +291,7 @@ image from scratch.
     - `-v $HOME/staging:/mnt/staging:z`: Mounts a host directory (`$HOME/staging`) into the
       container. This can be used to easily pass files in and out of the container.
 
-    - `mcr.microsoft.com/azurelinux/imagecustomizer:1.12.0`: The container to run.
+    - `mcr.microsoft.com/azurelinux/imagecustomizer:latest`: The container to run.
 
     - `create`: Specifies the subcommand to run within the container.
 
