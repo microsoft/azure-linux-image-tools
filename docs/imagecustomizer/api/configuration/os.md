@@ -28,15 +28,11 @@ Added in v0.3.
 
 Specifies extra kernel command line options.
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v0.3.
 
 ## packages [[packages](./packages.md)]
 
 Remove, update, and install packages on the system.
-
-Customizing Ubuntu images using this API is not currently tested or supported.
 
 Added in v0.3.
 
@@ -118,23 +114,17 @@ Added in v0.3.
 
 Used to add filesystem overlays.
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v0.6.
 
 ## bootloader [[bootloader](./bootloader.md)]
 
 Defines the configuration for the boot-loader.
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v0.8.
 
 ## uki [[uki](./uki.md)]
 
 Used to create UKI PE images and enable UKI as boot entries.
-
-Customizing Ubuntu images using this API is not currently tested or supported.
 
 Added in v0.8.
 
@@ -149,8 +139,6 @@ os:
   selinux:
     mode: permissive
 ```
-
-Customizing Ubuntu images using this API is not currently tested or supported.
 
 Added in v0.3.
 

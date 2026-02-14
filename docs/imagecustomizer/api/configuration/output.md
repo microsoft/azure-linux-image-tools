@@ -46,8 +46,6 @@ previewFeatures:
 - output-artifacts
 ```
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v0.14.
 
 ## selinuxPolicyPath [string]
@@ -96,7 +94,5 @@ output:
 previewFeatures:
 - output-selinux-policy
 ```
-
-Customizing Ubuntu images using this API is not currently tested or supported.
 
 Added in v1.1.

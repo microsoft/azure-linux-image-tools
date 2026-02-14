@@ -63,8 +63,6 @@ This feature is in preview and may be subject to breaking changes.
 You may enable this feature by adding `input-image-oci` to the
 [previewfeatures](../configuration/config.md#previewfeatures-string) API.
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v1.1.
 
 ## azureLinux [[azureLinuxImage](azurelinuximage.md)]

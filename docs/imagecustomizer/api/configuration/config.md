@@ -19,23 +19,17 @@ Added in v0.13.
 
 Contains the options for provisioning disks, partitions, and file systems.
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v0.3.
 
 ## iso [[iso](./iso.md)]
 
 Optionally specifies the configuration for the generated ISO media.
 
-Customizing Ubuntu images using this API is not currently tested or supported.
-
 Added in v0.3.
 
 ## pxe [[pxe](./pxe.md)]
 
 Optionally specifies the PXE-specific configuration for the generated OS artifacts.
-
-Customizing Ubuntu images using this API is not currently tested or supported.
 
 Added in v0.8.
 
