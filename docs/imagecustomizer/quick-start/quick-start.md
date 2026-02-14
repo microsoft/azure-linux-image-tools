@@ -20,7 +20,7 @@ The container is published to both:
   For example:
 
   ```text
-  mcr.microsoft.com/azurelinux/imagecustomizer:0.18.0
+  mcr.microsoft.com/azurelinux/imagecustomizer:latest
   ```
 
   You can use the MCR REST API to query available and latest tags:
@@ -38,7 +38,7 @@ The container is published to both:
   For example:
 
   ```text
-  ghcr.io/microsoft/imagecustomizer:0.18.0
+  ghcr.io/microsoft/imagecustomizer:1.2.0
   ```
 
 ## Prerequisites
@@ -74,7 +74,7 @@ The container is published to both:
       --privileged=true \
       -v /dev:/dev \
       -v "$HOME/staging:/mnt/staging:z" \
-      mcr.microsoft.com/azurelinux/imagecustomizer:0.18.0 \
+      mcr.microsoft.com/azurelinux/imagecustomizer:latest \
         --image-file "/mnt/staging/image.vhdx" \
         --config-file "/mnt/staging/image-config.yaml" \
         --build-dir "/build" \
@@ -100,7 +100,7 @@ The container is published to both:
     - `-v $HOME/staging:/mnt/staging:z`: Mounts a host directory (`$HOME/staging`) into the
       container. This can be used to easily pass files in and out of the container.
 
-    - `mcr.microsoft.com/azurelinux/imagecustomizer:0.18.0`: The container to run.
+    - `mcr.microsoft.com/azurelinux/imagecustomizer:latest`: The container to run.
 
     - `imagecustomizer`: Specifies the executable to run within the container.
 
@@ -134,7 +134,7 @@ For example, this is the equivalent call to the above example:
 
 ```bash
 run-container.sh \
-    -t mcr.microsoft.com/azurelinux/imagecustomizer:0.18.0 \
+    -t mcr.microsoft.com/azurelinux/imagecustomizer:latest \
     -i "$HOME/staging/image.vhdx" \
     -c "$HOME/staging/image-config.yaml" \
     -f vhdx \

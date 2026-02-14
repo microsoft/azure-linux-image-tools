@@ -31,7 +31,7 @@ docker run \
    --privileged=true \
    -v /dev:/dev \
    -v "$HOME/staging:/mnt/staging:z" \
-   mcr.microsoft.com/azurelinux/imagecustomizer:0.18.0 \
+   mcr.microsoft.com/azurelinux/imagecustomizer:latest \
      --image-file "/mnt/staging/image.vhdx" \
      --config-file "/mnt/staging/image-config.yaml" \
      --build-dir "/build" \
