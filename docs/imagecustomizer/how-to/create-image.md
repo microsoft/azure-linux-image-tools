@@ -12,7 +12,7 @@ image from scratch.
 
 This command is a preview feature.
 Its API and behavior is subject to change.
-As such, the example configuration files below must specify `create` in the [previewFeatures](../configuration/config.md#previewfeatures-string) field.
+As such, the example configuration files below must specify `create` in the [previewFeatures](../api/configuration/config.md#previewfeatures-string) field.
 
 ## Prerequisites
 
