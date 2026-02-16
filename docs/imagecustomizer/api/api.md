@@ -30,9 +30,9 @@ APIs marked as **Preview** require the distro's
 | [input.image.path](./configuration/inputImage.md#path-string)                        | Yes                   | Preview             |
 | [input.image.oci](./configuration/inputImage.md#oci-ociimage)                        | Yes                   | No                  |
 | [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)   | Yes                   | N/A                 |
-| [storage](./configuration/storage.md)                                                | Yes                   | No                  |
-| [iso](./configuration/iso.md)                                                        | Yes                   | No                  |
-| [pxe](./configuration/pxe.md)                                                        | Yes                   | No                  |
+| [storage](./configuration/config.md#storage-storage)                                 | Yes                   | No                  |
+| [iso](./configuration/config.md#iso-iso)                                             | Yes                   | No                  |
+| [pxe](./configuration/config.md#pxe-pxe)                                             | Yes                   | No                  |
 | [os.hostname](./configuration/os.md#hostname-string)                                 | Yes                   | Preview             |
 | [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)    | Yes                   | No                  |
 | [os.packages](./configuration/os.md#packages-packages)                               | Yes                   | No                  |
@@ -47,8 +47,8 @@ APIs marked as **Preview** require the distro's
 | [os.uki](./configuration/os.md#uki-uki)                                              | Yes                   | No                  |
 | [os.selinux](./configuration/os.md#selinux-selinux)                                  | Yes                   | No                  |
 | [os.imageHistory](./configuration/os.md#imagehistory-string)                         | Yes                   | Preview             |
-| [scripts](./configuration/scripts.md)                                                | Yes                   | Preview             |
+| [scripts](./configuration/config.md#scripts-scripts)                                 | Yes                   | Preview             |
 | [output.image](./configuration/output.md#image-outputimage)                          | Yes                   | Preview             |
 | [output.artifacts](./configuration/output.md#artifacts-outputartifacts)              | Yes                   | No                  |
 | [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)       | Yes                   | No                  |
-| [previewFeatures](./configuration/config.md#previewfeatures-string)                  | Yes                   | Preview             |
+| [previewFeatures](./configuration/config.md#previewfeatures-string)                  | Yes                   | Yes                 |
