@@ -185,7 +185,6 @@ var (
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl2BareMetal,
 	}
-
 )
 
 var (
