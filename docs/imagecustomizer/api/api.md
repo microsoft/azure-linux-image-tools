@@ -16,7 +16,7 @@ APIs marked as **Preview** require the distro's
 
 ### Command line
 
-| Command                                | Azure Linux 2.0, 3.0  | Ubuntu 22.04, 24.04 |
+| Command                                | Azure Linux 3.0       | Ubuntu 22.04, 24.04 |
 |----------------------------------------|:---------------------:|:-------------------:|
 | [create](./cli/create.md)              | Yes                   | No                  |
 | [convert](./cli/convert.md)            | Yes                   | Preview             |
@@ -25,7 +25,7 @@ APIs marked as **Preview** require the distro's
 
 ### Configuration
 
-| API                                                                                  | Azure Linux 2.0, 3.0  | Ubuntu 22.04, 24.04 |
+| API                                                                                  | Azure Linux 3.0       | Ubuntu 22.04, 24.04 |
 |--------------------------------------------------------------------------------------|:---------------------:|:-------------------:|
 | [input.image.path](./configuration/inputImage.md#path-string)                        | Yes                   | Preview             |
 | [input.image.oci](./configuration/inputImage.md#oci-ociimage)                        | Yes                   | No                  |
