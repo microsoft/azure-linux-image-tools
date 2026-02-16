@@ -57,7 +57,8 @@ Image Customizer supports customizing images from the following distro versions:
 - Ubuntu 22.04
 - Ubuntu 24.04
 
-Not all APIs support Ubuntu images. See the individual API documentation for details on Ubuntu compatibility.
+Not all APIs are supported on all distros. See the
+[distro support](./api/api.md#distro-support) table for details.
 
 ## Getting Started with Image Customizer
 
