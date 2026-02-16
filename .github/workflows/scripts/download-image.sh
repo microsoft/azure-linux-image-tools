@@ -9,11 +9,8 @@
 #     ACCOUNT: Name of an Azure Storage Account.
 #     CONTAINER: Name of a container in the Azure Storage Account.
 #     IMAGE_NAME: Name of the image.
-#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.<vhd|vhdx|vhd.tar.gz>"
-#       within the blob container.
+#       Image files are expected to be stored at "<IMAGE_NAME>/<VERSION>/image.vhdx" within the blob container.
 #       IMAGE_NAME typically has the format "<DISTRO>/<IMAGE-TYPE>".
-#       .vhd.tar.gz files will be extracted and converted to .vhdx after download for space efficiency,
-#       as they are assumed to be in fixed VHD format.
 #       For example, "azure-linux/core-efi-vhdx-3.0-amd64/3.0.20250702/image.vhdx".
 #     OUTPUT_DIR: The directory to output files to.
 
@@ -38,7 +35,7 @@ LATEST_IMAGE=$(
     jq \
     -r \
     --arg image "$IMAGE_NAME" \
-    '[.[].name | select(endswith("/image.vhdx") or endswith("/image.vhd") or endswith("/image.vhd.tar.gz"))] | sort | last' \
+    '[.[].name | select(endswith("/image.vhdx") or endswith("/image.vhd"))] | sort | last' \
     <<< "$CONTAINERS_JSON" \
 )
 
@@ -53,17 +50,3 @@ az storage blob download \
     --name "$LATEST_IMAGE" \
     --file "$OUTPUT_DIR/$FILENAME" \
     --output none
-
-if [[ "$FILENAME" == *.vhd.tar.gz ]]; then
-    tar -xzf "$OUTPUT_DIR/$FILENAME" -C "$OUTPUT_DIR"
-    rm "$OUTPUT_DIR/$FILENAME"
-
-    # qemu-img detects fixed VHDs as "raw" format, so it must be told to use the VPC driver.
-    # Without this, the 512-byte VHD footer ("conectix") is included as disk data.
-    qemu-img convert \
-        --image-opts "file.filename=$OUTPUT_DIR/image.vhd,driver=vpc,force_size_calc=current_size" \
-        -O vhdx \
-        "$OUTPUT_DIR/image.vhdx"
-
-    rm "$OUTPUT_DIR/image.vhd"
-fi

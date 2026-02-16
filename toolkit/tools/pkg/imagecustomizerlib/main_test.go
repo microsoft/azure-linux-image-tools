@@ -174,6 +174,11 @@ var (
 		testBaseImageAzl3BareMetal,
 	}
 
+	baseImageUbuntuAll = []testBaseImageInfo{
+		testBaseImageUbuntu2404AzureCloud,
+		testBaseImageUbuntu2204AzureCloud,
+	}
+
 	defaultAzureLinuxPriorityList = []testBaseImageInfo{
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
@@ -181,10 +186,6 @@ var (
 		testBaseImageAzl2BareMetal,
 	}
 
-	defaultUbuntuPriorityList = []testBaseImageInfo{
-		testBaseImageUbuntu2404AzureCloud,
-		testBaseImageUbuntu2204AzureCloud,
-	}
 )
 
 var (
@@ -291,8 +292,10 @@ func checkSkipForCustomizeDefaultImages(t *testing.T) []testBaseImageInfo {
 		images = append(images, imageInfo)
 	}
 
-	if imageInfo, found := findFirstAvailableImage(defaultUbuntuPriorityList); found {
-		images = append(images, imageInfo)
+	for _, imageInfo := range baseImageUbuntuAll {
+		if imageInfo.Param != nil && *imageInfo.Param != "" {
+			images = append(images, imageInfo)
+		}
 	}
 
 	if len(images) == 0 {
