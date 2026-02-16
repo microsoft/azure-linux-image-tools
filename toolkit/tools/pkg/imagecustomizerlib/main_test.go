@@ -35,8 +35,9 @@ const (
 	baseImageVariantUbuntuAzureCloud = "azure-cloud"
 
 	// Default shells
-	azureLinuxDefaultShell = "/bin/bash"
-	ubuntuDefaultShell     = "/bin/sh"
+	defaultShellAzureLinux = "/bin/bash"
+	defaultShellUbuntu2204 = "/bin/bash"
+	defaultShellUbuntu2404 = "/bin/sh"
 
 	// Flag names
 	paramBaseImageAzl2CoreEfi          = "base-image-core-efi-azl2"
@@ -103,7 +104,7 @@ var (
 		ParamName:    paramBaseImageAzl2CoreEfi,
 		Param:        baseImageCoreEfiAzl2,
 		MountPoints:  azureLinuxCoreEfiMountPoints,
-		DefaultShell: azureLinuxDefaultShell,
+		DefaultShell: defaultShellAzureLinux,
 	}
 
 	testBaseImageAzl3CoreEfi = testBaseImageInfo{
@@ -114,7 +115,7 @@ var (
 		ParamName:    paramBaseImageAzl3CoreEfi,
 		Param:        baseImageCoreEfiAzl3,
 		MountPoints:  azureLinuxCoreEfiMountPoints,
-		DefaultShell: azureLinuxDefaultShell,
+		DefaultShell: defaultShellAzureLinux,
 	}
 
 	testBaseImageAzl2BareMetal = testBaseImageInfo{
@@ -125,7 +126,7 @@ var (
 		ParamName:    paramBaseImageAzl2BareMetal,
 		Param:        baseImageBareMetalAzl2,
 		MountPoints:  azureLinuxCoreLegacyMountPoints,
-		DefaultShell: azureLinuxDefaultShell,
+		DefaultShell: defaultShellAzureLinux,
 	}
 
 	testBaseImageAzl3BareMetal = testBaseImageInfo{
@@ -136,7 +137,7 @@ var (
 		ParamName:    paramBaseImageAzl3BareMetal,
 		Param:        baseImageBareMetalAzl3,
 		MountPoints:  azureLinuxCoreLegacyMountPoints,
-		DefaultShell: azureLinuxDefaultShell,
+		DefaultShell: defaultShellAzureLinux,
 	}
 
 	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
@@ -147,7 +148,7 @@ var (
 		ParamName:    paramBaseImageUbuntu2204AzureCloud,
 		Param:        baseImageUbuntuAzureCloud2204,
 		MountPoints:  ubuntuAzureCloudMountPoints,
-		DefaultShell: ubuntuDefaultShell,
+		DefaultShell: defaultShellUbuntu2204,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureUbuntu2204,
 		},
@@ -161,7 +162,7 @@ var (
 		ParamName:    paramBaseImageUbuntu2404AzureCloud,
 		Param:        baseImageUbuntuAzureCloud2404,
 		MountPoints:  ubuntuAzureCloudMountPoints,
-		DefaultShell: ubuntuDefaultShell,
+		DefaultShell: defaultShellUbuntu2404,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
 			imagecustomizerapi.PreviewFeatureUbuntu2404,
 		},
