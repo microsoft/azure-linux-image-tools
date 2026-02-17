@@ -48,6 +48,15 @@ KEEP_ENVIRONMENT=y
 
 to the `make` call.
 
+## Filtering tests
+
+To run only tests matching a specific expression, set the `TEST_FILTER` variable. This
+is passed to pytest's `-k` option:
+
+```bash
+make test-imagecustomizer TEST_FILTER="test_min_change_efi_azl2"
+```
+
 ## Linting, mypy, and other code checks
 
 This project uses Black for automatic code formatting, isort for sorting imports, mypy
