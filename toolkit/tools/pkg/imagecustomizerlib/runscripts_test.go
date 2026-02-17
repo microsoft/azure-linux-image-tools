@@ -4,19 +4,29 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCustomizeImageRunScripts(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageRunScripts(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageRunScripts(t *testing.T, baseImageInfo testBaseImageInfo) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultImage(t)
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageRunScripts")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestRunScripts_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -24,14 +34,20 @@ func TestCustomizeImageRunScripts(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outImageFilePath,
+		OutputImageFormat: "raw",
+		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
 
 	// Mount the output disk image so that its contents can be checked.
-	imageConnection, err := connectToCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}

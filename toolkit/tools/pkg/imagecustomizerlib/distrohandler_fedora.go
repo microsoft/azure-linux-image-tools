@@ -68,3 +68,7 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 func (d *fedoraDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
 }
+
+func (d *fedoraDistroHandler) SELinuxSupported() bool {
+	return true
+}

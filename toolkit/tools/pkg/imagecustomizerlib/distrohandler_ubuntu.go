@@ -70,3 +70,7 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 func (d *ubuntuDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
 	return filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
 }
+
+func (d *ubuntuDistroHandler) SELinuxSupported() bool {
+	return false
+}

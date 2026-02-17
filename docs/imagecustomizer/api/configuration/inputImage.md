@@ -26,8 +26,8 @@ input:
 
 The base image file to customize.
 
-This file is typically one of the standard Azure Linux core images.
-But it can also be an Azure Linux image that has been customized.
+For a list of supported input images, see
+[Supported Input Images](../../README.md#supported-input-images).
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
 

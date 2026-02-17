@@ -28,6 +28,9 @@ type ImageCustomizerOptions struct {
 	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
 	ImageCacheDir           string
 	CosiCompressionLevel    *int
+
+	// Not provided via the command line. Only used in tests.
+	PreviewFeatures []imagecustomizerapi.PreviewFeature
 }
 
 func (o *ImageCustomizerOptions) IsValid() error {
@@ -51,6 +54,12 @@ func (o *ImageCustomizerOptions) IsValid() error {
 
 	if err := imagecustomizerapi.ValidateCosiCompressionLevel(o.CosiCompressionLevel); err != nil {
 		return err
+	}
+
+	for i, feature := range o.PreviewFeatures {
+		if err := feature.IsValid(); err != nil {
+			return fmt.Errorf("invalid 'previewFeatures' item at index %d:\n%w", i, err)
+		}
 	}
 
 	return nil

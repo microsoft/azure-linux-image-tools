@@ -3,4 +3,4 @@ os:
     enable:
     - console-getty
     disable:
-    - chronyd
+    - systemd-pstore
