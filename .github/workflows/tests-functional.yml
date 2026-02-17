@@ -92,16 +92,16 @@ jobs:
         set -eux
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl2-core-efi
+          "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl3-core-efi
+          "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "ubuntu/azure-cloud-vhdx-22.04-$HOST_ARCH" ubuntu22.04-azure-cloud
+          "ubuntu/azure-cloud-vhdx-22.04-$HOST_ARCH" ubuntu-azure-cloud-22.04
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "ubuntu/azure-cloud-vhdx-24.04-$HOST_ARCH" ubuntu24.04-azure-cloud
+          "ubuntu/azure-cloud-vhdx-24.04-$HOST_ARCH" ubuntu-azure-cloud-24.04
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -120,14 +120,15 @@ jobs:
 
     - name: Run tests
       run: |
-        set -euxo pipefail
+        set -eux
+        set -o pipefail
 
         pushd repo/toolkit/tools
 
-        AZL2_CORE_EFI_VHDX="../../../azl2-core-efi/image.vhdx"
-        AZL3_CORE_EFI_VHDX="../../../azl3-core-efi/image.vhdx"
-        UBUNTU2204_AZURE_CLOUD_VHDX="../../../ubuntu22.04-azure-cloud/image.vhdx"
-        UBUNTU2404_AZURE_CLOUD_VHDX="../../../ubuntu24.04-azure-cloud/image.vhdx"
+        AZL3_VHDX="../../../azl-core-efi-2.0/image.vhdx"
+        AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
+        UBUNTU2204_VHDX="../../../ubuntu-azure-cloud-22.04/image.vhdx"
+        UBUNTU2404_VHDX="../../../ubuntu-azure-cloud-24.04/image.vhdx"
 
         FAILED=0
 
@@ -143,10 +144,10 @@ jobs:
           -timeout 120m \
           ./pkg/imagecustomizerlib \
           -args \
-          --base-image-core-efi-azl2 "../../$AZL2_CORE_EFI_VHDX" \
-          --base-image-core-efi-azl3 "../../$AZL3_CORE_EFI_VHDX" \
-          --base-image-azure-cloud-ubuntu2204 "../../$UBUNTU2204_AZURE_CLOUD_VHDX" \
-          --base-image-azure-cloud-ubuntu2404 "../../$UBUNTU2404_AZURE_CLOUD_VHDX" \
+          --base-image-core-efi-azl2 "../../$AZL3_VHDX" \
+          --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
+          --base-image-azure-cloud-ubuntu2204 "../../$UBUNTU2204_VHDX" \
+          --base-image-azure-cloud-ubuntu2404 "../../$UBUNTU2404_VHDX" \
           2>&1 \
           | tee out/testResults/lib.txt \
           || FAILED=$(( $FAILED | 2 ))
