@@ -87,7 +87,7 @@ func TestCustomizeImageAdditionalFiles(t *testing.T) {
 func testCustomizeImageAdditionalFiles(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestAdditionalFiles_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageAdditionalFiles_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -229,7 +229,7 @@ func TestCustomizeImageAdditionalDirs(t *testing.T) {
 func testCustomizeImageAdditionalDirs(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestAdditionalDirs_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageAdditionalDirs_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")

@@ -26,7 +26,7 @@ func TestCustomizeImageServicesEnableDisable(t *testing.T) {
 func testCustomizeImageServicesEnableDisable(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestServicesEnableDisable_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageServicesEnableDisable_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -75,7 +75,7 @@ func TestCustomizeImageServicesEnableUnknown(t *testing.T) {
 func testCustomizeImageServicesEnableUnknown(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestServicesEnableUnknown_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageServicesEnableUnknown_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -110,7 +110,7 @@ func TestCustomizeImageServicesDisableUnknown(t *testing.T) {
 func testCustomizeImageServicesDisableUnknown(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestServicesDisableUnknown_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageServicesDisableUnknown_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")

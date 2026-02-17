@@ -25,7 +25,7 @@ func TestCustomizeImageGroupsExistingGid(t *testing.T) {
 func testCustomizeImageGroupsExistingGid(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGroupsExistingGid_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageGroupExistingGid_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -54,7 +54,7 @@ func TestCustomizeImageGroupsNewGid(t *testing.T) {
 func testCustomizeImageGroupsNewGid(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGroupsNewGid_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageGroupNewGid_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -102,7 +102,7 @@ func TestCustomizeImageGroupsNew(t *testing.T) {
 func testCustomizeImageGroupsNew(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestGroupsNew_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageGroupNew_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
