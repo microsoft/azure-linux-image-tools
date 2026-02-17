@@ -24,7 +24,7 @@ SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
 
 KEEP_ENVIRONMENT ?= n
 
-PYTEST_K_VALUE ?=
+TEST_FILTER ?=
 
 DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
 
@@ -100,7 +100,7 @@ test-imagecustomizer:
 		--tb=short \
 		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		-k "$(PYTEST_K_VALUE)" \
+		-k "$(TEST_FILTER)" \
 		./vmtests/imagecustomizer/test_min_change.py
 
 .PHONY: test-imagecreator-azurelinux
@@ -117,7 +117,7 @@ test-imagecreator-azurelinux:
 		--tb=short \
 		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		-k "$(PYTEST_K_VALUE)" \
+		-k "$(TEST_FILTER)" \
 		./vmtests/imagecreator/test_imagecreator_azurelinux.py
 
 .PHONY: test-imagecreator-fedora
@@ -134,7 +134,7 @@ test-imagecreator-fedora:
 		--tb=short \
 		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		-k "$(PYTEST_K_VALUE)" \
+		-k "$(TEST_FILTER)" \
 		./vmtests/imagecreator/test_imagecreator_fedora.py
 
 .PHONY: test-osmodifier
@@ -151,7 +151,7 @@ test-osmodifier:
 		--tb=short \
 		-vv \
 		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
-		-k "$(PYTEST_K_VALUE)" \
+		-k "$(TEST_FILTER)" \
 		./vmtests/osmodifier/test_osmodifier.py
 
 .PHONY: run-imagecustomizer
