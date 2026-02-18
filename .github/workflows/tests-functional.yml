@@ -125,7 +125,7 @@ jobs:
 
         pushd repo/toolkit/tools
 
-        AZL3_VHDX="../../../azl-core-efi-2.0/image.vhdx"
+        AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
         AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
         UBUNTU2204_VHDX="../../../ubuntu-azure-cloud-22.04/image.vhdx"
         UBUNTU2404_VHDX="../../../ubuntu-azure-cloud-24.04/image.vhdx"
@@ -144,7 +144,7 @@ jobs:
           -timeout 120m \
           ./pkg/imagecustomizerlib \
           -args \
-          --base-image-core-efi-azl2 "../../$AZL3_VHDX" \
+          --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
           --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
           --base-image-azure-cloud-ubuntu2204 "../../$UBUNTU2204_VHDX" \
           --base-image-azure-cloud-ubuntu2404 "../../$UBUNTU2404_VHDX" \
