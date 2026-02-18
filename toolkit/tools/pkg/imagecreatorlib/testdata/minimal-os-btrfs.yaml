@@ -40,7 +40,6 @@ os:
     - ca-certificates
     - ca-certificates-base
     - dbus
-    - dracut-hostonly
     - filesystem
     - grub2
     - grub2-efi-binary

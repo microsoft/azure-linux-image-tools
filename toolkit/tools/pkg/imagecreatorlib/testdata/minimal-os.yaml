@@ -42,7 +42,6 @@ os:
     - ca-certificates
     - ca-certificates-base
     - dbus
-    - dracut-hostonly
     - e2fsprogs
     - filesystem
     - grub2
