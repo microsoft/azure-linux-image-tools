@@ -1,0 +1,20 @@
+packages:
+- coreutils
+- dosfstools
+- e2fsprogs
+- glibc
+- policycoreutils
+- python3
+- rpm
+- selinux-policy-targeted
+- systemd
+- xz
+- dracut-config-generic
+- ca-certificates
+- efibootmgr
+- initial-setup
+- libxkbcommon
+- kernel
+# Add dnf to support dnf based package installation in imagecustomizer
+- dnf
+

@@ -3,6 +3,7 @@
 
 import logging
 import os
+import platform
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -26,6 +27,10 @@ IMAGECREATOR_TEST_CONFIGS_DIR = Path(__file__).parent.parent.parent.parent.paren
 # Common packages that should be present in all distributions
 COMMON_PACKAGES = ["kernel", "systemd", "bash"]
 
+# Architecture-specific GRUB EFI package for Fedora
+FEDORA_GRUB_PKG = "grub2-efi-x64" if platform.machine() == "x86_64" else "grub2-efi-aa64"
+AZURELINUX_GRUB_PKG = "grub2"
+
 # Distribution-specific configuration
 DISTRO_CONFIGS: Dict[str, Dict[str, Any]] = {
     "fedora": {
@@ -33,14 +38,14 @@ DISTRO_CONFIGS: Dict[str, Dict[str, Any]] = {
             "ID": "fedora",
             "VERSION_ID": "42",
         },
-        "packages": COMMON_PACKAGES + ["grub2-efi-x64"],
+        "packages": COMMON_PACKAGES + [FEDORA_GRUB_PKG],
     },
     "azurelinux": {
         "os_release": {
             "ID": "azurelinux",
             "VERSION_ID": "3.0",
         },
-        "packages": COMMON_PACKAGES + ["grub2"],
+        "packages": COMMON_PACKAGES + [AZURELINUX_GRUB_PKG],
     },
 }
 

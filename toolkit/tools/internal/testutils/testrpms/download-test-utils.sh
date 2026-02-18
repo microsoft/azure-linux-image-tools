@@ -73,7 +73,11 @@ TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
 # Map distro to config files (space-separated list of config files)
 declare -A DISTRO_CONFIG_MAP
 DISTRO_CONFIG_MAP["azurelinux"]="minimal-os.yaml minimal-os-btrfs.yaml"
-DISTRO_CONFIG_MAP["fedora"]="fedora.yaml"
+if [[ "$(uname -m)" == "x86_64" ]]; then
+  DISTRO_CONFIG_MAP["fedora"]="fedora-amd64.yaml"
+else
+  DISTRO_CONFIG_MAP["fedora"]="fedora-arm64.yaml"
+fi
 
 # Get configuration files for the distro
 CONFIG_FILES="${DISTRO_CONFIG_MAP[$DISTRO]}"
