@@ -74,7 +74,7 @@ TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
 declare -A DISTRO_CONFIG_MAP
 DISTRO_CONFIG_MAP["azurelinux"]="minimal-os.yaml minimal-os-btrfs.yaml"
 if [[ "$(uname -m)" == "x86_64" ]]; then
-  DISTRO_CONFIG_MAP["fedora"]="fedora.yaml"
+  DISTRO_CONFIG_MAP["fedora"]="fedora-amd64.yaml"
 else
   DISTRO_CONFIG_MAP["fedora"]="fedora-arm64.yaml"
 fi

@@ -25,7 +25,7 @@ def test_create_image_efi_qcow_output_fedora(
     image_customizer_binary_path: Path,
 ) -> None:
     if platform.machine() == "x86_64":
-        config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora.yaml")
+        config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora-amd64.yaml")
     else:
         config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora-arm64.yaml")
 

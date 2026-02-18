@@ -32,24 +32,8 @@ os:
     resetType: hard-reset
 
   packages:
+    installLists:
+    - fedora-common-packages.yaml
     install:
-    - coreutils
-    - dosfstools
-    - e2fsprogs
-    - glibc
-    - policycoreutils
-    - python3
-    - rpm
-    - selinux-policy-targeted
-    - systemd
-    - xz
-    - dracut-config-generic
-    - ca-certificates
-    - efibootmgr
     - grub2-efi-aa64
-    - initial-setup
-    - libxkbcommon
     - shim-aa64
-    - kernel
-    # Add dnf to support dnf based package installation in imagecustomizer
-    - dnf
