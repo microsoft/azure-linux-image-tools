@@ -85,7 +85,9 @@ def logs_dir(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     logs_dir = request.config.getoption("--logs-dir")
     if not logs_dir:
         logs_dir = create_temp_folder("logs-")
-    yield Path(logs_dir)
+    logs_dir_path = Path(logs_dir)
+    logs_dir_path.mkdir(parents=True, exist_ok=True)
+    yield logs_dir_path
 
 
 @pytest.fixture(scope="session")
