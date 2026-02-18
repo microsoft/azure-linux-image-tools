@@ -57,6 +57,9 @@ func GetImageFileType(filePath string) (string, error) {
 	case firstBytesCount >= 8 && bytes.Equal(firstBytes[:8], []byte("vhdxfile")):
 		return "vhdx", nil
 
+	case firstBytesCount >= 4 && bytes.Equal(firstBytes[:4], []byte{'Q', 'F', 'I', 0xfb}):
+		return "qcow2", nil
+
 	case isZstFile(firstBytes):
 		return "zst", nil
 

@@ -97,15 +97,8 @@ func TestConvertImageRawToQcow2(t *testing.T) {
 		return
 	}
 
-	// Verify output file exists
-	exists, err := file.PathExists(outputImageFile)
-	assert.NoError(t, err)
-	assert.True(t, exists, "Expected output QCOW2 file to exist")
-
-	// Verify output file is not empty
-	stat, err := os.Stat(outputImageFile)
-	assert.NoError(t, err)
-	assert.Greater(t, stat.Size(), int64(0), "QCOW2 file should not be empty")
+	// Verify output file type
+	checkFileType(t, outputImageFile, "qcow2")
 }
 
 func TestConvertImageVhdxToQcow2(t *testing.T) {
