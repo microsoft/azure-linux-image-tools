@@ -127,7 +127,8 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		// TODO: Remove this check once Ubuntu supports bootloader hard-reset.
+		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
+		// It will fail once this support is added.
 		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
 		return
 	}
@@ -205,7 +206,8 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		// TODO: Remove this check once Ubuntu supports bootloader hard-reset.
+		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
+		// It will fail once this support is added.
 		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
 		return
 	}
@@ -285,7 +287,8 @@ func testConvertImageRawToBareMetalImage(t *testing.T, baseImageInfo testBaseIma
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		// TODO: Remove this check once Ubuntu supports bootloader hard-reset.
+		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
+		// It will fail once this support is added.
 		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
 		return
 	}
@@ -333,7 +336,6 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 	}
 
 	err := ConvertImage(t.Context(), options)
-	assert.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidInputImageFileArg)
 }
 
@@ -356,7 +358,6 @@ func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 	}
 
 	err := ConvertImage(t.Context(), options)
-	assert.Error(t, err)
 	assert.ErrorContains(t, err, "COSI compression level can only be specified for COSI or bare-metal-image output formats")
 }
 
