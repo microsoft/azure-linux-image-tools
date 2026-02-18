@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 import libvirt  # type: ignore
+
 from ..utils.closeable import Closeable
 from .imagecreator_test_utils import IMAGECREATOR_TEST_CONFIGS_DIR, run_image_creator_test
 
