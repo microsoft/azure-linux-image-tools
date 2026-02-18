@@ -90,7 +90,7 @@ jobs:
 
         # Install arm64 specific packages
         if [[ "$HOST_ARCH" == "arm64" ]]; then
-          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf vgabios
+          sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
         fi
 
         sudo apt list --installed
