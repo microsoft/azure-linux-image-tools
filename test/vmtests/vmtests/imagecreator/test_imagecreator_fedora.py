@@ -7,13 +7,10 @@ from pathlib import Path
 from typing import List, Tuple
 
 import libvirt  # type: ignore
-import pytest
-
 from ..utils.closeable import Closeable
 from .imagecreator_test_utils import IMAGECREATOR_TEST_CONFIGS_DIR, run_image_creator_test
 
 
-@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
 def test_create_image_efi_qcow_output_fedora(
     image_creator_binary_path: Path,
     rpm_sources: List[Path],
@@ -26,7 +23,11 @@ def test_create_image_efi_qcow_output_fedora(
     close_list: List[Closeable],
     image_customizer_binary_path: Path,
 ) -> None:
-    config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora.yaml")
+    if platform.machine() == "x86_64":
+        config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora.yaml")
+    else:
+        config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("fedora-arm64.yaml")
+
     output_format = "qcow2"
 
     # debug message

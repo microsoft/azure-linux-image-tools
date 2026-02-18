@@ -136,22 +136,13 @@ jobs:
     - name: Download RPMS and tools file
       env:
         AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
-        HOST_ARCH: ${{ inputs.hostArch }}
       run: |
         set -eux
 
-        # Download the test RPM and tools file for azurelinux
         ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
-
-        # Download the test RPM and tools file for fedora (amd64 only)
-        if [[ "$HOST_ARCH" == "amd64" ]]; then
-          ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true -r "${AZURE_CR_CACHE}"
-        fi
-
+        ./repo/toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d fedora -t 42 -s true -r "${AZURE_CR_CACHE}"
 
     - name: Run image creator tests
-      env:
-        HOST_ARCH: ${{ inputs.hostArch }}
       run: |
         set -eux
 
@@ -179,13 +170,8 @@ jobs:
 
         pushd ./repo/test/vmtests
 
-        # Run tests for each distro
         run_tests "azurelinux" "3.0"
-        
-        # Only run Fedora tests on amd64
-        if [[ "$HOST_ARCH" == "amd64" ]]; then
-          run_tests "fedora" "42"
-        fi
+        run_tests "fedora" "42"
 
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
