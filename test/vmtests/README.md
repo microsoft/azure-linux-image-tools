@@ -67,6 +67,12 @@ KEEP_ENVIRONMENT=y
 
 to the `make` call.
 
+By default, all tests run even if some fail. To stop on the first failure:
+
+```bash
+STOP_ON_FIRST_FAILURE=y
+```
+
 ## Filtering tests
 
 To run only tests matching a specific expression, set the `TEST_FILTER` variable. This

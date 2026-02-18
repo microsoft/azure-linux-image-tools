@@ -24,6 +24,8 @@ SSH_PRIVATE_KEY_FILE ?= ${HOME}/.ssh/id_ed25519
 
 KEEP_ENVIRONMENT ?= n
 
+STOP_ON_FIRST_FAILURE ?= n
+
 TEST_FILTER ?=
 
 OUT_DIR ?= ./out/$(shell date +'%Y%m%d.%H%M')
@@ -97,6 +99,7 @@ test-imagecustomizer:
 		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		$(if $(filter y,$(STOP_ON_FIRST_FAILURE)),-x) \
 		--log-cli-level=DEBUG \
 		--show-capture=no \
 		--tb=short \
@@ -154,6 +157,7 @@ test-osmodifier:
 		--input-image="${INPUT_IMAGE}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
+		$(if $(filter y,$(STOP_ON_FIRST_FAILURE)),-x) \
 		--log-cli-level=DEBUG \
 		--show-capture=no \
 		--tb=short \
