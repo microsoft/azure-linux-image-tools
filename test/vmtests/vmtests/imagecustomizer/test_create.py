@@ -8,21 +8,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import libvirt  # type: ignore
+from docker import DockerClient
 
+from ..conftest import TEST_CONFIGS_DIR
 from ..utils import local_client
 from ..utils.closeable import Closeable
 from ..utils.host_utils import get_host_distro
-from ..utils.imagecreator import run_image_creator, run_image_customizer_binary
-from ..utils.imagecustomizer import add_preview_features_to_config, add_ssh_to_config
+from ..utils.imagecustomizer import add_preview_features_to_config, add_ssh_to_config, run_image_customizer
 from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from ..utils.libvirt_vm import LibvirtVm
 from ..utils.ssh_client import SshClient
 from ..utils.user_utils import get_username
-
-# Path to imagecreator test configs
-IMAGECREATOR_TEST_CONFIGS_DIR = Path(__file__).parent.parent.parent.parent.parent.joinpath(
-    "toolkit/tools/pkg/imagecreatorlib/testdata"
-)
 
 # Common packages that should be present in all distributions
 COMMON_PACKAGES = ["kernel", "systemd", "bash"]
@@ -117,10 +113,11 @@ def run_basic_checks(
     verify_packages(ssh_client, config["packages"])
 
 
-def run_image_creator_test(
-    image_creator_binary_path: Path,
+def run_create_image_test(
+    image_customizer_container_url: str,
+    docker_client: DockerClient,
     rpm_sources: List[Path],
-    tools_tar: Path,
+    tools_file: Path,
     config_path: Path,
     output_format: str,
     ssh_key: Tuple[str, Path],
@@ -129,7 +126,6 @@ def run_image_creator_test(
     logs_dir: Path,
     libvirt_conn: libvirt.virConnect,
     close_list: List[Closeable],
-    image_customizer_binary_path: Path,
     distro: str,
     version: str,
 ) -> None:
@@ -139,58 +135,59 @@ def run_image_creator_test(
     secure_boot = False
     target_boot_type = "efi"
 
-    # Step 1: Create initial image with imagecreator
+    # Step 1: Create initial image with imagecustomizer create subcommand
     initial_output_image_path = test_temp_dir.joinpath("initial-image." + output_format)
-    build_dir = test_temp_dir.joinpath("build")
-    build_dir.mkdir(exist_ok=True)
 
-    logging.info(f"Step 1: Creating initial image with imagecreator")
-    logging.debug(f"Test parameters:")
-    logging.debug(f"- image_creator_binary = {image_creator_binary_path}")
-    logging.debug(f"- rpm_sources          = {rpm_sources}")
-    logging.debug(f"- tools_tar            = {tools_tar}")
-    logging.debug(f"- config_path          = {config_path}")
-    logging.debug(f"- output_format        = {output_format}")
-    logging.debug(f"- target_boot_type     = {target_boot_type}")
-    logging.debug(f"- build_dir            = {build_dir}")
-    logging.debug(f"- logs_dir             = {logs_dir}")
+    logging.info("Step 1: Creating initial image with imagecustomizer create subcommand")
+    logging.debug("Test parameters:")
+    logging.debug(f"- image_customizer_container_url = {image_customizer_container_url}")
+    logging.debug(f"- rpm_sources                    = {rpm_sources}")
+    logging.debug(f"- tools_file                     = {tools_file}")
+    logging.debug(f"- config_path                    = {config_path}")
+    logging.debug(f"- output_format                  = {output_format}")
+    logging.debug(f"- target_boot_type               = {target_boot_type}")
+    logging.debug(f"- logs_dir                       = {logs_dir}")
 
     username = get_username()
 
-    run_image_creator(
-        image_creator_binary_path,
-        rpm_sources,
-        tools_tar,
-        config_path,
+    final_config_path = config_path
+    if distro.lower() == "fedora":
+        final_config_path = add_preview_features_to_config(config_path, "fedora-42", close_list)
+
+    run_image_customizer(
+        docker_client,
+        image_customizer_container_url,
+        "create",
+        final_config_path,
         output_format,
         initial_output_image_path,
-        build_dir,
-        distro,
-        version,
+        rpm_sources=rpm_sources,
+        tools_file=tools_file,
+        distro=distro,
+        distro_version=version,
     )
 
     # Step 1.5: Run imagecustomizer to add SSH configuration
     logging.info(f"Step 1.5: Running imagecustomizer to add SSH configuration")
 
     customized_output_image_path = test_temp_dir.joinpath("customized-image." + output_format)
-    customizer_build_dir = test_temp_dir.joinpath("customizer-build")
-    customizer_build_dir.mkdir(exist_ok=True)
 
     # Use base SSH config and add SSH user configuration dynamically
-    base_ssh_config_path = IMAGECREATOR_TEST_CONFIGS_DIR.joinpath("ssh-base-config.yaml")
+    base_ssh_config_path = TEST_CONFIGS_DIR.joinpath("ssh-base-config.yaml")
     customizer_config_path_obj = add_ssh_to_config(base_ssh_config_path, username, ssh_public_key, close_list)
 
     # Add Fedora preview features if needed
     if distro.lower() == "fedora":
         customizer_config_path_obj = add_preview_features_to_config(customizer_config_path_obj, "fedora-42", close_list)
 
-    run_image_customizer_binary(
-        image_customizer_binary_path,
-        initial_output_image_path,
+    run_image_customizer(
+        docker_client,
+        image_customizer_container_url,
+        "customize",
         customizer_config_path_obj,
-        customized_output_image_path,
         output_format,
-        customizer_build_dir,
+        customized_output_image_path,
+        image_file=initial_output_image_path,
     )
 
     # Use the customized image for VM testing
@@ -286,3 +283,68 @@ def run_image_creator_test(
         logging.info(f"Running basic checks on the VM")
         run_basic_checks(ssh_client, test_temp_dir, distro)
         logging.info(f"Basic checks completed successfully!")
+
+
+def test_create_image_efi_qcow_output_azl3(
+    image_customizer_container_url: str,
+    docker_client: DockerClient,
+    rpm_sources_azl3: Path,
+    tools_file_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    run_create_image_test(
+        image_customizer_container_url,
+        docker_client,
+        [rpm_sources_azl3],
+        tools_file_azl3,
+        TEST_CONFIGS_DIR.joinpath("create-minimal-os.yaml"),
+        "qcow2",
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+        "azurelinux",
+        "3.0",
+    )
+
+
+def test_create_image_efi_qcow_output_fedora(
+    image_customizer_container_url: str,
+    docker_client: DockerClient,
+    rpm_sources_fedora42: Path,
+    tools_file_fedora42: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    if platform.machine() == "x86_64":
+        config_path = TEST_CONFIGS_DIR.joinpath("create-fedora-amd64.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("create-fedora-arm64.yaml")
+
+    run_create_image_test(
+        image_customizer_container_url,
+        docker_client,
+        [rpm_sources_fedora42],
+        tools_file_fedora42,
+        config_path,
+        "qcow2",
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+        "fedora",
+        "42",
+    )
