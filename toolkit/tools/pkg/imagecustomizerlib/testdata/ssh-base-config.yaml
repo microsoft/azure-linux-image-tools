@@ -1,6 +1,6 @@
 # Base ImageCustomizer configuration for adding SSH access to images
 # This config is used by tests to add SSH server and user configuration
-# to images created by ImageCreator.
+# to images created by the create subcommand.
 
 os:
   additionalFiles:

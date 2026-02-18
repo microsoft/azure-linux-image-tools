@@ -58,7 +58,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	assert.NoError(t, err)
 
 	baseConfigPath := testDir
-	configFile := filepath.Join(testDir, "minimal-os.yaml")
+	configFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
@@ -223,7 +223,7 @@ func TestValidateConfig_EmptyPackagestoInstall(t *testing.T) {
 	err := os.MkdirAll(testTmpDir, os.ModePerm)
 	assert.NoError(t, err)
 
-	configFile := filepath.Join(testDir, "minimal-os.yaml")
+	configFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)

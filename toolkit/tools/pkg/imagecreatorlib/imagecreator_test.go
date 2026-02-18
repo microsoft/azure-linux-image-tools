@@ -19,10 +19,10 @@ func TestCreateImageRaw(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "minimal-os.yaml")
+	partitionsConfigFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 	outputImageFormat := "raw"
-	noChangeConfigFile := filepath.Join(testDir, "minimal-os.yaml")
+	noChangeConfigFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	vhdFixedImageFilePath := filepath.Join(testTmpDir, "image2.vhd")
 
 	// get RPM sources
@@ -70,7 +70,7 @@ func TestCreateImageBtrfs(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "minimal-os-btrfs.yaml")
+	partitionsConfigFile := filepath.Join(testDir, "create-minimal-os-btrfs.yaml")
 	outputImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	outputImageFormat := "raw"
 
@@ -126,7 +126,7 @@ func TestCreateImageRawNoTar(t *testing.T) {
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "minimal-os.yaml")
+	partitionsConfigFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 
 	// get RPM sources
@@ -166,7 +166,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	baseConfigPath := testTmpDir
-	ConfigPath := filepath.Join(testDir, "minimal-os.yaml")
+	ConfigPath := filepath.Join(testDir, "create-minimal-os.yaml")
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(ConfigPath, &config)
 	assert.NoError(t, err)

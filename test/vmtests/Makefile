@@ -15,7 +15,6 @@ MYPY=${VENV_BIN_DIR}/mypy
 TOOLKIT_DIR=../../toolkit
 TOOLS_BIN_DIR=${TOOLKIT_DIR}/out/tools
 IMAGE_CUSTOMIZER_BIN=${TOOLS_BIN_DIR}/imagecustomizer
-IMAGE_CREATOR_BIN=${TOOLS_BIN_DIR}/imagecreator
 OSMODIFIER_BIN=${TOOLS_BIN_DIR}/osmodifier
 
 IMAGE_CUSTOMIZER_CONTAINER_TAG?=imagecustomizer:dev
@@ -76,10 +75,6 @@ check-black:
 ${IMAGE_CUSTOMIZER_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-imagecustomizer
 
-.PHONY: ${IMAGE_CREATOR_BIN}
-${IMAGE_CREATOR_BIN}:
-	${MAKE} -C ${TOOLKIT_DIR} go-imagecreator
-
 .PHONY: ${OSMODIFIER_BIN}
 ${OSMODIFIER_BIN}:
 	${MAKE} -C ${TOOLKIT_DIR} go-osmodifier
@@ -97,6 +92,10 @@ test-imagecustomizer:
 		--core-efi-azl3="${CORE_EFI_AZL3}" \
 		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \
 		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
+		--rpm-sources-azl3="${RPM_SOURCES_AZL3}" \
+		--rpm-sources-fedora42="${RPM_SOURCES_FEDORA42}" \
+		--tools-file-azl3="${TOOLS_FILE_AZL3}" \
+		--tools-file-fedora42="${TOOLS_FILE_FEDORA42}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		$(if $(filter y,$(STOP_ON_FIRST_FAILURE)),-x) \
@@ -109,44 +108,6 @@ test-imagecustomizer:
 		--log-file-level=DEBUG \
 		-k "$(TEST_FILTER)" \
 		./vmtests/imagecustomizer/test_min_change.py
-
-.PHONY: test-imagecreator-azurelinux
-test-imagecreator-azurelinux:
-	${PYTEST} \
-		--image-creator-binary-path="${IMAGE_CREATOR_BIN}" \
-		--rpm-sources="${RPM_SOURCES}" \
-		--tools-tar="${TOOLS_TAR}" \
-		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
-		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
-		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
-		--show-capture=no \
-		--tb=short \
-		-vv \
-		--junitxml=$(OUT_DIR)/report.xml \
-		--log-file=$(OUT_DIR)/pytest.log \
-		--log-file-level=DEBUG \
-		-k "$(TEST_FILTER)" \
-		./vmtests/imagecreator/test_imagecreator_azurelinux.py
-
-.PHONY: test-imagecreator-fedora
-test-imagecreator-fedora:
-	${PYTEST} \
-		--image-creator-binary-path="${IMAGE_CREATOR_BIN}" \
-		--rpm-sources="${RPM_SOURCES}" \
-		--tools-tar="${TOOLS_TAR}" \
-		--image-customizer-binary-path="${IMAGE_CUSTOMIZER_BINARY_PATH}" \
-		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
-		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
-		--log-cli-level=DEBUG \
-		--show-capture=no \
-		--tb=short \
-		-vv \
-		--junitxml=$(OUT_DIR)/report.xml \
-		--log-file=$(OUT_DIR)/pytest.log \
-		--log-file-level=DEBUG \
-		-k "$(TEST_FILTER)" \
-		./vmtests/imagecreator/test_imagecreator_fedora.py
 
 .PHONY: test-osmodifier
 test-osmodifier:
@@ -170,9 +131,6 @@ test-osmodifier:
 
 .PHONY: run-imagecustomizer
 run-imagecustomizer: image-customizer-container test-imagecustomizer
-
-.PHONY: run-imagecreator
-run-imagecreator: ${IMAGE_CREATOR_BIN} test-imagecreator-azurelinux test-imagecreator-fedora
 
 .PHONY: run-osmodifier
 run-osmodifier: ${OSMODIFIER_BIN} test-osmodifier

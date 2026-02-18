@@ -68,15 +68,15 @@ set -x
 # Initialize package list
 PACKAGE_LIST=""
 # Declarative configuration maps
-TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
+TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecustomizerlib/testdata"
 
 # Map distro to config files (space-separated list of config files)
 declare -A DISTRO_CONFIG_MAP
-DISTRO_CONFIG_MAP["azurelinux"]="minimal-os.yaml minimal-os-btrfs.yaml"
+DISTRO_CONFIG_MAP["azurelinux"]="create-minimal-os.yaml create-minimal-os-btrfs.yaml"
 if [[ "$(uname -m)" == "x86_64" ]]; then
-  DISTRO_CONFIG_MAP["fedora"]="fedora-amd64.yaml"
+  DISTRO_CONFIG_MAP["fedora"]="create-fedora-amd64.yaml"
 else
-  DISTRO_CONFIG_MAP["fedora"]="fedora-arm64.yaml"
+  DISTRO_CONFIG_MAP["fedora"]="create-fedora-arm64.yaml"
 fi
 
 # Get configuration files for the distro

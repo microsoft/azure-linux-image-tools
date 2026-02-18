@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 		logger.Log.Panicf("Failed to get working directory, error: %s", err)
 	}
 
-	testDir = filepath.Join(workingDir, "testdata")
+	testDir = filepath.Join(workingDir, "../imagecustomizerlib/testdata")
 	tmpDir = filepath.Join(workingDir, "_tmp")
 
 	testutilsDir = filepath.Join(workingDir, "../../internal/testutils")
