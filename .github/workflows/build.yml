@@ -93,26 +93,6 @@ jobs:
       # Azure login.
       id-token: write
 
-  imagecreator-tests-functional-azl3-amd64:
-    name: Functional tests AZL3 AMD64
-    if: ${{ inputs.runFunctionalTests }}
-    uses: ./.github/workflows/imagecreator-tests-functional.yml
-    with:
-      hostArch: amd64
-      hostDistro: azl3
-    permissions:
-      contents: read
-
-  imagecreator-tests-functional-ubuntu2404-amd64:
-    name: Functional tests Ubuntu24.04 AMD64
-    if: ${{ inputs.runFunctionalTests }}
-    uses: ./.github/workflows/imagecreator-tests-functional.yml
-    with:
-      hostArch: amd64
-      hostDistro: ubuntu2404
-    permissions:
-      contents: read
-
   tests-vmtests-azl3-amd64:
     name: VM tests suite AZL3 AMD64
     if: ${{ inputs.runVMTests }}

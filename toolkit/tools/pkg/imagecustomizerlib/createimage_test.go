@@ -1,4 +1,7 @@
-package imagecreatorlib
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+package imagecustomizerlib
 
 import (
 	"os"
@@ -8,12 +11,11 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateImageRaw(t *testing.T) {
-	checkSkipForCreateImage(t, runCreateImageTests)
+	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRaw")
 	defer os.RemoveAll(testTmpDir)
@@ -41,13 +43,13 @@ func TestCreateImageRaw(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", fileType)
 
-	imageInfo, err := imagecustomizerlib.GetImageFileInfo(outputImageFilePath)
+	imageInfo, err := GetImageFileInfo(outputImageFilePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", imageInfo.Format)
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
 
 	// Customize image to vhd.
-	err = imagecustomizerlib.CustomizeImageWithConfigFile(
+	err = CustomizeImageWithConfigFile(
 		t.Context(), buildDir, noChangeConfigFile, outputImageFilePath, rpmSources,
 		vhdFixedImageFilePath, "vhd", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -57,14 +59,14 @@ func TestCreateImageRaw(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "vhd", fileType)
 
-	imageInfo, err = imagecustomizerlib.GetImageFileInfo(vhdFixedImageFilePath)
+	imageInfo, err = GetImageFileInfo(vhdFixedImageFilePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "vpc", imageInfo.Format)
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
 }
 
 func TestCreateImageBtrfs(t *testing.T) {
-	checkSkipForCreateImage(t, runCreateImageTests)
+	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImageBtrfs")
 	defer os.RemoveAll(testTmpDir)
@@ -89,7 +91,7 @@ func TestCreateImageBtrfs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", fileType)
 
-	imageInfo, err := imagecustomizerlib.GetImageFileInfo(outputImageFilePath)
+	imageInfo, err := GetImageFileInfo(outputImageFilePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", imageInfo.Format)
 	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
@@ -120,7 +122,7 @@ func TestCreateImageBtrfs(t *testing.T) {
 }
 
 func TestCreateImageRawNoTar(t *testing.T) {
-	checkSkipForCreateImage(t, runCreateImageTests)
+	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRaw")
 	defer os.RemoveAll(testTmpDir)
@@ -159,7 +161,7 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 }
 
 func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
-	checkSkipForCreateImage(t, runCreateImageTests)
+	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCreateImage_OutputImageFileAsRelativePathOnCommandLine")
 	defer os.RemoveAll(testTmpDir)

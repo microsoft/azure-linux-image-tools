@@ -1,4 +1,7 @@
-package imagecreatorlib
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+package imagecustomizerlib
 
 import (
 	"context"
@@ -9,7 +12,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
 const (
@@ -47,19 +49,19 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
 	distroVersion string, packageSnapshotTime string,
 ) error {
-	rc, err := validateConfig(
+	rc, err := validateCreateImageConfig(
 		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
 		outputImageFormat, packageSnapshotTime, buildDir)
 	if err != nil {
 		return err
 	}
 
-	err = imagecustomizerlib.CheckEnvironmentVars()
+	err = CheckEnvironmentVars()
 	if err != nil {
 		return err
 	}
 
-	imagecustomizerlib.LogVersionsOfToolDeps()
+	LogVersionsOfToolDeps()
 
 	outputImageDir := filepath.Dir(rc.OutputImageFile)
 	err = os.MkdirAll(outputImageDir, os.ModePerm)
@@ -76,9 +78,9 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Creating new image with parameters: %+v\n", rc)
 
 	// Create distro config from distro name and version
-	distroHandler := imagecustomizerlib.NewDistroHandler(distro, distroVersion)
+	distroHandler := NewDistroHandler(distro, distroVersion)
 
-	partIdToPartUuid, err := imagecustomizerlib.CreateNewImage(
+	partIdToPartUuid, err := CreateNewImage(
 		distroHandler.GetTargetOs(), rc.RawImageFile,
 		diskConfig, rc.Config.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
@@ -89,7 +91,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", rc.ImageUuidStr)
 
-	partUuidToFstabEntry, osRelease, err := imagecustomizerlib.CustomizeImageHelperImageCreator(ctx, rc, toolsTar,
+	partUuidToFstabEntry, osRelease, err := CustomizeImageHelperCreate(ctx, rc, toolsTar,
 		distroHandler)
 	if err != nil {
 		return err
@@ -100,7 +102,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	logger.Log.Infof("Writing: %s", rc.OutputImageFile)
 
-	err = imagecustomizerlib.ConvertImageFile(rc.RawImageFile, rc.OutputImageFile, rc.OutputImageFormat)
+	err = ConvertImageFile(rc.RawImageFile, rc.OutputImageFile, rc.OutputImageFormat)
 	if err != nil {
 		return err
 	}

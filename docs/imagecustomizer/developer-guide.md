@@ -49,7 +49,7 @@ sudo go test -C ./toolkit/tools ./...
 2. Download the test RPM files:
 
    ```bash
-   ./toolkit/tools/internal/testutils/testrpms/download-test-utils.sh
+   ./toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
    ```
 
 3. Run the tests:
