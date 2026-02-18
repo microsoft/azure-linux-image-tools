@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,40 +17,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConvertImageRawToVhdx(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToVhdx")
-	defer os.RemoveAll(testTempDir)
-
-	buildDir := filepath.Join(testTempDir, "build")
-	outputImageFile := filepath.Join(testTempDir, "output.vhdx")
-
-	options := ConvertImageOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outputImageFile,
-		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
+func TestConvertImageRawToVhd(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageRawToVhd(t, baseImageInfo)
+		})
 	}
-
-	err := ConvertImage(t.Context(), options)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Verify output file exists
-	exists, err := file.PathExists(outputImageFile)
-	assert.NoError(t, err)
-	assert.True(t, exists, "Expected output VHDX file to exist")
-
-	// Verify output file type
-	checkFileType(t, outputImageFile, "vhdx")
 }
 
-func TestConvertImageRawToVhd(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+func testConvertImageRawToVhd(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToVhd")
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageRawToVhd_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -67,19 +46,22 @@ func TestConvertImageRawToVhd(t *testing.T) {
 		return
 	}
 
-	// Verify output file exists
-	exists, err := file.PathExists(outputImageFile)
-	assert.NoError(t, err)
-	assert.True(t, exists, "Expected output VHD file to exist")
-
 	// Verify output file type
 	checkFileType(t, outputImageFile, "vhd")
 }
 
 func TestConvertImageRawToQcow2(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageRawToQcow2(t, baseImageInfo)
+		})
+	}
+}
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToQcow2")
+func testConvertImageRawToQcow2(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageRawToQcow2_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -101,57 +83,18 @@ func TestConvertImageRawToQcow2(t *testing.T) {
 	checkFileType(t, outputImageFile, "qcow2")
 }
 
-func TestConvertImageVhdxToQcow2(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageVhdxToQcow2")
-	defer os.RemoveAll(testTempDir)
-
-	buildDir := filepath.Join(testTempDir, "build")
-	intermediateVhdx := filepath.Join(testTempDir, "intermediate.vhdx")
-	outputQcow2 := filepath.Join(testTempDir, "output.qcow2")
-
-	// First convert to VHDX
-	options1 := ConvertImageOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   intermediateVhdx,
-		OutputImageFormat: imagecustomizerapi.ImageFormatTypeVhdx,
+func TestConvertImageRawToCosi(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageRawToCosi(t, baseImageInfo)
+		})
 	}
-
-	err := ConvertImage(t.Context(), options1)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Then convert VHDX to QCOW2
-	buildDir2 := filepath.Join(testTempDir, "build2")
-	options2 := ConvertImageOptions{
-		BuildDir:          buildDir2,
-		InputImageFile:    intermediateVhdx,
-		OutputImageFile:   outputQcow2,
-		OutputImageFormat: imagecustomizerapi.ImageFormatTypeQcow2,
-	}
-
-	err = ConvertImage(t.Context(), options2)
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Verify output file exists
-	exists, err := file.PathExists(outputQcow2)
-	assert.NoError(t, err)
-	assert.True(t, exists, "Expected output QCOW2 file to exist")
-
-	// Verify output file is not empty
-	stat, err := os.Stat(outputQcow2)
-	assert.NoError(t, err)
-	assert.Greater(t, stat.Size(), int64(0), "QCOW2 file should not be empty")
 }
 
-func TestConvertImageRawToCosi(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-	if baseImageInfo.Version == baseImageVersionAzl2 {
+func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
 
@@ -165,7 +108,7 @@ func TestConvertImageRawToCosi(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToCosi")
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageRawToCosi_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -175,8 +118,19 @@ func TestConvertImageRawToCosi(t *testing.T) {
 	customizedImage := filepath.Join(testTempDir, "customized.raw")
 	configFile := filepath.Join(testDir, "verity-config.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, customizedImage, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      customizedImage,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		// TODO: Remove this check once Ubuntu supports bootloader hard-reset.
+		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -207,8 +161,17 @@ func TestConvertImageRawToCosi(t *testing.T) {
 }
 
 func TestConvertImageRawToCosiWithCompression(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-	if baseImageInfo.Version == baseImageVersionAzl2 {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageRawToCosiWithCompression(t, baseImageInfo)
+		})
+	}
+}
+
+func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
 
@@ -222,7 +185,8 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToCosiWithCompression")
+	testTempDir := filepath.Join(tmpDir,
+		fmt.Sprintf("TestConvertImageRawToCosiWithCompression_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -232,8 +196,19 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 	customizedImage := filepath.Join(testTempDir, "customized.raw")
 	configFile := filepath.Join(testDir, "verity-config.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, customizedImage, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      customizedImage,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		// TODO: Remove this check once Ubuntu supports bootloader hard-reset.
+		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -266,8 +241,17 @@ func TestConvertImageRawToCosiWithCompression(t *testing.T) {
 }
 
 func TestConvertImageRawToBareMetalImage(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-	if baseImageInfo.Version == baseImageVersionAzl2 {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageRawToBareMetalImage(t, baseImageInfo)
+		})
+	}
+}
+
+func testConvertImageRawToBareMetalImage(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
 
@@ -281,7 +265,8 @@ func TestConvertImageRawToBareMetalImage(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRawToBareMetalImage")
+	testTempDir := filepath.Join(tmpDir,
+		fmt.Sprintf("TestConvertImageRawToBareMetalImage_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -291,8 +276,19 @@ func TestConvertImageRawToBareMetalImage(t *testing.T) {
 	customizedImage := filepath.Join(testTempDir, "customized.raw")
 	configFile := filepath.Join(testDir, "verity-config.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, customizedImage, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      customizedImage,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		// TODO: Remove this check once Ubuntu supports bootloader hard-reset.
+		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -365,18 +361,20 @@ func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 }
 
 func TestConvertImageAutoDetectFormat(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	qemuimgExists, err := file.CommandExists("qemu-img")
-	assert.NoError(t, err)
-	if !qemuimgExists {
-		t.Skip("The 'qemu-img' command is not available")
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageAutoDetectFormat(t, baseImageInfo)
+		})
 	}
+}
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageAutoDetectFormat")
+func testConvertImageAutoDetectFormat(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageAutoDetectFormat_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
-	err = os.MkdirAll(testTempDir, os.ModePerm)
+	err := os.MkdirAll(testTempDir, os.ModePerm)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -404,16 +402,22 @@ func TestConvertImageAutoDetectFormat(t *testing.T) {
 		return
 	}
 
-	// Verify output file exists
-	exists, err := file.PathExists(outputRaw)
-	assert.NoError(t, err)
-	assert.True(t, exists, "Expected output RAW file to exist")
+	// Verify output file type
+	checkFileType(t, outputRaw, "raw")
 }
 
 func TestConvertImageRoundTrip(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageRoundTrip(t, baseImageInfo)
+		})
+	}
+}
 
-	testTempDir := filepath.Join(tmpDir, "TestConvertImageRoundTrip")
+func testConvertImageRoundTrip(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageRoundTrip_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	// RAW → VHDX
@@ -430,6 +434,8 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		return
 	}
 
+	checkFileType(t, vhdxImage, "vhdx")
+
 	// VHDX → QCOW2
 	buildDir2 := filepath.Join(testTempDir, "build2")
 	qcow2Image := filepath.Join(testTempDir, "step2.qcow2")
@@ -443,6 +449,8 @@ func TestConvertImageRoundTrip(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
+	checkFileType(t, qcow2Image, "qcow2")
 
 	// QCOW2 → VHD
 	buildDir3 := filepath.Join(testTempDir, "build3")
@@ -458,6 +466,8 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		return
 	}
 
+	checkFileType(t, vhdImage, "vhd")
+
 	// VHD → RAW
 	buildDir4 := filepath.Join(testTempDir, "build4")
 	rawImage := filepath.Join(testTempDir, "step4.raw")
@@ -472,12 +482,7 @@ func TestConvertImageRoundTrip(t *testing.T) {
 		return
 	}
 
-	// Verify all output files exist
-	for _, imagePath := range []string{vhdxImage, qcow2Image, vhdImage, rawImage} {
-		exists, err := file.PathExists(imagePath)
-		assert.NoError(t, err)
-		assert.True(t, exists, "Expected output file to exist: %s", imagePath)
-	}
+	checkFileType(t, rawImage, "raw")
 
 	// Verify final RAW image is bootable by connecting to it
 	imageConnection, err := testutils.ConnectToImage(buildDir4, rawImage, false, nil)
