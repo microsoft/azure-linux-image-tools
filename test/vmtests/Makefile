@@ -26,7 +26,9 @@ KEEP_ENVIRONMENT ?= n
 
 TEST_FILTER ?=
 
-DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
+OUT_DIR ?= ./out/$(shell date +'%Y%m%d.%H%M')
+
+LOGS_DIR := $(OUT_DIR)/logs
 
 .PHONY: create-venv
 create-venv:
@@ -99,7 +101,9 @@ test-imagecustomizer:
 		--show-capture=no \
 		--tb=short \
 		-vv \
-		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		--junitxml=$(OUT_DIR)/report.xml \
+		--log-file=$(OUT_DIR)/pytest.log \
+		--log-file-level=DEBUG \
 		-k "$(TEST_FILTER)" \
 		./vmtests/imagecustomizer/test_min_change.py
 
@@ -116,7 +120,9 @@ test-imagecreator-azurelinux:
 		--show-capture=no \
 		--tb=short \
 		-vv \
-		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		--junitxml=$(OUT_DIR)/report.xml \
+		--log-file=$(OUT_DIR)/pytest.log \
+		--log-file-level=DEBUG \
 		-k "$(TEST_FILTER)" \
 		./vmtests/imagecreator/test_imagecreator_azurelinux.py
 
@@ -133,7 +139,9 @@ test-imagecreator-fedora:
 		--show-capture=no \
 		--tb=short \
 		-vv \
-		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		--junitxml=$(OUT_DIR)/report.xml \
+		--log-file=$(OUT_DIR)/pytest.log \
+		--log-file-level=DEBUG \
 		-k "$(TEST_FILTER)" \
 		./vmtests/imagecreator/test_imagecreator_fedora.py
 
@@ -150,7 +158,9 @@ test-osmodifier:
 		--show-capture=no \
 		--tb=short \
 		-vv \
-		--junitxml=./out/$(DATETIME_AS_VERSION)/report.xml \
+		--junitxml=$(OUT_DIR)/report.xml \
+		--log-file=$(OUT_DIR)/pytest.log \
+		--log-file-level=DEBUG \
 		-k "$(TEST_FILTER)" \
 		./vmtests/osmodifier/test_osmodifier.py
 

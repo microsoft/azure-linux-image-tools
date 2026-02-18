@@ -37,6 +37,25 @@ Steps:
    to use a different private key, then set the `SSH_PRIVATE_KEY_FILE` variable when
    calling `make`.
 
+## Output directory
+
+Test outputs (logs, reports, and pytest log files) are saved to a timestamped directory
+under `./out/`. For example: `./out/20260218.1430/`.
+
+The `OUT_DIR` variable controls this path. By default, it is set to
+`./out/<YYYYMMDD.HHMM>` based on the current date and time. The output directory
+contains:
+
+- `report.xml` - JUnit XML test report.
+- `pytest.log` - Full pytest log file.
+- `logs/` - VM and tool log files collected during the test run.
+
+To override the output directory:
+
+```bash
+make test-imagecustomizer OUT_DIR=./out/my-run ...
+```
+
 ## Debugging
 
 If you want to keep the resources that the test creates around after the test has
