@@ -1,4 +1,7 @@
-package imagecreatorlib
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+package imagecustomizerlib
 
 import (
 	"archive/tar"
@@ -45,11 +48,11 @@ func createDummyTarGz(filename string) error {
 	return nil
 }
 
-func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
+func TestValidateCreateImageOutput_AcceptsValidPaths(t *testing.T) {
 	cwd, err := os.Getwd()
 	assert.NoError(t, err)
 
-	testTmpDir := filepath.Join(tmpDir, "TestValidateOutput_AcceptsValidPaths")
+	testTmpDir := filepath.Join(tmpDir, "TestValidateCreateImageOutput_AcceptsValidPaths")
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := testTmpDir
@@ -58,7 +61,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	assert.NoError(t, err)
 
 	baseConfigPath := testDir
-	configFile := filepath.Join(testDir, "minimal-os.yaml")
+	configFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
@@ -96,110 +99,110 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	outputImageFormat := filepath.Ext(outputImageFile)[1:]
 	packageSnapshotTime := ""
 
-	// The output image file can be sepcified as an argument without being in specified the config.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	// The output image file can be specified as an argument without being in specified the config.
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileNewRelativeCwd
 
 	// The output image file can be specified as an argument relative to the current working directory.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageDir
 
 	// The output image file, specified as an argument, must not be a directory.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	outputImageFile = outputImageDirRelativeCwd
 
 	// The above is also true for relative paths.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	outputImageFile = outputImageFileExists
 
 	// The output image file, specified as an argument, may be a file that already exists.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileExistsRelativeCwd
 
 	// The above is also true for relative paths.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	outputImageFile = ""
 	config.Output.Image.Path = outputImageFileNew
 
-	// The output image file cab be specified in the config without being specified as an argument.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	// The output image file can be specified in the config without being specified as an argument.
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileNewRelativeConfig
 
 	// The output image file can be specified in the config relative to the base config path.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file, specified in the config, must not be a directory.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageDirRelativeConfig
 
 	// The above is also true for relative paths.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "is a directory")
 
 	config.Output.Image.Path = outputImageFileExists
 
 	// The output image file, specified in the config, may be a file that already exists.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageFileExistsRelativeConfig
 
 	// The above is also true for relative paths.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	outputImageFile = outputImageFileNew
 	config.Output.Image.Path = outputImageFileNew
 
 	// The output image file can be specified both as an argument and in the config.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 
 	config.Output.Image.Path = outputImageDir
 
 	// The output image file can even be invalid in the config if it is specified as an argument.
-	_, err = validateConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), baseConfigPath, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.NoError(t, err)
 }
 
-func TestValidateConfig_EmptyConfig(t *testing.T) {
+func TestValidateCreateImageConfig_EmptyConfig(t *testing.T) {
 	baseConfigPath := testDir
 	config := &imagecustomizerapi.Config{
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{imagecustomizerapi.PreviewFeatureCreate},
@@ -211,19 +214,19 @@ func TestValidateConfig_EmptyConfig(t *testing.T) {
 	packageSnapshotTime := ""
 	buildDir := "./"
 
-	_, err := validateConfig(t.Context(), baseConfigPath, config, rpmSources, "", outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err := validateCreateImageConfig(t.Context(), baseConfigPath, config, rpmSources, "", outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.ErrorContains(t, err, "storage.disks field is required in the config file")
 }
 
-func TestValidateConfig_EmptyPackagestoInstall(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestValidateConfig_EmptyPackagestoInstall")
+func TestValidateCreateImageConfig_EmptyPackagestoInstall(t *testing.T) {
+	testTmpDir := filepath.Join(tmpDir, "TestValidateCreateImageConfig_EmptyPackagestoInstall")
 	defer os.RemoveAll(testTmpDir)
 
 	err := os.MkdirAll(testTmpDir, os.ModePerm)
 	assert.NoError(t, err)
 
-	configFile := filepath.Join(testDir, "minimal-os.yaml")
+	configFile := filepath.Join(testDir, "create-minimal-os.yaml")
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
@@ -238,13 +241,13 @@ func TestValidateConfig_EmptyPackagestoInstall(t *testing.T) {
 	assert.NoError(t, err)
 	// Set the packages to install to an empty slice
 	config.OS.Packages.Install = []string{}
-	_, err = validateConfig(t.Context(), configFile, &config, rpmSources, toolsFile, outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
+	_, err = validateCreateImageConfig(t.Context(), configFile, &config, rpmSources, toolsFile, outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.ErrorContains(t, err, "no packages to install specified, please specify at least one package to install for a new image")
 }
 
-func TestValidateConfig_InvaliFieldsVerityConfig(t *testing.T) {
-	configFile := filepath.Join(testDir, "../../imagecustomizerlib/testdata", "verity-config.yaml")
+func TestValidateCreateImageConfig_InvalidFieldsVerityConfig(t *testing.T) {
+	configFile := filepath.Join(testDir, "verity-config.yaml")
 
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
@@ -256,13 +259,13 @@ func TestValidateConfig_InvaliFieldsVerityConfig(t *testing.T) {
 	packageSnapshotTime := ""
 	buildDir := "./"
 
-	_, err = validateConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
-	assert.ErrorContains(t, err, "storage verity field is not supported by the image creator")
+	_, err = validateCreateImageConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
+	assert.ErrorContains(t, err, "storage verity field is not supported by the create subcommand")
 }
 
-func TestValidateConfig_InvaliFieldsOverlaysConfig(t *testing.T) {
-	configFile := filepath.Join(testDir, "../../imagecustomizerlib/testdata", "overlays-config.yaml")
+func TestValidateCreateImageConfig_InvalidFieldsOverlaysConfig(t *testing.T) {
+	configFile := filepath.Join(testDir, "overlays-config.yaml")
 
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
@@ -274,7 +277,7 @@ func TestValidateConfig_InvaliFieldsOverlaysConfig(t *testing.T) {
 	packageSnapshotTime := ""
 	buildDir := "./"
 
-	_, err = validateConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile, outputImageFormat,
-		packageSnapshotTime, buildDir)
-	assert.ErrorContains(t, err, "overlay field is not supported by the image creator")
+	_, err = validateCreateImageConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile,
+		outputImageFormat, packageSnapshotTime, buildDir)
+	assert.ErrorContains(t, err, "overlay field is not supported by the create subcommand")
 }

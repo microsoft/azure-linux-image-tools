@@ -440,7 +440,7 @@ func TestValidateOutput_AcceptsValidPaths(t *testing.T) {
 	options.OutputImageFile = ""
 	config.Output.Image.Path = outputImageFileNew
 
-	// The output image file cab be specified in the config without being specified as an argument.
+	// The output image file can be specified in the config without being specified as an argument.
 	_, err = ValidateConfig(t.Context(), baseConfigPath, config, false, false, validateResources, options)
 	assert.NoError(t, err)
 

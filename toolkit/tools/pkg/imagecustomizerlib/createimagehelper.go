@@ -15,7 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
-func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, tarFile string,
+func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile string,
 	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
@@ -36,7 +36,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsImageCreator(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler)
+	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -65,7 +65,7 @@ func CustomizeImageHelperImageCreator(ctx context.Context, rc *ResolvedConfig, t
 	return partitionsLayout, osRelease, nil
 }
 
-func doOsCustomizationsImageCreator(
+func doOsCustomizationsCreate(
 	ctx context.Context,
 	rc *ResolvedConfig,
 	imageConnection *imageconnection.ImageConnection,
@@ -108,7 +108,7 @@ func doOsCustomizationsImageCreator(
 	}
 
 	// Clear systemd state files that should be unique to each instance
-	// For Image Creator, we disable systemd firstboot by default since Azure Linux
+	// For the create subcommand, we disable systemd firstboot by default since Azure Linux
 	// has traditionally not used firstboot mechanisms.
 	err = installutils.ClearSystemdState(imageChroot, false)
 	if err != nil {

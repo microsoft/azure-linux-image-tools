@@ -87,6 +87,14 @@ jobs:
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+    - name: ACR Login
+      run: |
+        set -eux
+        # login to ACR
+        az acr login -n "${AZURE_CR_CACHE}"
+      env:
+        AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
+
     - name: Download base images
       run: |
         set -eux
@@ -132,25 +140,42 @@ jobs:
 
         make create-venv
 
+    - name: Download RPMs and tools file (for create subcommand)
+      run: |
+        set -eux
+
+        pushd ./repo/toolkit/tools/internal/testutils/testrpms
+
+        ./download-test-utils.sh -d azurelinux -t 3.0 -s true
+        ./download-test-utils.sh -d fedora -t 42 -s true -r "$AZURE_CR_CACHE"
+      env:
+        AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
+
     - name: Run tests
       run: |
         set -eux
 
         pushd ./repo/test/vmtests
-        
+
         CORE_LEGACY_AZL2=""
         CORE_LEGACY_AZL3=""
         if [ "$HOST_ARCH" == "amd64" ]; then
           CORE_LEGACY_AZL2="../../../azl-core-legacy-2.0/image.vhd"
           CORE_LEGACY_AZL3="../../../azl-core-legacy-3.0/image.vhd"
         fi
-        
+
+        TEST_RPMS_DIR="../../toolkit/tools/internal/testutils/testrpms"
+
         sudo make test-imagecustomizer \
           IMAGE_CUSTOMIZER_CONTAINER_TAG="$CONTAINER_TAG" \
           CORE_EFI_AZL2="../../../azl-core-efi-2.0/image.vhdx" \
           CORE_EFI_AZL3="../../../azl-core-efi-3.0/image.vhdx" \
           CORE_LEGACY_AZL2="$CORE_LEGACY_AZL2" \
           CORE_LEGACY_AZL3="$CORE_LEGACY_AZL3" \
+          RPM_SOURCES_AZL3="$TEST_RPMS_DIR/downloadedrpms/azurelinux/3.0" \
+          RPM_SOURCES_FEDORA42="$TEST_RPMS_DIR/downloadedrpms/fedora/42" \
+          TOOLS_FILE_AZL3="$TEST_RPMS_DIR/build/tools-azurelinux-3.0.tar.gz" \
+          TOOLS_FILE_FEDORA42="$TEST_RPMS_DIR/build/tools-fedora-42.tar.gz" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
@@ -159,5 +184,5 @@ jobs:
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
       with:
-        name: tests-results-vmtests-imagecustomizer-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        name: tests-results-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
         path: repo/test/vmtests/out

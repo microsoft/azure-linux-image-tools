@@ -10,7 +10,7 @@ FEDORA_42_CONTAINER_IMAGE="quay.io/fedora/fedora:42"
 DISTRO="azurelinux"
 DISTRO_VERSION="3.0"
 
-IMAGE_CREATOR="false"
+CREATE_IMAGE="false"
 CONTAINER_REGISTRY=""
 
 while getopts "d:t:s:r:" flag
@@ -18,15 +18,15 @@ do
     case "${flag}" in
         d) DISTRO="$OPTARG";;
         t) DISTRO_VERSION="$OPTARG";;
-        s) IMAGE_CREATOR="$OPTARG";;
+        s) CREATE_IMAGE="$OPTARG";;
         r) CONTAINER_REGISTRY="$OPTARG";;
         h) ;;&
-        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-s IMAGE_CREATOR] [-r CONTAINER_REGISTRY]"
+        ?) echo "Usage: download-test-utils.sh [-d DISTRO] [-t DISTRO_VERSION] [-s CREATE_IMAGE] [-r CONTAINER_REGISTRY]"
             echo ""
             echo "Args:"
             echo "  -d DISTRO              The distribution to use (azurelinux or fedora). Default: azurelinux"
             echo "  -t DISTRO_VERSION      The image version to download the RPMs for (2.0, 3.0 for Azure Linux or 42 for Fedora)."
-            echo "  -s IMAGE_CREATOR       If set to true, the script will create a tar.gz file with the tools and download the rpms needed to test imagecreator."
+            echo "  -s CREATE_IMAGE        If set to true, the script will create a tools tar.gz and download the rpms needed for the create subcommand."
             echo "  -r CONTAINER_REGISTRY  Container registry URL to use for Fedora images (e.g., myacr.azurecr.io)."
             echo "  -h Show help"
             exit 1;;
@@ -68,15 +68,15 @@ set -x
 # Initialize package list
 PACKAGE_LIST=""
 # Declarative configuration maps
-TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecreatorlib/testdata"
+TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecustomizerlib/testdata"
 
 # Map distro to config files (space-separated list of config files)
 declare -A DISTRO_CONFIG_MAP
-DISTRO_CONFIG_MAP["azurelinux"]="minimal-os.yaml minimal-os-btrfs.yaml"
+DISTRO_CONFIG_MAP["azurelinux"]="create-minimal-os.yaml create-minimal-os-btrfs.yaml"
 if [[ "$(uname -m)" == "x86_64" ]]; then
-  DISTRO_CONFIG_MAP["fedora"]="fedora-amd64.yaml"
+  DISTRO_CONFIG_MAP["fedora"]="create-fedora-amd64.yaml"
 else
-  DISTRO_CONFIG_MAP["fedora"]="fedora-arm64.yaml"
+  DISTRO_CONFIG_MAP["fedora"]="create-fedora-arm64.yaml"
 fi
 
 # Get configuration files for the distro
@@ -89,8 +89,8 @@ if [[ -z "$CONFIG_FILES" ]]; then
 fi
 
 
-# Handle tools file creation and package extraction for imagecreator testing
-if [ "$IMAGE_CREATOR" = "true" ]; then
+# Handle tools file creation and package extraction for create subcommand testing
+if [ "$CREATE_IMAGE" = "true" ]; then
   echo "Creating tools file: $TOOLS_FILE"
   $SCRIPT_DIR/create-tools-file.sh "$CONTAINER_IMAGE" "$TOOLS_FILE"
   echo "Tools file created successfully."

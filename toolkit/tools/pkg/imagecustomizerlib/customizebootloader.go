@@ -59,7 +59,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "hard_reset_bootloader")
 	defer span.End()
 
-	// If the image is being customized by imagecreator, we don't need to check the SELinux mode.
+	// If the image is being created using the create subcommand, we don't need to check the SELinux mode.
 	currentSelinuxMode := imagecustomizerapi.SELinuxModeDisabled
 
 	if !newImage {

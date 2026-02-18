@@ -114,7 +114,7 @@ jobs:
         pushd repo/toolkit/tools
 
         # Download the test RPM files.
-        ./internal/testutils/testrpms/download-test-utils.sh -t 3.0 -d azurelinux
+        ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
 
         mkdir -p out/testResults
 
