@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: Tests VMTests suite for OSModifier
+name: Tests VMTests suite for osmodifier
 
 permissions: {}
 
@@ -20,7 +20,7 @@ env:
 
 jobs:
   tests-osmodifier:
-    name: Tests VMTests OSModifier suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
+    name: Tests osmodifier VMTests suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
     runs-on:
       - self-hosted
       - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
@@ -150,7 +150,7 @@ jobs:
 
           make create-venv
 
-      - name: Run OSModifier tests - AZL 2.0
+      - name: Run tests (AZL2)
         if: ${{ inputs.hostArch == 'amd64' }}  # Skip ARM64
         env:
           IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
@@ -166,7 +166,7 @@ jobs:
             INPUT_IMAGE="${INPUT_IMAGE}" \
             SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
-      - name: Run OSModifier tests - AZL 3.0
+      - name: Run tests (AZL3)
         env:
           IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
           OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
@@ -184,5 +184,5 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: ${{ !cancelled() }}
         with:
-          name: tests-results-osmodifier-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+          name: tests-results-osmodifier-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
           path: repo/test/vmtests/out

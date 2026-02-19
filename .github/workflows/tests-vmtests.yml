@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-name: Tests VMTests suite
+name: Tests VMTests suite for imagecustomizer
 
 permissions: {}
 
@@ -21,7 +21,7 @@ env:
 
 jobs:
   tests-vmtests:
-    name: Tests VMTests suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
+    name: Tests imagecustomizer VMTests suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
@@ -184,5 +184,5 @@ jobs:
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
       with:
-        name: tests-results-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        name: tests-results-imagecustomizer-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
         path: repo/test/vmtests/out
