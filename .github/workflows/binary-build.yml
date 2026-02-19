@@ -137,6 +137,12 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Install test prerequisites
+      run: |
+        set -eux
+
+        sudo apt -y install qemu-utils
+
     - name: Build binary
       id: build
       run: |
