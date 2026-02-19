@@ -17,7 +17,7 @@ from ..conftest import TEST_CONFIGS_DIR
 from ..utils import local_client  # noqa: F401
 from ..utils.closeable import Closeable
 from ..utils.host_utils import get_host_distro
-from ..utils.imagecustomizer import run_image_customizer
+from ..utils.imagecustomizer import add_ssh_to_config, run_image_customizer
 from ..utils.libvirt_utils import VmSpec, create_libvirt_domain_xml
 from ..utils.libvirt_vm import LibvirtVm
 from ..utils.ssh_client import SshClient
@@ -55,16 +55,16 @@ def setup_vm_with_osmodifier(
     output_image_path = session_temp_dir.joinpath("image." + output_format)
     username = get_username()
 
+    modified_config_path = add_ssh_to_config(config_path, username, ssh_public_key, session_close_list)
+
     run_image_customizer(
         docker_client,
         image_customizer_container_url,
-        input_image,
-        config_path,
-        username,
-        ssh_public_key,
+        "customize",
+        modified_config_path,
         output_format,
         output_image_path,
-        session_close_list,
+        image_file=input_image,
     )
 
     image_name = os.path.basename(output_image_path)

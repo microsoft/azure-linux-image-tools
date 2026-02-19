@@ -33,7 +33,7 @@ os:
 
   packages:
     installLists:
-    - fedora-common-packages.yaml
+    - create-fedora-common-packages.yaml
     install:
-    - grub2-efi-x64
-    - shim-x64
+    - grub2-efi-aa64
+    - shim-aa64

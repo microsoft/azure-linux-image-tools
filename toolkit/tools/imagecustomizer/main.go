@@ -17,13 +17,12 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/telemetry"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecreatorlib"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
 type CreateCmd struct {
 	BuildDir            string   `name:"build-dir" help:"Directory to run build out of." required:""`
-	ConfigFile          string   `name:"config-file" help:"Path of the image creator config file." required:""`
+	ConfigFile          string   `name:"config-file" help:"Path of the image creation config file." required:""`
 	RpmSources          []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs." required:""`
 	ToolsTar            string   `name:"tools-file" help:"Path to tdnf/dnf worker tarball" required:""`
 	OutputImageFile     string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image to."`
@@ -90,7 +89,7 @@ func main() {
 
 	vars := kong.Vars{
 		"imageformat":        strings.Join(imagecustomizerapi.SupportedImageFormatTypes(), ",") + ",",
-		"imageformatcreate":  strings.Join(imagecustomizerapi.SupportedImageFormatTypesImageCreator(), ",") + ",",
+		"imageformatcreate":  strings.Join(imagecustomizerapi.SupportedImageFormatTypesCreate(), ",") + ",",
 		"imageformatconvert": strings.Join(imagecustomizerapi.SupportedImageFormatTypesConvert(), ",") + ",",
 		"validateresources":  strings.Join(imagecustomizerapi.SupportedValidateResourceTypes(), ",") + ",",
 		"version":            imagecustomizerlib.ToolVersion,
@@ -223,7 +222,7 @@ func convertImage(ctx context.Context, cmd ConvertCmd) error {
 }
 
 func createImage(ctx context.Context, cmd CreateCmd) error {
-	err := imagecreatorlib.CreateImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
+	err := imagecustomizerlib.CreateImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
 		cmd.ToolsTar, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.Distro, cmd.DistroVersion,
 		cmd.PackageSnapshotTime)
 	if err != nil {

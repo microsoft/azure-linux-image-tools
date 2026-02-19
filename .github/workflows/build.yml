@@ -93,28 +93,8 @@ jobs:
       # Azure login.
       id-token: write
 
-  imagecreator-tests-functional-azl3-amd64:
-    name: Functional tests AZL3 AMD64
-    if: ${{ inputs.runFunctionalTests }}
-    uses: ./.github/workflows/imagecreator-tests-functional.yml
-    with:
-      hostArch: amd64
-      hostDistro: azl3
-    permissions:
-      contents: read
-
-  imagecreator-tests-functional-ubuntu2404-amd64:
-    name: Functional tests Ubuntu24.04 AMD64
-    if: ${{ inputs.runFunctionalTests }}
-    uses: ./.github/workflows/imagecreator-tests-functional.yml
-    with:
-      hostArch: amd64
-      hostDistro: ubuntu2404
-    permissions:
-      contents: read
-
-  tests-vmtests-azl3-amd64:
-    name: VMTests suite AZL3 AMD64
+  tests-vmtests-imagecustomzer-azl3-amd64:
+    name: VMTests imagecustomzer AZL3 AMD64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-amd64
     uses: ./.github/workflows/tests-vmtests.yml
@@ -126,8 +106,8 @@ jobs:
       # Azure login.
       id-token: write
 
-  tests-vmtests-ubuntu2404-amd64:
-    name: VMTests suite Ubuntu24.04 AMD64
+  tests-vmtests-imagecustomzer-ubuntu2404-amd64:
+    name: VMTests imagecustomzer Ubuntu24.04 AMD64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-amd64
     uses: ./.github/workflows/tests-vmtests.yml
@@ -139,50 +119,11 @@ jobs:
       # Azure login.
       id-token: write
 
-  tests-vmtests-ubuntu2404-arm64:
-    name: VMTests suite Ubuntu24.04 ARM64
+  tests-vmtests-imagecustomzer-ubuntu2404-arm64:
+    name: VMTests imagecustomzer Ubuntu24.04 ARM64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-arm64
     uses: ./.github/workflows/tests-vmtests.yml
-    with:
-      hostArch: arm64
-      hostDistro: ubuntu2404
-    permissions:
-      contents: read
-      # Azure login.
-      id-token: write
-
-  tests-vmtests-imagecreator-azl3-amd64:
-    name: VMTests suite image creator AZL3 AMD64
-    if: ${{ inputs.runVMTests }}
-    needs: binary-build-amd64
-    uses: ./.github/workflows/tests-vmtests-imagecreator.yml
-    with:
-      hostArch: amd64
-      hostDistro: azl3
-    permissions:
-      contents: read
-      # Azure login.
-      id-token: write
-
-  tests-vmtests-imagecreator-ubuntu2404-amd64:
-    name: VMTests suite image creator Ubuntu24.04 AMD64
-    if: ${{ inputs.runVMTests }}
-    needs: binary-build-amd64
-    uses: ./.github/workflows/tests-vmtests-imagecreator.yml
-    with:
-      hostArch: amd64
-      hostDistro: ubuntu2404
-    permissions:
-      contents: read
-      # Azure login.
-      id-token: write
-
-  tests-vmtests-imagecreator-ubuntu2404-arm64:
-    name: VMTests suite image creator Ubuntu24.04 ARM64
-    if: ${{ inputs.runVMTests }}
-    needs: binary-build-arm64
-    uses: ./.github/workflows/tests-vmtests-imagecreator.yml
     with:
       hostArch: arm64
       hostDistro: ubuntu2404
@@ -192,7 +133,7 @@ jobs:
       id-token: write
 
   tests-vmtests-osmodifier-azl3-amd64:
-    name: VMTests suite osmodifier AZL3 AMD64
+    name: VMTests osmodifier AZL3 AMD64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-amd64
     uses: ./.github/workflows/tests-vmtests-osmodifier.yml
@@ -205,7 +146,7 @@ jobs:
       id-token: write
 
   tests-vmtests-osmodifier-ubuntu2404-amd64:
-    name: VMTests suite osmodifier Ubuntu24.04 AMD64
+    name: VMTests osmodifier Ubuntu24.04 AMD64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-amd64
     uses: ./.github/workflows/tests-vmtests-osmodifier.yml
@@ -218,7 +159,7 @@ jobs:
       id-token: write
 
   tests-vmtests-osmodifier-ubuntu2404-arm64:
-    name: VMTests suite osmodifier Ubuntu24.04 ARM64
+    name: VMTests osmodifier Ubuntu24.04 ARM64
     if: ${{ inputs.runVMTests }}
     needs: binary-build-arm64
     uses: ./.github/workflows/tests-vmtests-osmodifier.yml

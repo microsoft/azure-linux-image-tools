@@ -39,7 +39,7 @@ var supportedImageFormatTypes = []string{
 	string(ImageFormatTypeBareMetalImage),
 }
 
-var supportedImageFormatTypesImageCreator = []string{
+var supportedImageFormatTypesCreate = []string{
 	string(ImageFormatTypeVhd),
 	string(ImageFormatVhdTypeFixed),
 	string(ImageFormatTypeVhdx),
@@ -70,8 +70,8 @@ func SupportedImageFormatTypes() []string {
 	return supportedImageFormatTypes
 }
 
-func SupportedImageFormatTypesImageCreator() []string {
-	return supportedImageFormatTypesImageCreator
+func SupportedImageFormatTypesCreate() []string {
+	return supportedImageFormatTypesCreate
 }
 
 func SupportedImageFormatTypesConvert() []string {

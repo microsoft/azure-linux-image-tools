@@ -22,35 +22,29 @@ AZURE_CONN_STR = "InstrumentationKey=e0c67213-5e25-4ef2-8f93-c283e8b93629;Ingest
 def run_image_customizer(
     docker_client: DockerClient,
     image_customizer_container_url: str,
-    base_image_path: Path,
+    image_customizer_command: str,
     config_path: Path,
-    ssh_username: str,
-    ssh_public_key: str,
     output_image_format: str,
     output_image_path: Path,
-    close_list: List[Closeable],
+    image_file: Path | None = None,
+    rpm_sources: List[Path] | None = None,
+    tools_file: Path | None = None,
+    distro: str | None = None,
+    distro_version: str | None = None,
 ) -> None:
-    modified_config_path = None
-
-    container_base_image_dir = Path("/container/base_image")
     container_config_dir = Path("/container/config")
     container_output_image_dir = Path("/container/output_image")
     container_build_dir = Path("/container/build")
+    container_rpm_sources_dir = Path("/container/rpm_sources")
 
-    base_image_dir = base_image_path.parent.absolute()
     config_dir = config_path.parent.absolute()
     output_image_dir = output_image_path.parent.absolute()
 
-    # Add SSH server and SSH public key to config file.
-    modified_config_path = add_ssh_to_config(config_path, ssh_username, ssh_public_key, close_list)
-
-    container_base_image_path = container_base_image_dir.joinpath(base_image_path.name)
-    container_config_path = container_config_dir.joinpath(modified_config_path.name)
+    container_config_path = container_config_dir.joinpath(config_path.name)
     container_output_image_path = container_output_image_dir.joinpath(output_image_path.name)
 
     args = [
-        "--image-file",
-        str(container_base_image_path),
+        image_customizer_command,
         "--config-file",
         str(container_config_path),
         "--build-dir",
@@ -64,11 +58,37 @@ def run_image_customizer(
     ]
 
     volumes = [
-        f"{base_image_dir}:{container_base_image_dir}:z",
         f"{config_dir}:{container_config_dir}:z",
         f"{output_image_dir}:{container_output_image_dir}:z",
         "/dev:/dev",
     ]
+
+    if image_file:
+        image_dir = image_file.parent.absolute()
+        container_image_dir = Path("/container/image_file")
+        container_image_file = container_image_dir.joinpath(image_file.name)
+        args.extend(["--image-file", str(container_image_file)])
+        volumes.append(f"{image_dir}:{container_image_dir}:z")
+
+    if rpm_sources:
+        for i, rpm_source in enumerate(rpm_sources):
+            rpm_source_abs = rpm_source.absolute()
+            container_rpm_source_path = container_rpm_sources_dir / f"source_{i}"
+            volumes.append(f"{rpm_source_abs}:{container_rpm_source_path}:z")
+            args.extend(["--rpm-source", str(container_rpm_source_path)])
+
+    if tools_file:
+        tools_dir = tools_file.parent.absolute()
+        container_tools_dir = Path("/container/tools")
+        container_tools_file = container_tools_dir.joinpath(tools_file.name)
+        args.extend(["--tools-file", str(container_tools_file)])
+        volumes.append(f"{tools_dir}:{container_tools_dir}:z")
+
+    if distro:
+        args.extend(["--distro", distro])
+
+    if distro_version:
+        args.extend(["--distro-version", distro_version])
 
     environment = {
         "ENABLE_TELEMETRY": "true",

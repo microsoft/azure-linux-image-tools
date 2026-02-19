@@ -1,4 +1,4 @@
-# VM Tests
+# VMTests
 
 A test suite that runs the containerized version of the image customizer tool and then
 boots the customized images.
