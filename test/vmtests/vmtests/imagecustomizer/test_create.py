@@ -208,13 +208,7 @@ def run_create_image_test(
     image_name = os.path.basename(final_image_path)
     image_name_without_ext, image_ext = os.path.splitext(image_name)
     created_image_name = (
-        image_name_without_ext
-        + "_"
-        + get_host_distro()
-        + "_"
-        + target_boot_type
-        + "_created"
-        + image_ext
+        image_name_without_ext + "_" + get_host_distro() + "_" + target_boot_type + "_created" + image_ext
     )
     created_image_path = str(logs_dir) + "/" + created_image_name
     vm_console_log_file_path = created_image_path + ".console.log"
