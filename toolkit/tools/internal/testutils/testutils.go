@@ -93,17 +93,10 @@ func isZstFile(firstBytes []byte) bool {
 func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
 ) string {
 	downloadedRpmsDir := filepath.Join(testutilsDir, "testrpms/downloadedrpms", distro, distroVersion)
-	dirExists, err := file.DirExists(downloadedRpmsDir)
-	if !assert.NoErrorf(t, err, "cannot access downloaded RPMs dir (%s)", downloadedRpmsDir) {
-		t.FailNow()
-	}
-	if !assert.True(t, dirExists) {
-		// log the downloadedRpmsDir
-		t.Logf("downloadedRpmsDir: %s", downloadedRpmsDir)
-		t.Logf("test requires offline RPMs")
-		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			distro, distroVersion, createImage)
-		t.FailNow()
+	if _, err := os.Stat(downloadedRpmsDir); os.IsNotExist(err) {
+		t.Skipf("test requires downloaded RPMs dir: %s;\n"+
+			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
+			downloadedRpmsDir, distro, distroVersion, createImage)
 	}
 
 	return downloadedRpmsDir
@@ -113,11 +106,10 @@ func GetDownloadedToolsFile(t *testing.T, testutilsDir string, distro string, di
 ) string {
 	toolsFileName := fmt.Sprintf("tools-%s-%s.tar.gz", distro, distroVersion)
 	toolsFilePath := filepath.Join(testutilsDir, "testrpms/build", toolsFileName)
-	if !assert.FileExists(t, toolsFilePath) {
-		t.Logf("test requires downloaded tools file: %s", toolsFileName)
-		t.Logf("please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			distro, distroVersion, createImage)
-		t.FailNow()
+	if _, err := os.Stat(toolsFilePath); os.IsNotExist(err) {
+		t.Skipf("test requires downloaded tools file: %s;\n"+
+			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
+			toolsFilePath, distro, distroVersion, createImage)
 	}
 	return toolsFilePath
 }
