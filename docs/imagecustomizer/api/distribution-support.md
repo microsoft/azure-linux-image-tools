@@ -14,7 +14,7 @@ APIs marked as **Preview** require the distribution's
 
 ## Command line
 
-| Command + Flag                                                                                          | Azure Linux 3.0 | Ubuntu 22.04, 24.04 |
+| Subcommand + Flag                                                                                          | Azure Linux 3.0 | Ubuntu 22.04, 24.04 |
 |---------------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
 | [create](./cli/create.md)                                                                               | Yes             | No                  |
 | [convert](./cli/convert.md)                                                                             | Yes             | Preview             |
