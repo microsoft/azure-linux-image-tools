@@ -18,7 +18,7 @@ APIs marked as **Preview** require the distribution's
 |---------------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
 | [create](./cli/create.md)                                                                               | Yes             | No                  |
 | [convert](./cli/convert.md)                                                                             | Yes             | Preview             |
-| [customize](./cli/customize.md)                                                                         |                 |                     |
+| [customize](./cli/customize.md)                                                                         | Yes             | Preview             |
 | &emsp;[--build-dir](./cli/customize.md#--build-dirdirectory-path)                                       | Yes             | Preview             |
 | &emsp;[--image-file](./cli/customize.md#--image-filefile-path)                                          | Yes             | Preview             |
 | &emsp;[--image](./cli/customize.md#--image)                                                             | Yes             | No                  |
