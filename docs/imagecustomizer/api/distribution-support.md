@@ -18,19 +18,20 @@ APIs marked as **Preview** require the distribution's
 |---------------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
 | [create](./cli/create.md)                                                                               | Yes             | No                  |
 | [convert](./cli/convert.md)                                                                             | Yes             | Preview             |
-| [customize --build-dir](./cli/customize.md#--build-dirdirectory-path)                                   | Yes             | Preview             |
-| [customize --image-file](./cli/customize.md#--image-filefile-path)                                      | Yes             | Preview             |
-| [customize --image](./cli/customize.md#--image)                                                         | Yes             | No                  |
-| [customize --output-image-file](./cli/customize.md#--output-image-filefile-path)                        | Yes             | Preview             |
-| [customize --output-path](./cli/customize.md#--output-pathfile-path)                                    | Yes             | Preview             |
-| [customize --output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Preview             |
-| [customize --cosi-compression-level](./cli/customize.md#--cosi-compression-levellevel)                  | Yes             | No                  |
-| [customize --output-selinux-policy-path](./cli/customize.md#--output-selinux-policy-pathdirectory-path) | Yes             | No                  |
-| [customize --config-file](./cli/customize.md#--config-filefile-path)                                    | Yes             | Preview             |
-| [customize --rpm-source](./cli/customize.md#--rpm-sourcepath)                                           | Yes             | No                  |
-| [customize --disable-base-image-rpm-repos](./cli/customize.md#--disable-base-image-rpm-repos)           | Yes             | No                  |
-| [customize --package-snapshot-time](./cli/customize.md#--package-snapshot-time)                         | Yes             | No                  |
-| [customize --image-cache-dir](./cli/customize.md#--image-cache-dir)                                     | Yes             | No                  |
+| [customize](./cli/customize.md)                                                                         |                 |                     |
+| &emsp;[--build-dir](./cli/customize.md#--build-dirdirectory-path)                                       | Yes             | Preview             |
+| &emsp;[--image-file](./cli/customize.md#--image-filefile-path)                                          | Yes             | Preview             |
+| &emsp;[--image](./cli/customize.md#--image)                                                             | Yes             | No                  |
+| &emsp;[--output-image-file](./cli/customize.md#--output-image-filefile-path)                            | Yes             | Preview             |
+| &emsp;[--output-path](./cli/customize.md#--output-pathfile-path)                                        | Yes             | Preview             |
+| &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                           | Yes             | Preview             |
+| &emsp;[--cosi-compression-level](./cli/customize.md#--cosi-compression-levellevel)                      | Yes             | No                  |
+| &emsp;[--output-selinux-policy-path](./cli/customize.md#--output-selinux-policy-pathdirectory-path)     | Yes             | No                  |
+| &emsp;[--config-file](./cli/customize.md#--config-filefile-path)                                        | Yes             | Preview             |
+| &emsp;[--rpm-source](./cli/customize.md#--rpm-sourcepath)                                               | Yes             | No                  |
+| &emsp;[--disable-base-image-rpm-repos](./cli/customize.md#--disable-base-image-rpm-repos)               | Yes             | No                  |
+| &emsp;[--package-snapshot-time](./cli/customize.md#--package-snapshot-time)                             | Yes             | No                  |
+| &emsp;[--image-cache-dir](./cli/customize.md#--image-cache-dir)                                         | Yes             | No                  |
 | [inject-files](./cli/inject-files.md)                                                                   | Yes             | No                  |
 
 ## Configuration
