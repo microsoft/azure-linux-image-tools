@@ -22,7 +22,7 @@ APIs marked as **Preview** require the distribution's
 | [customize --image-file](./cli/customize.md#--image-filefile-path)                                      | Yes             | Preview             |
 | [customize --image](./cli/customize.md#--image)                                                         | Yes             | No                  |
 | [customize --output-image-file](./cli/customize.md#--output-image-filefile-path)                        | Yes             | Preview             |
-| [customize --output-path](./cli/customize.md#--output-image-pathfile-path      )                        | Yes             | Preview             |
+| [customize --output-path](./cli/customize.md#--output-pathfile-path)                                    | Yes             | Preview             |
 | [customize --output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Preview             |
 | [customize --cosi-compression-level](./cli/customize.md#--cosi-compression-levellevel)                  | Yes             | No                  |
 | [customize --output-selinux-policy-path](./cli/customize.md#--output-selinux-policy-pathdirectory-path) | Yes             | No                  |
