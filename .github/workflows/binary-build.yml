@@ -110,7 +110,9 @@ jobs:
         set -eux
 
         sudo apt -y update
-        sudo apt -y install libvirt-dev
+
+        # qemu-utils (qemu-img) is required to run tests later during the build
+        sudo apt -y install libvirt-dev qemu-utils
 
         pushd repo/test/vmtests
 
