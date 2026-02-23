@@ -967,5 +967,25 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		}
 	}
 
+	// Validate RPM sources for RPM-based distros (not needed for Ubuntu which uses APT).
+	if targetOs != targetos.TargetOsUbuntu2204 && targetOs != targetos.TargetOsUbuntu2404 {
+		needRpmsSources := false
+		for _, configWithBase := range rc.ConfigChain {
+			if configWithBase.Config.OS == nil {
+				continue
+			}
+			if len(configWithBase.Config.OS.Packages.Install) > 0 ||
+				len(configWithBase.Config.OS.Packages.Update) > 0 ||
+				configWithBase.Config.OS.Packages.UpdateExistingPackages {
+				needRpmsSources = true
+				break
+			}
+		}
+		hasRpmSources := len(rc.Options.RpmsSources) > 0 || rc.Options.UseBaseImageRpmRepos
+		if needRpmsSources && !hasRpmSources {
+			return targetOs, ErrNoRpmSourcesSpecified
+		}
+	}
+
 	return targetOs, nil
 }

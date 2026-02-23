@@ -41,11 +41,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	if config != nil && (len(config.Packages.Install) > 0 || len(config.Packages.Remove) > 0 || len(config.Packages.Update) > 0) {
-		return fmt.Errorf("package management customizations are not yet supported for Ubuntu")
-	}
-
-	return nil
+	return managePackagesApt(ctx, baseConfigPath, config, imageChroot)
 }
 
 // IsPackageInstalled checks if a package is installed using dpkg

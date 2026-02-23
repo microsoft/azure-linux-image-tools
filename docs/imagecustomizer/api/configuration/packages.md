@@ -7,6 +7,10 @@ ancestor: Image Customizer
 
 Specifies packages to remove, install, or update.
 
+## Azure Linux
+
+Packages are managed using `tdnf`.
+
 Package names can be specified in the following formats:
 
 - `<package-name>`
@@ -17,6 +21,18 @@ Package names can be specified in the following formats:
 
 Note: Package names like to `parted-3.4-2` will not work. You must include the distro
 tag. For example, `parted-3.4-2.cm2` will work. (`cm2` means CBL-Mariner 2.0.)
+
+## Ubuntu
+
+Packages are managed using `apt-get`.
+
+Package names can be specified in the following formats:
+
+- `<package-name>` (e.g. `openssh-server`)
+- `<package-name>=<version>` (e.g. `openssh-server=1:8.9p1-3ubuntu0.13`)
+
+Note: When specifying package versions, only the full version is recognized.
+Partial versions (e.g. `openssh-server=1:8.9p1`) will not work.s
 
 Added in v0.3.
 
@@ -58,7 +74,7 @@ Added in v0.3.
 
 Installs packages onto the image.
 
-Implemented by calling: `tdnf install`.
+Implemented by calling: `tdnf install` (Azure Linux) or `apt-get install` (Ubuntu).
 
 Example:
 
