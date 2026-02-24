@@ -32,7 +32,7 @@ Package names can be specified in the following formats:
 - `<package-name>=<version>` (e.g. `openssh-server=1:8.9p1-3ubuntu0.13`)
 
 Note: When specifying package versions, only the full version is recognized.
-Partial versions (e.g. `openssh-server=1:8.9p1`) will not work.s
+Partial versions (e.g. `openssh-server=1:8.9p1`) will not work.
 
 Added in v0.3.
 
