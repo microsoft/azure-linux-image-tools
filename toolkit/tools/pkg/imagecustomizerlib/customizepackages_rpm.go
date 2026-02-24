@@ -15,7 +15,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
@@ -84,13 +83,15 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	}
 
 	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
-	err = installOrUpdateRpmPackages(ctx, "install", config.Packages.Install, imageChroot, toolsChroot, pmHandler)
+	err = installOrUpdateRpmPackages(ctx, packageActionInstall, config.Packages.Install, imageChroot, toolsChroot,
+		pmHandler)
 	if err != nil {
 		return err
 	}
 
 	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
-	err = installOrUpdateRpmPackages(ctx, "update", config.Packages.Update, imageChroot, toolsChroot, pmHandler)
+	err = installOrUpdateRpmPackages(ctx, packageActionUpdate, config.Packages.Update, imageChroot, toolsChroot,
+		pmHandler)
 	if err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	}
 
 	if needPackageSources {
-		err = cleanRpmCache(imageChroot, toolsChroot, pmHandler)
+		err = cleanRpmCache(ctx, imageChroot, toolsChroot, pmHandler)
 		if err != nil {
 			return err
 		}
@@ -145,11 +146,7 @@ func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesT
 		return nil
 	}
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action+"_packages")
-	span.SetAttributes(
-		attribute.Int(action+"_packages_count", len(allPackagesToAdd)),
-		attribute.StringSlice("packages", allPackagesToAdd),
-	)
+	_, span := startPackageListSpan(ctx, action, allPackagesToAdd)
 	defer span.End()
 
 	// Build command arguments directly
@@ -172,7 +169,7 @@ func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesT
 
 	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
-		if action == "install" {
+		if action == packageActionInstall {
 			return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, allPackagesToAdd, err)
 		} else {
 			return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, allPackagesToAdd, err)
@@ -223,11 +220,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 		return nil
 	}
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
-	span.SetAttributes(
-		attribute.Int("remove_packages_count", len(allPackagesToRemove)),
-		attribute.StringSlice("remove_packages", allPackagesToRemove),
-	)
+	_, span := startPackageListSpan(ctx, packageActionRemove, allPackagesToRemove)
 	defer span.End()
 
 	// Build command arguments directly
@@ -251,7 +244,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_metadata")
+	_, span := startPackagesSpan(ctx, packageSpanNameRefreshMetadata)
 	defer span.End()
 
 	logger.Log.Infof("Refreshing package metadata")
@@ -280,9 +273,12 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	return nil
 }
 
-func cleanRpmCache(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	pmHandler rpmPackageManagerHandler,
 ) error {
+	_, span := startPackagesSpan(ctx, packageSpanNameCleanCache)
+	defer span.End()
+
 	logger.Log.Infof("Cleaning up RPM cache")
 	// Build command arguments directly
 	args := []string{pmHandler.getVerbosityOption(), "clean", "all"}

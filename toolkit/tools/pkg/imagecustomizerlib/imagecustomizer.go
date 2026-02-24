@@ -43,6 +43,7 @@ var (
 	ErrUbuntu2204PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2204PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 22.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2204))
 	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
 	ErrUbuntuBootLoaderHardReset        = NewImageCustomizerError("Validation:UbuntuBootLoaderHardReset", "bootloader hard-reset is not supported for Ubuntu images")
+	ErrUnsupportedUbuntuFeature         = NewImageCustomizerError("Validation:UnsupportedUbuntuFeature", "unsupported feature for Ubuntu images")
 	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
 	ErrConvertUnsupportedInputFormat    = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")
 	ErrConvertBuildDirRequired          = NewImageCustomizerError("Validation:ConvertBuildDirRequired", "build directory is required for cosi and baremetal-image output formats")
@@ -967,23 +968,44 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		}
 	}
 
-	// Validate RPM sources for RPM-based distros (not needed for Ubuntu which uses APT).
-	if targetOs != targetos.TargetOsUbuntu2204 && targetOs != targetos.TargetOsUbuntu2404 {
-		needRpmsSources := false
+	// Validate that RPM sources are not specified for Ubuntu (Ubuntu uses APT, not RPM).
+	// Also validate that unsupported package operations are not specified for Ubuntu.
+	if targetOs == targetos.TargetOsUbuntu2204 || targetOs == targetos.TargetOsUbuntu2404 {
+		if len(rc.Options.RpmsSources) > 0 {
+			return targetOs, fmt.Errorf("RPM sources are not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
+		}
+
+		if !rc.Options.UseBaseImageRpmRepos {
+			return targetOs, fmt.Errorf("Disabling base image RPM repositories is not supported for Ubuntu images:\n%w",
+				ErrUnsupportedUbuntuFeature)
+		}
+
 		for _, configWithBase := range rc.ConfigChain {
 			if configWithBase.Config.OS == nil {
 				continue
 			}
-			if len(configWithBase.Config.OS.Packages.Install) > 0 ||
-				len(configWithBase.Config.OS.Packages.Update) > 0 ||
-				configWithBase.Config.OS.Packages.UpdateExistingPackages {
-				needRpmsSources = true
-				break
+
+			packages := configWithBase.Config.OS.Packages
+
+			if len(packages.Remove) > 0 || len(packages.RemoveLists) > 0 {
+				return targetOs, fmt.Errorf("package remove is not yet supported for Ubuntu images:\n%w",
+					ErrUnsupportedUbuntuFeature)
 			}
-		}
-		hasRpmSources := len(rc.Options.RpmsSources) > 0 || rc.Options.UseBaseImageRpmRepos
-		if needRpmsSources && !hasRpmSources {
-			return targetOs, ErrNoRpmSourcesSpecified
+
+			if len(packages.Update) > 0 || len(packages.UpdateLists) > 0 {
+				return targetOs, fmt.Errorf("package update is not yet supported for Ubuntu images:\n%w",
+					ErrUnsupportedUbuntuFeature)
+			}
+
+			if packages.UpdateExistingPackages {
+				return targetOs, fmt.Errorf("updateExistingPackages is not yet supported for Ubuntu images:\n%w",
+					ErrUnsupportedUbuntuFeature)
+			}
+
+			if packages.SnapshotTime != "" {
+				return targetOs, fmt.Errorf("package snapshotTime is not yet supported for Ubuntu images:\n%w",
+					ErrUnsupportedUbuntuFeature)
+			}
 		}
 	}
 

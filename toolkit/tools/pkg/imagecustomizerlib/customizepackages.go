@@ -12,6 +12,8 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -25,6 +27,15 @@ var (
 	ErrPackageCacheClean          = NewImageCustomizerError("Packages:CacheClean", "failed to clean cache")
 	ErrMountRpmSources            = NewImageCustomizerError("Packages:MountRpmSources", "failed to mount RPM sources")
 	ErrSnapshotTimeNotSupported   = NewImageCustomizerError("Packages:SnapshotTimeNotSupported", "snapshot time is not supported")
+)
+
+const (
+	// Shared telemetry span names for package management operations.
+	packageSpanNameRefreshMetadata = "refresh_metadata"
+	packageSpanNameCleanCache      = "clean_cache"
+	packageActionInstall           = "install"
+	packageActionUpdate            = "update"
+	packageActionRemove            = "remove"
 )
 
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
@@ -60,6 +71,25 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 
 	allPackages = append(allPackages, packages...)
 	return allPackages, nil
+}
+
+// startPackagesSpan creates a telemetry span for a package management operation.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startPackagesSpan(ctx context.Context, spanName string) (context.Context, trace.Span) {
+	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, spanName)
+}
+
+// startPackageListSpan creates a telemetry span for a package operation (e.g. "install", "update")
+// with standardized attributes for the package count and list.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startPackageListSpan(ctx context.Context, action string, packages []string) (context.Context, trace.Span) {
+	spanName := fmt.Sprint(action, "_packages")
+	ctx, span := startPackagesSpan(ctx, spanName)
+	span.SetAttributes(
+		attribute.Int(fmt.Sprint(spanName, "_count"), len(packages)),
+		attribute.StringSlice("packages", packages),
+	)
+	return ctx, span
 }
 
 func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {

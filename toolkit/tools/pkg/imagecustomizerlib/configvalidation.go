@@ -209,7 +209,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
-	err = validateOsConfig(baseConfigPath, config.OS, validateFiles)
+	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles,
+		allowPartialConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -463,14 +464,16 @@ func validatePxeConfigChain(configChain []*ConfigWithBasePath, validateFiles boo
 	return nil
 }
 
-func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, validateFiles bool) error {
+func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
+	useBaseImageRpmRepos bool, validateFiles bool, allowPartialConfig bool,
+) error {
 	if config == nil {
 		return nil
 	}
 
 	var err error
 
-	err = validatePackageLists(baseConfigPath, config)
+	err = validatePackageLists(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos, allowPartialConfig)
 	if err != nil {
 		return err
 	}
@@ -536,7 +539,9 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, va
 	return nil
 }
 
-func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS) error {
+func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
+	useBaseImageRpmRepos bool, allowPartialConfig bool,
+) error {
 	if config == nil {
 		return nil
 	}
@@ -554,6 +559,14 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS) 
 	allPackagesUpdate, err := collectPackagesList(baseConfigPath, config.Packages.UpdateLists, config.Packages.Update)
 	if err != nil {
 		return err
+	}
+
+	needRpmsSources := len(allPackagesInstall) > 0 || len(allPackagesUpdate) > 0 ||
+		config.Packages.UpdateExistingPackages
+	hasRpmSources := len(rpmsSources) > 0 || useBaseImageRpmRepos
+
+	if needRpmsSources && !hasRpmSources && !allowPartialConfig {
+		return ErrNoRpmSourcesSpecified
 	}
 
 	config.Packages.Remove = allPackagesRemove
