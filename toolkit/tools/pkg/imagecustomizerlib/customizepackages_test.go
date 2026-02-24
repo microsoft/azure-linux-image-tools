@@ -461,18 +461,18 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 	assert.ErrorContains(t, err, "preview feature")
 }
 
-func TestCustomizeImagePackagesInstall(t *testing.T) {
+func TestCustomizeImagePackagesInstallOnline(t *testing.T) {
 	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImagePackagesInstall(t, baseImageInfo)
+			testCustomizeImagePackagesInstallOnline(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImagePackagesInstall(t *testing.T, baseImageInfo testBaseImageInfo) {
+func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesInstall_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesInstallOnline_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -491,8 +491,6 @@ func testCustomizeImagePackagesInstall(t *testing.T, baseImageInfo testBaseImage
 	err = preCheckConnection.CleanClose()
 	assert.NoError(t, err, "failed to cleanly close pre-check image connection")
 
-	useBaseImageRpmRepos := baseImageInfo.Distro != baseImageDistroUbuntu
-
 	// Customize image using config file with install and installLists.
 	// Azure Linux needs UseBaseImageRpmRepos to access its built-in RPM repos.
 	// Ubuntu uses APT with its own repo configuration and does not need this.
@@ -501,7 +499,7 @@ func testCustomizeImagePackagesInstall(t *testing.T, baseImageInfo testBaseImage
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: useBaseImageRpmRepos,
+		UseBaseImageRpmRepos: true, // Set to true for Azure Linux; it will be ignored for Ubuntu images.
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	assert.NoError(t, err, "failed to customize image with config file options")
