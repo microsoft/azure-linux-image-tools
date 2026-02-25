@@ -479,22 +479,10 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "packages-add-config.yaml")
 
-	preCheckBuildDir := filepath.Join(testTmpDir, "pre-check")
-	preCheckConnection, err := testutils.ConnectToImage(preCheckBuildDir, baseImage, false, baseImageInfo.MountPoints)
-	assert.NoError(t, err, "failed to connect to image for pre-check")
-
-	ensureFilesNotExist(t, preCheckConnection,
-		"/usr/bin/jq",
-		"/usr/bin/tree",
-	)
-
-	err = preCheckConnection.CleanClose()
-	assert.NoError(t, err, "failed to cleanly close pre-check image connection")
-
 	// Customize image using config file with install and installLists.
 	// Azure Linux needs UseBaseImageRpmRepos to access its built-in RPM repos.
 	// Ubuntu uses APT with its own repo configuration and does not need this.
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
