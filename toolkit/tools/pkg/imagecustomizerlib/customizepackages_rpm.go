@@ -139,18 +139,20 @@ func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chro
 	})
 }
 
-func installOrUpdateRpmPackages(ctx context.Context, action string, allPackagesToAdd []string,
+func installOrUpdateRpmPackages(ctx context.Context, action packageAction, allPackagesToAdd []string,
 	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
 	if len(allPackagesToAdd) == 0 {
 		return nil
 	}
 
+	logger.Log.Infof("%s packages (%d): %v", action.actionDisplayName, len(allPackagesToAdd), allPackagesToAdd)
+
 	_, span := startPackageListSpan(ctx, action, allPackagesToAdd)
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), action, "--assumeyes", "--cacheonly"}
+	args := []string{pmHandler.getVerbosityOption(), action.actionName, "--assumeyes", "--cacheonly"}
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 
@@ -214,7 +216,8 @@ func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
 func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
-	logger.Log.Infof("Removing packages: %v", allPackagesToRemove)
+	logger.Log.Infof("%s packages (%d): %v", packageActionRemove.actionDisplayName, len(allPackagesToRemove),
+		allPackagesToRemove)
 
 	if len(allPackagesToRemove) <= 0 {
 		return nil
@@ -224,7 +227,7 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 	defer span.End()
 
 	// Build command arguments directly
-	args := []string{pmHandler.getVerbosityOption(), "remove", "--assumeyes", "--disablerepo", "*"}
+	args := []string{pmHandler.getVerbosityOption(), packageActionRemove.actionName, "--assumeyes", "--disablerepo", "*"}
 	args = append(args, allPackagesToRemove...)
 
 	if toolsChroot != nil {
@@ -244,10 +247,10 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
-	_, span := startPackagesSpan(ctx, packageSpanNameRefreshMetadata)
-	defer span.End()
+	logger.Log.Infof("%s package metadata", packageActionRefreshMetadata.actionDisplayName)
 
-	logger.Log.Infof("Refreshing package metadata")
+	_, span := startPackagesSpan(ctx, packageActionRefreshMetadata)
+	defer span.End()
 
 	args := []string{pmHandler.getVerbosityOption(), "check-update", "--refresh", "--assumeyes"}
 
@@ -276,10 +279,11 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	pmHandler rpmPackageManagerHandler,
 ) error {
-	_, span := startPackagesSpan(ctx, packageSpanNameCleanCache)
+	logger.Log.Infof("%s RPM cache", packageActionCleanCache.actionDisplayName)
+
+	_, span := startPackagesSpan(ctx, packageActionCleanCache)
 	defer span.End()
 
-	logger.Log.Infof("Cleaning up RPM cache")
 	// Build command arguments directly
 	args := []string{pmHandler.getVerbosityOption(), "clean", "all"}
 

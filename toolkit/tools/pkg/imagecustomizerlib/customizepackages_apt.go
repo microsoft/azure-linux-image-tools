@@ -91,13 +91,12 @@ func teardownServicePrevention(imageChroot *safechroot.Chroot) error {
 	return nil
 }
 
-// refreshAptPackageMetadata runs apt-get update to refresh the package metadata
-// from the base image repositories.
+// refreshAptPackageMetadata runs apt-get update to refresh the package metadata.
 func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot) error {
-	_, span := startPackagesSpan(ctx, packageSpanNameRefreshMetadata)
+	_, span := startPackagesSpan(ctx, packageActionRefreshMetadata)
 	defer span.End()
 
-	logger.Log.Infof("Refreshing package metadata")
+	logger.Log.Infof("%s package metadata", packageActionRefreshMetadata.actionDisplayName)
 
 	env := append(shell.CurrentEnvironment(), aptEnvironmentVariables()...)
 
@@ -115,8 +114,7 @@ func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	return nil
 }
 
-// installAptPackages runs apt-get install with --no-install-recommends and --no-install-suggests
-// for the given list of packages.
+// installAptPackages runs apt-get install with the given list of packages.
 func installAptPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot) error {
 	if len(packages) == 0 {
 		return nil
@@ -125,7 +123,7 @@ func installAptPackages(ctx context.Context, packages []string, imageChroot *saf
 	_, span := startPackageListSpan(ctx, packageActionInstall, packages)
 	defer span.End()
 
-	logger.Log.Infof("Installing packages (%d): %v (using --no-install-recommends)", len(packages), packages)
+	logger.Log.Infof("Installing packages (%d): %v", len(packages), packages)
 
 	args := []string{
 		"install", "-y",
@@ -153,10 +151,10 @@ func installAptPackages(ctx context.Context, packages []string, imageChroot *saf
 
 // cleanAptCache runs apt-get clean, removes apt lists, and truncates log files.
 func cleanAptCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
-	_, span := startPackagesSpan(ctx, packageSpanNameCleanCache)
+	_, span := startPackagesSpan(ctx, packageActionCleanCache)
 	defer span.End()
 
-	logger.Log.Infof("Cleaning up APT cache")
+	logger.Log.Infof("%s APT cache", packageActionCleanCache.actionDisplayName)
 
 	env := append(shell.CurrentEnvironment(), aptEnvironmentVariables()...)
 
