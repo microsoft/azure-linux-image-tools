@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -15,6 +16,48 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
 )
+
+// managePackagesDeb orchestrates the complete DEB package management flow:
+// service prevention → update → install → clean → teardown.
+func managePackagesDeb(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.OS,
+	imageChroot *safechroot.Chroot, pmHandler debPackageManagerHandler,
+) error {
+	if len(config.Packages.Install) == 0 {
+		return nil
+	}
+
+	// Setup service prevention (policy-rc.d + start-stop-daemon diversion).
+	err := setupServicePrevention(imageChroot)
+	if err != nil {
+		return err
+	}
+
+	// Refresh package metadata (fatal on failure).
+	err = refreshDebPackageMetadata(ctx, imageChroot, pmHandler)
+	if err != nil {
+		return err
+	}
+
+	// Install packages (fatal on failure).
+	err = installDebPackages(ctx, config.Packages.Install, imageChroot, pmHandler)
+	if err != nil {
+		return err
+	}
+
+	// Clean DEB cache.
+	err = cleanDebCache(ctx, imageChroot, pmHandler)
+	if err != nil {
+		return err
+	}
+
+	// Teardown service prevention (restore start-stop-daemon and remove policy-rc.d).
+	err = teardownServicePrevention(imageChroot)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // setupServicePrevention creates policy-rc.d and diverts start-stop-daemon to prevent
 // services from auto-starting during package installation inside the chroot.
@@ -29,7 +72,7 @@ func setupServicePrevention(imageChroot *safechroot.Chroot) error {
 	} else if err != nil {
 		return fmt.Errorf("failed to check policy-rc.d:\n%w", err)
 	} else {
-		logger.Log.Infof("policy-rc.d already exists, skipping creation")
+		return fmt.Errorf("policy-rc.d already exists")
 	}
 
 	// Divert start-stop-daemon so that dpkg post-install hooks cannot start daemons.
@@ -44,6 +87,12 @@ func setupServicePrevention(imageChroot *safechroot.Chroot) error {
 
 	// Create a no-op replacement for start-stop-daemon.
 	startStopDaemonPath := filepath.Join(imageChroot.RootDir(), "sbin/start-stop-daemon")
+	if _, err := os.Stat(startStopDaemonPath); err == nil {
+		return fmt.Errorf("start-stop-daemon already exists after divert")
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to check start-stop-daemon:\n%w", err)
+	}
+
 	err = os.WriteFile(startStopDaemonPath, []byte("#!/bin/sh\nexit 0\n"), 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create no-op start-stop-daemon:\n%w", err)
@@ -81,14 +130,14 @@ func teardownServicePrevention(imageChroot *safechroot.Chroot) error {
 	return nil
 }
 
-// refreshAptPackageMetadata runs apt-get update to refresh the package metadata.
-func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
+// refreshDebPackageMetadata runs apt-get update to refresh the package metadata.
+func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
 	pmHandler debPackageManagerHandler,
 ) error {
-	_, span := startPackagesSpan(ctx, packageActionRefreshMetadata)
-	defer span.End()
+	logger.Log.Infof("Refreshing package metadata")
 
-	logger.Log.Infof("%s package metadata", packageActionRefreshMetadata.actionDisplayName)
+	_, span := startRefreshMetadataSpan(ctx)
+	defer span.End()
 
 	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
 
@@ -106,18 +155,18 @@ func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	return nil
 }
 
-// installAptPackages runs apt-get install with the given list of packages.
-func installAptPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot,
+// installDebPackages runs apt-get install with the given list of packages.
+func installDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot,
 	pmHandler debPackageManagerHandler,
 ) error {
 	if len(packages) == 0 {
 		return nil
 	}
 
-	_, span := startPackageListSpan(ctx, packageActionInstall, packages)
-	defer span.End()
-
 	logger.Log.Infof("Installing packages (%d): %v", len(packages), packages)
+
+	_, span := startInstallPackagesSpan(ctx, packages)
+	defer span.End()
 
 	args := []string{
 		"install", "-y",
@@ -143,14 +192,14 @@ func installAptPackages(ctx context.Context, packages []string, imageChroot *saf
 	return nil
 }
 
-// cleanAptCache runs apt-get clean, removes apt lists, and truncates log files.
-func cleanAptCache(ctx context.Context, imageChroot *safechroot.Chroot,
+// cleanDebCache runs apt-get clean, removes apt lists, and truncates log files.
+func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
 	pmHandler debPackageManagerHandler,
 ) error {
-	_, span := startPackagesSpan(ctx, packageActionCleanCache)
-	defer span.End()
+	logger.Log.Infof("Cleaning DEB cache")
 
-	logger.Log.Infof("%s APT cache", packageActionCleanCache.actionDisplayName)
+	_, span := startCleanCacheSpan(ctx)
+	defer span.End()
 
 	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
 
@@ -163,7 +212,7 @@ func cleanAptCache(ctx context.Context, imageChroot *safechroot.Chroot,
 			Execute()
 	})
 	if err != nil {
-		return fmt.Errorf("failed to clean APT cache:\n%w", err)
+		return fmt.Errorf("failed to clean DEB cache:\n%w", err)
 	}
 
 	// Remove APT lists.
@@ -228,39 +277,54 @@ func removeDirectoryContents(dirPath string) error {
 	return nil
 }
 
-// managePackagesApt orchestrates the complete APT package management flow:
-// service prevention → update → install → clean → teardown.
-func managePackagesApt(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, pmHandler debPackageManagerHandler,
-) error {
-	if len(config.Packages.Install) == 0 {
-		return nil
-	}
-
-	err := setupServicePrevention(imageChroot)
-	if err != nil {
+// isPackageInstalledDeb checks if a package is installed using dpkg-query.
+func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName string) bool {
+	err := imageChroot.UnsafeRun(func() error {
+		_, _, err := shell.Execute("dpkg-query", "-W", "-f='${Status}'", packageName)
 		return err
-	}
-
-	err = refreshAptPackageMetadata(ctx, imageChroot, pmHandler)
+	})
 	if err != nil {
-		return err
+		return false
 	}
+	return true
+}
 
-	err = installAptPackages(ctx, config.Packages.Install, imageChroot, pmHandler)
+// getAllPackagesFromChrootDeb retrieves all installed packages from a DEB-based system.
+func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+	var out string
+	err := imageChroot.UnsafeRun(func() error {
+		var err error
+		// Query format: package:arch version architecture
+		out, _, err = shell.Execute(
+			"dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n",
+		)
+		return err
+	})
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to get dpkg output from chroot:\n%w", err)
 	}
 
-	err = cleanAptCache(ctx, imageChroot, pmHandler)
-	if err != nil {
-		return err
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	var packages []OsPackage
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("malformed dpkg line encountered while parsing installed packages for COSI: %q", line)
+		}
+
+		// For dpkg, it does not have a separate release field.
+		// Version contains epoch:version-release, use the whole thing as version.
+		packages = append(packages, OsPackage{
+			Name:    parts[0],
+			Version: parts[1],
+			// dpkg doesn't have separate release
+			Release: "",
+			Arch:    parts[2],
+		})
 	}
 
-	err = teardownServicePrevention(imageChroot)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return packages, nil
 }

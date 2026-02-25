@@ -43,16 +43,16 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	return managePackagesApt(ctx, baseConfigPath, config, imageChroot, d.packageManager)
+	return managePackagesDeb(ctx, baseConfigPath, config, imageChroot, d.packageManager)
 }
 
-// IsPackageInstalled checks if a package is installed using the DEB package manager handler.
+// IsPackageInstalled checks if a package is installed using dpkg-query.
 func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	return getAllPackagesFromChrootDpkg(imageChroot)
+	return getAllPackagesFromChrootDeb(imageChroot)
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {

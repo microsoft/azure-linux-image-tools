@@ -29,26 +29,6 @@ var (
 	ErrSnapshotTimeNotSupported   = NewImageCustomizerError("Packages:SnapshotTimeNotSupported", "snapshot time is not supported")
 )
 
-// packageAction bundles a package manager command verb with its display name and telemetry span name.
-type packageAction struct {
-	// actionName is the package manager command verb (e.g. "install", "update", "remove").
-	actionName string
-
-	// actionDisplayName is the human-readable verb for log messages (e.g. "Installing").
-	actionDisplayName string
-
-	// spanName is the telemetry span name for this action (e.g. "install_packages").
-	spanName string
-}
-
-var (
-	packageActionInstall         = packageAction{"install", "Installing", "install_packages"}
-	packageActionUpdate          = packageAction{"update", "Updating", "update_packages"}
-	packageActionRemove          = packageAction{"remove", "Removing", "remove_packages"}
-	packageActionRefreshMetadata = packageAction{"refresh_metadata", "Refreshing", "refresh_package_metadata"}
-	packageActionCleanCache      = packageAction{"clean_cache", "Cleaning", "clean_package_cache"}
-)
-
 // addRemoveAndUpdatePackages orchestrates the complete package management workflow
 func addRemoveAndUpdatePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
@@ -84,22 +64,49 @@ func collectPackagesList(baseConfigPath string, packageLists []string, packages 
 	return allPackages, nil
 }
 
-// startPackagesSpan creates a telemetry span for a package management operation.
+// startInstallPackagesSpan creates a telemetry span for a package install operation with standardized attributes.
 // The caller must call span.End() (typically via defer) when the operation completes.
-func startPackagesSpan(ctx context.Context, action packageAction) (context.Context, trace.Span) {
-	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, action.spanName)
-}
-
-// startPackageListSpan creates a telemetry span for a package operation with standardized attributes for the package
-// count and list.
-// The caller must call span.End() (typically via defer) when the operation completes.
-func startPackageListSpan(ctx context.Context, action packageAction, packages []string) (context.Context, trace.Span) {
-	ctx, span := startPackagesSpan(ctx, action)
+func startInstallPackagesSpan(ctx context.Context, packages []string) (context.Context, trace.Span) {
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "install_packages")
 	span.SetAttributes(
-		attribute.Int(fmt.Sprint(action.spanName, "_count"), len(packages)),
+		attribute.Int("install_packages_count", len(packages)),
 		attribute.StringSlice("packages", packages),
 	)
 	return ctx, span
+}
+
+// startUpdatePackagesSpan creates a telemetry span for a package update operation with standardized attributes.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startUpdatePackagesSpan(ctx context.Context, packages []string) (context.Context, trace.Span) {
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_packages")
+	span.SetAttributes(
+		attribute.Int("update_packages_count", len(packages)),
+		attribute.StringSlice("packages", packages),
+	)
+	return ctx, span
+}
+
+// startRemovePackagesSpan creates a telemetry span for a package remove operation with standardized attributes.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startRemovePackagesSpan(ctx context.Context, packages []string) (context.Context, trace.Span) {
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "remove_packages")
+	span.SetAttributes(
+		attribute.Int("remove_packages_count", len(packages)),
+		attribute.StringSlice("packages", packages),
+	)
+	return ctx, span
+}
+
+// startRefreshMetadataSpan creates a telemetry span for a package metadata refresh operation.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startRefreshMetadataSpan(ctx context.Context) (context.Context, trace.Span) {
+	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_package_metadata")
+}
+
+// startCleanCacheSpan creates a telemetry span for a package cache clean operation.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startCleanCacheSpan(ctx context.Context) (context.Context, trace.Span) {
+	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "clean_package_cache")
 }
 
 func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {

@@ -3,11 +3,6 @@
 
 package imagecustomizerlib
 
-import (
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-)
-
 // aptPackageManager implements debPackageManagerHandler for APT.
 type aptPackageManager struct{}
 
@@ -26,15 +21,4 @@ func (pm *aptPackageManager) getEnvironmentVariables() []string {
 		"LANG=C.UTF-8",
 		"LC_ALL=C.UTF-8",
 	}
-}
-
-func (pm *aptPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("dpkg-query", "-W", "-f='${Status}'", packageName)
-		return err
-	})
-	if err != nil {
-		return false
-	}
-	return true
 }
