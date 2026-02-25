@@ -120,8 +120,15 @@ jobs:
         run: |
           set -eux
 
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+              "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+          sudo ./repo/.github/workflows/scripts/validate-image.sh \
+              "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0/image.vhdx
+
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+              "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+          sudo ./repo/.github/workflows/scripts/validate-image.sh \
+              "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0/image.vhdx
         env:
           HOST_ARCH: ${{ inputs.hostArch }}
           AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
