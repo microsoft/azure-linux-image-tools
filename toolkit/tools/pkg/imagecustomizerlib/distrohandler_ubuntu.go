@@ -43,7 +43,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	return managePackagesDeb(ctx, baseConfigPath, config, imageChroot, d.packageManager)
+	return managePackagesDeb(ctx, config, imageChroot, d.packageManager)
 }
 
 // IsPackageInstalled checks if a package is installed using dpkg-query.

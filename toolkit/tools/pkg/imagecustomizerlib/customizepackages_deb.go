@@ -19,7 +19,7 @@ import (
 
 // managePackagesDeb orchestrates the complete DEB package management flow:
 // service prevention → update → install → clean → teardown.
-func managePackagesDeb(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.OS,
+func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, pmHandler debPackageManagerHandler,
 ) error {
 	if len(config.Packages.Install) == 0 {
