@@ -384,7 +384,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile")
 	defer os.RemoveAll(testTmpDir)
 
 	baseImageInfo := testBaseImageAzl3CoreEfi
