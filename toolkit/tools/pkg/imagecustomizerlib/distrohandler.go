@@ -17,6 +17,7 @@ type PackageManagerType string
 const (
 	packageManagerTDNF PackageManagerType = "tdnf"
 	packageManagerDNF  PackageManagerType = "dnf"
+	packageManagerAPT  PackageManagerType = "apt-get"
 )
 
 // PackageType represents the type of package format

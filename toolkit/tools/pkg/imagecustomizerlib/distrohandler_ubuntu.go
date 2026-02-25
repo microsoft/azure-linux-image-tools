@@ -16,12 +16,14 @@ import (
 
 // ubuntuDistroHandler implements distroHandler for Ubuntu
 type ubuntuDistroHandler struct {
-	version string
+	version        string
+	packageManager debPackageManagerHandler
 }
 
 func newUbuntuDistroHandler(version string) *ubuntuDistroHandler {
 	return &ubuntuDistroHandler{
-		version: version,
+		version:        version,
+		packageManager: newAptPackageManager(),
 	}
 }
 
@@ -41,12 +43,12 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	return managePackagesApt(ctx, baseConfigPath, config, imageChroot)
+	return managePackagesApt(ctx, baseConfigPath, config, imageChroot, d.packageManager)
 }
 
-// IsPackageInstalled checks if a package is installed using dpkg
+// IsPackageInstalled checks if a package is installed using the DEB package manager handler.
 func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return isPackageInstalledDpkg(imageChroot, packageName)
+	return d.packageManager.isPackageInstalled(imageChroot, packageName)
 }
 
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {

@@ -16,16 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// aptEnvironmentVariables returns the environment variables required for non-interactive apt-get operations.
-func aptEnvironmentVariables() []string {
-	return []string{
-		"DEBIAN_FRONTEND=noninteractive",
-		"DEBCONF_NONINTERACTIVE_SEEN=true",
-		"LANG=C.UTF-8",
-		"LC_ALL=C.UTF-8",
-	}
-}
-
 // setupServicePrevention creates policy-rc.d and diverts start-stop-daemon to prevent
 // services from auto-starting during package installation inside the chroot.
 func setupServicePrevention(imageChroot *safechroot.Chroot) error {
@@ -92,16 +82,18 @@ func teardownServicePrevention(imageChroot *safechroot.Chroot) error {
 }
 
 // refreshAptPackageMetadata runs apt-get update to refresh the package metadata.
-func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot) error {
+func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
+	pmHandler debPackageManagerHandler,
+) error {
 	_, span := startPackagesSpan(ctx, packageActionRefreshMetadata)
 	defer span.End()
 
 	logger.Log.Infof("%s package metadata", packageActionRefreshMetadata.actionDisplayName)
 
-	env := append(shell.CurrentEnvironment(), aptEnvironmentVariables()...)
+	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
 
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("apt-get", "update", "-y").
+		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), "update", "-y").
 			EnvironmentVariables(env).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -115,7 +107,9 @@ func refreshAptPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 }
 
 // installAptPackages runs apt-get install with the given list of packages.
-func installAptPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot) error {
+func installAptPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot,
+	pmHandler debPackageManagerHandler,
+) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -133,10 +127,10 @@ func installAptPackages(ctx context.Context, packages []string, imageChroot *saf
 	}
 	args = append(args, packages...)
 
-	env := append(shell.CurrentEnvironment(), aptEnvironmentVariables()...)
+	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
 
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("apt-get", args...).
+		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
 			EnvironmentVariables(env).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -150,17 +144,19 @@ func installAptPackages(ctx context.Context, packages []string, imageChroot *saf
 }
 
 // cleanAptCache runs apt-get clean, removes apt lists, and truncates log files.
-func cleanAptCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
+func cleanAptCache(ctx context.Context, imageChroot *safechroot.Chroot,
+	pmHandler debPackageManagerHandler,
+) error {
 	_, span := startPackagesSpan(ctx, packageActionCleanCache)
 	defer span.End()
 
 	logger.Log.Infof("%s APT cache", packageActionCleanCache.actionDisplayName)
 
-	env := append(shell.CurrentEnvironment(), aptEnvironmentVariables()...)
+	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
 
 	// apt-get clean
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("apt-get", "clean").
+		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), "clean").
 			EnvironmentVariables(env).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -235,37 +231,32 @@ func removeDirectoryContents(dirPath string) error {
 // managePackagesApt orchestrates the complete APT package management flow:
 // service prevention → update → install → clean → teardown.
 func managePackagesApt(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot,
+	imageChroot *safechroot.Chroot, pmHandler debPackageManagerHandler,
 ) error {
 	if len(config.Packages.Install) == 0 {
 		return nil
 	}
 
-	// Setup service prevention (policy-rc.d + start-stop-daemon diversion).
 	err := setupServicePrevention(imageChroot)
 	if err != nil {
 		return err
 	}
 
-	// Refresh package metadata (fatal on failure).
-	err = refreshAptPackageMetadata(ctx, imageChroot)
+	err = refreshAptPackageMetadata(ctx, imageChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	// Install packages (fatal on failure).
-	err = installAptPackages(ctx, config.Packages.Install, imageChroot)
+	err = installAptPackages(ctx, config.Packages.Install, imageChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	// Clean APT cache.
-	err = cleanAptCache(ctx, imageChroot)
+	err = cleanAptCache(ctx, imageChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	// Teardown service prevention (restore start-stop-daemon and remove policy-rc.d).
 	err = teardownServicePrevention(imageChroot)
 	if err != nil {
 		return err

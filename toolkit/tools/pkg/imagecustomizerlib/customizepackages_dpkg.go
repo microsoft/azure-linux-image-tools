@@ -11,18 +11,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
-// isPackageInstalledDpkg checks if a package is installed using dpkg
-func isPackageInstalledDpkg(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("dpkg-query", "-W", "-f='${Status}'", packageName)
-		return err
-	})
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 // getAllPackagesFromChrootDpkg retrieves all installed packages from a dpkg-based system
 func getAllPackagesFromChrootDpkg(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	var out string
