@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
@@ -52,7 +53,7 @@ func (pm *aptPackageManager) cleanPackageCache(imageChroot *safechroot.Chroot) e
 
 	// Remove APT lists.
 	aptListsDir := filepath.Join(imageChroot.RootDir(), "var/lib/apt/lists")
-	err = removeDirectoryContents(aptListsDir)
+	err = file.RemoveDirectoryContents(aptListsDir)
 	if err != nil {
 		return fmt.Errorf("failed to remove APT lists:\n%w", err)
 	}
