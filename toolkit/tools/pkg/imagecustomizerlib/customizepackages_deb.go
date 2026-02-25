@@ -136,7 +136,7 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 ) error {
 	logger.Log.Infof("Refreshing package metadata")
 
-	_, span := startRefreshMetadataSpan(ctx)
+	_, span := startRefreshPackageMetadataSpan(ctx)
 	defer span.End()
 
 	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
@@ -198,7 +198,7 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
 ) error {
 	logger.Log.Infof("Cleaning DEB cache")
 
-	_, span := startCleanCacheSpan(ctx)
+	_, span := startCleanPackagesCacheSpan(ctx)
 	defer span.End()
 
 	err := pmHandler.cleanPackageCache(imageChroot)

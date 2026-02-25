@@ -279,7 +279,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 ) error {
 	logger.Log.Infof("Refreshing package metadata")
 
-	_, span := startRefreshMetadataSpan(ctx)
+	_, span := startRefreshPackageMetadataSpan(ctx)
 	defer span.End()
 
 	args := []string{pmHandler.getVerbosityOption(), "check-update", "--refresh", "--assumeyes"}
@@ -311,7 +311,7 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 ) error {
 	logger.Log.Infof("Cleaning RPM cache")
 
-	_, span := startCleanCacheSpan(ctx)
+	_, span := startCleanPackagesCacheSpan(ctx)
 	defer span.End()
 
 	// Build command arguments directly

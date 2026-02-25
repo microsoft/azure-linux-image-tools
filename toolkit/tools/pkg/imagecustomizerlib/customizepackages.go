@@ -97,15 +97,15 @@ func startRemovePackagesSpan(ctx context.Context, packages []string) (context.Co
 	return ctx, span
 }
 
-// startRefreshMetadataSpan creates a telemetry span for a package metadata refresh operation.
+// startRefreshPackageMetadataSpan creates a telemetry span for a package metadata refresh operation.
 // The caller must call span.End() (typically via defer) when the operation completes.
-func startRefreshMetadataSpan(ctx context.Context) (context.Context, trace.Span) {
+func startRefreshPackageMetadataSpan(ctx context.Context) (context.Context, trace.Span) {
 	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "refresh_package_metadata")
 }
 
-// startCleanCacheSpan creates a telemetry span for a package cache clean operation.
+// startCleanPackagesCacheSpan creates a telemetry span for a package cache clean operation.
 // The caller must call span.End() (typically via defer) when the operation completes.
-func startCleanCacheSpan(ctx context.Context) (context.Context, trace.Span) {
+func startCleanPackagesCacheSpan(ctx context.Context) (context.Context, trace.Span) {
 	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "clean_package_cache")
 }
 
