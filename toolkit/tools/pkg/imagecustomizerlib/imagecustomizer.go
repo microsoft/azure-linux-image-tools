@@ -975,6 +975,9 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 			return targetOs, fmt.Errorf("RPM sources are not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
 		}
 
+		// UseBaseImageRpmRepos defaults to true and is only false when the user explicitly
+		// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
+		// them is not meaningful and likely indicates a configuration mistake.
 		if !rc.Options.UseBaseImageRpmRepos {
 			return targetOs, fmt.Errorf("Disabling base image RPM repositories is not supported for Ubuntu images:\n%w",
 				ErrUnsupportedUbuntuFeature)
