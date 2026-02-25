@@ -209,28 +209,6 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
 	return nil
 }
 
-// removeDirectoryContents removes all files and subdirectories inside a directory,
-// but preserves the directory itself.
-func removeDirectoryContents(dirPath string) error {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to read directory (%s):\n%w", dirPath, err)
-	}
-
-	for _, entry := range entries {
-		entryPath := filepath.Join(dirPath, entry.Name())
-		err = os.RemoveAll(entryPath)
-		if err != nil {
-			return fmt.Errorf("failed to remove (%s):\n%w", entryPath, err)
-		}
-	}
-
-	return nil
-}
-
 // isPackageInstalledDeb checks if a package is installed using dpkg-query.
 func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	err := imageChroot.UnsafeRun(func() error {
