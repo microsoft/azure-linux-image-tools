@@ -192,7 +192,7 @@ func installDebPackages(ctx context.Context, packages []string, imageChroot *saf
 	return nil
 }
 
-// cleanDebCache runs apt-get clean, removes apt lists, and truncates log files.
+// cleanDebCache cleans the DEB package cache via the package manager handler.
 func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
 	pmHandler debPackageManagerHandler,
 ) error {
@@ -201,55 +201,9 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
 	_, span := startCleanCacheSpan(ctx)
 	defer span.End()
 
-	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
-
-	// apt-get clean
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), "clean").
-			EnvironmentVariables(env).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err := pmHandler.cleanPackageCache(imageChroot)
 	if err != nil {
-		return fmt.Errorf("failed to clean DEB cache:\n%w", err)
-	}
-
-	// Remove APT lists.
-	aptListsDir := filepath.Join(imageChroot.RootDir(), "var/lib/apt/lists")
-	err = removeDirectoryContents(aptListsDir)
-	if err != nil {
-		return fmt.Errorf("failed to remove APT lists:\n%w", err)
-	}
-
-	// Truncate APT log files.
-	aptLogDir := filepath.Join(imageChroot.RootDir(), "var/log/apt")
-	logEntries, err := os.ReadDir(aptLogDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read APT log directory:\n%w", err)
-	}
-
-	for _, entry := range logEntries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if filepath.Ext(entry.Name()) != ".log" {
-			continue
-		}
-
-		fullPath := filepath.Join(aptLogDir, entry.Name())
-		err = os.Truncate(fullPath, 0)
-		if err != nil {
-			return fmt.Errorf("failed to truncate log file (%s):\n%w", entry.Name(), err)
-		}
-	}
-
-	// Truncate dpkg log file.
-	dpkgLogPath := filepath.Join(imageChroot.RootDir(), "var/log/dpkg.log")
-	err = os.Truncate(dpkgLogPath, 0)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to truncate log file (var/log/dpkg.log):\n%w", err)
+		return err
 	}
 
 	return nil
