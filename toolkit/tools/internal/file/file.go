@@ -249,9 +249,6 @@ func RemoveFileIfExists(path string) (err error) {
 func RemoveDirectoryContents(path string) (err error) {
 	dir, err := os.ReadDir(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return fmt.Errorf("failed to read directory (%s):\n%w", path, err)
 	}
 
