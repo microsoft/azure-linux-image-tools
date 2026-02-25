@@ -247,11 +247,11 @@ func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
 func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
-	logger.Log.Infof("Removing packages (%d): %v", len(allPackagesToRemove), allPackagesToRemove)
-
 	if len(allPackagesToRemove) <= 0 {
 		return nil
 	}
+
+	logger.Log.Infof("Removing packages (%d): %v", len(allPackagesToRemove), allPackagesToRemove)
 
 	_, span := startRemovePackagesSpan(ctx, allPackagesToRemove)
 	defer span.End()
