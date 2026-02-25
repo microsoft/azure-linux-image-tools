@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// aptPackageManager implements debPackageManagerHandler for APT.
 type aptPackageManager struct{}
 
 func newAptPackageManager() *aptPackageManager {
@@ -21,9 +20,10 @@ func newAptPackageManager() *aptPackageManager {
 }
 
 func (pm *aptPackageManager) getPackageManagerBinary() string {
-	return string(packageManagerAPT)
+	return packageManagerAPT
 }
 
+// getEnvironmentVariables returns the environment variables required for non-interactive operations.
 func (pm *aptPackageManager) getEnvironmentVariables() []string {
 	return []string{
 		"DEBIAN_FRONTEND=noninteractive",
