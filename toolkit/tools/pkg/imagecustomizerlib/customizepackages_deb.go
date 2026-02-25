@@ -20,7 +20,7 @@ import (
 // managePackagesDeb orchestrates the complete DEB package management flow:
 // service prevention → update → install → clean → teardown.
 func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, pmHandler debPackageManagerHandler,
+	imageChroot *safechroot.Chroot, pmHandler *aptPackageManager,
 ) error {
 	if len(config.Packages.Install) == 0 {
 		return nil
@@ -132,7 +132,7 @@ func teardownServicePrevention(imageChroot *safechroot.Chroot) error {
 
 // refreshDebPackageMetadata runs apt-get update to refresh the package metadata.
 func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
-	pmHandler debPackageManagerHandler,
+	pmHandler *aptPackageManager,
 ) error {
 	logger.Log.Infof("Refreshing package metadata")
 
@@ -157,7 +157,7 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 // installDebPackages runs apt-get install with the given list of packages.
 func installDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot,
-	pmHandler debPackageManagerHandler,
+	pmHandler *aptPackageManager,
 ) error {
 	if len(packages) == 0 {
 		return nil
@@ -194,7 +194,7 @@ func installDebPackages(ctx context.Context, packages []string, imageChroot *saf
 
 // cleanDebCache cleans the DEB package cache via the package manager handler.
 func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
-	pmHandler debPackageManagerHandler,
+	pmHandler *aptPackageManager,
 ) error {
 	logger.Log.Infof("Cleaning DEB cache")
 

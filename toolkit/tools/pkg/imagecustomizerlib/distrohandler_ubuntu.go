@@ -17,7 +17,7 @@ import (
 // ubuntuDistroHandler implements distroHandler for Ubuntu
 type ubuntuDistroHandler struct {
 	version        string
-	packageManager debPackageManagerHandler
+	packageManager *aptPackageManager
 }
 
 func newUbuntuDistroHandler(version string) *ubuntuDistroHandler {
