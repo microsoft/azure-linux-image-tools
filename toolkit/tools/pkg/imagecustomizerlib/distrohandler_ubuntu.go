@@ -16,14 +16,12 @@ import (
 
 // ubuntuDistroHandler implements distroHandler for Ubuntu
 type ubuntuDistroHandler struct {
-	version        string
-	packageManager *aptPackageManager
+	version string
 }
 
 func newUbuntuDistroHandler(version string) *ubuntuDistroHandler {
 	return &ubuntuDistroHandler{
-		version:        version,
-		packageManager: newAptPackageManager(),
+		version: version,
 	}
 }
 
@@ -43,7 +41,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	return managePackagesDeb(ctx, config, imageChroot, d.packageManager)
+	return managePackagesDeb(ctx, config, imageChroot)
 }
 
 // IsPackageInstalled checks if a package is installed using dpkg-query.

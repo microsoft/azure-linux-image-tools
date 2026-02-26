@@ -479,9 +479,6 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "packages-add-config.yaml")
 
-	// Customize image using config file with install and installLists.
-	// Azure Linux needs UseBaseImageRpmRepos to access its built-in RPM repos.
-	// Ubuntu uses APT with its own repo configuration and does not need this.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,

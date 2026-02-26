@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -18,9 +19,7 @@ import (
 )
 
 // managePackagesDeb orchestrates the complete DEB package management flow.
-func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, pmHandler *aptPackageManager,
-) error {
+func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot) error {
 	if len(config.Packages.Install) == 0 {
 		return nil
 	}
@@ -30,17 +29,17 @@ func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS,
 		return err
 	}
 
-	err = refreshDebPackageMetadata(ctx, imageChroot, pmHandler)
+	err = refreshDebPackageMetadata(ctx, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = installDebPackages(ctx, config.Packages.Install, imageChroot, pmHandler)
+	err = installDebPackages(ctx, config.Packages.Install, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = cleanDebCache(ctx, imageChroot, pmHandler)
+	err = cleanDebCache(ctx, imageChroot)
 	if err != nil {
 		return err
 	}
@@ -125,18 +124,16 @@ func teardownServicePrevention(imageChroot *safechroot.Chroot) error {
 }
 
 // refreshDebPackageMetadata runs apt-get update to refresh the package metadata.
-func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
-	pmHandler *aptPackageManager,
-) error {
+func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Refreshing package metadata")
 
 	_, span := startRefreshPackageMetadataSpan(ctx)
 	defer span.End()
 
-	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
+	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
 
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), "update", "-y").
+		return shell.NewExecBuilder(packageManagerAPT, "update", "-y").
 			EnvironmentVariables(env).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -149,10 +146,18 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	return nil
 }
 
+// getAptEnvironmentVariables returns the environment variables required for non-interactive operations.
+func getAptEnvironmentVariables() []string {
+	return []string{
+		"DEBIAN_FRONTEND=noninteractive",
+		"DEBCONF_NONINTERACTIVE_SEEN=true",
+		"LANG=C.UTF-8",
+		"LC_ALL=C.UTF-8",
+	}
+}
+
 // installDebPackages runs apt-get install with the given list of packages.
-func installDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot,
-	pmHandler *aptPackageManager,
-) error {
+func installDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot) error {
 	if len(packages) == 0 {
 		return nil
 	}
@@ -170,10 +175,10 @@ func installDebPackages(ctx context.Context, packages []string, imageChroot *saf
 	}
 	args = append(args, packages...)
 
-	env := append(shell.CurrentEnvironment(), pmHandler.getEnvironmentVariables()...)
+	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
 
 	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
+		return shell.NewExecBuilder(packageManagerAPT, args...).
 			EnvironmentVariables(env).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(1).
@@ -187,17 +192,61 @@ func installDebPackages(ctx context.Context, packages []string, imageChroot *saf
 }
 
 // cleanDebCache cleans the DEB package cache via the package manager handler.
-func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot,
-	pmHandler *aptPackageManager,
-) error {
+func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Cleaning DEB cache")
 
 	_, span := startCleanPackagesCacheSpan(ctx)
 	defer span.End()
 
-	err := pmHandler.cleanPackageCache(imageChroot)
+	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
+
+	// apt-get clean
+	err := imageChroot.UnsafeRun(func() error {
+		return shell.NewExecBuilder(packageManagerAPT, "clean").
+			EnvironmentVariables(env).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Execute()
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to clean APT cache:\n%w", err)
+	}
+
+	// Remove APT lists.
+	aptListsDir := filepath.Join(imageChroot.RootDir(), "var/lib/apt/lists")
+	err = file.RemoveDirectoryContents(aptListsDir)
+	if err != nil {
+		return fmt.Errorf("failed to remove APT lists:\n%w", err)
+	}
+
+	// Truncate APT log files.
+	aptLogDir := filepath.Join(imageChroot.RootDir(), "var/log/apt")
+	logEntries, err := os.ReadDir(aptLogDir)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to read log directory:\n%w", err)
+	}
+
+	for _, entry := range logEntries {
+		if entry.IsDir() {
+			continue
+		}
+
+		if filepath.Ext(entry.Name()) != ".log" {
+			continue
+		}
+
+		fullPath := filepath.Join(aptLogDir, entry.Name())
+		err = os.Truncate(fullPath, 0)
+		if err != nil {
+			return fmt.Errorf("failed to truncate log file (%s):\n%w", entry.Name(), err)
+		}
+	}
+
+	// Truncate dpkg log file.
+	dpkgLogPath := filepath.Join(imageChroot.RootDir(), "var/log/dpkg.log")
+	err = os.Truncate(dpkgLogPath, 0)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to truncate log file (var/log/dpkg.log):\n%w", err)
 	}
 
 	return nil
