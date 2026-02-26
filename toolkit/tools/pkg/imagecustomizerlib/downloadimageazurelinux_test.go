@@ -90,7 +90,7 @@ func TestCustomizeImageAZLBaseImageConfigValid(t *testing.T) {
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 		ImageCacheDir:        sharedImageCacheDir,
 	}
 
@@ -126,7 +126,7 @@ func TestCustomizeImageAZLBaseImageCliValid(t *testing.T) {
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 		ImageCacheDir:        sharedImageCacheDir,
 		InputImage:           "azurelinux:minimal-os:3.0",
 	}

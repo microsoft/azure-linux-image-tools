@@ -28,7 +28,6 @@ func TestCustomizeImageOciBaseImageInvalid(t *testing.T) {
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
 	}
 
 	// No image cache directory.
@@ -56,7 +55,6 @@ func TestCustomizeImageOciBaseImageValid(t *testing.T) {
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
 		ImageCacheDir:        imageCacheDir,
 	}
 
@@ -113,7 +111,6 @@ func TestCustomizeImageOciBaseImageCliInvalid(t *testing.T) {
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
 		ImageCacheDir:        imageCacheDir,
 		InputImage:           "bird:magpie",
 	}
@@ -148,7 +145,6 @@ func TestCustomizeImageOciBaseImageCliValid(t *testing.T) {
 		BuildDir:             buildDir,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
 		ImageCacheDir:        sharedImageCacheDir,
 		InputImage:           "oci:mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest",
 	}

@@ -41,7 +41,7 @@ func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
 // ManagePackages handles the complete package management workflow for Ubuntu
 func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
+	rpmsSources []string, disableBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
 	return managePackagesDeb(ctx, config, imageChroot, d.packageManager)
 }

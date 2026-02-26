@@ -149,7 +149,7 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to copy (/dev/zero)")
 	assert.ErrorContains(t, err, "no space left on device")
 }
@@ -301,7 +301,7 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 
 	// Customize image.
 	err = CustomizeImage(t.Context(), buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to copy directory")
 	assert.ErrorContains(t, err, "failed to copy file")
 	assert.ErrorContains(t, err, "no space left on device")

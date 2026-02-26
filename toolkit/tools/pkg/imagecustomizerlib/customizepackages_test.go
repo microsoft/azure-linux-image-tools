@@ -48,7 +48,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		"raw", true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -98,7 +98,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		"raw", true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -171,7 +171,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -202,7 +202,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -240,7 +240,7 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to customize OS")
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }
@@ -261,7 +261,7 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -294,7 +294,7 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorIs(t, err, ErrPackageRepoMetadataRefresh)
 }
 
@@ -355,7 +355,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	}
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
-		"raw", true, "")
+		"raw", false /*disableBaseImageRpmRepos*/, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -408,7 +408,7 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 
 	// Set the snapshot time in CLI to a date before jq-1.7.1-2 (2025-03-18) was published
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
-		"raw", true, snapshotTimeCLI)
+		"raw", false /*disableBaseImageRpmRepos*/, snapshotTimeCLI)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -456,7 +456,7 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 	}
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
-		"raw", true, "")
+		"raw", false /*disableBaseImageRpmRepos*/, "")
 	assert.ErrorContains(t, err, "snapshotTime")
 	assert.ErrorContains(t, err, "preview feature")
 }
@@ -480,15 +480,14 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	configFile := filepath.Join(testDir, "packages-add-config.yaml")
 
 	// Customize image using config file with install and installLists.
-	// Azure Linux needs UseBaseImageRpmRepos to access its built-in RPM repos.
+	// Azure Linux needs base image RPM repos to access its built-in RPM repos.
 	// Ubuntu uses APT with its own repo configuration and does not need this.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       baseImage,
-		OutputImageFile:      outImageFilePath,
-		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true, // Set to true for Azure Linux; it will be ignored for Ubuntu images.
-		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		BuildDir:                 buildDir,
+		InputImageFile:           baseImage,
+		OutputImageFile:          outImageFilePath,
+		OutputImageFormat:        "raw",
+		PreviewFeatures:          baseImageInfo.PreviewFeatures,
 	})
 	assert.NoError(t, err, "failed to customize image with config file options")
 

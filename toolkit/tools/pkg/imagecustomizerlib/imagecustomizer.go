@@ -129,16 +129,16 @@ type verityDeviceMetadata struct {
 
 func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	useBaseImageRpmRepos bool, packageSnapshotTime string,
+	disableBaseImageRpmRepos bool, packageSnapshotTime string,
 ) error {
 	return CustomizeImageWithConfigFileOptions(ctx, configFile, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       inputImageFile,
-		RpmsSources:          rpmsSources,
-		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
-		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
+		BuildDir:                 buildDir,
+		InputImageFile:           inputImageFile,
+		RpmsSources:              rpmsSources,
+		OutputImageFile:          outputImageFile,
+		OutputImageFormat:        imagecustomizerapi.ImageFormatType(outputImageFormat),
+		DisableBaseImageRpmRepos: disableBaseImageRpmRepos,
+		PackageSnapshotTime:      imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 	})
 }
 
@@ -178,16 +178,16 @@ func cleanUp(rc *ResolvedConfig) error {
 
 func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
 	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
-	useBaseImageRpmRepos bool, packageSnapshotTime string,
+	disableBaseImageRpmRepos bool, packageSnapshotTime string,
 ) (err error) {
 	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       inputImageFile,
-		RpmsSources:          rpmsSources,
-		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
-		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
+		BuildDir:                 buildDir,
+		InputImageFile:           inputImageFile,
+		RpmsSources:              rpmsSources,
+		OutputImageFile:          outputImageFile,
+		OutputImageFormat:        imagecustomizerapi.ImageFormatType(outputImageFormat),
+		DisableBaseImageRpmRepos: disableBaseImageRpmRepos,
+		PackageSnapshotTime:      imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
 	})
 }
 
@@ -975,10 +975,8 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 			return targetOs, fmt.Errorf("RPM sources are not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
 		}
 
-		// UseBaseImageRpmRepos defaults to true and is only false when the user explicitly
-		// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
-		// them is not meaningful and likely indicates a configuration mistake.
-		if !rc.Options.UseBaseImageRpmRepos {
+		// Ubuntu does not use RPM repos, so disabling them is not meaningful and likely a mistake.
+		if rc.Options.DisableBaseImageRpmRepos {
 			return targetOs, fmt.Errorf("Disabling base image RPM repositories is not supported for Ubuntu images:\n%w",
 				ErrUnsupportedUbuntuFeature)
 		}

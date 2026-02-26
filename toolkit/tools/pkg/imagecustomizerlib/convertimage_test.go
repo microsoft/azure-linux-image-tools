@@ -123,7 +123,7 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 		InputImageFile:       baseImage,
 		OutputImageFile:      customizedImage,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
@@ -202,7 +202,7 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 		InputImageFile:       baseImage,
 		OutputImageFile:      customizedImage,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
@@ -283,7 +283,7 @@ func testConvertImageRawToBareMetalImage(t *testing.T, baseImageInfo testBaseIma
 		InputImageFile:       baseImage,
 		OutputImageFile:      customizedImage,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if baseImageInfo.Distro == baseImageDistroUbuntu {

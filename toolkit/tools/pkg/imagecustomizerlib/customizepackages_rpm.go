@@ -19,7 +19,7 @@ import (
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
 func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
-	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
+	imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, disableBaseImageRpmRepos bool,
 	snapshotTime imagecustomizerapi.PackageSnapshotTime, pmHandler rpmPackageManagerHandler,
 ) error {
 	var err error
@@ -55,7 +55,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	var mounts *rpmSourcesMounts
 	if needPackageSources {
 		// Mount RPM sources
-		mounts, err = mountRpmSources(ctx, buildDir, packageManagerChroot, rpmsSources, useBaseImageRpmRepos)
+		mounts, err = mountRpmSources(ctx, buildDir, packageManagerChroot, rpmsSources, disableBaseImageRpmRepos)
 		if err != nil {
 			return err
 		}

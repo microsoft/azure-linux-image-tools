@@ -34,7 +34,7 @@ type DistroHandler interface {
 
 	// Package management operations
 	ManagePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
-		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, useBaseImageRpmRepos bool,
+		imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, rpmsSources []string, disableBaseImageRpmRepos bool,
 		snapshotTime imagecustomizerapi.PackageSnapshotTime) error
 
 	IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool

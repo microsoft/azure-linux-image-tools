@@ -43,7 +43,7 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageI
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -151,7 +151,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -237,7 +237,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 
 	// Convert to legacy image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -246,7 +246,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 
 	// Recustomize legacy image.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -255,7 +255,7 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 
 	// Convert back to EFI image.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, efiConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -312,7 +312,7 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -380,7 +380,7 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -441,7 +441,7 @@ func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, ba
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -499,7 +499,7 @@ func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -550,7 +550,7 @@ func testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t *testing.T, testNa
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -610,7 +610,7 @@ func testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t *testing.T, testN
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -676,7 +676,7 @@ func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName str
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}

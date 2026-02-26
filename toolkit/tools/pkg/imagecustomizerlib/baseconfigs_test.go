@@ -26,7 +26,7 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 	}
 	options := ImageCustomizerOptions{
 		BuildDir:             buildDir,
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 	}
 
 	var config imagecustomizerapi.Config
@@ -83,7 +83,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFilePath, "raw", true, "")
+		outImageFilePath, "raw", false /*disableBaseImageRpmRepos*/, "")
 	if !assert.NoError(t, err) {
 		return
 	}

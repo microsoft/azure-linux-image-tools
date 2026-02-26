@@ -39,10 +39,10 @@ func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 // ManagePackages handles the complete package management workflow for Fedora
 func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
+	rpmsSources []string, disableBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
 	return managePackagesRpm(
-		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
+		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, disableBaseImageRpmRepos,
 		snapshotTime, d.packageManager,
 	)
 }

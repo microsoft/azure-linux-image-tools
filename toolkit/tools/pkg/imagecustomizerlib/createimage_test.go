@@ -51,7 +51,7 @@ func TestCreateImageRaw(t *testing.T) {
 	// Customize image to vhd.
 	err = CustomizeImageWithConfigFile(
 		t.Context(), buildDir, noChangeConfigFile, outputImageFilePath, rpmSources,
-		vhdFixedImageFilePath, "vhd", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		vhdFixedImageFilePath, "vhd", true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}

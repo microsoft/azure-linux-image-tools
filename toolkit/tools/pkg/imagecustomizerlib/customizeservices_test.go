@@ -39,7 +39,7 @@ func testCustomizeImageServicesEnableDisable(t *testing.T, baseImageInfo testBas
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
 		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
+		DisableBaseImageRpmRepos: false,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
@@ -94,7 +94,7 @@ func testCustomizeImageServicesEnableUnknown(t *testing.T, baseImageInfo testBas
 	}
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to enable service (service='chocolate-chip-muffin')")
 	assert.ErrorContains(t, err, "chocolate-chip-muffin.service does not exist")
 }
@@ -129,6 +129,6 @@ func testCustomizeImageServicesDisableUnknown(t *testing.T, baseImageInfo testBa
 	}
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to disable service (service='chocolate-chip-muffin')")
 }

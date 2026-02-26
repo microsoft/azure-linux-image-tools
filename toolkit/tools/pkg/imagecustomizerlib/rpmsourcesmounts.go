@@ -43,19 +43,19 @@ type rpmSourcesMounts struct {
 }
 
 func mountRpmSources(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot, rpmsSources []string,
-	useBaseImageRpmRepos bool,
+	disableBaseImageRpmRepos bool,
 ) (*rpmSourcesMounts, error) {
 	var err error
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "mount_rpm_sources")
 	span.SetAttributes(
 		attribute.Int("rpm_sources_count", len(rpmsSources)),
-		attribute.Bool("use_base_image_rpm_repos", useBaseImageRpmRepos),
+		attribute.Bool("disable_base_image_rpm_repos", disableBaseImageRpmRepos),
 	)
 	defer span.End()
 
 	var mounts rpmSourcesMounts
-	err = mounts.mountRpmSourcesHelper(buildDir, imageChroot, rpmsSources, useBaseImageRpmRepos)
+	err = mounts.mountRpmSourcesHelper(buildDir, imageChroot, rpmsSources, disableBaseImageRpmRepos)
 	if err != nil {
 		cleanupErr := mounts.close()
 		if cleanupErr != nil {
@@ -68,7 +68,7 @@ func mountRpmSources(ctx context.Context, buildDir string, imageChroot *safechro
 }
 
 func (m *rpmSourcesMounts) mountRpmSourcesHelper(buildDir string, imageChroot *safechroot.Chroot, rpmsSources []string,
-	useBaseImageRpmRepos bool,
+	disableBaseImageRpmRepos bool,
 ) error {
 	var err error
 
@@ -88,7 +88,7 @@ func (m *rpmSourcesMounts) mountRpmSourcesHelper(buildDir string, imageChroot *s
 	allReposConfig := ini.Empty()
 
 	// Include base image's RPM sources.
-	if useBaseImageRpmRepos {
+	if !disableBaseImageRpmRepos {
 		reposPath := filepath.Join(imageChroot.RootDir(), "/etc/yum.repos.d")
 		entries, err := os.ReadDir(reposPath)
 		if err != nil {

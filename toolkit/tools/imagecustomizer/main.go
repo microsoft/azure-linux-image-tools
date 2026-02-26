@@ -170,17 +170,17 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
 		imagecustomizerlib.ImageCustomizerOptions{
-			BuildDir:                cmd.BuildDir,
-			InputImageFile:          cmd.InputImageFile,
-			InputImage:              cmd.InputImage,
-			RpmsSources:             cmd.RpmSources,
-			OutputImageFile:         cmd.OutputImageFile,
-			OutputImageFormat:       imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
-			OutputSelinuxPolicyPath: cmd.OutputSelinuxPolicyPath,
-			UseBaseImageRpmRepos:    !cmd.DisableBaseImageRpmRepos,
-			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
-			ImageCacheDir:           cmd.ImageCacheDir,
-			CosiCompressionLevel:    cmd.CosiCompressionLevel,
+			BuildDir:                 cmd.BuildDir,
+			InputImageFile:           cmd.InputImageFile,
+			InputImage:               cmd.InputImage,
+			RpmsSources:              cmd.RpmSources,
+			OutputImageFile:          cmd.OutputImageFile,
+			OutputImageFormat:        imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
+			OutputSelinuxPolicyPath:  cmd.OutputSelinuxPolicyPath,
+			DisableBaseImageRpmRepos: cmd.DisableBaseImageRpmRepos,
+			PackageSnapshotTime:      imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
+			ImageCacheDir:            cmd.ImageCacheDir,
+			CosiCompressionLevel:     cmd.CosiCompressionLevel,
 		})
 	if err != nil {
 		return err

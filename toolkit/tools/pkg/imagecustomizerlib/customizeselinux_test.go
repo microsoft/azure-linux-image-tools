@@ -38,7 +38,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	// This tests enabling SELinux on a non-SELinux image.
 	configFile := filepath.Join(testDir, "selinux-force-enforcing.yaml")
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -67,7 +67,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	// This tests disabling (but not removing) SELinux on an SELinux enabled image.
 	configFile = filepath.Join(testDir, "selinux-disabled.yaml")
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -96,7 +96,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 	// This tests enabling SELinux on an image with SELinux installed but disabled.
 	configFile = filepath.Join(testDir, "selinux-permissive.yaml")
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -134,7 +134,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 	// This tests enabling SELinux on a non-SELinux image.
 	configFile := filepath.Join(testDir, "partitions-selinux-enforcing.yaml")
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -192,7 +192,7 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 
 	switch baseImageInfo.Variant {
 	case baseImageAzureLinuxVariantCoreEfi:

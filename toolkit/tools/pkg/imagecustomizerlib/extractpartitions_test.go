@@ -264,7 +264,8 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", true, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -359,7 +360,8 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -393,7 +395,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer espLoopback.Close()
+	defer rootfsLoopback.Close()
 
 	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
 	if !assert.NoError(t, err) {
@@ -424,7 +426,7 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 	// Customize image.
 	// Ensure there is no error even though the /etc/fstab file was deleted.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}

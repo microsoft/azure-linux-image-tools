@@ -456,7 +456,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -482,7 +482,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 	}
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configA1, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -574,7 +574,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -596,7 +596,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configC, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -635,7 +635,7 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		// Azl2 should fail.
 		if !assert.Error(t, err) {
@@ -679,7 +679,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -692,7 +692,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDefault)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -705,7 +705,7 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -734,7 +734,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -747,7 +747,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -767,7 +767,7 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -792,7 +792,7 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
 }
 
@@ -817,7 +817,7 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypePxeTar), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -841,7 +841,7 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypePxeTar), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -884,7 +884,7 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
@@ -910,7 +910,7 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		string(imagecustomizerapi.ImageFormatTypeIso), false /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }

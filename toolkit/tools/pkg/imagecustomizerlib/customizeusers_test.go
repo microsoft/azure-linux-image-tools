@@ -92,7 +92,7 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -178,7 +178,7 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set home directory on a user that already exists (homeDir='/home/root', user='root')")
 }
 
@@ -204,7 +204,7 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "cannot set UID on a user that already exists (UID='1', user='root')")
 }
 
@@ -232,7 +232,7 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to find SSH public key file (path='does-not-exist')")
 }
 
@@ -248,7 +248,7 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -360,7 +360,7 @@ func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
 	}
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, &configWithPassword, baseImage, nil, outImageFilePath, "raw",
-		false, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -378,7 +378,7 @@ func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
 	}
 
 	err = CustomizeImage(t.Context(), buildDir, testDir, &configWithoutPassword, outImageFilePath, nil, outImageFilePath, "raw",
-		false, "" /*packageSnapshotTime*/)
+		true /*disableBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}

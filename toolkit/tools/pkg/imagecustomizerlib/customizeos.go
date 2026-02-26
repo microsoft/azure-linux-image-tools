@@ -80,7 +80,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 
 		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
-			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
+			imageChroot, nil, rc.Options.RpmsSources, rc.Options.DisableBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
 			return err

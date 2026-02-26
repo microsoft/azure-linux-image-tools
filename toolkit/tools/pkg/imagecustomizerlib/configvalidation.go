@@ -209,7 +209,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
-	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles,
+	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.DisableBaseImageRpmRepos, validateFiles,
 		allowPartialConfig)
 	if err != nil {
 		return nil, err
@@ -465,7 +465,7 @@ func validatePxeConfigChain(configChain []*ConfigWithBasePath, validateFiles boo
 }
 
 func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
-	useBaseImageRpmRepos bool, validateFiles bool, allowPartialConfig bool,
+	disableBaseImageRpmRepos bool, validateFiles bool, allowPartialConfig bool,
 ) error {
 	if config == nil {
 		return nil
@@ -473,7 +473,7 @@ func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpms
 
 	var err error
 
-	err = validatePackageLists(baseConfigPath, config, rpmsSources, useBaseImageRpmRepos, allowPartialConfig)
+	err = validatePackageLists(baseConfigPath, config, rpmsSources, disableBaseImageRpmRepos, allowPartialConfig)
 	if err != nil {
 		return err
 	}
@@ -540,7 +540,7 @@ func validateScript(baseConfigPath string, script *imagecustomizerapi.Script, va
 }
 
 func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, rpmsSources []string,
-	useBaseImageRpmRepos bool, allowPartialConfig bool,
+	disableBaseImageRpmRepos bool, allowPartialConfig bool,
 ) error {
 	if config == nil {
 		return nil
@@ -563,7 +563,7 @@ func validatePackageLists(baseConfigPath string, config *imagecustomizerapi.OS, 
 
 	needRpmsSources := len(allPackagesInstall) > 0 || len(allPackagesUpdate) > 0 ||
 		config.Packages.UpdateExistingPackages
-	hasRpmSources := len(rpmsSources) > 0 || useBaseImageRpmRepos
+	hasRpmSources := len(rpmsSources) > 0 || !disableBaseImageRpmRepos
 
 	if needRpmsSources && !hasRpmSources && !allowPartialConfig {
 		return ErrNoRpmSourcesSpecified
