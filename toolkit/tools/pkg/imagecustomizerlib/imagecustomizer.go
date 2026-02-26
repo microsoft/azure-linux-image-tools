@@ -968,49 +968,5 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 		}
 	}
 
-	// Validate that RPM sources are not specified for Ubuntu (Ubuntu uses APT, not RPM).
-	// Also validate that unsupported package operations are not specified for Ubuntu.
-	if targetOs == targetos.TargetOsUbuntu2204 || targetOs == targetos.TargetOsUbuntu2404 {
-		if len(rc.Options.RpmsSources) > 0 {
-			return targetOs, fmt.Errorf("RPM sources are not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
-		}
-
-		// UseBaseImageRpmRepos defaults to true and is only false when the user explicitly
-		// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
-		// them is not meaningful and likely indicates a configuration mistake.
-		if !rc.Options.UseBaseImageRpmRepos {
-			return targetOs, fmt.Errorf("Disabling base image RPM repositories is not supported for Ubuntu images:\n%w",
-				ErrUnsupportedUbuntuFeature)
-		}
-
-		for _, configWithBase := range rc.ConfigChain {
-			if configWithBase.Config.OS == nil {
-				continue
-			}
-
-			packages := configWithBase.Config.OS.Packages
-
-			if len(packages.Remove) > 0 || len(packages.RemoveLists) > 0 {
-				return targetOs, fmt.Errorf("package remove is not yet supported for Ubuntu images:\n%w",
-					ErrUnsupportedUbuntuFeature)
-			}
-
-			if len(packages.Update) > 0 || len(packages.UpdateLists) > 0 {
-				return targetOs, fmt.Errorf("package update is not yet supported for Ubuntu images:\n%w",
-					ErrUnsupportedUbuntuFeature)
-			}
-
-			if packages.UpdateExistingPackages {
-				return targetOs, fmt.Errorf("updateExistingPackages is not yet supported for Ubuntu images:\n%w",
-					ErrUnsupportedUbuntuFeature)
-			}
-
-			if packages.SnapshotTime != "" {
-				return targetOs, fmt.Errorf("package snapshotTime is not yet supported for Ubuntu images:\n%w",
-					ErrUnsupportedUbuntuFeature)
-			}
-		}
-	}
-
 	return targetOs, nil
 }
