@@ -63,11 +63,12 @@ func testCustomizeImageHostname(t *testing.T, baseImageInfo testBaseImageInfo) {
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return

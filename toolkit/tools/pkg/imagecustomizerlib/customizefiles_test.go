@@ -96,11 +96,12 @@ func testCustomizeImageAdditionalFiles(t *testing.T, baseImageInfo testBaseImage
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return
@@ -238,11 +239,12 @@ func testCustomizeImageAdditionalDirs(t *testing.T, baseImageInfo testBaseImageI
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return

@@ -34,11 +34,12 @@ func testCustomizeImageGroupsExistingGid(t *testing.T, baseImageInfo testBaseIma
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	assert.ErrorContains(t, err, "cannot set GID on a group that already exists (GID='42', group='root')")
 }
@@ -63,11 +64,12 @@ func testCustomizeImageGroupsNewGid(t *testing.T, baseImageInfo testBaseImageInf
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return
@@ -111,11 +113,12 @@ func testCustomizeImageGroupsNew(t *testing.T, baseImageInfo testBaseImageInfo) 
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return
