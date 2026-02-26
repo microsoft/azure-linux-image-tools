@@ -242,70 +242,32 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 	assert.Greater(t, cosiStat.Size(), int64(100*diskutils.MiB), "COSI file should be at least 100 MiB")
 }
 
-func TestConvertImageRawToBareMetalImage(t *testing.T) {
+func TestConvertImageToBareMetalImage(t *testing.T) {
 	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testConvertImageRawToBareMetalImage(t, baseImageInfo)
+			testConvertImageToBareMetalImage(t, baseImageInfo)
 		})
 	}
 }
 
-func testConvertImageRawToBareMetalImage(t *testing.T, baseImageInfo testBaseImageInfo) {
+func testConvertImageToBareMetalImage(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
-		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
-
-	ukifyExists, err := file.CommandExists("ukify")
-	assert.NoError(t, err)
-	if !ukifyExists {
-		t.Skip("The 'ukify' command is not available")
-	}
-
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
-	}
-
-	testTempDir := filepath.Join(tmpDir,
-		fmt.Sprintf("TestConvertImageRawToBareMetalImage_%s", baseImageInfo.Name))
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageToBareMetalImage_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outputImageFile := filepath.Join(testTempDir, "output.vhd")
 
-	// First, we need a customized image with verity enabled
-	customizedImage := filepath.Join(testTempDir, "customized.raw")
-	configFile := filepath.Join(testDir, "verity-config.yaml")
-
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       baseImage,
-		OutputImageFile:      customizedImage,
-		OutputImageFormat:    "raw",
-		UseBaseImageRpmRepos: true,
-		PreviewFeatures:      baseImageInfo.PreviewFeatures,
-	})
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		// This check should be removed once bootloader hard-reset support is added for Ubuntu.
-		// It will fail once this support is added.
-		assert.ErrorContains(t, err, "bootloader hard-reset is not supported for Ubuntu images")
-		return
-	}
-	if !assert.NoError(t, err) {
-		return
-	}
-
-	// Now convert to bare-metal-image
-	buildDir2 := filepath.Join(testTempDir, "build2")
+	// Convert to bare-metal-image
 	options := ConvertImageOptions{
-		BuildDir:          buildDir2,
-		InputImageFile:    customizedImage,
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: imagecustomizerapi.ImageFormatTypeBareMetalImage,
 	}
 
-	err = ConvertImage(t.Context(), options)
+	err := ConvertImage(t.Context(), options)
 	if !assert.NoError(t, err) {
 		return
 	}
