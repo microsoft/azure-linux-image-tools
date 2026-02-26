@@ -17,8 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// managePackagesDeb orchestrates the complete DEB package management flow:
-// service prevention → update → install → clean → teardown.
+// managePackagesDeb orchestrates the complete DEB package management flow.
 func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS,
 	imageChroot *safechroot.Chroot, pmHandler *aptPackageManager,
 ) error {
@@ -26,31 +25,26 @@ func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS,
 		return nil
 	}
 
-	// Setup service prevention (policy-rc.d + start-stop-daemon diversion).
 	err := setupServicePrevention(imageChroot)
 	if err != nil {
 		return err
 	}
 
-	// Refresh package metadata (fatal on failure).
 	err = refreshDebPackageMetadata(ctx, imageChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	// Install packages (fatal on failure).
 	err = installDebPackages(ctx, config.Packages.Install, imageChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	// Clean DEB cache.
 	err = cleanDebCache(ctx, imageChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	// Teardown service prevention (restore start-stop-daemon and remove policy-rc.d).
 	err = teardownServicePrevention(imageChroot)
 	if err != nil {
 		return err
