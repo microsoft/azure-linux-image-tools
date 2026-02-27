@@ -127,11 +127,10 @@ func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawI
 ) error {
 	if outputFormat == imagecustomizerapi.ImageFormatTypeCosi || outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		// Convert subcommand doesn't support preview features - pass empty slice
-		var previewFeatures []imagecustomizerapi.PreviewFeature
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot", previewFeatures)
+			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
 		if err != nil {
-			return err
+			return fmt.Errorf("%w:\n%w", ErrArtifactCosiImageInfoCollect, err)
 		}
 
 		// For convert subcommand, we're dealing with arbitrary external images.
