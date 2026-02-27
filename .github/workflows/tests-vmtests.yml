@@ -99,12 +99,26 @@ jobs:
       run: |
         set -eux
 
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+        sudo ./repo/.github/workflows/scripts/validate-image.sh \
+            "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0/image.vhdx
+
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+            "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        sudo ./repo/.github/workflows/scripts/validate-image.sh \
+            "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0/image.vhdx
 
         if [ "$HOST_ARCH" == "amd64" ]; then
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+              "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
+          sudo ./repo/.github/workflows/scripts/validate-image.sh \
+              "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0/image.vhd
+
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
+              "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
+          sudo ./repo/.github/workflows/scripts/validate-image.sh \
+              "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0/image.vhd
         fi
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
