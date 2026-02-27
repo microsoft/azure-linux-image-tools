@@ -53,7 +53,7 @@ os:
       - jq
 
       installLists:
-      - lists/golang.yaml
+      - lists/tree.yaml
 
       update:
       - jq

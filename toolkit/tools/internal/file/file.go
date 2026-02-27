@@ -249,7 +249,7 @@ func RemoveFileIfExists(path string) (err error) {
 func RemoveDirectoryContents(path string) (err error) {
 	dir, err := os.ReadDir(path)
 	if err != nil {
-		return
+		return fmt.Errorf("failed to read directory (%s):\n%w", path, err)
 	}
 
 	for _, entry := range dir {
@@ -257,7 +257,7 @@ func RemoveDirectoryContents(path string) (err error) {
 		logger.Log.Debugf("Removing (%s)", childPath)
 		err = os.RemoveAll(childPath)
 		if err != nil {
-			return
+			return fmt.Errorf("failed to remove (%s):\n%w", childPath, err)
 		}
 	}
 

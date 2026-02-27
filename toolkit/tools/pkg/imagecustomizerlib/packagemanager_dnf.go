@@ -21,7 +21,7 @@ func newDnfPackageManager(version string) *dnfPackageManager {
 	return &dnfPackageManager{version: version}
 }
 
-func (pm *dnfPackageManager) getPackageManagerBinary() string { return string(packageManagerDNF) }
+func (pm *dnfPackageManager) getPackageManagerBinary() string { return packageManagerDNF }
 func (pm *dnfPackageManager) getReleaseVersion() string       { return pm.version }
 func (pm *dnfPackageManager) getConfigFile() string           { return "etc/dnf/dnf.conf" }
 

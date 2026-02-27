@@ -41,20 +41,48 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	if config != nil && (len(config.Packages.Install) > 0 || len(config.Packages.Remove) > 0 || len(config.Packages.Update) > 0) {
-		return fmt.Errorf("package management customizations are not yet supported for Ubuntu")
+	if len(rpmsSources) > 0 {
+		return fmt.Errorf("RPM sources are not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
 	}
 
-	return nil
+	// UseBaseImageRpmRepos defaults to true and is only false when the user explicitly
+	// passes --disable-base-image-rpm-repos. Ubuntu does not use RPM repos, so disabling
+	// them is not meaningful and likely indicates a configuration mistake.
+	if !useBaseImageRpmRepos {
+		return fmt.Errorf("Disabling base image RPM repositories is not supported for Ubuntu images:\n%w",
+			ErrUnsupportedUbuntuFeature)
+	}
+
+	packages := config.Packages
+
+	if len(packages.Remove) > 0 || len(packages.RemoveLists) > 0 {
+		return fmt.Errorf("package remove is not yet supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
+	}
+
+	if len(packages.Update) > 0 || len(packages.UpdateLists) > 0 {
+		return fmt.Errorf("package update is not yet supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
+	}
+
+	if packages.UpdateExistingPackages {
+		return fmt.Errorf("updateExistingPackages is not yet supported for Ubuntu images:\n%w",
+			ErrUnsupportedUbuntuFeature)
+	}
+
+	if packages.SnapshotTime != "" {
+		return fmt.Errorf("package snapshotTime is not yet supported for Ubuntu images:\n%w",
+			ErrUnsupportedUbuntuFeature)
+	}
+
+	return managePackagesDeb(ctx, config, imageChroot)
 }
 
-// IsPackageInstalled checks if a package is installed using dpkg
+// IsPackageInstalled checks if a package is installed using dpkg-query.
 func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return isPackageInstalledDpkg(imageChroot, packageName)
+	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	return getAllPackagesFromChrootDpkg(imageChroot)
+	return getAllPackagesFromChrootDeb(imageChroot)
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {

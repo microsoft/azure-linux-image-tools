@@ -120,7 +120,7 @@ else
 fi
 
 # Combine with common testing packages
-FINAL_PACKAGE_LIST="jq golang $PACKAGE_LIST"
+FINAL_PACKAGE_LIST="jq tree $PACKAGE_LIST"
 
 echo "Final package list: $FINAL_PACKAGE_LIST"
 

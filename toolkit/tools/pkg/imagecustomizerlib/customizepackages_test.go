@@ -32,8 +32,8 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 
 	downloadedRpmsTmpDir := filepath.Join(testTmpDir, "rpms")
 
-	// Create a copy of the RPMs directory, but without the golang package.
-	err := copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"golang-"})
+	// Create a copy of the RPMs directory, but without the tree package.
+	err := copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"tree-"})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -64,6 +64,11 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		"/usr/bin/jq",
 	)
 
+	// Ensure tree was not installed.
+	ensureFilesNotExist(t, imageConnection,
+		"/usr/bin/tree",
+	)
+
 	verifyImageHistoryFile(t, 1, config, imageConnection.Chroot().RootDir())
 
 	err = imageConnection.CleanClose()
@@ -83,11 +88,11 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Install jq package.
+	// Install tree package.
 	config = imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				InstallLists: []string{"lists/golang.yaml"},
+				InstallLists: []string{"lists/tree.yaml"},
 			},
 		},
 	}
@@ -104,10 +109,10 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure go was installed.
+	// Ensure tree was installed.
 	ensureFilesExist(t, imageConnection,
 		"/usr/bin/jq",
-		"/usr/bin/go",
+		"/usr/bin/tree",
 	)
 
 	verifyImageHistoryFile(t, 2, config, imageConnection.Chroot().RootDir())
@@ -180,7 +185,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
 		"/usr/bin/jq",
-		"/usr/bin/go",
+		"/usr/bin/tree",
 	)
 }
 
@@ -214,7 +219,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
 		"/usr/bin/jq",
-		"/usr/bin/go",
+		"/usr/bin/tree",
 	)
 
 	// Ensure packages were removed.
@@ -379,7 +384,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile")
 	defer os.RemoveAll(testTmpDir)
 
 	baseImageInfo := testBaseImageAzl3CoreEfi
@@ -454,6 +459,59 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 		"raw", true, "")
 	assert.ErrorContains(t, err, "snapshotTime")
 	assert.ErrorContains(t, err, "preview feature")
+}
+
+func TestCustomizeImagePackagesInstallOnline(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesInstallOnline(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesInstallOnline_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-add-config.yaml")
+
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true, // Set to true for Azure Linux; it will be ignored for Ubuntu images.
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	assert.NoError(t, err, "failed to customize image with config file options")
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	assert.NoError(t, err, "failed to connect to image after customization")
+	defer imageConnection.Close()
+
+	// Verify both inline (jq) and list-referenced (tree) packages were installed.
+	ensureFilesExist(t, imageConnection,
+		"/usr/bin/jq",
+		"/usr/bin/tree",
+	)
+
+	// For Ubuntu images, further verify that APT service prevention artifacts were cleaned up. During package
+	// installation, policy-rc.d is created to block service starts via invoke-rc.d, and start-stop-daemon is diverted
+	// to a no-op. Both must be restored after installation so the final image behaves normally.
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		ensureFilesNotExist(t, imageConnection,
+			"/usr/sbin/policy-rc.d",
+			"/sbin/start-stop-daemon.distrib",
+		)
+
+		ensureFilesExist(t, imageConnection,
+			"/sbin/start-stop-daemon",
+		)
+	}
 }
 
 func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {

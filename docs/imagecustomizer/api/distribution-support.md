@@ -36,30 +36,38 @@ APIs marked as **Preview** require the distribution's
 
 ## Configuration
 
-| API                                                                                  | Azure Linux 3.0       | Ubuntu 22.04, 24.04 |
-|--------------------------------------------------------------------------------------|:---------------------:|:-------------------:|
-| [input.image.path](./configuration/inputImage.md#path-string)                        | Yes                   | Preview             |
-| [input.image.oci](./configuration/inputImage.md#oci-ociimage)                        | Yes                   | No                  |
-| [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)   | Yes                   | N/A                 |
-| [storage](./configuration/config.md#storage-storage)                                 | Yes                   | No                  |
-| [iso](./configuration/config.md#iso-iso)                                             | Yes                   | No                  |
-| [pxe](./configuration/config.md#pxe-pxe)                                             | Yes                   | No                  |
-| [os.hostname](./configuration/os.md#hostname-string)                                 | Yes                   | Preview             |
-| [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)    | Yes                   | No                  |
-| [os.packages](./configuration/os.md#packages-packages)                               | Yes                   | No                  |
-| [os.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)           | Yes                   | Preview             |
-| [os.additionalDirs](./configuration/os.md#additionaldirs-dirconfig)                  | Yes                   | Preview             |
-| [os.groups](./configuration/os.md#groups-group)                                      | Yes                   | Preview             |
-| [os.users](./configuration/os.md#users-user)                                         | Yes                   | Preview             |
-| [os.modules](./configuration/os.md#modules-module)                                   | Yes                   | Preview             |
-| [os.services](./configuration/os.md#services-services)                               | Yes                   | Preview             |
-| [os.overlays](./configuration/os.md#overlays-overlay)                                | Yes                   | No                  |
-| [os.bootloader](./configuration/os.md#bootloader-bootloader)                         | Yes                   | No                  |
-| [os.uki](./configuration/os.md#uki-uki)                                              | Yes                   | No                  |
-| [os.selinux](./configuration/os.md#selinux-selinux)                                  | Yes                   | No                  |
-| [os.imageHistory](./configuration/os.md#imagehistory-string)                         | Yes                   | Preview             |
-| [scripts](./configuration/config.md#scripts-scripts)                                 | Yes                   | Preview             |
-| [output.image](./configuration/output.md#image-outputimage)                          | Yes                   | Preview             |
-| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)              | Yes                   | No                  |
-| [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)       | Yes                   | No                  |
-| [previewFeatures](./configuration/config.md#previewfeatures-string)                  | Yes                   | Yes                 |
+| API                                                                                      | Azure Linux 3.0       | Ubuntu 22.04, 24.04 |
+|------------------------------------------------------------------------------------------|:---------------------:|:-------------------:|
+| [input.image.path](./configuration/inputImage.md#path-string)                            | Yes                   | Preview             |
+| [input.image.oci](./configuration/inputImage.md#oci-ociimage)                            | Yes                   | No                  |
+| [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)       | Yes                   | N/A                 |
+| [storage](./configuration/config.md#storage-storage)                                     | Yes                   | No                  |
+| [iso](./configuration/config.md#iso-iso)                                                 | Yes                   | No                  |
+| [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes                   | No                  |
+| [os.hostname](./configuration/os.md#hostname-string)                                     | Yes                   | Preview             |
+| [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)        | Yes                   | No                  |
+| [os.packages](./configuration/os.md#packages-packages)                                   | Yes                   | Preview             |
+| &emsp;[.updateExistingPackages](./configuration/packages.md#updateexistingpackages-bool) | Yes                   | No                  |
+| &emsp;[.installLists](./configuration/packages.md#installlists-string)                   | Yes                   | Preview             |
+| &emsp;[.install](./configuration/packages.md#install-string)                             | Yes                   | Preview             |
+| &emsp;[.removeLists](./configuration/packages.md#removelists-string)                     | Yes                   | No                  |
+| &emsp;[.remove](./configuration/packages.md#remove-string)                               | Yes                   | No                  |
+| &emsp;[.updateLists](./configuration/packages.md#updatelists-string)                     | Yes                   | No                  |
+| &emsp;[.update](./configuration/packages.md#update-string)                               | Yes                   | No                  |
+| &emsp;[.snapshotTime](./configuration/packages.md#snapshottime-string)                   | Yes                   | No                  |
+| [os.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)               | Yes                   | Preview             |
+| [os.additionalDirs](./configuration/os.md#additionaldirs-dirconfig)                      | Yes                   | Preview             |
+| [os.groups](./configuration/os.md#groups-group)                                          | Yes                   | Preview             |
+| [os.users](./configuration/os.md#users-user)                                             | Yes                   | Preview             |
+| [os.modules](./configuration/os.md#modules-module)                                       | Yes                   | Preview             |
+| [os.services](./configuration/os.md#services-services)                                   | Yes                   | Preview             |
+| [os.overlays](./configuration/os.md#overlays-overlay)                                    | Yes                   | No                  |
+| [os.bootloader](./configuration/os.md#bootloader-bootloader)                             | Yes                   | No                  |
+| [os.uki](./configuration/os.md#uki-uki)                                                  | Yes                   | No                  |
+| [os.selinux](./configuration/os.md#selinux-selinux)                                      | Yes                   | No                  |
+| [os.imageHistory](./configuration/os.md#imagehistory-string)                             | Yes                   | Preview             |
+| [scripts](./configuration/config.md#scripts-scripts)                                     | Yes                   | Preview             |
+| [output.image](./configuration/output.md#image-outputimage)                              | Yes                   | Preview             |
+| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes                   | No                  |
+| [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)           | Yes                   | No                  |
+| [previewFeatures](./configuration/config.md#previewfeatures-string)                      | Yes                   | Yes                 |
