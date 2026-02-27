@@ -17,7 +17,7 @@ APIs marked as **Preview** require the distribution's
 | Subcommand + Flag                                                                                       | Azure Linux 3.0 | Ubuntu 22.04, 24.04 |
 |---------------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
 | [create](./cli/create.md)                                                                               | Yes             | No                  |
-| [convert](./cli/convert.md)                                                                             | Yes             | Preview             |
+| [convert](./cli/convert.md)                                                                             | Yes             | Yes                 |
 | [customize](./cli/customize.md)                                                                         | Yes             | Preview             |
 | &emsp;[--build-dir](./cli/customize.md#--build-dirdirectory-path)                                       | Yes             | Preview             |
 | &emsp;[--image-file](./cli/customize.md#--image-filefile-path)                                          | Yes             | Preview             |
