@@ -24,9 +24,7 @@ LICENSES_DIR = OUTPUT_DIR / "LICENSES"
 TOOLS_DIR = Path(REPO_ROOT) / "toolkit" / "tools"
 
 def download_trivy():
-    TRIVY_VERSION = "0.61.1"
-    TRIVY_FILENAME = f"trivy_{TRIVY_VERSION}_Linux-64bit.tar.gz"
-    TRIVY_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/{TRIVY_FILENAME}"
+    TRIVY_VERSION = "0.69.2"
 
     print("Downloading Trivy...")
 
@@ -36,10 +34,10 @@ def download_trivy():
 
     machine = platform.machine()
     arch = "64bit"
-    expected_sha256 = "dcc6f48c383833f3a8ee0380f7990a17c89e36553cdf34e1f2d3159f9d8270ec"
+    expected_sha256 = "affa59a1e37d86e4b8ab2cd02f0ab2e63d22f1bf9cf6a7aa326c884e25e26ce3"
     if machine == "aarch64":
         arch = "ARM64"
-        expected_sha256 = "a2f28808626ae08877279e13a32d9cc8f845bdfdc762a692b2f32768326208a6"
+        expected_sha256 = "c73b97699c317b0d25532b3f188564b4e29d13d5472ce6f8eb078082546a6481"
 
     TRIVY_FILENAME = f"trivy_{TRIVY_VERSION}_Linux-{arch}.tar.gz"
     TRIVY_URL = f"https://github.com/aquasecurity/trivy/releases/download/v{TRIVY_VERSION}/{TRIVY_FILENAME}"
@@ -59,9 +57,11 @@ def download_trivy():
             for chunk in iter(lambda: f.read(4096), b""):
                 sha256.update(chunk)
 
+        actual_sha256 = sha256.hexdigest()
+
         print("Verifying checksum...")
-        if sha256.hexdigest() != expected_sha256:
-            print("SHA256 checksum does not match!")
+        if actual_sha256 != expected_sha256:
+            print(f"SHA256 checksum does not match! (Expected: {expected_sha256}, Actual: {actual_sha256})")
             sys.exit(1)
 
         with tarfile.open(tar_path, "r:gz") as tar:
