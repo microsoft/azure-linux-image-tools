@@ -91,9 +91,7 @@ APIs marked as **Preview** require the distribution's
 | &emsp;&emsp;&emsp;`pxe-tar`                                                              | Yes             | No                  |
 | &emsp;&emsp;&emsp;`cosi`                                                                 | Yes             | No                  |
 | &emsp;&emsp;&emsp;`baremetal-image`                                                      | Yes             | No                  |
-| &emsp;&emsp;[.cosi](./configuration/outputImage.md#cosi-cosiconfig)                      | Yes             | No                  |
-| &emsp;&emsp;&emsp;[.compression](./configuration/cosiConfig.md#compression-cosicompression) | Yes          | No                  |
-| &emsp;&emsp;&emsp;&emsp;[.level](./configuration/cosiCompression.md#level-int)           | Yes             | No                  |
+| &emsp;&emsp;[.cosi.copmression.level](./configuration/cosiCompression.md#level-int)      | Yes             | No                  |
 | &emsp;[.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes             | No                  |
 | &emsp;[.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)           | Yes             | No                  |
 | [previewFeatures](./configuration/config.md#previewfeatures-string)                      | Yes             | Yes                 |
