@@ -56,7 +56,7 @@ APIs marked as **Preview** require the distribution's
 | [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes             | No                  |
 | [os.hostname](./configuration/os.md#hostname-string)                                     | Yes             | Preview             |
 | [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)        | Yes             | No                  |
-| [os.packages](./configuration/os.md#packages-packages)                                   | Yes             | No                  |
+| [os.packages](./configuration/os.md#packages-packages)                                   | Yes             | Preview             |
 | &emsp;[.updateExistingPackages](./configuration/packages.md#updateexistingpackages-bool) | Yes             | No                  |
 | &emsp;[.installLists](./configuration/packages.md#installlists-string)                   | Yes             | Preview             |
 | &emsp;[.install](./configuration/packages.md#install-string)                             | Yes             | Preview             |
