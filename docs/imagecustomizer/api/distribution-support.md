@@ -22,6 +22,8 @@ APIs marked as **Preview** require the distribution's
 | &emsp;[--build-dir](./cli/customize.md#--build-dirdirectory-path)                                   | Yes             | Preview             |
 | &emsp;[--image-file](./cli/customize.md#--image-filefile-path)                                      | Yes             | Preview             |
 | &emsp;[--image](./cli/customize.md#--image)                                                         | Yes             | No                  |
+| &emsp;&emsp;`azureLinux:*`                                                                          | Yes             | N/A                 |
+| &emsp;&emsp;`oci:*`                                                                                 | Yes             | Preview             |
 | &emsp;[--output-image-file](./cli/customize.md#--output-image-filefile-path)                        | Yes             | Preview             |
 | &emsp;[--output-path](./cli/customize.md#--output-pathfile-path)                                    | Yes             | Preview             |
 | &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Preview             |
