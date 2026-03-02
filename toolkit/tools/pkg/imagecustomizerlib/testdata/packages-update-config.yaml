@@ -6,10 +6,10 @@ os:
     - which
 
     install:
-    - jq
+    - unzip
 
     installLists:
     - lists/tree.yaml
 
     update:
-    - jq
+    - unzip
