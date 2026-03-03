@@ -238,7 +238,7 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 	}
 }
 
-func TestCustomizeImagePackagesUpdateExistingOnline(t *testing.T) {
+func TestCustomizeImagePackagesUpdateExisting(t *testing.T) {
 	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesUpdateExisting(t, baseImageInfo)
