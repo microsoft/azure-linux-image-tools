@@ -99,8 +99,9 @@ Supported options:
 - `kdump-boot-files`: Enables support for crash dump configuration.
 
   When this option is specified, the
-  [`os.liveInstall.kdumpBootFiles`](./kdumpbootfiles.md) configuration becomes
-  available.
+  [`iso.kdumpBootFiles`](./iso.md#kdumpbootfiles-kdumpbootfiles) and
+  [`pxe.kdumpBootFiles`](./pxe.md#kdumpbootfiles-kdumpbootfiles) configurations
+  become available.
 
   Added in v0.16.
 
