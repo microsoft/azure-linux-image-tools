@@ -21,7 +21,7 @@ var (
 	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh repo metadata")
 	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
 	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
-	ErrPackageAutoRemove		  = NewImageCustomizerError("Packages:AutoRemove", "failed to autoremove orphaned packages")
+	ErrPackageAutoRemove          = NewImageCustomizerError("Packages:AutoRemove", "failed to autoremove orphaned packages")
 	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
 	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
