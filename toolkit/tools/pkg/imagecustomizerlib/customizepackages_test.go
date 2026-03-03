@@ -38,11 +38,11 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Install jq package.
+	// Install unzip package.
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install: []string{"jq"},
+				Install: []string{"unzip"},
 			},
 		},
 	}
@@ -59,9 +59,9 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure jq was installed.
+	// Ensure unzip was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 	)
 
 	// Ensure tree was not installed.
@@ -76,14 +76,14 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Create a copy of the RPMs directory, but without the jq package.
+	// Create a copy of the RPMs directory, but without the unzip package.
 	// This ensures that the package repo metadata is refreshed between runs.
 	err = os.RemoveAll(downloadedRpmsTmpDir)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"jq-"})
+	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"unzip-"})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -111,7 +111,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 
 	// Ensure tree was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 		"/usr/bin/tree",
 	)
 
@@ -184,7 +184,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 		"/usr/bin/tree",
 	)
 }
@@ -218,7 +218,7 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 		"/usr/bin/tree",
 	)
 
@@ -339,7 +339,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	// Set the snapshot time to a date before jq-1.7.1-2 (2025-03-18) was published, so jq-1.7.1-1 is expected
+	// Set the snapshot time to a date before unzip-6.0-22 (2025-04-16) was published, so unzip-6.0-21 is expected
 	snapshotTime := "2025-01-01"
 
 	config := imagecustomizerapi.Config{
@@ -348,7 +348,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 		},
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"jq"},
+				Install:      []string{"unzip"},
 				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTime),
 			},
 		},
@@ -368,15 +368,15 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 	)
 
-	jqVersionOutput, err := getPkgVersionFromChroot(imageConnection, "jq")
-	assert.NoError(t, err, "failed to retrieve jq version from chroot")
+	unzipVersionOutput, err := getPkgVersionFromChroot(imageConnection, "unzip")
+	assert.NoError(t, err, "failed to retrieve unzip version from chroot")
 
-	expectedVersion := "jq-1.7.1-1"
-	assert.Containsf(t, jqVersionOutput, expectedVersion,
-		"snapshotTime %s should install jq version %s, but got: %s", snapshotTime, expectedVersion, jqVersionOutput)
+	expectedVersion := "unzip-6.0-21"
+	assert.Containsf(t, unzipVersionOutput, expectedVersion,
+		"snapshotTime %s should install unzip version %s, but got: %s", snapshotTime, expectedVersion, unzipVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
 
@@ -400,13 +400,13 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 		},
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"jq"},
+				Install:      []string{"unzip"},
 				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTimeConfig),
 			},
 		},
 	}
 
-	// Set the snapshot time in CLI to a date before jq-1.7.1-2 (2025-03-18) was published
+	// Set the snapshot time in CLI to a date before unzip-6.0-22 (2025-04-16) was published
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
 		"raw", true, snapshotTimeCLI)
 	if !assert.NoError(t, err) {
@@ -421,15 +421,15 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 	)
 
-	jqVersionOutput, err := getPkgVersionFromChroot(imageConnection, "jq")
-	assert.NoError(t, err, "failed to retrieve jq version from chroot")
+	unzipVersionOutput, err := getPkgVersionFromChroot(imageConnection, "unzip")
+	assert.NoError(t, err, "failed to retrieve unzip version from chroot")
 
-	expectedVersion := "jq-1.7.1-1"
-	assert.Containsf(t, jqVersionOutput, expectedVersion,
-		"snapshotTime %s should install jq version %s, but got: %s", snapshotTimeCLI, expectedVersion, jqVersionOutput)
+	expectedVersion := "unzip-6.0-21"
+	assert.Containsf(t, unzipVersionOutput, expectedVersion,
+		"snapshotTime %s should install unzip version %s, but got: %s", snapshotTimeCLI, expectedVersion, unzipVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
 
@@ -449,7 +449,7 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"jq"},
+				Install:      []string{"unzip"},
 				SnapshotTime: "2025-05-22",
 			},
 		},
@@ -493,9 +493,9 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	assert.NoError(t, err, "failed to connect to image after customization")
 	defer imageConnection.Close()
 
-	// Verify both inline (jq) and list-referenced (tree) packages were installed.
+	// Verify both inline (unzip) and list-referenced (tree) packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 		"/usr/bin/tree",
 	)
 
