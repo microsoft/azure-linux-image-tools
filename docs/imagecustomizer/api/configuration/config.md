@@ -96,6 +96,14 @@ Supported options:
 
   Added in v0.15.
 
+- `kdump-boot-files`: Enables support for crash dump configuration.
+
+  When this option is specified, the
+  [`os.liveInstall.kdumpBootFiles`](./kdumpbootfiles.md) configuration becomes
+  available.
+
+  Added in v0.16.
+
 - `package-snapshot-time`: Enables snapshot-based package filtering during image
   customization. This allows specifying a cutoff timestamp using the
   [`--package-snapshot-time`](../cli/customize.md#--package-snapshot-time) CLI option or
@@ -138,11 +146,15 @@ Supported options:
 
   Added in v1.2.
 
-- `ubuntu-22.04`: Enables support for customizing Ubuntu 22.04 images.
+- `fedora-42`: Enables support for creating Fedora 42 images using the [create subcommand](../cli/create.md).
+
+  Added in v1.1.
+
+- `ubuntu-22.04`: Enables support for customizing Ubuntu 22.04 images using the [customize subcommand](../cli/customize.md).
 
   Added in v1.2.
 
-- `ubuntu-24.04`: Enables support for customizing Ubuntu 24.04 images.
+- `ubuntu-24.04`: Enables support for customizing Ubuntu 24.04 images using the [customize subcommand](../cli/customize.md).
 
   Added in v1.2.
 
