@@ -59,6 +59,8 @@ Supported values:
 
 - `ukis` – UKI PE images (`vmlinuz-<version>.efi`) and their associated addon files
   (`vmlinuz-<version>.efi.extra.d/vmlinuz-<version>.addon.efi`).
+- `uki-addons` – UKI addon files only (`vmlinuz-<version>.addon.efi`), without
+  the full UKI PE images.
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
 - `bootloader` – Bootloader executable (`grub<arch>.efi`).
   *Added in v1.3.*
