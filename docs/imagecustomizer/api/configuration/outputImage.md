@@ -80,8 +80,6 @@ output:
     cosi:
       compression:
         level: 22
-previewFeatures:
-- cosi-compression
 ```
 
 Added in v1.2.

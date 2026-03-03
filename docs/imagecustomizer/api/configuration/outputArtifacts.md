@@ -20,9 +20,8 @@ image. For more details, see the [`injectFilesConfig`](./injectFilesConfig.md)
 documentation.
 
 The generated `inject-files.yaml` will include the `inject-files` preview feature.
-If the `cosi-compression` preview feature is enabled in the customize config, it
-will also be included in the generated file, allowing COSI compression settings
-to be specified via CLI flags when running the inject-files subcommand.
+COSI compression settings can be specified via CLI flags when running the
+inject-files subcommand.
 
 Example:
 
