@@ -127,15 +127,6 @@ Supported options:
 
   Added in v1.1.
 
-- `cosi-compression`: Enables custom compression settings for COSI output images.
-
-  When this option is specified, the `output.image.cosi.compression.level` configuration
-  and the `--cosi-compression-level` CLI flag become available.
-
-  See [cosiCompression](./cosiCompression.md) for more details.
-
-  Added in v1.2.
-
 - `btrfs`: Enables support for creating BTRFS file systems.
 
   When this option is specified, the `btrfs` option for [storage.filesystems[].type](./filesystem.md#type-string)
