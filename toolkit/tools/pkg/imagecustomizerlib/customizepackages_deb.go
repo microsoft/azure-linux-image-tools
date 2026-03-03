@@ -20,18 +20,28 @@ import (
 
 // managePackagesDeb orchestrates the complete DEB package management flow.
 func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot) error {
-	if len(config.Packages.Install) == 0 {
-		return nil
+	if needPackageSources(config) {
+		err := setupServicePrevention(imageChroot)
+		if err != nil {
+			return err
+		}
+
+		err = refreshDebPackageMetadata(ctx, imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
-	err := setupServicePrevention(imageChroot)
+	err := removeDebPackages(ctx, config.Packages.Remove, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = refreshDebPackageMetadata(ctx, imageChroot)
-	if err != nil {
-		return err
+	if config.Packages.UpdateExistingPackages {
+		err = updateExistingDebPackages(ctx, imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = installDebPackages(ctx, config.Packages.Install, imageChroot)
@@ -39,14 +49,21 @@ func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS, image
 		return err
 	}
 
-	err = cleanDebCache(ctx, imageChroot)
+	err = updateDebPackages(ctx, config.Packages.Update, imageChroot)
 	if err != nil {
 		return err
 	}
 
-	err = teardownServicePrevention(imageChroot)
-	if err != nil {
-		return err
+	if needPackageSources(config) {
+		err = cleanDebCache(ctx, imageChroot)
+		if err != nil {
+			return err
+		}
+
+		err = teardownServicePrevention(imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -130,20 +147,31 @@ func refreshDebPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	_, span := startRefreshPackageMetadataSpan(ctx)
 	defer span.End()
 
-	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
+	args := []string{"update"}
 
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(packageManagerAPT, "update", "-y").
-			EnvironmentVariables(env).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrPackageRepoMetadataRefresh, err)
 	}
 
 	return nil
+}
+
+func executeAptCommand(args []string, imageChroot *safechroot.Chroot) error {
+	args = append(args,
+		"--yes",
+		"--option", "Dpkg::Options::=--force-confdef",
+		"--option", "Dpkg::Options::=--force-confold")
+
+	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
+
+	return imageChroot.UnsafeRun(func() error {
+		return shell.NewExecBuilder(packageManagerAPT, args...).
+			EnvironmentVariables(env).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Execute()
+	})
 }
 
 // getAptEnvironmentVariables returns the environment variables required for non-interactive operations.
@@ -156,7 +184,7 @@ func getAptEnvironmentVariables() []string {
 	}
 }
 
-// installDebPackages runs apt-get install with the given list of packages.
+// installDebPackages runs apt-get install --no-install-recommends --no-install-suggests with the given package list.
 func installDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot) error {
 	if len(packages) == 0 {
 		return nil
@@ -167,25 +195,79 @@ func installDebPackages(ctx context.Context, packages []string, imageChroot *saf
 	_, span := startInstallPackagesSpan(ctx, packages)
 	defer span.End()
 
-	args := []string{
-		"install", "-y",
-		"--no-install-recommends", "--no-install-suggests",
-		"-o", "Dpkg::Options::=--force-confdef",
-		"-o", "Dpkg::Options::=--force-confold",
-	}
+	args := []string{"install", "--no-install-recommends", "--no-install-suggests"}
 	args = append(args, packages...)
 
-	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
-
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(packageManagerAPT, args...).
-			EnvironmentVariables(env).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w (%v):\n%w", ErrPackageInstall, packages, err)
+	}
+
+	return nil
+}
+
+// removeDebPackages runs apt-get remove with the given package list, then
+// apt-get autoremove to clean orphaned dependencies.
+func removeDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot) error {
+	if len(packages) == 0 {
+		return nil
+	}
+
+	logger.Log.Infof("Removing packages (%d): %v", len(packages), packages)
+
+	_, span := startRemovePackagesSpan(ctx, packages)
+	defer span.End()
+
+	args := []string{"remove"}
+
+	err := executeAptCommand(append(args, packages...), imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageRemove, packages, err)
+	}
+
+	args = []string{"autoremove"}
+
+	err = executeAptCommand(args, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageAutoRemove, packages, err)
+	}
+
+	return nil
+}
+
+func updateDebPackages(ctx context.Context, packages []string, imageChroot *safechroot.Chroot) error {
+	if len(packages) == 0 {
+		return nil
+	}
+
+	logger.Log.Infof("Updating packages (%d): %v", len(packages), packages)
+
+	_, span := startUpdatePackagesSpan(ctx, packages)
+	defer span.End()
+
+	args := []string{"install", "--only-upgrade"}
+	args = append(args, packages...)
+
+	err := executeAptCommand(args, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w (%v):\n%w", ErrPackageUpdate, packages, err)
+	}
+
+	return nil
+}
+
+// updateExistingDebPackages runs apt-get upgrade.
+func updateExistingDebPackages(ctx context.Context, imageChroot *safechroot.Chroot) error {
+	logger.Log.Infof("Updating existing packages")
+
+	_, span := startUpdateExistingPackagesSpan(ctx)
+	defer span.End()
+
+	args := []string{"upgrade"}
+
+	err := executeAptCommand(args, imageChroot)
+	if err != nil {
+		return fmt.Errorf("%w:\n%w", ErrPackagesUpdateInstalled, err)
 	}
 
 	return nil
@@ -198,16 +280,9 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	_, span := startCleanPackagesCacheSpan(ctx)
 	defer span.End()
 
-	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
+	args := []string{"clean"}
 
-	// apt-get clean
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(packageManagerAPT, "clean").
-			EnvironmentVariables(env).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err := executeAptCommand(args, imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to clean APT cache:\n%w", err)
 	}

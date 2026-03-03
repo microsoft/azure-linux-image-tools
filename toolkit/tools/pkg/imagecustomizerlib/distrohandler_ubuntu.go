@@ -53,22 +53,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 			ErrUnsupportedUbuntuFeature)
 	}
 
-	packages := config.Packages
-
-	if len(packages.Remove) > 0 || len(packages.RemoveLists) > 0 {
-		return fmt.Errorf("package remove is not yet supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
-	}
-
-	if len(packages.Update) > 0 || len(packages.UpdateLists) > 0 {
-		return fmt.Errorf("package update is not yet supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
-	}
-
-	if packages.UpdateExistingPackages {
-		return fmt.Errorf("updateExistingPackages is not yet supported for Ubuntu images:\n%w",
-			ErrUnsupportedUbuntuFeature)
-	}
-
-	if packages.SnapshotTime != "" {
+	if config.Packages.SnapshotTime != "" {
 		return fmt.Errorf("package snapshotTime is not yet supported for Ubuntu images:\n%w",
 			ErrUnsupportedUbuntuFeature)
 	}

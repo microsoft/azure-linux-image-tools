@@ -21,6 +21,7 @@ var (
 	ErrPackageRepoMetadataRefresh = NewImageCustomizerError("Packages:RepoMetadataRefresh", "failed to refresh repo metadata")
 	ErrInvalidPackageListFile     = NewImageCustomizerError("Packages:InvalidPackageListFile", "failed to read package list file")
 	ErrPackageRemove              = NewImageCustomizerError("Packages:Remove", "failed to remove packages")
+	ErrPackageAutoRemove		  = NewImageCustomizerError("Packages:AutoRemove", "failed to autoremove orphaned packages")
 	ErrPackageUpdate              = NewImageCustomizerError("Packages:Update", "failed to update packages")
 	ErrPackagesUpdateInstalled    = NewImageCustomizerError("Packages:UpdateInstalled", "failed to update installed packages")
 	ErrPackageInstall             = NewImageCustomizerError("Packages:Install", "failed to install packages")
@@ -86,6 +87,12 @@ func startUpdatePackagesSpan(ctx context.Context, packages []string) (context.Co
 	return ctx, span
 }
 
+// startUpdateExistingPackagesSpan creates a telemetry span for an update of all existing packages with standardized
+// attributes. The caller must call span.End() (typically via defer) when the operation completes.
+func startUpdateExistingPackagesSpan(ctx context.Context) (context.Context, trace.Span) {
+	return otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_existing_packages")
+}
+
 // startRemovePackagesSpan creates a telemetry span for a package remove operation with standardized attributes.
 // The caller must call span.End() (typically via defer) when the operation completes.
 func startRemovePackagesSpan(ctx context.Context, packages []string) (context.Context, trace.Span) {
@@ -118,4 +125,8 @@ func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName stri
 		return false
 	}
 	return true
+}
+
+func needPackageSources(config *imagecustomizerapi.OS) bool {
+	return len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 || config.Packages.UpdateExistingPackages
 }
