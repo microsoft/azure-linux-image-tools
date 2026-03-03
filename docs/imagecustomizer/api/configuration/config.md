@@ -134,6 +134,10 @@ Supported options:
 
   Added in v1.2.
 
+- `create`: Enables the [create subcommand](../cli/create.md) for building new images from scratch.
+
+  Added in v1.2.
+
 - `ubuntu-22.04`: Enables support for customizing Ubuntu 22.04 images.
 
   Added in v1.2.
