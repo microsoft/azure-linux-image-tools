@@ -293,7 +293,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageKernelCommandLineHelper(t, "TestCustomizeImageKernelCommandLine"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -311,20 +311,30 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outImageFilePath,
+		OutputImageFormat: "raw",
+		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer imageConnection.Close()
 
 	// Check that the extraCommandLine was added to the grub.cfg file.
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if !assert.NoError(t, err, "detect distro") {
+		return
+	}
+	grubCfgFilePath := distroHandler.GetGrubConfigFilePath(imageConnection.Chroot())
 	grubCfgContents, err := file.Read(grubCfgFilePath)
 	assert.NoError(t, err, "read grub.cfg file")
 	assert.Regexp(t, "linux.* console=tty0 console=ttyS0 ", grubCfgContents)

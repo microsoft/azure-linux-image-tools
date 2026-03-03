@@ -11,7 +11,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -615,7 +614,7 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 }
 
 func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageKernelCommandLineAddHelper(t, "TestCustomizeImageKernelCommandLineAdd"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -639,21 +638,31 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 		},
 	}
 
-	err = CustomizeImage(t.Context(), buildDir, buildDir, config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageOptions(t.Context(), buildDir, config, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outImageFilePath,
+		OutputImageFormat: "raw",
+		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
 
 	// Mount the output disk image so that its contents can be checked.
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, /*includeDefaultMounts*/
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer imageConnection.Close()
 
 	// Read the grub.cfg file.
-	grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), installutils.GrubCfgFile)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if !assert.NoError(t, err, "detect distro") {
+		return
+	}
+	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageConnection.Chroot())
 
 	grub2ConfigFile, err := os.ReadFile(grub2ConfigFilePath)
 	if !assert.NoError(t, err) {
