@@ -230,12 +230,7 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 		"/usr/bin/unzip",
 	)
 
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		ensureAptCacheCleanup(t, imageConnection)
-		ensureAptServicePreventionRestored(t, imageConnection)
-	} else {
-		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
-	}
+	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
 }
 
 func TestCustomizeImagePackagesUpdateExisting(t *testing.T) {
@@ -275,12 +270,7 @@ func testCustomizeImagePackagesUpdateExisting(t *testing.T, baseImageInfo testBa
 	}
 	defer imageConnection.Close()
 
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		ensureAptCacheCleanup(t, imageConnection)
-		ensureAptServicePreventionRestored(t, imageConnection)
-	} else {
-		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
-	}
+	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
 }
 
 func TestCustomizeImagePackagesRemove(t *testing.T) {
@@ -326,6 +316,14 @@ func testCustomizeImagePackagesRemove(t *testing.T, baseImageInfo testBaseImageI
 		"/usr/bin/gzip",
 	)
 
+	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
+}
+
+// ensurePackageCacheCleanup verifies that package cache artifacts have been properly cleaned for the given distro.
+func ensurePackageCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageConnection,
+	baseImageInfo testBaseImageInfo,
+) {
+	t.Helper()
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
 		ensureAptCacheCleanup(t, imageConnection)
 		ensureAptServicePreventionRestored(t, imageConnection)
@@ -673,12 +671,7 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 		"/usr/bin/tree",
 	)
 
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		ensureAptCacheCleanup(t, imageConnection)
-		ensureAptServicePreventionRestored(t, imageConnection)
-	} else {
-		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
-	}
+	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
 }
 
 func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {
