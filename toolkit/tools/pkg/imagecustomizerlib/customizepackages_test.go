@@ -190,9 +190,17 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 }
 
 func TestCustomizeImagePackagesUpdate(t *testing.T) {
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesUpdate(t, baseImageInfo)
+		})
+	}
+}
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUpdate")
+func testCustomizeImagePackagesUpdate(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdate_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -200,31 +208,193 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "packages-update-config.yaml")
 
-	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer imageConnection.Close()
 
-	// Ensure tdnf cache was cleaned.
-	ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		ensureAptCacheCleanup(t, imageConnection)
+		ensureAptServicePreventionRestored(t, imageConnection)
+	} else {
+		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
+	}
+}
 
-	// Ensure packages were installed.
-	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
-		"/usr/bin/tree",
+func TestCustomizeImagePackagesUpdateExistingOnline(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesUpdateExistingOnline(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesUpdateExistingOnline(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateExistingOnline_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-update-existing-config.yaml")
+
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		ensureAptCacheCleanup(t, imageConnection)
+		ensureAptServicePreventionRestored(t, imageConnection)
+	} else {
+		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
+	}
+}
+
+func TestCustomizeImagePackagesRemove(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesRemove(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesRemove(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesRemove_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-remove-config.yaml")
+
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Verify both inline (python3) and list-referenced (gzip) packages were removed.
+	ensureFilesNotExist(t, imageConnection,
+		"/usr/bin/python3",
+		"/usr/bin/gzip",
 	)
 
-	// Ensure packages were removed.
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		ensureAptCacheCleanup(t, imageConnection)
+		ensureAptServicePreventionRestored(t, imageConnection)
+	} else {
+		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
+	}
+}
+
+// ensureAptCacheCleanup verifies that APT cache artifacts have been properly cleaned
+func ensureAptCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageConnection) {
+	t.Helper()
+	rootDir := imageConnection.Chroot().RootDir()
+
+	// Verify no .deb files remain in the APT archive cache.
+	archivesDir := filepath.Join(rootDir, "var/cache/apt/archives")
+	archiveEntries, err := os.ReadDir(archivesDir)
+	assert.NoError(t, err, "failed to read APT archives directory")
+
+	var debFiles []string
+	for _, entry := range archiveEntries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".deb" {
+			debFiles = append(debFiles, entry.Name())
+		}
+	}
+	assert.Empty(t, debFiles, "expected no .deb files in APT cache, but found: %v", debFiles)
+
+	// Verify APT lists directory is empty (package metadata removed).
+	aptListsDir := filepath.Join(rootDir, "var/lib/apt/lists")
+	var listFiles []string
+	err = filepath.WalkDir(aptListsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			listFiles = append(listFiles, path)
+		}
+		return nil
+	})
+	assert.NoError(t, err, "failed to walk APT lists directory")
+	assert.Empty(t, listFiles, "expected no files in APT lists directory, but found %d files", len(listFiles))
+
+	// Verify APT log files are truncated to zero bytes.
+	aptLogDir := filepath.Join(rootDir, "var/log/apt")
+	logEntries, err := os.ReadDir(aptLogDir)
+	assert.NoError(t, err, "failed to read APT log directory: %s", aptLogDir)
+	for _, entry := range logEntries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".log" {
+			continue
+		}
+
+		fullPath := filepath.Join(aptLogDir, entry.Name())
+		info, err := os.Stat(fullPath)
+		assert.NoError(t, err, "failed to stat log file: %s", entry.Name())
+		assert.Equal(t, int64(0), info.Size(),
+			"expected APT log file %s to be truncated, but got %d bytes", entry.Name(), info.Size())
+	}
+
+	// Verify dpkg log is truncated to zero bytes.
+	dpkgLogPath := filepath.Join(rootDir, "var/log/dpkg.log")
+	info, err := os.Stat(dpkgLogPath)
+	assert.NoError(t, err, "failed to stat dpkg log file")
+	assert.Equal(t, int64(0), info.Size(), "expected dpkg.log to be truncated (0 bytes), but got %d bytes", info.Size())
+}
+
+// ensureAptServicePreventionRestored verifies that APT service prevention files have been restored.
+func ensureAptServicePreventionRestored(t *testing.T, imageConnection *imageconnection.ImageConnection) {
 	ensureFilesNotExist(t, imageConnection,
-		"/usr/bin/which")
+		"/usr/sbin/policy-rc.d",
+		"/sbin/start-stop-daemon.distrib",
+	)
+	ensureFilesExist(t, imageConnection,
+		"/sbin/start-stop-daemon",
+	)
 }
 
 func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
@@ -499,18 +669,11 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 		"/usr/bin/tree",
 	)
 
-	// For Ubuntu images, further verify that APT service prevention artifacts were cleaned up. During package
-	// installation, policy-rc.d is created to block service starts via invoke-rc.d, and start-stop-daemon is diverted
-	// to a no-op. Both must be restored after installation so the final image behaves normally.
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
-		ensureFilesNotExist(t, imageConnection,
-			"/usr/sbin/policy-rc.d",
-			"/sbin/start-stop-daemon.distrib",
-		)
-
-		ensureFilesExist(t, imageConnection,
-			"/sbin/start-stop-daemon",
-		)
+		ensureAptCacheCleanup(t, imageConnection)
+		ensureAptServicePreventionRestored(t, imageConnection)
+	} else {
+		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
 	}
 }
 

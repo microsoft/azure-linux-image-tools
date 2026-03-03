@@ -47,7 +47,7 @@ storage:
 os:
   packages:
       remove:
-      - which
+      - python3
 
       install:
       - unzip

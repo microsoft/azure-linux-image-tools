@@ -1,0 +1,7 @@
+os:
+  packages:
+    remove:
+    - python3
+
+    removeLists:
+    - lists/gzip.yaml
