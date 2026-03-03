@@ -27,8 +27,8 @@ APIs marked as **Preview** require the distribution's
 | &emsp;[--output-image-file](./cli/customize.md#--output-image-filefile-path)                        | Yes             | Preview             |
 | &emsp;[--output-path](./cli/customize.md#--output-pathfile-path)                                    | Yes             | Preview             |
 | &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Preview             |
-| &emsp;&emsp;`baremetal-image`                                                                       | Yes             | No                  |
-| &emsp;&emsp;`cosi`                                                                                  | Yes             | No                  |
+| &emsp;&emsp;`baremetal-image`                                                                       | Yes             | Preview             |
+| &emsp;&emsp;`cosi`                                                                                  | Yes             | Preview             |
 | &emsp;&emsp;`iso`                                                                                   | Yes             | No                  |
 | &emsp;&emsp;`pxe-dir`                                                                               | Yes             | No                  |
 | &emsp;&emsp;`pxe-tar`                                                                               | Yes             | No                  |
@@ -84,8 +84,8 @@ APIs marked as **Preview** require the distribution's
 | &emsp;[.image](./configuration/output.md#image-outputimage)                                    | Yes             | Preview             |
 | &emsp;&emsp;[.path](./configuration/outputImage.md#path-string)                                | Yes             | Preview             |
 | &emsp;&emsp;[.format](./configuration/outputImage.md#format-string)                            | Yes             | Preview             |
-| &emsp;&emsp;&emsp;`baremetal-image`                                                            | Yes             | No                  |
-| &emsp;&emsp;&emsp;`cosi`                                                                       | Yes             | No                  |
+| &emsp;&emsp;&emsp;`baremetal-image`                                                            | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`cosi`                                                                       | Yes             | Preview             |
 | &emsp;&emsp;&emsp;`iso`                                                                        | Yes             | No                  |
 | &emsp;&emsp;&emsp;`pxe-dir`                                                                    | Yes             | No                  |
 | &emsp;&emsp;&emsp;`pxe-tar`                                                                    | Yes             | No                  |
@@ -94,7 +94,7 @@ APIs marked as **Preview** require the distribution's
 | &emsp;&emsp;&emsp;`vhd-fixed`                                                                  | Yes             | Preview             |
 | &emsp;&emsp;&emsp;`vhd`                                                                        | Yes             | Preview             |
 | &emsp;&emsp;&emsp;`vhdx`                                                                       | Yes             | Preview             |
-| &emsp;&emsp;[.cosi.copmression.level](./configuration/cosiCompression.md#level-int)            | Yes             | No                  |
+| &emsp;&emsp;[.cosi.compression.level](./configuration/cosiCompression.md#level-int)            | Yes             | No                  |
 | &emsp;[.artifacts](./configuration/output.md#artifacts-outputartifacts)                        | Yes             | No                  |
 | &emsp;[.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)                 | Yes             | No                  |
 | [previewFeatures](./configuration/config.md#previewfeatures-string)                            | Yes             | Yes                 |
