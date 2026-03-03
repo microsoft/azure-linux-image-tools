@@ -1,4 +1,7 @@
 os:
   packages:
+    install:
+    - unzip
+
     update:
-    - python3
+    - unzip

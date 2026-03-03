@@ -189,18 +189,18 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	)
 }
 
-func TestCustomizeImagePackagesUpdate(t *testing.T) {
+func TestCustomizeImagePackagesUpdateAfterInstall(t *testing.T) {
 	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImagePackagesUpdate(t, baseImageInfo)
+			testCustomizeImagePackagesUpdateAfterInstall(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImagePackagesUpdate(t *testing.T, baseImageInfo testBaseImageInfo) {
+func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdate_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateAfterInstall_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -226,6 +226,10 @@ func testCustomizeImagePackagesUpdate(t *testing.T, baseImageInfo testBaseImageI
 	}
 	defer imageConnection.Close()
 
+	ensureFilesExist(t, imageConnection,
+		"/usr/bin/unzip",
+	)
+
 	if baseImageInfo.Distro == baseImageDistroUbuntu {
 		ensureAptCacheCleanup(t, imageConnection)
 		ensureAptServicePreventionRestored(t, imageConnection)
@@ -237,15 +241,15 @@ func testCustomizeImagePackagesUpdate(t *testing.T, baseImageInfo testBaseImageI
 func TestCustomizeImagePackagesUpdateExistingOnline(t *testing.T) {
 	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImagePackagesUpdateExistingOnline(t, baseImageInfo)
+			testCustomizeImagePackagesUpdateExisting(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImagePackagesUpdateExistingOnline(t *testing.T, baseImageInfo testBaseImageInfo) {
+func testCustomizeImagePackagesUpdateExisting(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateExistingOnline_%s", baseImageInfo.Name))
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateExisting_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
