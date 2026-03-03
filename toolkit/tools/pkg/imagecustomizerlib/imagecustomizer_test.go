@@ -639,11 +639,12 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 	}
 
 	err = CustomizeImageOptions(t.Context(), buildDir, config, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return
