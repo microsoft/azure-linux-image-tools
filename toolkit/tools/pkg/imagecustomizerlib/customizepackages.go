@@ -130,3 +130,7 @@ func isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName stri
 func needPackageSources(config *imagecustomizerapi.OS) bool {
 	return len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 || config.Packages.UpdateExistingPackages
 }
+
+func needPackageCleanup(config *imagecustomizerapi.OS) bool {
+	return needPackageSources(config) || len(config.Packages.Remove) > 0
+}

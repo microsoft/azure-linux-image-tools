@@ -54,12 +54,14 @@ func managePackagesDeb(ctx context.Context, config *imagecustomizerapi.OS, image
 		return err
 	}
 
-	if needPackageSources(config) {
+	if needPackageCleanup(config) {
 		err = cleanDebCache(ctx, imageChroot)
 		if err != nil {
 			return err
 		}
+	}
 
+	if needPackageSources(config) {
 		err = teardownServicePrevention(imageChroot)
 		if err != nil {
 			return err
