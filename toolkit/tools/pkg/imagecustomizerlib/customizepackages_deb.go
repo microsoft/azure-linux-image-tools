@@ -218,7 +218,7 @@ func removeDebPackages(ctx context.Context, packages []string, imageChroot *safe
 	_, span := startRemovePackagesSpan(ctx, packages)
 	defer span.End()
 
-	args := []string{"remove"}
+	args := []string{"remove", "--allow-remove-essential"}
 
 	err := executeAptCommand(append(args, packages...), imageChroot)
 	if err != nil {
