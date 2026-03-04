@@ -45,49 +45,105 @@ jobs:
     permissions:
       contents: read
 
-  tests-functional-azl3-amd64:
-    name: Functional tests AZL3 AMD64
+  tests-functional-azl-on-azl3-amd64:
+    name: Functional tests AZL on AZL3 AMD64
     if: ${{ inputs.runFunctionalTests }}
     uses: ./.github/workflows/tests-functional.yml
     with:
-      hostArch: amd64
+      testDistro: azl
       hostDistro: azl3
-    permissions:
-      contents: read
-      # Azure login.
-      id-token: write
-
-  tests-functional-azl3-arm64:
-    name: Functional tests AZL3 ARM64
-    if: ${{ inputs.runFunctionalTests }}
-    uses: ./.github/workflows/tests-functional.yml
-    with:
-      hostArch: arm64
-      hostDistro: azl3
-    permissions:
-      contents: read
-      # Azure login.
-      id-token: write
-
-  tests-functional-ubuntu2404-amd64:
-    name: Functional tests Ubuntu24.04 AMD64
-    if: ${{ inputs.runFunctionalTests }}
-    uses: ./.github/workflows/tests-functional.yml
-    with:
       hostArch: amd64
-      hostDistro: ubuntu2404
     permissions:
       contents: read
       # Azure login.
       id-token: write
 
-  tests-functional-ubuntu2404-arm64:
-    name: Functional tests Ubuntu24.04 ARM64
+  tests-functional-azl-on-azl3-arm64:
+    name: Functional tests AZL on AZL3 ARM64
     if: ${{ inputs.runFunctionalTests }}
     uses: ./.github/workflows/tests-functional.yml
     with:
+      testDistro: azl
+      hostDistro: azl3
       hostArch: arm64
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+
+  tests-functional-azl-on-ubuntu2404-amd64:
+    name: Functional tests AZL on Ubuntu24.04 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      testDistro: azl
       hostDistro: ubuntu2404
+      hostArch: amd64
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+
+  tests-functional-azl-on-ubuntu2404-arm64:
+    name: Functional tests AZL on Ubuntu24.04 ARM64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      testDistro: azl
+      hostDistro: ubuntu2404
+      hostArch: arm64
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+
+  tests-functional-ubuntu-on-azl3-amd64:
+    name: Functional tests Ubuntu on AZL3 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      testDistro: ubuntu
+      hostDistro: azl3
+      hostArch: amd64
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+
+  tests-functional-ubuntu-on-azl3-arm64:
+    name: Functional tests Ubuntu on AZL3 ARM64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      testDistro: ubuntu
+      hostDistro: azl3
+      hostArch: arm64
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+
+  tests-functional-ubuntu-on-ubuntu2404-amd64:
+    name: Functional tests Ubuntu on Ubuntu24.04 AMD64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      testDistro: ubuntu
+      hostDistro: ubuntu2404
+      hostArch: amd64
+    permissions:
+      contents: read
+      # Azure login.
+      id-token: write
+
+  tests-functional-ubuntu-on-ubuntu2404-arm64:
+    name: Functional tests Ubuntu on Ubuntu24.04 ARM64
+    if: ${{ inputs.runFunctionalTests }}
+    uses: ./.github/workflows/tests-functional.yml
+    with:
+      testDistro: ubuntu
+      hostDistro: ubuntu2404
+      hostArch: arm64
     permissions:
       contents: read
       # Azure login.
