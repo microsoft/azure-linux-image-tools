@@ -19,16 +19,9 @@ output:
     cosi:
       compression:
         level: 22
-previewFeatures:
-- cosi-compression
 ```
 
 ## level [int]
-
-This is a preview feature.
-Its API and behavior is subject to change.
-You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](./config.md#previewfeatures-string) API.
 
 Optional. Default: `9`
 
