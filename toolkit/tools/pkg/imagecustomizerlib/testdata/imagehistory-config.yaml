@@ -47,7 +47,7 @@ storage:
 os:
   packages:
       remove:
-      - python3
+      - chrony
 
       install:
       - unzip

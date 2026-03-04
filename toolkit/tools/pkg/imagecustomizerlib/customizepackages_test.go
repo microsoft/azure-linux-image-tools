@@ -310,10 +310,10 @@ func testCustomizeImagePackagesRemove(t *testing.T, baseImageInfo testBaseImageI
 	}
 	defer imageConnection.Close()
 
-	// Verify both inline (python3) and list-referenced (gzip) packages were removed.
+	// Verify both inline (chrony) and list-referenced (curl) packages were removed.
 	ensureFilesNotExist(t, imageConnection,
-		"/usr/bin/python3",
-		"/usr/bin/gzip",
+		"/usr/sbin/chronyd",
+		"/usr/bin/curl",
 	)
 
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)

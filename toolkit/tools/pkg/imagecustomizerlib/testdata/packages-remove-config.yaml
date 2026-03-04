@@ -1,7 +1,7 @@
 os:
   packages:
     remove:
-    - python3
+    - chrony
 
     removeLists:
-    - lists/gzip.yaml
+    - lists/curl.yaml
