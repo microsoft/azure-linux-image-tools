@@ -203,6 +203,27 @@ jobs:
       env:
         ARCH: ${{ inputs.arch }}
 
+    - name: Run imagecustomizerapi tests
+      run: |
+        set -euxo pipefail
+
+        pushd repo/toolkit/tools
+
+        TEST_RESULTS_DIR="out/testResults/api"
+        mkdir -p "$TEST_RESULTS_DIR"
+
+        go test -v \
+          -coverprofile="$TEST_RESULTS_DIR/api.cov" -covermode count \
+          ./imagecustomizerapi \
+          2>&1 \
+          | tee "$TEST_RESULTS_DIR/api.txt"
+
+    - uses: actions/upload-artifact@v5
+      if: ${{ !cancelled() }}
+      with:
+        name: tests-results-api-${{ inputs.arch }}
+        path: "$TEST_RESULTS_DIR"
+
     - name: Upload version artifact
       if: inputs.arch == 'amd64'
       uses: actions/upload-artifact@v5

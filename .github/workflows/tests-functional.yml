@@ -8,10 +8,13 @@ permissions: {}
 on:
   workflow_call:
     inputs:
-      hostArch:
+      testDistro:
         required: true
         type: string
       hostDistro:
+        required: true
+        type: string
+      hostArch:
         required: true
         type: string
 
@@ -21,7 +24,7 @@ env:
 
 jobs:
   tests-functional:
-    name: Functional test suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
+    name: Functional test suite - ${{ inputs.testDistro }} on ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
@@ -91,71 +94,82 @@ jobs:
       run: |
         set -eux
 
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+        download() {
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "$1" "$2"
+        }
 
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
-
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "ubuntu/azure-cloud-vhdx-22.04-$HOST_ARCH" ubuntu-azure-cloud-22.04
-
-        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" \
-          "ubuntu/azure-cloud-vhdx-24.04-$HOST_ARCH" ubuntu-azure-cloud-24.04
+        if [[ "$TEST_DISTRO" == "azl" ]]; then
+            download "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
+            download "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
+            download "ubuntu/azure-cloud-vhdx-22.04-$HOST_ARCH" ubuntu-azure-cloud-22.04
+            download "ubuntu/azure-cloud-vhdx-24.04-$HOST_ARCH" ubuntu-azure-cloud-24.04
+        else
+            echo "ERROR: Unknown TEST_DISTRO: $TEST_DISTRO"
+            exit 1
+        fi
       env:
+        TEST_DISTRO: ${{ inputs.testDistro }}
         HOST_ARCH: ${{ inputs.hostArch }}
         AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
-    - name: Test setup
+    - name: Download test utils
       run: |
         set -eux
-
         pushd repo/toolkit/tools
-
-        # Download the test RPM files.
-        ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
-
-        mkdir -p out/testResults
+        if [[ "$TEST_DISTRO" == "azl" ]]; then
+          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+        elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
+          echo "No test utils needed for Ubuntu tests"
+        else
+          echo "ERROR: Unknown TEST_DISTRO: $TEST_DISTRO"
+          exit 1
+        fi
+      env:
+        TEST_DISTRO: ${{ inputs.testDistro }}
 
     - name: Run tests
       run: |
-        set -eux
-        set -o pipefail
+        set -euxo pipefail
 
         pushd repo/toolkit/tools
 
-        AZL2_VHDX="../../../azl-core-efi-2.0/image.vhdx"
-        AZL3_VHDX="../../../azl-core-efi-3.0/image.vhdx"
-        UBUNTU2204_VHDX="../../../ubuntu-azure-cloud-22.04/image.vhdx"
-        UBUNTU2404_VHDX="../../../ubuntu-azure-cloud-24.04/image.vhdx"
+        AZL2_VHDX=""
+        AZL3_VHDX=""
+        UBUNTU2204_VHDX=""
+        UBUNTU2404_VHDX=""
 
-        FAILED=0
+        if [[ "$TEST_DISTRO" == "azl" ]]; then
+          AZL2_VHDX="../../../../../azl-core-efi-2.0/image.vhdx"
+          AZL3_VHDX="../../../../../azl-core-efi-3.0/image.vhdx"
+        elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
+          UBUNTU2204_VHDX="../../../../../ubuntu-azure-cloud-22.04/image.vhdx"
+          UBUNTU2404_VHDX="../../../../../ubuntu-azure-cloud-24.04/image.vhdx"
+        else
+          echo "ERROR: Unknown TEST_DISTRO: $TEST_DISTRO"
+          exit 1
+        fi
+
+        TEST_RESULTS_DIR="out/testResults"
+        mkdir -p "$TEST_RESULTS_DIR"
 
         sudo env "PATH=$PATH" go test -v \
-          -coverprofile=out/testResults/api.cov -covermode count \
-          ./imagecustomizerapi \
-          2>&1 \
-          | tee out/testResults/api.txt \
-          || FAILED=$(( $FAILED | 1 ))
-
-        sudo env "PATH=$PATH" go test -v \
-          -coverprofile=out/testResults/lib.cov -covermode count \
+          -coverprofile="$TEST_RESULTS_DIR/lib.cov" -covermode count \
           -timeout 150m \
           ./pkg/imagecustomizerlib \
           -args \
-          --base-image-core-efi-azl2 "../../$AZL2_VHDX" \
-          --base-image-core-efi-azl3 "../../$AZL3_VHDX" \
-          --base-image-azure-cloud-ubuntu2204 "../../$UBUNTU2204_VHDX" \
-          --base-image-azure-cloud-ubuntu2404 "../../$UBUNTU2404_VHDX" \
+          --base-image-core-efi-azl2 "$AZL2_VHDX" \
+          --base-image-core-efi-azl3 "$AZL3_VHDX" \
+          --base-image-azure-cloud-ubuntu2204 "$UBUNTU2204_VHDX" \
+          --base-image-azure-cloud-ubuntu2404 "$UBUNTU2404_VHDX" \
           2>&1 \
-          | tee out/testResults/lib.txt \
-          || FAILED=$(( $FAILED | 2 ))
-
-        exit $FAILED
+          | tee "$TEST_RESULTS_DIR/lib.txt"
+      env:
+        TEST_DISTRO: ${{ inputs.testDistro }}
 
     - uses: actions/upload-artifact@v5
       if: ${{ !cancelled() }}
       with:
-        name: tests-results-functional-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
+        name: tests-results-functional-${{ inputs.testDistro }}-on-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
         path: repo/toolkit/tools/out/testResults
