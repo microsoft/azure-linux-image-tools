@@ -53,7 +53,7 @@ The container is published to both:
 
 2. Create a customization config file.
 
-   For example:
+   For example, in for Azure Linux:
 
     ```yaml
     os:

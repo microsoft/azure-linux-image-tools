@@ -16,7 +16,7 @@ the future.
 
 ## Steps
 
-1. Create an image config file. The below example  is tuned for Azure Linux.
+1. Create an image config file. The below example is tuned for Azure Linux.
 
    ```yaml
    # config.yaml
