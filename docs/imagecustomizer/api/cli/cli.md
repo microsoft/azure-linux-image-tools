@@ -9,7 +9,7 @@ nav_order: 1
 
 ## create
 
-Creates a new Azure Linux image from scratch.
+Creates a new Linux image from scratch.
 
 See [create subcommand](./create.md) for full documentation.
 

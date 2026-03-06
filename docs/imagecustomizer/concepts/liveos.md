@@ -50,7 +50,8 @@ details, see:
 
 ### Limitations
 
-The current implementation for the Live OS does not support the following:
+The current implementation for the Live OS only supports Azure Linux, and does not 
+support the following:
 
 - Persistent storage: The machine loses all its state on reboot or shutdown.
 

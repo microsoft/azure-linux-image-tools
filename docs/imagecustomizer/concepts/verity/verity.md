@@ -12,7 +12,7 @@ it is recommended to create a writable persistent partition for any directories 
 require write access. Critical files and directories can be redirected to the
 writable partition using symlinks or similar methods.
 
-Please also note that some services and programs on Azure Linux may require
+Please also note that some services and programs may require
 specific handling when using Verity. Depending on user needs, there are
 different configuration options that offer tradeoffs between convenience and
 security. Some configurations can be made flexible to allow changes, while
