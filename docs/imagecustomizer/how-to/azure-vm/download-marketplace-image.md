@@ -5,7 +5,7 @@ nav_order: 1
 has_toc: false
 ---
 
-# Download Azure Linux Marketplace Image
+# Download an Azure Marketplace Image
 
 This is a guide on how to download a marketplace image from Azure so that it can be
 customized using Image Customizer.
@@ -32,12 +32,18 @@ customized using Image Customizer.
    az account set --subscription "$SUBSCRIPTION_NAME"
    ```
 
-4. List the Azure Linux marketplace images.
+4. List the Linux marketplace images.
 
-   For Azure Linux 2.0:
+   For Ubuntu 22.04:
 
    ```bash
-   az vm image list --publisher MicrosoftCBLMariner --offer cbl-mariner --sku cbl-mariner-2-gen2 --all --output table
+   az vm image list --publisher cloud-infrastructure-services --offer Ubuntu-22-04 --sku Ubuntu --all --output table
+   ```
+
+   For Ubuntu 24.04:
+
+   ```bash
+   az vm image list --publisher cloud-infrastructure-services --offer Ubuntu-24-04 --sku Ubuntu --all --output table
    ```
 
    For Azure Linux 3.0:

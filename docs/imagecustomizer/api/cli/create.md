@@ -11,7 +11,7 @@ This is a preview feature.
 Its API and behavior is subject to change.
 You must enable this feature by specifying `create` in the [previewFeatures](../configuration/config.md#previewfeatures-string) API.
 
-This subcommand creates a new Azure Linux image from scratch using a configuration file and RPM sources.
+This subcommand creates a new Linux image from scratch using a configuration file and RPM sources.
 Unlike the default [customize](customize.md) subcommand which modifies an existing image, `create` builds an
 entirely new image.
 

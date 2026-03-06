@@ -119,7 +119,7 @@ the future.
 
    Where:
 
-   - `<base-image.vhdx>`: An official Azure Linux vhdx image file.
+   - `<base-image.vhdx>`: An official Linux vhdx image file.
 
 ## Run image in Hyper-V
 

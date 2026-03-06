@@ -7,7 +7,7 @@ has_toc: false
 
 # Creating a New Image from Scratch
 
-This guide shows how to use the Image Customizer [create subcommand](../api/cli/create.md) to build a new Azure Linux
+This guide shows how to use the Image Customizer [create subcommand](../api/cli/create.md) to build a new Linux
 image from scratch.
 
 This command is a preview feature.
