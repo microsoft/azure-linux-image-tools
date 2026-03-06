@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -50,6 +51,21 @@ type DistroHandler interface {
 
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
+
+	// InstallBootloader installs the bootloader into the image.
+	// For EFI, writes the EFI grub stub config. For legacy, runs grub-install.
+	InstallBootloader(imageChroot *safechroot.Chroot, bootType string,
+		bootUUID string, bootPrefix string, diskDevPath string) error
+
+	// InstallGrubDefaults writes /etc/default/grub and any supplementary grub
+	// config files (grubenv, legacy grub.cfg template) needed by this distro.
+	InstallGrubDefaults(imageChroot *safechroot.Chroot, rootDevice string,
+		bootUUID string, bootPrefix string,
+		kernelCommandLine configuration.KernelCommandLine,
+		isBootPartitionSeparate bool, grubMkconfigEnabled bool) error
+
+	// CallGrubMkconfig generates grub.cfg via the distro's grub-mkconfig command.
+	CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

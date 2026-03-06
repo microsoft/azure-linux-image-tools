@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -73,4 +75,33 @@ func (d *azureLinuxDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.C
 
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
+}
+
+func (d *azureLinuxDistroHandler) InstallBootloader(imageChroot *safechroot.Chroot,
+	bootType string, bootUUID string, bootPrefix string, diskDevPath string,
+) error {
+	return installutils.InstallBootloader(imageChroot, false, bootType, bootUUID, bootPrefix, diskDevPath)
+}
+
+func (d *azureLinuxDistroHandler) InstallGrubDefaults(imageChroot *safechroot.Chroot,
+	rootDevice string, bootUUID string, bootPrefix string,
+	kernelCommandLine configuration.KernelCommandLine,
+	isBootPartitionSeparate bool, grubMkconfigEnabled bool,
+) error {
+	err := installutils.InstallGrubDefaults(imageChroot.RootDir(), rootDevice, bootUUID, bootPrefix,
+		diskutils.EncryptedRootDevice{}, kernelCommandLine, isBootPartitionSeparate, !grubMkconfigEnabled)
+	if err != nil {
+		return err
+	}
+
+	err = installutils.InstallGrubEnv(imageChroot.RootDir())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *azureLinuxDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
+	return installutils.CallGrubMkconfig(imageChroot)
 }

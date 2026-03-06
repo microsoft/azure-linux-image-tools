@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -101,4 +102,25 @@ func (d *ubuntuDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.Chroo
 
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
+}
+
+func (d *ubuntuDistroHandler) InstallBootloader(imageChroot *safechroot.Chroot,
+	bootType string, bootUUID string, bootPrefix string, diskDevPath string,
+) error {
+	return fmt.Errorf("bootloader installation is not yet implemented for Ubuntu images:\n%w",
+		ErrUnsupportedUbuntuFeature)
+}
+
+func (d *ubuntuDistroHandler) InstallGrubDefaults(imageChroot *safechroot.Chroot,
+	rootDevice string, bootUUID string, bootPrefix string,
+	kernelCommandLine configuration.KernelCommandLine,
+	isBootPartitionSeparate bool, grubMkconfigEnabled bool,
+) error {
+	return fmt.Errorf("grub defaults installation is not yet implemented for Ubuntu images:\n%w",
+		ErrUnsupportedUbuntuFeature)
+}
+
+func (d *ubuntuDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
+	return fmt.Errorf("grub-mkconfig is not yet implemented for Ubuntu images:\n%w",
+		ErrUnsupportedUbuntuFeature)
 }

@@ -214,9 +214,11 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 	return partIdToPartUuid, nil
 }
 
-func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
+func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
+	rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
-	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode,
+	newImage bool, distroHandler DistroHandler,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -240,11 +242,6 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
-		if err != nil {
-			return fmt.Errorf("failed to detect distribution:\n%w", err)
-		}
-
 		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot(), distroHandler)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
@@ -263,13 +260,48 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 		mountPointMap[mountPoint.GetTarget()] = mountPoint.GetSource()
 	}
 
-	// Configure the boot loader.
-	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(imagerBootType, false, imagerRootMountIdType,
-		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(),
-		mountPointMap, diskutils.EncryptedRootDevice{}, grubMkconfigEnabled,
-		!grubMkconfigEnabled)
+	// Add bootloader. Prefer a separate boot partition if one exists.
+	bootDevice, isBootPartitionSeparate := mountPointMap["/boot"]
+	bootPrefix := ""
+	if !isBootPartitionSeparate {
+		bootDevice = mountPointMap["/"]
+		bootPrefix = installutils.CombinedBootPartitionBootPrefix
+	}
+
+	if mountPointMap["/"] == installutils.NullDevice {
+		// In case of overlay device being mounted at root, no need to change the bootloader.
+		return nil
+	}
+
+	// Grub only accepts UUID, not PARTUUID or PARTLABEL.
+	bootUUID, err := installutils.GetUUID(bootDevice)
+	if err != nil {
+		return fmt.Errorf("failed to get boot UUID:\n%w", err)
+	}
+
+	err = distroHandler.InstallBootloader(imageConnection.Chroot(), imagerBootType, bootUUID,
+		bootPrefix, imageConnection.Loopback().DevicePath())
 	if err != nil {
 		return fmt.Errorf("failed to install bootloader:\n%w", err)
+	}
+
+	// Determine root device identifier.
+	partIdentifier, err := installutils.FormatMountIdentifier(imagerRootMountIdType, mountPointMap["/"])
+	if err != nil {
+		return fmt.Errorf("failed to get root partition identifier:\n%w", err)
+	}
+
+	err = distroHandler.InstallGrubDefaults(imageConnection.Chroot(), partIdentifier, bootUUID,
+		bootPrefix, imagerKernelCommandLine, isBootPartitionSeparate, grubMkconfigEnabled)
+	if err != nil {
+		return fmt.Errorf("failed to install grub defaults:\n%w", err)
+	}
+
+	if grubMkconfigEnabled {
+		err = distroHandler.CallGrubMkconfig(imageConnection.Chroot())
+		if err != nil {
+			return fmt.Errorf("failed to generate grub.cfg via grub-mkconfig:\n%w", err)
+		}
 	}
 
 	return nil
