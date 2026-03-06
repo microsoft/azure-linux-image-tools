@@ -26,14 +26,15 @@ import (
 type installOSFunc func(imageChroot *safechroot.Chroot) error
 
 func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
-	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
+	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool, fstabOverride string,
 ) (*imageconnection.ImageConnection, []fstabEntryPartNum, []verityDeviceMetadata, []string, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
 	defer span.End()
 	imageConnection := imageconnection.NewImageConnection()
 
 	partitionsLayout, verityMetadata, readonlyPartUuids, err := connectToExistingImageHelper(imageConnection,
-		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays)
+		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays,
+		fstabOverride)
 	if err != nil {
 		imageConnection.Close()
 		return nil, nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
@@ -44,7 +45,7 @@ func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir 
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
-	ignoreOverlays bool,
+	ignoreOverlays bool, fstabOverride string,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
@@ -66,14 +67,22 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, err
 	}
 
-	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
-	}
+	var fstabEntries []diskutils.FstabEntry
+	if fstabOverride == "" {
+		rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
+		}
 
-	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		fstabEntries, err = readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		}
+	} else {
+		fstabEntries, err = diskutils.ReadFstabFile(fstabOverride)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to read fstab override file:\n%w", err)
+		}
 	}
 
 	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays)

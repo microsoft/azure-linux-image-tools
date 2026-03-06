@@ -45,6 +45,7 @@ type CustomizeCmd struct {
 	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
 	CosiCompressionLevel     *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	InputImageFstab          string   `name:"image-fstab-file" help:"Manually provide the image's partition layout. Path to a file formatted like /etc/fstab."`
 }
 
 type InjectFilesCmd struct {
@@ -181,6 +182,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
 			ImageCacheDir:           cmd.ImageCacheDir,
 			CosiCompressionLevel:    cmd.CosiCompressionLevel,
+			InputImageFstab:         cmd.InputImageFstab,
 		})
 	if err != nil {
 		return err

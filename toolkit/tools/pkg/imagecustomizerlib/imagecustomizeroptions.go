@@ -28,6 +28,7 @@ type ImageCustomizerOptions struct {
 	PackageSnapshotTime     imagecustomizerapi.PackageSnapshotTime
 	ImageCacheDir           string
 	CosiCompressionLevel    *int
+	InputImageFstab         string
 
 	// Not provided via the command line. Only used in tests.
 	PreviewFeatures []imagecustomizerapi.PreviewFeature

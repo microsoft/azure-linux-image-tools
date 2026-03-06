@@ -113,8 +113,9 @@ func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile str
 		return err
 	}
 
+	// TODO: Add fstab override to `convert` sub-command.
 	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, outputFormat,
-		outputImageFile, cosiCompressionLevel)
+		outputImageFile, cosiCompressionLevel, "")
 	if err != nil {
 		return err
 	}
@@ -124,11 +125,13 @@ func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile str
 
 func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawImageFile string,
 	outputFormat imagecustomizerapi.ImageFormatType, outputImageFile string, cosiCompressionLevel *int,
+	fstabOverride string,
 ) error {
 	if outputFormat == imagecustomizerapi.ImageFormatTypeCosi || outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
 		// Convert subcommand doesn't support preview features - pass empty slice
 		partitionsLayout, baseImageVerityMetadata, osRelease, osPackages, imageUuid, imageUuidStr, cosiBootMetadata,
-			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot")
+			readonlyPartUuids, err := prepareImageConversionData(ctx, rawImageFile, buildDirAbs, "imageroot",
+			fstabOverride)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrArtifactCosiImageInfoCollect, err)
 		}

@@ -138,7 +138,9 @@ func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsSto
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, outputPath)
+	// TODO: Use reconnectToExistingImage
+	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig,
+		rawImageFile, outputFormat, outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
 	}
@@ -197,7 +199,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
 	rawImageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
-		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false /*ignoreOverlays*/)
+		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false /*ignoreOverlays*/, "")
 	if err != nil {
 		return err
 	}

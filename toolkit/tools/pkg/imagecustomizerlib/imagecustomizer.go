@@ -483,8 +483,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	im.targetOS = targetOS
 
 	// Customize the partitions.
-	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.targetOS)
+	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc, rc.RawImageFile,
+		im.targetOS)
 	if err != nil {
 		return im, err
 	}
@@ -709,7 +709,8 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	readOnlyVerity := rc.Config.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
+		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false,
+		rc.Options.InputImageFstab)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -922,7 +923,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (targetos.TargetOs, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
-		false /* read-only-verity */, false /* ignore-overlays */)
+		false /* read-only-verity */, false /* ignore-overlays */, rc.Options.InputImageFstab)
 	if err != nil {
 		return "", err
 	}

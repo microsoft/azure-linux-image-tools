@@ -390,8 +390,9 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 		return err
 	}
 
+	// TODO: Add fstab override to `inject-files` sub-command.
 	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, detectedImageFormat, outputImageFile,
-		options.CosiCompressionLevel)
+		options.CosiCompressionLevel, "")
 	if err != nil {
 		return err
 	}
@@ -460,12 +461,12 @@ func injectFilesIntoImage(buildDir string, baseConfigPath string, rawImageFile s
 }
 
 func prepareImageConversionData(ctx context.Context, rawImageFile string, buildDir string,
-	chrootDir string,
+	chrootDir string, fstabOverride string,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true)
+		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true, fstabOverride)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err

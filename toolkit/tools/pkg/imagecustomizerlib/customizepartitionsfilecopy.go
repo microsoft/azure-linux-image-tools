@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -21,16 +20,17 @@ var (
 	ErrPartitionCopyFiles                 = NewImageCustomizerError("PartitionCopy:Files", "failed to copy partition files")
 )
 
-func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	buildImageFile string, newBuildImageFile string, targetOS targetos.TargetOs,
+func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, rc *ResolvedConfig, buildImageFile string,
+	newBuildImageFile string, targetOS targetos.TargetOs,
 ) (map[string]string, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
-		true, false, false)
+		true, false, false, rc.Options.InputImageFstab)
 	if err != nil {
 		return nil, err
 	}
 	defer existingImageConnection.Close()
 
+	config := rc.Config
 	diskConfig := config.Storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
