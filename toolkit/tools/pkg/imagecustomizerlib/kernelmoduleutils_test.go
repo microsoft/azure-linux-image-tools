@@ -119,7 +119,6 @@ func TestLoadOrDisableModules(t *testing.T) {
 	moduleOptionsContent, _ = os.ReadFile(moduleOptionsFilePath)
 	count = strings.Count(string(moduleOptionsContent), "option1=value1")
 	assert.Equal(t, 1, count, "option1 for module1 should appear exactly once in options configuration file")
-
 }
 
 func TestEnsureModulesLoaded(t *testing.T) {
@@ -252,11 +251,12 @@ func testCustomizeImageKernelModules(t *testing.T, baseImageInfo testBaseImageIn
 
 	// Customize image.
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
-		BuildDir:          buildDir,
-		InputImageFile:    baseImage,
-		OutputImageFile:   outImageFilePath,
-		OutputImageFormat: "raw",
-		PreviewFeatures:   baseImageInfo.PreviewFeatures,
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
 	if !assert.NoError(t, err) {
 		return

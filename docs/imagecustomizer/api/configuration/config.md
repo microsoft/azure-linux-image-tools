@@ -96,6 +96,15 @@ Supported options:
 
   Added in v0.15.
 
+- `kdump-boot-files`: Enables support for crash dump configuration.
+
+  When this option is specified, the
+  [`iso.kdumpBootFiles`](./iso.md#kdumpbootfiles-kdumpbootfiles) and
+  [`pxe.kdumpBootFiles`](./pxe.md#kdumpbootfiles-kdumpbootfiles) configurations
+  become available.
+
+  Added in v0.16.
+
 - `package-snapshot-time`: Enables snapshot-based package filtering during image
   customization. This allows specifying a cutoff timestamp using the
   [`--package-snapshot-time`](../cli/customize.md#--package-snapshot-time) CLI option or
@@ -127,15 +136,6 @@ Supported options:
 
   Added in v1.1.
 
-- `cosi-compression`: Enables custom compression settings for COSI output images.
-
-  When this option is specified, the `output.image.cosi.compression.level` configuration
-  and the `--cosi-compression-level` CLI flag become available.
-
-  See [cosiCompression](./cosiCompression.md) for more details.
-
-  Added in v1.2.
-
 - `btrfs`: Enables support for creating BTRFS file systems.
 
   When this option is specified, the `btrfs` option for [storage.filesystems[].type](./filesystem.md#type-string)
@@ -143,11 +143,19 @@ Supported options:
 
   Added in v1.2.
 
-- `ubuntu-22.04`: Enables support for customizing Ubuntu 22.04 images.
+- `create`: Enables the [create subcommand](../cli/create.md) for building new images from scratch.
 
   Added in v1.2.
 
-- `ubuntu-24.04`: Enables support for customizing Ubuntu 24.04 images.
+- `fedora-42`: Enables support for creating Fedora 42 images using the [create subcommand](../cli/create.md).
+
+  Added in v1.1.
+
+- `ubuntu-22.04`: Enables support for customizing Ubuntu 22.04 images using the [customize subcommand](../cli/customize.md).
+
+  Added in v1.2.
+
+- `ubuntu-24.04`: Enables support for customizing Ubuntu 24.04 images using the [customize subcommand](../cli/customize.md).
 
   Added in v1.2.
 

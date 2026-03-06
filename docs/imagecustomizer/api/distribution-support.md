@@ -14,52 +14,87 @@ APIs marked as **Preview** require the distribution's
 
 ## Command line
 
-| Subcommand + Flag                                                                                       | Azure Linux 3.0 | Ubuntu 22.04, 24.04 |
-|---------------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
-| [create](./cli/create.md)                                                                               | Yes             | No                  |
-| [convert](./cli/convert.md)                                                                             | Yes             | Preview             |
-| [customize](./cli/customize.md)                                                                         | Yes             | Preview             |
-| &emsp;[--build-dir](./cli/customize.md#--build-dirdirectory-path)                                       | Yes             | Preview             |
-| &emsp;[--image-file](./cli/customize.md#--image-filefile-path)                                          | Yes             | Preview             |
-| &emsp;[--image](./cli/customize.md#--image)                                                             | Yes             | No                  |
-| &emsp;[--output-image-file](./cli/customize.md#--output-image-filefile-path)                            | Yes             | Preview             |
-| &emsp;[--output-path](./cli/customize.md#--output-pathfile-path)                                        | Yes             | Preview             |
-| &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                           | Yes             | Preview             |
-| &emsp;[--cosi-compression-level](./cli/customize.md#--cosi-compression-levellevel)                      | Yes             | No                  |
-| &emsp;[--output-selinux-policy-path](./cli/customize.md#--output-selinux-policy-pathdirectory-path)     | Yes             | No                  |
-| &emsp;[--config-file](./cli/customize.md#--config-filefile-path)                                        | Yes             | Preview             |
-| &emsp;[--rpm-source](./cli/customize.md#--rpm-sourcepath)                                               | Yes             | No                  |
-| &emsp;[--disable-base-image-rpm-repos](./cli/customize.md#--disable-base-image-rpm-repos)               | Yes             | No                  |
-| &emsp;[--package-snapshot-time](./cli/customize.md#--package-snapshot-time)                             | Yes             | No                  |
-| &emsp;[--image-cache-dir](./cli/customize.md#--image-cache-dir)                                         | Yes             | No                  |
-| [inject-files](./cli/inject-files.md)                                                                   | Yes             | No                  |
+| Subcommand + Flag                                                                                   | Azure Linux 3.0 | Ubuntu 22.04, 24.04 |
+|-----------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
+| [create](./cli/create.md)                                                                           | Yes             | No                  |
+| [convert](./cli/convert.md)                                                                         | Yes             | Yes                 |
+| [customize](./cli/customize.md)                                                                     | Yes             | Preview             |
+| &emsp;[--build-dir](./cli/customize.md#--build-dirdirectory-path)                                   | Yes             | Preview             |
+| &emsp;[--image-file](./cli/customize.md#--image-filefile-path)                                      | Yes             | Preview             |
+| &emsp;[--image](./cli/customize.md#--image)                                                         | Yes             | No                  |
+| &emsp;&emsp;`azureLinux:*`                                                                          | Yes             | N/A                 |
+| &emsp;&emsp;`oci:*`                                                                                 | Yes             | Preview             |
+| &emsp;[--output-image-file](./cli/customize.md#--output-image-filefile-path)                        | Yes             | Preview             |
+| &emsp;[--output-path](./cli/customize.md#--output-pathfile-path)                                    | Yes             | Preview             |
+| &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Preview             |
+| &emsp;&emsp;`baremetal-image`                                                                       | Yes             | Preview             |
+| &emsp;&emsp;`cosi`                                                                                  | Yes             | Preview             |
+| &emsp;&emsp;`iso`                                                                                   | Yes             | No                  |
+| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | No                  |
+| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | No                  |
+| &emsp;&emsp;`qcow2`                                                                                 | Yes             | Preview             |
+| &emsp;&emsp;`raw`                                                                                   | Yes             | Preview             |
+| &emsp;&emsp;`vhd-fixed`                                                                             | Yes             | Preview             |
+| &emsp;&emsp;`vhd`                                                                                   | Yes             | Preview             |
+| &emsp;&emsp;`vhdx`                                                                                  | Yes             | Preview             |
+| &emsp;[--cosi-compression-level](./cli/customize.md#--cosi-compression-levellevel)                  | Yes             | No                  |
+| &emsp;[--output-selinux-policy-path](./cli/customize.md#--output-selinux-policy-pathdirectory-path) | Yes             | No                  |
+| &emsp;[--config-file](./cli/customize.md#--config-filefile-path)                                    | Yes             | Preview             |
+| &emsp;[--rpm-source](./cli/customize.md#--rpm-sourcepath)                                           | Yes             | No                  |
+| &emsp;[--disable-base-image-rpm-repos](./cli/customize.md#--disable-base-image-rpm-repos)           | Yes             | No                  |
+| &emsp;[--package-snapshot-time](./cli/customize.md#--package-snapshot-time)                         | Yes             | No                  |
+| &emsp;[--image-cache-dir](./cli/customize.md#--image-cache-dir)                                     | Yes             | No                  |
+| [inject-files](./cli/inject-files.md)                                                               | Yes             | No                  |
 
 ## Configuration
 
-| API                                                                                  | Azure Linux 3.0       | Ubuntu 22.04, 24.04 |
-|--------------------------------------------------------------------------------------|:---------------------:|:-------------------:|
-| [input.image.path](./configuration/inputImage.md#path-string)                        | Yes                   | Preview             |
-| [input.image.oci](./configuration/inputImage.md#oci-ociimage)                        | Yes                   | No                  |
-| [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)   | Yes                   | N/A                 |
-| [storage](./configuration/config.md#storage-storage)                                 | Yes                   | No                  |
-| [iso](./configuration/config.md#iso-iso)                                             | Yes                   | No                  |
-| [pxe](./configuration/config.md#pxe-pxe)                                             | Yes                   | No                  |
-| [os.hostname](./configuration/os.md#hostname-string)                                 | Yes                   | Preview             |
-| [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)    | Yes                   | No                  |
-| [os.packages](./configuration/os.md#packages-packages)                               | Yes                   | No                  |
-| [os.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)           | Yes                   | Preview             |
-| [os.additionalDirs](./configuration/os.md#additionaldirs-dirconfig)                  | Yes                   | Preview             |
-| [os.groups](./configuration/os.md#groups-group)                                      | Yes                   | Preview             |
-| [os.users](./configuration/os.md#users-user)                                         | Yes                   | Preview             |
-| [os.modules](./configuration/os.md#modules-module)                                   | Yes                   | Preview             |
-| [os.services](./configuration/os.md#services-services)                               | Yes                   | Preview             |
-| [os.overlays](./configuration/os.md#overlays-overlay)                                | Yes                   | No                  |
-| [os.bootloader](./configuration/os.md#bootloader-bootloader)                         | Yes                   | No                  |
-| [os.uki](./configuration/os.md#uki-uki)                                              | Yes                   | No                  |
-| [os.selinux](./configuration/os.md#selinux-selinux)                                  | Yes                   | No                  |
-| [os.imageHistory](./configuration/os.md#imagehistory-string)                         | Yes                   | Preview             |
-| [scripts](./configuration/config.md#scripts-scripts)                                 | Yes                   | Preview             |
-| [output.image](./configuration/output.md#image-outputimage)                          | Yes                   | Preview             |
-| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)              | Yes                   | No                  |
-| [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)       | Yes                   | No                  |
-| [previewFeatures](./configuration/config.md#previewfeatures-string)                  | Yes                   | Yes                 |
+| API                                                                                            | Azure Linux 3.0 | Ubuntu 22.04, 24.04 |
+|------------------------------------------------------------------------------------------------|:---------------:|:-------------------:|
+| [input.image.path](./configuration/inputImage.md#path-string)                                  | Yes             | Preview             |
+| [input.image.oci](./configuration/inputImage.md#oci-ociimage)                                  | Yes             | No                  |
+| [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)             | Yes             | N/A                 |
+| [storage](./configuration/config.md#storage-storage)                                           | Yes             | No                  |
+| [iso](./configuration/config.md#iso-iso)                                                       | Yes             | No                  |
+| [pxe](./configuration/config.md#pxe-pxe)                                                       | Yes             | No                  |
+| [os](./configuration/config.md#os-os)                                                          | Yes             | Preview             |
+| &emsp;[.hostname](./configuration/os.md#hostname-string)                                       | Yes             | Preview             |
+| &emsp;[.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)          | Yes             | No                  |
+| &emsp;[.packages](./configuration/os.md#packages-packages)                                     | Yes             | Preview             |
+| &emsp;&emsp;[.updateExistingPackages](./configuration/packages.md#updateexistingpackages-bool) | Yes             | No                  |
+| &emsp;&emsp;[.installLists](./configuration/packages.md#installlists-string)                   | Yes             | Preview             |
+| &emsp;&emsp;[.install](./configuration/packages.md#install-string)                             | Yes             | Preview             |
+| &emsp;&emsp;[.removeLists](./configuration/packages.md#removelists-string)                     | Yes             | No                  |
+| &emsp;&emsp;[.remove](./configuration/packages.md#remove-string)                               | Yes             | No                  |
+| &emsp;&emsp;[.updateLists](./configuration/packages.md#updatelists-string)                     | Yes             | No                  |
+| &emsp;&emsp;[.update](./configuration/packages.md#update-string)                               | Yes             | No                  |
+| &emsp;&emsp;[.snapshotTime](./configuration/packages.md#snapshottime-string)                   | Yes             | No                  |
+| &emsp;[.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)                 | Yes             | Preview             |
+| &emsp;[.additionalDirs](./configuration/os.md#additionaldirs-dirconfig)                        | Yes             | Preview             |
+| &emsp;[.groups](./configuration/os.md#groups-group)                                            | Yes             | Preview             |
+| &emsp;[.users](./configuration/os.md#users-user)                                               | Yes             | Preview             |
+| &emsp;[.modules](./configuration/os.md#modules-module)                                         | Yes             | Preview             |
+| &emsp;[.services](./configuration/os.md#services-services)                                     | Yes             | Preview             |
+| &emsp;[.overlays](./configuration/os.md#overlays-overlay)                                      | Yes             | No                  |
+| &emsp;[.bootloader](./configuration/os.md#bootloader-bootloader)                               | Yes             | No                  |
+| &emsp;[.uki](./configuration/os.md#uki-uki)                                                    | Yes             | No                  |
+| &emsp;[.selinux](./configuration/os.md#selinux-selinux)                                        | Yes             | No                  |
+| &emsp;[.imageHistory](./configuration/os.md#imagehistory-string)                               | Yes             | Preview             |
+| [scripts](./configuration/config.md#scripts-scripts)                                           | Yes             | Preview             |
+| [output](./configuration/output.md)                                                            | Yes             | Preview             |
+| &emsp;[.image](./configuration/output.md#image-outputimage)                                    | Yes             | Preview             |
+| &emsp;&emsp;[.path](./configuration/outputImage.md#path-string)                                | Yes             | Preview             |
+| &emsp;&emsp;[.format](./configuration/outputImage.md#format-string)                            | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`baremetal-image`                                                            | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`cosi`                                                                       | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`iso`                                                                        | Yes             | No                  |
+| &emsp;&emsp;&emsp;`pxe-dir`                                                                    | Yes             | No                  |
+| &emsp;&emsp;&emsp;`pxe-tar`                                                                    | Yes             | No                  |
+| &emsp;&emsp;&emsp;`qcow2`                                                                      | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`raw`                                                                        | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`vhd-fixed`                                                                  | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`vhd`                                                                        | Yes             | Preview             |
+| &emsp;&emsp;&emsp;`vhdx`                                                                       | Yes             | Preview             |
+| &emsp;&emsp;[.cosi.compression.level](./configuration/cosiCompression.md#level-int)            | Yes             | No                  |
+| &emsp;[.artifacts](./configuration/output.md#artifacts-outputartifacts)                        | Yes             | No                  |
+| &emsp;[.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)                 | Yes             | No                  |
+| [previewFeatures](./configuration/config.md#previewfeatures-string)                            | Yes             | Yes                 |

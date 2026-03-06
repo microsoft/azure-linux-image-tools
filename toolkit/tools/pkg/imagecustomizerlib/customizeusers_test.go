@@ -92,7 +92,7 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
 	}

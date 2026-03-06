@@ -17,9 +17,6 @@ output:
     cosi:
       compression:
         level: 22
-
-previewFeatures:
-- cosi-compression
 ```
 
 ## compression [[cosiCompression](./cosiCompression.md)]

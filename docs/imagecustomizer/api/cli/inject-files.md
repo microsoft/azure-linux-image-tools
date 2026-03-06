@@ -87,11 +87,6 @@ Added in v0.14.
 
 Optional. Default: `9`
 
-This is a preview feature.
-Its API and behavior is subject to change.
-You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](../configuration/injectFilesConfig.md#previewfeatures-string) API.
-
 The zstd compression level (1-22) for COSI partition images.
 
 Higher compression levels produce smaller files but take significantly longer to

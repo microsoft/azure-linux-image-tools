@@ -11,12 +11,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
-// PackageManagerType represents the type of package manager
-type PackageManagerType string
-
 const (
-	packageManagerTDNF PackageManagerType = "tdnf"
-	packageManagerDNF  PackageManagerType = "dnf"
+	packageManagerTDNF = "tdnf"
+	packageManagerDNF  = "dnf"
+	packageManagerAPT  = "apt-get"
 )
 
 // PackageType represents the type of package format

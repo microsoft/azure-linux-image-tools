@@ -131,11 +131,6 @@ of each format.
 
 Optional. Default: `9`
 
-This is a preview feature.
-Its API and behavior is subject to change.
-You must enable this feature by specifying `cosi-compression` in the
-[previewFeatures](../configuration/config.md#previewfeatures-string) API.
-
 If both
 [output.image.cosi.compression.level](../configuration/cosiCompression.md#level-int) and
 `--cosi-compression-level` are provided, then the `--cosi-compression-level`

@@ -32,17 +32,17 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 
 	downloadedRpmsTmpDir := filepath.Join(testTmpDir, "rpms")
 
-	// Create a copy of the RPMs directory, but without the golang package.
-	err := copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"golang-"})
+	// Create a copy of the RPMs directory, but without the tree package.
+	err := copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"tree-"})
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	// Install jq package.
+	// Install unzip package.
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install: []string{"jq"},
+				Install: []string{"unzip"},
 			},
 		},
 	}
@@ -59,9 +59,14 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure jq was installed.
+	// Ensure unzip was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
+	)
+
+	// Ensure tree was not installed.
+	ensureFilesNotExist(t, imageConnection,
+		"/usr/bin/tree",
 	)
 
 	verifyImageHistoryFile(t, 1, config, imageConnection.Chroot().RootDir())
@@ -71,23 +76,23 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Create a copy of the RPMs directory, but without the jq package.
+	// Create a copy of the RPMs directory, but without the unzip package.
 	// This ensures that the package repo metadata is refreshed between runs.
 	err = os.RemoveAll(downloadedRpmsTmpDir)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"jq-"})
+	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"unzip-"})
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	// Install jq package.
+	// Install tree package.
 	config = imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				InstallLists: []string{"lists/golang.yaml"},
+				InstallLists: []string{"lists/tree.yaml"},
 			},
 		},
 	}
@@ -104,10 +109,10 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure go was installed.
+	// Ensure tree was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
-		"/usr/bin/go",
+		"/usr/bin/unzip",
+		"/usr/bin/tree",
 	)
 
 	verifyImageHistoryFile(t, 2, config, imageConnection.Chroot().RootDir())
@@ -179,8 +184,8 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
-		"/usr/bin/go",
+		"/usr/bin/unzip",
+		"/usr/bin/tree",
 	)
 }
 
@@ -213,8 +218,8 @@ func TestCustomizeImagePackagesUpdate(t *testing.T) {
 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
-		"/usr/bin/go",
+		"/usr/bin/unzip",
+		"/usr/bin/tree",
 	)
 
 	// Ensure packages were removed.
@@ -334,7 +339,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	// Set the snapshot time to a date before jq-1.7.1-2 (2025-03-18) was published, so jq-1.7.1-1 is expected
+	// Set the snapshot time to a date before unzip-6.0-22 (2025-04-16) was published, so unzip-6.0-21 is expected
 	snapshotTime := "2025-01-01"
 
 	config := imagecustomizerapi.Config{
@@ -343,7 +348,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 		},
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"jq"},
+				Install:      []string{"unzip"},
 				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTime),
 			},
 		},
@@ -363,15 +368,15 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 	)
 
-	jqVersionOutput, err := getPkgVersionFromChroot(imageConnection, "jq")
-	assert.NoError(t, err, "failed to retrieve jq version from chroot")
+	unzipVersionOutput, err := getPkgVersionFromChroot(imageConnection, "unzip")
+	assert.NoError(t, err, "failed to retrieve unzip version from chroot")
 
-	expectedVersion := "jq-1.7.1-1"
-	assert.Containsf(t, jqVersionOutput, expectedVersion,
-		"snapshotTime %s should install jq version %s, but got: %s", snapshotTime, expectedVersion, jqVersionOutput)
+	expectedVersion := "unzip-6.0-21"
+	assert.Containsf(t, unzipVersionOutput, expectedVersion,
+		"snapshotTime %s should install unzip version %s, but got: %s", snapshotTime, expectedVersion, unzipVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
 
@@ -379,7 +384,7 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile")
 	defer os.RemoveAll(testTmpDir)
 
 	baseImageInfo := testBaseImageAzl3CoreEfi
@@ -395,13 +400,13 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 		},
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"jq"},
+				Install:      []string{"unzip"},
 				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTimeConfig),
 			},
 		},
 	}
 
-	// Set the snapshot time in CLI to a date before jq-1.7.1-2 (2025-03-18) was published
+	// Set the snapshot time in CLI to a date before unzip-6.0-22 (2025-04-16) was published
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
 		"raw", true, snapshotTimeCLI)
 	if !assert.NoError(t, err) {
@@ -416,15 +421,15 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/jq",
+		"/usr/bin/unzip",
 	)
 
-	jqVersionOutput, err := getPkgVersionFromChroot(imageConnection, "jq")
-	assert.NoError(t, err, "failed to retrieve jq version from chroot")
+	unzipVersionOutput, err := getPkgVersionFromChroot(imageConnection, "unzip")
+	assert.NoError(t, err, "failed to retrieve unzip version from chroot")
 
-	expectedVersion := "jq-1.7.1-1"
-	assert.Containsf(t, jqVersionOutput, expectedVersion,
-		"snapshotTime %s should install jq version %s, but got: %s", snapshotTimeCLI, expectedVersion, jqVersionOutput)
+	expectedVersion := "unzip-6.0-21"
+	assert.Containsf(t, unzipVersionOutput, expectedVersion,
+		"snapshotTime %s should install unzip version %s, but got: %s", snapshotTimeCLI, expectedVersion, unzipVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
 
@@ -444,7 +449,7 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"jq"},
+				Install:      []string{"unzip"},
 				SnapshotTime: "2025-05-22",
 			},
 		},
@@ -454,6 +459,59 @@ func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T)
 		"raw", true, "")
 	assert.ErrorContains(t, err, "snapshotTime")
 	assert.ErrorContains(t, err, "preview feature")
+}
+
+func TestCustomizeImagePackagesInstallOnline(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesInstallOnline(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesInstallOnline_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "packages-add-config.yaml")
+
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true, // Set to true for Azure Linux; it will be ignored for Ubuntu images.
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	assert.NoError(t, err, "failed to customize image with config file options")
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	assert.NoError(t, err, "failed to connect to image after customization")
+	defer imageConnection.Close()
+
+	// Verify both inline (unzip) and list-referenced (tree) packages were installed.
+	ensureFilesExist(t, imageConnection,
+		"/usr/bin/unzip",
+		"/usr/bin/tree",
+	)
+
+	// For Ubuntu images, further verify that APT service prevention artifacts were cleaned up. During package
+	// installation, policy-rc.d is created to block service starts via invoke-rc.d, and start-stop-daemon is diverted
+	// to a no-op. Both must be restored after installation so the final image behaves normally.
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		ensureFilesNotExist(t, imageConnection,
+			"/usr/sbin/policy-rc.d",
+			"/sbin/start-stop-daemon.distrib",
+		)
+
+		ensureFilesExist(t, imageConnection,
+			"/sbin/start-stop-daemon",
+		)
+	}
 }
 
 func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {

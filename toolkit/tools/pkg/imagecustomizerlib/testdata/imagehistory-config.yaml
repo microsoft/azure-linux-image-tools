@@ -50,13 +50,13 @@ os:
       - which
 
       install:
-      - jq
+      - unzip
 
       installLists:
-      - lists/golang.yaml
+      - lists/tree.yaml
 
       update:
-      - jq
+      - unzip
   users:
     - name: mariner_user
       sshPublicKeys:
