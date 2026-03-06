@@ -44,8 +44,7 @@ in front of any HTTP endpoints.
    mv ./image.vhd "$STAGE_DIR"
    ```
 
-4. Create a file named `$STAGE_DIR/image-config.yaml` with the following
-   contents:
+4. Create a file named `$STAGE_DIR/image-config.yaml`. The example below has been tuned for Azure Linux.
 
    ```yaml
    os:
