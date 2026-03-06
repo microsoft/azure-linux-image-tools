@@ -57,7 +57,7 @@ type BootCustomizer struct {
 }
 
 func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string, distroHandler DistroHandler) (*BootCustomizer, error) {
-	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot, distroHandler)
+	grubCfgContent, err := distroHandler.ReadGrubConfigFile(imageChroot)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 
 	case bootConfigTypeGrubLegacy:
 		// Update grub.cfg file.
-		err := writeGrub2ConfigFile(b.grubCfgContent, imageChroot, b.distroHandler)
+		err := b.distroHandler.WriteGrubConfigFile(b.grubCfgContent, imageChroot)
 		if err != nil {
 			return err
 		}

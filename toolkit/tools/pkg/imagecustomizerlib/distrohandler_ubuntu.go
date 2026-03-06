@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -96,8 +97,24 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi-arm64, nor systemd-boot found")
 }
 
-func (d *ubuntuDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
-	return filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
+func (d *ubuntuDistroHandler) ReadGrubConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
+	grubCfgFilePath := filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
+	grubCfgContent, err := file.Read(grubCfgFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read grub config file (%s):\n%w", installutils.UbuntuGrubCfgFile, err)
+	}
+	return grubCfgContent, nil
+}
+
+func (d *ubuntuDistroHandler) WriteGrubConfigFile(grubCfgContent string,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	grubCfgFilePath := filepath.Join(imageChroot.RootDir(), installutils.UbuntuGrubCfgFile)
+	err := file.Write(grubCfgContent, grubCfgFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to write grub config file (%s):\n%w", installutils.UbuntuGrubCfgFile, err)
+	}
+	return nil
 }
 
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {

@@ -242,7 +242,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot(), distroHandler)
+		grubCfgContent, err := distroHandler.ReadGrubConfigFile(imageConnection.Chroot())
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}

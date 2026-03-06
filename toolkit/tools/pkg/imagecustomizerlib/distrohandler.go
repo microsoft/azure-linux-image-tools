@@ -46,8 +46,11 @@ type DistroHandler interface {
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
-	// Get the path to the grub configuration file
-	GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
+	// ReadGrubConfigFile reads the grub configuration file from the image.
+	ReadGrubConfigFile(imageChroot safechroot.ChrootInterface) (string, error)
+
+	// WriteGrubConfigFile writes the grub configuration file to the image.
+	WriteGrubConfigFile(grubCfgContent string, imageChroot safechroot.ChrootInterface) error
 
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
