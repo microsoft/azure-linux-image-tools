@@ -47,7 +47,7 @@ storage:
 os:
   packages:
       remove:
-      - which
+      - chrony
 
       install:
       - unzip

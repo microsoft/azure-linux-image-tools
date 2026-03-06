@@ -1,0 +1,7 @@
+os:
+  packages:
+    remove:
+    - chrony
+
+    removeLists:
+    - lists/curl.yaml

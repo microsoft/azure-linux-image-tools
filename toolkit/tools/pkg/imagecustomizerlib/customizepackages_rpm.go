@@ -14,7 +14,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel"
 )
 
 // managePackagesRpm provides a shared implementation for RPM-based package management
@@ -49,11 +48,8 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 		}()
 	}
 
-	needPackageSources := len(config.Packages.Install) > 0 || len(config.Packages.Update) > 0 ||
-		config.Packages.UpdateExistingPackages
-
 	var mounts *rpmSourcesMounts
-	if needPackageSources {
+	if needPackageSources(config) {
 		// Mount RPM sources
 		mounts, err = mountRpmSources(ctx, buildDir, packageManagerChroot, rpmsSources, useBaseImageRpmRepos)
 		if err != nil {
@@ -76,19 +72,17 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 	}
 
 	if config.Packages.UpdateExistingPackages {
-		err = updateAllRpmPackages(ctx, imageChroot, toolsChroot, pmHandler)
+		err = updateExistingRpmPackages(ctx, imageChroot, toolsChroot, pmHandler)
 		if err != nil {
 			return err
 		}
 	}
 
-	logger.Log.Infof("Installing packages: %v", config.Packages.Install)
 	err = installRpmPackages(ctx, config.Packages.Install, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return err
 	}
 
-	logger.Log.Infof("Updating packages: %v", config.Packages.Update)
 	err = updateRpmPackages(ctx, config.Packages.Update, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		return err
@@ -102,7 +96,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 		}
 	}
 
-	if needPackageSources {
+	if needPackageSources(config) {
 		err = cleanRpmCache(ctx, imageChroot, toolsChroot, pmHandler)
 		if err != nil {
 			return err
@@ -211,13 +205,13 @@ func updateRpmPackages(ctx context.Context, allPackages []string,
 	return nil
 }
 
-// updateAllRpmPackages updates all packages using the appropriate package manager
-func updateAllRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
+// updateExistingRpmPackages updates existing packages using the appropriate package manager
+func updateExistingRpmPackages(ctx context.Context, imageChroot *safechroot.Chroot,
 	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
 ) error {
-	logger.Log.Infof("Updating base image packages")
+	logger.Log.Infof("Updating existing packages")
 
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "update_base_packages")
+	_, span := startUpdateExistingPackagesSpan(ctx)
 	defer span.End()
 
 	// Build command arguments directly
