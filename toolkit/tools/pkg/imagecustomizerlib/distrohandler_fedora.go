@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -34,6 +35,24 @@ func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
 	default:
 		panic("unsupported Fedora version: " + d.version)
 	}
+}
+
+func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	switch d.version {
+	case "42":
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
+			return ErrFedora42PreviewFeatureRequired
+		}
+
+	default:
+		panic("unsupported Fedora version: " + d.version)
+	}
+
+	if rc.HasPackageSnapshotTime() {
+		return fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
+	}
+
+	return nil
 }
 
 // ManagePackages handles the complete package management workflow for Fedora
