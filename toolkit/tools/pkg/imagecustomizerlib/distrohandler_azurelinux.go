@@ -38,6 +38,10 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 	}
 }
 
+func (d *azureLinuxDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	return nil
+}
+
 // ManagePackages handles the complete package management workflow for Azure Linux
 func (d *azureLinuxDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,

@@ -223,9 +223,11 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 	return partIdToPartUuid, nil
 }
 
-func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, rootMountIdType imagecustomizerapi.MountIdentifierType,
+func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
+	rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
-	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode,
+	newImage bool, distroHandler DistroHandler,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -249,11 +251,6 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection, r
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
-		if err != nil {
-			return fmt.Errorf("failed to detect distribution:\n%w", err)
-		}
-
 		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot(), distroHandler)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
