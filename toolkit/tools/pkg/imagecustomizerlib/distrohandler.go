@@ -21,14 +21,6 @@ const (
 // PackageType represents the type of package format
 type PackageType string
 
-// DistroName represents the distribution name
-type DistroName string
-
-const (
-	distroNameAzureLinux DistroName = "azurelinux"
-	distroNameFedora     DistroName = "fedora"
-)
-
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
@@ -72,18 +64,6 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 		return newUbuntuDistroHandler("24.04")
 	default:
 		panic("unsupported target OS: " + string(targetOs))
-	}
-}
-
-// NewDistroHandler creates the appropriate distro handler with version support (legacy)
-func NewDistroHandler(distroName string, version string) DistroHandler {
-	switch distroName {
-	case string(distroNameFedora):
-		return newFedoraDistroHandler(version)
-	case string(distroNameAzureLinux):
-		return newAzureLinuxDistroHandler(version)
-	default:
-		panic("unsupported distro name: " + distroName)
 	}
 }
 

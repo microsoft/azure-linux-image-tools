@@ -46,6 +46,8 @@ type CustomizeCmd struct {
 	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
 	CosiCompressionLevel     *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
 	InputImageFstab          string   `name:"image-fstab-file" help:"Manually provide the image's partition layout. Path to a file formatted like /etc/fstab."`
+	DistroOverride           string   `name:"distro-override" help:"Override the detected distro."`
+	DistroVersionOverride    string   `name:"distro-version-override" help:"Override the detected distro version."`
 }
 
 type InjectFilesCmd struct {
@@ -183,6 +185,8 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 			ImageCacheDir:           cmd.ImageCacheDir,
 			CosiCompressionLevel:    cmd.CosiCompressionLevel,
 			InputImageFstab:         cmd.InputImageFstab,
+			DistroOverride:          cmd.DistroOverride,
+			DistroVersionOverride:   cmd.DistroVersionOverride,
 		})
 	if err != nil {
 		return err

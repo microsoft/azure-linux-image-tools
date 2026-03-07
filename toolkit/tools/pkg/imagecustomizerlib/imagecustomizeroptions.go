@@ -29,6 +29,8 @@ type ImageCustomizerOptions struct {
 	ImageCacheDir           string
 	CosiCompressionLevel    *int
 	InputImageFstab         string
+	DistroOverride          imagecustomizerapi.DistroName
+	DistroVersionOverride   string
 
 	// Not provided via the command line. Only used in tests.
 	PreviewFeatures []imagecustomizerapi.PreviewFeature
@@ -61,6 +63,10 @@ func (o *ImageCustomizerOptions) IsValid() error {
 		if err := feature.IsValid(); err != nil {
 			return fmt.Errorf("invalid 'previewFeatures' item at index %d:\n%w", i, err)
 		}
+	}
+
+	if err := o.DistroOverride.IsValid(); err != nil {
+		return fmt.Errorf("%w:\n%w", ErrInvalidDistroOption, err)
 	}
 
 	return nil

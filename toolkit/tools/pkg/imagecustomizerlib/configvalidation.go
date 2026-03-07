@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -56,6 +57,7 @@ var (
 	ErrInvalidInputImageAzureLinux          = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
 	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
 	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
+	ErrInvalidDistroOption                  = NewImageCustomizerError("Validation:InputImageOciNotFound", "invalid command-line option '--distro'")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -145,6 +147,8 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	if err != nil {
 		return nil, err
 	}
+
+	//rc.TargetOsOverride, err =
 
 	rc.ConfigChain, err = buildConfigChain(ctx, rc)
 	if err != nil {
@@ -250,6 +254,23 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
 
 	return rc, nil
+}
+
+func validateDistroAndVersion(distro imagecustomizerapi.DistroName, version string) (*targetos.TargetOs, error) {
+	if distro == "" && version == "" {
+		return nil, nil
+	}
+
+	switch distro {
+	case imagecustomizerapi.DistroNameAzureLinux:
+
+	case imagecustomizerapi.DistroNameFedora:
+
+	case imagecustomizerapi.DistroNameUbuntu:
+
+	default:
+		return nil, fmt.Errorf("unknown distro name (%s)", distro)
+	}
 }
 
 func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {

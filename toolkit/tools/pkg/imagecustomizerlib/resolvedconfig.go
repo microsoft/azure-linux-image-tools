@@ -9,6 +9,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	ociv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
@@ -79,6 +80,9 @@ type ResolvedConfig struct {
 
 	// Resolved PXE config from config chain (merged/overridden values)
 	Pxe imagecustomizerapi.Pxe
+
+	// Overrides the target OS that would normall be detected from the /etc/os-release file.
+	TargetOsOverride *targetos.TargetOs
 }
 
 func (c *ResolvedConfig) InputFileExt() string {

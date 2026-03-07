@@ -900,9 +900,15 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 	}
 	defer existingImageConnection.Close()
 
-	distroHandler, err := NewDistroHandlerFromChroot(existingImageConnection.Chroot())
-	if err != nil {
-		return nil, err
+	var distroHandler DistroHandler
+
+	if rc.Options.DistroOverride != "" || rc.Options.DistroVersionOverride != "" {
+
+	} else {
+		distroHandler, err = NewDistroHandlerFromChroot(existingImageConnection.Chroot())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = distroHandler.ValidateConfig(rc)
