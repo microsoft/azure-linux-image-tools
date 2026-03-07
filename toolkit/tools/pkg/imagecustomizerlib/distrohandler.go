@@ -5,6 +5,7 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -31,6 +32,10 @@ const (
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
+
+	// Validates the image config for a distro.
+	// This is primarily intended to be used to block unsupported features.
+	ValidateConfig(rc *ResolvedConfig) error
 
 	// Package management operations
 	ManagePackages(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.OS,
@@ -86,7 +91,7 @@ func NewDistroHandler(distroName string, version string) DistroHandler {
 func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroHandler, error) {
 	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
 	}
 	return NewDistroHandlerFromTargetOs(targetOs), nil
 }
