@@ -374,7 +374,8 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	return filesStore, nil
 }
 
-func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string) (infoStore *IsoInfoStore, err error) {
+func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, distroHandler DistroHandler,
+) (infoStore *IsoInfoStore, err error) {
 	infoStore = &IsoInfoStore{}
 
 	chroot := safechroot.NewChroot(imageRootDir, true /*isExistingDir*/)
@@ -386,11 +387,6 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string) (i
 	err = chroot.Initialize("", nil, nil, true /*includeDefaultMounts*/)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize chroot object for (%s):\n%w", imageRootDir, err)
-	}
-
-	distroHandler, err := NewDistroHandlerFromChroot(chroot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect distribution:\n%w", err)
 	}
 
 	imageSELinuxMode, err := getSELinuxMode(buildDir, chroot, distroHandler)
@@ -515,7 +511,9 @@ func createIsoInfoStoreFromIsoImage(savedConfigFile string) (infoStore *IsoInfoS
 	return infoStore, nil
 }
 
-func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (artifactStore *IsoArtifactsStore, err error) {
+func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string,
+	storeDir string, distroHandler DistroHandler,
+) (artifactStore *IsoArtifactsStore, err error) {
 	err = os.MkdirAll(storeDir, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create folder %s:\n%w", storeDir, err)
@@ -529,7 +527,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 	}
 	artifactStore.files = filesStore
 
-	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir)
+	infoStore, err := createIsoInfoStoreFromMountedImage(storeDir, imageRootDir, distroHandler)
 	if err != nil {
 		return nil, err
 	}

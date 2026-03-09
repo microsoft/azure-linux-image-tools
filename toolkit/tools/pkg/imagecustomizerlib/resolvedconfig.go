@@ -100,3 +100,17 @@ func (c *ResolvedConfig) OutputIsPxe() bool {
 	return c.OutputImageFormat == imagecustomizerapi.ImageFormatTypePxeDir ||
 		c.OutputImageFormat == imagecustomizerapi.ImageFormatTypePxeTar
 }
+
+func (c *ResolvedConfig) HasPackageSnapshotTime() bool {
+	if c.Options.PackageSnapshotTime != "" {
+		return true
+	}
+
+	for _, configWithBase := range c.ConfigChain {
+		if configWithBase.Config.OS.Packages.SnapshotTime != "" {
+			return true
+		}
+	}
+
+	return false
+}

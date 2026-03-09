@@ -238,12 +238,14 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	writeableRootfsDir := filepath.Join(isoBuildDir, "writeable-rootfs")
 	err = populateWriteableRootfsDir(rawImageConnection.Chroot().RootDir(), writeableRootfsDir)
 	if err != nil {
-		return fmt.Errorf("failed to copy the contents of rootfs from image (%s) to local folder (%s):\n%w", rawImageFile, writeableRootfsDir, err)
+		return fmt.Errorf("failed to copy the contents of rootfs from image (%s) to local folder (%s):\n%w",
+			rawImageFile, writeableRootfsDir, err)
 	}
 
 	// Create the ISO artifacts store
 	storeFolder := filepath.Join(isoBuildDir, "from-iso-and-raw")
-	artifactsStore, err := createIsoArtifactStoreFromMountedImage(inputArtifactsStore, writeableRootfsDir, storeFolder)
+	artifactsStore, err := createIsoArtifactStoreFromMountedImage(inputArtifactsStore, writeableRootfsDir, storeFolder,
+		distroHandler)
 	if err != nil {
 		return err
 	}

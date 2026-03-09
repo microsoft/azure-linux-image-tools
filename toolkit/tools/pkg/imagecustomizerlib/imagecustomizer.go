@@ -18,7 +18,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -112,7 +111,7 @@ type imageMetadata struct {
 	osRelease              string
 	osPackages             []OsPackage
 	cosiBootMetadata       *CosiBootloader
-	targetOS               targetos.TargetOs
+	distroHandler          DistroHandler
 	partitionOriginalSizes map[string]uint64
 }
 
@@ -474,17 +473,17 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		rc.Config.OS = &imagecustomizerapi.OS{}
 	}
 
-	targetOS, err := validateTargetOs(ctx, rc)
+	distroHandler, err := validateTargetOs(ctx, rc)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
 	}
 
 	// Save target OS information
-	im.targetOS = targetOS
+	im.distroHandler = distroHandler
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.targetOS)
+		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.distroHandler.GetTargetOs())
 	if err != nil {
 		return im, err
 	}
@@ -496,7 +495,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	// Customize the raw image file.
 	partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, err := customizeImageHelper(ctx, rc,
-		partitionsCustomized, im.targetOS)
+		partitionsCustomized, im.distroHandler)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCustomizeOs, err)
 	}
@@ -546,7 +545,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	var osPackages []OsPackage
 	var cosiBootMetadata *CosiBootloader
 	if rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage {
-		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout)
+		osPackages, cosiBootMetadata, err = collectOSInfo(ctx, rc.BuildDirAbs, rc.RawImageFile, partitionsLayout,
+			im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCollectOSInfo, err)
 		}
@@ -702,7 +702,7 @@ func toQemuImageFormat(imageFormat imagecustomizerapi.ImageFormatType) (string, 
 }
 
 func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCustomized bool,
-	targetOS targetos.TargetOs,
+	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
@@ -719,9 +719,6 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-
-	// Create distro handler using the target OS determined earlier
-	distroHandler := NewDistroHandlerFromTargetOs(targetOS)
 
 	imageConnection.Chroot().UnsafeRun(func() error {
 		distro, version := osinfo.GetDistroAndVersion()
@@ -760,6 +757,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 }
 
 func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, partitionsLayout []fstabEntryPartNum,
+	distroHandler DistroHandler,
 ) ([]OsPackage, *CosiBootloader, error) {
 	var err error
 	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false,
@@ -768,11 +766,6 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 		return nil, nil, err
 	}
 	defer imageConnection.Close()
-
-	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to detect distribution:\n%w", err)
-	}
 
 	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)
 	if err != nil {
@@ -894,79 +887,27 @@ func CheckEnvironmentVars() error {
 	return nil
 }
 
-func validateDistroPreviewFeatures(targetOs targetos.TargetOs, previewFeatures []imagecustomizerapi.PreviewFeature) error {
-	if targetOs == targetos.TargetOsFedora42 {
-		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
-			return ErrFedora42PreviewFeatureRequired
-		}
-	}
-
-	if targetOs == targetos.TargetOsUbuntu2204 {
-		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
-			return ErrUbuntu2204PreviewFeatureRequired
-		}
-	}
-
-	if targetOs == targetos.TargetOsUbuntu2404 {
-		if !slices.Contains(previewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
-			return ErrUbuntu2404PreviewFeatureRequired
-		}
-	}
-
-	return nil
-}
-
 // validateTargetOs checks if the current distro/version is supported and has the required preview
 // features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
-) (targetos.TargetOs, error) {
+) (DistroHandler, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
 		false /* read-only-verity */, false /* ignore-overlays */)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer existingImageConnection.Close()
 
-	targetOs, err := targetos.GetInstalledTargetOs(existingImageConnection.Chroot().RootDir())
+	distroHandler, err := NewDistroHandlerFromChroot(existingImageConnection.Chroot())
 	if err != nil {
-		return "", fmt.Errorf("failed to determine the target OS:\n%w", err)
+		return nil, err
 	}
 
-	// Validate distro-specific preview features
-	err = validateDistroPreviewFeatures(targetOs, rc.PreviewFeatures)
+	err = distroHandler.ValidateConfig(rc)
 	if err != nil {
-		return targetOs, err
+		return nil, fmt.Errorf("invalid config for image distro:\n%w", err)
 	}
 
-	// Check if Ubuntu is being used with bootloader hard-reset.
-	// Ubuntu bootloader config logic is not yet fully implemented.
-	if (targetOs == targetos.TargetOsUbuntu2204 || targetOs == targetos.TargetOsUbuntu2404) &&
-		rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
-		return targetOs, ErrUbuntuBootLoaderHardReset
-	}
-
-	// Check if Fedora 42 is being used and if package snapshot time is specified
-	if targetOs == targetos.TargetOsFedora42 {
-		hasPackageSnapshotTime := false
-
-		if rc.Options.PackageSnapshotTime != "" {
-			hasPackageSnapshotTime = true
-		}
-
-		if !hasPackageSnapshotTime {
-			for _, configWithBase := range rc.ConfigChain {
-				if configWithBase.Config.OS.Packages.SnapshotTime != "" {
-					hasPackageSnapshotTime = true
-					break
-				}
-			}
-		}
-
-		if hasPackageSnapshotTime {
-			return targetOs, fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
-		}
-	}
-
-	return targetOs, nil
+	return distroHandler, nil
 }
