@@ -486,12 +486,7 @@ func findExtendedPartition(mountIdType imagecustomizerapi.MountIdentifierType, m
 ) (diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
 	switch mountIdType {
 	case MountIdentifierTypeDev:
-		kernelCmdline, err := getKernelCmdline()
-		if err != nil {
-			return diskutils.PartitionInfo{}, 0, nil, err
-		}
-
-		partition, partitionIndex, verityMetadata, err := findDevPathPartition(mountId, partitions, kernelCmdline)
+		partition, partitionIndex, verityMetadata, err := findDevPathPartition(mountId, partitions, getKernelCmdline)
 		if err != nil {
 			return diskutils.PartitionInfo{}, 0, nil, err
 		}
@@ -549,28 +544,34 @@ func findPartitionHelper(mountIdType imagecustomizerapi.MountIdentifierType, mou
 }
 
 func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
-	kernelCmdline []grubConfigLinuxArg,
+	getKernelCmdline func() ([]grubConfigLinuxArg, error),
 ) (diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
 	switch mountId {
-	case imagecustomizerapi.VerityRootDevicePath:
-		partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
-			"systemd.verity_root_data", "systemd.verity_root_hash", "roothash", "systemd.verity_root_options",
-			imagecustomizerapi.VerityRootDeviceName)
+	case imagecustomizerapi.VerityRootDevicePath, imagecustomizerapi.VerityUsrDevicePath:
+		kernelCmdline, err := getKernelCmdline()
 		if err != nil {
-			err = fmt.Errorf("failed to find %s verity partitions:\n%w", imagecustomizerapi.VerityRootDeviceName, err)
 			return diskutils.PartitionInfo{}, 0, nil, err
 		}
-		return partition, partitionIndex, &verityMetadata, nil
 
-	case imagecustomizerapi.VerityUsrDevicePath:
-		partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
-			"systemd.verity_usr_data", "systemd.verity_usr_hash", "usrhash", "systemd.verity_usr_options",
-			imagecustomizerapi.VerityUsrDeviceName)
-		if err != nil {
-			err = fmt.Errorf("failed to find %s verity partitions:\n%w", imagecustomizerapi.VerityUsrDeviceName, err)
-			return diskutils.PartitionInfo{}, 0, nil, err
+		if mountId == imagecustomizerapi.VerityRootDevicePath {
+			partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
+				"systemd.verity_root_data", "systemd.verity_root_hash", "roothash", "systemd.verity_root_options",
+				imagecustomizerapi.VerityRootDeviceName)
+			if err != nil {
+				err = fmt.Errorf("failed to find %s verity partitions:\n%w", imagecustomizerapi.VerityRootDeviceName, err)
+				return diskutils.PartitionInfo{}, 0, nil, err
+			}
+			return partition, partitionIndex, &verityMetadata, nil
+		} else {
+			partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
+				"systemd.verity_usr_data", "systemd.verity_usr_hash", "usrhash", "systemd.verity_usr_options",
+				imagecustomizerapi.VerityUsrDeviceName)
+			if err != nil {
+				err = fmt.Errorf("failed to find %s verity partitions:\n%w", imagecustomizerapi.VerityUsrDeviceName, err)
+				return diskutils.PartitionInfo{}, 0, nil, err
+			}
+			return partition, partitionIndex, &verityMetadata, nil
 		}
-		return partition, partitionIndex, &verityMetadata, nil
 
 	default:
 		err := fmt.Errorf("unknown partition id (%s)", mountId)
