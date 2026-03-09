@@ -49,7 +49,7 @@ func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 	}
 
 	if rc.HasPackageSnapshotTime() {
-		return fmt.Errorf("Fedora 42 does not support package snapshotting:\n%w", ErrUnsupportedFedoraFeature)
+		return fmt.Errorf("Package snapshotting API not supported for Fedora:\n%w", ErrUnsupportedFedoraFeature)
 	}
 
 	return nil
