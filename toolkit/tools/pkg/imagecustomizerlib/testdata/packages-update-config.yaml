@@ -1,15 +1,7 @@
 os:
   packages:
-    updateExistingPackages: true
-
-    remove:
-    - which
-
     install:
     - unzip
-
-    installLists:
-    - lists/tree.yaml
 
     update:
     - unzip

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -36,6 +37,30 @@ func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
 	}
 }
 
+func (d *ubuntuDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	switch d.version {
+	case "22.04":
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
+			return ErrUbuntu2204PreviewFeatureRequired
+		}
+	case "24.04":
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
+			return ErrUbuntu2404PreviewFeatureRequired
+		}
+
+	default:
+		panic("unsupported Ubuntu version: " + d.version)
+	}
+
+	// Check if Ubuntu is being used with bootloader hard-reset.
+	// Ubuntu bootloader config logic is not yet fully implemented.
+	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
+		return ErrUbuntuBootLoaderHardReset
+	}
+
+	return nil
+}
+
 // ManagePackages handles the complete package management workflow for Ubuntu
 func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir string, baseConfigPath string,
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
@@ -53,22 +78,7 @@ func (d *ubuntuDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 			ErrUnsupportedUbuntuFeature)
 	}
 
-	packages := config.Packages
-
-	if len(packages.Remove) > 0 || len(packages.RemoveLists) > 0 {
-		return fmt.Errorf("package remove is not yet supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
-	}
-
-	if len(packages.Update) > 0 || len(packages.UpdateLists) > 0 {
-		return fmt.Errorf("package update is not yet supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
-	}
-
-	if packages.UpdateExistingPackages {
-		return fmt.Errorf("updateExistingPackages is not yet supported for Ubuntu images:\n%w",
-			ErrUnsupportedUbuntuFeature)
-	}
-
-	if packages.SnapshotTime != "" {
+	if config.Packages.SnapshotTime != "" {
 		return fmt.Errorf("package snapshotTime is not yet supported for Ubuntu images:\n%w",
 			ErrUnsupportedUbuntuFeature)
 	}
