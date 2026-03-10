@@ -16,7 +16,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
 
 ## Instructions
 
-1. Download a supported  Linux VHDX image file. 
+1. Download a supported Linux VHDX image file. 
    - You can [download a marketplace image from Azure](../how-to/azure-vm/download-marketplace-image.md).    
 
 2. Create a customization config file.
