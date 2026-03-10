@@ -15,7 +15,7 @@ import (
 )
 
 func TestCustomizeImageMultiKernel(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageMultiKernel(t, "TestCustomizeImageMultiKernel"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -24,6 +24,13 @@ func TestCustomizeImageMultiKernel(t *testing.T) {
 
 func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		// Multi-kernel config installs Azure Linux-specific kernel packages.
+		// Ubuntu multi-kernel testing will be added when Ubuntu-specific
+		// kernel package configs are available.
+		t.Skip("multi-kernel config not yet available for Ubuntu")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)

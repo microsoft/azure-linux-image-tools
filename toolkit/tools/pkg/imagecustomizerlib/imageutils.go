@@ -214,7 +214,10 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 	return partIdToPartUuid, nil
 }
 
-func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
+// configureDiskBootLoaderWithInstallutils configures the bootloader using the
+// installutils package. This is the shared implementation used by Azure Linux
+// and Fedora handlers.
+func configureDiskBootLoaderWithInstallutils(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
 	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode,
@@ -225,7 +228,8 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 		return err
 	}
 
-	imagerKernelCommandLine, err := kernelCommandLineToImager(kernelCommandLine, selinuxConfig, currentSELinuxMode)
+	imagerKernelCommandLine, err := kernelCommandLineToImager(
+		kernelCommandLine, selinuxConfig, currentSELinuxMode)
 	if err != nil {
 		return err
 	}
@@ -247,7 +251,8 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 			return err
 		}
 
-		bootConfigType, err = determineBootConfigType(grubCfgContent, imageConnection.Chroot())
+		bootConfigType, err = determineBootConfigType(
+			grubCfgContent, imageConnection.Chroot())
 		if err != nil {
 			return err
 		}
@@ -261,10 +266,12 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	}
 
 	// Configure the boot loader.
-	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(imagerBootType, false, imagerRootMountIdType,
-		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(),
-		mountPointMap, diskutils.EncryptedRootDevice{}, grubMkconfigEnabled,
-		!grubMkconfigEnabled)
+	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(
+		imagerBootType, false, imagerRootMountIdType,
+		imagerKernelCommandLine, imageConnection.Chroot(),
+		imageConnection.Loopback().DevicePath(),
+		mountPointMap, diskutils.EncryptedRootDevice{},
+		grubMkconfigEnabled, !grubMkconfigEnabled)
 	if err != nil {
 		return fmt.Errorf("failed to install bootloader:\n%w", err)
 	}

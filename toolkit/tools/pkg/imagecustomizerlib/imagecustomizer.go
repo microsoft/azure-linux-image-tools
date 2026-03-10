@@ -41,7 +41,6 @@ var (
 	ErrFedora42PreviewFeatureRequired   = NewImageCustomizerError("Validation:Fedora42PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Fedora 42 base image", imagecustomizerapi.PreviewFeatureFedora42))
 	ErrUbuntu2204PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2204PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 22.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2204))
 	ErrUbuntu2404PreviewFeatureRequired = NewImageCustomizerError("Validation:Ubuntu2404PreviewFeatureRequired", fmt.Sprintf("preview feature '%s' required to customize Ubuntu 24.04 base image", imagecustomizerapi.PreviewFeatureUbuntu2404))
-	ErrUbuntuBootLoaderHardReset        = NewImageCustomizerError("Validation:UbuntuBootLoaderHardReset", "bootloader hard-reset is not supported for Ubuntu images")
 	ErrUnsupportedUbuntuFeature         = NewImageCustomizerError("Validation:UnsupportedUbuntuFeature", "unsupported feature for Ubuntu images")
 	ErrInputImageOciPreviewRequired     = NewImageCustomizerError("Validation:InputImageOciPreviewRequired", fmt.Sprintf("preview feature '%s' required to specify OCI input image", imagecustomizerapi.PreviewFeatureInputImageOci))
 	ErrConvertUnsupportedInputFormat    = NewImageCustomizerError("Validation:ConvertUnsupportedInputFormat", "input image format is not supported")

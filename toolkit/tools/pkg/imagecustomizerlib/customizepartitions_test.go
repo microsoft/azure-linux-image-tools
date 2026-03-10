@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/kernelversion"
@@ -24,7 +25,7 @@ import (
 )
 
 func TestCustomizeImagePartitions(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePartitionsToEfi(t, "TestCustomizeImagePartitions"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -134,6 +135,13 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", false)
 
 	case baseImageVersionAzl3:
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", hostKernelVersion.Ge([]int{5, 19}))
+
+	case baseImageVersionUbuntu2204, baseImageVersionUbuntu2404:
+		// Ubuntu base images use ext4, but the custom partition config creates xfs partitions.
+		// The xfs features depend on the build host's mkfs.xfs version, which follows the same
+		// kernel-version-based defaults.
 		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
 		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", hostKernelVersion.Ge([]int{5, 19}))
 	}
@@ -293,9 +301,10 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageKernelCommandLineHelper(t, "TestCustomizeImageKernelCommandLine"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageKernelCommandLineHelper(t,
+				"TestCustomizeImageKernelCommandLine"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
@@ -317,23 +326,31 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false,
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer imageConnection.Close()
 
 	// Check that the extraCommandLine was added to the grub.cfg file.
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	var grubCfgRelPath string
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		grubCfgRelPath = installutils.UbuntuGrubCfgFile
+	} else {
+		grubCfgRelPath = installutils.GrubCfgFile
+	}
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), grubCfgRelPath)
 	grubCfgContents, err := file.Read(grubCfgFilePath)
 	assert.NoError(t, err, "read grub.cfg file")
 	assert.Regexp(t, "linux.* console=tty0 console=ttyS0 ", grubCfgContents)
 }
 
 func TestCustomizeImageNewUUIDs(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageNewUUIDsHelper(t, "TestCustomizeImageNewUUIDs"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageNewUUIDsHelper(t,
+				"TestCustomizeImageNewUUIDs"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
@@ -385,7 +402,8 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		return
 	}
 
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false,
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -406,17 +424,20 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 				continue
 			}
 
-			assert.Equalf(t, baseImagePartition.FileSystemType, newImagePartition.FileSystemType, "[%d] filesystem type didn't change", partitionNum)
-			assert.NotEqualf(t, baseImagePartition.PartUuid, newImagePartition.PartUuid, "[%d] partition UUID did change", partitionNum)
-			assert.NotEqual(t, baseImagePartition.Uuid, newImagePartition.Uuid, "[%d] filesystem UUID did change", partitionNum)
+			assert.Equalf(t, baseImagePartition.FileSystemType, newImagePartition.FileSystemType,
+				"[%d] filesystem type didn't change", partitionNum)
+			assert.NotEqualf(t, baseImagePartition.PartUuid, newImagePartition.PartUuid,
+				"[%d] partition UUID did change", partitionNum)
+			assert.NotEqual(t, baseImagePartition.Uuid, newImagePartition.Uuid,
+				"[%d] filesystem UUID did change", partitionNum)
 		}
 	}
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions)
+	verifyFstabEntries(t, imageConnection, baseImageInfo.MountPoints, newImagePartitions)
 	verifyBootloaderConfig(t, imageConnection, "",
-		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
-		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
+		newImagePartitions[baseImageInfo.MountPoints[0].PartitionNum],
+		newImagePartitions[baseImageInfo.MountPoints[0].PartitionNum],
 		baseImageInfo)
 }
 
@@ -761,28 +782,47 @@ func verifyFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConn
 	}
 }
 
-func verifyBootloaderConfig(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
-	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, baseImageInfo testBaseImageInfo,
+func verifyBootloaderConfig(t *testing.T, imageConnection *imageconnection.ImageConnection,
+	extraCommandLineArgs string, bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
+	baseImageInfo testBaseImageInfo,
 ) {
-	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid)
+	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid, baseImageInfo)
 	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
 }
 
-func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, bootUuid string) {
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi/boot/grub2/grub.cfg")
+func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection,
+	bootUuid string, baseImageInfo testBaseImageInfo,
+) {
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		// Ubuntu's grub-mkconfig does not create an ESP redirect grub.cfg.
+		// The ESP grub.cfg at /boot/efi/boot/grub2/grub.cfg is only created by
+		// installEfiBootloader() for Azure Linux.
+		return
+	}
+
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(),
+		"/boot/efi/boot/grub2/grub.cfg")
 	grubCfgContents, err := file.Read(grubCfgFilePath)
 	if !assert.NoError(t, err, "read ESP grub.cfg file") {
 		return
 	}
 
-	assert.Regexp(t, fmt.Sprintf("(?m)^search -n -u %s -s$", regexp.QuoteMeta(bootUuid)), grubCfgContents)
+	assert.Regexp(t,
+		fmt.Sprintf("(?m)^search -n -u %s -s$", regexp.QuoteMeta(bootUuid)),
+		grubCfgContents)
 }
 
-func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
-	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
-	baseImageInfo testBaseImageInfo,
+func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection,
+	extraCommandLineArgs string, bootInfo diskutils.PartitionInfo,
+	rootfsInfo diskutils.PartitionInfo, baseImageInfo testBaseImageInfo,
 ) {
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+	var grubCfgPath string
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		grubCfgPath = installutils.UbuntuGrubCfgFile
+	} else {
+		grubCfgPath = installutils.GrubCfgFile
+	}
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), grubCfgPath)
 	grubCfgContents, err := file.Read(grubCfgFilePath)
 	if !assert.NoError(t, err, "read boot grub.cfg file") {
 		return
@@ -790,25 +830,44 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConne
 
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl2:
-		assert.Regexp(t, fmt.Sprintf(`(?m)^search -n -u %s -s$`, regexp.QuoteMeta(bootInfo.Uuid)),
+		assert.Regexp(t, fmt.Sprintf(`(?m)^search -n -u %s -s$`,
+			regexp.QuoteMeta(bootInfo.Uuid)),
 			grubCfgContents)
-		assert.Regexp(t, fmt.Sprintf(`(?m)^set rootdevice=PARTUUID=%s$`, regexp.QuoteMeta(rootfsInfo.PartUuid)),
+		assert.Regexp(t, fmt.Sprintf(`(?m)^set rootdevice=PARTUUID=%s$`,
+			regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
 
 	case baseImageVersionAzl3:
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
+		assert.Regexp(t, fmt.Sprintf(
+			`(?m)[\t ]*search.* --fs-uuid --set=root %s$`,
+			regexp.QuoteMeta(bootInfo.Uuid)),
 			grubCfgContents)
 
-		// In theory, UUID should always be used (unless GRUB_DISABLE_UUID is set in the /etc/default/grub file, which
-		// it isn't). But on some build hosts, PARTUUID is used instead. Not sure why this is the case. But the OS will
-		// still boot either way. So, allow both for now.
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* root=(UUID=%s|PARTUUID=%s) `, regexp.QuoteMeta(rootfsInfo.Uuid),
+		// In theory, UUID should always be used (unless GRUB_DISABLE_UUID is set in the
+		// /etc/default/grub file, which it isn't). But on some build hosts, PARTUUID is used
+		// instead. Not sure why this is the case. But the OS will still boot either way. So,
+		// allow both for now.
+		assert.Regexp(t, fmt.Sprintf(
+			`(?m)[\t ]*linux.* root=(UUID=%s|PARTUUID=%s) `,
+			regexp.QuoteMeta(rootfsInfo.Uuid),
 			regexp.QuoteMeta(rootfsInfo.PartUuid)),
+			grubCfgContents)
+
+	case baseImageVersionUbuntu2204, baseImageVersionUbuntu2404:
+		// Ubuntu grub-mkconfig output format.
+		assert.Regexp(t, fmt.Sprintf(
+			`(?m)[\t ]*search.* --fs-uuid --set=root %s`,
+			regexp.QuoteMeta(bootInfo.Uuid)),
+			grubCfgContents)
+		assert.Regexp(t, fmt.Sprintf(
+			`(?m)[\t ]*linux.* root=UUID=%s `,
+			regexp.QuoteMeta(rootfsInfo.Uuid)),
 			grubCfgContents)
 	}
 
 	if extraCommandLineArgs != "" {
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)), grubCfgContents)
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `,
+			regexp.QuoteMeta(extraCommandLineArgs)), grubCfgContents)
 	}
 }
 

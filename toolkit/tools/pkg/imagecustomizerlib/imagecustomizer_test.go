@@ -615,9 +615,10 @@ func TestCustomizeImage_InputImageFileAsRelativePath(t *testing.T) {
 }
 
 func TestCustomizeImageKernelCommandLineAdd(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageKernelCommandLineAddHelper(t, "TestCustomizeImageKernelCommandLineAdd"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageKernelCommandLineAddHelper(t,
+				"TestCustomizeImageKernelCommandLineAdd"+baseImageInfo.Name, baseImageInfo)
 		})
 	}
 }
@@ -646,14 +647,21 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 	}
 
 	// Mount the output disk image so that its contents can be checked.
-	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false,
+		baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
 		return
 	}
 	defer imageConnection.Close()
 
 	// Read the grub.cfg file.
-	grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), installutils.GrubCfgFile)
+	var grubCfgRelPath string
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		grubCfgRelPath = installutils.UbuntuGrubCfgFile
+	} else {
+		grubCfgRelPath = installutils.GrubCfgFile
+	}
+	grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), grubCfgRelPath)
 
 	grub2ConfigFile, err := os.ReadFile(grub2ConfigFilePath)
 	if !assert.NoError(t, err) {

@@ -136,6 +136,58 @@ func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, base
 	assert.Contains(t, workLabel, ":object_r:no_access_t:s0")
 }
 
+func TestCustomizeImageOverlaysMinimal(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageOverlaysMinimal(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageOverlaysMinimal(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageOverlaysMinimal_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "overlays-minimal-config.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Connect to customized image.
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Read fstab file.
+	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
+	fstabContents, err := file.Read(fstabPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Check that the overlay for /etc is configured in fstab.
+	assert.Contains(t, fstabContents, "overlay /etc overlay")
+	assert.Contains(t, fstabContents, "lowerdir=")
+	assert.Contains(t, fstabContents, "upperdir=")
+	assert.Contains(t, fstabContents, "workdir=")
+}
+
 func getSELinuxLabel(path string) (string, error) {
 	stdout, _, err := shell.Execute("ls", "-Zd", path)
 	if err != nil {

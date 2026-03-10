@@ -14,6 +14,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 var (
@@ -333,7 +334,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 			return err
 		}
 		// Update /boot/grub2/grub.cfg file.
-		err = installutils.CallGrubMkconfig(imageChroot)
+		err = callDistroGrubMkconfig(imageChroot, b.distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrBootGrubMkconfigGeneration, err)
 		}
@@ -349,6 +350,32 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 		// UKI passthrough mode: preserve existing UKI boot configuration.
 		// UKI files are managed by UKI-specific customization logic, not through grub.
 		// Future: May need to update boot loader configuration when native UKI boot support is added.
+	}
+
+	return nil
+}
+
+// callDistroGrubMkconfig runs the distro-appropriate grub-mkconfig binary
+// to regenerate the grub.cfg file. For Azure Linux/Fedora, this runs
+// "grub2-mkconfig -o /boot/grub2/grub.cfg". For Ubuntu, this runs
+// "grub-mkconfig -o /boot/grub/grub.cfg".
+func callDistroGrubMkconfig(
+	imageChroot safechroot.ChrootInterface,
+	distroHandler DistroHandler,
+) error {
+	grubCfg := distroHandler.GetGrubConfig()
+	binary := grubCfg.GrubMkconfigBinary
+	// GrubCfgRelPath is already the correct absolute path inside the chroot
+	// (e.g., "/boot/grub2/grub.cfg"). The filepath.Join + TrimPrefix dance is
+	// unnecessary and breaks when RootDir is "/" because TrimPrefix strips
+	// the leading "/" from the path.
+	relPath := grubCfg.GrubCfgRelPath
+
+	err := imageChroot.UnsafeRun(func() error {
+		return shell.ExecuteLive(true, binary, "-o", relPath)
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

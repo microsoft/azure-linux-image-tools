@@ -53,11 +53,11 @@ APIs marked as **Preview** require the distribution's
 | [input.image.path](./configuration/inputImage.md#path-string)                            | Yes                   | Preview             |
 | [input.image.oci](./configuration/inputImage.md#oci-ociimage)                            | Yes                   | No                  |
 | [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)       | Yes                   | N/A                 |
-| [storage](./configuration/config.md#storage-storage)                                     | Yes                   | No                  |
+| [storage](./configuration/config.md#storage-storage)                                     | Yes                   | Yes                 |
 | [iso](./configuration/config.md#iso-iso)                                                 | Yes                   | No                  |
 | [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes                   | No                  |
 | [os.hostname](./configuration/os.md#hostname-string)                                     | Yes                   | Preview             |
-| [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)        | Yes                   | No                  |
+| [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)        | Yes                   | Yes                 |
 | [os.packages](./configuration/os.md#packages-packages)                                   | Yes                   | Preview             |
 | &emsp;[.updateExistingPackages](./configuration/packages.md#updateexistingpackages-bool) | Yes                   | Preview             |
 | &emsp;[.installLists](./configuration/packages.md#installlists-string)                   | Yes                   | Preview             |
@@ -74,7 +74,7 @@ APIs marked as **Preview** require the distribution's
 | [os.modules](./configuration/os.md#modules-module)                                       | Yes                   | Preview             |
 | [os.services](./configuration/os.md#services-services)                                   | Yes                   | Preview             |
 | [os.overlays](./configuration/os.md#overlays-overlay)                                    | Yes                   | No                  |
-| [os.bootloader](./configuration/os.md#bootloader-bootloader)                             | Yes                   | No                  |
+| [os.bootloader](./configuration/os.md#bootloader-bootloader)                             | Yes                   | Yes                 |
 | [os.uki](./configuration/os.md#uki-uki)                                                  | Yes                   | No                  |
 | [os.selinux](./configuration/os.md#selinux-selinux)                                      | Yes                   | No                  |
 | [os.imageHistory](./configuration/os.md#imagehistory-string)                             | Yes                   | Preview             |

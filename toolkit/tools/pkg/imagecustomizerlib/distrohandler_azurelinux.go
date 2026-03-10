@@ -6,11 +6,13 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
@@ -18,12 +20,19 @@ import (
 type azureLinuxDistroHandler struct {
 	version        string
 	packageManager rpmPackageManagerHandler
+	grubConfig     GrubConfig
 }
 
 func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
 	return &azureLinuxDistroHandler{
 		version:        version,
 		packageManager: newTdnfPackageManager(version),
+		grubConfig: GrubConfig{
+			GrubCfgRelPath:     installutils.GrubCfgFile,
+			GrubEnvRelPath:     "boot/grub2/grubenv",
+			GrubMkconfigBinary: "grub2-mkconfig",
+			SELinuxSupported:   true,
+		},
 	}
 }
 
@@ -71,10 +80,39 @@ func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.Ch
 	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
 }
 
-func (d *azureLinuxDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
-	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
+func (d *azureLinuxDistroHandler) GetGrubConfig() GrubConfig {
+	return d.grubConfig
 }
 
-func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
-	return true
+func (d *azureLinuxDistroHandler) RegenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error {
+	err := imageChroot.UnsafeRun(func() error {
+		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.
+		mkinitrdExists, err := file.CommandExists("mkinitrd")
+		if err != nil {
+			return fmt.Errorf("failed to search for mkinitrd command:\n%w", err)
+		}
+
+		if mkinitrdExists {
+			return shell.ExecuteLiveWithErr(1, "mkinitrd")
+		} else {
+			return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("failed to rebuild initramfs:\n%w", err)
+	}
+
+	return nil
+}
+
+func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(
+	imageConnection *imageconnection.ImageConnection,
+	rootMountIdType imagecustomizerapi.MountIdentifierType,
+	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	currentSELinuxMode imagecustomizerapi.SELinuxMode,
+	newImage bool,
+) error {
+	return configureDiskBootLoaderWithInstallutils(imageConnection, rootMountIdType, bootType,
+		selinuxConfig, kernelCommandLine, currentSELinuxMode, newImage, d)
 }

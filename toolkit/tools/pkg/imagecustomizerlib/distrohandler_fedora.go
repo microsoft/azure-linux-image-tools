@@ -6,11 +6,11 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -19,12 +19,19 @@ import (
 type fedoraDistroHandler struct {
 	version        string
 	packageManager rpmPackageManagerHandler
+	grubConfig     GrubConfig
 }
 
 func newFedoraDistroHandler(version string) *fedoraDistroHandler {
 	return &fedoraDistroHandler{
 		version:        version,
 		packageManager: newDnfPackageManager(version),
+		grubConfig: GrubConfig{
+			GrubCfgRelPath:     installutils.GrubCfgFile,
+			GrubEnvRelPath:     "boot/grub2/grubenv",
+			GrubMkconfigBinary: "grub2-mkconfig",
+			SELinuxSupported:   true,
+		},
 	}
 }
 
@@ -66,28 +73,49 @@ func (d *fedoraDistroHandler) ManagePackages(ctx context.Context, buildDir strin
 	)
 }
 
-func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
+func (d *fedoraDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface,
+	packageName string,
+) bool {
 	return d.packageManager.isPackageInstalled(imageChroot, packageName)
 }
 
-func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+func (d *fedoraDistroHandler) GetAllPackagesFromChroot(
+	imageChroot safechroot.ChrootInterface,
+) ([]OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
-func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.IsPackageInstalled(imageChroot, "grub2-efi-x64") || d.IsPackageInstalled(imageChroot, "grub2-efi-aa64") {
+func (d *fedoraDistroHandler) DetectBootloaderType(
+	imageChroot safechroot.ChrootInterface,
+) (BootloaderType, error) {
+	if d.IsPackageInstalled(imageChroot, "grub2-efi-x64") ||
+		d.IsPackageInstalled(imageChroot, "grub2-efi-aa64") {
 		return BootloaderTypeGrub, nil
 	}
 	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
 		return BootloaderTypeSystemdBoot, nil
 	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
+	return "", fmt.Errorf(
+		"unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
 }
 
-func (d *fedoraDistroHandler) GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string {
-	return filepath.Join(imageChroot.RootDir(), installutils.GrubCfgFile)
+func (d *fedoraDistroHandler) GetGrubConfig() GrubConfig {
+	return d.grubConfig
 }
 
-func (d *fedoraDistroHandler) SELinuxSupported() bool {
-	return true
+func (d *fedoraDistroHandler) RegenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error {
+
+	return ErrUnsupportedFedoraFeature
+}
+
+func (d *fedoraDistroHandler) ConfigureDiskBootLoader(
+	imageConnection *imageconnection.ImageConnection,
+	rootMountIdType imagecustomizerapi.MountIdentifierType,
+	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
+	kernelCommandLine imagecustomizerapi.KernelCommandLine,
+	currentSELinuxMode imagecustomizerapi.SELinuxMode,
+	newImage bool,
+) error {
+	return configureDiskBootLoaderWithInstallutils(imageConnection, rootMountIdType, bootType,
+		selinuxConfig, kernelCommandLine, currentSELinuxMode, newImage, d)
 }

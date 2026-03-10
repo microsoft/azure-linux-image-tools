@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -28,6 +29,24 @@ const (
 	distroNameAzureLinux DistroName = "azurelinux"
 	distroNameFedora     DistroName = "fedora"
 )
+
+// GrubConfig holds distro-specific grub configuration constants.
+type GrubConfig struct {
+	// GrubCfgRelPath is the grub config file path relative to root
+	// (e.g., "/boot/grub2/grub.cfg" or "/boot/grub/grub.cfg").
+	GrubCfgRelPath string
+
+	// GrubEnvRelPath is the grubenv file path relative to root
+	// (e.g., "boot/grub2/grubenv" or "boot/grub/grubenv").
+	GrubEnvRelPath string
+
+	// GrubMkconfigBinary is the grub-mkconfig binary name
+	// ("grub2-mkconfig" for Azure Linux/Fedora, "grub-mkconfig" for Ubuntu).
+	GrubMkconfigBinary string
+
+	// SELinuxSupported reports whether SELinux configuration is supported for this distro.
+	SELinuxSupported bool
+}
 
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
@@ -50,11 +69,22 @@ type DistroHandler interface {
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
-	// Get the path to the grub configuration file
-	GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
+	// GetGrubConfig returns the distro-specific grub configuration constants.
+	GetGrubConfig() GrubConfig
 
-	// Reports whether SELinux configuration is supported by the tool for this distro.
-	SELinuxSupported() bool
+	// RegenerateInitrd regenerates the initramfs using distro-appropriate tooling.
+	RegenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error
+
+	// ConfigureDiskBootLoader configures the bootloader for a disk image using
+	// distro-appropriate tooling. For Azure Linux and Fedora this delegates to
+	// installutils; for Ubuntu it uses BootCustomizer to update /etc/default/grub
+	// and regenerate grub.cfg via grub-mkconfig.
+	ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
+		rootMountIdType imagecustomizerapi.MountIdentifierType,
+		bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
+		kernelCommandLine imagecustomizerapi.KernelCommandLine,
+		currentSELinuxMode imagecustomizerapi.SELinuxMode,
+		newImage bool) error
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

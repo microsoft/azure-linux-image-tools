@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 )
 
 const (
@@ -185,7 +186,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	if partitionsCustomized || overlayUpdated || verityUpdated {
-		err = regenerateInitrd(ctx, imageChroot)
+		logger.Log.Infof("Regenerate initramfs file")
+		err = distroHandler.RegenerateInitrd(ctx, imageChroot)
 		if err != nil {
 			return err
 		}

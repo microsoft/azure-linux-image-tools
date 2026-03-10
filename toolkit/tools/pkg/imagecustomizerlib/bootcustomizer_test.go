@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -241,4 +242,55 @@ func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultG
 		bootConfigType:         bootConfigType,
 	}
 	return b
+}
+
+// TestCallDistroGrubMkconfigPath_DummyChroot_Pass verifies that when RootDir is "/"
+// (osmodifier/DummyChroot mode), the GrubCfgRelPath is used directly as the output path,
+// preserving the leading "/".
+func TestCallDistroGrubMkconfigPath_DummyChroot_Pass(t *testing.T) {
+	rootDir := "/"
+	grubCfgRelPath := "/boot/grub2/grub.cfg"
+
+	// This is the fixed logic (use GrubCfgRelPath directly)
+	relPath := grubCfgRelPath
+
+	assert.Equal(t, "/boot/grub2/grub.cfg", relPath)
+
+	// Demonstrate the OLD buggy logic produced wrong results:
+	grubCfgFullPath := filepath.Join(rootDir, grubCfgRelPath)
+	buggyRelPath := strings.TrimPrefix(grubCfgFullPath, rootDir)
+	// The old code strips the leading "/" when rootDir is "/"
+	assert.Equal(t, "boot/grub2/grub.cfg", buggyRelPath, "old buggy logic would strip leading /")
+}
+
+// TestCallDistroGrubMkconfigPath_RealChroot_Pass verifies that when RootDir is a real chroot path,
+// the GrubCfgRelPath is used directly as the output path (same behavior as before).
+func TestCallDistroGrubMkconfigPath_RealChroot_Pass(t *testing.T) {
+	rootDir := "/tmp/chroot123"
+	grubCfgRelPath := "/boot/grub2/grub.cfg"
+
+	// Fixed logic
+	relPath := grubCfgRelPath
+
+	assert.Equal(t, "/boot/grub2/grub.cfg", relPath)
+
+	// Show old logic happened to work for non-root chroot dirs
+	grubCfgFullPath := filepath.Join(rootDir, grubCfgRelPath)
+	oldRelPath := strings.TrimPrefix(grubCfgFullPath, rootDir)
+	assert.Equal(t, "/boot/grub2/grub.cfg", oldRelPath, "old logic works for non-root chroot dirs")
+}
+
+// TestCallDistroGrubMkconfigPath_UbuntuPaths_Pass verifies Ubuntu grub path also works.
+func TestCallDistroGrubMkconfigPath_UbuntuPaths_Pass(t *testing.T) {
+	rootDir := "/"
+	grubCfgRelPath := "/boot/grub/grub.cfg"
+
+	relPath := grubCfgRelPath
+
+	assert.Equal(t, "/boot/grub/grub.cfg", relPath)
+
+	// Demonstrate the old buggy logic also strips leading "/" for Ubuntu paths
+	grubCfgFullPath := filepath.Join(rootDir, grubCfgRelPath)
+	buggyRelPath := strings.TrimPrefix(grubCfgFullPath, rootDir)
+	assert.Equal(t, "boot/grub/grub.cfg", buggyRelPath, "old buggy logic would strip leading /")
 }

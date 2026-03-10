@@ -56,7 +56,7 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		return currentSELinuxMode, nil
 	}
 
-	if !distroHandler.SELinuxSupported() {
+	if !distroHandler.GetGrubConfig().SELinuxSupported {
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("%w: cannot set SELinux mode (%s)",
 			ErrSELinuxNotSupported, selinuxMode)
 	}
