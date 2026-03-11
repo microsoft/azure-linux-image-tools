@@ -37,13 +37,13 @@ customized using Image Customizer.
    For Ubuntu 22.04:
 
    ```bash
-   az vm image list --publisher cloud-infrastructure-services --offer Ubuntu-22-04 --sku Ubuntu --all --output table
+   az vm image list --publisher canonical --offer Ubuntu-22_04 --sku Ubuntu --all --output table
    ```
 
    For Ubuntu 24.04:
 
    ```bash
-   az vm image list --publisher cloud-infrastructure-services --offer Ubuntu-24-04 --sku Ubuntu --all --output table
+   az vm image list --publisher canonical --offer Ubuntu-24_04 --sku Ubuntu --all --output table
    ```
 
    For Azure Linux 3.0:
