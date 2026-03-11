@@ -16,7 +16,7 @@ the future.
 
 ## Steps
 
-1. Create an image config file:
+1. Create an image config file. The below example is tuned for Azure Linux.
 
    ```yaml
    # config.yaml
@@ -119,7 +119,7 @@ the future.
 
    Where:
 
-   - `<base-image.vhdx>`: An official Azure Linux vhdx image file.
+   - `<base-image.vhdx>`: An supported Linux vhdx image file.
 
 ## Run image in Hyper-V
 

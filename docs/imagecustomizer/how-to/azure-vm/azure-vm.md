@@ -7,7 +7,7 @@ has_toc: false
 
 # Create a customized image and deploy it as an Azure VM
 
-This guide shows you how to customize a marketplace Azure Linux image to include a
+This guide shows you how to customize a marketplace image to include a
 simple HTTP application written in Python and then deploy it to Azure as a VM.
 
 ## Words of caution
@@ -35,8 +35,8 @@ in front of any HTTP endpoints.
    mkdir -p "$STAGE_DIR"
    ```
 
-2. Download Azure Linux VHD file:
-   [Download Azure Linux Marketplace Image](./download-marketplace-image.md)
+2. Download the VHD file:
+   [Download an Azure Marketplace Image](./download-marketplace-image.md)
 
 3. Move the downloaded VHD file to the staging directory.
 
@@ -44,8 +44,7 @@ in front of any HTTP endpoints.
    mv ./image.vhd "$STAGE_DIR"
    ```
 
-4. Create a file named `$STAGE_DIR/image-config.yaml` with the following
-   contents:
+4. Create a file named `$STAGE_DIR/image-config.yaml`. The example below has been tuned for Azure Linux.
 
    ```yaml
    os:

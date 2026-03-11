@@ -48,13 +48,12 @@ The container is published to both:
 
 ## Instructions
 
-1. Download an Azure Linux VHDX image file. 
+1. Download a supported Linux VHDX image file. 
    - You can [download a marketplace image from Azure](../how-to/azure-vm/download-marketplace-image.md). 
-   - You can also download and build one from the [Azure Linux repo](https://github.com/microsoft/azurelinux).
 
 2. Create a customization config file.
 
-   For example:
+   For example, for Azure Linux:
 
     ```yaml
     os:
