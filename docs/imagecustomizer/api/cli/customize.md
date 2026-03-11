@@ -32,7 +32,7 @@ An input image must either be provided in the configuration file (e.g.
 If both a command-line input image and a configuration input image are specified, then
 the command line's input image overrides the config file's input image.
 
-This file is typically one of the standard base Linux core images.
+This file is typically an official image file of one of the supported distros.
 But it can also be an image that has already been customized.
 
 Supported image file formats: vhd, vhdx, qcow2, and raw.
