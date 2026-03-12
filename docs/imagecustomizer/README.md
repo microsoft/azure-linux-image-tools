@@ -11,11 +11,16 @@ has_toc: false
 The Image Customizer is a tool that takes an existing generic Linux image and 
 modifies it to suit a particular use case or deployment scenario.
 
-The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) along 
-with loopback block devices to customize the image offline. This is a common 
-approach used by many Linux distribution build systems and image pipelines. 
-In contrast, some other image customization tools—such as Packer—customize 
-images by booting them inside a virtual machine and applying changes at runtime.
+The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) along
+with loopback block devices to customize an image offline, a common pattern used
+when building images from scratch. This is contrast to most other image
+customization tools, such as Packer, which customize images by booting them
+inside a virtual machine and applying changes at runtime. 
+
+By operating in a chroot-based environment, Image Customizer can perform classes
+of operations that are difficult or impossible to do reliably in a running VM,
+such as modifying disk layouts, changing filesystem types, and configuring
+low‑level system features like code integrity before first boot.
 
 ## Why use Image Customizer?
 
