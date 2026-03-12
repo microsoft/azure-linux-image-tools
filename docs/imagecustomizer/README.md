@@ -13,7 +13,9 @@ modifies it to suit a particular use case or deployment scenario.
 
 The Image Customizer uses [chroot](https://en.wikipedia.org/wiki/Chroot) along
 with loopback block devices to customize an image offline, a common pattern used
-when building images from scratch. This is contrast to most other image customization tools, such as Packer, which customize images by booting them inside a virtual machine and applying changes at runtime. 
+when building images from scratch. This is contrast to most other image
+customization tools, such as Packer, which customize images by booting them
+inside a virtual machine and applying changes at runtime. 
 
 By operating in a chroot-based environment, Image Customizer can perform classes
 of operations that are difficult or impossible to do reliably in a running VM,
