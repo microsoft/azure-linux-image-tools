@@ -4,7 +4,6 @@
 package imagecustomizerlib
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -16,9 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
-	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -98,7 +95,6 @@ func removeCommandAll(inputGrubCfgContent string, command string) (outputGrubCfg
 }
 
 func replaceToken(inputGrubCfgContent string, oldToken string, newToken string) (outputGrubCfgContent string, err error) {
-
 	// escape special characters that would interfer with defining the regular
 	// expression correctly.
 	tokenRegexpString := regexp.QuoteMeta(oldToken)
@@ -603,8 +599,10 @@ func getCommonSELinuxArgs(selinuxMode imagecustomizerapi.SELinuxMode) ([]string,
 	case imagecustomizerapi.SELinuxModeDisabled:
 		return []string{installutils.CmdlineSELinuxDisabledArg}, nil
 	case imagecustomizerapi.SELinuxModeForceEnforcing:
-		return []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg,
-			installutils.CmdlineSELinuxEnforcingArg}, nil
+		return []string{
+			installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg,
+			installutils.CmdlineSELinuxEnforcingArg,
+		}, nil
 	case imagecustomizerapi.SELinuxModePermissive, imagecustomizerapi.SELinuxModeEnforcing:
 		return []string{installutils.CmdlineSELinuxSecurityArg, installutils.CmdlineSELinuxEnabledArg}, nil
 	default:
@@ -784,58 +782,31 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 	}
 }
 
-// Reads the /boot/grub2/grub.cfg file.
-func ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (string, error) {
+// readGrub2ConfigFile reads the grub.cfg file from the chroot at the given grubCfgFile path.
+func readGrub2ConfigFile(imageChroot safechroot.ChrootInterface, grubCfgFile string) (string, error) {
 	logger.Log.Debugf("Reading grub.cfg file")
 
-	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageChroot)
+	grub2ConfigFilePath := filepath.Join(imageChroot.RootDir(), grubCfgFile)
 
 	// Read the existing grub.cfg file.
 	grub2Config, err := file.Read(grub2ConfigFilePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read grub2 config file (%s):\n%w", installutils.GrubCfgFile, err)
+		return "", fmt.Errorf("failed to read grub config file (%s):\n%w", grubCfgFile, err)
 	}
 
 	return grub2Config, nil
 }
 
-// Writes the /boot/grub2/grub.cfg file.
-func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) error {
+// writeGrub2ConfigFile writes the grub.cfg content to the chroot at the given grubCfgFile path.
+func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface, grubCfgFile string) error {
 	logger.Log.Debugf("Writing grub.cfg file")
 
-	grub2ConfigFilePath := distroHandler.GetGrubConfigFilePath(imageChroot)
+	grub2ConfigFilePath := filepath.Join(imageChroot.RootDir(), grubCfgFile)
 
 	// Update grub.cfg file.
 	err := file.Write(grub2Config, grub2ConfigFilePath)
 	if err != nil {
-		return fmt.Errorf("failed to write grub2 config file (%s):\n%w", installutils.GrubCfgFile, err)
-	}
-
-	return nil
-}
-
-// Regenerates the initramfs file.
-func regenerateInitrd(ctx context.Context, imageChroot *safechroot.Chroot) error {
-	logger.Log.Infof("Regenerate initramfs file")
-
-	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "regenerate_initrd")
-	defer span.End()
-
-	err := imageChroot.UnsafeRun(func() error {
-		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.
-		mkinitrdExists, err := file.CommandExists("mkinitrd")
-		if err != nil {
-			return fmt.Errorf("failed to search for mkinitrd command:\n%w", err)
-		}
-
-		if mkinitrdExists {
-			return shell.ExecuteLiveWithErr(1, "mkinitrd")
-		} else {
-			return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
-		}
-	})
-	if err != nil {
-		return fmt.Errorf("failed to rebuild initramfs file:\n%w", err)
+		return fmt.Errorf("failed to write grub config file (%s):\n%w", grubCfgFile, err)
 	}
 
 	return nil

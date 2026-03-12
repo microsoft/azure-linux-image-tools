@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
@@ -50,11 +51,26 @@ type DistroHandler interface {
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
-	// Get the path to the grub configuration file
-	GetGrubConfigFilePath(imageChroot safechroot.ChrootInterface) string
-
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
+
+	// ReadGrub2ConfigFile reads the distro-appropriate grub.cfg file from the chroot.
+	ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error)
+
+	// WriteGrub2ConfigFile writes the grub.cfg content to the distro-appropriate path in the chroot.
+	WriteGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface) error
+
+	// RegenerateInitramfs regenerates the initramfs/initrd using the distro-appropriate tool.
+	RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error
+
+	// CallGrubMkconfig runs the distro-appropriate grub mkconfig command.
+	CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error
+
+	// ConfigureDiskBootLoader performs the full bootloader configuration for a disk image.
+	ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
+		rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
+		selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
+		currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool) error
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

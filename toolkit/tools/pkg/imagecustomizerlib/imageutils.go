@@ -218,7 +218,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType,
 	bootType imagecustomizerapi.BootType, selinuxConfig imagecustomizerapi.SELinux,
 	kernelCommandLine imagecustomizerapi.KernelCommandLine, currentSELinuxMode imagecustomizerapi.SELinuxMode,
-	newImage bool, distroHandler DistroHandler,
+	newImage bool, grubCfgFile string, grubDir string, grubEnvRelPath string, grubMkconfigBinary string,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -236,13 +236,13 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	}
 
 	// Determine the boot configuration type.
-	// For new images, default to grub-mkconfig (AZL3 default).
+	// For new images, default to grub-mkconfig.
 	// For existing images, detect the actual boot configuration.
 	var bootConfigType bootConfigType
 	if newImage {
 		bootConfigType = bootConfigTypeGrubMkconfig
 	} else {
-		grubCfgContent, err := ReadGrub2ConfigFile(imageConnection.Chroot(), distroHandler)
+		grubCfgContent, err := readGrub2ConfigFile(imageConnection.Chroot(), grubCfgFile)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
@@ -262,9 +262,9 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 
 	// Configure the boot loader.
 	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(imagerBootType, false, imagerRootMountIdType,
-		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(),
-		mountPointMap, diskutils.EncryptedRootDevice{}, grubMkconfigEnabled,
-		!grubMkconfigEnabled)
+		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(), mountPointMap,
+		diskutils.EncryptedRootDevice{}, grubMkconfigEnabled, !grubMkconfigEnabled, grubCfgFile, grubDir,
+		grubEnvRelPath, grubMkconfigBinary)
 	if err != nil {
 		return fmt.Errorf("failed to install bootloader:\n%w", err)
 	}

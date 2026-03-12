@@ -1128,7 +1128,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
 	}
 
-	err = installutils.CallGrubMkconfig(imageChroot)
+	err = installutils.CallGrubMkconfig(imageChroot, installutils.GrubMkconfigBinary, installutils.GrubCfgFile)
 	if err != nil {
 		return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
 	}

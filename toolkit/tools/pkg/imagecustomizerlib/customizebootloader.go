@@ -97,8 +97,8 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	}
 
 	// Hard-reset the grub config.
-	err = configureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
-		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage, distroHandler)
+	err = distroHandler.ConfigureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
+		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}
