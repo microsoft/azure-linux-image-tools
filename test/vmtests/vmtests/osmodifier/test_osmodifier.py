@@ -43,7 +43,7 @@ def setup_vm_with_osmodifier(
         config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-arm64.yaml")
 
     output_format = "qcow2"
-    (ssh_public_key, ssh_private_key_path) = ssh_key
+    ssh_public_key, ssh_private_key_path = ssh_key
     secure_boot = False
 
     source_boot_type = "efi"

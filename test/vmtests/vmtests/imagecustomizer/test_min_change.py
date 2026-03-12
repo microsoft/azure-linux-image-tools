@@ -37,7 +37,7 @@ def run_min_change_test(
     close_list: List[Closeable],
 ) -> None:
 
-    (ssh_public_key, ssh_private_key_path) = ssh_key
+    ssh_public_key, ssh_private_key_path = ssh_key
 
     secure_boot = False
 

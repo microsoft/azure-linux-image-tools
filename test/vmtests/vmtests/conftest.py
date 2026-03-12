@@ -103,7 +103,7 @@ def docker_client() -> Generator[DockerClient, None, None]:
     client = docker.from_env()
     yield client
 
-    client.close()  # type: ignore
+    client.close()
 
 
 @pytest.fixture(scope="session")
