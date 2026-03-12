@@ -2,10 +2,10 @@
 -r ../requirements.txt
 
 # Dev dependencies
-black == 24.8.0
-flake8 == 7.1.0
-isort == 5.13.2
-mypy == 1.13.0
-types-docker == 7.1.0.20240827
-types-paramiko == 3.5.0.20240928
-types-PyYAML == 6.0.12.20240917
+black == 26.3.1
+flake8 == 7.3.0
+isort == 8.0.1
+mypy == 1.19.1
+types-docker == 7.1.0.20260109
+types-paramiko == 3.5.0.20250801
+types-PyYAML == 6.0.12.20250915

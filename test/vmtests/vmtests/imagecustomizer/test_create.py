@@ -130,7 +130,7 @@ def run_create_image_test(
     version: str,
 ) -> None:
 
-    (ssh_public_key, ssh_private_key_path) = ssh_key
+    ssh_public_key, ssh_private_key_path = ssh_key
 
     secure_boot = False
     target_boot_type = "efi"
