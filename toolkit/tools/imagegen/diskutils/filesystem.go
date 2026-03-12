@@ -68,6 +68,36 @@ var (
 		Checksum: "crc32c",
 	}
 
+	// The default btrfs options used by Fedora 42 (kernel v6.11+)
+	fedora42BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
+	}
+
+	// The default btrfs options used by an Ubuntu 22.04 image.
+	// Features that are default-enabled as of btrfs-progs v5.16.2 (see `mkfs.btrfs -O list-all`):
+	// - extref (default since v3.12)
+	// - skinny-metadata (default since v3.18)
+	// - no-holes (default since v5.15)
+	// Note: free-space-tree is NOT default-enabled in Ubuntu 22.04's btrfs-progs v5.16.2.
+	// Checksum default as of btrfs-progs v5.16.2: crc32c
+	ubuntu2204BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes"},
+		Checksum: "crc32c",
+	}
+
+	// The default btrfs options used by an Ubuntu 24.04 image.
+	// Features that are default-enabled as of btrfs-progs v6.6.3 (see `mkfs.btrfs -O list-all`):
+	// - extref (default since v3.12)
+	// - skinny-metadata (default since v3.18)
+	// - no-holes (default since v5.15)
+	// - free-space-tree (default since v5.15)
+	// Checksum default as of btrfs-progs v6.6.3: crc32c
+	ubuntu2404BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
+	}
+
 	// The default ext4 options used by an Azure Linux 2.0 image.
 	// See, the /etc/mke2fs.conf file in an Azure Linux 2.0 image.
 	azl2Ext4Options = ext4Options{
@@ -89,6 +119,40 @@ var (
 		},
 	}
 
+	// The default ext4 options used by Fedora 42 (kernel v6.11+)
+	// Based on typical Fedora defaults with modern ext4 features
+	fedora42Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+			"orphan_file",
+		},
+	}
+
+	// The default ext4 options used by an Ubuntu 22.04 image.
+	// See, the /etc/mke2fs.conf file in an Ubuntu 22.04 image (e2fsprogs v1.46.5).
+	// Note: orphan_file is NOT supported (requires e2fsprogs >= 1.47.0).
+	ubuntu2204Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+		},
+	}
+
+	// The default ext4 options used by an Ubuntu 24.04 image.
+	// See, the /etc/mke2fs.conf file in an Ubuntu 24.04 image (e2fsprogs v1.47.0).
+	// Note: orphan_file is NOT in Ubuntu 24.04's mke2fs.conf default features,
+	// even though e2fsprogs v1.47.0 supports it.
+	ubuntu2404Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+		},
+	}
+
 	// The default xfs options used by an Azure Linux 2.0 image (kernel v5.15).
 	// See, the /usr/share/xfsprogs/mkfs/lts_5.15.conf file.
 	azl2XfsOptions = xfsOptions{
@@ -106,50 +170,10 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
-	// The default btrfs options used by Fedora 42 (kernel v6.11+)
-	fedora42BtrfsOptions = btrfsOptions{
-		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
-		Checksum: "crc32c",
-	}
-
-	// The default ext4 options used by Fedora 42 (kernel v6.11+)
-	// Based on typical Fedora defaults with modern ext4 features
-	fedora42Ext4Options = ext4Options{
-		BlockSize: 4096,
-		Features: []string{
-			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
-			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
-			"orphan_file",
-		},
-	}
-
 	// The default xfs options used by Fedora 42 (kernel v6.11+)
 	// Based on modern XFS features supported in recent kernels
 	fedora42XfsOptions = xfsOptions{
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
-	}
-
-	// The default btrfs options used by an Ubuntu 22.04 image.
-	// Features that are default-enabled as of btrfs-progs v5.16.2 (see `mkfs.btrfs -O list-all`):
-	// - extref (default since v3.12)
-	// - skinny-metadata (default since v3.18)
-	// - no-holes (default since v5.15)
-	// Note: free-space-tree is NOT default-enabled in Ubuntu 22.04's btrfs-progs v5.16.2.
-	// Checksum default as of btrfs-progs v5.16.2: crc32c
-	ubuntu2204BtrfsOptions = btrfsOptions{
-		Features: []string{"extref", "skinny-metadata", "no-holes"},
-		Checksum: "crc32c",
-	}
-
-	// The default ext4 options used by an Ubuntu 22.04 image.
-	// See, the /etc/mke2fs.conf file in an Ubuntu 22.04 image (e2fsprogs v1.46.5).
-	// Note: orphan_file is NOT supported (requires e2fsprogs >= 1.47.0).
-	ubuntu2204Ext4Options = ext4Options{
-		BlockSize: 4096,
-		Features: []string{
-			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
-			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
-		},
 	}
 
 	// The default xfs options used by an Ubuntu 22.04 image (xfsprogs v5.13.0).
@@ -158,30 +182,6 @@ var (
 	// Note: bigtime, rmapbt, and inobtcount are NOT default-enabled in xfsprogs v5.13.0.
 	ubuntu2204XfsOptions = xfsOptions{
 		Features: []string{"crc", "finobt", "reflink", "sparse"},
-	}
-
-	// The default btrfs options used by an Ubuntu 24.04 image.
-	// Features that are default-enabled as of btrfs-progs v6.6.3 (see `mkfs.btrfs -O list-all`):
-	// - extref (default since v3.12)
-	// - skinny-metadata (default since v3.18)
-	// - no-holes (default since v5.15)
-	// - free-space-tree (default since v5.15)
-	// Checksum default as of btrfs-progs v6.6.3: crc32c
-	ubuntu2404BtrfsOptions = btrfsOptions{
-		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
-		Checksum: "crc32c",
-	}
-
-	// The default ext4 options used by an Ubuntu 24.04 image.
-	// See, the /etc/mke2fs.conf file in an Ubuntu 24.04 image (e2fsprogs v1.47.0).
-	// Note: orphan_file is NOT in Ubuntu 24.04's mke2fs.conf default features,
-	// even though e2fsprogs v1.47.0 supports it.
-	ubuntu2404Ext4Options = ext4Options{
-		BlockSize: 4096,
-		Features: []string{
-			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
-			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
-		},
 	}
 
 	// The default xfs options used by an Ubuntu 24.04 image (xfsprogs v6.6.0).
