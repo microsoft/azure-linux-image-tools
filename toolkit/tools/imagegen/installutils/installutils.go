@@ -352,8 +352,8 @@ func addEntryToFstab(fullFstabPath, mountPoint, devicePath, fsType, mountArgs st
 func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnable bool,
 	rootMountIdentifier configuration.MountIdentifier, kernelCommandLine configuration.KernelCommandLine,
 	installChroot *safechroot.Chroot, diskDevPath string, mountPointMap map[string]string,
-	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, includeLegacyGrubCfg bool,
-	grubCfgFile string, grubDir string, grubEnvRelPath string, grubMkconfigBinary string,
+	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, grubCfgFile string, grubDir string,
+	grubEnvRelPath string, grubMkconfigBinary string,
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
@@ -400,7 +400,7 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 
 	// Grub will always use filesystem UUID, never PARTUUID or PARTLABEL
 	err = InstallGrubDefaults(installChroot.RootDir(), rootDevice, bootUUID, bootPrefix, encryptedRoot,
-		kernelCommandLine, isBootPartitionSeparate, includeLegacyGrubCfg)
+		kernelCommandLine, isBootPartitionSeparate, !enableGrubMkconfig)
 	if err != nil {
 		err = fmt.Errorf("failed to install main grub config file: %s", err)
 		return

@@ -122,7 +122,12 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
+	// Azure Linux 3.0+ always uses grub-mkconfig.
+	// The legacy grub config detection logic is only relevant for Azure Linux 2.0.
+	// And for new images, always use grub-mkconfig.
+	forceGrubMkconfig := newImage || d.version != "2.0"
+
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, newImage, installutils.FedoraGrubCfgFile, installutils.FedoraGrubDir,
+		currentSELinuxMode, forceGrubMkconfig, installutils.FedoraGrubCfgFile, installutils.FedoraGrubDir,
 		installutils.FedoraGrubEnvRelPath, installutils.FedoraGrubMkconfigBinary)
 }
