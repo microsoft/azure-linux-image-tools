@@ -725,6 +725,72 @@ func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName str
 	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
 }
 
+func TestCustomizeImageAzureDataDisk(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageAzureDataDiskHelper(t,
+				"TestCustomizeImageAzureDataDisk"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
+	baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	// Create image with Azure data disk entry in /etc/fstab file.
+	configFile := filepath.Join(testDir, "azure-data-disk.yaml")
+	outImageFilePath1 := filepath.Join(testTmpDir, "image1.raw")
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath1,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Try recustomizing the image but write to the read-only data disk placeholder directory.
+	configFile = filepath.Join(testDir, "addfiles-config.yaml")
+	outImageFilePath2 := filepath.Join(testTmpDir, "image2.raw")
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath1, nil, outImageFilePath2,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	assert.ErrorContains(t, err, "failed to create destination directory")
+	assert.ErrorContains(t, err, "read-only file system")
+
+	verifyAddFiles(t, buildDir, outImageFilePath2, baseImageInfo)
+
+	// Recustomize image.
+	configFile = filepath.Join(testDir, "adddirs-config.yaml")
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath1, nil, outImageFilePath2,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyAddDirs(t, baseImageInfo, buildDir, outImageFilePath2)
+
+	// Recustomize image with partition customization.
+	configFile = filepath.Join(testDir, "partitions-config.yaml")
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath1, nil, outImageFilePath2,
+		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Recustomize and convert to COSI
+	configFile = filepath.Join(testDir, "adddirs-config.yaml")
+	outImageCosiFilePath := filepath.Join(testTmpDir, "image2.cosi")
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath1, nil, outImageCosiFilePath,
+		"cosi", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+}
+
 func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)

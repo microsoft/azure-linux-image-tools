@@ -1,0 +1,13 @@
+os:
+
+scripts:
+  postCustomization:
+    # Emulate a data disk added by cloud-init.
+  - content: |
+      set -eux
+
+      cat << EOF >> /etc/fstab
+      /dev/disk/cloud/azure_resource-part1	/mnt	auto	defaults,nofail,x-systemd.after=cloud-init.service,_netdev,comment=cloudconfig	0	2
+      EOF
+
+      cat /etc/fstab
