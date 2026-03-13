@@ -69,7 +69,7 @@ func modifyDefaultGrub() error {
 }
 
 func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface, distroHandler imagecustomizerlib.DistroHandler) ([]string, string, error) {
-	grubCfgContent, err := imagecustomizerlib.ReadGrub2ConfigFile(imageChroot, distroHandler)
+	grubCfgContent, err := distroHandler.ReadGrub2ConfigFile(imageChroot)
 	if err != nil {
 		return nil, "", err
 	}

@@ -64,13 +64,31 @@ const (
 	// SELinuxConfigDisabled is the string value to set SELinux to disabled in the /etc/selinux/config file.
 	SELinuxConfigDisabled = "disabled"
 
-	// GrubCfgFile is the filepath of the grub config file.
-	GrubCfgFile = "/boot/grub2/grub.cfg"
+	// FedoraGrubCfgFile is the filepath of the grub config file on Azure Linux and Fedora systems.
+	FedoraGrubCfgFile = "/boot/grub2/grub.cfg"
 
-	// UbuntuGrubCfgFile is the filepath of the grub config file on Ubuntu/Debian systems.
-	UbuntuGrubCfgFile = "/boot/grub/grub.cfg"
+	// DebianGrubCfgFile is the filepath of the grub config file on Debian and Ubuntu systems.
+	DebianGrubCfgFile = "/boot/grub/grub.cfg"
 
-	// GrubDefFile is the filepath of the config file used by grub-mkconfig.
+	// FedoraGrubDir is the grub directory on Azure Linux and Fedora systems.
+	FedoraGrubDir = "/boot/grub2"
+
+	// DebianGrubDir is the grub directory on Debian and Ubuntu systems.
+	DebianGrubDir = "/boot/grub"
+
+	// FedoraGrubEnvRelPath is the relative path to grubenv on Azure Linux and Fedora systems.
+	FedoraGrubEnvRelPath = "boot/grub2/grubenv"
+
+	// DebianGrubEnvRelPath is the relative path to grubenv on Debian and Ubuntu systems.
+	DebianGrubEnvRelPath = "boot/grub/grubenv"
+
+	// FedoraGrubMkconfigBinary is the grub-mkconfig binary name on Azure Linux and Fedora systems.
+	FedoraGrubMkconfigBinary = "grub2-mkconfig"
+
+	// DebianGrubMkconfigBinary is the grub-mkconfig binary name on Debian and Ubuntu systems.
+	DebianGrubMkconfigBinary = "grub-mkconfig"
+
+	// GrubDefFile is the filepath of the config file used by grub's mkconfig binary.
 	GrubDefFile = "/etc/default/grub"
 
 	// CombinedBootPartitionBootPrefix is the grub.cfg boot prefix used when the boot partition is the same as the
@@ -79,15 +97,8 @@ const (
 )
 
 const (
-	overlay        = "overlay"
 	rootMountPoint = "/"
 	bootMountPoint = "/boot"
-
-	// rpmDependenciesDirectory is the directory which contains RPM database. It is not required for images that do not contain RPM.
-	rpmDependenciesDirectory = "/var/lib/rpm"
-
-	// rpmManifestDirectory is the directory containing manifests of installed packages to support distroless vulnerability scanning tools.
-	rpmManifestDirectory = "/var/lib/rpmmanifest"
 
 	// /boot directory should be only accesible by root. The directories need the execute bit as well.
 	bootDirectoryFileMode = 0400
@@ -145,7 +156,7 @@ func ClearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot 
 
 	// These state files are very unlikely to be present, but we should be thorough and check for them.
 	// See https://systemd.io/BUILDING_IMAGES/ for more information.
-	var otherFilesToRemove = []string{
+	otherFilesToRemove := []string{
 		"/var/lib/systemd/random-seed",
 		"/boot/efi/loader/random-seed",
 		"/var/lib/systemd/credential.secret",
@@ -341,7 +352,8 @@ func addEntryToFstab(fullFstabPath, mountPoint, devicePath, fsType, mountArgs st
 func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnable bool,
 	rootMountIdentifier configuration.MountIdentifier, kernelCommandLine configuration.KernelCommandLine,
 	installChroot *safechroot.Chroot, diskDevPath string, mountPointMap map[string]string,
-	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, includeLegacyGrubCfg bool,
+	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, grubCfgFile string, grubDir string,
+	grubEnvRelPath string, grubMkconfigBinary string,
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
@@ -360,13 +372,13 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 	// Grub only accepts UUID, not PARTUUID or PARTLABEL
 	bootUUID, err := GetUUID(bootDevice)
 	if err != nil {
-		err = fmt.Errorf("failed to get UUID: %s", err)
+		err = fmt.Errorf("failed to get UUID:\n%w", err)
 		return
 	}
 
-	err = InstallBootloader(installChroot, encryptionEnable, bootType, bootUUID, bootPrefix, diskDevPath)
+	err = InstallBootloader(installChroot, encryptionEnable, bootType, bootUUID, bootPrefix, diskDevPath, grubDir)
 	if err != nil {
-		err = fmt.Errorf("failed to install bootloader: %s", err)
+		err = fmt.Errorf("failed to install bootloader:\n%w", err)
 		return
 	}
 
@@ -388,13 +400,13 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 
 	// Grub will always use filesystem UUID, never PARTUUID or PARTLABEL
 	err = InstallGrubDefaults(installChroot.RootDir(), rootDevice, bootUUID, bootPrefix, encryptedRoot,
-		kernelCommandLine, isBootPartitionSeparate, includeLegacyGrubCfg)
+		kernelCommandLine, isBootPartitionSeparate, !enableGrubMkconfig)
 	if err != nil {
 		err = fmt.Errorf("failed to install main grub config file: %s", err)
 		return
 	}
 
-	err = InstallGrubEnv(installChroot.RootDir())
+	err = InstallGrubEnv(installChroot.RootDir(), grubEnvRelPath)
 	if err != nil {
 		err = fmt.Errorf("failed to install grubenv file: %s", err)
 		return
@@ -402,9 +414,9 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 
 	// Use grub mkconfig to replace the static template .cfg with a dynamically generated version if desired.
 	if enableGrubMkconfig {
-		err = CallGrubMkconfig(installChroot)
+		err = CallGrubMkconfig(installChroot, grubMkconfigBinary, grubCfgFile)
 		if err != nil {
-			err = fmt.Errorf("failed to generate grub.cfg via grub2-mkconfig: %s", err)
+			err = fmt.Errorf("failed to generate grub.cfg via %s:\n%w", grubMkconfigBinary, err)
 			return
 		}
 	}
@@ -413,12 +425,9 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 }
 
 // InstallGrubEnv installs an empty grubenv f
-func InstallGrubEnv(installRoot string) (err error) {
-	const (
-		assetGrubEnvFile = "assets/grub2/grubenv"
-		grubEnvFile      = "boot/grub2/grubenv"
-	)
-	installGrubEnvFile := filepath.Join(installRoot, grubEnvFile)
+func InstallGrubEnv(installRoot string, grubEnvRelPath string) (err error) {
+	const assetGrubEnvFile = "assets/grub2/grubenv"
+	installGrubEnvFile := filepath.Join(installRoot, grubEnvRelPath)
 	err = file.CopyResourceFile(resources.ResourcesFS, assetGrubEnvFile, installGrubEnvFile, bootDirectoryDirMode,
 		bootDirectoryFileMode)
 	if err != nil {
@@ -455,10 +464,10 @@ func InstallGrubDefaults(installRoot, rootDevice, bootUUID, bootPrefix string,
 
 	if includeLegacyCfg {
 		// Add the legacy /boot/grub2/grub.cfg file, which was used in Azure Linux 2.0.
-		err = installGrubTemplateFile(resources.AssetsGrubCfgFile, GrubCfgFile, installRoot, rootDevice, bootUUID,
+		err = installGrubTemplateFile(resources.AssetsGrubCfgFile, FedoraGrubCfgFile, installRoot, rootDevice, bootUUID,
 			bootPrefix, encryptedRoot, kernelCommandLine, isBootPartitionSeparate)
 		if err != nil {
-			logger.Log.Warnf("Failed to install (%s): %v", GrubCfgFile, err)
+			logger.Log.Warnf("Failed to install (%s): %v", FedoraGrubCfgFile, err)
 			return
 		}
 	}
@@ -549,12 +558,13 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 	return
 }
 
-func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
+func CallGrubMkconfig(installChroot safechroot.ChrootInterface, grubMkconfigBinary string, grubCfgFile string,
+) (err error) {
 	squashErrors := true
 
-	ReportActionf("Running grub2-mkconfig...")
+	ReportActionf("Running %s...", grubMkconfigBinary)
 	err = installChroot.UnsafeRun(func() error {
-		return shell.ExecuteLive(squashErrors, "grub2-mkconfig", "-o", GrubCfgFile)
+		return shell.ExecuteLive(squashErrors, grubMkconfigBinary, "-o", grubCfgFile)
 	})
 
 	return
@@ -658,7 +668,6 @@ func ConfigureUserPrimaryGroupMembership(installChroot safechroot.ChrootInterfac
 		err = installChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "usermod", "-g", primaryGroup, username)
 		})
-
 		if err != nil {
 			return fmt.Errorf("failed to set user's (%s) primary group (%s):\n%w", username, primaryGroup, err)
 		}
@@ -839,7 +848,7 @@ func sed(find, replace, delimiter, file string) (err error) {
 // Note: this boot partition could be different than the boot partition specified in the main grub config.
 // This boot partition specifically indicates where to find the main grub cfg
 func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bootType, bootUUID, bootPrefix,
-	bootDevPath string,
+	bootDevPath string, grubDir string,
 ) (err error) {
 	const (
 		efiMountPoint  = "/boot/efi"
@@ -852,13 +861,13 @@ func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bo
 
 	switch bootType {
 	case legacyBootType:
-		err = installLegacyBootloader(installChroot, bootDevPath, encryptEnabled)
+		err = installLegacyBootloader(installChroot, bootDevPath, encryptEnabled, grubDir)
 		if err != nil {
 			return
 		}
 	case efiBootType:
 		efiPath := filepath.Join(installChroot.RootDir(), efiMountPoint)
-		err = installEfiBootloader(encryptEnabled, efiPath, bootUUID, bootPrefix)
+		err = installEfiBootloader(encryptEnabled, efiPath, bootUUID, bootPrefix, grubDir)
 		if err != nil {
 			return
 		}
@@ -873,12 +882,12 @@ func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bo
 
 // Note: We assume that the /boot directory is present. Whether it is backed by an explicit "boot" partition or present
 // as part of a general "root" partition is assumed to have been done already.
-func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath string, encryptEnabled bool) (err error) {
+func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath string, encryptEnabled bool, grubDir string,
+) (err error) {
 	const (
 		squashErrors     = false
 		bootDir          = "/boot"
 		bootDirArg       = "--boot-directory"
-		grub2BootDir     = "/boot/grub2"
 		grub2InstallName = "grub2-install"
 		grubInstallName  = "grub-install"
 	)
@@ -917,8 +926,8 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 		return
 	}
 
-	installGrub2BootDir := filepath.Join(installChroot.RootDir(), grub2BootDir)
-	err = shell.ExecuteLive(squashErrors, "chmod", "-R", "go-rwx", installGrub2BootDir)
+	installGrubBootDir := filepath.Join(installChroot.RootDir(), grubDir)
+	err = shell.ExecuteLive(squashErrors, "chmod", "-R", "go-rwx", installGrubBootDir)
 	return
 }
 
@@ -1015,16 +1024,17 @@ func enableCryptoDisk() (err error) {
 // installRoot/boot/efi folder
 // It is expected that shim (bootx64.efi) and grub2 (grub2.efi) are installed
 // into the EFI directory via the package list installation mechanism.
-func installEfiBootloader(encryptEnabled bool, installRoot, bootUUID, bootPrefix string) (err error) {
+func installEfiBootloader(encryptEnabled bool, installRoot, bootUUID, bootPrefix string, grubDir string,
+) (err error) {
 	const (
 		defaultCfgFilename = "grub.cfg"
 		grubAssetDir       = "assets/efi/grub"
-		grubFinalDir       = "boot/grub2"
 	)
 
 	// Copy the bootloader's grub.cfg
 	grubAssetPath := filepath.Join(grubAssetDir, defaultCfgFilename)
-	grubFinalPath := filepath.Join(installRoot, grubFinalDir, defaultCfgFilename)
+	grubFinalRelDir := strings.TrimPrefix(grubDir, "/")
+	grubFinalPath := filepath.Join(installRoot, grubFinalRelDir, defaultCfgFilename)
 	err = file.CopyResourceFile(resources.ResourcesFS, grubAssetPath, grubFinalPath, bootDirectoryDirMode,
 		bootDirectoryFileMode)
 	if err != nil {
@@ -1040,7 +1050,7 @@ func installEfiBootloader(encryptEnabled bool, installRoot, bootUUID, bootPrefix
 	}
 
 	// Set the boot prefix path
-	prefixPath := filepath.Join("/", bootPrefix, "grub2")
+	prefixPath := filepath.Join("/", bootPrefix, filepath.Base(grubDir))
 	err = setGrubCfgPrefixPath(prefixPath, grubFinalPath)
 	if err != nil {
 		logger.Log.Warnf("Failed to set prefixPath in grub.cfg: %v", err)

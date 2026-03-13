@@ -19,12 +19,10 @@ const (
 	buildTimeFormat = "2006-01-02T15:04:05Z"
 )
 
-var (
-	ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
-		"kernel binaries detected in /boot after package operations. "+
-			"Both 'passthrough' and 'modify' modes preserve the existing kernel and initramfs. "+
-			"Use 'mode: create' to regenerate UKIs with updated kernels")
-)
+var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
+	"kernel binaries detected in /boot after package operations. "+
+		"Both 'passthrough' and 'modify' modes preserve the existing kernel and initramfs. "+
+		"Use 'mode: create' to regenerate UKIs with updated kernels")
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
 	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
@@ -52,7 +50,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 		if hasUkis {
 			// Base image has UKIs and mode is create - extract for re-customization
-			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
+			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs, distroHandler)
 			if err != nil {
 				return err
 			}
@@ -185,7 +183,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	if partitionsCustomized || overlayUpdated || verityUpdated {
-		err = regenerateInitrd(ctx, imageChroot)
+		err = distroHandler.RegenerateInitramfs(ctx, imageChroot)
 		if err != nil {
 			return err
 		}
