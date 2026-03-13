@@ -318,7 +318,7 @@ var (
 
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
-	maxMkfsXfsVersion = version.Version{6, 14}
+	maxMkfsXfsVersion = version.Version{6, 15}
 
 	// The minimum supported kernel version. This helps avoid versions complexity for features that are old and therefore
 	// basically universal.
