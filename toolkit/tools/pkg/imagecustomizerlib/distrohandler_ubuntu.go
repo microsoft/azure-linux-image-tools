@@ -112,13 +112,13 @@ func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 }
 
 func (d *ubuntuDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
-	return readGrub2ConfigFile(imageChroot, installutils.UbuntuGrubCfgFile)
+	return readGrub2ConfigFile(imageChroot, installutils.DebianGrubCfgFile)
 }
 
 func (d *ubuntuDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 	imageChroot safechroot.ChrootInterface,
 ) error {
-	return writeGrub2ConfigFile(grub2Config, imageChroot, installutils.UbuntuGrubCfgFile)
+	return writeGrub2ConfigFile(grub2Config, imageChroot, installutils.DebianGrubCfgFile)
 }
 
 func (d *ubuntuDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
@@ -135,8 +135,8 @@ func (d *ubuntuDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 }
 
 func (d *ubuntuDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
-	return installutils.CallGrubMkconfig(imageChroot, installutils.UbuntuGrubMkconfigBinary,
-		installutils.UbuntuGrubCfgFile)
+	return installutils.CallGrubMkconfig(imageChroot, installutils.DebianGrubMkconfigBinary,
+		installutils.DebianGrubCfgFile)
 }
 
 func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,

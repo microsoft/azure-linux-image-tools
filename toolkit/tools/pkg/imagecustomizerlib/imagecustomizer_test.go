@@ -653,7 +653,7 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 	defer imageConnection.Close()
 
 	// Read the grub.cfg file.
-	grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), installutils.GrubCfgFile)
+	grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), installutils.FedoraGrubCfgFile)
 
 	grub2ConfigFile, err := os.ReadFile(grub2ConfigFilePath)
 	if !assert.NoError(t, err) {

@@ -179,7 +179,7 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false,
-				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.GrubCfgFile, err)
+				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.FedoraGrubCfgFile, err)
 		}
 
 	case bootConfigTypeUki:

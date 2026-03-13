@@ -79,13 +79,13 @@ func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 }
 
 func (d *azureLinuxDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
-	return readGrub2ConfigFile(imageChroot, installutils.GrubCfgFile)
+	return readGrub2ConfigFile(imageChroot, installutils.FedoraGrubCfgFile)
 }
 
 func (d *azureLinuxDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 	imageChroot safechroot.ChrootInterface,
 ) error {
-	return writeGrub2ConfigFile(grub2Config, imageChroot, installutils.GrubCfgFile)
+	return writeGrub2ConfigFile(grub2Config, imageChroot, installutils.FedoraGrubCfgFile)
 }
 
 func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
@@ -112,7 +112,7 @@ func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, image
 }
 
 func (d *azureLinuxDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
-	return installutils.CallGrubMkconfig(imageChroot, installutils.GrubMkconfigBinary, installutils.GrubCfgFile)
+	return installutils.CallGrubMkconfig(imageChroot, installutils.FedoraGrubMkconfigBinary, installutils.FedoraGrubCfgFile)
 }
 
 func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
@@ -121,6 +121,6 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, newImage, installutils.GrubCfgFile, installutils.GrubDir, installutils.GrubEnvRelPath,
-		installutils.GrubMkconfigBinary)
+		currentSELinuxMode, newImage, installutils.FedoraGrubCfgFile, installutils.FedoraGrubDir,
+		installutils.FedoraGrubEnvRelPath, installutils.FedoraGrubMkconfigBinary)
 }

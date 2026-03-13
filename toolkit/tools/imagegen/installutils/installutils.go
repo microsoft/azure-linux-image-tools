@@ -64,29 +64,29 @@ const (
 	// SELinuxConfigDisabled is the string value to set SELinux to disabled in the /etc/selinux/config file.
 	SELinuxConfigDisabled = "disabled"
 
-	// GrubCfgFile is the filepath of the grub config file on Azure Linux and Fedora systems.
-	GrubCfgFile = "/boot/grub2/grub.cfg"
+	// FedoraGrubCfgFile is the filepath of the grub config file on Azure Linux and Fedora systems.
+	FedoraGrubCfgFile = "/boot/grub2/grub.cfg"
 
-	// UbuntuGrubCfgFile is the filepath of the grub config file on Ubuntu systems.
-	UbuntuGrubCfgFile = "/boot/grub/grub.cfg"
+	// DebianGrubCfgFile is the filepath of the grub config file on Debian and Ubuntu systems.
+	DebianGrubCfgFile = "/boot/grub/grub.cfg"
 
-	// GrubDir is the grub directory on Azure Linux and Fedora systems.
-	GrubDir = "/boot/grub2"
+	// FedoraGrubDir is the grub directory on Azure Linux and Fedora systems.
+	FedoraGrubDir = "/boot/grub2"
 
-	// UbuntuGrubDir is the grub directory on Ubuntu systems.
-	UbuntuGrubDir = "/boot/grub"
+	// DebianGrubDir is the grub directory on Debian and Ubuntu systems.
+	DebianGrubDir = "/boot/grub"
 
-	// GrubEnvRelPath is the relative path to grubenv on Azure Linux and Fedora systems.
-	GrubEnvRelPath = "boot/grub2/grubenv"
+	// FedoraGrubEnvRelPath is the relative path to grubenv on Azure Linux and Fedora systems.
+	FedoraGrubEnvRelPath = "boot/grub2/grubenv"
 
-	// UbuntuGrubEnvRelPath is the relative path to grubenv on Ubuntu systems.
-	UbuntuGrubEnvRelPath = "boot/grub/grubenv"
+	// DebianGrubEnvRelPath is the relative path to grubenv on Debian and Ubuntu systems.
+	DebianGrubEnvRelPath = "boot/grub/grubenv"
 
-	// GrubMkconfigBinary is the grub-mkconfig binary name on Azure Linux and Fedora systems.
-	GrubMkconfigBinary = "grub2-mkconfig"
+	// FedoraGrubMkconfigBinary is the grub-mkconfig binary name on Azure Linux and Fedora systems.
+	FedoraGrubMkconfigBinary = "grub2-mkconfig"
 
-	// UbuntuGrubMkconfigBinary is the grub-mkconfig binary name on Ubuntu systems.
-	UbuntuGrubMkconfigBinary = "grub-mkconfig"
+	// DebianGrubMkconfigBinary is the grub-mkconfig binary name on Debian and Ubuntu systems.
+	DebianGrubMkconfigBinary = "grub-mkconfig"
 
 	// GrubDefFile is the filepath of the config file used by grub's mkconfig binary.
 	GrubDefFile = "/etc/default/grub"
@@ -464,10 +464,10 @@ func InstallGrubDefaults(installRoot, rootDevice, bootUUID, bootPrefix string,
 
 	if includeLegacyCfg {
 		// Add the legacy /boot/grub2/grub.cfg file, which was used in Azure Linux 2.0.
-		err = installGrubTemplateFile(resources.AssetsGrubCfgFile, GrubCfgFile, installRoot, rootDevice, bootUUID,
+		err = installGrubTemplateFile(resources.AssetsGrubCfgFile, FedoraGrubCfgFile, installRoot, rootDevice, bootUUID,
 			bootPrefix, encryptedRoot, kernelCommandLine, isBootPartitionSeparate)
 		if err != nil {
-			logger.Log.Warnf("Failed to install (%s): %v", GrubCfgFile, err)
+			logger.Log.Warnf("Failed to install (%s): %v", FedoraGrubCfgFile, err)
 			return
 		}
 	}
