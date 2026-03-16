@@ -129,6 +129,10 @@ func GetDownloadedRpmsRepoFile(t *testing.T, testutilsDir string, distro string,
 }
 
 func CheckSkipForCustomizeImageRequirements(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Short mode enabled")
+	}
+
 	if os.Geteuid() != 0 {
 		t.Skip("Test must be run as root because it uses a chroot")
 	}
