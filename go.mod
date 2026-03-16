@@ -23,7 +23,7 @@ require (
 	golang.org/x/sys v0.40.0
 	gonum.org/v1/gonum v0.16.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	gopkg.in/ini.v1 v1.67.0
+	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
