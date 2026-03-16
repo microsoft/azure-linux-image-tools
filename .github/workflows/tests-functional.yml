@@ -19,8 +19,7 @@ on:
         type: string
 
 env:
-  EXPECTED_GO_VERSION: "1.24.1"
-  ORAS_VERSION: "1.2.3"
+  EXPECTED_GO_VERSION: "1.25.0"
 
 jobs:
   tests-functional:
@@ -37,7 +36,7 @@ jobs:
     - name: setup go 1.x
       uses: actions/setup-go@v6
       with:
-        go-version: "${{ env.EXPECTED_GO_VERSION }}"
+        go-version: "~${{ env.EXPECTED_GO_VERSION }}"
 
     - name: Checkout
       uses: actions/checkout@v6
