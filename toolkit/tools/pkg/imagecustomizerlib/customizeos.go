@@ -50,7 +50,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 		if hasUkis {
 			// Base image has UKIs and mode is create - extract for re-customization
-			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs, distroHandler)
+			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
 			if err != nil {
 				return err
 			}

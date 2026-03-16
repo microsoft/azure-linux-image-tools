@@ -116,10 +116,6 @@ func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, image
 	return nil
 }
 
-func (d *azureLinuxDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
-	return installutils.CallGrubMkconfig(imageChroot, installutils.FedoraGrubMkconfigBinary, installutils.FedoraGrubCfgFile)
-}
-
 func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
@@ -131,6 +127,5 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig, installutils.FedoraGrubCfgFile, installutils.FedoraGrubDir,
-		installutils.FedoraGrubEnvRelPath, installutils.FedoraGrubMkconfigBinary)
+		currentSELinuxMode, forceGrubMkconfig)
 }

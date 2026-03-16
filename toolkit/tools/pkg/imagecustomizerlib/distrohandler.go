@@ -63,9 +63,6 @@ type DistroHandler interface {
 	// RegenerateInitramfs regenerates the initramfs/initrd using the distro-appropriate tool.
 	RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error
 
-	// CallGrubMkconfig runs the distro-appropriate grub mkconfig command.
-	CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error
-
 	// ConfigureDiskBootLoader performs the full bootloader configuration for a disk image.
 	ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 		rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,

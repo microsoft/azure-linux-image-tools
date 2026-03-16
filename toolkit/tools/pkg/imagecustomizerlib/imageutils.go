@@ -217,8 +217,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
-	currentSELinuxMode imagecustomizerapi.SELinuxMode, forceGrubMkconfig bool, grubCfgFile string,
-	grubDir string, grubEnvRelPath string, grubMkconfigBinary string,
+	currentSELinuxMode imagecustomizerapi.SELinuxMode, forceGrubMkconfig bool,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -238,10 +237,11 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	useGrubMkconfig := forceGrubMkconfig
 	if !forceGrubMkconfig {
 		// Detect the boot configuration type to determine whether to use grub mkconfig.
-		grubCfgContent, err := readGrub2ConfigFile(imageConnection.Chroot(), grubCfgFile)
+		grubCfgContent, err := readGrub2ConfigFile(imageConnection.Chroot(), installutils.FedoraGrubCfgFile)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
+
 		bootConfigType, err := determineBootConfigType(grubCfgContent, imageConnection.Chroot())
 		if err != nil {
 			return err
@@ -257,7 +257,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	// Configure the boot loader.
 	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(imagerBootType, false, imagerRootMountIdType,
 		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(), mountPointMap,
-		diskutils.EncryptedRootDevice{}, useGrubMkconfig, grubCfgFile, grubDir, grubEnvRelPath, grubMkconfigBinary)
+		diskutils.EncryptedRootDevice{}, useGrubMkconfig)
 	if err != nil {
 		return fmt.Errorf("failed to install bootloader:\n%w", err)
 	}

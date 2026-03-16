@@ -116,16 +116,11 @@ func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 	return nil
 }
 
-func (d *fedoraDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
-	return installutils.CallGrubMkconfig(imageChroot, installutils.FedoraGrubMkconfigBinary, installutils.FedoraGrubCfgFile)
-}
-
 func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, true, /* forceGrubMkconfig */ installutils.FedoraGrubCfgFile, installutils.FedoraGrubDir,
-		installutils.FedoraGrubEnvRelPath, installutils.FedoraGrubMkconfigBinary)
+		currentSELinuxMode, true /* forceGrubMkconfig */)
 }

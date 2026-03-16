@@ -137,11 +137,6 @@ func (d *ubuntuDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 	return nil
 }
 
-func (d *ubuntuDistroHandler) CallGrubMkconfig(imageChroot safechroot.ChrootInterface) error {
-	return installutils.CallGrubMkconfig(imageChroot, installutils.DebianGrubMkconfigBinary,
-		installutils.DebianGrubCfgFile)
-}
-
 func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,

@@ -19,6 +19,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -1051,10 +1052,8 @@ func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, output
 	return nil
 }
 
-func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string,
-	distroHandler DistroHandler,
-) error {
-	err := extractKernelAndInitramfsFromUkisHelper(ctx, imageChroot, buildDir, distroHandler)
+func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
+	err := extractKernelAndInitramfsFromUkisHelper(ctx, imageChroot, buildDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
 	}
@@ -1062,9 +1061,7 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 	return nil
 }
 
-func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string,
-	distroHandler DistroHandler,
-) error {
+func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
 	logger.Log.Infof("Extracting kernel and initramfs from existing UKIs for re-customization")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "extract_kernel_initramfs_from_ukis")
@@ -1123,7 +1120,15 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 
 	// Regenerate grub.cfg now that kernels are in /boot
 	logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
-	err = distroHandler.CallGrubMkconfig(imageChroot)
+
+	// Ensure /boot/grub2 directory exists
+	grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
+	err = os.MkdirAll(grubDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+	}
+
+	err = installutils.CallGrubMkconfig(imageChroot)
 	if err != nil {
 		return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
 	}
