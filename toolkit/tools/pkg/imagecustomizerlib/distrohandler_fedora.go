@@ -103,6 +103,9 @@ func (d *fedoraDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Regenerating initramfs file")
 
+	ctx, span := startRegenerateInitramfsSpan(ctx)
+	defer span.End()
+
 	err := imageChroot.UnsafeRun(func() error {
 		return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
 	})

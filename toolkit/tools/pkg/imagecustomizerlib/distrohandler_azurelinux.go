@@ -91,6 +91,9 @@ func (d *azureLinuxDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Regenerating initramfs file")
 
+	ctx, span := startRegenerateInitramfsSpan(ctx)
+	defer span.End()
+
 	err := imageChroot.UnsafeRun(func() error {
 		if d.version == "2.0" {
 			// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.

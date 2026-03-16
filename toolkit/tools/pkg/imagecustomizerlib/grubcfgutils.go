@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -16,6 +17,8 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -810,4 +813,11 @@ func writeGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInter
 	}
 
 	return nil
+}
+
+// startRegenerateInitramfsSpan creates a telemetry span for regenerating the initramfs.
+// The caller must call span.End() (typically via defer) when the operation completes.
+func startRegenerateInitramfsSpan(ctx context.Context) (context.Context, trace.Span) {
+	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "regenerate_initramfs")
+	return ctx, span
 }
