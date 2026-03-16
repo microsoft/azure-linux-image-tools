@@ -4,7 +4,7 @@
 version: 2
 updates:
   - package-ecosystem: "gomod"
-    directory: "/toolkit/tools"
+    directory: "/"
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
