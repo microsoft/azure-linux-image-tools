@@ -57,7 +57,7 @@ type BootCustomizer struct {
 }
 
 func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, buildDir string, distroHandler DistroHandler) (*BootCustomizer, error) {
-	grubCfgContent, err := ReadGrub2ConfigFile(imageChroot, distroHandler)
+	grubCfgContent, err := distroHandler.ReadGrub2ConfigFile(imageChroot)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 		args, _, err = getLinuxCommandLineArgs(b.grubCfgContent)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, false,
-				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.GrubCfgFile, err)
+				fmt.Errorf("failed to parse SELinux args from grub file (%s):\n%w", installutils.FedoraGrubCfgFile, err)
 		}
 
 	case bootConfigTypeUki:
@@ -340,7 +340,7 @@ func (b *BootCustomizer) WriteToFile(imageChroot safechroot.ChrootInterface) err
 
 	case bootConfigTypeGrubLegacy:
 		// Update grub.cfg file.
-		err := writeGrub2ConfigFile(b.grubCfgContent, imageChroot, b.distroHandler)
+		err := b.distroHandler.WriteGrub2ConfigFile(b.grubCfgContent, imageChroot)
 		if err != nil {
 			return err
 		}

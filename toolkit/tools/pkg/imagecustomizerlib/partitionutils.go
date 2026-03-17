@@ -83,7 +83,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	defer efiSystemPartitionMount.Close()
 
 	// Read the grub.cfg file.
-	grubConfigFilePath := filepath.Join(tmpDir, installutils.GrubCfgFile)
+	grubConfigFilePath := filepath.Join(tmpDir, installutils.FedoraGrubCfgFile)
 	grubConfigFile, err := os.ReadFile(grubConfigFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read EFI system partition's grub.cfg file:\n%w", err)

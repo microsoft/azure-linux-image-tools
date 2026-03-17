@@ -64,13 +64,31 @@ const (
 	// SELinuxConfigDisabled is the string value to set SELinux to disabled in the /etc/selinux/config file.
 	SELinuxConfigDisabled = "disabled"
 
-	// GrubCfgFile is the filepath of the grub config file.
-	GrubCfgFile = "/boot/grub2/grub.cfg"
+	// FedoraGrubCfgFile is the filepath of the grub config file on Fedora and Azure Linux systems.
+	FedoraGrubCfgFile = "/boot/grub2/grub.cfg"
 
-	// UbuntuGrubCfgFile is the filepath of the grub config file on Ubuntu/Debian systems.
-	UbuntuGrubCfgFile = "/boot/grub/grub.cfg"
+	// DebianGrubCfgFile is the filepath of the grub config file on Debian and Ubuntu systems.
+	DebianGrubCfgFile = "/boot/grub/grub.cfg"
 
-	// GrubDefFile is the filepath of the config file used by grub-mkconfig.
+	// FedoraGrubDir is the grub directory on Fedora and Azure Linux systems.
+	FedoraGrubDir = "/boot/grub2"
+
+	// DebianGrubDir is the grub directory on Debian and Ubuntu systems.
+	DebianGrubDir = "/boot/grub"
+
+	// FedoraGrubEnvRelPath is the relative path to grubenv on Fedora and Azure Linux systems.
+	FedoraGrubEnvRelPath = "boot/grub2/grubenv"
+
+	// DebianGrubEnvRelPath is the relative path to grubenv on Debian and Ubuntu systems.
+	DebianGrubEnvRelPath = "boot/grub/grubenv"
+
+	// FedoraGrubMkconfigBinary is the grub-mkconfig binary name on Fedora and Azure Linux systems.
+	FedoraGrubMkconfigBinary = "grub2-mkconfig"
+
+	// DebianGrubMkconfigBinary is the grub-mkconfig binary name on Debian and Ubuntu systems.
+	DebianGrubMkconfigBinary = "grub-mkconfig"
+
+	// GrubDefFile is the filepath of the config file used by grub's mkconfig binary.
 	GrubDefFile = "/etc/default/grub"
 
 	// CombinedBootPartitionBootPrefix is the grub.cfg boot prefix used when the boot partition is the same as the
@@ -79,15 +97,8 @@ const (
 )
 
 const (
-	overlay        = "overlay"
 	rootMountPoint = "/"
 	bootMountPoint = "/boot"
-
-	// rpmDependenciesDirectory is the directory which contains RPM database. It is not required for images that do not contain RPM.
-	rpmDependenciesDirectory = "/var/lib/rpm"
-
-	// rpmManifestDirectory is the directory containing manifests of installed packages to support distroless vulnerability scanning tools.
-	rpmManifestDirectory = "/var/lib/rpmmanifest"
 
 	// /boot directory should be only accesible by root. The directories need the execute bit as well.
 	bootDirectoryFileMode = 0400
@@ -145,7 +156,7 @@ func ClearSystemdState(installChroot *safechroot.Chroot, enableSystemdFirstboot 
 
 	// These state files are very unlikely to be present, but we should be thorough and check for them.
 	// See https://systemd.io/BUILDING_IMAGES/ for more information.
-	var otherFilesToRemove = []string{
+	otherFilesToRemove := []string{
 		"/var/lib/systemd/random-seed",
 		"/boot/efi/loader/random-seed",
 		"/var/lib/systemd/credential.secret",
@@ -341,7 +352,7 @@ func addEntryToFstab(fullFstabPath, mountPoint, devicePath, fsType, mountArgs st
 func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnable bool,
 	rootMountIdentifier configuration.MountIdentifier, kernelCommandLine configuration.KernelCommandLine,
 	installChroot *safechroot.Chroot, diskDevPath string, mountPointMap map[string]string,
-	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, includeLegacyGrubCfg bool,
+	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool,
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
@@ -388,7 +399,7 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 
 	// Grub will always use filesystem UUID, never PARTUUID or PARTLABEL
 	err = InstallGrubDefaults(installChroot.RootDir(), rootDevice, bootUUID, bootPrefix, encryptedRoot,
-		kernelCommandLine, isBootPartitionSeparate, includeLegacyGrubCfg)
+		kernelCommandLine, isBootPartitionSeparate, !enableGrubMkconfig /*includeLegacyCfg*/)
 	if err != nil {
 		err = fmt.Errorf("failed to install main grub config file: %s", err)
 		return
@@ -455,10 +466,10 @@ func InstallGrubDefaults(installRoot, rootDevice, bootUUID, bootPrefix string,
 
 	if includeLegacyCfg {
 		// Add the legacy /boot/grub2/grub.cfg file, which was used in Azure Linux 2.0.
-		err = installGrubTemplateFile(resources.AssetsGrubCfgFile, GrubCfgFile, installRoot, rootDevice, bootUUID,
+		err = installGrubTemplateFile(resources.AssetsGrubCfgFile, FedoraGrubCfgFile, installRoot, rootDevice, bootUUID,
 			bootPrefix, encryptedRoot, kernelCommandLine, isBootPartitionSeparate)
 		if err != nil {
-			logger.Log.Warnf("Failed to install (%s): %v", GrubCfgFile, err)
+			logger.Log.Warnf("Failed to install (%s): %v", FedoraGrubCfgFile, err)
 			return
 		}
 	}
@@ -552,9 +563,9 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
 	squashErrors := true
 
-	ReportActionf("Running grub2-mkconfig...")
+	ReportActionf("Running %s...", FedoraGrubMkconfigBinary)
 	err = installChroot.UnsafeRun(func() error {
-		return shell.ExecuteLive(squashErrors, "grub2-mkconfig", "-o", GrubCfgFile)
+		return shell.ExecuteLive(squashErrors, FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile)
 	})
 
 	return
@@ -658,7 +669,6 @@ func ConfigureUserPrimaryGroupMembership(installChroot safechroot.ChrootInterfac
 		err = installChroot.UnsafeRun(func() error {
 			return shell.ExecuteLiveWithErr(1, "usermod", "-g", primaryGroup, username)
 		})
-
 		if err != nil {
 			return fmt.Errorf("failed to set user's (%s) primary group (%s):\n%w", username, primaryGroup, err)
 		}

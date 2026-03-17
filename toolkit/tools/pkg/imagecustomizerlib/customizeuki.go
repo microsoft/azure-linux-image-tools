@@ -1122,7 +1122,7 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 	logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
 
 	// Ensure /boot/grub2 directory exists
-	grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.GrubCfgFile))
+	grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
 	err = os.MkdirAll(grubDir, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
