@@ -10,6 +10,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -152,9 +153,109 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 		return
 	}
 
+	expectedCosiMetadata := MetadataJson{
+		Disk: Disk{
+			Size: 5639 * diskutils.MiB,
+			GptRegions: []GptDiskRegion{
+				{
+					Image: ImageFile{
+						Path: "images/image_gpt.raw.zst",
+					},
+					Type: "primary-gpt",
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_1.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(1),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_2.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(2),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_3.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(3),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_4.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(4),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_5.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(5),
+				},
+			},
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/boot",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_3.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+				Verity: &VerityConfig{
+					Image: ImageFile{
+						Path: "images/image_4.raw.zst",
+					},
+				},
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_5.raw.zst",
+				},
+				MountPoint: "/var",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "systemd-boot",
+			SystemdBoot: &SystemDBoot{
+				Entries: []SystemDBootEntry{
+					{
+						Type: "uki-standalone",
+					},
+				},
+			},
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
 	// Connect to image.
-	partitionsPaths, err := extractPartitionsFromCosi(cosiFilePath, testTempDir)
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 6) {
+	if !extractCosiAndVerifyMetadata(t, cosiFilePath, testTempDir, expectedCosiMetadata) {
 		return
 	}
 

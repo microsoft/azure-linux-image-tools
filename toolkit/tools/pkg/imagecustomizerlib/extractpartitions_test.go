@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -16,12 +17,67 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
+)
+
+var (
+	expectedCosiMetadataForAzlCoreEfi = MetadataJson{
+		Disk: Disk{
+			Size: 4 * diskutils.GiB,
+			GptRegions: []GptDiskRegion{
+				{
+					Image: ImageFile{
+						Path: "images/image_gpt.raw.zst",
+					},
+					Type: "primary-gpt",
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_1.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(1),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_2.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(2),
+				},
+			},
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "grub",
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
 )
 
 func TestAddSkippableFrame(t *testing.T) {
@@ -86,19 +142,101 @@ func extractZstFile(zstFilePath string, outputFilePath string) error {
 	return nil
 }
 
-// extractPartitionsFromCosi extracts the partition files from a COSI file
-// and returns a list of their paths.
-// It skips directories, metadata.json, and files that are not .zst.
-// It also decompresses the .zst files and writes them to the output directory.
-func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error) {
+func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsOutputDir string,
+	expectedMetadata MetadataJson,
+) bool {
+	partitionsPaths, metadata, err := extractCosi(cosiFilePath, partitionsOutputDir)
+	if !assert.NoError(t, err) {
+		return false
+	}
+
+	assert.Equal(t, "1.2", metadata.Version)
+
+	assert.Equal(t, expectedMetadata.Disk.Size, metadata.Disk.Size)
+	assert.Equal(t, DiskTypeGpt, metadata.Disk.Type)
+	assert.Equal(t, 512, metadata.Disk.LbaSize)
+
+	assert.Equal(t, len(expectedMetadata.Disk.GptRegions), len(partitionsPaths))
+
+	if assert.Equal(t, len(expectedMetadata.Disk.GptRegions), len(metadata.Disk.GptRegions)) {
+		for i := range expectedMetadata.Disk.GptRegions {
+			expectedGptRegion := expectedMetadata.Disk.GptRegions[i]
+			actualGptRegion := metadata.Disk.GptRegions[i]
+
+			verifyCosiImageFile(t, expectedGptRegion.Image, actualGptRegion.Image)
+			assert.Equal(t, expectedGptRegion.Type, actualGptRegion.Type)
+			assert.Equal(t, expectedGptRegion.Number, actualGptRegion.Number)
+		}
+	}
+
+	if assert.Equal(t, len(expectedMetadata.Images), len(metadata.Images)) {
+		for i := range expectedMetadata.Images {
+			expectedImage := expectedMetadata.Images[i]
+			actualImage := metadata.Images[i]
+
+			verifyCosiImageFile(t, expectedImage.Image, actualImage.Image)
+			assert.Equal(t, expectedImage.MountPoint, actualImage.MountPoint)
+			assert.Equal(t, expectedImage.FsType, actualImage.FsType)
+			assert.Equal(t, expectedImage.PartType, actualImage.PartType)
+
+			assert.Equal(t, expectedImage.Verity != nil, actualImage.Verity != nil)
+			if expectedImage.Verity != nil && actualImage.Verity != nil {
+				verifyCosiImageFile(t, expectedImage.Verity.Image, actualImage.Verity.Image)
+				assert.Regexp(t, `^[0-9a-fA-F]{64}$`, actualImage.Verity.Roothash)
+			}
+		}
+	}
+
+	assert.Equal(t, expectedMetadata.Bootloader.Type, metadata.Bootloader.Type)
+
+	expectedSystemdBoot := expectedMetadata.Bootloader.SystemdBoot
+	actualSystemdBoot := metadata.Bootloader.SystemdBoot
+	assert.Equal(t, expectedSystemdBoot != nil, actualSystemdBoot != nil)
+	if expectedSystemdBoot != nil && actualSystemdBoot != nil {
+		if assert.Equal(t, len(expectedSystemdBoot.Entries), len(actualSystemdBoot.Entries)) {
+			for i := range expectedSystemdBoot.Entries {
+				expectedEntry := expectedSystemdBoot.Entries[i]
+				actualEntry := actualSystemdBoot.Entries[i]
+
+				assert.Equal(t, expectedEntry.Type, actualEntry.Type)
+
+				assert.NotEqual(t, "", actualEntry.Path)
+				assert.NotEqual(t, "", actualEntry.Cmdline)
+				assert.NotEqual(t, "", actualEntry.Kernel)
+			}
+		}
+	}
+
+	assert.Equal(t, expectedMetadata.Compression, metadata.Compression)
+
+	return true
+}
+
+func verifyCosiImageFile(t *testing.T, expected ImageFile, actual ImageFile) {
+	assert.Equal(t, expected.Path, expected.Path)
+
+	assert.Less(t, uint64(0), actual.CompressedSize)
+	assert.LessOrEqual(t, actual.CompressedSize, actual.UncompressedSize)
+	assert.Regexp(t, `^[0-9a-fA-F]{96}$`, actual.Sha384)
+}
+
+func extractCosi(cosiFilePath, partitionsOutputDir string) ([]string, MetadataJson, error) {
 	var extractedParitionsPaths []string
+
+	err := os.MkdirAll(partitionsOutputDir, os.ModePerm)
+	if err != nil {
+		return nil, MetadataJson{}, fmt.Errorf("failed to create output directory:\n%w", err)
+	}
 
 	// Open the COSI file
 	cosiFile, err := os.Open(cosiFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open COSI file:\n%w", err)
+		return nil, MetadataJson{}, fmt.Errorf("failed to open COSI file:\n%w", err)
 	}
 	defer cosiFile.Close()
+
+	cosiMetadata := MetadataJson{}
+	foundCosiMetadata := false
 
 	tarReader := tar.NewReader(cosiFile)
 	for {
@@ -107,84 +245,109 @@ func extractPartitionsFromCosi(cosiFilePath, outputDir string) ([]string, error)
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error reading tar:\n%w", err)
+			return nil, MetadataJson{}, fmt.Errorf("error reading tar:\n%w", err)
 		}
 
 		// Skip directories
 		if header.Typeflag == tar.TypeDir {
 			continue
 		}
-		// Skip metadata.json
-		if header.Name == "metadata.json" {
-			continue
-		}
-		// Skip files that are not .zst
-		if filepath.Ext(header.Name) != ".zst" {
-			continue
-		}
 
 		// Validate the file path to prevent directory traversal
 		cleanPath := filepath.Clean(header.Name)
 		if strings.Contains(cleanPath, "..") {
-			return nil, fmt.Errorf("invalid file path in tar archive: %s", header.Name)
+			return nil, MetadataJson{}, fmt.Errorf("invalid file path in tar archive: %s", header.Name)
 		}
 
-		imageFileName := filepath.Base(header.Name)
+		switch {
+		case filepath.Ext(header.Name) == ".zst":
+			outputFilePath, err := writeZstAndRawToFile(partitionsOutputDir, header, tarReader)
+			if err != nil {
+				return nil, MetadataJson{}, fmt.Errorf("failed to extract partition from cosi:\n%w", err)
+			}
 
-		zstFilePath := filepath.Join(outputDir, imageFileName)
-		// remove the .zst extension to get the output file name
-		rawImageFile := imageFileName[:len(imageFileName)-len(filepath.Ext(imageFileName))]
-		outputFilePath := filepath.Join(outputDir, rawImageFile)
-		outputDir := filepath.Dir(outputFilePath)
-		err = os.MkdirAll(outputDir, os.ModePerm)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create output directory:\n%w", err)
+			extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)
+			logger.Log.Debugf("Extracted partition file: %s", outputFilePath)
+
+		case header.Name == CosiMetadataName:
+			cosiMetadata, err = readCosiMetadata(tarReader)
+			if err != nil {
+				return nil, MetadataJson{}, fmt.Errorf("failed to read cosi metadata:\n%w", err)
+			}
+
+			foundCosiMetadata = true
 		}
-
-		// Create the .zst file
-		zstFile, err := os.Create(zstFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open .zst file:\n%w", err)
-		}
-		defer zstFile.Close()
-
-		// Create the output file
-		outFile, err := os.Create(outputFilePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create output file:\n%w", err)
-		}
-		defer outFile.Close()
-
-		// Extract .zst file from tarball.
-		_, err = io.Copy(zstFile, tarReader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract file from tarball:\n%w", err)
-		}
-
-		// Prepare file to be read back.
-		_, err = zstFile.Seek(0, 0)
-		if err != nil {
-			return nil, fmt.Errorf("failed to seek to origin of zst file:\n%w", err)
-		}
-
-		// Create a new zstd reader
-		zstReader, err := zstd.NewReader(zstFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create zstd reader:\n%w", err)
-		}
-		defer zstReader.Close()
-
-		// Decompress the .zst file and write to the output file
-		if _, err := io.Copy(outFile, zstReader); err != nil {
-			return nil, fmt.Errorf("failed to decompress and write to output file:\n%w", err)
-		}
-
-		extractedParitionsPaths = append(extractedParitionsPaths, outputFilePath)
-		logger.Log.Debugf("Extracted partition file: %s", outputFilePath)
-
 	}
 
-	return extractedParitionsPaths, nil
+	if !foundCosiMetadata {
+		return nil, MetadataJson{}, fmt.Errorf("no %s found in cosi file", CosiMetadataName)
+	}
+
+	return extractedParitionsPaths, cosiMetadata, nil
+}
+
+func writeZstAndRawToFile(outputDir string, header *tar.Header, tarReader io.Reader) (string, error) {
+	imageFileName := filepath.Base(header.Name)
+
+	zstFilePath := filepath.Join(outputDir, imageFileName)
+	// remove the .zst extension to get the output file name
+	rawImageFile := imageFileName[:len(imageFileName)-len(filepath.Ext(imageFileName))]
+	outputFilePath := filepath.Join(outputDir, rawImageFile)
+
+	// Create the .zst file
+	zstFile, err := os.Create(zstFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open .zst file:\n%w", err)
+	}
+	defer zstFile.Close()
+
+	// Create the output file
+	outFile, err := os.Create(outputFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create output file:\n%w", err)
+	}
+	defer outFile.Close()
+
+	// Extract .zst file from tarball.
+	_, err = io.Copy(zstFile, tarReader)
+	if err != nil {
+		return "", fmt.Errorf("failed to extract file from tarball:\n%w", err)
+	}
+
+	// Prepare file to be read back.
+	_, err = zstFile.Seek(0, 0)
+	if err != nil {
+		return "", fmt.Errorf("failed to seek to origin of zst file:\n%w", err)
+	}
+
+	// Create a new zstd reader
+	zstReader, err := zstd.NewReader(zstFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to create zstd reader:\n%w", err)
+	}
+	defer zstReader.Close()
+
+	// Decompress the .zst file and write to the output file
+	if _, err := io.Copy(outFile, zstReader); err != nil {
+		return "", fmt.Errorf("failed to decompress and write to output file:\n%w", err)
+	}
+
+	return outputFilePath, nil
+}
+
+func readCosiMetadata(src io.Reader) (MetadataJson, error) {
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return MetadataJson{}, fmt.Errorf("failed to read metadata.json:\n%w", err)
+	}
+
+	metadata := MetadataJson{}
+	err = json.Unmarshal(data, &metadata)
+	if err != nil {
+		return MetadataJson{}, fmt.Errorf("failed to parse metadata.json:\n%w", err)
+	}
+
+	return metadata, nil
 }
 
 // Decompress the .raw.zst partition file and verify the hash matches with the source .raw file
@@ -270,9 +433,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	}
 
 	// Attach partition files.
-	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, testTempDir)
-
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 3) {
+	if !extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadataForAzlCoreEfi) {
 		return
 	}
 
@@ -364,11 +525,67 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 		return
 	}
 
-	// Attach partition files.
-	partitionsPaths, err := extractPartitionsFromCosi(outImageFilePath, buildDir)
+	expectedCosiMetadata := MetadataJson{
+		Disk: Disk{
+			Size: 4106 * diskutils.MiB,
+			GptRegions: []GptDiskRegion{
+				{
+					Image: ImageFile{
+						Path: "images/image_gpt.raw.zst",
+					},
+					Type: "primary-gpt",
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_1.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(1),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_2.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(2),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_3.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(3),
+				},
+			},
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "grub",
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
 
-	// Expect 4 items: GPT, ESP, rootfs, and the empty/unformatted partition.
-	if !assert.NoError(t, err) || !assert.Len(t, partitionsPaths, 4) {
+	// Attach partition files.
+	if !extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadata) {
 		return
 	}
 
@@ -426,6 +643,10 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
 		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
+		return
+	}
+
+	if !extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadataForAzlCoreEfi) {
 		return
 	}
 }
