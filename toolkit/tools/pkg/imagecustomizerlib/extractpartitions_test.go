@@ -213,7 +213,7 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 }
 
 func verifyCosiImageFile(t *testing.T, expected ImageFile, actual ImageFile) {
-	assert.Equal(t, expected.Path, expected.Path)
+	assert.Equal(t, expected.Path, actual.Path)
 
 	assert.Less(t, uint64(0), actual.CompressedSize)
 	assert.LessOrEqual(t, actual.CompressedSize, actual.UncompressedSize)
