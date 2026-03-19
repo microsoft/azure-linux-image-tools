@@ -818,7 +818,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 ) error {
 	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
 	if isUki {
