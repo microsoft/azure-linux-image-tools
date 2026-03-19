@@ -1152,6 +1152,10 @@ func getPartitionOfPath(targetPath string, diskPartitions []diskutils.PartitionI
 	}
 
 	entry := partitionsLayout[index]
+	if entry.PartUuid == "" {
+		return diskutils.PartitionInfo{}, "", fmt.Errorf("partition is data partition and therefore does not exist at build time")
+	}
+
 	partitionInfo, found := sliceutils.FindValueFunc(diskPartitions,
 		func(info diskutils.PartitionInfo) bool {
 			return info.PartUuid == entry.PartUuid
