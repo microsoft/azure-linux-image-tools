@@ -318,6 +318,7 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 
 		default:
 			t.Errorf("Invalid verity type: (%s)", verityType)
+			continue
 		}
 
 		hashMatches := hashRegexp.FindStringSubmatch(kernelArgs)
@@ -501,7 +502,7 @@ func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, bas
 		return
 	}
 
-	verifyRootVerity(t, baseImageInfo, buildDir, stage1FilePath)
+	verifyRootVerity(t, baseImageInfo, buildDir, stage2FilePath)
 
 	// Stage 2b: Reinitialize verity + hard-reset bootloader.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, stage2bConfigFile, stage1FilePath, nil, stage2FilePath, "raw",

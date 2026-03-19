@@ -393,7 +393,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	defer espLoopback.Close()
+	defer rootfsLoopback.Close()
 
 	espMount, err := safemount.NewMount(espLoopback.DevicePath(), espMountDir, "vfat", 0, "", true)
 	if !assert.NoError(t, err) {
@@ -436,7 +436,7 @@ func TestBuildZstdArgs_UltraLevel(t *testing.T) {
 		level    int
 		expected []string
 	}{
-		{"level 19", 18, []string{"--force", "-18", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
+		{"level 18", 18, []string{"--force", "-18", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
 		{"level 19", 19, []string{"--force", "-19", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
 		{"level 20", 20, []string{"--force", "--ultra", "-20", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
 		{"level 21", 21, []string{"--force", "--ultra", "-21", "--long=27", "-T0", "in.raw", "-o", "out.raw.zst"}},
