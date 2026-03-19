@@ -34,13 +34,13 @@ type CosiBootloader struct {
 type MetadataJson struct {
 	Version     string         `json:"version"`
 	OsArch      string         `json:"osArch"`
-	Disk        *Disk          `json:"disk,omitempty"`
+	Disk        Disk           `json:"disk"`
 	Images      []FileSystem   `json:"images"`
 	OsRelease   string         `json:"osRelease"`
-	Id          string         `json:"id,omitempty"`
+	Id          string         `json:"id"`
 	Bootloader  CosiBootloader `json:"bootloader"`
 	OsPackages  []OsPackage    `json:"osPackages"`
-	Compression *Compression   `json:"compression,omitempty"`
+	Compression Compression    `json:"compression"`
 }
 
 type Compression struct {
@@ -68,10 +68,9 @@ type Disk struct {
 }
 
 type GptDiskRegion struct {
-	Image    ImageFile  `json:"image"`              // Details of the image file in the tarball
-	Type     RegionType `json:"type"`               // The type of region this image represents
-	StartLba *int64     `json:"startLba,omitempty"` // The first LBA of the region
-	Number   *int       `json:"number,omitempty"`   // Partition number
+	Image  ImageFile  `json:"image"`            // Details of the image file in the tarball
+	Type   RegionType `json:"type"`             // The type of region this image represents
+	Number *int       `json:"number,omitempty"` // Partition number
 }
 
 type FileSystem struct {

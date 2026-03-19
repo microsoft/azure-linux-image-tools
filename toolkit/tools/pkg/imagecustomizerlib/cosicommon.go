@@ -22,6 +22,10 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
+const (
+	CosiMetadataName = "metadata.json"
+)
+
 var (
 	// COSI-related errors
 	ErrCosiDirectoryCreate = NewImageCustomizerError("COSI:DirectoryCreate", "failed to create COSI directory")
@@ -223,7 +227,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 		OsRelease:  osRelease,
 		OsPackages: osPackages,
 		Bootloader: handleBootloaderMetadata(cosiBootMetadata),
-		Compression: &Compression{
+		Compression: Compression{
 			MaxWindowLog: compressionLong,
 		},
 	}
@@ -262,7 +266,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 	err = tw.WriteHeader(&tar.Header{
 		Typeflag: tar.TypeReg,
-		Name:     "metadata.json",
+		Name:     CosiMetadataName,
 		Size:     int64(len(metadataJson)),
 		Mode:     0o400,
 		Format:   tar.FormatPAX,
