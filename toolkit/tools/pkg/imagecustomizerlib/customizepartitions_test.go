@@ -725,6 +725,117 @@ func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName str
 	verifyBtrfsQuotasDisabled(t, btrfsMountDir)
 }
 
+func TestCustomizeImageAzureDataDisk(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageAzureDataDiskHelper(t,
+				"TestCustomizeImageAzureDataDisk"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
+	baseImageInfo testBaseImageInfo,
+) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	// Create image with Azure data disk entry in /etc/fstab file.
+	configFile := filepath.Join(testDir, "azure-data-disk.yaml")
+	outImageFilePath1 := filepath.Join(testTmpDir, "image1.raw")
+	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath1,
+		OutputImageFormat:    "raw",
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		UseBaseImageRpmRepos: true,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	// Try recustomizing the image but try to write to the read-only data disk placeholder directory.
+	configFile = filepath.Join(testDir, "addfiles-config.yaml")
+	outImageFilePath2 := filepath.Join(testTmpDir, "image2.raw")
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath1,
+		OutputImageFile:      outImageFilePath2,
+		OutputImageFormat:    "raw",
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		UseBaseImageRpmRepos: true,
+	})
+	assert.ErrorContains(t, err, "failed to create destination directory")
+	assert.ErrorContains(t, err, "read-only file system")
+
+	// Recustomize image, writing to locations that are not read-only.
+	configFile = filepath.Join(testDir, "adddirs-config.yaml")
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath1,
+		OutputImageFile:      outImageFilePath2,
+		OutputImageFormat:    "raw",
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		UseBaseImageRpmRepos: true,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyAddDirs(t, baseImageInfo, buildDir, outImageFilePath2)
+
+	if baseImageInfo.Distro != baseImageDistroUbuntu {
+		// Recustomize image with partition customization.
+		configFile = filepath.Join(testDir, "partitions-config.yaml")
+		err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+			BuildDir:             buildDir,
+			InputImageFile:       outImageFilePath1,
+			OutputImageFile:      outImageFilePath2,
+			OutputImageFormat:    "raw",
+			PreviewFeatures:      baseImageInfo.PreviewFeatures,
+			UseBaseImageRpmRepos: true,
+		})
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		verifyEfiPartitionsImage(t, outImageFilePath2, baseImageInfo, buildDir)
+	}
+
+	// Recustomize and convert to COSI.
+	configFile = filepath.Join(testDir, "adddirs-config.yaml")
+	outImageCosiFilePath := filepath.Join(testTmpDir, "image.cosi")
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath1,
+		OutputImageFile:      outImageCosiFilePath,
+		OutputImageFormat:    "cosi",
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+		UseBaseImageRpmRepos: true,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	expectedCosiMetadata := MetadataJson{}
+	switch baseImageInfo.Distro {
+	case baseImageDistroAzureLinux:
+		expectedCosiMetadata = expectedCosiMetadataForAzlCoreEfi
+
+	case baseImageDistroUbuntu:
+		expectedCosiMetadata = expectedCosiMetadataForUbuntuCloud
+	}
+
+	if !extractCosiAndVerifyMetadata(t, outImageCosiFilePath, testTmpDir, expectedCosiMetadata) {
+		return
+	}
+}
+
 func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection) []diskutils.FstabEntry {
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "/etc/fstab")
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)

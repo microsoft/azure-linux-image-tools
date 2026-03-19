@@ -78,6 +78,80 @@ var (
 			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
 		},
 	}
+
+	expectedCosiMetadataForUbuntuCloud = MetadataJson{
+		Disk: Disk{
+			Size: 3.5 * diskutils.GiB,
+			GptRegions: []GptDiskRegion{
+				{
+					Image: ImageFile{
+						Path: "images/image_gpt.raw.zst",
+					},
+					Type: "primary-gpt",
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_1.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(1),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_14.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(14),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_15.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(15),
+				},
+				{
+					Image: ImageFile{
+						Path: "images/image_16.raw.zst",
+					},
+					Type:   "partition",
+					Number: ptrutils.PtrTo(16),
+				},
+			},
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_15.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_16.raw.zst",
+				},
+				MountPoint: "/boot",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeXbootldr],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "grub",
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
 )
 
 func TestAddSkippableFrame(t *testing.T) {

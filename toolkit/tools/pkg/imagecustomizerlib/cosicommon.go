@@ -160,7 +160,7 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 
 		// Skip partitions that are unmounted or have no filesystem type for imageData
 		entry, hasMount := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
-			return partition.PartUuid == entry.PartUuid
+			return entry.PartUuid != "" && partition.PartUuid == entry.PartUuid
 		})
 		if !hasMount || entry.FstabEntry.Target == "" || partition.FileSystemType == "" {
 			continue
