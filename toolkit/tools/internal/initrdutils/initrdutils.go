@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/cavaliercoder/go-cpio"
+	"github.com/cavaliergopher/cpio"
 	"github.com/klauspost/pgzip"
 )
 
@@ -82,7 +82,7 @@ func buildCpioHeader(inputRootDir, path string, info os.FileInfo, isRoot bool, l
 	}
 
 	if isRoot {
-		cpioHeader.Mode = (cpioHeader.Mode & ^cpio.ModePerm) | cpio.FileMode(initrdRootDirPermissions)
+		cpioHeader.Mode = (cpioHeader.Mode & ^cpio.FileMode(cpio.ModePerm)) | cpio.FileMode(initrdRootDirPermissions)
 	}
 
 	// Convert full path to relative path
@@ -97,8 +97,8 @@ func buildCpioHeader(inputRootDir, path string, info os.FileInfo, isRoot bool, l
 	if !ok {
 		return nil, fmt.Errorf("failed to get file stat of (%s)", path)
 	}
-	cpioHeader.UID = int(stat.Uid)
-	cpioHeader.GID = int(stat.Gid)
+	cpioHeader.Uid = int(stat.Uid)
+	cpioHeader.Guid = int(stat.Gid)
 
 	return cpioHeader, nil
 }
@@ -209,15 +209,16 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 		fileType := cpioHeader.Mode & cpio.ModeType
 
 		switch fileType {
-		case cpio.ModeDir:
+		case cpio.TypeDir:
 			err := os.MkdirAll(path, golangFileMode)
 			if err != nil {
 				return fmt.Errorf("failed to create directory (%s):\n%w", path, err)
 			}
 
-			err = os.Chown(path, cpioHeader.UID, cpioHeader.GID)
+			err = os.Chown(path, cpioHeader.Uid, cpioHeader.Guid)
 			if err != nil {
-				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.UID, cpioHeader.GID, err)
+				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.Uid,
+					cpioHeader.Guid, err)
 			}
 
 			// UID/GID/Sticky permissions must be set after chown or else they
@@ -228,7 +229,7 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 				return fmt.Errorf("failed to set permissions on extracted (%s) to (0%08o):\n%w", path, golangFileMode, err)
 			}
 
-		case cpio.ModeRegular:
+		case cpio.TypeReg:
 			destFile, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, golangFileMode)
 			if err != nil {
 				return fmt.Errorf("failed to create file (%s):\n%w", path, err)
@@ -245,9 +246,9 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 				return fmt.Errorf("failed to close (%s):\n%w", path, err)
 			}
 
-			err = os.Chown(path, cpioHeader.UID, cpioHeader.GID)
+			err = os.Chown(path, cpioHeader.Uid, cpioHeader.Guid)
 			if err != nil {
-				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.UID, cpioHeader.GID, err)
+				return fmt.Errorf("failed to set ownership on extracted (%s) to (%d,%d):\n%w", path, cpioHeader.Uid, cpioHeader.Guid, err)
 			}
 
 			// UID/GID/Sticky permissions must be set after chown or else they
@@ -258,11 +259,12 @@ func CreateFolderFromInitrdImage(inputInitrdImagePath, outputDir string) error {
 				return fmt.Errorf("failed to set permissions on extracted (%s) to (0%08o):\n%w", path, golangFileMode, err)
 			}
 
-		case cpio.ModeSymlink:
+		case cpio.TypeSymlink:
 			err = os.Symlink(cpioHeader.Linkname, path)
 			if err != nil {
 				return fmt.Errorf("failed to create symbolic link (%s) to (%s)\n%w", cpioHeader.Linkname, path, err)
 			}
+
 		default:
 			return fmt.Errorf("unsupported type (%s) in cpio archive (%s)", fileType, inputInitrdImagePath)
 		}

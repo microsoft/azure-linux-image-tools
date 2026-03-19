@@ -5,8 +5,8 @@
 package exe
 
 import (
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func SetupLogFlags(k *kingpin.Application) *logger.LogFlags {
