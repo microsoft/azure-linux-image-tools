@@ -110,6 +110,10 @@ func testCustomizeImageAdditionalFiles(t *testing.T, baseImageInfo testBaseImage
 	// Check output file type.
 	checkFileType(t, outImageFilePath, "raw")
 
+	verifyAddFiles(t, buildDir, outImageFilePath, baseImageInfo)
+}
+
+func verifyAddFiles(t *testing.T, buildDir string, outImageFilePath string, baseImageInfo testBaseImageInfo) {
 	// Connect to customized image.
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
@@ -250,6 +254,10 @@ func testCustomizeImageAdditionalDirs(t *testing.T, baseImageInfo testBaseImageI
 		return
 	}
 
+	verifyAddDirs(t, baseImageInfo, buildDir, outImageFilePath)
+}
+
+func verifyAddDirs(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string, outImageFilePath string) {
 	// Connect to customized image.
 	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false, baseImageInfo.MountPoints)
 	if !assert.NoError(t, err) {
