@@ -8,12 +8,12 @@ import (
 	"log"
 	"os"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exe"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/osmodifierlib"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/profile"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
