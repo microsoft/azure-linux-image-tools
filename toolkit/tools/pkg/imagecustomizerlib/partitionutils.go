@@ -45,9 +45,12 @@ const (
 )
 
 type fstabEntryPartNum struct {
+	// The entry in the /etc/fstab file.
 	FstabEntry diskutils.FstabEntry
-	PartUuid   string
-	IsVerity   bool
+	// The PARTUUID of the partition. Value is "" for data disks.
+	PartUuid string
+	// If the partition is a verity data partition.
+	IsVerity bool
 }
 
 func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskutils.PartitionInfo, error) {
@@ -356,9 +359,14 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 			return nil, nil, err
 		}
 
+		partUuid := ""
+		if partition != nil {
+			partUuid = partition.PartUuid
+		}
+
 		entry := fstabEntryPartNum{
 			FstabEntry: fstabEntry,
-			PartUuid:   partition.PartUuid,
+			PartUuid:   partUuid,
 			IsVerity:   verityMetadata != nil,
 		}
 
@@ -383,16 +391,31 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 	for _, entry := range layout {
 		fstabEntry := entry.FstabEntry
 
-		partition, partitionFound := sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
-			return entry.PartUuid == partition.PartUuid
-		})
-		if !partitionFound {
-			return nil, nil, fmt.Errorf("failed to find partition (partuuid='%s')", entry.PartUuid)
-		}
+		var sourcePath string
+		var readOnlyPartition bool
+		var fsType string
 
-		readOnlyPartition := readOnlyVerity && entry.IsVerity
-		if readOnlyPartition {
-			readonlyPartUuids = append(readonlyPartUuids, partition.PartUuid)
+		if entry.PartUuid == "" {
+			// Fstab entry is for a data partition that will be available when image is deployed to the target
+			// environment. So, mount as read-only tmpfs to ensure directory remains empty during customization.
+			sourcePath = "tmpfs"
+			fsType = "tmpfs"
+			readOnlyPartition = true
+		} else {
+			partition, partitionFound := sliceutils.FindValueFunc(diskPartitions, func(partition diskutils.PartitionInfo) bool {
+				return entry.PartUuid == partition.PartUuid
+			})
+			if !partitionFound {
+				return nil, nil, fmt.Errorf("failed to find partition (partuuid='%s')", entry.PartUuid)
+			}
+
+			readOnlyPartition = readOnlyVerity && entry.IsVerity
+			if readOnlyPartition {
+				readonlyPartUuids = append(readonlyPartUuids, partition.PartUuid)
+			}
+
+			sourcePath = partition.Path
+			fsType = fstabEntry.FsType
 		}
 
 		var vfsOptions diskutils.MountFlags
@@ -410,13 +433,13 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
 			mountPoint = safechroot.NewPreDefaultsMountPoint(
-				partition.Path, fstabEntry.Target, fstabEntry.FsType,
+				sourcePath, fstabEntry.Target, fsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 
 			foundRoot = true
 		} else {
 			mountPoint = safechroot.NewMountPoint(
-				partition.Path, fstabEntry.Target, fstabEntry.FsType,
+				sourcePath, fstabEntry.Target, fsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 		}
 
@@ -454,16 +477,16 @@ func isSpecialPartition(fstabEntry diskutils.FstabEntry) bool {
 
 func findSourcePartition(source string, partitions []diskutils.PartitionInfo,
 	getKernelCmdline func() ([]grubConfigLinuxArg, error),
-) (imagecustomizerapi.MountIdentifierType, diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
+) (imagecustomizerapi.MountIdentifierType, *diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
 	mountIdType, mountId, err := parseExtendedSourcePartition(source)
 	if err != nil {
-		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
+		return imagecustomizerapi.MountIdentifierTypeDefault, nil, 0, nil, err
 	}
 
 	partition, partitionIndex, verityMetadata, err := findExtendedPartition(mountIdType, mountId, partitions,
 		getKernelCmdline)
 	if err != nil {
-		return imagecustomizerapi.MountIdentifierTypeDefault, diskutils.PartitionInfo{}, 0, nil, err
+		return imagecustomizerapi.MountIdentifierTypeDefault, nil, 0, nil, err
 	}
 
 	return mountIdType, partition, partitionIndex, verityMetadata, nil
@@ -483,12 +506,12 @@ func findPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId s
 // findExtendedPartition extends the public func findPartition to handle additional identifier types.
 func findExtendedPartition(mountIdType imagecustomizerapi.MountIdentifierType, mountId string,
 	partitions []diskutils.PartitionInfo, getKernelCmdline func() ([]grubConfigLinuxArg, error),
-) (diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
+) (*diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
 	switch mountIdType {
 	case MountIdentifierTypeDev:
 		partition, partitionIndex, verityMetadata, err := findDevPathPartition(mountId, partitions, getKernelCmdline)
 		if err != nil {
-			return diskutils.PartitionInfo{}, 0, nil, err
+			return nil, 0, nil, err
 		}
 
 		return partition, partitionIndex, verityMetadata, err
@@ -496,10 +519,10 @@ func findExtendedPartition(mountIdType imagecustomizerapi.MountIdentifierType, m
 	default:
 		partition, partitionIndex, err := findPartitionHelper(mountIdType, mountId, partitions)
 		if err != nil {
-			return diskutils.PartitionInfo{}, 0, nil, err
+			return nil, 0, nil, err
 		}
 
-		return partition, partitionIndex, nil, err
+		return &partition, partitionIndex, nil, err
 	}
 }
 
@@ -545,12 +568,12 @@ func findPartitionHelper(mountIdType imagecustomizerapi.MountIdentifierType, mou
 
 func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
 	getKernelCmdline func() ([]grubConfigLinuxArg, error),
-) (diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
-	switch mountId {
-	case imagecustomizerapi.VerityRootDevicePath, imagecustomizerapi.VerityUsrDevicePath:
+) (*diskutils.PartitionInfo, int, *verityDeviceMetadata, error) {
+	// Verity /dev paths.
+	if mountId == imagecustomizerapi.VerityRootDevicePath || mountId == imagecustomizerapi.VerityUsrDevicePath {
 		kernelCmdline, err := getKernelCmdline()
 		if err != nil {
-			return diskutils.PartitionInfo{}, 0, nil, err
+			return nil, 0, nil, err
 		}
 
 		if mountId == imagecustomizerapi.VerityRootDevicePath {
@@ -559,24 +582,31 @@ func findDevPathPartition(mountId string, partitions []diskutils.PartitionInfo,
 				imagecustomizerapi.VerityRootDeviceName)
 			if err != nil {
 				err = fmt.Errorf("failed to find %s verity partitions:\n%w", imagecustomizerapi.VerityRootDeviceName, err)
-				return diskutils.PartitionInfo{}, 0, nil, err
+				return nil, 0, nil, err
 			}
-			return partition, partitionIndex, &verityMetadata, nil
+			return &partition, partitionIndex, &verityMetadata, nil
 		} else {
 			partition, partitionIndex, verityMetadata, err := findVerityPartitionsFromCmdline(partitions, kernelCmdline,
 				"systemd.verity_usr_data", "systemd.verity_usr_hash", "usrhash", "systemd.verity_usr_options",
 				imagecustomizerapi.VerityUsrDeviceName)
 			if err != nil {
 				err = fmt.Errorf("failed to find %s verity partitions:\n%w", imagecustomizerapi.VerityUsrDeviceName, err)
-				return diskutils.PartitionInfo{}, 0, nil, err
+				return nil, 0, nil, err
 			}
-			return partition, partitionIndex, &verityMetadata, nil
+			return &partition, partitionIndex, &verityMetadata, nil
 		}
-
-	default:
-		err := fmt.Errorf("unknown partition id (%s)", mountId)
-		return diskutils.PartitionInfo{}, 0, nil, err
 	}
+
+	// Azure data disk /dev paths.
+	// Note:
+	// - /dev/disk/azure/* comes from WAAgent's 66-azure-storage.rules udev rules file.
+	// - /dev/disk/cloud/azure_* comes from cloud-init's 66-azure-ephemeral.rules udev rules file.
+	if strings.HasPrefix(mountId, "/dev/disk/azure/") || strings.HasPrefix(mountId, "/dev/disk/cloud/azure_") {
+		return nil, -1, nil, nil
+	}
+
+	err := fmt.Errorf("unknown partition id (%s)", mountId)
+	return nil, 0, nil, err
 }
 
 func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdline []grubConfigLinuxArg,
@@ -1054,10 +1084,14 @@ func getNonSpecialChrootMountPoints(imageChroot *safechroot.Chroot) []*safechroo
 			case "/dev", "/proc", "/sys", "/run", "/dev/pts", "/tmp":
 				// Skip special directories.
 				return false
-
-			default:
-				return true
 			}
+
+			if mountPoint.GetFSType() == "tmpfs" {
+				// Skip placeholder data partitions.
+				return false
+			}
+
+			return true
 		},
 	)
 }
@@ -1118,6 +1152,10 @@ func getPartitionOfPath(targetPath string, diskPartitions []diskutils.PartitionI
 	}
 
 	entry := partitionsLayout[index]
+	if entry.PartUuid == "" {
+		return diskutils.PartitionInfo{}, "", fmt.Errorf("partition is data partition and therefore does not exist at build time")
+	}
+
 	partitionInfo, found := sliceutils.FindValueFunc(diskPartitions,
 		func(info diskutils.PartitionInfo) bool {
 			return info.PartUuid == entry.PartUuid
