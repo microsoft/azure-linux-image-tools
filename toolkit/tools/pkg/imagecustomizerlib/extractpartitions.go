@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -124,6 +125,10 @@ func extractPartitions(imageLoopDevice string, outDir string, basename string, p
 		partitionMetadataOutput = append(partitionMetadataOutput, partitionMetadata)
 		logger.Log.Infof("Partition file created: %s", partitionFilepath)
 	}
+
+	slices.SortFunc(partitionMetadataOutput, func(a, b outputPartitionMetadata) int {
+		return a.PartitionNum - b.PartitionNum
+	})
 
 	return partitionMetadataOutput, nil
 }
