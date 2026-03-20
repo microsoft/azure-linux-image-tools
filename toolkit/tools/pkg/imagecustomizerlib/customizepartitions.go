@@ -18,6 +18,7 @@ import (
 var (
 	ErrPartitionsCustomize  = NewImageCustomizerError("Partitions:Customize", "failed to customize partitions")
 	ErrPartitionsResetUuids = NewImageCustomizerError("Partitions:ResetUuids", "failed to reset partition UUIDs")
+	ErrResizeDisk           = NewImageCustomizerError("Partitions:ResizeDisk", "failed to resize disk and partitions")
 )
 
 func customizePartitions(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
@@ -50,6 +51,14 @@ func customizePartitions(ctx context.Context, buildDir string, baseConfigPath st
 		}
 
 		return true, buildImageFile, nil, nil
+
+	case config.Storage.ResizeDisk != nil:
+		err := resizeDiskAndPartitions(ctx, buildImageFile, buildDir, *config.Storage.ResizeDisk)
+		if err != nil {
+			return false, "", nil, fmt.Errorf("%w:\n%w", ErrResizeDisk, err)
+		}
+
+		return false, buildImageFile, nil, nil
 
 	default:
 		// No changes to make to the partitions.

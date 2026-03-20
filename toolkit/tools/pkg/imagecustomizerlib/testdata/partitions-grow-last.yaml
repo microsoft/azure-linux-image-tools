@@ -1,0 +1,7 @@
+storage:
+  resizeDisk:
+    partitions:
+    - ref: last
+        # type: position
+        # value: last
+      freeSpace: 1G

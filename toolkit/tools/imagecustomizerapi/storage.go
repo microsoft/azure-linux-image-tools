@@ -27,6 +27,7 @@ type Storage struct {
 	FileSystems              []FileSystem             `yaml:"filesystems" json:"filesystems,omitempty"`
 	Verity                   []Verity                 `yaml:"verity" json:"verity,omitempty"`
 	ReinitializeVerity       ReinitializeVerityType   `yaml:"reinitializeVerity" json:"reinitializeVerity,omitempty"`
+	ResizeDisk               *ResizeDisk              `yaml:"resizeDisk" json:"resizeDisk,omitempty"`
 
 	// Filled in by Storage.IsValid().
 	VerityPartitionsType VerityPartitionsType `json:"-"`

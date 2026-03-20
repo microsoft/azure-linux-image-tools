@@ -17,10 +17,11 @@ const (
 	// In addition, the imager's diskutils works in MiB.
 	DefaultPartitionAlignment = diskutils.MiB
 
-	// The number of sectors (LBA) that the GPT header requires.
+	// The maximum number of sectors (LBA) that the GPT header requires, when following the standard maximum of 128
+	// partitions (with each partition entry taking 128 bytes).
 	GptHeaderSectorNum = 34
 
-	// The number of sectors (LBA) that the GPT footer requires.
+	// The maximum number of sectors (LBA) that the GPT footer requires.
 	GptFooterSectorNum = 33
 )
 
@@ -55,8 +56,8 @@ func (d *Disk) IsValid() error {
 		}
 	}
 
-	gptHeaderSize := DiskSize(roundUp(GptHeaderSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
-	gptFooterSize := DiskSize(roundUp(GptFooterSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
+	gptHeaderSize := DiskSize(diskutils.RoundUp(GptHeaderSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
+	gptFooterSize := DiskSize(diskutils.RoundUp(GptFooterSectorNum*DefaultSectorSize, DefaultPartitionAlignment))
 
 	// Auto-fill the start value from the previous partition's end value.
 	for i := range d.Partitions {
@@ -156,13 +157,4 @@ func (d *Disk) IsValid() error {
 	}
 
 	return nil
-}
-
-func roundUp(size uint64, alignment uint64) uint64 {
-	div := size / alignment
-	mod := size % alignment
-	if mod == 0 {
-		return size
-	}
-	return (div + 1) * alignment
 }
