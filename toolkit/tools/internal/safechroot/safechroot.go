@@ -76,9 +76,6 @@ type Chroot struct {
 	includeDefaultMounts bool
 }
 
-// inChrootMutex guards against multiple Chroots entering their respective Chroots
-// and running commands. Only a single Chroot can be active at a given time.
-//
 // activeChrootsMutex guards activeChroots reads and writes.
 //
 // activeChroots is slice of Initialized Chroots that should be cleaned up iff
@@ -89,7 +86,6 @@ type Chroot struct {
 //     a pre-existing pool of chroots
 //     (as opposed to regular build which create a new chroot each time a spec is built)
 var (
-	inChrootMutex      sync.Mutex
 	activeChrootsMutex sync.Mutex
 	activeChroots      []*Chroot
 )
@@ -379,64 +375,13 @@ func (c *Chroot) MoveOutFile(srcPath string, destPath string) (err error) {
 	return
 }
 
-// Run runs a given function inside the Chroot. This function will synchronize
-// with all other Chroots to ensure only one Chroot command is executed at a given time.
-func (c *Chroot) Run(toRun func() error) (err error) {
-	// Only a single chroot can be active at a given time for a single GO application.
-	// acquire a global mutex to ensure this behavior.
-	inChrootMutex.Lock()
-	defer inChrootMutex.Unlock()
-
-	// Alter the environment variables while inside the chroot, upon exit restore them.
-	originalEnv := shell.CurrentEnvironment()
-	shell.SetEnvironment(defaultChrootEnv)
-	defer shell.SetEnvironment(originalEnv)
-
-	err = c.UnsafeRun(toRun)
-
-	return
-}
-
-// UnsafeRun runs a given function inside the Chroot. This function will not synchronize
-// with other Chroots. The invoker is responsible for ensuring safety.
-func (c *Chroot) UnsafeRun(toRun func() error) (err error) {
-	const fsRoot = "/"
-
-	originalRoot, err := os.Open(fsRoot)
-	if err != nil {
-		return
-	}
-	defer originalRoot.Close()
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return
-	}
-	originalWd, err := os.Open(cwd)
-	if err != nil {
-		return
-	}
-	defer originalWd.Close()
-
-	logger.Log.Debugf("Entering Chroot: '%s'", c.rootDir)
-	err = unix.Chroot(c.rootDir)
-	if err != nil {
-		return
-	}
-	defer c.restoreRoot(originalRoot, originalWd)
-
-	err = os.Chdir(fsRoot)
-	if err != nil {
-		return
-	}
-
-	err = toRun()
-	return
-}
-
 // RootDir returns the Chroot's root directory.
 func (c *Chroot) RootDir() string {
 	return c.rootDir
+}
+
+func (c *Chroot) ChrootDir() string {
+	return c.RootDir()
 }
 
 // Close will unmount the chroot and cleanup its files.
@@ -529,11 +474,8 @@ func cleanupAllChroots() {
 	logger.Log.Info("Waiting for outstanding chroot initialization and cleanup to finish")
 	activeChrootsMutex.Lock()
 
-	// Acquire and permanently hold the global inChrootMutex lock to ensure this application is not
-	// inside any Chroot.
 	logger.Log.Info("Waiting for outstanding chroot commands to finish")
 	shell.PermanentlyStopAllChildProcesses(stopSignal)
-	inChrootMutex.Lock()
 
 	// mount is only supported in regular pipeline
 	failedToUnmount := false
@@ -660,29 +602,6 @@ func defaultMountPoints() []*MountPoint {
 			data:   "mode=1777",
 		},
 	}
-}
-
-// restoreRoot will restore the original root of the GO application, cleaning up
-// after the run command. Will panic on error.
-func (c *Chroot) restoreRoot(originalRoot, originalWd *os.File) {
-	logger.Log.Debugf("Exiting Chroot: '%s'", c.rootDir)
-
-	err := originalRoot.Chdir()
-	if err != nil {
-		logger.Log.Panicf("Failed to change directory to original root. Error: %s", err)
-	}
-
-	err = unix.Chroot(".")
-	if err != nil {
-		logger.Log.Panicf("Failed to restore original chroot. Error: %s", err)
-	}
-
-	err = originalWd.Chdir()
-	if err != nil {
-		logger.Log.Panicf("Failed to change directory to original root. Error: %s", err)
-	}
-
-	return
 }
 
 // createMountPoints will create a provided list of mount points

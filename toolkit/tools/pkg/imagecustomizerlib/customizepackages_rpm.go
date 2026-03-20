@@ -122,13 +122,12 @@ func executeRpmPackageManagerCommand(args []string, imageChroot *safechroot.Chro
 	// Use package manager specific output callback
 	stdoutCallback := pmHandler.createOutputCallback()
 
-	return pmChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
-			StdoutCallback(stdoutCallback).
-			LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	return shell.NewExecBuilder(pmHandler.getPackageManagerBinary(), args...).
+		StdoutCallback(stdoutCallback).
+		LogLevel(shell.LogDisabledLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(pmChroot.ChrootDir()).
+		Execute()
 }
 
 func installRpmPackages(ctx context.Context, allPackages []string,
@@ -327,14 +326,10 @@ func cleanRpmCache(ctx context.Context, imageChroot *safechroot.Chroot, toolsChr
 
 // getAllPackagesFromChrootRpm retrieves all installed packages from an RPM-based system
 func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	var out string
-	err := imageChroot.UnsafeRun(func() error {
-		var err error
-		out, _, err = shell.Execute(
-			"rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n",
-		)
-		return err
-	})
+	out, _, err := shell.NewExecBuilder("rpm", "-qa", "--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
 	}

@@ -88,11 +88,10 @@ func setupServicePrevention(imageChroot *safechroot.Chroot) error {
 	}
 
 	// Divert start-stop-daemon so that dpkg post-install hooks cannot start daemons.
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("dpkg-divert", "--local", "--rename", "--add", "/sbin/start-stop-daemon").
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err := shell.NewExecBuilder("dpkg-divert", "--local", "--rename", "--add", "/sbin/start-stop-daemon").
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to divert start-stop-daemon:\n%w", err)
 	}
@@ -130,11 +129,10 @@ func teardownServicePrevention(imageChroot *safechroot.Chroot) error {
 	}
 
 	// Restore the original start-stop-daemon via dpkg-divert.
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder("dpkg-divert", "--remove", "--rename", "/sbin/start-stop-daemon").
-			ErrorStderrLines(1).
-			Execute()
-	})
+	err := shell.NewExecBuilder("dpkg-divert", "--remove", "--rename", "/sbin/start-stop-daemon").
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to restore start-stop-daemon via dpkg-divert:\n%w", err)
 	}
@@ -167,13 +165,12 @@ func executeAptCommand(args []string, imageChroot *safechroot.Chroot) error {
 
 	env := append(shell.CurrentEnvironment(), getAptEnvironmentVariables()...)
 
-	return imageChroot.UnsafeRun(func() error {
-		return shell.NewExecBuilder(packageManagerAPT, args...).
-			EnvironmentVariables(env).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ErrorStderrLines(1).
-			Execute()
-	})
+	return shell.NewExecBuilder(packageManagerAPT, args...).
+		EnvironmentVariables(env).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 }
 
 // getAptEnvironmentVariables returns the environment variables required for non-interactive operations.
@@ -331,10 +328,10 @@ func cleanDebCache(ctx context.Context, imageChroot *safechroot.Chroot) error {
 
 // isPackageInstalledDeb checks if a package is installed using dpkg-query.
 func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("dpkg-query", "-W", "-f='${Status}'", packageName)
-		return err
-	})
+	err := shell.NewExecBuilder("dpkg-query", "-W", "-f='${Status}'", packageName).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return false
 	}
@@ -343,15 +340,10 @@ func isPackageInstalledDeb(imageChroot safechroot.ChrootInterface, packageName s
 
 // getAllPackagesFromChrootDeb retrieves all installed packages from a DEB-based system.
 func getAllPackagesFromChrootDeb(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	var out string
-	err := imageChroot.UnsafeRun(func() error {
-		var err error
-		// Query format: package:arch version architecture
-		out, _, err = shell.Execute(
-			"dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n",
-		)
-		return err
-	})
+	out, _, err := shell.NewExecBuilder("dpkg-query", "-W", "-f=${Package}\t${Version}\t${Architecture}\n").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dpkg output from chroot:\n%w", err)
 	}

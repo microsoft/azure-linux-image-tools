@@ -5,7 +5,7 @@ package safechroot
 
 type ChrootInterface interface {
 	RootDir() string
-	Run(toRun func() error) error
-	UnsafeRun(toRun func() error) error
+	// ChrootDir returns a value that can be passed to the shell.ExecBuilder.Chroot function.
+	ChrootDir() string
 	AddFiles(filesToCopy ...FileToCopy) error
 }
