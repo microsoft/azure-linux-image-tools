@@ -244,6 +244,10 @@ func TestCustomizeImagePackagesUpdateExisting(t *testing.T) {
 func testCustomizeImagePackagesUpdateExisting(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Distro == baseImageDistroUbuntu {
+		t.Skip("Skipping Ubuntu since test fails due to disk space contraints")
+	}
+
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUpdateExisting_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
