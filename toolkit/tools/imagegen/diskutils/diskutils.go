@@ -1018,3 +1018,12 @@ func requestKernelRereadPartitionTable(diskDevPath string) error {
 		}
 	}
 }
+
+func RoundUp(size uint64, alignment uint64) uint64 {
+	div := size / alignment
+	mod := size % alignment
+	if mod == 0 {
+		return size
+	}
+	return (div + 1) * alignment
+}
