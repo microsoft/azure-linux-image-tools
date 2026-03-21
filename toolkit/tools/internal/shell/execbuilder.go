@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +25,18 @@ const (
 
 	// DefaultWarnLogLines is a default value that can be used with the WarnLogLines function.
 	DefaultWarnLogLines int = 1500
+)
+
+var (
+	// The comoon directories included in PATH for Linux distros.
+	chrootPathDirs = []string{
+		"/usr/local/sbin",
+		"/usr/local/bin",
+		"/usr/sbin",
+		"/usr/bin",
+		"/sbin",
+		"/bin",
+	}
 )
 
 type LogCallback func(line string)
@@ -175,8 +188,23 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 		stderrResultChan = make(chan string, 1)
 	}
 
+	command := b.command
+
+	// Check if we need to pre-resolve the command path within the chroot directory.
+	// Note: exec.Command only does a path lookup when 'filepath.Base(command) == command'.
+	if b.chrootDir != "" && filepath.Base(command) == command {
+		// Resolve the command's path relative to the chroot directory.
+		resolvedCmd, err := chrootLookPath(command, b.chrootDir, chrootPathDirs)
+		if err != nil {
+			err = fmt.Errorf("failed to resolve command path:\n%w", err)
+			return "", "", err
+		}
+
+		command = resolvedCmd
+	}
+
 	// Setup process.
-	cmd := exec.Command(b.command, b.args...)
+	cmd := exec.Command(command, b.args...)
 	cmd.Dir = b.workingDirectory
 	cmd.Env = b.environmentVariables
 	cmd.SysProcAttr = &syscall.SysProcAttr{
