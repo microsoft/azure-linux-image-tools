@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	// The comoon directories included in PATH for Linux distros.
+	// The common directories included in PATH for Linux distros.
 	chrootPathDirs = []string{
 		"/usr/local/sbin",
 		"/usr/local/bin",
