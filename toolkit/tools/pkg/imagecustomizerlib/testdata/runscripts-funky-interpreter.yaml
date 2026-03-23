@@ -1,0 +1,15 @@
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Create a new command that is unlikely to exist on the build host OS.
+      ln -s /usr/bin/python3 /usr/bin/mypython3
+
+  - interpreter: mypython3
+    content: |
+      print("Hello, World!")
+
+  - interpreter: /usr/bin/mypython3
+    content: |
+      print("Hello, Universe!")

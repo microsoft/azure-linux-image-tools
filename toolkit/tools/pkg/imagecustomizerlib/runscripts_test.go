@@ -85,3 +85,38 @@ resolv.conf exists
 
 	verifyFileContentsSame(t, aOrigFilePath, aNewFilePath)
 }
+
+// Test that ensures that the chroot command lookup happens within the chroot instead of in the build host OS.
+func TestCustomizeImageRunScriptsFunkyInterpreter(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForCustomizeDefaultImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageRunScriptsFunkyInterpreter(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageRunScriptsFunkyInterpreter(t *testing.T, baseImageInfo testBaseImageInfo) {
+	var err error
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageRunScriptsFunkyInterpreter_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	configFile := filepath.Join(testDir, "runscripts-funky-interpreter.yaml")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Customize image.
+	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
+	if !assert.NoError(t, err) {
+		return
+	}
+}
