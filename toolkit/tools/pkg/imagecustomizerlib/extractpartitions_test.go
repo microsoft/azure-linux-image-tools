@@ -58,29 +58,31 @@ var (
 		},
 	}
 
-	expectedCosiMetadataForUbuntu2204Cloud = MetadataJson{
+	expectedCosiFileSystemsForUbuntu2204 = []FileSystem{
+		{
+			Image: ImageFile{
+				Path: "images/image_1.raw.zst",
+			},
+			MountPoint: "/",
+			FsType:     "ext4",
+			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+		},
+		{
+			Image: ImageFile{
+				Path: "images/image_15.raw.zst",
+			},
+			MountPoint: "/boot/efi",
+			FsType:     "vfat",
+			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+		},
+	}
+
+	expectedCosiMetadataForUbuntu2204CloudAmd64 = MetadataJson{
 		Disk: Disk{
 			Size:       30721 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 14, 15}),
 		},
-		Images: []FileSystem{
-			{
-				Image: ImageFile{
-					Path: "images/image_1.raw.zst",
-				},
-				MountPoint: "/",
-				FsType:     "ext4",
-				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
-			},
-			{
-				Image: ImageFile{
-					Path: "images/image_15.raw.zst",
-				},
-				MountPoint: "/boot/efi",
-				FsType:     "vfat",
-				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
-			},
-		},
+		Images: expectedCosiFileSystemsForUbuntu2204,
 		Bootloader: CosiBootloader{
 			Type: "grub",
 		},
@@ -89,37 +91,67 @@ var (
 		},
 	}
 
-	expectedCosiMetadataForUbuntu2404Cloud = MetadataJson{
+	expectedCosiMetadataForUbuntu2204CloudArm64 = MetadataJson{
+		Disk: Disk{
+			Size:       30721 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 15}),
+		},
+		Images: expectedCosiFileSystemsForUbuntu2204,
+		Bootloader: CosiBootloader{
+			Type: "grub",
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
+	expectedCosiFileSystemsForUbuntu2404 = []FileSystem{
+		{
+			Image: ImageFile{
+				Path: "images/image_1.raw.zst",
+			},
+			MountPoint: "/",
+			FsType:     "ext4",
+			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+		},
+		{
+			Image: ImageFile{
+				Path: "images/image_15.raw.zst",
+			},
+			MountPoint: "/boot/efi",
+			FsType:     "vfat",
+			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+		},
+		{
+			Image: ImageFile{
+				Path: "images/image_16.raw.zst",
+			},
+			MountPoint: "/boot",
+			FsType:     "ext4",
+			PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeXbootldr],
+		},
+	}
+
+	expectedCosiMetadataForUbuntu2404CloudAmd64 = MetadataJson{
 		Disk: Disk{
 			Size:       30721 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 14, 15, 16}),
 		},
-		Images: []FileSystem{
-			{
-				Image: ImageFile{
-					Path: "images/image_1.raw.zst",
-				},
-				MountPoint: "/",
-				FsType:     "ext4",
-				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
-			},
-			{
-				Image: ImageFile{
-					Path: "images/image_15.raw.zst",
-				},
-				MountPoint: "/boot/efi",
-				FsType:     "vfat",
-				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
-			},
-			{
-				Image: ImageFile{
-					Path: "images/image_16.raw.zst",
-				},
-				MountPoint: "/boot",
-				FsType:     "ext4",
-				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeXbootldr],
-			},
+		Images: expectedCosiFileSystemsForUbuntu2404,
+		Bootloader: CosiBootloader{
+			Type: "grub",
 		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
+	expectedCosiMetadataForUbuntu2404CloudArm64 = MetadataJson{
+		Disk: Disk{
+			Size:       30721 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 15, 16}),
+		},
+		Images: expectedCosiFileSystemsForUbuntu2404,
 		Bootloader: CosiBootloader{
 			Type: "grub",
 		},

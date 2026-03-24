@@ -830,10 +830,20 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	case baseImageDistroUbuntu:
 		switch baseImageInfo.Version {
 		case baseImageVersionUbuntu2204:
-			expectedCosiMetadata = expectedCosiMetadataForUbuntu2204Cloud
+			switch runtime.GOARCH {
+			case "amd64":
+				expectedCosiMetadata = expectedCosiMetadataForUbuntu2204CloudAmd64
+			case "arm64":
+				expectedCosiMetadata = expectedCosiMetadataForUbuntu2204CloudArm64
+			}
 
 		case baseImageVersionUbuntu2404:
-			expectedCosiMetadata = expectedCosiMetadataForUbuntu2404Cloud
+			switch runtime.GOARCH {
+			case "amd64":
+				expectedCosiMetadata = expectedCosiMetadataForUbuntu2404CloudAmd64
+			case "arm64":
+				expectedCosiMetadata = expectedCosiMetadataForUbuntu2404CloudArm64
+			}
 		}
 	}
 
