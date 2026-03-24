@@ -206,6 +206,10 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 	// Setup process.
 	cmd := exec.Command(command, b.args...)
 	cmd.Dir = b.workingDirectory
+	if cmd.Dir == "" && b.chrootDir != "" {
+		// Default to the root directory of the chroot.
+		cmd.Dir = "/"
+	}
 	cmd.Env = b.environmentVariables
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Chroot: b.chrootDir,

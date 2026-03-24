@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -680,17 +681,14 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 
 func getPkgVersionFromChroot(imageConnection *imageconnection.ImageConnection, pkgName string) (string, error) {
 	var versionOutput string
-	err := imageConnection.Chroot().UnsafeRun(func() error {
-		out, _, err := shell.Execute("rpm", "-q", pkgName)
-		if err != nil {
-			return fmt.Errorf("failed to query rpm:\n%w", err)
-		}
-		versionOutput = strings.TrimSpace(out)
-		return nil
-	})
+	out, _, err := shell.NewExecBuilder("rpm", "-q", pkgName).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageConnection.Chroot().ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to get version of %s in chroot:\n%w", pkgName, err)
+		return "", fmt.Errorf("failed to get version of %s in chroot:\nfailed to query rpm:\n%w", pkgName, err)
 	}
 
+	versionOutput = strings.TrimSpace(out)
 	return versionOutput, nil
 }

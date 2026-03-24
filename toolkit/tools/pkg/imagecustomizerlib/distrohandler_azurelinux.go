@@ -9,12 +9,12 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/sirupsen/logrus"
 )
 
 // azureLinuxDistroHandler implements distroHandler for Azure Linux
@@ -94,21 +94,21 @@ func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, image
 	ctx, span := startRegenerateInitramfsSpan(ctx)
 	defer span.End()
 
-	err := imageChroot.UnsafeRun(func() error {
-		if d.version == "2.0" {
-			// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.
-			mkinitrdExists, err := file.CommandExists("mkinitrd")
-			if err != nil {
-				return fmt.Errorf("failed to search for mkinitrd command:\n%w", err)
-			}
-
-			if mkinitrdExists {
-				return shell.ExecuteLiveWithErr(1, "mkinitrd")
-			}
-		}
-
-		return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
-	})
+	var err error
+	if d.version == "2.0" {
+		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.
+		err = shell.NewExecBuilder("mkinitrd").
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(imageChroot.ChrootDir()).
+			Execute()
+	} else {
+		err = shell.NewExecBuilder("dracut", "--force", "--regenerate-all").
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(imageChroot.ChrootDir()).
+			Execute()
+	}
 	if err != nil {
 		return fmt.Errorf("failed to rebuild initramfs:\n%w", err)
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/sirupsen/logrus"
 )
 
 type PackageVersionInformation struct {
@@ -139,11 +140,10 @@ func parseVersionString(version string) ([]uint64, error) {
 }
 
 func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (info *PackageVersionInformation, err error) {
-	var packageInfo string
-	err = imageChroot.UnsafeRun(func() error {
-		packageInfo, _, err = shell.Execute("tdnf", "info", packageName, "--repo", "@system")
-		return err
-	})
+	packageInfo, _, err := shell.NewExecBuilder("tdnf", "info", packageName, "--repo", "@system").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query (%s) package information:\n%w", packageName, err)
 	}

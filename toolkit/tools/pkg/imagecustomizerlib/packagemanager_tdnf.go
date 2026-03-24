@@ -11,6 +11,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/sirupsen/logrus"
 )
 
 // TDNF Package Manager Implementation
@@ -105,10 +106,10 @@ func (pm *tdnfPackageManager) createOutputCallback() func(string) {
 }
 
 func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("tdnf", "info", packageName, "--repo", "@system")
-		return err
-	})
+	err := shell.NewExecBuilder("tdnf", "info", packageName, "--repo", "@system").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return false
 	}

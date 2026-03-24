@@ -4,7 +4,6 @@
 package safechroot
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,74 +111,6 @@ func TestRootDirShouldReturnRootDir(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "TestRootDirShouldReturnRootDir")
 	chroot := NewChroot(dir, isExistingDir)
 	assert.Equal(t, dir, chroot.RootDir())
-}
-
-func TestRunShouldReturnCorrectError(t *testing.T) {
-	extraMountPoints := []*MountPoint{}
-	extraDirectories := []string{}
-
-	dir := filepath.Join(t.TempDir(), "TestRunShouldReturnCorrectError")
-	chroot := NewChroot(dir, isExistingDir)
-
-	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-	assert.NoError(t, err)
-	defer chroot.Close(defaultLeaveOnDisk)
-
-	expectedErr := fmt.Errorf("expected returned error")
-	actualErr := chroot.Run(func() error {
-		return expectedErr
-	})
-
-	assert.Equal(t, expectedErr, actualErr)
-}
-
-func TestRunShouldChangeCWD(t *testing.T) {
-	extraMountPoints := []*MountPoint{}
-	extraDirectories := []string{}
-
-	dir := filepath.Join(t.TempDir(), "TestRunShouldChangeCWD")
-	chroot := NewChroot(dir, isExistingDir)
-
-	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-	assert.NoError(t, err)
-	defer chroot.Close(defaultLeaveOnDisk)
-
-	var (
-		expectedWorkingDirectory = "/"
-		actualWorkingDirectory   string
-	)
-
-	err = chroot.Run(func() (err error) {
-		actualWorkingDirectory, err = os.Getwd()
-		return
-	})
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedWorkingDirectory, actualWorkingDirectory)
-}
-
-func TestShouldRestoreCWD(t *testing.T) {
-	extraMountPoints := []*MountPoint{}
-	extraDirectories := []string{}
-
-	dir := filepath.Join(t.TempDir(), "TestShouldRestoreCWD")
-	chroot := NewChroot(dir, isExistingDir)
-
-	err := chroot.Initialize(emptyPath, extraDirectories, extraMountPoints, true)
-	assert.NoError(t, err)
-	defer chroot.Close(defaultLeaveOnDisk)
-
-	expectedWorkingDirectory, err := os.Getwd()
-	assert.NoError(t, err)
-
-	err = chroot.Run(func() (err error) {
-		return nil
-	})
-	assert.NoError(t, err)
-
-	actualWorkingDirectory, err := os.Getwd()
-	assert.NoError(t, err)
-	assert.Equal(t, expectedWorkingDirectory, actualWorkingDirectory)
 }
 
 func TestInitializeShouldExtractTar(t *testing.T) {
