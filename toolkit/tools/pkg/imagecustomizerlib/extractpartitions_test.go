@@ -29,29 +29,8 @@ import (
 var (
 	expectedCosiMetadataForAzlCoreEfi = MetadataJson{
 		Disk: Disk{
-			Size: 4 * diskutils.GiB,
-			GptRegions: []GptDiskRegion{
-				{
-					Image: ImageFile{
-						Path: "images/image_gpt.raw.zst",
-					},
-					Type: "primary-gpt",
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_1.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(1),
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_2.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(2),
-				},
-			},
+			Size:       4 * diskutils.GiB,
+			GptRegions: newTestCosiGptSections([]int{1, 2}),
 		},
 		Images: []FileSystem{
 			{
@@ -79,45 +58,41 @@ var (
 		},
 	}
 
-	expectedCosiMetadataForUbuntuCloud = MetadataJson{
+	expectedCosiMetadataForUbuntu2204Cloud = MetadataJson{
 		Disk: Disk{
-			Size: 3.5 * diskutils.GiB,
-			GptRegions: []GptDiskRegion{
-				{
-					Image: ImageFile{
-						Path: "images/image_gpt.raw.zst",
-					},
-					Type: "primary-gpt",
+			Size:       30721 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 14, 15}),
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
 				},
-				{
-					Image: ImageFile{
-						Path: "images/image_1.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(1),
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_14.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(14),
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_15.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(15),
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_16.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(16),
-				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
 			},
+			{
+				Image: ImageFile{
+					Path: "images/image_15.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "grub",
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
+	expectedCosiMetadataForUbuntu2404Cloud = MetadataJson{
+		Disk: Disk{
+			Size:       30721 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 14, 15, 16}),
 		},
 		Images: []FileSystem{
 			{
@@ -601,36 +576,8 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
-			Size: 4106 * diskutils.MiB,
-			GptRegions: []GptDiskRegion{
-				{
-					Image: ImageFile{
-						Path: "images/image_gpt.raw.zst",
-					},
-					Type: "primary-gpt",
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_1.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(1),
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_2.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(2),
-				},
-				{
-					Image: ImageFile{
-						Path: "images/image_3.raw.zst",
-					},
-					Type:   "partition",
-					Number: ptrutils.PtrTo(3),
-				},
-			},
+			Size:       4106 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 2, 3}),
 		},
 		Images: []FileSystem{
 			{
@@ -743,4 +690,28 @@ func TestBuildZstdArgs_UltraLevel(t *testing.T) {
 			assert.Equal(t, tc.expected, args)
 		})
 	}
+}
+
+func newTestCosiGptSections(partNums []int) []GptDiskRegion {
+	gptRegions := []GptDiskRegion{
+		{
+			Image: ImageFile{
+				Path: "images/image_gpt.raw.zst",
+			},
+			Type: "primary-gpt",
+		},
+	}
+
+	for _, partNum := range partNums {
+		partition := GptDiskRegion{
+			Image: ImageFile{
+				Path: fmt.Sprintf("images/image_%d.raw.zst", partNum),
+			},
+			Type:   "partition",
+			Number: ptrutils.PtrTo(partNum),
+		}
+		gptRegions = append(gptRegions, partition)
+	}
+
+	return gptRegions
 }

@@ -828,7 +828,13 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 		expectedCosiMetadata = expectedCosiMetadataForAzlCoreEfi
 
 	case baseImageDistroUbuntu:
-		expectedCosiMetadata = expectedCosiMetadataForUbuntuCloud
+		switch baseImageInfo.Version {
+		case baseImageVersionUbuntu2204:
+			expectedCosiMetadata = expectedCosiMetadataForUbuntu2204Cloud
+
+		case baseImageVersionUbuntu2404:
+			expectedCosiMetadata = expectedCosiMetadataForUbuntu2404Cloud
+		}
 	}
 
 	if !extractCosiAndVerifyMetadata(t, outImageCosiFilePath, testTmpDir, expectedCosiMetadata) {
