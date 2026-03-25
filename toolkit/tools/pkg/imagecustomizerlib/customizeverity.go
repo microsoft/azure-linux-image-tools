@@ -534,14 +534,14 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		}
 
 		dataEntry, found := sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
-			return entry.PartUuid == dataPartition.PartUuid
+			return entry.PartUuid != "" && entry.PartUuid == dataPartition.PartUuid
 		})
 		if !found {
 			return fmt.Errorf("verity's (%s) data partition's fstab entry not found", verity.Id)
 		}
 
 		_, found = sliceutils.FindValueFunc(partitionsLayout, func(entry fstabEntryPartNum) bool {
-			return entry.PartUuid == hashPartition.PartUuid
+			return entry.PartUuid != "" && entry.PartUuid == hashPartition.PartUuid
 		})
 		if found {
 			return fmt.Errorf("verity's (%s) hash partition cannot have an fstab entry", verity.Id)
@@ -818,7 +818,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 ) error {
 	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
 	if isUki {
