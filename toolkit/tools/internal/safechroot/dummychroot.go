@@ -12,7 +12,7 @@ func (d *DummyChroot) RootDir() string {
 }
 
 func (d *DummyChroot) ChrootDir() string {
-	// No chroot neccessary when executing subprocesses.
+	// No chroot necessary when executing subprocesses.
 	return ""
 }
 
