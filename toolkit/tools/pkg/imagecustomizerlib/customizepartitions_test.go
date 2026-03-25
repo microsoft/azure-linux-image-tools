@@ -835,6 +835,8 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 				expectedCosiMetadata = expectedCosiMetadataForUbuntu2204CloudAmd64
 			case "arm64":
 				expectedCosiMetadata = expectedCosiMetadataForUbuntu2204CloudArm64
+			default:
+				assert.FailNowf(t, "Unsupported CPU: %s", runtime.GOARCH)
 			}
 
 		case baseImageVersionUbuntu2404:
@@ -843,6 +845,8 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 				expectedCosiMetadata = expectedCosiMetadataForUbuntu2404CloudAmd64
 			case "arm64":
 				expectedCosiMetadata = expectedCosiMetadataForUbuntu2404CloudArm64
+			default:
+				assert.FailNowf(t, "Unsupported CPU: %s", runtime.GOARCH)
 			}
 		}
 	}
