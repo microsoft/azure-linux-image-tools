@@ -67,22 +67,18 @@ func userExistsHelper(name string, installChroot safechroot.ChrootInterface, gro
 	}
 
 	var userExists bool
-	err := installChroot.UnsafeRun(func() error {
-		_, stderr, err := shell.Execute("id", typeFlag, name)
-		if err != nil {
-			if !strings.Contains(stderr, "no such user") {
-				return err
-			}
-
-			userExists = false
-		} else {
-			userExists = true
+	_, stderr, err := shell.NewExecBuilder("id", typeFlag, name).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(installChroot.ChrootDir()).
+		ExecuteCaptureOutput()
+	if err != nil {
+		if !strings.Contains(stderr, "no such user") {
+			return false, err
 		}
 
-		return nil
-	})
-	if err != nil {
-		return false, err
+		userExists = false
+	} else {
+		userExists = true
 	}
 
 	return userExists, nil
@@ -111,9 +107,11 @@ func AddUser(username string, homeDir string, primaryGroup string, hashedPasswor
 		args = append(args, "-g", primaryGroup)
 	}
 
-	err := installChroot.UnsafeRun(func() error {
-		return shell.ExecuteLiveWithErr(1, "useradd", args...)
-	})
+	err := shell.NewExecBuilder("useradd", args...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(installChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to add user (%s):\n%w", username, err)
 	}
@@ -127,9 +125,10 @@ func AddGroup(name string, gid string, installChroot safechroot.ChrootInterface)
 		args = append(args, "-g", gid)
 	}
 
-	err := installChroot.UnsafeRun(func() error {
-		return shell.ExecuteLive(false /*squashErrors*/, "groupadd", args...)
-	})
+	err := shell.NewExecBuilder("groupadd", args...).
+		LogLevel(logrus.DebugLevel, logrus.WarnLevel).
+		Chroot(installChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to add group (%s):\n%w", name, err)
 	}
@@ -242,15 +241,11 @@ func PasswordExpiresDaysIsValid(passwordExpiresDays int64) error {
 }
 
 func GetUserId(username string, installChroot safechroot.ChrootInterface) (int, error) {
-	var stdout string
-	err := installChroot.UnsafeRun(func() error {
-		var err error
-		stdout, _, err = shell.NewExecBuilder("id", "-u", username).
-			ErrorStderrLines(1).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ExecuteCaptureOutput()
-		return err
-	})
+	stdout, _, err := shell.NewExecBuilder("id", "-u", username).
+		ErrorStderrLines(1).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Chroot(installChroot.ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get user's (%s) ID:\n%w", username, err)
 	}
@@ -264,15 +259,11 @@ func GetUserId(username string, installChroot safechroot.ChrootInterface) (int, 
 }
 
 func GetUserGroupId(username string, installChroot safechroot.ChrootInterface) (int, error) {
-	var stdout string
-	err := installChroot.UnsafeRun(func() error {
-		var err error
-		stdout, _, err = shell.NewExecBuilder("id", "-g", username).
-			ErrorStderrLines(1).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ExecuteCaptureOutput()
-		return err
-	})
+	stdout, _, err := shell.NewExecBuilder("id", "-g", username).
+		ErrorStderrLines(1).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Chroot(installChroot.ChrootDir()).
+		ExecuteCaptureOutput()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get user's (%s) group ID:\n%w", username, err)
 	}

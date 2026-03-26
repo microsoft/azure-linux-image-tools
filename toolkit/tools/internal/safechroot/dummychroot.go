@@ -11,13 +11,9 @@ func (d *DummyChroot) RootDir() string {
 	return "/"
 }
 
-func (d *DummyChroot) Run(toRun func() error) (err error) {
-	// Only execute the function, no chroot operations
-	return toRun()
-}
-
-func (d *DummyChroot) UnsafeRun(toRun func() error) (err error) {
-	return toRun()
+func (d *DummyChroot) ChrootDir() string {
+	// No chroot necessary when executing subprocesses.
+	return ""
 }
 
 func (d *DummyChroot) AddFiles(filesToCopy ...FileToCopy) (err error) {

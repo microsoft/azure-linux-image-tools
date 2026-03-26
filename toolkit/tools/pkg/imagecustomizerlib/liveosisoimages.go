@@ -22,6 +22,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -171,15 +172,16 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	}
 
 	initrdPathInChroot := "/initrd.img"
-	err = chroot.UnsafeRun(func() error {
-		dracutParams := []string{
-			initrdPathInChroot,
-			"--kver", kernelVersion,
-			"--filesystems", "squashfs",
-			"--include", usrLibLocaleDir, usrLibLocaleDir}
+	dracutParams := []string{
+		initrdPathInChroot,
+		"--kver", kernelVersion,
+		"--filesystems", "squashfs",
+		"--include", usrLibLocaleDir, usrLibLocaleDir}
 
-		return shell.ExecuteLive(true /*squashErrors*/, "dracut", dracutParams...)
-	})
+	err = shell.NewExecBuilder("dracut", dracutParams...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Chroot(chroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to run dracut:\n%w", err)
 	}

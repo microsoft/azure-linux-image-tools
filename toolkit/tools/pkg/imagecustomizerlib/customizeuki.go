@@ -28,6 +28,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -327,9 +328,11 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	//
 	// The "--no-variables" flag ensures that the command does not modify UEFI NVRAM boot variables. Instead, it relies
 	// on the bootloader binaries being present in the ESP for booting.
-	err = imageChroot.UnsafeRun(func() error {
-		return shell.ExecuteLiveWithErr(1, "bootctl", "install", "--no-variables")
-	})
+	err = shell.NewExecBuilder("bootctl", "install", "--no-variables").
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKISystemdBootInstall, err)
 	}

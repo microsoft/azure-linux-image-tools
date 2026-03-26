@@ -32,7 +32,7 @@ func LogVersionsOfToolDeps() {
 	}
 
 	// Get distro and version
-	distro, version := osinfo.GetDistroAndVersion()
+	distro, version := osinfo.GetDistroAndVersion("/")
 	logger.Log.Debugf("Host OS distro: %s", distro)
 	logger.Log.Debugf("Host OS version: %s", version)
 

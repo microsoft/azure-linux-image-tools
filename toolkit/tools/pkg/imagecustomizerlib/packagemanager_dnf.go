@@ -10,6 +10,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/sirupsen/logrus"
 )
 
 // DNF Package Manager Implementation
@@ -180,10 +181,10 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := imageChroot.UnsafeRun(func() error {
-		_, _, err := shell.Execute("dnf", "info", "--installed", packageName)
-		return err
-	})
+	err := shell.NewExecBuilder("dnf", "info", "--installed", packageName).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return false
 	}
