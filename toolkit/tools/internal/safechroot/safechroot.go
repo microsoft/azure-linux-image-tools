@@ -90,14 +90,6 @@ var (
 	activeChroots      []*Chroot
 )
 
-var defaultChrootEnv = []string{
-	"USER=root",
-	"HOME=/root",
-	fmt.Sprintf("SHELL=%s", os.Getenv("SHELL")),
-	fmt.Sprintf("TERM=%s", os.Getenv("TERM")),
-	"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-}
-
 const (
 	unmountTypeLazy   = true
 	unmountTypeNormal = !unmountTypeLazy
