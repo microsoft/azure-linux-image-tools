@@ -14,11 +14,12 @@ type ConfigWithBasePath struct {
 	BaseConfigPath string
 }
 
-func buildConfigChain(ctx context.Context, rc *ResolvedConfig) ([]*ConfigWithBasePath, error) {
+func buildConfigChain(ctx context.Context, config *imagecustomizerapi.Config, baseConfigPath string,
+) ([]*ConfigWithBasePath, error) {
 	visited := make(map[string]bool)
 	pathStack := []string{}
 
-	configChain, err := buildConfigChainHelper(ctx, rc.Config, rc.BaseConfigPath, visited, pathStack)
+	configChain, err := buildConfigChainHelper(ctx, config, baseConfigPath, visited, pathStack)
 	if err != nil {
 		return nil, err
 	}

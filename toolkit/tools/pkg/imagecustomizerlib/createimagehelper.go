@@ -18,7 +18,7 @@ import (
 func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile string,
 	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, string, error) {
-	logger.Log.Debugf("Customizing OS image with config file %s", rc.BaseConfigPath)
+	logger.Log.Debugf("Customizing OS image")
 
 	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
 	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
@@ -87,7 +87,7 @@ func doOsCustomizationsCreate(
 			snapshotTime = rc.Options.PackageSnapshotTime
 		}
 
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
+		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
 			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
@@ -95,7 +95,7 @@ func doOsCustomizationsCreate(
 		}
 	}
 
-	if err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot); err != nil {
+	if err = UpdateHostname(ctx, rc.Hostname, imageChroot); err != nil {
 		return err
 	}
 
@@ -115,9 +115,12 @@ func doOsCustomizationsCreate(
 		return fmt.Errorf("failed to clear systemd state:\n%w", err)
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
-	if err != nil {
-		return err
+	for _, configWithBase := range rc.ConfigChain {
+		err = runUserScripts(ctx, configWithBase.BaseConfigPath, configWithBase.Config.Scripts.PostCustomization,
+			"postCustomization", imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err = restoreResolvConf(ctx, resolvConf, imageChroot); err != nil {
@@ -128,9 +131,12 @@ func doOsCustomizationsCreate(
 		return err
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization", imageChroot)
-	if err != nil {
-		return err
+	for _, configWithBase := range rc.ConfigChain {
+		err = runUserScripts(ctx, configWithBase.BaseConfigPath, configWithBase.Config.Scripts.FinalizeCustomization,
+			"finalizeCustomization", imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

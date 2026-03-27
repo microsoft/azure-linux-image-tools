@@ -1,0 +1,10 @@
+
+
+previewFeatures:
+- base-configs
+
+baseConfigs:
+- path: partitions-config.yaml
+
+os:
+  hostname: wallaby

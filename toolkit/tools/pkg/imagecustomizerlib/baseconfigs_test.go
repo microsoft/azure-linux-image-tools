@@ -31,20 +31,25 @@ func TestBaseConfigsInputAndOutput(t *testing.T) {
 
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(currentConfigFile, &config)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	rc, err := ValidateConfig(t.Context(), testDir, &config, false, false, validateResources, options)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	// Verify resolved values
 	expectedInputPath := file.GetAbsPathWithBase(testDir, "testimages/empty.vhdx")
 	expectedOutputPath := file.GetAbsPathWithBase(testDir, "./out/output-image-2.vhdx")
-	expectedArtifactsPath := file.GetAbsPathWithBase(testDir, "./artifacts-2")
+	expectedArtifactsPath := file.GetAbsPathWithBase(testDir, "./out/artifacts-2")
 
 	assert.Equal(t, expectedInputPath, rc.InputImage.Path)
 	assert.Equal(t, expectedOutputPath, rc.OutputImageFile)
 	assert.Equal(t, expectedArtifactsPath, rc.OutputArtifacts.Path)
 	assert.Equal(t, "test-hostname", rc.Hostname)
+	assert.Equal(t, imagecustomizerapi.ImageHistoryNone, rc.ImageHistory)
 
 	// Verify merged artifact items
 	expectedItems := []imagecustomizerapi.OutputArtifactsItemType{
@@ -158,6 +163,9 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	verifyFileContentsSame(t, plantsFileOrigPath, plantsFileNewPath)
 
 	// Verify packages
+	curlInstalled := isPackageInstalled(imageConnection.Chroot(), "curl")
+	assert.True(t, curlInstalled)
+
 	nginxInstalled := isPackageInstalled(imageConnection.Chroot(), "nginx")
 	assert.True(t, nginxInstalled)
 
@@ -242,5 +250,26 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	assert.Len(t, ukiFiles, 1, "expected one UKI .efi file to be created")
 
 	// Verify kernel commandline
-	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"console=tty0", "console=ttyS0"}, []string{"rd.info"})
+	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{"console=tty0", "console=ttyS0", "rd.info"}, []string{})
+
+	// Verify image history doesn't exist.
+	historyFileExists, err := file.PathExists(filepath.Join(imageConnection.Chroot().RootDir(), customizerLoggingDir, historyFileName))
+	assert.NoError(t, err)
+	assert.False(t, historyFileExists)
+}
+
+func TestBaseConfigsStorageInBaseConfig(t *testing.T) {
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+
+	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsStorageInBaseConfig")
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	currentConfigFile := filepath.Join(testDir, "storage-in-base-config.yaml")
+
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
+		outImageFilePath, "raw", true, "")
+	assert.ErrorIs(t, err, ErrStorageInBaseConfig)
 }

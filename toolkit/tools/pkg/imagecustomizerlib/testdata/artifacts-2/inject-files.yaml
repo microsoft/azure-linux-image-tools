@@ -1,0 +1,21 @@
+injectFiles:
+    - partition:
+        idType: part-uuid
+        id: c15c2975-27c0-45ec-bc08-bc1fba015fd1
+      destination: /EFI/Linux/vmlinuz-6.6.119.3-1.azl3.efi
+      source: ./ukis/vmlinuz-6.6.119.3-1.azl3.efi
+      type: ukis
+    - partition:
+        idType: part-uuid
+        id: c15c2975-27c0-45ec-bc08-bc1fba015fd1
+      destination: /EFI/Linux/vmlinuz-6.6.119.3-1.azl3.efi.extra.d/vmlinuz-6.6.119.3-1.azl3.addon.efi
+      source: ./ukis/vmlinuz-6.6.119.3-1.azl3.efi.extra.d/vmlinuz-6.6.119.3-1.azl3.addon.efi
+      type: uki-addons
+    - partition:
+        idType: part-uuid
+        id: c15c2975-27c0-45ec-bc08-bc1fba015fd1
+      destination: /EFI/BOOT/bootx64.efi
+      source: ./shim/bootx64.efi
+      type: shim
+previewFeatures:
+    - inject-files
