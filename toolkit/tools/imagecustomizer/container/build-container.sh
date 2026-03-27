@@ -112,6 +112,8 @@ fi
 docker build \
     --build-arg "BASE_IMAGE=$baseImage" \
     --build-arg "AZ_MON_CONN_STR=$azMonitorString" \
+    --secret id=pip_index_url,env=PIP_INDEX_URL \
+    --secret id=pip_extra_index_url,env=PIP_EXTRA_INDEX_URL \
     --file "$dockerFile" \
     --tag "$containerTag" \
     "$containerStagingFolder"
