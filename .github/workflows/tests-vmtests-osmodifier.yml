@@ -15,9 +15,6 @@ on:
         required: true
         type: string
 
-env:
-  EXPECTED_GO_VERSION: "1.25.0"
-
 jobs:
   tests-osmodifier:
     name: Tests osmodifier VMTests suite - ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
@@ -30,55 +27,12 @@ jobs:
       id-token: write
     environment: public
     steps:
-      - name: Setup Go toolchain
-        uses: actions/setup-go@v6
-        with:
-          go-version: "~${{ env.EXPECTED_GO_VERSION }}"
-
       - name: Checkout
         uses: actions/checkout@v6
         with:
           path: repo
           persist-credentials: false
 
-      - name: Install prerequisites (AZL3)
-        if: inputs.hostDistro == 'azl3'
-        run: |
-          set -eux
-
-          sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
-              tdnf install -y \
-              libvirt libvirt-daemon libvirt-daemon-config-network \
-              libvirt-daemon-kvm libvirt-devel qemu-kvm qemu-img python3-libvirt \
-              python3-devel edk2-ovmf \
-              azure-cli
-
-          sudo tdnf list installed
-
-          sudo systemctl restart libvirtd
-          sudo systemctl status libvirtd
-
-      - name: Install prerequisites (Ubuntu 24.04)
-        if: inputs.hostDistro == 'ubuntu2404'
-        run: |
-          set -eux
-
-          sudo apt update -y
-          sudo apt -y install python3-venv python3-pip python3-dev \
-              libvirt-dev libvirt-daemon libvirt-daemon-system libvirt-clients \
-              qemu-kvm virt-manager
-
-          # Install arm64 specific
-          if [[ "$HOST_ARCH" == "arm64" ]]; then
-            sudo apt -y install qemu-system-arm qemu-efi-aarch64 ovmf seabios
-          fi
-
-          sudo apt list --installed
-
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-        env:
-          HOST_ARCH: ${{ inputs.hostArch }}
- 
       - name: Azure Login
         uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
         with:
