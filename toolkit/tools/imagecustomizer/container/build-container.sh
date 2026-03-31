@@ -108,12 +108,35 @@ fi
     find . -type f | sort
 )
 
+pipCfgPath="$buildDir/pip.cfg"
+rm -rf "$pipCfgPath"
+
+PIP_CFG_ARG=""
+if [ -n "$PIP_INDEX_URL" ] || [ -n "$PIP_EXTRA_INDEX_URL" ]; then
+    cat >> "$pipCfgPath" << EOF
+[global]
+EOF
+
+    if [ -n "$PIP_INDEX_URL" ]; then
+        cat >> "$pipCfgPath" << EOF
+index-url = $PIP_INDEX_URL
+EOF
+    fi
+    
+    if [ -n "$PIP_EXTRA_INDEX_URL" ]; then
+        cat >> "$pipCfgPath" << EOF
+extra-index-url = $PIP_EXTRA_INDEX_URL
+EOF
+    fi
+
+    PIP_CFG_ARG="--secret id=pip_cfg,type=file,src=$pipCfgPath"
+fi
+
 # build the container
 docker build \
     --build-arg "BASE_IMAGE=$baseImage" \
     --build-arg "AZ_MON_CONN_STR=$azMonitorString" \
-    --secret id=pip_index_url,env=PIP_INDEX_URL \
-    --secret id=pip_extra_index_url,env=PIP_EXTRA_INDEX_URL \
+    $PIP_CFG_ARG \
     --file "$dockerFile" \
     --tag "$containerTag" \
     "$containerStagingFolder"
