@@ -19,7 +19,7 @@ or are processed sequentially.
 
 The [operation ordering](./configuration.md#operation-ordering) applies globally, not
 per config file. That is, the config files are interlaced (and merged), not processed
-sequentially. If you want the process the config files sequentially, then run Image
+sequentially. If you want to process the config files sequentially, then run Image
 Customizer multiple times instead of using the `baseConfigs` API.
 
 **The current(last) config's value (if specified) overrides all base configs.**
