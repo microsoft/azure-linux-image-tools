@@ -17,6 +17,11 @@ When multiple base configs are specified, fields are resolved in order —
 Fields from later configurations override or extend those from earlier ones,
 or are processed sequentially.
 
+The [operation ordering](./configuration.md#operation-ordering) applies globally, not
+per config file. That is, the config files are interlaced (and merged), not processed
+sequentially. If you want the process the config files sequentially, then run Image
+Customizer multiple times instead of using the `baseConfigs` API.
+
 **The current(last) config's value (if specified) overrides all base configs.**
 
 - `.input.image.path`
@@ -25,6 +30,7 @@ or are processed sequentially.
 - `.output.image.format`
 - `.output.artifacts.path`
 - `.os.hostname`
+- `.os.imageHistory`
 - `.os.selinux`
 - `.os.uki`
 - `.iso.initramfsType`
@@ -32,7 +38,7 @@ or are processed sequentially.
 - `.pxe.initramfsType`
 - `.pxe.kdumpBootFiles`
 
-**Base config items are merged with current config’s items**
+**Base config items are merged with current config’s items.**
 
 - `.output.artifacts.items`
 - `.os.kernelCommandLine`
@@ -51,6 +57,8 @@ or are processed sequentially.
 - `.os.overlays`
 - `.iso.additionalFiles`
 - `.pxe.additionalFiles`
+- `.scripts.postCustomization`
+- `.scripts.finalizeCustomization`
 
 **Pick the strongest option from the base config and current config.**
 
@@ -59,6 +67,10 @@ or are processed sequentially.
   The option ordering, from strongest to weakest:
   - `"hard-reset"`
   - `""` (i.e. no reset)
+
+**Only supported in the top-level config.**
+
+- `.storage`
 
 ## path [string]
 

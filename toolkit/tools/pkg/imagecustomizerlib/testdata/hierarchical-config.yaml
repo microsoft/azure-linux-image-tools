@@ -107,4 +107,4 @@ output:
   artifacts:
     items:
     - shim
-    path: ./artifacts-2
+    path: ./out/artifacts-2

@@ -41,7 +41,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	// If UKI mode is 'create' and base image has UKIs, extract kernel and
 	// initramfs from existing UKIs for re-customization. For 'passthrough'
 	// mode, we skip extraction to preserve existing UKIs.
-	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeCreate {
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeCreate {
 		// Check if base image has UKIs to determine if extraction is needed
 		hasUkis, err := baseImageHasUkis(imageChroot)
 		if err != nil {
@@ -58,7 +58,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	}
 
 	// If UKI mode is 'modify', extract cmdline early so BootCustomizer can modify it
-	if rc.Config.OS.Uki != nil && rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
 		ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
 		err = os.MkdirAll(ukiBuildDir, os.ModePerm)
 		if err != nil {
@@ -77,7 +77,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			snapshotTime = rc.Options.PackageSnapshotTime
 		}
 
-		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, rc.BaseConfigPath, configWithBase.Config.OS,
+		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
 			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
@@ -88,8 +88,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	// Both modes preserve the existing kernel and initramfs:
 	// - passthrough: preserves entire UKI without modification
 	// - modify: preserves main UKI (kernel, initramfs) and only modifies addon
-	if rc.Config.OS.Uki != nil && (rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough ||
-		rc.Config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify) {
+	if rc.Uki != nil && (rc.Uki.Mode == imagecustomizerapi.UkiModePassthrough ||
+		rc.Uki.Mode == imagecustomizerapi.UkiModeModify) {
 		hasKernels, err := hasKernelBinariesInBoot(imageChroot.RootDir())
 		if err != nil {
 			return err
@@ -99,7 +99,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = UpdateHostname(ctx, rc.Config.OS.Hostname, imageChroot)
+	err = UpdateHostname(ctx, rc.Hostname, imageChroot)
 	if err != nil {
 		return err
 	}
@@ -150,8 +150,8 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	if rc.Config.OS.ImageHistory != imagecustomizerapi.ImageHistoryNone {
-		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, rc.BaseConfigPath, ToolVersion, buildTime, rc.Config)
+	if rc.ImageHistory != imagecustomizerapi.ImageHistoryNone {
+		err = addImageHistory(ctx, imageChroot, rc.ImageUuidStr, ToolVersion, buildTime, rc)
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		overlayUpdated = overlayUpdated || updated
 	}
 
-	verityUpdated, err := enableVerityPartition(ctx, rc.BuildDirAbs, rc.Config.Storage.Verity, imageChroot, distroHandler, rc.Uki)
+	verityUpdated, err := enableVerityPartition(ctx, rc.BuildDirAbs, rc.Storage.Verity, imageChroot, distroHandler, rc.Uki)
 	if err != nil {
 		return err
 	}
@@ -189,12 +189,15 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.PostCustomization, "postCustomization", imageChroot)
-	if err != nil {
-		return err
+	for _, configWithBase := range rc.ConfigChain {
+		err = runUserScripts(ctx, configWithBase.BaseConfigPath, configWithBase.Config.Scripts.PostCustomization,
+			"postCustomization", imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = prepareUki(ctx, rc.BuildDirAbs, rc.Config.OS.Uki, imageChroot, distroHandler)
+	err = prepareUki(ctx, rc.BuildDirAbs, rc.Uki, imageChroot, distroHandler)
 	if err != nil {
 		return err
 	}
@@ -209,10 +212,12 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = runUserScripts(ctx, rc.BaseConfigPath, rc.Config.Scripts.FinalizeCustomization, "finalizeCustomization",
-		imageChroot)
-	if err != nil {
-		return err
+	for _, configWithBase := range rc.ConfigChain {
+		err = runUserScripts(ctx, configWithBase.BaseConfigPath, configWithBase.Config.Scripts.FinalizeCustomization,
+			"finalizeCustomization", imageChroot)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = checkForInstalledKernel(ctx, imageChroot)

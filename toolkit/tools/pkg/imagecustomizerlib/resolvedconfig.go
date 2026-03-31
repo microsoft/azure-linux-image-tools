@@ -15,13 +15,15 @@ import (
 // ResolvedConfig contains the final image configuration, including the merged CLI and config values.
 type ResolvedConfig struct {
 	// Configurations
-	BaseConfigPath        string
-	Config                *imagecustomizerapi.Config
-	Options               ImageCustomizerOptions
+	Options ImageCustomizerOptions
+
 	CustomizeOSPartitions bool
 
 	// Preview features (merged from config and options)
 	PreviewFeatures []imagecustomizerapi.PreviewFeature
+
+	// Storage
+	Storage imagecustomizerapi.Storage
 
 	// UUID
 	ImageUuid    [randomization.UuidSize]byte
@@ -79,6 +81,9 @@ type ResolvedConfig struct {
 
 	// Resolved PXE config from config chain (merged/overridden values)
 	Pxe imagecustomizerapi.Pxe
+
+	// Image History mode
+	ImageHistory imagecustomizerapi.ImageHistory
 }
 
 func (c *ResolvedConfig) InputFileExt() string {
@@ -107,7 +112,7 @@ func (c *ResolvedConfig) HasPackageSnapshotTime() bool {
 	}
 
 	for _, configWithBase := range c.ConfigChain {
-		if configWithBase.Config.OS.Packages.SnapshotTime != "" {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.Packages.SnapshotTime != "" {
 			return true
 		}
 	}

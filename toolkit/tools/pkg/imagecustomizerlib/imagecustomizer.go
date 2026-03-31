@@ -462,17 +462,6 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	// The code beyond this point assumes the OS object is always present. To
-	// change the code to check before every usage whether the OS object is
-	// present or not will lead to a messy mix of if statements that do not
-	// serve the readibility of the code. A simpler solution is to instantiate
-	// a default imagecustomizerapi.OS object if the passed in one is absent.
-	// Then the code afterwards knows how to handle the default values
-	// correctly, and thus it eliminates the need for many if statements.
-	if rc.Config.OS == nil {
-		rc.Config.OS = &imagecustomizerapi.OS{}
-	}
-
 	distroHandler, err := validateTargetOs(ctx, rc)
 	if err != nil {
 		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
@@ -483,7 +472,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.BaseConfigPath, rc.Config, rc.RawImageFile, im.distroHandler.GetTargetOs())
+		rc.Storage, rc.RawImageFile, im.distroHandler.GetTargetOs())
 	if err != nil {
 		return im, err
 	}
@@ -523,9 +512,9 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 		im.partitionOriginalSizes = partitionOriginalSizes
 	}
 
-	if len(rc.Config.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
+	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc.Config, rc.RawImageFile,
+		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
 			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
@@ -706,7 +695,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, string, error) {
 	logger.Log.Debugf("Customizing OS")
 
-	readOnlyVerity := rc.Config.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
+	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
 		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
@@ -727,12 +716,12 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil
 	})
 
-	err = validateUkiMode(imageConnection, rc.Config)
+	err = validateUkiMode(imageConnection, rc.Uki)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
 
-	err = validateVerityMountPaths(imageConnection, rc.Config, partitionsLayout, baseImageVerityMetadata)
+	err = validateVerityMountPaths(imageConnection, rc.Storage, partitionsLayout, baseImageVerityMetadata)
 	if err != nil {
 		return nil, nil, nil, "", fmt.Errorf("%w:\n%w", ErrVerityValidation, err)
 	}
