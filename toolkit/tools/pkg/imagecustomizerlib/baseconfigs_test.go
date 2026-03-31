@@ -256,6 +256,10 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	historyFileExists, err := file.PathExists(filepath.Join(imageConnection.Chroot().RootDir(), customizerLoggingDir, historyFileName))
 	assert.NoError(t, err)
 	assert.False(t, historyFileExists)
+
+	// Verify scripts ran.
+	animalsFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/animals.txt")
+	verifyFileContentsEqual(t, animalsFilePath, "cockatoo\npelican\nquoll\nbandicoot\n")
 }
 
 func TestBaseConfigsStorageInBaseConfig(t *testing.T) {

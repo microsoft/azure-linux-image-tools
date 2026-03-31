@@ -155,7 +155,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
+	rc.CustomizeOSPartitions = rc.Storage.CustomizePartitions() ||
 		slices.ContainsFunc(rc.ConfigChain, func(configWithBase *ConfigWithBasePath) bool {
 			return configWithBase.Config.OS != nil ||
 				len(configWithBase.Config.Scripts.PostCustomization) > 0 ||
@@ -227,7 +227,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.OsKernelCommandLine = resolveOsKernelCommandLine(rc.ConfigChain)
 
-	err = validateScripts(baseConfigPath, &config.Scripts, validateFiles)
+	err = validateScriptsConfigChain(rc.ConfigChain, validateFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +276,8 @@ func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
 		}
 	}
 
-	lastConfig := rc.ConfigChain[len(rc.ConfigChain)-1]
-	return lastConfig.Config.Storage, nil
+	topLevelConfig := rc.ConfigChain[len(rc.ConfigChain)-1]
+	return topLevelConfig.Config.Storage, nil
 }
 
 func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
@@ -540,6 +540,17 @@ func validateOsConfigChain(configChain []*ConfigWithBasePath, rpmsSources []stri
 			return fmt.Errorf("invalid 'os' config:\n%w", err)
 		}
 	}
+	return nil
+}
+
+func validateScriptsConfigChain(configChain []*ConfigWithBasePath, validateFiles bool) error {
+	for _, configWithBase := range configChain {
+		err := validateScripts(configWithBase.BaseConfigPath, &configWithBase.Config.Scripts, validateFiles)
+		if err != nil {
+			return fmt.Errorf("invalid 'scripts' config:\n%w", err)
+		}
+	}
+
 	return nil
 }
 

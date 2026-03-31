@@ -63,3 +63,14 @@ os:
     - "rd.info"
 
   imageHistory: none
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      echo "cockatoo" >> "/animals.txt"
+
+  finalizeCustomization:
+  - content: |
+      set -eux
+      echo "quoll" >> "/animals.txt"
