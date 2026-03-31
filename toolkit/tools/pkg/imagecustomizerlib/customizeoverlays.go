@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -192,19 +193,23 @@ func addEquivalencyRules(selinuxMode imagecustomizerapi.SELinuxMode,
 
 	for _, overlay := range overlays {
 		// Give the upper directory the same SELinux rules as the target directory.
-		err = imageChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-e", overlay.MountPoint, overlay.UpperDir)
-		})
+		err = shell.NewExecBuilder("semanage", "fcontext", "-a", "-e", overlay.MountPoint, overlay.UpperDir).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(imageChroot.ChrootDir()).
+			Execute()
 		if err != nil {
 			return fmt.Errorf("failed to add equivalency rule between %s and %s:\n%w", overlay.MountPoint,
 				overlay.UpperDir, err)
 		}
 
 		// Give the work directory the no_access_t type, since only the kernel should be accessing that directory.
-		err = imageChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "semanage", "fcontext", "-a", "-f", "a", "-t", "no_access_t", "-r", "s0",
-				overlay.WorkDir+"(/.*)?")
-		})
+		err = shell.NewExecBuilder("semanage", "fcontext", "-a", "-f", "a", "-t", "no_access_t", "-r", "s0",
+			overlay.WorkDir+"(/.*)?").
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(imageChroot.ChrootDir()).
+			Execute()
 		if err != nil {
 			return fmt.Errorf("failed to set SELinux label (no_access_t) on overlay's workdir (%s):\n%w",
 				overlay.WorkDir, err)

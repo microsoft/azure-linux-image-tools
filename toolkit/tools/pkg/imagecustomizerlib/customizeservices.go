@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemd"
+	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -40,9 +41,11 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 	for _, service := range services.Enable {
 		logger.Log.Infof("Enabling service (%s)", service)
 
-		err = imageChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "systemctl", "enable", service)
-		})
+		err = shell.NewExecBuilder("systemctl", "enable", service).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(imageChroot.ChrootDir()).
+			Execute()
 		if err != nil {
 			return fmt.Errorf("%w (service='%s'):\n%w", ErrServiceEnable, service, err)
 		}
@@ -59,9 +62,11 @@ func EnableOrDisableServices(ctx context.Context, services imagecustomizerapi.Se
 			return fmt.Errorf("%w (service='%s'):\n%w", ErrServiceDisable, service, err)
 		}
 
-		err = imageChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "systemctl", "disable", service)
-		})
+		err = shell.NewExecBuilder("systemctl", "disable", service).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(imageChroot.ChrootDir()).
+			Execute()
 		if err != nil {
 			return fmt.Errorf("%w (service='%s'):\n%w", ErrServiceDisable, service, err)
 		}

@@ -561,14 +561,12 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 }
 
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
-	squashErrors := true
-
 	ReportActionf("Running %s...", FedoraGrubMkconfigBinary)
-	err = installChroot.UnsafeRun(func() error {
-		return shell.ExecuteLive(squashErrors, FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile)
-	})
 
-	return
+	return shell.NewExecBuilder(FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Chroot(installChroot.ChrootDir()).
+		Execute()
 }
 
 // chage works in the same way as invoking "chage -M passwordExpirationInDays username"
@@ -666,9 +664,11 @@ func DaysSinceUnixEpoch() int64 {
 func ConfigureUserPrimaryGroupMembership(installChroot safechroot.ChrootInterface, username string, primaryGroup string,
 ) (err error) {
 	if primaryGroup != "" {
-		err = installChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "usermod", "-g", primaryGroup, username)
-		})
+		err = shell.NewExecBuilder("usermod", "-g", primaryGroup, username).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(installChroot.ChrootDir()).
+			Execute()
 		if err != nil {
 			return fmt.Errorf("failed to set user's (%s) primary group (%s):\n%w", username, primaryGroup, err)
 		}
@@ -681,9 +681,11 @@ func ConfigureUserSecondaryGroupMembership(installChroot safechroot.ChrootInterf
 ) (err error) {
 	if len(secondaryGroups) != 0 {
 		allGroups := strings.Join(secondaryGroups, ",")
-		err = installChroot.UnsafeRun(func() error {
-			return shell.ExecuteLiveWithErr(1, "usermod", "-a", "-G", allGroups, username)
-		})
+		err = shell.NewExecBuilder("usermod", "-a", "-G", allGroups, username).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1).
+			Chroot(installChroot.ChrootDir()).
+			Execute()
 		if err != nil {
 			return fmt.Errorf("failed to set user's (%s) secondary groups:\n%w", username, err)
 		}
@@ -794,29 +796,24 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 		}
 		defer bindMount.Close()
 
-		err = installChroot.UnsafeRun(func() error {
-			// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
-			files := 0
-			onStdout := func(line string) {
-				files++
-				if (files % 1000) == 0 {
-					logger.Log.Debugf("SELinux: labelled %d files", files)
-				}
+		// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
+		files := 0
+		onStdout := func(line string) {
+			files++
+			if (files % 1000) == 0 {
+				logger.Log.Debugf("SELinux: labelled %d files", files)
 			}
-			err := shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
-				StdoutCallback(onStdout).
-				LogLevel(logrus.TraceLevel, logrus.WarnLevel).
-				ErrorStderrLines(1).
-				Execute()
-			if err != nil {
-				return fmt.Errorf("setfiles failed:\n%w", err)
-			}
-			logger.Log.Debugf("SELinux: labelled %d files", files)
-			return err
-		})
-		if err != nil {
-			return err
 		}
+		err = shell.NewExecBuilder("setfiles", "-m", "-v", "-r", targetRootPath, fileContextPath, targetPath).
+			StdoutCallback(onStdout).
+			LogLevel(logrus.TraceLevel, logrus.WarnLevel).
+			ErrorStderrLines(1).
+			Chroot(installChroot.ChrootDir()).
+			Execute()
+		if err != nil {
+			return fmt.Errorf("setfiles failed:\n%w", err)
+		}
+		logger.Log.Debugf("SELinux: labelled %d files", files)
 
 		err = bindMount.CleanClose()
 		if err != nil {

@@ -2,12 +2,13 @@ package osinfo
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // Function to get the distribution and version of the host machine
-func GetDistroAndVersion() (string, string) {
-	output, err := os.ReadFile("/etc/os-release")
+func GetDistroAndVersion(rootDir string) (string, string) {
+	output, err := os.ReadFile(filepath.Join(rootDir, "etc/os-release"))
 	if err != nil {
 		return "Unknown Distro", "Unknown Version"
 	}

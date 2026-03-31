@@ -15,6 +15,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/sirupsen/logrus"
 )
 
 // fedoraDistroHandler implements distroHandler for Fedora
@@ -106,9 +107,11 @@ func (d *fedoraDistroHandler) RegenerateInitramfs(ctx context.Context, imageChro
 	ctx, span := startRegenerateInitramfsSpan(ctx)
 	defer span.End()
 
-	err := imageChroot.UnsafeRun(func() error {
-		return shell.ExecuteLiveWithErr(1, "dracut", "--force", "--regenerate-all")
-	})
+	err := shell.NewExecBuilder("dracut", "--force", "--regenerate-all").
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to rebuild initramfs:\n%w", err)
 	}

@@ -32,7 +32,7 @@ func InitTelemetry(disableTelemetry bool, toolVersion string) error {
 		return fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
 
-	distro, version := osinfo.GetDistroAndVersion()
+	distro, version := osinfo.GetDistroAndVersion("/")
 
 	res, _ := resource.Merge(
 		resource.Default(),

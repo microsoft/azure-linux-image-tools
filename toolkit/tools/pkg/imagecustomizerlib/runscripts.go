@@ -123,7 +123,7 @@ func runUserScript(scriptIndex int, script imagecustomizerapi.Script, listName s
 
 	// Run the script.
 	err = shell.NewExecBuilder(process, args...).
-		Chroot(imageChroot.RootDir()).
+		Chroot(imageChroot.ChrootDir()).
 		EnvironmentVariables(envVars).
 		WorkingDirectory("/").
 		ErrorStderrLines(1).

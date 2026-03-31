@@ -720,12 +720,9 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
-	imageConnection.Chroot().UnsafeRun(func() error {
-		distro, version := osinfo.GetDistroAndVersion()
-		logger.Log.Infof("Base OS distro: %s", distro)
-		logger.Log.Infof("Base OS version: %s", version)
-		return nil
-	})
+	distro, version := osinfo.GetDistroAndVersion(imageConnection.Chroot().RootDir())
+	logger.Log.Infof("Base OS distro: %s", distro)
+	logger.Log.Infof("Base OS version: %s", version)
 
 	err = validateUkiMode(imageConnection, rc.Config)
 	if err != nil {
