@@ -21,7 +21,7 @@ var (
 	ErrPartitionCopyFiles                 = NewImageCustomizerError("PartitionCopy:Files", "failed to copy partition files")
 )
 
-func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
 	buildImageFile string, newBuildImageFile string, targetOS targetos.TargetOs,
 ) (map[string]string, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
@@ -31,13 +31,13 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, base
 	}
 	defer existingImageConnection.Close()
 
-	diskConfig := config.Storage.Disks[0]
+	diskConfig := storage.Disks[0]
 
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := CreateNewImage(targetOS, newBuildImageFile, diskConfig, config.Storage.FileSystems,
+	partIdToPartUuid, err := CreateNewImage(targetOS, newBuildImageFile, diskConfig, storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
 		return nil, err

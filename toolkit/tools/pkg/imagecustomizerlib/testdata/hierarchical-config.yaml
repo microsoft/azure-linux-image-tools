@@ -96,6 +96,17 @@ os:
     - console=tty0
     - console=ttyS0
 
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+      echo "pelican" >> "/animals.txt"
+
+  finalizeCustomization:
+  - content: |
+      set -eux
+      echo "bandicoot" >> "/animals.txt"
+
 input:
   image:
     path: testimages/empty.vhdx
@@ -107,4 +118,4 @@ output:
   artifacts:
     items:
     - shim
-    path: ./artifacts-2
+    path: ./out/artifacts-2

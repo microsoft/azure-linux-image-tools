@@ -76,14 +76,14 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 	var rootMountIdType imagecustomizerapi.MountIdentifierType
 	var bootType imagecustomizerapi.BootType
-	if rc.Config.CustomizePartitions() {
-		rootMountPoint := findRootMountPoint(rc.Config.Storage.FileSystems)
+	if rc.Storage.CustomizePartitions() {
+		rootMountPoint := findRootMountPoint(rc.Storage.FileSystems)
 		if rootMountPoint == nil {
 			return ErrBootloaderRootFilesystemFind
 		}
 
 		rootMountIdType = rootMountPoint.IdType
-		bootType = rc.Config.Storage.BootType
+		bootType = rc.Storage.BootType
 	} else {
 		rootMountIdType, err = findRootMountIdType(partitionsLayout)
 		if err != nil {
@@ -98,7 +98,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 
 	// Hard-reset the grub config.
 	err = distroHandler.ConfigureDiskBootLoader(imageConnection, rootMountIdType, bootType, rc.SELinux,
-		rc.Config.OS.KernelCommandLine, currentSelinuxMode, newImage)
+		rc.OsKernelCommandLine, currentSelinuxMode, newImage)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrBootloaderDiskConfigure, err)
 	}

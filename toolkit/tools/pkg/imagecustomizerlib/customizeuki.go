@@ -117,7 +117,7 @@ func baseImageHasUkiAddons(espPath string) (bool, error) {
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
 //   - mode: modify: Check for addon, modify addon only (preserve main UKI)
-func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *imagecustomizerapi.Config) error {
+func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imagecustomizerapi.Uki) error {
 	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
 	if err != nil {
 		return err
@@ -125,15 +125,15 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 
 	if !hasUkis {
 		// Base image doesn't have UKIs
-		if config.OS != nil && config.OS.Uki != nil {
+		if uki != nil {
 			// User specified os.uki
-			if config.OS.Uki.Mode == imagecustomizerapi.UkiModePassthrough {
+			if uki.Mode == imagecustomizerapi.UkiModePassthrough {
 				return fmt.Errorf("base image does not contain UKIs but os.uki.mode is set to 'passthrough': " +
 					"cannot passthrough UKIs when base image has no UKIs. " +
 					"Use mode: create to create UKIs, or omit os.uki entirely",
 				)
 			}
-			if config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+			if uki.Mode == imagecustomizerapi.UkiModeModify {
 				return fmt.Errorf("base image does not contain UKIs but os.uki.mode is set to 'modify': " +
 					"cannot modify UKIs when base image has no UKIs. " +
 					"Use mode: create to create UKIs from GRUB-based image",
@@ -146,7 +146,7 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 	}
 
 	// Base image has UKIs
-	if config.OS == nil || config.OS.Uki == nil {
+	if uki == nil {
 		return fmt.Errorf("base image contains UKI files but os.uki is not specified: " +
 			"when base image has UKIs, you must explicitly specify how to handle them using os.uki.mode " +
 			"with one of the following values:\n" +
@@ -155,13 +155,13 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, config *i
 			"  - 'modify': modify UKI addons only to append kernel command-line arguments")
 	}
 
-	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeUnspecified {
+	if uki.Mode == imagecustomizerapi.UkiModeUnspecified {
 		return fmt.Errorf("base image contains UKI files but os.uki.mode is not specified: " +
 			"when base image has UKIs, you must explicitly set mode to 'create', 'passthrough', or 'modify'")
 	}
 
 	// For modify mode, validate that base image has UKI addons
-	if config.OS.Uki.Mode == imagecustomizerapi.UkiModeModify {
+	if uki.Mode == imagecustomizerapi.UkiModeModify {
 		espDir := filepath.Join(imageConnection.Chroot().RootDir(), EspDir)
 		hasAddons, err := baseImageHasUkiAddons(espDir)
 		if err != nil {

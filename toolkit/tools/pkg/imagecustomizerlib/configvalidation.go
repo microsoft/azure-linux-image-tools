@@ -56,6 +56,7 @@ var (
 	ErrInvalidInputImageAzureLinux          = NewImageCustomizerError("Validation:InvalidInputImageAzureLinux", "invalid input.image.azureLinux config")
 	ErrInputImageAzureLinuxNotFound         = NewImageCustomizerError("Validation:InputImageAzureLinuxNotFound", "input.image.azureLinux not found")
 	ErrInputImageOciNotFound                = NewImageCustomizerError("Validation:InputImageOciNotFound", "input.image.oci not found")
+	ErrStorageInBaseConfig                  = NewImageCustomizerError("Validation:StorageBaseConfig", "storage is not yet supported as a value in a base config")
 )
 
 // ValidateConfigWithConfigFileOptions validates a configuration file without performing customization.
@@ -122,9 +123,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	defer span.End()
 
 	rc := &ResolvedConfig{
-		BaseConfigPath: baseConfigPath,
-		Config:         config,
-		Options:        options,
+		Options: options,
 	}
 
 	err := options.IsValid()
@@ -146,15 +145,22 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		return nil, err
 	}
 
-	rc.ConfigChain, err = buildConfigChain(ctx, rc)
+	rc.ConfigChain, err = buildConfigChain(ctx, config, baseConfigPath)
 	if err != nil {
 		return nil, err
 	}
 
-	rc.CustomizeOSPartitions = config.CustomizePartitions() ||
-		config.OS != nil ||
-		len(config.Scripts.PostCustomization) > 0 ||
-		len(config.Scripts.FinalizeCustomization) > 0
+	rc.Storage, err = resolveStorage(rc)
+	if err != nil {
+		return nil, err
+	}
+
+	rc.CustomizeOSPartitions = rc.Storage.CustomizePartitions() ||
+		slices.ContainsFunc(rc.ConfigChain, func(configWithBase *ConfigWithBasePath) bool {
+			return configWithBase.Config.OS != nil ||
+				len(configWithBase.Config.Scripts.PostCustomization) > 0 ||
+				len(configWithBase.Config.Scripts.FinalizeCustomization) > 0
+		})
 
 	// Create a UUID for the image.
 	rc.ImageUuid, rc.ImageUuidStr, err = randomization.CreateUuid()
@@ -209,7 +215,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 
 	rc.Pxe = resolvePxeConfig(rc.ConfigChain)
 
-	err = validateOsConfig(baseConfigPath, config.OS, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles,
+	err = validateOsConfigChain(rc.ConfigChain, options.RpmsSources, options.UseBaseImageRpmRepos, validateFiles,
 		allowPartialConfig)
 	if err != nil {
 		return nil, err
@@ -221,7 +227,7 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 	rc.Uki = resolveUki(rc.ConfigChain)
 	rc.OsKernelCommandLine = resolveOsKernelCommandLine(rc.ConfigChain)
 
-	err = validateScripts(baseConfigPath, &config.Scripts, validateFiles)
+	err = validateScriptsConfigChain(rc.ConfigChain, validateFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +255,29 @@ func ValidateConfig(ctx context.Context, baseConfigPath string, config *imagecus
 		rc.OutputImageFormat)
 	rc.CosiCompressionLong = defaultCosiCompressionLong(rc.OutputImageFormat)
 
+	rc.ImageHistory = resolveImageHistory(rc.ConfigChain)
+
 	return rc, nil
+}
+
+func resolveStorage(rc *ResolvedConfig) (imagecustomizerapi.Storage, error) {
+	// Disallow storage fields in base configs until merging logic is implemented.
+	for i := 0; i < len(rc.ConfigChain)-1; i++ {
+		storage := rc.ConfigChain[i].Config.Storage
+
+		if storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault ||
+			storage.BootType != imagecustomizerapi.BootTypeNone ||
+			len(storage.Disks) > 0 ||
+			len(storage.FileSystems) > 0 ||
+			len(storage.Verity) > 0 ||
+			storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeDefault {
+
+			return imagecustomizerapi.Storage{}, ErrStorageInBaseConfig
+		}
+	}
+
+	topLevelConfig := rc.ConfigChain[len(rc.ConfigChain)-1]
+	return topLevelConfig.Config.Storage, nil
 }
 
 func ValidateConfigPostImageDownload(rc *ResolvedConfig) error {
@@ -491,6 +519,36 @@ func validateOsConfig(baseConfigPath string, config *imagecustomizerapi.OS, rpms
 	err = validateUsers(baseConfigPath, config.Users, validateFiles)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func validateOsConfigChain(configChain []*ConfigWithBasePath, rpmsSources []string,
+	useBaseImageRpmRepos bool, validateFiles bool, allowPartialConfig bool,
+) error {
+	for _, configWithBase := range configChain {
+		// Only ResolvedConfig.CustomizeOSPartitions needs to know if `.os` was specified or not.
+		// The rest of the code doesn't care. So, provide an empty value to avoid if-nil check spam.
+		if configWithBase.Config.OS == nil {
+			configWithBase.Config.OS = &imagecustomizerapi.OS{}
+		}
+
+		err := validateOsConfig(configWithBase.BaseConfigPath, configWithBase.Config.OS, rpmsSources,
+			useBaseImageRpmRepos, validateFiles, allowPartialConfig)
+		if err != nil {
+			return fmt.Errorf("invalid 'os' config:\n%w", err)
+		}
+	}
+	return nil
+}
+
+func validateScriptsConfigChain(configChain []*ConfigWithBasePath, validateFiles bool) error {
+	for _, configWithBase := range configChain {
+		err := validateScripts(configWithBase.BaseConfigPath, &configWithBase.Config.Scripts, validateFiles)
+		if err != nil {
+			return fmt.Errorf("invalid 'scripts' config:\n%w", err)
+		}
 	}
 
 	return nil
@@ -741,7 +799,7 @@ func validateIsoPxeCustomization(rc *ResolvedConfig) error {
 		// While defining a storage configuration can work when the input image is
 		// an iso, there is no obvious point of moving content between partitions
 		// where all partitions get collapsed into the squashfs at the end.
-		if rc.Config.CustomizePartitions() {
+		if rc.Storage.CustomizePartitions() {
 			return ErrCannotCustomizePartitionsOnIso
 		}
 	}
@@ -1031,4 +1089,14 @@ func defaultCosiCompressionLevel(format imagecustomizerapi.ImageFormatType) int 
 		return imagecustomizerapi.DefaultBareMetalCosiCompressionLevel
 	}
 	return imagecustomizerapi.DefaultCosiCompressionLevel
+}
+
+func resolveImageHistory(configChain []*ConfigWithBasePath) imagecustomizerapi.ImageHistory {
+	for _, configWithBase := range slices.Backward(configChain) {
+		if configWithBase.Config.OS != nil && configWithBase.Config.OS.ImageHistory != imagecustomizerapi.ImageHistoryDefault {
+			return configWithBase.Config.OS.ImageHistory
+		}
+	}
+
+	return imagecustomizerapi.ImageHistoryDefault
 }

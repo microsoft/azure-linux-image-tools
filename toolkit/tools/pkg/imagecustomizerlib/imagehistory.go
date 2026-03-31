@@ -45,15 +45,17 @@ const (
 )
 
 func addImageHistory(ctx context.Context, imageChroot *safechroot.Chroot, imageUuid string,
-	baseConfigPath string, toolVersion string, buildTime string, config *imagecustomizerapi.Config,
+	toolVersion string, buildTime string, rc *ResolvedConfig,
 ) error {
 	cannotWriteHistoryFile := isPathOnReadOnlyMount(customizerLoggingDir, imageChroot)
 	if cannotWriteHistoryFile {
 		return nil
 	}
 
-	err := addImageHistoryHelper(ctx, imageChroot.RootDir(), imageUuid, baseConfigPath, toolVersion,
-		buildTime, config)
+	topLevelConfig := rc.ConfigChain[len(rc.ConfigChain)-1]
+
+	err := addImageHistoryHelper(ctx, imageChroot.RootDir(), imageUuid, topLevelConfig.BaseConfigPath, toolVersion,
+		buildTime, topLevelConfig.Config)
 	if err != nil {
 		return err
 	}

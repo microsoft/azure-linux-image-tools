@@ -69,7 +69,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 		return err
 	}
 
-	disks := rc.Config.Storage.Disks
+	disks := rc.Storage.Disks
 	diskConfig := disks[0]
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		return nil
@@ -82,7 +82,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 
 	partIdToPartUuid, err := CreateNewImage(
 		distroHandler.GetTargetOs(), rc.RawImageFile,
-		diskConfig, rc.Config.Storage.FileSystems,
+		diskConfig, rc.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err

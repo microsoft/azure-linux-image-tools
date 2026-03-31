@@ -20,11 +20,11 @@ var (
 	ErrPartitionsResetUuids = NewImageCustomizerError("Partitions:ResetUuids", "failed to reset partition UUIDs")
 )
 
-func customizePartitions(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
+func customizePartitions(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
 	buildImageFile string, targetOS targetos.TargetOs,
 ) (bool, string, map[string]string, error) {
 	switch {
-	case config.CustomizePartitions():
+	case storage.CustomizePartitions():
 		logger.Log.Infof("Customizing partitions")
 
 		_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_partitions")
@@ -34,7 +34,7 @@ func customizePartitions(ctx context.Context, buildDir string, baseConfigPath st
 
 		// If there is no known way to create the new partition layout from the old one,
 		// then fallback to creating the new partitions from scratch and doing a file copy.
-		partIdToPartUuid, err := customizePartitionsUsingFileCopy(ctx, buildDir, baseConfigPath, config,
+		partIdToPartUuid, err := customizePartitionsUsingFileCopy(ctx, buildDir, storage,
 			buildImageFile, newBuildImageFile, targetOS)
 		if err != nil {
 			os.Remove(newBuildImageFile)
@@ -43,7 +43,7 @@ func customizePartitions(ctx context.Context, buildDir string, baseConfigPath st
 
 		return true, newBuildImageFile, partIdToPartUuid, nil
 
-	case config.Storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
+	case storage.ResetPartitionsUuidsType != imagecustomizerapi.ResetPartitionsUuidsTypeDefault:
 		err := resetPartitionsUuids(ctx, buildImageFile, buildDir)
 		if err != nil {
 			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsResetUuids, err)
