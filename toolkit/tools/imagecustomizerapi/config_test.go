@@ -627,7 +627,7 @@ func TestConfigIsValidWithPreviewFeaturesAndOutputArtifacts(t *testing.T) {
 				Items: []OutputArtifactsItemType{
 					OutputArtifactsItemUkis,
 					OutputArtifactsItemShim,
-					OutputArtifactsItemSystemdBoot,
+					OutputArtifactsItemBootloader,
 				},
 				Path: "/valid/path",
 			},
@@ -648,7 +648,7 @@ func TestConfigIsValidWithMissingOutputArtifactsPreviewFeature(t *testing.T) {
 				Items: []OutputArtifactsItemType{
 					OutputArtifactsItemUkis,
 					OutputArtifactsItemShim,
-					OutputArtifactsItemSystemdBoot,
+					OutputArtifactsItemBootloader,
 				},
 				Path: "/valid/path",
 			},

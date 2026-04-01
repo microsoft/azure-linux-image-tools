@@ -13,7 +13,7 @@ func TestItemIsValid_ValidItems(t *testing.T) {
 	validItems := []OutputArtifactsItemType{
 		OutputArtifactsItemUkis,
 		OutputArtifactsItemShim,
-		OutputArtifactsItemSystemdBoot,
+		OutputArtifactsItemBootloader,
 		OutputArtifactsItemVerityHash,
 		OutputArtifactsItemDefault,
 	}
