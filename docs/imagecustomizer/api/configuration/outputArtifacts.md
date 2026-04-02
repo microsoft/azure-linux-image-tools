@@ -11,7 +11,8 @@ You must enable this feature by specifying `output-artifacts` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
 Specifies the configuration for the output directory containing the generated
-artifacts, including UKI PE images, shim, systemd-boot, and Verity hash files.
+artifacts, including UKI PE images, shim, bootloader (grub or systemd-boot), and verity
+hash files.
 
 After Image Customizer outputs the selected artifacts, it will also generate a helper
 configuration file named `inject-files.yaml` under the same directory of output

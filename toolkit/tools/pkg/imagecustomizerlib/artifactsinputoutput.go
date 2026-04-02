@@ -225,7 +225,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		bootloaderOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemBootloader))
 		err = os.MkdirAll(bootloaderOutputSubdir, 0o755)
 		if err != nil {
-			return fmt.Errorf("failed to create systemd-boot subdirectory:\n%w", err)
+			return fmt.Errorf("failed to create bootloader subdirectory:\n%w", err)
 		}
 
 		srcPath := filepath.Join(systemBootPartitionTmpDir, bootConfig.espGrubBinaryPath)

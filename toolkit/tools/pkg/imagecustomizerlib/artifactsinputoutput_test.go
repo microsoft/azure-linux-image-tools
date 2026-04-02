@@ -370,7 +370,7 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 	}
 
 	// Ensure all the expected files were seen.
-	expectedCount := 4 // shim, systemd-boot, main UKI, UKI addon
+	expectedCount := 4 // shim, bootloader, main UKI, UKI addon
 	if expectVerityHash {
 		expectedCount = 5 // + verity hash
 	}

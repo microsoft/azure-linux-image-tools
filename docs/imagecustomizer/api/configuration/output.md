@@ -39,7 +39,7 @@ output:
     items: 
     - ukis
     - shim
-    - systemd-boot
+    - bootloader
     - verity-hash
     path: ./output
 previewFeatures:
