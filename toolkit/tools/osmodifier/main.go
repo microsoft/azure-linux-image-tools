@@ -6,62 +6,60 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
-	"github.com/alecthomas/kingpin/v2"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exe"
+	"github.com/alecthomas/kong"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exekong"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/osmodifierlib"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/profile"
 )
 
-var (
-	app = kingpin.New("osmodifier", "Used to modify os")
-
-	configFile    = app.Flag("config-file", "Path of the os modification config file.").String()
-	logFlags      = exe.SetupLogFlags(app)
-	profFlags     = exe.SetupProfileFlags(app)
-	timestampFile = app.Flag("timestamp-file", "File that stores timestamps for this program.").String()
-	updateGrub    = app.Flag("update-grub", "Update default GRUB.").Bool()
-)
+type RootCmd struct {
+	ConfigFile    string `name:"config-file" help:"Path of the os modification config file."`
+	TimeStampFile string `name:"timestamp-file" help:"File that stores timestamps for this program."`
+	UpdateGrub    bool   `name:"update-grub" help:"Update default GRUB."`
+	exekong.LogFlags
+}
 
 func main() {
 	ctx := context.Background()
 
 	var err error
 
-	kingpin.MustParse(app.Parse(os.Args[1:]))
+	cli := &RootCmd{}
+	_ = kong.Parse(cli,
+		kong.Name("osmodifier"),
+		kong.Description("Used to modify os"),
+		exekong.KongVars,
+		kong.HelpOptions{
+			Compact:   true,
+			FlagsLast: true,
+		},
+		kong.UsageOnError())
 
-	logger.InitBestEffort(logFlags)
+	logger.InitBestEffort(cli.LogFlags.AsLoggerFlags())
 
-	prof, err := profile.StartProfiling(profFlags)
-	if err != nil {
-		logger.Log.Warnf("Could not start profiling: %s", err)
-	}
-	defer prof.StopProfiler()
-
-	timestamp.BeginTiming("osmodifier", *timestampFile)
+	timestamp.BeginTiming("osmodifier", cli.TimeStampFile)
 	defer timestamp.CompleteTiming()
 
 	// Check if the updateGrub flag is set
-	if *updateGrub {
+	if cli.UpdateGrub {
 		err := osmodifierlib.ModifyDefaultGrub()
 		if err != nil {
 			log.Fatalf("update grub failed: %v", err)
 		}
 	}
 
-	if len(*configFile) > 0 {
-		err = modifyImage(ctx)
+	if cli.ConfigFile != "" {
+		err = modifyImage(ctx, cli.ConfigFile)
 		if err != nil {
 			log.Fatalf("OS modification failed: %v", err)
 		}
 	}
 }
 
-func modifyImage(ctx context.Context) error {
-	err := osmodifierlib.ModifyOSWithConfigFile(ctx, *configFile)
+func modifyImage(ctx context.Context, configFile string) error {
+	err := osmodifierlib.ModifyOSWithConfigFile(ctx, configFile)
 	if err != nil {
 		return err
 	}
