@@ -199,6 +199,18 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	)
 	defer finishSpanWithError(span, &err)
 
+	err = customizeImageOptionsHelper(ctx, baseConfigPath, config, options)
+	if err != nil {
+		return err
+	}
+
+	logger.Log.Infof("Success!")
+	return nil
+}
+
+func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+	options ImageCustomizerOptions,
+) (err error) {
 	validateResources := imagecustomizerapi.ValidateResourceTypes{
 		imagecustomizerapi.ValidateResourceTypeAll,
 	}
@@ -288,8 +300,6 @@ func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *i
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrConvertToOutputFormat, err)
 	}
-
-	logger.Log.Infof("Success!")
 
 	return nil
 }
