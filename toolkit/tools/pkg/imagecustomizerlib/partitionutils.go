@@ -689,14 +689,15 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 		return nil, fmt.Errorf("failed to find ESP partition:\n%w", err)
 	}
 
-	cmdline, err = extractKernelCmdlineFromUki(espPartition, buildDir)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	cmdline, found, err = extractKernelCmdlineFromUki(espPartition, buildDir)
+	if err != nil {
 		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
-	} else if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
+	}
+	if found {
+		return cmdline, nil
 	}
 
-	return cmdline, nil
+	return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
 }
 
 // Find the partition that a path is located on.
@@ -733,48 +734,59 @@ func findBasicPartitionForPath(targetPath string, fstabEntries []diskutils.Fstab
 
 func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 	buildDir string,
-) ([]grubConfigLinuxArg, error) {
+) ([]grubConfigLinuxArg, bool, error) {
 	tmpDirEsp := filepath.Join(buildDir, tmpEspPartitionDirName)
 	espPartitionMount, err := safemount.NewMount(espPartition.Path, tmpDirEsp, espPartition.FileSystemType, 0, "", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
+		return nil, false, fmt.Errorf("failed to mount ESP partition (%s):\n%w", espPartition.Path, err)
 	}
 	defer espPartitionMount.Close()
 
 	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(tmpDirEsp, buildDir)
 	if err != nil {
-		closeErr := espPartitionMount.CleanClose()
-		if closeErr != nil {
-			return nil, fmt.Errorf("failed to close espPartitionMount (original error: %v):\n%w", err, closeErr)
+		return nil, false, err
+	}
+
+	if len(kernelToArgs) <= 0 {
+		err = espPartitionMount.CleanClose()
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to close espPartitionMount:\n%w", err)
 		}
-		return nil, err
+
+		return nil, false, nil
 	}
 
 	args, err := parseFirstCmdlineFromUkiMap(kernelToArgs)
 	if err != nil {
-		closeErr := espPartitionMount.CleanClose()
-		if closeErr != nil {
-			return nil, fmt.Errorf("failed to close espPartitionMount (original error: %v):\n%w", err, closeErr)
-		}
-		return nil, err
+		return nil, false, err
 	}
 
 	err = espPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close espPartitionMount:\n%w", err)
+		return nil, false, fmt.Errorf("failed to close espPartitionMount:\n%w", err)
 	}
 
-	return args, nil
+	return args, true, nil
 }
 
 func getUkiFiles(espPath string) ([]string, error) {
-	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
-	searchPattern := filepath.Join(espLinuxPath, "vmlinuz-*.efi")
-	logger.Log.Debugf("Searching for UKI files: pattern=(%s)", searchPattern)
+	logger.Log.Debugf("Searching for UKI files")
 
-	ukiFiles, err := filepath.Glob(searchPattern)
+	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
+	entries, err := os.ReadDir(espLinuxPath)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to search for UKI images in ESP partition:\n%w", err)
+	}
+
+	ukiFiles := []string(nil)
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) == ".efi" {
+			ukiPath := filepath.Join(espLinuxPath, entry.Name())
+			ukiFiles = append(ukiFiles, ukiPath)
+		}
 	}
 
 	logger.Log.Debugf("Found %d UKI files matching pattern", len(ukiFiles))
