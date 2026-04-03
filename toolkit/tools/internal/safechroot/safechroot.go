@@ -21,7 +21,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemdependency"
 
 	"github.com/moby/sys/mountinfo"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -98,7 +97,6 @@ const (
 // init will always be called if this package is loaded
 func init() {
 	registerSIGTERMCleanup()
-	logrus.RegisterExitHandler(cleanupAllChroots)
 }
 
 // NewMountPoint creates a new MountPoint struct to be created by a Chroot
@@ -463,18 +461,18 @@ func cleanupAllChroots() {
 
 	// Acquire and permanently hold the global activeChrootsMutex to ensure no
 	// new Chroots are initialized or unmounted during this teardown routine
-	logger.Log.Info("Waiting for outstanding chroot initialization and cleanup to finish")
+	logger.Log.Debug("Waiting for outstanding chroot initialization and cleanup to finish")
 	activeChrootsMutex.Lock()
 
-	logger.Log.Info("Waiting for outstanding chroot commands to finish")
+	logger.Log.Debug("Waiting for outstanding chroot commands to finish")
 	shell.PermanentlyStopAllChildProcesses(stopSignal)
 
 	// mount is only supported in regular pipeline
 	failedToUnmount := false
 	// Cleanup chroots in LIFO order incase any are interdependent (e.g. nested safe chroots)
-	logger.Log.Info("Cleaning up all active chroots")
+	logger.Log.Debug("Cleaning up all active chroots")
 	for i := len(activeChroots) - 1; i >= 0; i-- {
-		logger.Log.Infof("Cleaning up chroot (%s)", activeChroots[i].rootDir)
+		logger.Log.Debugf("Cleaning up chroot (%s)", activeChroots[i].rootDir)
 		err := activeChroots[i].unmountAndRemove(leaveChrootOnDisk, unmountTypeLazy)
 		// Perform best effort cleanup: unmount as many chroots as possible,
 		// even if one fails.
@@ -487,7 +485,7 @@ func cleanupAllChroots() {
 	if failedToUnmount {
 		logger.Log.Fatalf("Failed to unmount a chroot, manual unmount required. See above errors for details on which mounts failed.")
 	} else {
-		logger.Log.Info("Cleanup finished")
+		logger.Log.Debug("Cleanup finished")
 	}
 }
 
