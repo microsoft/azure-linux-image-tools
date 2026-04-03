@@ -111,7 +111,7 @@ jobs:
         AZURE_CONTAINER: ${{ vars.AZURE_CONTAINER }}
 
     - name: Download build artifacts
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         path: out
 
@@ -180,7 +180,7 @@ jobs:
         HOST_ARCH: ${{ inputs.hostArch }}
         CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
 
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
         name: tests-results-imagecustomizer-vmtests-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
