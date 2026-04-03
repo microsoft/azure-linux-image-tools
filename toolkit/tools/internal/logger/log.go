@@ -29,46 +29,23 @@ var (
 	levelsArray = []string{"panic", "fatal", "error", "warn", "info", "debug", "trace"}
 
 	// Valid log colors
-	colorsArray = []string{"always", "auto", "never"}
+	colorsArray = []string{colorModeAlways, colorModeAuto, colorModeNever}
 )
 
 const (
-	// LevelsPlaceholder are all valid log levels separated by '|' character.
-	LevelsPlaceholder = "(panic|fatal|error|warn|info|debug|trace)"
-
-	// LevelsFlag is the suggested name of the flag for loglevel
-	LevelsFlag = "log-level"
-
-	// LevelsHelp is the suggested help message for the loglevel flag
-	LevelsHelp = "The minimum log level."
-
-	// FileFlag is the suggested name for logfile flag
-	FileFlag = "log-file"
-
-	// FileFlagHelp is the suggested help message for the logfile flag
-	FileFlagHelp = "Path to the image's log file."
-
-	// ColorsPlaceholder are all valid log colors separated by '|' character.
-	ColorsPlaceholder = "(always|auto|never)"
-
-	// ColorFlag is the suggested name for logcolor flag
-	ColorFlag = "log-color"
-
-	// ColorFlagHelp is the suggested help message for the logcolor flag
-	ColorFlagHelp = "Color setting for log terminal output."
-
 	defaultLogFileLevel   = logrus.DebugLevel
 	defaultStderrLogLevel = logrus.InfoLevel
 	parentCallerLevel     = 1
-	colorModeAuto         = "auto"
-	colorModeAlways       = "always"
-	colorModeNever        = "never"
+
+	colorModeAuto   = "auto"
+	colorModeAlways = "always"
+	colorModeNever  = "never"
 )
 
 type LogFlags struct {
-	LogColor *string
-	LogFile  *string
-	LogLevel *string
+	LogColor string
+	LogFile  string
+	LogLevel string
 }
 
 // initLogFile initializes the common logger with a file
@@ -119,10 +96,10 @@ func SetStderrLogLevel(level string) (err error) {
 }
 
 // InitBestEffort runs InitStderrLog always, and InitLogFile if path is not empty
-func InitBestEffort(lf *LogFlags) {
-	level := *lf.LogLevel
-	color := *lf.LogColor
-	path := *lf.LogFile
+func InitBestEffort(lf LogFlags) {
+	level := lf.LogLevel
+	color := lf.LogColor
+	path := lf.LogFile
 
 	if level == "" {
 		level = defaultStderrLogLevel.String()

@@ -9,22 +9,31 @@ import (
 	"log"
 	"os"
 
-	"github.com/alecthomas/kingpin/v2"
+	"github.com/alecthomas/kong"
 	"github.com/invopop/jsonschema"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 )
 
+type RootCmd struct {
+	OutputFile string `name:"output" short:"o" help:"Path to the output JSON schema file" required:""`
+}
+
 func main() {
-	app := kingpin.New("jsonschemacli", "A CLI tool to generate JSON schema for the image customizer API.")
-	outputFile := app.Flag("output", "Path to the output JSON schema file").Short('o').Required().String()
+	cli := &RootCmd{}
+	_ = kong.Parse(cli,
+		kong.Name("jsonschemacli"),
+		kong.Description("A CLI tool to generate JSON schema for the image customizer API."),
+		kong.HelpOptions{
+			Compact:   true,
+			FlagsLast: true,
+		},
+		kong.UsageOnError())
 
-	kingpin.MustParse(app.Parse(os.Args[1:]))
-
-	if err := generateJSONSchema(*outputFile); err != nil {
+	if err := generateJSONSchema(cli.OutputFile); err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	fmt.Printf("JSON schema has been written to %s\n", *outputFile)
+	fmt.Printf("JSON schema has been written to %s\n", cli.OutputFile)
 }
 
 func generateJSONSchema(outputFile string) error {

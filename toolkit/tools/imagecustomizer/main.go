@@ -14,7 +14,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exekong"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/telemetry"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
@@ -104,7 +103,7 @@ func main() {
 		},
 		kong.UsageOnError())
 
-	logger.InitBestEffort(ptrutils.PtrTo(cli.LogFlags.AsLoggerFlags()))
+	logger.InitBestEffort(cli.LogFlags.AsLoggerFlags())
 
 	err := runCommand(ctx, parseContext.Command(), cli)
 	if err != nil {
