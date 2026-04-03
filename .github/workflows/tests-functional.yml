@@ -167,7 +167,7 @@ jobs:
       env:
         TEST_DISTRO: ${{ inputs.testDistro }}
 
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
         name: tests-results-functional-${{ inputs.testDistro }}-on-${{ inputs.hostDistro }}-${{ inputs.hostArch }}
