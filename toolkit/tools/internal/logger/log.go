@@ -6,14 +6,9 @@
 package logger
 
 import (
-	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
-	"unicode/utf8"
 
 	"github.com/sirupsen/logrus"
 )
@@ -35,7 +30,6 @@ var (
 const (
 	defaultLogFileLevel   = logrus.DebugLevel
 	defaultStderrLogLevel = logrus.InfoLevel
-	parentCallerLevel     = 1
 
 	colorModeAuto   = "auto"
 	colorModeAlways = "always"
@@ -54,9 +48,6 @@ func initLogFile(filePath string, color string) (err error) {
 	if color == colorModeAlways {
 		useColors = true
 	}
-	const (
-		noToolName = ""
-	)
 
 	err = os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 	if err != nil {
@@ -68,7 +59,7 @@ func initLogFile(filePath string, color string) (err error) {
 		return
 	}
 
-	fileHook = newWriterHook(file, defaultLogFileLevel, useColors, noToolName)
+	fileHook = newWriterHook(file, defaultLogFileLevel, useColors)
 	Log.Hooks.Add(fileHook)
 	Log.SetLevel(defaultLogFileLevel)
 
@@ -77,17 +68,7 @@ func initLogFile(filePath string, color string) (err error) {
 
 // InitStderrLog initializes the logger to print to stderr
 func InitStderrLog() {
-	_, callerFilePath, _, ok := runtime.Caller(parentCallerLevel)
-	if !ok {
-		log.Panic("Failed to get caller info.")
-	}
-
-	initStderrLogInternal(callerFilePath, colorModeAuto)
-}
-
-// SetFileLogLevel sets the lowest log level for file output
-func SetFileLogLevel(level string) (err error) {
-	return setHookLogLevel(fileHook, level)
+	initStderrLogInternal(colorModeAuto)
 }
 
 // SetStderrLogLevel sets the lowest log level for stderr output
@@ -105,18 +86,13 @@ func InitBestEffort(lf LogFlags) {
 		level = defaultStderrLogLevel.String()
 	}
 
-	_, callerFilePath, _, ok := runtime.Caller(parentCallerLevel)
-	if !ok {
-		log.Panic("Failed to get caller info.")
-	}
-
-	initStderrLogInternal(callerFilePath, color)
+	initStderrLogInternal(color)
 
 	if path != "" {
-		PanicOnError(initLogFile(path, color), "Failed while setting log file (%s).", path)
+		fatalOnError(initLogFile(path, color), "Failed while setting log file (%s).", path)
 	}
 
-	PanicOnError(SetStderrLogLevel(level), "Failed while setting log level.")
+	fatalOnError(SetStderrLogLevel(level), "Failed while setting log level.")
 }
 
 // Levels returns list of strings representing valid log levels.
@@ -129,20 +105,9 @@ func Colors() []string {
 	return colorsArray
 }
 
-// PanicOnError logs the error and any message strings and then panics
-func PanicOnError(err interface{}, args ...interface{}) {
-	if err != nil {
-		if len(args) > 0 {
-			Log.Errorf(args[0].(string), args[1:]...)
-		}
-
-		Log.Panicln(err)
-	}
-}
-
-// FatalOnError logs a fatal error and any message strings, then exists (while
+// fatalOnError logs a fatal error and any message strings, then exists (while
 // running any cleanup functions registered with the log package)
-func FatalOnError(err interface{}, args ...interface{}) {
+func fatalOnError(err interface{}, args ...interface{}) {
 	if err != nil {
 		if len(args) > 0 {
 			Log.Errorf(args[0].(string), args[1:]...)
@@ -151,26 +116,7 @@ func FatalOnError(err interface{}, args ...interface{}) {
 	}
 }
 
-// WarningOnError logs a warning error and any message strings
-func WarningOnError(err interface{}, args ...interface{}) {
-	if err != nil {
-		if len(args) > 0 {
-			Log.Warningf(args[0].(string), args[1:]...)
-		}
-	}
-}
-
-// ReplaceStderrWriter replaces the stderr writer and returns the old one
-func ReplaceStderrWriter(newOut io.Writer) (oldOut io.Writer) {
-	return stderrHook.ReplaceWriter(newOut)
-}
-
-// ReplaceStderrFormatter replaces the stderr formatter and returns the old formatter
-func ReplaceStderrFormatter(newFormatter logrus.Formatter) (oldFormatter logrus.Formatter) {
-	return stderrHook.ReplaceFormatter(newFormatter)
-}
-
-func initStderrLogInternal(callerFilePath string, color string) {
+func initStderrLogInternal(color string) {
 	useColors := true
 	if color == colorModeNever {
 		useColors = false
@@ -179,10 +125,8 @@ func initStderrLogInternal(callerFilePath string, color string) {
 	Log = logrus.New()
 	Log.ReportCaller = true
 
-	toolName := strings.TrimSuffix(filepath.Base(callerFilePath), ".go")
-
 	// By default send all log messages through stderrHook
-	stderrHook = newWriterHook(os.Stderr, defaultStderrLogLevel, useColors, toolName)
+	stderrHook = newWriterHook(os.Stderr, defaultStderrLogLevel, useColors)
 	Log.AddHook(stderrHook)
 	Log.SetLevel(defaultStderrLogLevel)
 	Log.SetOutput(io.Discard)
@@ -202,52 +146,4 @@ func setHookLogLevel(hook *writerHook, level string) (err error) {
 
 	hook.SetLevel(logLevel)
 	return
-}
-
-// PrintMessageBox prints a message box to the log with the specified log level.
-func PrintMessageBox(level logrus.Level, message []string) {
-	for _, line := range FormatMessageBox(message) {
-		Log.Log(level, line)
-	}
-}
-
-// FormatMessageBox formats a message into a box with a border. The box is automatically sized to fit the longest line.
-// Each line will be centered in the box.
-func FormatMessageBox(message []string) []string {
-	maxLineLength := 0
-	for _, line := range message {
-		len := utf8.RuneCountInString(line)
-		if len > maxLineLength {
-			maxLineLength = len
-		}
-	}
-	lines := []string{messageBoxTopString(maxLineLength)}
-	for _, line := range message {
-		lines = append(lines, messageBoxMiddleString(line, maxLineLength))
-	}
-	lines = append(lines, messageBoxBottomString(maxLineLength))
-	return lines
-}
-
-func messageBoxTopString(width int) string {
-	return fmt.Sprintf("╔═%s═╗", strings.Repeat("═", width))
-}
-
-func messageBoxMiddleString(s string, width int) string {
-	return fmt.Sprintf("║ %s ║", messageBoxPadString(s, width))
-}
-
-func messageBoxBottomString(width int) string {
-	return fmt.Sprintf("╚═%s═╝", strings.Repeat("═", width))
-}
-
-func messageBoxPadString(s string, width int) string {
-	lineLen := utf8.RuneCountInString(s)
-	if lineLen >= width {
-		return s
-	}
-	padding := width - lineLen
-	paddingL := padding / 2
-	paddingR := padding - paddingL
-	return fmt.Sprintf("%s%s%s", strings.Repeat(" ", paddingL), s, strings.Repeat(" ", paddingR))
 }

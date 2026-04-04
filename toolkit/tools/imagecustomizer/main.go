@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"maps"
 	"strings"
 
@@ -107,7 +106,7 @@ func main() {
 
 	err := runCommand(ctx, parseContext.Command(), cli)
 	if err != nil {
-		log.Fatalf("%v", err)
+		logger.Log.Fatalf("%v", err)
 	}
 }
 

@@ -5,7 +5,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/alecthomas/kong"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exekong"
@@ -24,8 +24,6 @@ type RootCmd struct {
 func main() {
 	ctx := context.Background()
 
-	var err error
-
 	cli := &RootCmd{}
 	_ = kong.Parse(cli,
 		kong.Name("osmodifier"),
@@ -39,6 +37,13 @@ func main() {
 
 	logger.InitBestEffort(cli.LogFlags.AsLoggerFlags())
 
+	err := runCommand(ctx, cli)
+	if err != nil {
+		logger.Log.Fatalf("%v", err)
+	}
+}
+
+func runCommand(ctx context.Context, cli *RootCmd) error {
 	timestamp.BeginTiming("osmodifier", cli.TimeStampFile)
 	defer timestamp.CompleteTiming()
 
@@ -46,16 +51,18 @@ func main() {
 	if cli.UpdateGrub {
 		err := osmodifierlib.ModifyDefaultGrub()
 		if err != nil {
-			log.Fatalf("update grub failed: %v", err)
+			return fmt.Errorf("update grub failed:\n%w", err)
 		}
 	}
 
 	if cli.ConfigFile != "" {
-		err = modifyImage(ctx, cli.ConfigFile)
+		err := modifyImage(ctx, cli.ConfigFile)
 		if err != nil {
-			log.Fatalf("OS modification failed: %v", err)
+			return fmt.Errorf("OS modification failed:\n%w", err)
 		}
 	}
+
+	return nil
 }
 
 func modifyImage(ctx context.Context, configFile string) error {
