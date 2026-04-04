@@ -28,7 +28,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -36,10 +35,6 @@ var (
 	ErrUKIPrepareOS                   = NewImageCustomizerError("UKI:UKIPrepareOS", "failed to prepare OS for uki")
 	ErrUKIPackageDependencyValidation = NewImageCustomizerError("UKI:PackageDependencyValidation", "failed to validate package dependencies for uki")
 	ErrUKIDirectoryCreate             = NewImageCustomizerError("UKI:DirectoryCreate", "failed to create UKI directories")
-	ErrUKIShimFileCopyToTemp          = NewImageCustomizerError("UKI:ShimFileCopyToTemp", "failed to copy shim file to temporary location")
-	ErrUKIShimFileCopyFromTemp        = NewImageCustomizerError("UKI:ShimFileCopyFromTemp", "failed to copy shim file from temporary location")
-	ErrUKISystemdBootInstall          = NewImageCustomizerError("UKI:SystemdBootInstall", "failed to install systemd-boot")
-	ErrUKIRandomSeedRemove            = NewImageCustomizerError("UKI:RandomSeedRemove", "failed to remove random-seed file")
 	ErrUKIKernelInitramfsMap          = NewImageCustomizerError("UKI:KernelInitramfsMap", "failed to get kernel to initramfs map")
 	ErrUKIFileCopy                    = NewImageCustomizerError("UKI:FileCopy", "failed to copy UKI files")
 	ErrUKIKernelCmdlineExtract        = NewImageCustomizerError("UKI:KernelCmdlineExtract", "failed to extract kernel command-line arguments")
@@ -296,60 +291,6 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	_, bootConfig, err := getBootArchConfig()
 	if err != nil {
 		return err
-	}
-
-	// Define the path to the currently installed BOOTX64.EFI in the ESP.
-	shimSrcPath := filepath.Join(imageChroot.RootDir(), BootDir, "efi/EFI/BOOT", bootConfig.bootBinary)
-	// Define a temporary path to store the backed-up shim binary.
-	shimTmpPath := filepath.Join(buildDir, UkiBuildDir, bootConfig.bootBinary)
-	// Backup the original shim binary before it gets overwritten by bootctl.
-	err = file.Copy(shimSrcPath, shimTmpPath)
-	if err != nil {
-		return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrUKIShimFileCopyToTemp, shimSrcPath, shimTmpPath, err)
-	}
-
-	// This code installs the systemd-boot bootloader into the EFI system partition (ESP).
-	// Note: When proper support for systemd-boot is implemented, the `bootctl install` command
-	// will likely be invoked as part of the `hardResetBootLoader()` function under BootLoader structure.
-	//
-	// The command being executed is:
-	//     bootctl install --no-variables
-	// This performs the following steps:
-	//   1. Creates the necessary directories in the ESP, such as:
-	//        - /boot/efi/EFI/systemd
-	//        - /boot/efi/loader
-	//        - /boot/efi/loader/entries
-	//   2. Copies the systemd bootloader binary from the host filesystem to the ESP:
-	//        - Copies /usr/lib/systemd/boot/efi/systemd-bootx64.efi to /boot/efi/EFI/systemd/systemd-bootx64.efi
-	//        - Copies /usr/lib/systemd/boot/efi/systemd-bootx64.efi to /boot/efi/EFI/BOOT/BOOTX64.EFI
-	//          (This second location serves as the fallback bootloader entry, adhering to UEFI conventions.)
-	//   3. Writes a random seed to /boot/efi/loader/random-seed. This is used by the bootloader to initialize randomness.
-	//      This file is removed below to avoid initializing the same seed in all instances.
-	//
-	// The "--no-variables" flag ensures that the command does not modify UEFI NVRAM boot variables. Instead, it relies
-	// on the bootloader binaries being present in the ESP for booting.
-	err = shell.NewExecBuilder("bootctl", "install", "--no-variables").
-		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-		ErrorStderrLines(1).
-		Chroot(imageChroot.ChrootDir()).
-		Execute()
-	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKISystemdBootInstall, err)
-	}
-
-	// Restore the original signed shim binary to BOOTX64.EFI.
-	// This ensures that the Secure Boot chain is preserved,
-	// because shim (not systemd-boot) must be the entry point under EFI/BOOT.
-	err = file.Copy(shimTmpPath, shimSrcPath)
-	if err != nil {
-		return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrUKIShimFileCopyFromTemp, shimTmpPath, shimSrcPath, err)
-	}
-
-	// The "--random-seed=no" flag is preferred to disable this behavior, but it requires systemd version 257 or later.
-	// Since AZL 3.0 uses version 255, we manually remove the random-seed file here for now.
-	randomSeedPath := filepath.Join(imageChroot.RootDir(), "/boot/efi/loader/random-seed")
-	if err := file.RemoveFileIfExists(randomSeedPath); err != nil {
-		return fmt.Errorf("%w (path='%s'):\n%w", ErrUKIRandomSeedRemove, randomSeedPath, err)
 	}
 
 	// Map kernels and initramfs.

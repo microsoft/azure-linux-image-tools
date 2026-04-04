@@ -14,7 +14,7 @@ type InjectArtifactMetadata struct {
 	// Source is the relative path to the artifact file, resolved relative to the inject-files.yaml file.
 	// The user should replace the unsigned file at this path with the signed version before injection.
 	Source string `yaml:"source" json:"source,omitempty"`
-	// Type indicates the artifact type (e.g., "ukis", "shim", "systemd-boot", "verity-hash").
+	// Type indicates the artifact type (e.g., "ukis", "shim", "bootloader", "verity-hash").
 	Type OutputArtifactsItemType `yaml:"type" json:"type,omitempty"`
 }
 

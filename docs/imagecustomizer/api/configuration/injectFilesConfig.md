@@ -42,7 +42,7 @@ injectFiles:
     id: b9f59ced-d1a6-44a7-91d9-4d623a39b032
   destination: /EFI/systemd/systemd-bootx64.efi
   source: ./systemd-boot/systemd-bootx64.efi
-  type: systemd-boot
+  type: bootloader
 - partition:
     idType: part-uuid
     id: 5c0a7f80-0f9f-48f6-8bb1-d622022aaf24

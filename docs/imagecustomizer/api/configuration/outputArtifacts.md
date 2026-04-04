@@ -11,7 +11,8 @@ You must enable this feature by specifying `output-artifacts` in the
 [previewFeatures](./config.md#previewfeatures-string) API.
 
 Specifies the configuration for the output directory containing the generated
-artifacts, including UKI PE images, shim, systemd-boot, and Verity hash files.
+artifacts, including UKI PE images, shim, bootloader (grub or systemd-boot), and verity
+hash files.
 
 After Image Customizer outputs the selected artifacts, it will also generate a helper
 configuration file named `inject-files.yaml` under the same directory of output
@@ -31,7 +32,7 @@ output:
     items: 
     - ukis
     - shim
-    - systemd-boot
+    - bootloader
     - verity-hash
     path: ./output
 previewFeatures:
@@ -59,7 +60,8 @@ Supported values:
 - `ukis` – UKI PE images (`vmlinuz-<version>.efi`) and their associated addon files
   (`vmlinuz-<version>.efi.extra.d/vmlinuz-<version>.addon.efi`).
 - `shim` – Bootloader shim executable (`boot<arch>.efi`).
-- `systemd-boot` – Systemd-boot executable (`systemd-boot<arch>.efi`).
+- `bootloader` – Bootloader executable (`grub<arch>.efi`).
+  *Added in v1.3.*
 - `verity-hash` – Verity hash files associated with dm-verity protected partitions.
   *Added in v0.16.*
 
@@ -67,7 +69,7 @@ The `output.artifacts` field must be used with the `output-artifacts` enabled in
 
 These artifacts are generated in an unsigned format and must be signed externally if required.
 
-Supported architectures for shim and systemd-boot include x64 and arm64,
+Supported architectures for shim and bootloader include x64 and arm64,
 reflected in the `<arch>` portion of the filenames.
 
 The `verity-hash` artifact will only be output if the corresponding Verity entry

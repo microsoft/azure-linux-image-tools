@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	osEspBootloaderDir = "/boot/efi/EFI/BOOT"
+	osEspDir           = "/boot/efi"
+	espBootloaderDir   = "EFI/BOOT"
+	osEspBootloaderDir = osEspDir + "/" + espBootloaderDir
 	isoBootloaderDir   = "/efi/boot"
 	ukiEfiStubDir      = "/usr/lib/systemd/boot/efi"
 
@@ -27,9 +29,6 @@ const (
 	grubx64NoPrefixBinary  = "grubx64-noprefix.efi"
 	grubAA64NoPrefixBinary = "grubaa64-noprefix.efi"
 
-	systemdBootx64Binary  = "systemd-bootx64.efi"
-	systemdBootAA64Binary = "systemd-bootaa64.efi"
-
 	ukiEfiStubx64Binary  = "linuxx64.efi.stub"
 	ukiEfiStubAA64Binary = "linuxaa64.efi.stub"
 
@@ -39,7 +38,6 @@ const (
 
 	pxeGrubCfg = "grub-pxe.cfg"
 
-	isoBootDir  = "boot"
 	initrdImage = "initrd.img"
 
 	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
@@ -76,7 +74,8 @@ type BootFilesArchConfig struct {
 	bootBinary                  string
 	grubBinary                  string
 	grubNoPrefixBinary          string
-	systemdBootBinary           string
+	espBootBinaryPath           string
+	espGrubBinaryPath           string
 	osEspBootBinaryPath         string
 	osEspGrubBinaryPath         string
 	osEspGrubNoPrefixBinaryPath string
@@ -92,7 +91,8 @@ var (
 			bootBinary:                  bootx64Binary,
 			grubBinary:                  grubx64Binary,
 			grubNoPrefixBinary:          grubx64NoPrefixBinary,
-			systemdBootBinary:           systemdBootx64Binary,
+			espBootBinaryPath:           espBootloaderDir + "/" + bootx64Binary,
+			espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
 			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64Binary,
 			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
 			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
@@ -105,7 +105,8 @@ var (
 			bootBinary:                  bootAA64Binary,
 			grubBinary:                  grubAA64Binary,
 			grubNoPrefixBinary:          grubAA64NoPrefixBinary,
-			systemdBootBinary:           systemdBootAA64Binary,
+			espBootBinaryPath:           espBootloaderDir + "/" + bootAA64Binary,
+			espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
 			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64Binary,
 			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
 			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,

@@ -40,7 +40,7 @@ output:
     items: 
     - ukis
     - shim
-    - systemd-boot
+    - bootloader
     path: ./output
 
 os:

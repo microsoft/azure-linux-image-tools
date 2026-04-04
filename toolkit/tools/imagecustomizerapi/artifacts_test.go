@@ -24,7 +24,7 @@ func TestArtifactsIsValid_ValidArtifactsIsValid(t *testing.T) {
 		Items: []OutputArtifactsItemType{
 			OutputArtifactsItemUkis,
 			OutputArtifactsItemShim,
-			OutputArtifactsItemSystemdBoot,
+			OutputArtifactsItemBootloader,
 		},
 		Path: "/valid/path",
 	}

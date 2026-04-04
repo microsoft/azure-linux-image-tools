@@ -296,7 +296,7 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 
 	// Check artifacts
 	hasShim := false
-	hasSystemdBoot := false
+	hasBootloader := false
 	hasUKI := false
 	hasUKIAddon := false
 	hasVerityHash := false
@@ -314,11 +314,11 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 			hasShim = true
 			espFiles = append(espFiles, entry.Destination)
 
-		case imagecustomizerapi.OutputArtifactsItemSystemdBoot:
-			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/systemd/systemd-boot"), "Expected systemd-boot destination to start with /EFI/systemd/systemd-boot")
-			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected systemd-boot destination to end with .efi")
-			assert.True(t, strings.HasPrefix(entry.Source, "./systemd-boot/"), "Expected systemd-boot source to be in systemd-boot/ subdirectory")
-			hasSystemdBoot = true
+		case imagecustomizerapi.OutputArtifactsItemBootloader:
+			assert.True(t, strings.HasPrefix(entry.Destination, "/EFI/BOOT/grub"), "Expected bootloader destination to start with /EFI/BOOT/grub")
+			assert.True(t, strings.HasSuffix(entry.Destination, ".efi"), "Expected bootloader destination to end with .efi")
+			assert.True(t, strings.HasPrefix(entry.Source, "./bootloader/"), "Expected bootloader source to be in bootloader/ subdirectory")
+			hasBootloader = true
 			espFiles = append(espFiles, entry.Destination)
 
 		case imagecustomizerapi.OutputArtifactsItemUkis:
@@ -370,14 +370,14 @@ func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, ex
 	}
 
 	// Ensure all the expected files were seen.
-	expectedCount := 4 // shim, systemd-boot, main UKI, UKI addon
+	expectedCount := 4 // shim, bootloader, main UKI, UKI addon
 	if expectVerityHash {
 		expectedCount = 5 // + verity hash
 	}
 
 	assert.Equal(t, expectedCount, len(injectConfig.InjectFiles))
 	assert.True(t, hasShim, "Expected an inject entry for shim")
-	assert.True(t, hasSystemdBoot, "Expected an inject entry for systemd-boot")
+	assert.True(t, hasBootloader, "Expected an inject entry for bootloader")
 	assert.True(t, hasUKI, "Expected at least one inject entry for main UKI")
 	assert.True(t, hasUKIAddon, "Expected at least one inject entry for UKI addon")
 	if expectVerityHash {

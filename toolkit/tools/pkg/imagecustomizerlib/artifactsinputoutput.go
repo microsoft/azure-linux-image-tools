@@ -53,11 +53,6 @@ var (
 	ErrArtifactImageUuidParse               = NewImageCustomizerError("Artifacts:ImageUuidParse", "failed to parse IMAGE_UUID")
 )
 
-const (
-	ShimDir        = "EFI/BOOT"
-	SystemdBootDir = "EFI/systemd"
-)
-
 var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtifactsItemType,
@@ -207,7 +202,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 			return fmt.Errorf("failed to create shim subdirectory:\n%w", err)
 		}
 
-		srcPath := filepath.Join(systemBootPartitionTmpDir, ShimDir, bootConfig.bootBinary)
+		srcPath := filepath.Join(systemBootPartitionTmpDir, bootConfig.espBootBinaryPath)
 		destPath := filepath.Join(shimOutputSubdir, bootConfig.bootBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
@@ -219,37 +214,36 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 			Partition:   espInjectFilePartition,
 			Source:      source,
-			Destination: filepath.Join("/", ShimDir, bootConfig.bootBinary),
+			Destination: filepath.Join("/", bootConfig.espBootBinaryPath),
 			Type:        imagecustomizerapi.OutputArtifactsItemShim,
 		})
 		logger.Log.Debugf("Added shim file to metadata: %s", bootConfig.bootBinary)
 	}
 
-	// Output systemd-boot
-	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemSystemdBoot) {
-		// Create subdirectory for systemd-boot
-		systemdBootOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemSystemdBoot))
-		err = os.MkdirAll(systemdBootOutputSubdir, 0o755)
+	// Output bootloader (e.g. GRUBX64.efi)
+	if slices.Contains(items, imagecustomizerapi.OutputArtifactsItemBootloader) {
+		bootloaderOutputSubdir := filepath.Join(outputDir, string(imagecustomizerapi.OutputArtifactsItemBootloader))
+		err = os.MkdirAll(bootloaderOutputSubdir, 0o755)
 		if err != nil {
-			return fmt.Errorf("failed to create systemd-boot subdirectory:\n%w", err)
+			return fmt.Errorf("failed to create bootloader subdirectory:\n%w", err)
 		}
 
-		srcPath := filepath.Join(systemBootPartitionTmpDir, SystemdBootDir, bootConfig.systemdBootBinary)
-		destPath := filepath.Join(systemdBootOutputSubdir, bootConfig.systemdBootBinary)
+		srcPath := filepath.Join(systemBootPartitionTmpDir, bootConfig.espGrubBinaryPath)
+		destPath := filepath.Join(bootloaderOutputSubdir, bootConfig.grubBinary)
 		err := file.Copy(srcPath, destPath)
 		if err != nil {
 			return fmt.Errorf("%w (source='%s', destination='%s'):\n%w", ErrArtifactBinaryCopy, srcPath, destPath, err)
 		}
 
-		source := "./" + string(imagecustomizerapi.OutputArtifactsItemSystemdBoot) + "/" + bootConfig.systemdBootBinary
+		source := "./" + string(imagecustomizerapi.OutputArtifactsItemBootloader) + "/" + bootConfig.grubBinary
 
 		outputArtifactsMetadata = append(outputArtifactsMetadata, imagecustomizerapi.InjectArtifactMetadata{
 			Partition:   espInjectFilePartition,
 			Source:      source,
-			Destination: filepath.Join("/", SystemdBootDir, bootConfig.systemdBootBinary),
-			Type:        imagecustomizerapi.OutputArtifactsItemSystemdBoot,
+			Destination: filepath.Join("/", bootConfig.espGrubBinaryPath),
+			Type:        imagecustomizerapi.OutputArtifactsItemBootloader,
 		})
-		logger.Log.Debugf("Added systemd-boot file to metadata: %s", bootConfig.systemdBootBinary)
+		logger.Log.Debugf("Added bootloader file to metadata: %s", bootConfig.grubBinary)
 	}
 
 	// Output verity hash
