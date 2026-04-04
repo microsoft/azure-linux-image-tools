@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,29 +23,17 @@ type writerHook struct {
 }
 
 var (
-
 	// colorCodeRegex is of type '\x1b[0m' or '\x1b[31m', etc.
 	colorCodeRegex = regexp.MustCompile(`\x1b\[[0-9]+m`)
 )
 
 // newWriterHook returns new writerHook
-func newWriterHook(writer io.Writer, level logrus.Level, useColors bool, toolName string) *writerHook {
+func newWriterHook(writer io.Writer, level logrus.Level, useColors bool) *writerHook {
 	formatter := &logrus.TextFormatter{
 		ForceColors: useColors,
 		CallerPrettyfier: func(frame *runtime.Frame) (function string, file string) {
 			return
 		},
-	}
-
-	if toolName != "" {
-		formatter.CallerPrettyfier = func(frame *runtime.Frame) (function string, file string) {
-			toolNameField := fmt.Sprintf("[%s]", toolName)
-			if useColors {
-				toolNameField = fmt.Sprintf(color.HiYellowString("[%s]"), toolName)
-			}
-
-			return "", toolNameField
-		}
 	}
 
 	return &writerHook{
