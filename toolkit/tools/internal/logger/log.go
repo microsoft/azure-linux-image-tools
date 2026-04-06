@@ -7,6 +7,7 @@ package logger
 
 import (
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -25,6 +26,9 @@ var (
 
 	// Valid log colors
 	colorsArray = []string{colorModeAlways, colorModeAuto, colorModeNever}
+
+	// Valid log formats
+	formatsArray = []string{formatText, formatJson}
 )
 
 const (
@@ -34,16 +38,20 @@ const (
 	colorModeAuto   = "auto"
 	colorModeAlways = "always"
 	colorModeNever  = "never"
+
+	formatText = "text"
+	formatJson = "json"
 )
 
 type LogFlags struct {
-	LogColor string
-	LogFile  string
-	LogLevel string
+	LogColor  string
+	LogFile   string
+	LogLevel  string
+	LogFormat string
 }
 
 // initLogFile initializes the common logger with a file
-func initLogFile(filePath string, color string) (err error) {
+func initLogFile(filePath string, color string, outputFormat string) (err error) {
 	useColors := false
 	if color == colorModeAlways {
 		useColors = true
@@ -59,7 +67,7 @@ func initLogFile(filePath string, color string) (err error) {
 		return
 	}
 
-	fileHook = newWriterHook(file, defaultLogFileLevel, useColors)
+	fileHook = newWriterHook(file, defaultLogFileLevel, useColors, outputFormat)
 	Log.Hooks.Add(fileHook)
 	Log.SetLevel(defaultLogFileLevel)
 
@@ -68,7 +76,7 @@ func initLogFile(filePath string, color string) (err error) {
 
 // InitStderrLog initializes the logger to print to stderr
 func InitStderrLog() {
-	initStderrLogInternal(colorModeAuto)
+	initStderrLogInternal(colorModeAuto, formatText)
 }
 
 // SetStderrLogLevel sets the lowest log level for stderr output
@@ -81,15 +89,20 @@ func InitBestEffort(lf LogFlags) {
 	level := lf.LogLevel
 	color := lf.LogColor
 	path := lf.LogFile
+	format := lf.LogFormat
 
 	if level == "" {
 		level = defaultStderrLogLevel.String()
 	}
 
-	initStderrLogInternal(color)
+	if format == formatJson && color == colorModeAlways {
+		log.Fatal("log-color cannot be set to 'always' when log-format is 'json'")
+	}
+
+	initStderrLogInternal(color, format)
 
 	if path != "" {
-		fatalOnError(initLogFile(path, color), "Failed while setting log file (%s).", path)
+		fatalOnError(initLogFile(path, color, format), "Failed while setting log file (%s).", path)
 	}
 
 	fatalOnError(SetStderrLogLevel(level), "Failed while setting log level.")
@@ -105,6 +118,11 @@ func Colors() []string {
 	return colorsArray
 }
 
+// Formats returns list of strings representing valid log formats.
+func Formats() []string {
+	return formatsArray
+}
+
 // fatalOnError logs a fatal error and any message strings, then exits (while
 // running any cleanup functions registered with the log package)
 func fatalOnError(err error, args ...interface{}) {
@@ -116,7 +134,7 @@ func fatalOnError(err error, args ...interface{}) {
 	}
 }
 
-func initStderrLogInternal(color string) {
+func initStderrLogInternal(color string, outputFormat string) {
 	useColors := true
 	if color == colorModeNever {
 		useColors = false
@@ -125,7 +143,7 @@ func initStderrLogInternal(color string) {
 	Log = logrus.New()
 
 	// By default send all log messages through stderrHook
-	stderrHook = newWriterHook(os.Stderr, defaultStderrLogLevel, useColors)
+	stderrHook = newWriterHook(os.Stderr, defaultStderrLogLevel, useColors, outputFormat)
 	Log.AddHook(stderrHook)
 	Log.SetLevel(defaultStderrLogLevel)
 	Log.SetOutput(io.Discard)

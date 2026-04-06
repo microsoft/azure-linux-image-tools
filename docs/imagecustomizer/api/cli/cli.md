@@ -70,6 +70,22 @@ The levels from lowest to highest level of verbosity are: `panic`, `fatal`, `err
 
 Added in v0.3.
 
+## --log-format=FORMAT
+
+Sets the format of the logs.
+
+Options:
+
+- `text`: Output the logs as a human readable text log.
+- `json`: Output the logs as a sequence of JSON objects.
+
+Default option: `text`
+
+Note: There are no backwards-compatibility guarantees for the contents of the log
+messages.
+
+Added in v1.3.
+
 ## --version
 
 Prints the version of the tool.

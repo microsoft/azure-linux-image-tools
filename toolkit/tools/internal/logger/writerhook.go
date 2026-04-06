@@ -27,9 +27,18 @@ var (
 )
 
 // newWriterHook returns new writerHook
-func newWriterHook(writer io.Writer, level logrus.Level, useColors bool) *writerHook {
-	formatter := &logrus.TextFormatter{
-		ForceColors: useColors,
+func newWriterHook(writer io.Writer, level logrus.Level, useColors bool, outputFormat string,
+) *writerHook {
+	var formatter logrus.Formatter
+	switch outputFormat {
+	case formatJson:
+		useColors = false
+		formatter = &logrus.JSONFormatter{}
+
+	default:
+		formatter = &logrus.TextFormatter{
+			ForceColors: useColors,
+		}
 	}
 
 	return &writerHook{
