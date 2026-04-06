@@ -107,7 +107,7 @@ func Colors() []string {
 
 // fatalOnError logs a fatal error and any message strings, then exists (while
 // running any cleanup functions registered with the log package)
-func fatalOnError(err interface{}, args ...interface{}) {
+func fatalOnError(err error, args ...interface{}) {
 	if err != nil {
 		if len(args) > 0 {
 			Log.Errorf(args[0].(string), args[1:]...)
