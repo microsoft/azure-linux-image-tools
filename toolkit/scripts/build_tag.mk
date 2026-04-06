@@ -16,7 +16,7 @@ endif
 # Staticly define BUILD_NUMBER so it is set only once
 BUILD_NUMBER := $(BUILD_NUMBER)
 RELEASE_MAJOR_ID   ?= 3.0
-DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%H%M')
+DATETIME_AS_VERSION := $(shell date +'%Y%m%d.%-H%M')
 # use minor ID defined in file (if exist) otherwise define it
 # note this file must be single line
 ifneq ($(wildcard $(OUT_DIR)/version-minor-id.config),)
