@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"regexp"
-	"runtime"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -31,9 +30,6 @@ var (
 func newWriterHook(writer io.Writer, level logrus.Level, useColors bool) *writerHook {
 	formatter := &logrus.TextFormatter{
 		ForceColors: useColors,
-		CallerPrettyfier: func(frame *runtime.Frame) (function string, file string) {
-			return
-		},
 	}
 
 	return &writerHook{
@@ -75,28 +71,6 @@ func (h *writerHook) SetLevel(level logrus.Level) {
 // Levels returns configured log levels
 func (h *writerHook) Levels() []logrus.Level {
 	return logrus.AllLevels
-}
-
-// ReplaceWriter replaces the writer and returns the old one
-func (h *writerHook) ReplaceWriter(newWriter io.Writer) (oldWriter io.Writer) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-
-	oldWriter = h.writer
-	h.writer = newWriter
-
-	return
-}
-
-// ReplaceFormatter replaces the formatter used by the hook and returns the old formatter
-func (h *writerHook) ReplaceFormatter(newFormatter logrus.Formatter) (oldFormatter logrus.Formatter) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-
-	oldFormatter = h.formatter
-	h.formatter = newFormatter
-
-	return
 }
 
 // CurrentLevel returns the current log level for the hook

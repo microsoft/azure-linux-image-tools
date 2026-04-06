@@ -105,7 +105,7 @@ func Colors() []string {
 	return colorsArray
 }
 
-// fatalOnError logs a fatal error and any message strings, then exists (while
+// fatalOnError logs a fatal error and any message strings, then exits (while
 // running any cleanup functions registered with the log package)
 func fatalOnError(err error, args ...interface{}) {
 	if err != nil {
@@ -123,7 +123,6 @@ func initStderrLogInternal(color string) {
 	}
 
 	Log = logrus.New()
-	Log.ReportCaller = true
 
 	// By default send all log messages through stderrHook
 	stderrHook = newWriterHook(os.Stderr, defaultStderrLogLevel, useColors)
