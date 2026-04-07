@@ -81,8 +81,12 @@ Options:
 
 Default option: `text`
 
-Note: There are no backwards-compatibility guarantees for the contents of the log
-messages.
+There are no backwards compatibility guarantees for the `text` log format. Both the
+format of the logs and the contents of the logs can be changed between releases.
+
+For the `json` log format, the only guarantee is that the logs are outputted as a
+sequence of JSON objects. The actual contents of the log messages can change between
+releases.
 
 Added in v1.3.
 
