@@ -66,25 +66,20 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, err
 	}
 
-	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
+	fstabEntries, err := findFstabEntries(partitions, buildDir)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
-	}
-
-	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		return nil, nil, nil, fmt.Errorf("failed to find mount/fstab entries for disk:\n%w", err)
 	}
 
 	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+		return nil, nil, nil, fmt.Errorf("failed to discover partition layout from fstab entries:\n%w", err)
 	}
 
 	mountPoints, readonlyPartUuids, err := partitionLayoutToMountPoints(partitionsLayout, partitions, readonly,
 		readOnlyVerity)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
+		return nil, nil, nil, fmt.Errorf("failed to discover mount info from partition layout:\n%w", err)
 	}
 
 	// Create chroot environment.
@@ -96,6 +91,33 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 	}
 
 	return partitionsLayout, verityMetadata, readonlyPartUuids, nil
+}
+
+func findFstabEntries(diskPartitions []diskutils.PartitionInfo, buildDir string) ([]diskutils.FstabEntry, error) {
+	rootfsPartition, rootfsPath, err := findRootfsPartition(diskPartitions, buildDir)
+	if errors.Is(err, ErrZeroFstabPartitions) {
+		// There are no partitions with an /etc/fstab file.
+		// So, try searching for a flatcar usr partition.
+		fstabEntries, found, err := findFstabEntriesForFlatcar(diskPartitions, buildDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if image is flatcar:\n%w", err)
+		}
+		if !found {
+			return nil, ErrZeroFstabPartitions
+		}
+
+		return fstabEntries, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+	}
+
+	return fstabEntries, nil
 }
 
 func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,

@@ -35,6 +35,9 @@ var (
 
 	// Extract the partition number from the loopback partition path.
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
+
+	ErrZeroFstabPartitions    = NewImageCustomizerError("Partitions:ZeroFstabPartitions", "found zero partitions with an /etc/fstab file")
+	ErrTooManyFstabPartitions = NewImageCustomizerError("Partitions:TooManyFstabPartitions", "found too many partitions with an /etc/fstab file")
 )
 
 const (
@@ -162,10 +165,9 @@ func findRootfsPartition(diskPartitions []diskutils.PartitionInfo, buildDir stri
 	}
 
 	if len(rootfsPartitions) > 1 {
-		return nil, "", fmt.Errorf("found too many rootfs partition candidates (%d)",
-			len(rootfsPartitions))
+		return nil, "", fmt.Errorf("%w (count=%d)", ErrTooManyFstabPartitions, len(rootfsPartitions))
 	} else if len(rootfsPartitions) < 1 {
-		return nil, "", fmt.Errorf("failed to find rootfs partition")
+		return nil, "", ErrZeroFstabPartitions
 	}
 
 	rootfsPartition := rootfsPartitions[0]
