@@ -35,8 +35,8 @@ def container_run(docker_client: DockerClient, *args: Any, **kwargs: Any) -> Tup
 def container_log_and_wait(container: Container) -> Tuple[List[str], List[str]]:
     # Log stdout and stderr.
     with ThreadPoolExecutor(max_workers=2) as executor:
-        stdout_work = executor.submit(_process_logs, container.logs(stdout=True, stream=True))
-        stderr_work = executor.submit(_process_logs, container.logs(stderr=True, stream=True))
+        stdout_work = executor.submit(_process_logs, container.logs(stdout=True, stderr=False, stream=True))
+        stderr_work = executor.submit(_process_logs, container.logs(stdout=False, stderr=True, stream=True))
 
         stdout_lines = stdout_work.result()
         stderr_lines = stderr_work.result()

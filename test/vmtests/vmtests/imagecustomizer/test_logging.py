@@ -1,11 +1,11 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from datetime import datetime
-import json
 from docker import DockerClient
 
 from ..conftest import TEST_CONFIGS_DIR
@@ -49,7 +49,9 @@ def test_json_logs_nochange(
 
         assert isinstance(line_json, dict)
         assert line_json.get("level") in ["panic", "fatal", "error", "warn", "info", "debug", "trace"]
-        datetime.fromisoformat(line_json.get("time"))
+        timestamp = line_json.get("time")
+        assert isinstance(timestamp, str)
+        datetime.fromisoformat(timestamp)
         assert line_json.get("msg")
 
     assert json_lines[-1].get("msg") == "Success!"
