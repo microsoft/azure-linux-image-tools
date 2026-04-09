@@ -744,6 +744,12 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
+	// Trim filesystems, to cleanup any dirty unused blocks.
+	err = trimFileSystems(imageConnection)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
 	err = imageConnection.CleanClose()
 	if err != nil {
 		return nil, nil, nil, "", err
