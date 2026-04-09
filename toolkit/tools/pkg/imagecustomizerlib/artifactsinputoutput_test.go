@@ -41,6 +41,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
+	buildDirCustomize := filepath.Join(buildDir, "customize")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	originalConfigFile := filepath.Join(testDir, "artifacts-output.yaml")
 	configFile := filepath.Join(testTempDir, "artifacts-output.yaml")
@@ -51,7 +52,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Customize image
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+	err = CustomizeImageWithConfigFile(t.Context(), buildDirCustomize, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
 		return
@@ -59,10 +60,13 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 
 	espFiles := verifyAndSignOutputtedArtifacts(t, outputArtifactsDir, false)
 
+	// Use new buildDir to ensure the buildDir is created if it doesn't exist.
+	buildDirInject := filepath.Join(buildDir, "inject")
+
 	// Inject artifacts into a fresh copy of the raw image
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")
 	options := InjectFilesOptions{
-		BuildDir:       buildDir,
+		BuildDir:       buildDirInject,
 		InputImageFile: outImageFilePath,
 	}
 	err = InjectFilesWithConfigFile(t.Context(), injectConfigPath, options)

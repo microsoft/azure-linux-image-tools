@@ -363,6 +363,13 @@ func injectFilesWithOptions(ctx context.Context, baseConfigPath string,
 	if err != nil {
 		return err
 	}
+
+	// Ensure build directory exists.
+	err = os.MkdirAll(buildDirAbs, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
 	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
 
 	detectedImageFormat, err := convertImageToRaw(options.InputImageFile, rawImageFile)
