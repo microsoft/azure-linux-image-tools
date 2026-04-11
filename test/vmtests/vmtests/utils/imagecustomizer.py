@@ -5,7 +5,7 @@ import logging
 import tempfile
 from os import fdopen
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import yaml
 from docker import DockerClient
@@ -31,7 +31,8 @@ def run_image_customizer(
     tools_file: Path | None = None,
     distro: str | None = None,
     distro_version: str | None = None,
-) -> None:
+    log_format: str | None = None,
+) -> Tuple[List[str], List[str]]:
     container_config_dir = Path("/container/config")
     container_output_image_dir = Path("/container/output_image")
     container_build_dir = Path("/container/build")
@@ -90,12 +91,15 @@ def run_image_customizer(
     if distro_version:
         args.extend(["--distro-version", distro_version])
 
+    if log_format:
+        args.extend(["--log-format", log_format])
+
     environment = {
         "ENABLE_TELEMETRY": "true",
         "AZURE_MONITOR_CONNECTION_STRING": AZURE_CONN_STR,
     }
 
-    container_run(
+    return container_run(
         docker_client,
         image_customizer_container_url,
         args,
