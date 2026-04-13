@@ -51,7 +51,7 @@ def container_log_and_wait(container: Container) -> Tuple[List[str], List[str]]:
     return (stdout_lines, stderr_lines)
 
 
-def _process_logs(logs: CancellableStream[bytes]) -> List[str]:
+def _process_logs(logs: "CancellableStream[bytes]") -> List[str]:
     lines = []
 
     for log in logs:
