@@ -26,6 +26,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -654,6 +655,12 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 
+	veritySuperblock, err := verityutils.ReadVeritySuperblock(hashPartition.Path)
+	if err != nil {
+		err = fmt.Errorf("failed read verity superblock:\n%w", err)
+		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
+	}
+
 	verityMetadata := verityDeviceMetadata{
 		name:                  name,
 		rootHash:              hash,
@@ -663,6 +670,11 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 		hashDeviceMountIdType: hashIdType,
 		corruptionOption:      corruptionOption,
 		hashSignaturePath:     hashSigPath,
+		formatSettings: verityFormatSettings{
+			hashAlgorithm:      veritySuperblock.GetAlgorithm(),
+			dataBlockSizeBytes: veritySuperblock.DataBlockSize,
+			hashBlockSizeBytes: veritySuperblock.HashBlockSize,
+		},
 	}
 
 	return dataPartition, dataPartitionIndex, verityMetadata, nil

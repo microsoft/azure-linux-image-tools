@@ -1,42 +1,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-package imagecustomizerlib
+package verityutils
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"os"
 )
 
-// From: https://gitlab.com/cryptsetup/cryptsetup/-/wikis/DMVerity
-type veritySuperBlock struct {
-	Signature     [8]uint8   // "verity\0\0"
-	Version       uint32     // Superblock version: 1
-	HashType      uint32     // 0: Chrome OS, 1: normal
-	Uuid          [16]uint8  // UUID of hash device
-	Algorithm     [32]uint8  // Hash algorithm name
-	DataBlockSize uint32     // Data block in bytes
-	HashBlockSize uint32     // Hash block in bytes
-	DataBlocks    uint64     // Number of data blocks
-	SaltSize      uint16     // Salt size
-	Pad1          [6]uint8   // Padding
-	Salt          [256]uint8 // Salt
-	Pad2          [168]uint8 // Padding
-}
-
-func calculateHashFileSizeInBytes(hashPartitionPath string) (uint64, error) {
-	hashPartition, err := os.Open(hashPartitionPath)
+func CalculateHashFileSizeInBytes(hashPartitionPath string) (uint64, error) {
+	superblock, err := ReadVeritySuperblock(hashPartitionPath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open hash partition (%s) block device:\n%w", hashPartitionPath, err)
-	}
-	defer hashPartition.Close()
-
-	superblock := veritySuperBlock{}
-	err = binary.Read(hashPartition, binary.LittleEndian, &superblock)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
+		return 0, err
 	}
 
 	sizeInBytes, err := calculateHashFileSizeInBytesFromSuperBlock(superblock)
@@ -47,7 +23,23 @@ func calculateHashFileSizeInBytes(hashPartitionPath string) (uint64, error) {
 	return sizeInBytes, nil
 }
 
-func calculateHashFileSizeInBytesFromSuperBlock(superblock veritySuperBlock) (uint64, error) {
+func ReadVeritySuperblock(hashPartitionPath string) (VeritySuperBlock, error) {
+	hashPartition, err := os.Open(hashPartitionPath)
+	if err != nil {
+		return VeritySuperBlock{}, fmt.Errorf("failed to open hash partition (%s) block device:\n%w", hashPartitionPath, err)
+	}
+	defer hashPartition.Close()
+
+	superblock := VeritySuperBlock{}
+	err = binary.Read(hashPartition, binary.LittleEndian, &superblock)
+	if err != nil {
+		return VeritySuperBlock{}, fmt.Errorf("failed to read hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
+	}
+
+	return superblock, nil
+}
+
+func calculateHashFileSizeInBytesFromSuperBlock(superblock VeritySuperBlock) (uint64, error) {
 	var err error
 
 	if string(superblock.Signature[:]) != "verity\x00\x00" {
@@ -62,8 +54,7 @@ func calculateHashFileSizeInBytesFromSuperBlock(superblock veritySuperBlock) (ui
 		return 0, fmt.Errorf("unsupported hash type (%d)", superblock.HashType)
 	}
 
-	algorithmBytes, _, _ := bytes.Cut(superblock.Algorithm[:], []byte{0})
-	algorithm := string(algorithmBytes)
+	algorithm := superblock.GetAlgorithm()
 
 	hashSize := uint32(0)
 	switch algorithm {
@@ -134,12 +125,4 @@ func roundUpToPowerOf2(n uint32) uint32 {
 		res *= 2
 	}
 	return res
-}
-
-func getVerityNames(verity []verityDeviceMetadata) []string {
-	verityNames := make([]string, len(verity))
-	for i, v := range verity {
-		verityNames[i] = v.name
-	}
-	return verityNames
 }

@@ -115,17 +115,6 @@ type imageMetadata struct {
 	partitionOriginalSizes map[string]uint64
 }
 
-type verityDeviceMetadata struct {
-	name                  string
-	rootHash              string
-	dataPartUuid          string
-	hashPartUuid          string
-	dataDeviceMountIdType imagecustomizerapi.MountIdentifierType
-	hashDeviceMountIdType imagecustomizerapi.MountIdentifierType
-	corruptionOption      imagecustomizerapi.CorruptionOption
-	hashSignaturePath     string
-}
-
 func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
 	rpmsSources []string, outputImageFile string, outputImageFormat string,
 	useBaseImageRpmRepos bool, packageSnapshotTime string,
@@ -524,7 +513,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImageHelper(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
+		verityMetadata, err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
 			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
