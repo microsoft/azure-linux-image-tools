@@ -37,4 +37,5 @@ func (i OutputArtifactsItemType) IsValidOutputItem() error {
 		return nil
 	default:
 		return fmt.Errorf("invalid item value (%v)", i)
+	}
 }
