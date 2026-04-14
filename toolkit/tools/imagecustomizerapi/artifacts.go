@@ -16,7 +16,7 @@ func (a *Artifacts) IsValid() error {
 	}
 
 	for _, item := range a.Items {
-		if err := item.IsValid(); err != nil {
+		if err := item.IsValidOutputItem(); err != nil {
 			return err
 		}
 	}

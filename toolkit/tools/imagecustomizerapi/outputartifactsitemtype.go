@@ -25,3 +25,16 @@ func (i OutputArtifactsItemType) IsValid() error {
 		return fmt.Errorf("invalid item value (%v)", i)
 	}
 }
+
+// IsValidOutputItem validates that the item is a user-selectable output artifact type.
+// The uki-addons type is excluded because addon files are automatically included
+// when ukis is specified. The uki-addons type is only valid as an inject-files
+// metadata type.
+func (i OutputArtifactsItemType) IsValidOutputItem() error {
+	switch i {
+	case OutputArtifactsItemUkis, OutputArtifactsItemShim, OutputArtifactsItemBootloader, OutputArtifactsItemVerityHash,
+		OutputArtifactsItemDefault:
+		return nil
+	default:
+		return fmt.Errorf("invalid item value (%v)", i)
+}
