@@ -49,6 +49,24 @@ func TestGenerateAzureLinuxOciUriAZL3Date(t *testing.T) {
 	assert.Equal(t, "mcr.microsoft.com/azurelinux/3.0/image/minimal-os:3.0.20250910", ociImage.Uri)
 }
 
+func TestGenerateAzureLinuxOciUriAZL4Latest(t *testing.T) {
+	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
+		Variant: "minimal-os",
+		Version: "4.0",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "mcr.microsoft.com/azurelinux/4.0/image/minimal-os:latest", ociImage.Uri)
+}
+
+func TestGenerateAzureLinuxOciUriAZL4Date(t *testing.T) {
+	ociImage, err := generateAzureLinuxOciUri(imagecustomizerapi.AzureLinuxImage{
+		Variant: "minimal-os",
+		Version: "4.0.20260303",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "mcr.microsoft.com/azurelinux/4.0/image/minimal-os:4.0.20260303", ociImage.Uri)
+}
+
 func TestParseInputImageAZLValid(t *testing.T) {
 	inputImage, err := parseInputImage("azurelinux:minimal-os:3.0")
 	assert.NoError(t, err)

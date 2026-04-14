@@ -20,6 +20,9 @@ const (
 
 	sampleGrubCfg30Path     = "bootcfgtests/3.0-grub.cfg"
 	sampleDefaultGrub30Path = "bootcfgtests/3.0-default-grub"
+
+	sampleGrubCfg40Path     = "bootcfgtests/4.0-grub.cfg"
+	sampleDefaultGrub40Path = "bootcfgtests/4.0-default-grub"
 )
 
 func TestBootCustomizerAddKernelCommandLine20(t *testing.T) {
@@ -46,6 +49,19 @@ func TestBootCustomizerAddKernelCommandLine30(t *testing.T) {
 > GRUB_CMDLINE_LINUX_DEFAULT="  console=tty0 console=ttyS0 \$kernelopts"
 `
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
+}
+
+func TestBootCustomizerAddKernelCommandLine40(t *testing.T) {
+	b := createBootCustomizerFor40(t)
+	err := b.AddKernelCommandLine([]string{"console=tty0", "console=ttyS0"})
+	assert.NoError(t, err)
+
+	expectedDefaultGrubFileDiff := `6c6
+< GRUB_CMDLINE_LINUX_DEFAULT=" $kernelopts"
+---
+> GRUB_CMDLINE_LINUX_DEFAULT="  console=tty0 console=ttyS0 \$kernelopts"
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
 }
 
 func TestBootCustomizerSELinuxMode20(t *testing.T) {
@@ -154,6 +170,59 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 }
 
+func TestBootCustomizerSELinuxMode40(t *testing.T) {
+	b := createBootCustomizerFor40(t)
+	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
+	assert.NoError(t, err)
+
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
+
+	expectedDefaultGrubFileDiff := `5c5
+< GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity "
+---
+> GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity security=selinux selinux=1  "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeForceEnforcing)
+	assert.NoError(t, err)
+
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeForceEnforcing, selinuxMode)
+
+	expectedDefaultGrubFileDiff = `5c5
+< GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity "
+---
+> GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity  security=selinux selinux=1 enforcing=1  "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeDisabled)
+	assert.NoError(t, err)
+
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
+
+	expectedDefaultGrubFileDiff = `5c5
+< GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity "
+---
+> GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity    selinux=0  "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+}
+
 func TestBootCustomizerVerity20(t *testing.T) {
 	b := createBootCustomizerFor20(t)
 
@@ -181,6 +250,24 @@ func TestBootCustomizerVerity30(t *testing.T) {
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 }
 
+func TestBootCustomizerVerity40(t *testing.T) {
+	b := createBootCustomizerFor40(t)
+
+	err := b.PrepareForVerity()
+	assert.NoError(t, err)
+
+	expectedDefaultGrubFileDiff := `6a7,8
+> GRUB_DISABLE_UUID="true"
+> GRUB_DEVICE="/dev/mapper/root"
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+
+	// Do it again to make sure there aren't any changes.
+	err = b.PrepareForVerity()
+	assert.NoError(t, err)
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+}
+
 func checkDiffs20(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, expectedDefaultGrubFileDiff string) {
 	checkDiffs(t, b, filepath.Join(testDir, sampleGrubCfg20Path), filepath.Join(testDir, sampleDefaultGrub20Path),
 		expectedGrubCfgDiff, expectedDefaultGrubFileDiff)
@@ -188,6 +275,11 @@ func checkDiffs20(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, e
 
 func checkDiffs30(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, expectedDefaultGrubFileDiff string) {
 	checkDiffs(t, b, filepath.Join(testDir, sampleGrubCfg30Path), filepath.Join(testDir, sampleDefaultGrub30Path),
+		expectedGrubCfgDiff, expectedDefaultGrubFileDiff)
+}
+
+func checkDiffs40(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, expectedDefaultGrubFileDiff string) {
+	checkDiffs(t, b, filepath.Join(testDir, sampleGrubCfg40Path), filepath.Join(testDir, sampleDefaultGrub40Path),
 		expectedGrubCfgDiff, expectedDefaultGrubFileDiff)
 }
 
@@ -220,6 +312,11 @@ func createBootCustomizerFor20(t *testing.T) *BootCustomizer {
 func createBootCustomizerFor30(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg30Path),
 		filepath.Join(testDir, sampleDefaultGrub30Path), true)
+}
+
+func createBootCustomizerFor40(t *testing.T) *BootCustomizer {
+	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg40Path),
+		filepath.Join(testDir, sampleDefaultGrub40Path), true)
 }
 
 func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultGrubFilePath string, isGrubMkconfig bool,

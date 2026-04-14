@@ -43,6 +43,13 @@ DISTRO_CONFIGS: Dict[str, Dict[str, Any]] = {
         },
         "packages": COMMON_PACKAGES + [AZURELINUX_GRUB_PKG],
     },
+    "azurelinux4": {
+        "os_release": {
+            "ID": "azurelinux",
+            "VERSION_ID": "4.0",
+        },
+        "packages": COMMON_PACKAGES + [AZURELINUX_GRUB_PKG],
+    },
 }
 
 
@@ -302,6 +309,36 @@ def test_create_image_efi_qcow_output_azl3(
         close_list,
         "azurelinux",
         "3.0",
+    )
+
+
+def test_create_image_efi_qcow_output_azl4(
+    image_customizer_container_url: str,
+    docker_client: DockerClient,
+    rpm_sources_azl4: Path,
+    tools_file_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    run_create_image_test(
+        image_customizer_container_url,
+        docker_client,
+        [rpm_sources_azl4],
+        tools_file_azl4,
+        TEST_CONFIGS_DIR.joinpath("create-minimal-os.yaml"),
+        "qcow2",
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+        "azurelinux4",
+        "4.0",
     )
 
 

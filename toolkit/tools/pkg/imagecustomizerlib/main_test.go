@@ -22,6 +22,7 @@ const (
 	// Azure Linux versions
 	baseImageVersionAzl2 = "2.0"
 	baseImageVersionAzl3 = "3.0"
+	baseImageVersionAzl4 = "4.0"
 
 	// Ubuntu versions
 	baseImageVersionUbuntu2204 = "22.04"
@@ -42,6 +43,7 @@ const (
 	// Flag names
 	paramBaseImageAzl2CoreEfi          = "base-image-core-efi-azl2"
 	paramBaseImageAzl3CoreEfi          = "base-image-core-efi-azl3"
+	paramBaseImageAzl4CoreEfi          = "base-image-core-efi-azl4"
 	paramBaseImageAzl2BareMetal        = "base-image-bare-metal-azl2"
 	paramBaseImageAzl3BareMetal        = "base-image-bare-metal-azl3"
 	paramBaseImageUbuntu2204AzureCloud = "base-image-azure-cloud-ubuntu2204"
@@ -118,6 +120,17 @@ var (
 		DefaultShell: defaultShellAzureLinux,
 	}
 
+	testBaseImageAzl4CoreEfi = testBaseImageInfo{
+		Name:         "AzureLinux4CoreEfi",
+		Distro:       baseImageDistroAzureLinux,
+		Version:      baseImageVersionAzl4,
+		Variant:      baseImageAzureLinuxVariantCoreEfi,
+		ParamName:    paramBaseImageAzl4CoreEfi,
+		Param:        baseImageCoreEfiAzl4,
+		MountPoints:  azureLinuxCoreEfiMountPoints,
+		DefaultShell: defaultShellAzureLinux,
+	}
+
 	testBaseImageAzl2BareMetal = testBaseImageInfo{
 		Name:         "AzureLinux2BareMetal",
 		Distro:       baseImageDistroAzureLinux,
@@ -171,6 +184,7 @@ var (
 	baseImageAzureLinuxAll = []testBaseImageInfo{
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl3CoreEfi,
+		testBaseImageAzl4CoreEfi,
 		testBaseImageAzl2BareMetal,
 		testBaseImageAzl3BareMetal,
 	}
@@ -181,6 +195,7 @@ var (
 	}
 
 	defaultAzureLinuxPriorityList = []testBaseImageInfo{
+		testBaseImageAzl4CoreEfi,
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
 		testBaseImageAzl2CoreEfi,
@@ -191,6 +206,7 @@ var (
 var (
 	baseImageCoreEfiAzl2          = flag.String(paramBaseImageAzl2CoreEfi, "", "An Azure Linux 2.0 core-efi image to use as a base image.")
 	baseImageCoreEfiAzl3          = flag.String(paramBaseImageAzl3CoreEfi, "", "An Azure Linux 3.0 core-efi image to use as a base image.")
+	baseImageCoreEfiAzl4          = flag.String(paramBaseImageAzl4CoreEfi, "", "An Azure Linux 4.0 core-efi image to use as a base image.")
 	baseImageBareMetalAzl2        = flag.String(paramBaseImageAzl2BareMetal, "", "An Azure Linux 2.0 bare-metal image to use as a base image.")
 	baseImageBareMetalAzl3        = flag.String(paramBaseImageAzl3BareMetal, "", "An Azure Linux 3.0 bare-metal image to use as a base image.")
 	baseImageUbuntuAzureCloud2204 = flag.String(paramBaseImageUbuntu2204AzureCloud, "", "An Ubuntu 22.04 Azure cloud image to use as a base image.")

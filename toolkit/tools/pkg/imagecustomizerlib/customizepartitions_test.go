@@ -136,6 +136,10 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	case baseImageVersionAzl3:
 		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
 		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", hostKernelVersion.Ge([]int{5, 19}))
+
+	case baseImageVersionAzl4:
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
+		verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", hostKernelVersion.Ge([]int{5, 19}))
 	}
 }
 
@@ -926,7 +930,7 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConne
 		assert.Regexp(t, fmt.Sprintf(`(?m)^set rootdevice=PARTUUID=%s$`, regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
 
-	case baseImageVersionAzl3:
+	case baseImageVersionAzl3, baseImageVersionAzl4:
 		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
 			grubCfgContents)
 

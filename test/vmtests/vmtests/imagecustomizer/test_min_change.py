@@ -42,7 +42,7 @@ def run_min_change_test(
     secure_boot = False
 
     source_boot_type = "efi"
-    if Path(input_image).suffix.lower() == ".vhd":
+    if Path(input_image).suffix.lower() == ".vhd" and input_image_azl_release < 4:
         source_boot_type = "legacy"
 
     target_boot_type = source_boot_type
@@ -157,6 +157,9 @@ def run_basic_checks(
         elif input_image_azl_release == 3:
             assert "ID=azurelinux" in os_release_text
             assert 'VERSION_ID="3.0"' in os_release_text
+        elif input_image_azl_release == 4:
+            assert "ID=azurelinux" in os_release_text
+            assert 'VERSION_ID="4.0"' in os_release_text
         else:
             assert False, "Unexpected image identity in /etc/os-release"
 
@@ -373,6 +376,102 @@ def test_min_change_efi_azl3_iso_full_os_output(
         docker_client,
         image_customizer_container_url,
         core_efi_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
+def test_min_change_efi_azl4_qcow_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
+def test_min_change_efi_azl4_iso_bootstrap_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm.yaml")
+    output_format = "iso"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="arm64 is not supported for this combination")
+def test_min_change_efi_azl4_iso_full_os_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-full-os-vm.yaml")
+    output_format = "iso"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
         azl_release,
         config_path,
         output_format,

@@ -38,6 +38,9 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 
 	case baseImageVersionAzl3:
 		configFile = filepath.Join(testDir, "multikernel-azl3.yaml")
+
+	case baseImageVersionAzl4:
+		configFile = filepath.Join(testDir, "multikernel-azl4.yaml")
 	}
 
 	// Customize image.
@@ -66,7 +69,7 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 		// AZL2's default grub.cfg file doesn't support multiple kernels.
 		assert.GreaterOrEqual(t, len(matches), 1, "grub.cfg:\n%s", grubCfgContents)
 
-	case baseImageVersionAzl3:
+	case baseImageVersionAzl3, baseImageVersionAzl4:
 		// There should be multiple matching linux kernels, one for each installed kernel.
 		assert.GreaterOrEqual(t, len(matches), 2, "grub.cfg:\n%s", grubCfgContents)
 	}

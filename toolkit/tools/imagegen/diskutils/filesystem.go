@@ -68,6 +68,13 @@ var (
 		Checksum: "crc32c",
 	}
 
+	// The default btrfs options used by an Azure Linux 4.0 image (kernel v6.18).
+	// Same as AZL3 since nothing has changed since v5.15.
+	azl4BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
+	}
+
 	// The default btrfs options used by Fedora 42 (kernel v6.11+)
 	fedora42BtrfsOptions = btrfsOptions{
 		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
@@ -116,6 +123,18 @@ var (
 			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
 			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
 			"orphan_file",
+		},
+	}
+
+	// The default ext4 options used by an Azure Linux 4.0 image.
+	// See, the /etc/mke2fs.conf file in an Azure Linux 4.0 image (e2fsprogs v1.47.3).
+	// Adds metadata_csum_seed compared to AzL3.
+	azl4Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
+			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "metadata_csum_seed", "64bit",
+			"dir_nlink", "extra_isize", "orphan_file",
 		},
 	}
 
@@ -170,6 +189,17 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
+	// The default xfs options used by an Azure Linux 4.0 image (kernel v6.18).
+	// Same as AzL3 (lts_6.6.conf profile: rmapbt=1, nrext64=1).
+	azl4XfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+	}
+
+	// GRUB 2.06 doesn't support 'nrext64'.
+	azl4BootXfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
+	}
+
 	// The default xfs options used by Fedora 42 (kernel v6.11+)
 	// Based on modern XFS features supported in recent kernels
 	fedora42XfsOptions = xfsOptions{
@@ -206,6 +236,12 @@ var (
 			Ext4:    azl3Ext4Options,
 			Xfs:     azl3XfsOptions,
 			BootXfs: azl3BootXfsOptions,
+		},
+		targetos.TargetOsAzureLinux4: {
+			Btrfs:   azl4BtrfsOptions,
+			Ext4:    azl4Ext4Options,
+			Xfs:     azl4XfsOptions,
+			BootXfs: azl4BootXfsOptions,
 		},
 		targetos.TargetOsFedora42: {
 			Btrfs:   fedora42BtrfsOptions,
@@ -262,7 +298,8 @@ var (
 	//
 	// Ref: https://www.man7.org/linux/man-pages/man5/ext4.5.html
 	ext4FeaturesKernelSupport = map[string]version.Version{
-		"orphan_file": {5, 15},
+		"metadata_csum_seed": {4, 4},
+		"orphan_file":        {5, 15},
 	}
 
 	// A list of ext4 features and their minimum supported e2fsprogs versions.
@@ -273,7 +310,8 @@ var (
 	//
 	// Ref: https://e2fsprogs.sourceforge.net/e2fsprogs-release.html
 	ext4FeaturesE2fsprogsSupport = map[string]version.Version{
-		"orphan_file": {1, 47, 0},
+		"metadata_csum_seed": {1, 47, 0},
+		"orphan_file":        {1, 47, 0},
 	}
 
 	// A list of XFS features and their minimum supported xfsprogs / kernel versions.

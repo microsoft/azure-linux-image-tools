@@ -91,8 +91,8 @@ func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 }
 
 func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
-	if baseImageInfo.Version == baseImageVersionAzl3 {
-		t.Skip("Azure Linux 3.0 is missing policy.kern file")
+	if baseImageInfo.Version == baseImageVersionAzl3 || baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 3.0/4.0 is missing policy.kern file")
 	}
 
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)

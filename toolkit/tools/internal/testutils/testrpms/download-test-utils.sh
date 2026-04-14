@@ -5,6 +5,7 @@ SCRIPT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 
 AZURELINUX_2_CONTAINER_IMAGE="mcr.microsoft.com/cbl-mariner/base/core:2.0"
 AZURELINUX_3_CONTAINER_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
+AZURELINUX_4_CONTAINER_IMAGE="mcr.microsoft.com/azurelinux/base/core:4.0"
 FEDORA_42_CONTAINER_IMAGE="quay.io/fedora/fedora:42"
 
 DISTRO="azurelinux"
@@ -25,7 +26,7 @@ do
             echo ""
             echo "Args:"
             echo "  -d DISTRO              The distribution to use (azurelinux or fedora). Default: azurelinux"
-            echo "  -t DISTRO_VERSION      The image version to download the RPMs for (2.0, 3.0 for Azure Linux or 42 for Fedora)."
+            echo "  -t DISTRO_VERSION      The image version to download the RPMs for (2.0, 3.0, 4.0 for Azure Linux or 42 for Fedora)."
             echo "  -s CREATE_IMAGE        If set to true, the script will create a tools tar.gz and download the rpms needed for the create subcommand."
             echo "  -r CONTAINER_REGISTRY  Container registry URL to use for Fedora images (e.g., myacr.azurecr.io)."
             echo "  -h Show help"
@@ -50,6 +51,9 @@ case "${DISTRO}-${DISTRO_VERSION}" in
   azurelinux-3.0)
     CONTAINER_IMAGE="$AZURELINUX_3_CONTAINER_IMAGE"
     ;;
+  azurelinux-4.0)
+    CONTAINER_IMAGE="$AZURELINUX_4_CONTAINER_IMAGE"
+    ;;
   azurelinux-2.0)
     CONTAINER_IMAGE="$AZURELINUX_2_CONTAINER_IMAGE"
     ;;
@@ -59,7 +63,7 @@ case "${DISTRO}-${DISTRO_VERSION}" in
   *)
     echo "error: unsupported distro-version combination: $DISTRO-$DISTRO_VERSION"
     echo "Supported combinations:"
-    echo "  azurelinux-2.0, azurelinux-3.0, fedora-42"
+    echo "  azurelinux-2.0, azurelinux-3.0, azurelinux-4.0, fedora-42"
     exit 1;;
 esac
 

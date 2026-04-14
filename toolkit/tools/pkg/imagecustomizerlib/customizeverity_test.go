@@ -296,7 +296,7 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 
 	// Verity extra command line args.
 	recoveryCount := 0
-	if baseImageInfo.Version == baseImageVersionAzl3 {
+	if baseImageInfo.Version == baseImageVersionAzl3 || baseImageInfo.Version == baseImageVersionAzl4 {
 		// Count the number of recovery menu items there are.
 		// These menu items won't contain the extra command line args.
 		recoveryCount = strings.Count(grubCfgContents, "(recovery mode)")

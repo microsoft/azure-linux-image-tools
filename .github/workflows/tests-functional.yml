@@ -100,6 +100,7 @@ jobs:
         if [[ "$TEST_DISTRO" == "azl" ]]; then
             download "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
             download "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+            download "azure-linux/core-efi-vhd-4.0-$HOST_ARCH" azl-core-efi-4.0
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
             download "ubuntu/azure-cloud-vhdx-22.04-$HOST_ARCH" ubuntu-azure-cloud-22.04
             download "ubuntu/azure-cloud-vhdx-24.04-$HOST_ARCH" ubuntu-azure-cloud-24.04
@@ -119,6 +120,7 @@ jobs:
         pushd repo/toolkit/tools
         if [[ "$TEST_DISTRO" == "azl" ]]; then
           ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 4.0 -s true
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
           echo "No test utils needed for Ubuntu tests"
         else
@@ -136,12 +138,14 @@ jobs:
 
         AZL2_VHDX=""
         AZL3_VHDX=""
+        AZL4_VHD=""
         UBUNTU2204_VHDX=""
         UBUNTU2404_VHDX=""
 
         if [[ "$TEST_DISTRO" == "azl" ]]; then
           AZL2_VHDX="../../../../../azl-core-efi-2.0/image.vhdx"
           AZL3_VHDX="../../../../../azl-core-efi-3.0/image.vhdx"
+          AZL4_VHD="../../../../../azl-core-efi-4.0/image.vhd"
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
           UBUNTU2204_VHDX="../../../../../ubuntu-azure-cloud-22.04/image.vhdx"
           UBUNTU2404_VHDX="../../../../../ubuntu-azure-cloud-24.04/image.vhdx"
@@ -160,6 +164,7 @@ jobs:
           -args \
           --base-image-core-efi-azl2 "$AZL2_VHDX" \
           --base-image-core-efi-azl3 "$AZL3_VHDX" \
+          --base-image-core-efi-azl4 "$AZL4_VHD" \
           --base-image-azure-cloud-ubuntu2204 "$UBUNTU2204_VHDX" \
           --base-image-azure-cloud-ubuntu2404 "$UBUNTU2404_VHDX" \
           2>&1 \
