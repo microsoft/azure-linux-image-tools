@@ -657,7 +657,7 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 
 	veritySuperblock, err := verityutils.ReadVeritySuperblock(hashPartition.Path)
 	if err != nil {
-		err = fmt.Errorf("failed read verity superblock:\n%w", err)
+		err = fmt.Errorf("failed to read verity superblock:\n%w", err)
 		return diskutils.PartitionInfo{}, 0, verityDeviceMetadata{}, err
 	}
 

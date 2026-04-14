@@ -44,7 +44,6 @@ var (
 	ErrFindVerityDataPartition           = NewImageCustomizerError("Verity:FindDataPartition", "failed to find verity data partition")
 	ErrFindVerityHashPartition           = NewImageCustomizerError("Verity:FindHashPartition", "failed to find verity hash partition")
 	ErrCalculateRootHash                 = NewImageCustomizerError("Verity:CalculateRootHash", "failed to calculate root hash")
-	ErrUnalignedVerityDataSize           = NewImageCustomizerError("Verity:UnalignedDataSize", "data size is not a multiple of the data block size")
 	ErrCompileRootHashRegex              = NewImageCustomizerError("Verity:CompileRootHashRegex", "failed to compile root hash regex")
 	ErrParseRootHash                     = NewImageCustomizerError("Verity:ParseRootHash", "failed to parse root hash from veritysetup output")
 	ErrCalculateHashSize                 = NewImageCustomizerError("Verity:CalculateHashSize", "failed to calculate hash partition size")
@@ -797,7 +796,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		return "", fmt.Errorf("%w (device='%s'):\n%w", ErrUpdateDisk, diskDevicePath, err)
 	}
 
-	// Calculate the size of the hash partition from it's superblock.
+	// Calculate the size of the hash partition from its superblock.
 	// In newer `veritysetup` versions, `veritysetup format` returns the size in its output. But that feature
 	// is too new for now.
 	hashPartitionSizeInBytes, err := verityutils.CalculateHashFileSizeInBytes(hashPartitionPath)

@@ -36,43 +36,68 @@ func ReadVeritySuperblock(hashPartitionPath string) (VeritySuperBlock, error) {
 		return VeritySuperBlock{}, fmt.Errorf("failed to read hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
 	}
 
+	err = verifySuperblock(superblock)
+	if err != nil {
+		return VeritySuperBlock{}, nil
+	}
+
 	return superblock, nil
+}
+
+func verifySuperblock(superblock VeritySuperBlock) error {
+	if string(superblock.Signature[:]) != "verity\x00\x00" {
+		return fmt.Errorf("wrong superblock signature")
+	}
+
+	if superblock.Version != 1 {
+		return fmt.Errorf("unsupported version (%d)", superblock.Version)
+	}
+
+	if superblock.HashType != 1 {
+		return fmt.Errorf("unsupported hash type (%d)", superblock.HashType)
+	}
+
+	hashSize, err := getAlgorithmHashSize(superblock.GetAlgorithm())
+	if err != nil {
+		return err
+	}
+
+	if !isPowerOf2(superblock.DataBlockSize) {
+		return fmt.Errorf("invalid data block size (%d)", superblock.DataBlockSize)
+	}
+
+	if !isPowerOf2(superblock.HashBlockSize) || superblock.HashBlockSize < hashSize {
+		return fmt.Errorf("invalid hash block size (%d)", superblock.HashBlockSize)
+	}
+
+	return nil
+}
+
+func getAlgorithmHashSize(algorithm string) (uint32, error) {
+	switch algorithm {
+	case "sha256":
+		return 32, nil
+
+	case "sha384":
+		return 48, nil
+
+	case "sha512":
+		return 64, nil
+
+	default:
+		return 0, fmt.Errorf("unknown hash algorithm (%s)", algorithm)
+	}
 }
 
 func calculateHashFileSizeInBytesFromSuperBlock(superblock VeritySuperBlock) (uint64, error) {
 	var err error
 
-	if string(superblock.Signature[:]) != "verity\x00\x00" {
-		return 0, fmt.Errorf("wrong superblock signature")
+	hashSize, err := getAlgorithmHashSize(superblock.GetAlgorithm())
+	if err != nil {
+		return 0, err
 	}
 
-	if superblock.Version != 1 {
-		return 0, fmt.Errorf("unsupported version (%d)", superblock.Version)
-	}
-
-	if superblock.HashType != 1 {
-		return 0, fmt.Errorf("unsupported hash type (%d)", superblock.HashType)
-	}
-
-	algorithm := superblock.GetAlgorithm()
-
-	hashSize := uint32(0)
-	switch algorithm {
-	case "sha256":
-		hashSize = 32
-
-	case "sha384":
-		hashSize = 48
-
-	case "sha512":
-		hashSize = 64
-
-	default:
-		return 0, fmt.Errorf("unknown hash algorithm (%s)", algorithm)
-	}
-
-	sizeInBytes, err := calculateHashFileSizeInBytesHelper(superblock.DataBlocks, superblock.DataBlockSize,
-		superblock.HashBlockSize, hashSize)
+	sizeInBytes, err := calculateHashFileSizeInBytesHelper(superblock.DataBlocks, superblock.DataBlockSize, hashSize)
 	if err != nil {
 		return 0, err
 	}
@@ -80,17 +105,7 @@ func calculateHashFileSizeInBytesFromSuperBlock(superblock VeritySuperBlock) (ui
 	return sizeInBytes, nil
 }
 
-func calculateHashFileSizeInBytesHelper(dataBlocksCount uint64, dataBlockSize uint32, hashBlockSize uint32,
-	hashSize uint32,
-) (uint64, error) {
-	if !isPowerOf2(dataBlockSize) {
-		return 0, fmt.Errorf("invalid data block size (%d)", dataBlockSize)
-	}
-
-	if !isPowerOf2(hashBlockSize) || hashBlockSize < hashSize {
-		return 0, fmt.Errorf("invalid hash block size (%d)", hashBlockSize)
-	}
-
+func calculateHashFileSizeInBytesHelper(dataBlocksCount uint64, hashBlockSize uint32, hashSize uint32) (uint64, error) {
 	// dm-verity pads each hash to the nearest power-of-2 to make the math easier.
 	hashSizeFull := roundUpToPowerOf2(hashSize)
 
