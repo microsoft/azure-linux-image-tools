@@ -38,7 +38,7 @@ func ReadVeritySuperblock(hashPartitionPath string) (VeritySuperBlock, error) {
 
 	err = verifySuperblock(superblock)
 	if err != nil {
-		return VeritySuperBlock{}, nil
+		return VeritySuperBlock{}, err
 	}
 
 	return superblock, nil
@@ -97,7 +97,7 @@ func calculateHashFileSizeInBytesFromSuperBlock(superblock VeritySuperBlock) (ui
 		return 0, err
 	}
 
-	sizeInBytes, err := calculateHashFileSizeInBytesHelper(superblock.DataBlocks, superblock.DataBlockSize, hashSize)
+	sizeInBytes, err := calculateHashFileSizeInBytesHelper(superblock.DataBlocks, superblock.HashBlockSize, hashSize)
 	if err != nil {
 		return 0, err
 	}

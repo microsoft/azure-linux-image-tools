@@ -767,7 +767,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		"format", dataPartitionPath, hashPartitionPath,
 		"--hash", formatSettings.hashAlgorithm,
 		"--data-block-size", fmt.Sprintf("%d", formatSettings.dataBlockSizeBytes),
-		"--data-block-size", fmt.Sprintf("%d", formatSettings.hashBlockSizeBytes),
+		"--hash-block-size", fmt.Sprintf("%d", formatSettings.hashBlockSizeBytes),
 	}
 
 	verityOutput, _, err := shell.NewExecBuilder("veritysetup", formatArgs...).
