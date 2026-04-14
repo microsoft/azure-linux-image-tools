@@ -27,6 +27,7 @@ jobs:
     runs-on:
     - self-hosted
     - 1ES.Pool=${{ inputs.hostDistro == 'azl3' && (inputs.hostArch == 'amd64' && 'maritimus-github-runner-azl3-amd64' || 'maritimus-github-runner-azl3-arm64') || (inputs.hostArch == 'amd64' && 'maritimus-github-runner-ubuntu2404-amd64' || 'maritimus-github-runner-ubuntu2404-arm64') }}
+    - JobId=azl-ic-tests-functional-${{ inputs.testDistro }}-${{ inputs.hostDistro }}-${{ inputs.hostArch }}-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}
     permissions:
       contents: read
       # Azure login.
