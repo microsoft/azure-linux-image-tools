@@ -23,6 +23,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -620,7 +621,7 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 	return partition, nil
 }
 
-func customizeVerityImageHelper(ctx context.Context, buildDir string, rc *ResolvedConfig,
+func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConfig,
 	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
 	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
 	partitionsLayout []fstabEntryPartNum,
@@ -670,7 +671,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, rc *Resolv
 
 			// Format hash partition.
 			rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
-				shrinkHashPartition, sectorSize, metadata.name)
+				shrinkHashPartition, sectorSize, metadata.name, metadata.formatSettings)
 			if err != nil {
 				return nil, err
 			}
@@ -696,8 +697,14 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, rc *Resolv
 		}
 
 		// Format hash partition.
+		formatSettings := verityFormatSettings{
+			hashAlgorithm:      imagecustomizerapi.DefaultVerityHashAlgorithm,
+			dataBlockSizeBytes: imagecustomizerapi.DefaultVerityDataBlockSize,
+			hashBlockSizeBytes: imagecustomizerapi.DefaultVerityHashBlockSize,
+		}
+
 		rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
-			shrinkHashPartition, sectorSize, verityConfig.Name)
+			shrinkHashPartition, sectorSize, verityConfig.Name, formatSettings)
 		if err != nil {
 			return nil, err
 		}
@@ -711,6 +718,7 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, rc *Resolv
 			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
 			corruptionOption:      verityConfig.CorruptionOption,
 			hashSignaturePath:     verityConfig.HashSignaturePath,
+			formatSettings:        formatSettings,
 		}
 		verityMetadata = append(verityMetadata, metadata)
 		verityUpdated = true
@@ -752,10 +760,17 @@ func customizeVerityImageHelper(ctx context.Context, buildDir string, rc *Resolv
 }
 
 func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartitionPath string, shrinkHashPartition bool,
-	sectorSize uint64, name string,
+	sectorSize uint64, name string, formatSettings verityFormatSettings,
 ) (string, error) {
 	// Write hash partition.
-	verityOutput, _, err := shell.NewExecBuilder("veritysetup", "format", dataPartitionPath, hashPartitionPath).
+	formatArgs := []string{
+		"format", dataPartitionPath, hashPartitionPath,
+		"--hash", formatSettings.hashAlgorithm,
+		"--data-block-size", fmt.Sprintf("%d", formatSettings.dataBlockSizeBytes),
+		"--hash-block-size", fmt.Sprintf("%d", formatSettings.hashBlockSizeBytes),
+	}
+
+	verityOutput, _, err := shell.NewExecBuilder("veritysetup", formatArgs...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		ErrorStderrLines(1).
 		ExecuteCaptureOutput()
@@ -781,10 +796,10 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		return "", fmt.Errorf("%w (device='%s'):\n%w", ErrUpdateDisk, diskDevicePath, err)
 	}
 
-	// Calculate the size of the hash partition from it's superblock.
+	// Calculate the size of the hash partition from its superblock.
 	// In newer `veritysetup` versions, `veritysetup format` returns the size in its output. But that feature
 	// is too new for now.
-	hashPartitionSizeInBytes, err := calculateHashFileSizeInBytes(hashPartitionPath)
+	hashPartitionSizeInBytes, err := verityutils.CalculateHashFileSizeInBytes(hashPartitionPath)
 	if err != nil {
 		return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateHashSize, hashPartitionPath, err)
 	}
@@ -858,4 +873,12 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 
 	return nil
+}
+
+func getVerityNames(verity []verityDeviceMetadata) []string {
+	verityNames := make([]string, len(verity))
+	for i, v := range verity {
+		verityNames[i] = v.name
+	}
+	return verityNames
 }

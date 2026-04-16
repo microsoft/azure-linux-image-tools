@@ -19,6 +19,11 @@ const (
 
 	VerityRootDevicePath = DeviceMapperPath + "/" + VerityRootDeviceName
 	VerityUsrDevicePath  = DeviceMapperPath + "/" + VerityUsrDeviceName
+
+	// Default settings for verity format.
+	DefaultVerityHashAlgorithm = "sha256"
+	DefaultVerityDataBlockSize = 4096
+	DefaultVerityHashBlockSize = 4096
 )
 
 var (
