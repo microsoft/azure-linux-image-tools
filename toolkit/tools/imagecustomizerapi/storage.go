@@ -9,6 +9,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 )
 
 type VerityPartitionsType int
@@ -217,19 +218,33 @@ func (s *Storage) IsValid() error {
 
 	// Validate verity filesystem settings.
 	if s.VerityPartitionsType == VerityPartitionsUsesConfig {
-		verityDeviceMount := make(map[*Verity]*VerityMount)
-
 		for i := range s.Verity {
 			verity := &s.Verity[i]
 			verityDeviceMounts := []*VerityMount{}
 
 			filesystem, hasFileSystem := deviceParents[verity.Id].(*FileSystem)
 			if hasFileSystem {
+				dataSize := uint64(0)
+				if verity.InlineVerity() {
+					// Inline verity is being used.
+					// So, calculate and store the size of the data section.
+					partition := deviceMap[verity.DataDeviceId].(*Partition)
+
+					dataSize, err = calculateInlineVerityDataSize(uint64(partition.Size.Size))
+					if err != nil {
+						return fmt.Errorf("failed to caclulate inline verity device's (%d) data size:\n%w", err,
+							filesystem.DeviceId)
+					}
+
+					filesystem.Size = dataSize
+				}
+
 				if filesystem.MountPoint != nil {
 					verityMount := &VerityMount{
 						MountPath:     filesystem.MountPoint.Path,
 						MountOptions:  filesystem.MountPoint.Options,
 						SubvolumePath: "",
+						DataSize:      dataSize,
 					}
 					verityDeviceMounts = append(verityDeviceMounts, verityMount)
 				}
@@ -243,6 +258,7 @@ func (s *Storage) IsValid() error {
 								MountPath:     subvolume.MountPoint.Path,
 								MountOptions:  subvolume.MountPoint.Options,
 								SubvolumePath: subvolume.Path,
+								DataSize:      dataSize,
 							}
 							verityDeviceMounts = append(verityDeviceMounts, verityMount)
 						}
@@ -252,13 +268,13 @@ func (s *Storage) IsValid() error {
 
 			// The empty case is handled in ValidateVerityMounts() to consolidate error handling.
 			if len(verityDeviceMounts) == 1 {
-				verityDeviceMount[verity] = verityDeviceMounts[0]
+				verity.Mount = verityDeviceMounts[0]
 			} else if len(verityDeviceMounts) > 1 {
 				return fmt.Errorf("verity device (%s) has multiple mount points, which is not supported", verity.Id)
 			}
 		}
 
-		err := ValidateVerityMounts(s.Verity, verityDeviceMount)
+		err := ValidateVerityMounts(s.Verity)
 		if err != nil {
 			return err
 		}
@@ -267,16 +283,15 @@ func (s *Storage) IsValid() error {
 	return nil
 }
 
-func ValidateVerityMounts(verityDevices []Verity, verityDeviceMount map[*Verity]*VerityMount) error {
+func ValidateVerityMounts(verityDevices []Verity) error {
 	for i := range verityDevices {
 		verity := &verityDevices[i]
 
-		mount, hasMount := verityDeviceMount[verity]
-		if !hasMount || (mount.MountPath != "/" && mount.MountPath != "/usr") {
+		mount := verity.Mount
+
+		if verity.Mount == nil || (verity.Mount.MountPath != "/" && verity.Mount.MountPath != "/usr") {
 			return fmt.Errorf("mount path of verity device (%s) must be set to '/' or '/usr'", verity.Id)
 		}
-
-		verity.Mount = *mount
 
 		expectedVerityName, validMount := verityMountMap[mount.MountPath]
 		if !validMount || verity.Name != expectedVerityName {
@@ -366,7 +381,7 @@ func checkDeviceTreeVerityItem(verity *Verity, deviceMap map[string]any, deviceP
 		}
 	}
 
-	if verity.HashDeviceId != "" {
+	if verity.HashDeviceId != "" && !verity.InlineVerity() {
 		err := addVerityParentToDevice(verity.HashDeviceId, deviceMap, deviceParents, verity)
 		if err != nil {
 			return fmt.Errorf("invalid 'hashDeviceId':\n%w", err)
@@ -494,4 +509,39 @@ func addParentToDevice(deviceId string, deviceMap map[string]any, deviceParents 
 
 	deviceParents[deviceId] = parent
 	return device, nil
+}
+
+func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
+	dataBlockSize := uint32(DefaultVerityDataBlockSize)
+	verityBlockSize := uint32(DefaultVerityHashBlockSize)
+	hashAlgorithm := DefaultVerityHashAlgorithm
+
+	left := uint64(0)
+	right := partitionSize / uint64(dataBlockSize)
+
+	// Binary search for the size that perfectly balances the data and the hash sizes.
+	for left <= right {
+		dataBlocks := (left + right) / 2
+
+		verityBlocks, err := verityutils.CalculateHashSizeInBlocks(dataBlocks, verityBlockSize, hashAlgorithm)
+		if err != nil {
+			return 0, err
+		}
+
+		totalBytes := verityBlocks*uint64(verityBlockSize) + dataBlocks*uint64(dataBlockSize)
+		if totalBytes == partitionSize {
+			left = dataBlocks
+			break
+		} else if totalBytes > partitionSize {
+			right = dataBlocks
+		} else {
+			left = dataBlocks
+		}
+	}
+
+	// Note: 'left' is updated when the totalBytes <= partitionSize. So, even if we don't get a perfect match,
+	// the value of 'left' is always valid to use.
+	dataSizeBytes := left * uint64(dataBlockSize)
+	dataSizeBytes = roundDown(dataSizeBytes, DefaultPartitionAlignment)
+	return dataSizeBytes, nil
 }

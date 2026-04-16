@@ -190,6 +190,11 @@ partition.
 
 Must be used with `hashDeviceId`.
 
+If `dataDeviceId` and `hashDeviceId` are set to the same value, then the verity hash
+tree is placed at the end of partition behind the filesystem. The sizes of the
+filesystem and verity hash tree are automatically calculated to fill the entire
+partition.
+
 Added in v0.7.
 
 ## dataDeviceMountIdType [string]

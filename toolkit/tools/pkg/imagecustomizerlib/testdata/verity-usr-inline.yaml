@@ -1,0 +1,68 @@
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 8M
+
+    - id: usr
+      size: 2G
+    
+    - id: root
+      size: 2G
+
+  verity:
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usr
+    corruptionOption: ignore
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: root
+    type: ext4
+    mountPoint:
+      path: /
+
+  - deviceId: verityusr
+    type: ext4
+    mountPoint:
+      path: /usr
+      options: ro
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+    - device-mapper
+
+  services:
+    enable:
+    - sshd
+    
+  users:
+  - name: test
+    sshPublicKeys:
+      # Your SSH public key here.
+    secondaryGroups:
+    - sudo

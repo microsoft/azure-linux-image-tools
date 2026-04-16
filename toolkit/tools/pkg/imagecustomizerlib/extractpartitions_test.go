@@ -225,10 +225,10 @@ func extractZstFile(zstFilePath string, outputFilePath string) error {
 
 func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsOutputDir string,
 	expectedMetadata MetadataJson,
-) bool {
+) (MetadataJson, bool) {
 	partitionsPaths, metadata, err := extractCosi(cosiFilePath, partitionsOutputDir)
 	if !assert.NoError(t, err) {
-		return false
+		return MetadataJson{}, false
 	}
 
 	assert.Equal(t, "1.2", metadata.Version)
@@ -264,6 +264,9 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 			if expectedImage.Verity != nil && actualImage.Verity != nil {
 				verifyCosiImageFile(t, expectedImage.Verity.Image, actualImage.Verity.Image)
 				assert.Regexp(t, `^[0-9a-fA-F]{64}$`, actualImage.Verity.Roothash)
+
+				inlineVerity := expectedImage.Verity.Image.Path == expectedImage.Image.Path
+				assert.Equal(t, inlineVerity, actualImage.Verity.HashOffset != nil)
 			}
 		}
 	}
@@ -290,7 +293,7 @@ func extractCosiAndVerifyMetadata(t *testing.T, cosiFilePath string, partitionsO
 
 	assert.Equal(t, expectedMetadata.Compression, metadata.Compression)
 
-	return true
+	return metadata, true
 }
 
 func verifyCosiImageFile(t *testing.T, expected ImageFile, actual ImageFile) {
@@ -514,7 +517,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	}
 
 	// Attach partition files.
-	if !extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadataForAzlCoreEfi) {
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadataForAzlCoreEfi); !ok {
 		return
 	}
 
@@ -638,7 +641,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	}
 
 	// Attach partition files.
-	if !extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadata) {
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadata); !ok {
 		return
 	}
 
@@ -699,7 +702,7 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 		return
 	}
 
-	if !extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadataForAzlCoreEfi) {
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadataForAzlCoreEfi); !ok {
 		return
 	}
 }
