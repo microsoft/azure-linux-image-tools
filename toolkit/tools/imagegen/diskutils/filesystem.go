@@ -248,10 +248,11 @@ var (
 	//
 	// Ref: https://btrfs.readthedocs.io/en/latest/mkfs.btrfs.html
 	btrfsFeaturesKernelSupport = map[string]version.Version{
-		"extref":          {3, 7},
-		"skinny-metadata": {3, 10},
-		"no-holes":        {3, 14},
-		"free-space-tree": {4, 5},
+		"extref":           {3, 7},
+		"skinny-metadata":  {3, 10},
+		"no-holes":         {3, 14},
+		"free-space-tree":  {4, 5},
+		"block-group-tree": {6, 1},
 	}
 
 	// A list of ext4 features and their minimum supported Linux kernel version.
@@ -314,7 +315,7 @@ var (
 	// The maximum version of mkfs.btrfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.btrfs default enabling new features.
 	// Ref: https://btrfs.readthedocs.io/en/latest/CHANGES.html
-	maxMkfsBtrfsVersion = version.Version{6, 17}
+	maxMkfsBtrfsVersion = version.Version{6, 19, 1}
 
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
@@ -331,7 +332,7 @@ var (
 	minKernelVersion = version.Version{5, 4}
 
 	// For example: mkfs.btrfs, part of btrfs-progs v6.8
-	mkfsBtrfsVersionRegex = regexp.MustCompile(`^mkfs\.btrfs, part of btrfs-progs v(\d+)\.(\d+)(?:\.(\d+))?$`)
+	mkfsBtrfsVersionRegex = regexp.MustCompile(`(?m)^mkfs\.btrfs, part of btrfs-progs v(\d+)\.(\d+)(?:\.(\d+))?$`)
 
 	// For exampke: mke2fs 1.47.0 (5-Feb-2023)
 	mke2fsVersionRegex = regexp.MustCompile(`(?m)^mke2fs (\d+)\.(\d+)\.(\d+) \(\d+-[a-zA-Z]+-\d+\)$`)
