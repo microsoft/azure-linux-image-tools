@@ -24,6 +24,7 @@ type Partition struct {
 	Type PartitionType `yaml:"type" json:"type,omitempty"`
 
 	// Note: Start, End, and Size are filled in by Disk.IsValid().
+	filled bool `json:"-"`
 }
 
 func (p *Partition) IsValid() error {
@@ -32,7 +33,7 @@ func (p *Partition) IsValid() error {
 		return err
 	}
 
-	if p.End != nil && p.Size.Type != PartitionSizeTypeUnset {
+	if !p.filled && p.End != nil && p.Size.Type != PartitionSizeTypeUnset {
 		return fmt.Errorf("cannot specify both end and size on partition (%s)", p.Id)
 	}
 

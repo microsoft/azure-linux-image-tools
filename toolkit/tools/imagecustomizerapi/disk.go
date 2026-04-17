@@ -202,4 +202,6 @@ func partFillSizeAndEnd(p *Partition, end DiskSize) {
 		p.Size.Type = PartitionSizeTypeExplicit
 		p.Size.Size = end - *p.Start
 	}
+
+	p.filled = true
 }

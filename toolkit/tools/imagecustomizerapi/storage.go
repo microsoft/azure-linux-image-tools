@@ -232,8 +232,8 @@ func (s *Storage) IsValid() error {
 
 					dataSize, err = calculateInlineVerityDataSize(uint64(partition.Size.Size))
 					if err != nil {
-						return fmt.Errorf("failed to caclulate inline verity device's (%d) data size:\n%w", err,
-							filesystem.DeviceId)
+						return fmt.Errorf("failed to caclulate inline verity device's (%s) data size:\n%w",
+							filesystem.DeviceId, err)
 					}
 
 					filesystem.Size = dataSize
