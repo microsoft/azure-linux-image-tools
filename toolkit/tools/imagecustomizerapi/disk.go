@@ -178,6 +178,9 @@ func roundDown(size uint64, alignment uint64) uint64 {
 	if mod == 0 {
 		return size
 	}
+	if div == 0 {
+		return 0
+	}
 	return (div - 1) * alignment
 }
 

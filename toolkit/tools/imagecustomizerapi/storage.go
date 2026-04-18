@@ -520,7 +520,7 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 	right := partitionSize / uint64(dataBlockSize)
 
 	// Binary search for the size that perfectly balances the data and the hash sizes.
-	for left <= right {
+	for left < right {
 		dataBlocks := (left + right) / 2
 
 		verityBlocks, err := verityutils.CalculateHashSizeInBlocks(dataBlocks, verityBlockSize, hashAlgorithm)
@@ -543,5 +543,8 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 	// the value of 'left' is always valid to use.
 	dataSizeBytes := left * uint64(dataBlockSize)
 	dataSizeBytes = roundDown(dataSizeBytes, DefaultPartitionAlignment)
+	if dataSizeBytes == 0 {
+		return 0, fmt.Errorf("partition is too small for inline verity")
+	}
 	return dataSizeBytes, nil
 }
