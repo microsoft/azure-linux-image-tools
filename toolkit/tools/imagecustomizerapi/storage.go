@@ -542,8 +542,6 @@ func calculateInlineVerityDataSize(partitionSize uint64) (uint64, error) {
 		}
 	}
 
-	// Note: 'left' is updated when the totalBytes <= partitionSize. So, even if we don't get a perfect match,
-	// the value of 'left' is always valid to use.
 	dataSizeBytes := answer * uint64(dataBlockSize)
 	dataSizeBytes = roundDown(dataSizeBytes, DefaultPartitionAlignment)
 	if dataSizeBytes == 0 {
