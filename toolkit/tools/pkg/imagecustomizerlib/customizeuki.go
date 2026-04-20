@@ -382,9 +382,10 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
 	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki,
 ) error {
-	// Both create and modify modes need the stub file
+	// Both create and modify modes need the stub files
 	filesToCopy := map[string]string{
-		filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
+		filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath):   filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
+		filepath.Join(imageChroot.RootDir(), bootConfig.ukiAddonStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiAddonStubBinary),
 	}
 
 	// Create mode needs additional files (os-release, kernels, initramfs)
@@ -505,7 +506,7 @@ func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig) error {
 		logger.Log.Debugf("UKI file [%d]: %s", i, ukiFile)
 	}
 
-	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
+	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiAddonStubBinary)
 
 	// Process each UKI file - regenerate its addon with updated cmdline
 	for _, ukiFile := range ukiFiles {
@@ -628,6 +629,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	}
 
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
+	addonStubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiAddonStubBinary)
 	osSubreleaseFullPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "os-release")
 	cmdlineFilePath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, UkiKernelInfoJson)
 
@@ -638,7 +640,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	}
 
 	for kernel, info := range kernelInfo {
-		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, rc.BuildDirAbs,
+		err := buildUki(kernel, info.Initramfs, info.Cmdline, osSubreleaseFullPath, stubPath, addonStubPath, rc.BuildDirAbs,
 			systemBootPartitionTmpDir,
 		)
 		if err != nil {
@@ -724,7 +726,7 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 }
 
 func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFullPath string,
-	stubPath string, buildDir string, systemBootPartitionTmpDir string,
+	stubPath string, addonStubPath string, buildDir string, systemBootPartitionTmpDir string,
 ) error {
 	kernelVersion, err := getKernelVersion(kernel)
 	if err != nil {
@@ -738,7 +740,7 @@ func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFu
 	}
 
 	// Build UKI addon
-	err = buildUkiAddon(kernel, kernelArgs, stubPath, systemBootPartitionTmpDir)
+	err = buildUkiAddon(kernel, kernelArgs, addonStubPath, systemBootPartitionTmpDir)
 	if err != nil {
 		return fmt.Errorf("failed to build UKI addon:\n%w", err)
 	}
