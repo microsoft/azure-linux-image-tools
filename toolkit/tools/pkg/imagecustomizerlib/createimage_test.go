@@ -19,17 +19,18 @@ import (
 func TestCreateImageRaw(t *testing.T) {
 	for _, vi := range []struct {
 		name, version, configFile string
+		expectedVirtualSize       int64
 	}{
-		{"azl3", "3.0", "create-minimal-os.yaml"},
-		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+		{"azl3", "3.0", "create-minimal-os.yaml", int64(1 * diskutils.GiB)},
+		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH), int64(3 * diskutils.GiB)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
-			testCreateImageRaw(t, vi.name, vi.version, vi.configFile)
+			testCreateImageRaw(t, vi.name, vi.version, vi.configFile, vi.expectedVirtualSize)
 		})
 	}
 }
 
-func testCreateImageRaw(t *testing.T, name string, version string, configFile string) {
+func testCreateImageRaw(t *testing.T, name string, version string, configFile string, expectedVirtualSize int64) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageRaw_%s", name))
@@ -61,7 +62,7 @@ func testCreateImageRaw(t *testing.T, name string, version string, configFile st
 	imageInfo, err := GetImageFileInfo(outputImageFilePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", imageInfo.Format)
-	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
+	assert.Equal(t, expectedVirtualSize, imageInfo.VirtualSize)
 
 	// Customize image to vhd.
 	err = CustomizeImageWithConfigFile(
@@ -77,23 +78,24 @@ func testCreateImageRaw(t *testing.T, name string, version string, configFile st
 	imageInfo, err = GetImageFileInfo(vhdFixedImageFilePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "vpc", imageInfo.Format)
-	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
+	assert.Equal(t, expectedVirtualSize, imageInfo.VirtualSize)
 }
 
 func TestCreateImageBtrfs(t *testing.T) {
 	for _, vi := range []struct {
 		name, version, configFile string
+		expectedVirtualSize       int64
 	}{
-		{"azl3", "3.0", "create-minimal-os-btrfs.yaml"},
-		{"azl4", "4.0", fmt.Sprintf("create-fedora-btrfs-%s.yaml", runtime.GOARCH)},
+		{"azl3", "3.0", "create-minimal-os-btrfs.yaml", int64(1 * diskutils.GiB)},
+		{"azl4", "4.0", fmt.Sprintf("create-fedora-btrfs-%s.yaml", runtime.GOARCH), int64(3 * diskutils.GiB)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
-			testCreateImageBtrfs(t, vi.name, vi.version, vi.configFile)
+			testCreateImageBtrfs(t, vi.name, vi.version, vi.configFile, vi.expectedVirtualSize)
 		})
 	}
 }
 
-func testCreateImageBtrfs(t *testing.T, name string, version string, configFile string) {
+func testCreateImageBtrfs(t *testing.T, name string, version string, configFile string, expectedVirtualSize int64) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageBtrfs_%s", name))
@@ -122,7 +124,7 @@ func testCreateImageBtrfs(t *testing.T, name string, version string, configFile 
 	imageInfo, err := GetImageFileInfo(outputImageFilePath)
 	assert.NoError(t, err)
 	assert.Equal(t, "raw", imageInfo.Format)
-	assert.Equal(t, int64(1*diskutils.GiB), imageInfo.VirtualSize)
+	assert.Equal(t, expectedVirtualSize, imageInfo.VirtualSize)
 
 	// Connect to image and verify btrfs filesystem
 	mountPoints := []testutils.MountPoint{
@@ -221,7 +223,7 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	baseConfigPath := testTmpDir
+	baseConfigPath := testDir
 	configPath := filepath.Join(testDir, configFile)
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configPath, &config)

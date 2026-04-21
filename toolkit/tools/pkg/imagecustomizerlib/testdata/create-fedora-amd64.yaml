@@ -4,14 +4,13 @@ previewFeatures:
 storage:
   disks:
   - partitionTableType: gpt
-
     partitions:
     - id: boot
       type: esp
       size: 32M
 
     - id: rootfs
-      size: 3G
+      start: 32M
 
   bootType: efi
 
