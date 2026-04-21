@@ -74,6 +74,10 @@ func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.Ch
 	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
 }
 
+func (d *azureLinuxDistroHandler) GetEspDir() string {
+	return "boot/efi"
+}
+
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
 }
@@ -127,5 +131,5 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig)
+		currentSELinuxMode, forceGrubMkconfig, d)
 }

@@ -51,6 +51,10 @@ type DistroHandler interface {
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
+	// GetEspDir returns the ESP directory path relative to the image root.
+	// For example: "boot/efi" for most distros, "boot" for ACL.
+	GetEspDir() string
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 
@@ -79,6 +83,8 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 		return newAzureLinuxDistroHandler("2.0")
 	case targetos.TargetOsAzureLinux3:
 		return newAzureLinuxDistroHandler("3.0")
+	case targetos.TargetOsAcl:
+		return newAclDistroHandler()
 	case targetos.TargetOsUbuntu2204:
 		return newUbuntuDistroHandler("22.04")
 	case targetos.TargetOsUbuntu2404:

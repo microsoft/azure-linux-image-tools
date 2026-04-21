@@ -6,6 +6,7 @@ package targetos
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 )
@@ -15,15 +16,20 @@ type TargetOs string
 const (
 	TargetOsAzureLinux2 TargetOs = "azl2"
 	TargetOsAzureLinux3 TargetOs = "azl3"
+	TargetOsAcl         TargetOs = "acl"
 	TargetOsFedora42    TargetOs = "fedora42"
 	TargetOsUbuntu2204  TargetOs = "ubuntu2204"
 	TargetOsUbuntu2404  TargetOs = "ubuntu2404"
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
+	// Try /etc/os-release first, then fall back to /usr/lib/os-release.
 	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
 	if err != nil {
-		return "", fmt.Errorf("failed to read /etc/os-release file:\n%w", err)
+		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, "usr/lib/os-release"))
+		if err != nil {
+			return "", fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
+		}
 	}
 
 	distroId := fields["ID"]
@@ -40,12 +46,29 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 		}
 
 	case "azurelinux":
-		switch versionId {
-		case "3.0":
-			return TargetOsAzureLinux3, nil
+		variantId := fields["VARIANT_ID"]
+
+		switch variantId {
+		case "azurecontainerlinux":
+			// ACL uses VERSION_ID like "3.0.YYYYMMDD" (e.g. "3.0.20260421").
+			// Accept any version that starts with "3.0".
+			if !strings.HasPrefix(versionId, "3.0") {
+				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in /etc/os-release", versionId)
+			}
+			return TargetOsAcl, nil
+
+		case "":
+			// Standard Azure Linux.
+			switch versionId {
+			case "3.0":
+				return TargetOsAzureLinux3, nil
+
+			default:
+				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in /etc/os-release", versionId)
+			}
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in /etc/os-release", versionId)
+			return "", fmt.Errorf("unknown VARIANT_ID (%s) for Azure Linux in /etc/os-release", variantId)
 		}
 
 	case "fedora":

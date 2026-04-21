@@ -203,8 +203,14 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	}
 	defer rawImageConnection.Close()
 
+	// Detect the distro handler for the image.
+	distroHandler, err := NewDistroHandlerFromChroot(rawImageConnection.Chroot())
+	if err != nil {
+		return fmt.Errorf("failed to detect distribution:\n%w", err)
+	}
+
 	// Check if the base image is a UKI image
-	hasUkis, err := baseImageHasUkis(rawImageConnection.Chroot())
+	hasUkis, err := baseImageHasUkis(rawImageConnection.Chroot(), distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to check if base image has UKIs:\n%w", err)
 	}
@@ -213,11 +219,6 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	}
 
 	// Find out if selinux is enabled
-	distroHandler, err := NewDistroHandlerFromChroot(rawImageConnection.Chroot())
-	if err != nil {
-		return fmt.Errorf("failed to detect distribution:\n%w", err)
-	}
-
 	bootCustomizer, err := NewBootCustomizer(rawImageConnection.Chroot(), nil, isoBuildDir, distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to attach to raw image to inspect selinux status:\n%w", err)

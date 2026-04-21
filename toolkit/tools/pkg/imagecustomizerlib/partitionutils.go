@@ -203,6 +203,17 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) ([]st
 		matchingPaths = append(matchingPaths, "")
 	}
 
+	// ACL places an fstab at /usr/share/ic/etc/fstab on the USR partition. This
+	// path is outside the /etc overlay.
+	fstabIcPath := filepath.Join(tmpDir, "share/ic/etc/fstab")
+	exists, err = file.PathExists(fstabIcPath)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		matchingPaths = append(matchingPaths, "share/ic")
+	}
+
 	if diskPartition.FileSystemType == "btrfs" {
 		// List actual subvolumes using btrfs tools
 		subvolumes, err := listBtrfsSubvolumes(tmpDir)
@@ -781,7 +792,7 @@ func extractKernelCmdlineFromUki(espPartition *diskutils.PartitionInfo,
 
 func getUkiFiles(espPath string) ([]string, error) {
 	espLinuxPath := filepath.Join(espPath, UkiOutputDir)
-	searchPattern := filepath.Join(espLinuxPath, "vmlinuz-*.efi")
+	searchPattern := filepath.Join(espLinuxPath, "*.efi")
 	logger.Log.Debugf("Searching for UKI files: pattern=(%s)", searchPattern)
 
 	ukiFiles, err := filepath.Glob(searchPattern)

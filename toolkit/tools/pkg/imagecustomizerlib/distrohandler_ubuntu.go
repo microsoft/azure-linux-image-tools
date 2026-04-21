@@ -108,6 +108,10 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi-arm64, nor systemd-boot found")
 }
 
+func (d *ubuntuDistroHandler) GetEspDir() string {
+	return "boot/efi"
+}
+
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }
