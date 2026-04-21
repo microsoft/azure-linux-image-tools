@@ -27,7 +27,8 @@ import (
 
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
 	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
-	selinuxMode imagecustomizerapi.SELinuxMode) *imagecustomizerapi.Config {
+	selinuxMode imagecustomizerapi.SELinuxMode,
+) *imagecustomizerapi.Config {
 	fileNamesArray := strings.Split(fileNames, ";")
 
 	pkgsToInstall := []string{}
@@ -183,7 +184,8 @@ func VerifyBootstrappedImageExists(t *testing.T, initramfsType imagecustomizerap
 }
 
 func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config,
-	testTempDir string, artifactsPath, bootstrappedImage string) {
+	testTempDir string, artifactsPath, bootstrappedImage string,
+) {
 	var additionalFiles imagecustomizerapi.AdditionalFileList
 	var extraCommandLineParameters []string
 	var keepKdumpBootFiles bool
@@ -248,7 +250,8 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 
 func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath string, outputFormat imagecustomizerapi.ImageFormatType,
 	osConfig *imagecustomizerapi.OS, bootstrappedImagePath string, initramfsType imagecustomizerapi.InitramfsImageType,
-	keepKdumpBootFiles bool) {
+	keepKdumpBootFiles bool,
+) {
 	if osConfig == nil {
 		return
 	}
@@ -424,15 +427,15 @@ func TestCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T) {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSKeepKdumpFilesA(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSKeepKdumpFilesA(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageLiveOSKeepKdumpFilesA_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -545,15 +548,15 @@ func TestCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T) {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSKeepKdumpFilesBC(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSKeepKdumpFilesBC(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageLiveOSKeepKdumpFilesBC_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -610,15 +613,15 @@ func TestCustomizeImageLiveOSMultiKernel(t *testing.T) {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSMultiKernel(t, "TestCustomizeImageLiveOSMultiKernel"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSMultiKernel(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageLiveOSMultiKernel_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
