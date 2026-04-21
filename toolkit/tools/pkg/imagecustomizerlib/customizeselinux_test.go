@@ -36,7 +36,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 
 	// Customize image: SELinux enforcing.
 	// This tests enabling SELinux on a non-SELinux image.
-	configFile := filepath.Join(testDir, "selinux-force-enforcing.yaml")
+	configFile := filepath.Join(testDir, selinuxForceEnforcingConfigFile(t, baseImageInfo))
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -132,7 +132,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 
 	// Customize image: SELinux enforcing.
 	// This tests enabling SELinux on a non-SELinux image.
-	configFile := filepath.Join(testDir, "partitions-selinux-enforcing.yaml")
+	configFile := filepath.Join(testDir, partitionsSELinuxEnforcingConfigFile(t, baseImageInfo))
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -280,6 +280,34 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no UKI files found or cmdline not extracted")
+}
+
+// partitionsSELinuxEnforcingConfigFile returns the partitions-selinux-enforcing test config file appropriate for the
+// given base image version.
+func partitionsSELinuxEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "partitions-selinux-enforcing-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "partitions-selinux-enforcing-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for partitions-selinux-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// selinuxForceEnforcingConfigFile returns the selinux-force-enforcing test config file appropriate for the given base
+// image version.
+func selinuxForceEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "selinux-force-enforcing-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "selinux-force-enforcing-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for selinux-force-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func verifySELinuxConfigFile(t *testing.T, imageConnection *imageconnection.ImageConnection, mode string) {

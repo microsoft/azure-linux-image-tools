@@ -1,4 +1,4 @@
-# Differs from verity-root-uki-azl3 in that its boot partition is 1G and it uses systemd-boot-unsigned instead of systemd-boot
+# Differs from verity-root-uki-azl3 in its use of systemd-boot-unsigned (not systemd-boot) and its boot partition being 1G
 previewFeatures:
 - uki
 

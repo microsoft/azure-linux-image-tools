@@ -47,6 +47,8 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 			kernelPackageName = "kernel-5.15.122.1-2.cm2"
 		case baseImageVersionAzl3:
 			kernelPackageName = "kernel-6.6.57.1-6.azl3"
+		case baseImageVersionAzl4:
+			kernelPackageName = "kernel-6.18.5.1-1.azl4~bootstrap.20260303"
 		default:
 			assert.NoError(t, fmt.Errorf("undefined image version"), "unsupported distro version")
 		}

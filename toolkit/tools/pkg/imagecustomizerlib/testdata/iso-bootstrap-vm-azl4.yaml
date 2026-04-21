@@ -1,4 +1,4 @@
-# Differs from iso-bootstrap-vm-azl3 in the kernel version and selinux-policy-modules being removed.
+# Differs from iso-bootstrap-vm-azl3 in the kernel version and its use of selinux-policy-targeted (not selinux-policy-modules)
 iso:
   initramfsType: bootstrap
 
@@ -17,6 +17,7 @@ os:
     - curl
     # Required packages for SELinux.
     - selinux-policy
+    - selinux-policy-targeted
 
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.

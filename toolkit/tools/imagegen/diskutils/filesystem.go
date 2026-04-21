@@ -127,7 +127,7 @@ var (
 	}
 
 	// The default ext4 options used by an Azure Linux 4.0 image.
-	// See, the /etc/mke2fs.conf file in an Azure Linux 4.0 imag.
+	// See, the /etc/mke2fs.conf file in an Azure Linux 4.0 image.
 	azl4Ext4Options = ext4Options{
 		BlockSize: 4096,
 		Features: []string{

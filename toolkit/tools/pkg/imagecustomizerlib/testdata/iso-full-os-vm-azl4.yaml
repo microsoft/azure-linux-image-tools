@@ -1,4 +1,4 @@
-# Differs from iso-full-os-vm-azl3 in the kernel version.
+# Differs from iso-full-os-vm-azl3 in the kernel version
 iso:
   initramfsType: full-os
 
