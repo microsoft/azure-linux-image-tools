@@ -1,5 +1,7 @@
+# Differs from create-fedora-btrfs-amd64 in that it uses create-fedora-arm64-packages instead of create-fedora-amd64-packages
 previewFeatures:
 - create
+- btrfs
 
 storage:
   disks:
@@ -23,7 +25,7 @@ storage:
       options: umask=0077
 
   - deviceId: rootfs
-    type: ext4
+    type: btrfs
     mountPoint:
       path: /
 
@@ -34,7 +36,7 @@ os:
   packages:
     installLists:
     - create-fedora-noarch-packages.yaml
-    - create-fedora-amd64-packages.yaml
+    - create-fedora-arm64-packages.yaml
 
     install:
-    - e2fsprogs
+    - btrfs-progs
