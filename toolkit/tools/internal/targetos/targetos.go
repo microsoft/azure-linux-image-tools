@@ -13,11 +13,12 @@ import (
 type TargetOs string
 
 const (
-	TargetOsAzureLinux2 TargetOs = "azl2"
-	TargetOsAzureLinux3 TargetOs = "azl3"
-	TargetOsFedora42    TargetOs = "fedora42"
-	TargetOsUbuntu2204  TargetOs = "ubuntu2204"
-	TargetOsUbuntu2404  TargetOs = "ubuntu2404"
+	TargetOsAzureLinux2         TargetOs = "azl2"
+	TargetOsAzureLinux3         TargetOs = "azl3"
+	TargetOsAzureContainerLinux TargetOs = "acl"
+	TargetOsFedora42            TargetOs = "fedora42"
+	TargetOsUbuntu2204          TargetOs = "ubuntu2204"
+	TargetOsUbuntu2404          TargetOs = "ubuntu2404"
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
@@ -40,6 +41,10 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 		}
 
 	case "azurelinux":
+		if variant, ok := fields["VARIANT_ID"]; ok && variant == "azurecontainerlinux" {
+			return TargetOsAzureContainerLinux, nil
+		}
+
 		switch versionId {
 		case "3.0":
 			return TargetOsAzureLinux3, nil

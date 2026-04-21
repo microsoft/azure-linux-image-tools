@@ -32,6 +32,8 @@ func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
 
 func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 	switch d.version {
+	case "acl":
+		return targetos.TargetOsAzureContainerLinux
 	case "2.0":
 		return targetos.TargetOsAzureLinux2
 	case "3.0":
@@ -65,6 +67,9 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
+	if d.version == "acl" {
+		return BootloaderTypeSystemdBoot, nil
+	}
 	if d.IsPackageInstalled(imageChroot, "grub2-efi-binary") || d.IsPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
 		return BootloaderTypeGrub, nil
 	}

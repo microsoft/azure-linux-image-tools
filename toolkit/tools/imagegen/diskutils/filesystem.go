@@ -207,6 +207,12 @@ var (
 			Xfs:     azl3XfsOptions,
 			BootXfs: azl3BootXfsOptions,
 		},
+		targetos.TargetOsAzureContainerLinux: {
+			Btrfs:   azl3BtrfsOptions,
+			Ext4:    azl3Ext4Options,
+			Xfs:     azl3XfsOptions,
+			BootXfs: azl3BootXfsOptions,
+		},
 		targetos.TargetOsFedora42: {
 			Btrfs:   fedora42BtrfsOptions,
 			Ext4:    fedora42Ext4Options,
