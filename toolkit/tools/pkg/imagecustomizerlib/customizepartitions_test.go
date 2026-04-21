@@ -119,9 +119,9 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	}
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
-	assert.Equal(t, uint64(99*diskutils.MiB), partitions[2].SizeInBytes)
-	assert.Equal(t, uint64(1940*diskutils.MiB), partitions[3].SizeInBytes)
+	assert.Equal(t, uint64(32*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(991*diskutils.MiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(1024*diskutils.MiB), partitions[3].SizeInBytes)
 	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes)
 
 	// Check filesystem features
@@ -288,8 +288,8 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
-	assert.Equal(t, uint64(4086*diskutils.MiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(1023*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(3071*diskutils.MiB), partitions[2].SizeInBytes)
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {

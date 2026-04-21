@@ -98,7 +98,7 @@ func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, baseImageInfo testBas
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "overlays-selinux.yaml")
+	configFile := filepath.Join(testDir, overlaysSELinuxConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
@@ -130,6 +130,19 @@ func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, baseImageInfo testBas
 
 	assert.Contains(t, upperLabel, ":object_r:var_t:s0")
 	assert.Contains(t, workLabel, ":object_r:no_access_t:s0")
+}
+
+// overlaysSELinuxConfigFile returns the overlays-selinux test config file appropriate for the given base image version.
+func overlaysSELinuxConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "overlays-selinux-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "overlays-selinux-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for overlays-selinux test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func getSELinuxLabel(path string) (string, error) {

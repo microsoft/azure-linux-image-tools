@@ -1,8 +1,4 @@
-# Differs from create-fedora-amd64 in that it:
-#
-# - Enables the btrfs preview feature
-# - Declares a btrfs (not ext4) rootfs filesystem
-# - Installs btrfs-progs (not e2fsprogs)
+# Differs from create-fedora-amd64 in the btrfs preview feature being enabled, its use of btrfs (not ext4) for the rootfs filesystem, and its use of btrfs-progs (not e2fsprogs)
 previewFeatures:
 - create
 - btrfs
