@@ -1,3 +1,4 @@
+# Differs from create-fedora-amd64 in that it uses fedora-arm64-packages instead of fedora-amd64-packages
 previewFeatures:
 - create
 
@@ -8,7 +9,7 @@ storage:
     partitions:
     - id: boot
       type: esp
-      size: 15M
+      size: 32M
 
     - id: rootfs
       size: 3G
@@ -33,7 +34,8 @@ os:
 
   packages:
     installLists:
-    - create-fedora-common-packages.yaml
+    - create-fedora-noarch-packages.yaml
+    - create-fedora-arm64-packages.yaml
+
     install:
-    - grub2-efi-aa64
-    - shim-aa64
+    - e2fsprogs

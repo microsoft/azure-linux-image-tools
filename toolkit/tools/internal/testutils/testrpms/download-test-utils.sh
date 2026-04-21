@@ -5,6 +5,7 @@ SCRIPT_DIR="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 
 AZURELINUX_2_CONTAINER_IMAGE="mcr.microsoft.com/cbl-mariner/base/core:2.0"
 AZURELINUX_3_CONTAINER_IMAGE="mcr.microsoft.com/azurelinux/base/core:3.0"
+AZURELINUX_4_CONTAINER_IMAGE="azlpubstagingacroxz2o4gw.azurecr.io/azurelinux/base/core:4.0"
 FEDORA_42_CONTAINER_IMAGE="quay.io/fedora/fedora:42"
 
 DISTRO="azurelinux"
@@ -53,13 +54,16 @@ case "${DISTRO}-${DISTRO_VERSION}" in
   azurelinux-2.0)
     CONTAINER_IMAGE="$AZURELINUX_2_CONTAINER_IMAGE"
     ;;
+  azurelinux-4.0)
+    CONTAINER_IMAGE="$AZURELINUX_4_CONTAINER_IMAGE"
+    ;;
   fedora-42)
     CONTAINER_IMAGE="$FEDORA_42_CONTAINER_IMAGE"
     ;;
   *)
     echo "error: unsupported distro-version combination: $DISTRO-$DISTRO_VERSION"
     echo "Supported combinations:"
-    echo "  azurelinux-2.0, azurelinux-3.0, fedora-42"
+    echo "  azurelinux-2.0, azurelinux-3.0, azurelinux-4.0, fedora-42"
     exit 1;;
 esac
 
@@ -70,17 +74,19 @@ PACKAGE_LIST=""
 # Declarative configuration maps
 TESTDATA_DIR="$SCRIPT_DIR/../../../../tools/pkg/imagecustomizerlib/testdata"
 
-# Map distro to config files (space-separated list of config files)
+# Map distro-version to config files (space-separated list of config files)
 declare -A DISTRO_CONFIG_MAP
-DISTRO_CONFIG_MAP["azurelinux"]="create-minimal-os.yaml create-minimal-os-btrfs.yaml"
+DISTRO_CONFIG_MAP["azurelinux-3.0"]="create-minimal-os.yaml create-minimal-os-btrfs.yaml"
 if [[ "$(uname -m)" == "x86_64" ]]; then
-  DISTRO_CONFIG_MAP["fedora"]="create-fedora-amd64.yaml"
+  DISTRO_CONFIG_MAP["fedora-42"]="create-fedora-amd64.yaml create-fedora-btrfs-amd64.yaml"
+  DISTRO_CONFIG_MAP["azurelinux-4.0"]="${DISTRO_CONFIG_MAP["fedora-42"]}"
 else
-  DISTRO_CONFIG_MAP["fedora"]="create-fedora-arm64.yaml"
+  DISTRO_CONFIG_MAP["fedora-42"]="create-fedora-arm64.yaml create-fedora-btrfs-arm64.yaml"
+  DISTRO_CONFIG_MAP["azurelinux-4.0"]="${DISTRO_CONFIG_MAP["fedora-42"]}"
 fi
 
-# Get configuration files for the distro
-CONFIG_FILES="${DISTRO_CONFIG_MAP[$DISTRO]}"
+# Get configuration files for the distro-version
+CONFIG_FILES="${DISTRO_CONFIG_MAP[${DISTRO}-${DISTRO_VERSION}]:-}"
 # Validate that we have configuration for this distro
 if [[ -z "$CONFIG_FILES" ]]; then
   echo "Error: Unsupported distro '$DISTRO'"

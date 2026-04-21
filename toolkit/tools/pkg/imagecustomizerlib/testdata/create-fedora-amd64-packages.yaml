@@ -1,0 +1,3 @@
+packages:
+- grub2-efi-x64
+- shim-x64

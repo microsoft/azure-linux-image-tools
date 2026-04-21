@@ -28,20 +28,27 @@ FEDORA_GRUB_PKG = "grub2-efi-x64" if platform.machine() == "x86_64" else "grub2-
 AZURELINUX_GRUB_PKG = "grub2"
 
 # Distribution-specific configuration
-DISTRO_CONFIGS: Dict[str, Dict[str, Any]] = {
-    "fedora": {
+DISTRO_CONFIGS: Dict[Tuple[str, str], Dict[str, Any]] = {
+    ("fedora", "42"): {
         "os_release": {
             "ID": "fedora",
             "VERSION_ID": "42",
         },
         "packages": COMMON_PACKAGES + [FEDORA_GRUB_PKG],
     },
-    "azurelinux": {
+    ("azurelinux", "3.0"): {
         "os_release": {
             "ID": "azurelinux",
             "VERSION_ID": "3.0",
         },
         "packages": COMMON_PACKAGES + [AZURELINUX_GRUB_PKG],
+    },
+    ("azurelinux", "4.0"): {
+        "os_release": {
+            "ID": "azurelinux",
+            "VERSION_ID": "4.0",
+        },
+        "packages": COMMON_PACKAGES + [FEDORA_GRUB_PKG],
     },
 }
 
@@ -85,18 +92,21 @@ def run_basic_checks(
     ssh_client: SshClient,
     test_temp_dir: Path,
     distro: str,
+    version: str,
 ) -> None:
     """Run basic checks for the specified distribution.
 
     Args:
         ssh_client: SSH client for running commands
         test_temp_dir: Temporary directory for test artifacts
-        distro: Distribution name (must be a key in DISTRO_CONFIGS)
+        distro: Distribution name (with version, must be a key in DISTRO_CONFIGS)
+        version: Distribution version (with distro, must be a key in DISTRO_CONFIGS)
     """
-    if distro not in DISTRO_CONFIGS:
-        raise ValueError(f"Unsupported distribution: {distro}")
+    config_key = (distro, version)
+    if config_key not in DISTRO_CONFIGS:
+        raise ValueError(f"Unsupported distribution: {distro} {version}")
 
-    config = DISTRO_CONFIGS[distro]
+    config = DISTRO_CONFIGS[config_key]
 
     # Check kernel cmdline
     ssh_client.run("cat /proc/cmdline").check_exit_code()
@@ -271,7 +281,7 @@ def run_create_image_test(
         logging.info(f"SSH connection established successfully!")
         # Run the test
         logging.info(f"Running basic checks on the VM")
-        run_basic_checks(ssh_client, test_temp_dir, distro)
+        run_basic_checks(ssh_client, test_temp_dir, distro, version)
         logging.info(f"Basic checks completed successfully!")
 
 
@@ -302,6 +312,41 @@ def test_create_image_efi_qcow_output_azl3(
         close_list,
         "azurelinux",
         "3.0",
+    )
+
+
+def test_create_image_efi_qcow_output_azl4(
+    image_customizer_container_url: str,
+    docker_client: DockerClient,
+    rpm_sources_azl4: Path,
+    tools_file_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    if platform.machine() == "x86_64":
+        config_path = TEST_CONFIGS_DIR.joinpath("create-fedora-amd64.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("create-fedora-arm64.yaml")
+
+    run_create_image_test(
+        image_customizer_container_url,
+        docker_client,
+        [rpm_sources_azl4],
+        tools_file_azl4,
+        config_path,
+        "qcow2",
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+        "azurelinux",
+        "4.0",
     )
 
 
