@@ -17,7 +17,7 @@ storage:
       size: 32M
 
     - id: rootfs
-      start: 32M
+      start: 33M
 
   bootType: efi
 

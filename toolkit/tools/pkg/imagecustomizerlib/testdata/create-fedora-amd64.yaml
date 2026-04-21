@@ -4,13 +4,14 @@ previewFeatures:
 storage:
   disks:
   - partitionTableType: gpt
+    maxSize: 3G
     partitions:
     - id: boot
       type: esp
       size: 32M
 
     - id: rootfs
-      start: 32M
+      start: 33M
 
   bootType: efi
 
