@@ -169,10 +169,14 @@ jobs:
 
         echo "isLatestRelease=$IS_LATEST_RELEASE" >> "$GITHUB_OUTPUT"
 
+        BUILD_RESULTS_DIR="repo/toolkit/tools/out/testResults/build"
+        mkdir -p "$BUILD_RESULTS_DIR"
+
         pushd repo/toolkit
 
         # Build binary.
-        sudo env "PATH=$PATH" make imagecustomizer-targz go-osmodifier $PRERELEASE_PARAM
+        sudo env "PATH=$PATH" make imagecustomizer-targz go-osmodifier $PRERELEASE_PARAM 2>&1 \
+          | tee "tools/out/testResults/build/build.txt"
 
         # Write version to file.
         PACKAGE_VERSION="$(make --silent printvar-image_customizer_full_version $PRERELEASE_PARAM)"
@@ -217,11 +221,36 @@ jobs:
           2>&1 \
           | tee "$TEST_RESULTS_DIR/api.txt"
 
+    - name: Generate test reports
+      if: ${{ !cancelled() }}
+      run: |
+        set -eux
+
+        REPORT_SCRIPT="repo/.github/workflows/scripts/go-test-report.py"
+
+        # Generate reports for build test output.
+        BUILD_OUTPUT="repo/toolkit/tools/out/testResults/build/build.txt"
+        if [[ -f "$BUILD_OUTPUT" ]]; then
+          "$REPORT_SCRIPT" "$BUILD_OUTPUT"
+        fi
+
+        # Generate reports for API test output.
+        API_OUTPUT="repo/toolkit/tools/out/testResults/api/api.txt"
+        if [[ -f "$API_OUTPUT" ]]; then
+          "$REPORT_SCRIPT" "$API_OUTPUT"
+        fi
+
+    - uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with:
+        name: tests-results-build-${{ inputs.arch }}
+        path: repo/toolkit/tools/out/testResults/build
+
     - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
         name: tests-results-api-${{ inputs.arch }}
-        path: "$TEST_RESULTS_DIR"
+        path: repo/toolkit/tools/out/testResults/api
 
     - name: Upload version artifact
       if: inputs.arch == 'amd64'
