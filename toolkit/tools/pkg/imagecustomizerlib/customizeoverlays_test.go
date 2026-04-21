@@ -85,15 +85,15 @@ func TestCustomizeImageOverlays(t *testing.T) {
 func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageOverlaysSELinuxHelper(t, "TestCustomizeImageOverlaysSELinux"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageOverlaysSELinuxHelper(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageOverlaysSELinux_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
