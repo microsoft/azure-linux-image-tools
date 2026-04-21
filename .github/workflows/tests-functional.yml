@@ -184,6 +184,18 @@ jobs:
       env:
         TEST_DISTRO: ${{ inputs.testDistro }}
 
+    - name: Generate test reports
+      if: ${{ !cancelled() }}
+      run: |
+        set -eux
+
+        REPORT_SCRIPT="repo/.github/workflows/scripts/go-test-report.py"
+
+        LIB_OUTPUT="repo/toolkit/tools/out/testResults/lib.txt"
+        if [[ -f "$LIB_OUTPUT" ]]; then
+          "$REPORT_SCRIPT" "$LIB_OUTPUT"
+        fi
+
     - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
