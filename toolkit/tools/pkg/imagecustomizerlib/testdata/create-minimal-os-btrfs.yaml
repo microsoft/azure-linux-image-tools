@@ -1,3 +1,7 @@
+previewFeatures:
+- create
+- btrfs
+
 storage:
   disks:
   - partitionTableType: gpt
@@ -64,7 +68,3 @@ os:
     - util-linux
     - zlib
     - kernel
-
-previewFeatures:
-- create
-- btrfs
