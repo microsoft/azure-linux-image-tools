@@ -4,8 +4,10 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -15,26 +17,39 @@ import (
 )
 
 func TestCreateImageRaw(t *testing.T) {
+	for _, vi := range []struct {
+		name, version, configFile string
+	}{
+		{"azl3", "3.0", "create-minimal-os.yaml"},
+		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+	} {
+		t.Run(vi.name, func(t *testing.T) {
+			testCreateImageRaw(t, vi.name, vi.version, vi.configFile)
+		})
+	}
+}
+
+func testCreateImageRaw(t *testing.T, name string, version string, configFile string) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRaw")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageRaw_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "create-minimal-os.yaml")
+	partitionsConfigFile := filepath.Join(testDir, configFile)
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 	outputImageFormat := "raw"
-	noChangeConfigFile := filepath.Join(testDir, "create-minimal-os.yaml")
+	noChangeConfigFile := filepath.Join(testDir, configFile)
 	vhdFixedImageFilePath := filepath.Join(testTmpDir, "image2.vhd")
 
 	// get RPM sources
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", "3.0", true)
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
 
 	err := CreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
-		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "")
+		outputImageFilePath, outputImageFormat, "azurelinux", version, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -66,23 +81,36 @@ func TestCreateImageRaw(t *testing.T) {
 }
 
 func TestCreateImageBtrfs(t *testing.T) {
+	for _, vi := range []struct {
+		name, version, configFile string
+	}{
+		{"azl3", "3.0", "create-minimal-os-btrfs.yaml"},
+		{"azl4", "4.0", fmt.Sprintf("create-fedora-btrfs-%s.yaml", runtime.GOARCH)},
+	} {
+		t.Run(vi.name, func(t *testing.T) {
+			testCreateImageBtrfs(t, vi.name, vi.version, vi.configFile)
+		})
+	}
+}
+
+func testCreateImageBtrfs(t *testing.T, name string, version string, configFile string) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageBtrfs")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageBtrfs_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "create-minimal-os-btrfs.yaml")
+	partitionsConfigFile := filepath.Join(testDir, configFile)
 	outputImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	outputImageFormat := "raw"
 
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", "3.0", true)
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
 
 	err := CreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
-		outputImageFilePath, outputImageFormat, "azurelinux", "3.0", "")
+		outputImageFilePath, outputImageFormat, "azurelinux", version, "")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -122,21 +150,34 @@ func TestCreateImageBtrfs(t *testing.T) {
 }
 
 func TestCreateImageRawNoTar(t *testing.T) {
+	for _, vi := range []struct {
+		name, version, configFile string
+	}{
+		{"azl3", "3.0", "create-minimal-os.yaml"},
+		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+	} {
+		t.Run(vi.name, func(t *testing.T) {
+			testCreateImageRawNoTar(t, vi.name, vi.version, vi.configFile)
+		})
+	}
+}
+
+func testCreateImageRawNoTar(t *testing.T, name string, version string, configFile string) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImageRawNoTar")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageRawNoTar_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
-	partitionsConfigFile := filepath.Join(testDir, "create-minimal-os.yaml")
+	partitionsConfigFile := filepath.Join(testDir, configFile)
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 
 	// get RPM sources
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)
+	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
 	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
-		outputImageFilePath, "raw", "azurelinux", "3.0", "")
+		outputImageFilePath, "raw", "azurelinux", version, "")
 
 	assert.ErrorContains(t, err, "tools tar file is required for image creation")
 }
@@ -161,20 +202,33 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 }
 
 func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
+	for _, vi := range []struct {
+		name, version, configFile string
+	}{
+		{"azl3", "3.0", "create-minimal-os.yaml"},
+		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+	} {
+		t.Run(vi.name, func(t *testing.T) {
+			testCreateImage_OutputImageFileAsRelativePath(t, vi.name, vi.version, vi.configFile)
+		})
+	}
+}
+
+func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, version string, configFile string) {
 	testutils.CheckSkipForCustomizeImageRequirements(t)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCreateImage_OutputImageFileAsRelativePathOnCommandLine")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImage_OutputImageFileAsRelativePath_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	baseConfigPath := testTmpDir
-	configPath := filepath.Join(testDir, "create-minimal-os.yaml")
+	configPath := filepath.Join(testDir, configFile)
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configPath, &config)
 	assert.NoError(t, err)
 
-	rpmSources := []string{testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", "3.0", false, true)}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", "3.0", true)
+	rpmSources := []string{testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)}
+	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
 	outputImageFileAbsolute := filepath.Join(buildDir, "image1.raw")
 
 	cwd, err := os.Getwd()
@@ -191,7 +245,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	// Pass the output image file relative to the current working directory through the argument.
 	// This will create the file at the absolute path.
 	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "azurelinux", "3.0", "")
+		outputImageFormat, toolsFile, "azurelinux", version, "")
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -203,7 +257,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 	// Pass the output image file relative to the config file through the config. This will create
 	// the file at the absolute path.
 	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "azurelinux", "3.0", "")
+		outputImageFormat, toolsFile, "azurelinux", version, "")
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)

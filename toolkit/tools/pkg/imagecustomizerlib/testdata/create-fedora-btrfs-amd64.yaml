@@ -1,5 +1,11 @@
+# Differs from create-fedora-amd64 in that it:
+#
+# - Enables the btrfs preview feature
+# - Declares a btrfs (not ext4) rootfs filesystem
+# - Installs btrfs-progs (not e2fsprogs)
 previewFeatures:
 - create
+- btrfs
 
 storage:
   disks:
@@ -23,7 +29,7 @@ storage:
       options: umask=0077
 
   - deviceId: rootfs
-    type: ext4
+    type: btrfs
     mountPoint:
       path: /
 
@@ -37,4 +43,4 @@ os:
     - create-fedora-amd64-packages.yaml
 
     install:
-    - e2fsprogs
+    - btrfs-progs
