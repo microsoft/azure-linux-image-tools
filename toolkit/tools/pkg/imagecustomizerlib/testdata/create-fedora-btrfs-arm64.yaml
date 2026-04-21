@@ -1,4 +1,4 @@
-# Differs from create-fedora-btrfs-amd64 in that it uses create-fedora-arm64-packages instead of create-fedora-amd64-packages
+# Differs from create-fedora-btrfs-amd64 in its use of create-fedora-arm64-packages (not create-fedora-amd64-packages)
 previewFeatures:
 - create
 - btrfs

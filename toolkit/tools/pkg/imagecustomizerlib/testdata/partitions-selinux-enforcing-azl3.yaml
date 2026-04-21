@@ -6,14 +6,14 @@ storage:
     - id: esp
       type: esp
       start: 1M
-      end: 9M
+      end: 33M
 
     - id: boot
-      start: 9M
-      end: 108M
+      start: 33M
+      end: 1G
 
     - id: rootfs
-      start: 108M
+      start: 1G
 
   bootType: efi
 

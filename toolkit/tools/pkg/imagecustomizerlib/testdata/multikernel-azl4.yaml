@@ -1,5 +1,4 @@
-# Differs from multikernel-azl3 in that its esp partition is 32M and that the kernel versions differ.
-# Ensure disk size is large enough for multiple kernels.
+# Differs from multikernel-azl3 in the kernel versions and the esp partition being 32M
 storage:
   disks:
   - partitionTableType: gpt

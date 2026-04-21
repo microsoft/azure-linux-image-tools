@@ -146,7 +146,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
-			Size:       5230 * diskutils.MiB,
+			Size:       5254 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4, 5}),
 		},
 		Images: []FileSystem{
@@ -229,7 +229,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	// Check partition sizes.
 	// Standard GPT size = MBR (512) + GPT Header (512) + Partition Entries (128 × 128 = 16384) = 17408 bytes
 	assert.Equal(t, int64(17408), gptStat.Size())
-	assert.Equal(t, int64(8*diskutils.MiB), espStat.Size())
+	assert.Equal(t, int64(32*diskutils.MiB), espStat.Size())
 
 	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
 	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
