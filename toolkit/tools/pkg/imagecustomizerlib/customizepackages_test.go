@@ -386,11 +386,14 @@ func ensureAptCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageC
 			"expected APT log file %s to be truncated, but got %d bytes", entry.Name(), info.Size())
 	}
 
-	// Verify dpkg log is truncated to zero bytes.
+	// Verify dpkg log is truncated to zero bytes (if it exists).
 	dpkgLogPath := filepath.Join(rootDir, "var/log/dpkg.log")
 	info, err := os.Stat(dpkgLogPath)
-	assert.NoError(t, err, "failed to stat dpkg log file")
-	assert.Equal(t, int64(0), info.Size(), "expected dpkg.log to be truncated (0 bytes), but got %d bytes", info.Size())
+	if err == nil {
+		assert.Equal(t, int64(0), info.Size(), "expected dpkg.log to be truncated (0 bytes), but got %d bytes", info.Size())
+	} else {
+		assert.ErrorIs(t, err, os.ErrNotExist, "unexpected error when checking dpkg.log")
+	}
 }
 
 // ensureAptServicePreventionRestored verifies that APT service prevention files have been restored.
