@@ -101,7 +101,7 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 						Id: "esp",
 						Size: imagecustomizerapi.PartitionSize{
 							Type: imagecustomizerapi.PartitionSizeTypeExplicit,
-							Size: 8 * diskutils.MiB,
+							Size: 32 * diskutils.MiB,
 						},
 						Type: imagecustomizerapi.PartitionTypeESP,
 					},
