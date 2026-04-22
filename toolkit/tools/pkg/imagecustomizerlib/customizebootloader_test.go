@@ -38,6 +38,9 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 
 	case baseImageVersionAzl3:
 		configFile = filepath.Join(testDir, "multikernel-azl3.yaml")
+
+	case baseImageVersionAzl4:
+		configFile = filepath.Join(testDir, "multikernel-azl4.yaml")
 	}
 
 	// Customize image.
@@ -69,6 +72,36 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 	case baseImageVersionAzl3:
 		// There should be multiple matching linux kernels, one for each installed kernel.
 		assert.GreaterOrEqual(t, len(matches), 2, "grub.cfg:\n%s", grubCfgContents)
+
+	case baseImageVersionAzl4:
+		// AZL4 uses BLS (Boot Loader Specification) entries instead of inline linux lines in grub.cfg.
+		assert.GreaterOrEqual(t, len(matches), 1, "grub.cfg:\n%s", grubCfgContents)
+
+		// One BLS entry per kernel.
+		blsEntriesDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/loader/entries")
+		blsEntries, err := os.ReadDir(blsEntriesDir)
+		if assert.NoError(t, err, "read BLS entries dir") {
+			entryCount := 0
+			blsOptionsRegex := regexp.MustCompile(`(?m)^options\s+.* console=tty0 console=ttyS0`)
+			for _, entry := range blsEntries {
+				if !entry.IsDir() && filepath.Ext(entry.Name()) == ".conf" {
+					entryCount++
+					blsPath := filepath.Join(blsEntriesDir, entry.Name())
+					blsContents, readErr := file.Read(blsPath)
+					if readErr != nil {
+						t.Logf("failed to read BLS entry %s: %v", entry.Name(), readErr)
+					} else {
+						t.Logf("BLS entry %s:\n%s", entry.Name(), blsContents)
+						assert.Regexp(t, blsOptionsRegex, blsContents,
+							"BLS entry %s should contain extraCommandLine args", entry.Name())
+					}
+				} else {
+					t.Fatalf("unexpected non-.conf file in BLS entries dir: %s", entry.Name())
+				}
+			}
+
+			assert.GreaterOrEqual(t, entryCount, 2, "BLS entry files in %s", blsEntriesDir)
+		}
 	}
 }
 

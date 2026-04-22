@@ -1,11 +1,14 @@
 iso:
   initramfsType: full-os
+
 os:
   selinux:
     mode: disabled
+
   kernelCommandLine:
     extraCommandLine:
     - "selinux=0"
+
   packages:
     install:
     # multi-kernel test

@@ -1,20 +1,24 @@
+# Differs from iso-full-os-vm-azl3 in the kernel version.
 iso:
-  initramfsType: bootstrap
+  initramfsType: full-os
+
 os:
   selinux:
-    mode: enforcing
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "selinux=0"
+
   packages:
     install:
     # multi-kernel test
-    - kernel-6.6.57.1-6.azl3
+    - kernel-6.18.5.1-1.azl4~bootstrap.20260303
     # iso required packages
     - squashfs-tools
     - tar
     - device-mapper
     - curl
-    # Required packages for SELinux.
-    - selinux-policy
-    - selinux-policy-modules
 
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.

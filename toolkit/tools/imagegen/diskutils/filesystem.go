@@ -68,6 +68,13 @@ var (
 		Checksum: "crc32c",
 	}
 
+	// The default btrfs options used by an Azure Linux 4.0 image (kernel v6.18).
+	// Same as AZL3 since nothing has changed since v5.15.
+	azl4BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
+	}
+
 	// The default btrfs options used by Fedora 42 (kernel v6.11+)
 	fedora42BtrfsOptions = btrfsOptions{
 		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
@@ -115,6 +122,17 @@ var (
 		Features: []string{
 			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr",
 			"has_journal", "extent", "huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+			"orphan_file",
+		},
+	}
+
+	// The default ext4 options used by an Azure Linux 4.0 image.
+	// See, the /etc/mke2fs.conf file in an Azure Linux 4.0 imag.
+	azl4Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr", "has_journal", "extent",
+			"huge_file", "flex_bg", "metadata_csum", "metadata_csum_seed", "64bit", "dir_nlink", "extra_isize",
 			"orphan_file",
 		},
 	}
@@ -170,6 +188,17 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
+	// The default xfs options used by an Azure Linux 4.0 image (kernel v6.18).
+	// See, the /usr/share/xfsprogs/mkfs/lts_6.12.conf file.
+	azl4XfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+	}
+
+	// GRUB 2.12 supports 'nrext64'.
+	azl4BootXfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+	}
+
 	// The default xfs options used by Fedora 42 (kernel v6.11+)
 	// Based on modern XFS features supported in recent kernels
 	fedora42XfsOptions = xfsOptions{
@@ -206,6 +235,12 @@ var (
 			Ext4:    azl3Ext4Options,
 			Xfs:     azl3XfsOptions,
 			BootXfs: azl3BootXfsOptions,
+		},
+		targetos.TargetOsAzureLinux4: {
+			Btrfs:   azl4BtrfsOptions,
+			Ext4:    azl4Ext4Options,
+			Xfs:     azl4XfsOptions,
+			BootXfs: azl4BootXfsOptions,
 		},
 		targetos.TargetOsFedora42: {
 			Btrfs:   fedora42BtrfsOptions,

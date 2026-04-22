@@ -8,9 +8,10 @@ import pytest
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    # customize subcommand test options (Azure Linux 2/3)
+    # customize subcommand test options (Azure Linux 2/3/4)
     parser.addoption("--core-efi-azl2", action="store", help="Path to Azure Linux 2 core EFI image")
     parser.addoption("--core-efi-azl3", action="store", help="Path to Azure Linux 3 core EFI image")
+    parser.addoption("--core-efi-azl4", action="store", help="Path to Azure Linux 4 core EFI image")
     parser.addoption("--core-legacy-azl2", action="store", help="Path to Azure Linux 2 core legacy image")
     parser.addoption("--core-legacy-azl3", action="store", help="Path to Azure Linux 3 core legacy image")
 
@@ -34,6 +35,14 @@ def core_efi_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]
     image = request.config.getoption("--core-efi-azl3")
     if not image:
         pytest.skip("--core-efi-azl3 is required for test")
+    yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def core_efi_azl4(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+    image = request.config.getoption("--core-efi-azl4")
+    if not image:
+        pytest.skip("--core-efi-azl4 is required for test")
     yield Path(image)
 
 

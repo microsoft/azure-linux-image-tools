@@ -24,9 +24,16 @@ type azureLinuxDistroHandler struct {
 }
 
 func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
+	var packageManager rpmPackageManagerHandler
+	if version == "4.0" {
+		packageManager = newDnfPackageManager(version)
+	} else {
+		packageManager = newTdnfPackageManager(version)
+	}
+
 	return &azureLinuxDistroHandler{
 		version:        version,
-		packageManager: newTdnfPackageManager(version),
+		packageManager: packageManager,
 	}
 }
 
@@ -36,6 +43,8 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 		return targetos.TargetOsAzureLinux2
 	case "3.0":
 		return targetos.TargetOsAzureLinux3
+	case "4.0":
+		return targetos.TargetOsAzureLinux4
 	default:
 		panic("unsupported Azure Linux version: " + d.version)
 	}

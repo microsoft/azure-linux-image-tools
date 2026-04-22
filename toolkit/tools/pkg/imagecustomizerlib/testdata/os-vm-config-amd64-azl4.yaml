@@ -1,0 +1,10 @@
+# Differs from os-vm-config-amd64-azl3 in the kernel version.
+os:
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+  packages:
+    install:
+    # multi-kernel test
+    - kernel-6.18.5.1-1.azl4~bootstrap.20260303

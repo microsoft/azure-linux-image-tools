@@ -98,9 +98,11 @@ jobs:
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "$1" "$2"
         }
 
-        if [[ "$TEST_DISTRO" == "azl" ]]; then
+        if [[ "$TEST_DISTRO" == "azl3" ]]; then
             download "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
             download "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        elif [[ "$TEST_DISTRO" == "azl4" ]]; then
+            download "azure-linux/core-efi-vhdx-4.0-$HOST_ARCH" azl-core-efi-4.0
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
             download "ubuntu/azure-cloud-vhdx-22.04-$HOST_ARCH" ubuntu-azure-cloud-22.04
             download "ubuntu/azure-cloud-vhdx-24.04-$HOST_ARCH" ubuntu-azure-cloud-24.04
@@ -118,8 +120,10 @@ jobs:
       run: |
         set -eux
         pushd repo/toolkit/tools
-        if [[ "$TEST_DISTRO" == "azl" ]]; then
+        if [[ "$TEST_DISTRO" == "azl3" ]]; then
           ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 3.0 -s true
+        elif [[ "$TEST_DISTRO" == "azl4" ]]; then
+          ./internal/testutils/testrpms/download-test-utils.sh -d azurelinux -t 4.0 -s true
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
           echo "No test utils needed for Ubuntu tests"
         else
@@ -137,12 +141,15 @@ jobs:
 
         AZL2_VHDX=""
         AZL3_VHDX=""
+        AZL4_VHDX=""
         UBUNTU2204_VHDX=""
         UBUNTU2404_VHDX=""
 
-        if [[ "$TEST_DISTRO" == "azl" ]]; then
+        if [[ "$TEST_DISTRO" == "azl3" ]]; then
           AZL2_VHDX="../../../../../azl-core-efi-2.0/image.vhdx"
           AZL3_VHDX="../../../../../azl-core-efi-3.0/image.vhdx"
+        elif [[ "$TEST_DISTRO" == "azl4" ]]; then
+          AZL4_VHDX="../../../../../azl-core-efi-4.0/image.vhdx"
         elif [[ "$TEST_DISTRO" == "ubuntu" ]]; then
           UBUNTU2204_VHDX="../../../../../ubuntu-azure-cloud-22.04/image.vhdx"
           UBUNTU2404_VHDX="../../../../../ubuntu-azure-cloud-24.04/image.vhdx"
@@ -161,6 +168,7 @@ jobs:
           -args \
           --base-image-core-efi-azl2 "$AZL2_VHDX" \
           --base-image-core-efi-azl3 "$AZL3_VHDX" \
+          --base-image-core-efi-azl4 "$AZL4_VHDX" \
           --base-image-azure-cloud-ubuntu2204 "$UBUNTU2204_VHDX" \
           --base-image-azure-cloud-ubuntu2404 "$UBUNTU2404_VHDX" \
           2>&1 \
