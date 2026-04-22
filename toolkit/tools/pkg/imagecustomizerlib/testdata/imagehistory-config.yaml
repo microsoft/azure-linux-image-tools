@@ -50,13 +50,13 @@ os:
       - chrony
 
       install:
-      - unzip
+      - wget
 
       installLists:
       - lists/tree.yaml
 
       update:
-      - unzip
+      - wget
   users:
     - name: mariner_user
       sshPublicKeys:
