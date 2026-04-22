@@ -28,6 +28,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
 var (
@@ -306,7 +307,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// Extract kernel command line arguments from either grub.cfg or UKI.
+	// Extract kernel command line arguments from either boot config or UKI.
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
@@ -345,19 +346,16 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 }
 
 func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
-	// The following packages are required for the UKI feature:
-	// - "systemd-boot": Checked as a package dependency here to ensure installation,
-	//    but additional configuration is handled elsewhere in the UKI workflow.
-	requiredRpms := []string{"systemd-boot"}
+	// "systemd-boot" (AZL3) or "systemd-boot-unsigned" (AZL4) is required for the UKI feature.
+	systemdBootPackage := "systemd-boot"
+	if distroHandler.GetTargetOs() == targetos.TargetOsAzureLinux4 {
+		systemdBootPackage = "systemd-boot-unsigned"
+	}
 
-	// Iterate over each required package and check if it's installed.
-	for _, pkg := range requiredRpms {
-		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		installed := distroHandler.IsPackageInstalled(imageChroot, pkg)
-		if !installed {
-			return fmt.Errorf("package (%s) is not installed:\n"+
-				"the following packages must be installed to use Uki: (%v)", pkg, requiredRpms)
-		}
+	logger.Log.Debugf("Checking if package (%s) is installed", systemdBootPackage)
+	if !distroHandler.IsPackageInstalled(imageChroot, systemdBootPackage) {
+		return fmt.Errorf("package (%s) is not installed:\n"+
+			"this package must be installed to use Uki", systemdBootPackage)
 	}
 
 	return nil

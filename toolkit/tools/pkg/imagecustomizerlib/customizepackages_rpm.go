@@ -276,6 +276,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 	defer span.End()
 
 	args := []string{pmHandler.getVerbosityOption(), "check-update", "--refresh", "--assumeyes"}
+	args = append(args, pmHandler.getRefreshMetadataOptions()...)
 
 	args = append(args, "--setopt=reposdir="+rpmsMountParentDirInChroot)
 

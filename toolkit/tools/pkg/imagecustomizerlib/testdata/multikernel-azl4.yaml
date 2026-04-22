@@ -1,0 +1,39 @@
+# Differs from multikernel-azl3 in that its esp partition is 32M and that the kernel versions differ.
+# Ensure disk size is large enough for multiple kernels.
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 32M
+
+    - id: rootfs
+      size: 4G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+    - kernel-6.18.5.1-1.azl4~bootstrap.20260303
+    - kernel-6.18.5.1-2.azl4~bootstrap.20260303
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0

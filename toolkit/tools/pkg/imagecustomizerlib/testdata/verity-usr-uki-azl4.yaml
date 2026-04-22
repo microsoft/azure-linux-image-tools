@@ -1,3 +1,11 @@
+# Differs from verity-user-uki-azl3 in that:
+#
+# - its boot partition is 1G
+# - it uses systemd-boot-unsigned instead of systemd-boot
+# - no post-customization script because iptables is not installed (it's been replaced with iptables-nft in azl4)
+previewFeatures:
+- uki
+
 storage:
   bootType: efi
   disks:
@@ -5,25 +13,29 @@ storage:
     partitions:
     - id: esp
       type: esp
-      size: 32M
+      size: 250M
+
+    - id: boot
+      size: 1G
 
     - id: usr
-      size: 2G
+      size: 1G
 
     - id: usrhash
       size: 100M
-    
+
     - id: root
-      size: 2G
+      size: 500M
+
+    - id: var
+      size: 1G
 
   verity:
   - id: verityusr
     name: usr
     dataDeviceId: usr
     hashDeviceId: usrhash
-    dataDeviceMountIdType: uuid
-    hashDeviceMountIdType: uuid
-    corruptionOption: io-error
+    corruptionOption: panic
 
   filesystems:
   - deviceId: esp
@@ -32,10 +44,15 @@ storage:
       path: /boot/efi
       options: umask=0077
 
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
   - deviceId: root
     type: ext4
     mountPoint:
       path: /
+      options: noexec
 
   - deviceId: verityusr
     type: ext4
@@ -43,31 +60,27 @@ storage:
       path: /usr
       options: ro
 
+  - deviceId: var
+    type: ext4
+    mountPoint: /var
+
 os:
   bootloader:
     resetType: hard-reset
 
-  selinux:
-    mode: disabled
-
   kernelCommandLine:
     extraCommandLine:
-    - "rd.info"
+    - rd.info
+
+  uki:
+    mode: create
 
   packages:
+    remove:
+    - grub2-efi-binary
+
     install:
     - openssh-server
     - veritysetup
-    - vim
+    - systemd-boot-unsigned
     - device-mapper
-
-  services:
-    enable:
-    - sshd
-    
-  users:
-  - name: test
-    sshPublicKeys:
-      # Your SSH public key here.
-    secondaryGroups:
-    - wheel
