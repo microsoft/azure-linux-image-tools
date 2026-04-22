@@ -32,6 +32,9 @@ const (
 	ukiEfiStubx64Binary  = "linuxx64.efi.stub"
 	ukiEfiStubAA64Binary = "linuxaa64.efi.stub"
 
+	ukiAddonStubx64Binary  = "addonx64.efi.stub"
+	ukiAddonStubAA64Binary = "addonaa64.efi.stub"
+
 	grubCfgDir     = "/boot/grub2"
 	isoGrubCfg     = "grub.cfg"
 	isoGrubCfgPath = grubCfgDir + "/" + isoGrubCfg
@@ -83,40 +86,44 @@ type BootFilesArchConfig struct {
 	isoGrubBinaryPath           string
 	ukiEfiStubBinary            string
 	ukiEfiStubBinaryPath        string
+	ukiAddonStubBinary          string
+	ukiAddonStubBinaryPath      string
 }
 
-var (
-	bootloaderFilesConfig = map[string]BootFilesArchConfig{
-		"amd64": {
-			bootBinary:                  bootx64Binary,
-			grubBinary:                  grubx64Binary,
-			grubNoPrefixBinary:          grubx64NoPrefixBinary,
-			espBootBinaryPath:           espBootloaderDir + "/" + bootx64Binary,
-			espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
-			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64Binary,
-			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
-			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
-			isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64Binary,
-			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
-			ukiEfiStubBinary:            ukiEfiStubx64Binary,
-			ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
-		},
-		"arm64": {
-			bootBinary:                  bootAA64Binary,
-			grubBinary:                  grubAA64Binary,
-			grubNoPrefixBinary:          grubAA64NoPrefixBinary,
-			espBootBinaryPath:           espBootloaderDir + "/" + bootAA64Binary,
-			espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
-			osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64Binary,
-			osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
-			osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
-			isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64Binary,
-			isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
-			ukiEfiStubBinary:            ukiEfiStubAA64Binary,
-			ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
-		},
-	}
-)
+var bootloaderFilesConfig = map[string]BootFilesArchConfig{
+	"amd64": {
+		bootBinary:                  bootx64Binary,
+		grubBinary:                  grubx64Binary,
+		grubNoPrefixBinary:          grubx64NoPrefixBinary,
+		espBootBinaryPath:           espBootloaderDir + "/" + bootx64Binary,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64Binary,
+		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+		osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
+		isoBootBinaryPath:           isoBootloaderDir + "/" + bootx64Binary,
+		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubx64Binary,
+		ukiEfiStubBinary:            ukiEfiStubx64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
+		ukiAddonStubBinary:          ukiAddonStubx64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+	},
+	"arm64": {
+		bootBinary:                  bootAA64Binary,
+		grubBinary:                  grubAA64Binary,
+		grubNoPrefixBinary:          grubAA64NoPrefixBinary,
+		espBootBinaryPath:           espBootloaderDir + "/" + bootAA64Binary,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64Binary,
+		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+		osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
+		isoBootBinaryPath:           isoBootloaderDir + "/" + bootAA64Binary,
+		isoGrubBinaryPath:           isoBootloaderDir + "/" + grubAA64Binary,
+		ukiEfiStubBinary:            ukiEfiStubAA64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
+		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+	},
+}
 
 func getBootArchConfig() (string, BootFilesArchConfig, error) {
 	arch := runtime.GOARCH
