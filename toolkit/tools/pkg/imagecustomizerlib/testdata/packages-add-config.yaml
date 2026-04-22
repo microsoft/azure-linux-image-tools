@@ -1,7 +1,7 @@
 os:
   packages:
     install:
-    - unzip
+    - wget
 
     installLists:
     - lists/tree.yaml
