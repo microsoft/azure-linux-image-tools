@@ -323,11 +323,36 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 	}
 	defer imageConnection.Close()
 
-	// Check that the extraCommandLine was added to the grub.cfg file.
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, "linux.* console=tty0 console=ttyS0 ", grubCfgContents)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// AZL4 uses BLS (Boot Loader Specification) entries instead of inline linux lines in grub.cfg.
+		blsEntriesDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/loader/entries")
+		blsEntries, err := os.ReadDir(blsEntriesDir)
+		if !assert.NoError(t, err, "read BLS entries dir") {
+			return
+		}
+
+		blsOptionsRegex := regexp.MustCompile(`(?m)^options\s+.* console=tty0 console=ttyS0`)
+		entryCount := 0
+		for _, entry := range blsEntries {
+			if !entry.IsDir() && filepath.Ext(entry.Name()) == ".conf" {
+				entryCount++
+				blsPath := filepath.Join(blsEntriesDir, entry.Name())
+				blsContents, readErr := file.Read(blsPath)
+				if !assert.NoError(t, readErr, "read BLS entry %s", entry.Name()) {
+					continue
+				}
+				assert.Regexp(t, blsOptionsRegex, blsContents,
+					"BLS entry %s should contain extraCommandLine args", entry.Name())
+			}
+		}
+		assert.GreaterOrEqual(t, entryCount, 1, "BLS entry files in %s", blsEntriesDir)
+	} else {
+		// Check that the extraCommandLine was added to the grub.cfg file.
+		grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+		grubCfgContents, err := file.Read(grubCfgFilePath)
+		assert.NoError(t, err, "read grub.cfg file")
+		assert.Regexp(t, "linux.* console=tty0 console=ttyS0 ", grubCfgContents)
+	}
 }
 
 func TestCustomizeImageNewUUIDs(t *testing.T) {
