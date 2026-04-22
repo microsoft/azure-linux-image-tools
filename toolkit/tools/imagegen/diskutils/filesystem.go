@@ -309,7 +309,7 @@ var (
 	//
 	// Ref: https://e2fsprogs.sourceforge.net/e2fsprogs-release.html
 	ext4FeaturesE2fsprogsSupport = map[string]version.Version{
-		"orphan_file": {1, 47, 0},
+		"orphan_file":        {1, 47, 0},
 		"metadata_csum_seed": {1, 47, 0},
 	}
 
