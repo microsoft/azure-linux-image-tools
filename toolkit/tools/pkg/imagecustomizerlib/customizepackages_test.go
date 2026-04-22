@@ -423,18 +423,38 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesUrlSource(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesUrlSourceHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesUrlSourceHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesUrlSource")
+	var repoFileName string
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl4:
+		repoFileName = "cloud-native-azl4.repo"
+	case baseImageVersionAzl3:
+		repoFileName = "cloud-native-azl3.repo"
+	default:
+		assert.Fail(t, fmt.Sprintf("unexpected base image version: %s", baseImageInfo.Version))
+	}
+
+	repoFile := filepath.Join(testDir, "repos", repoFileName)
+	if _, err := os.Stat(repoFile); os.IsNotExist(err) {
+		t.Skipf("repo file not found: %s", repoFile)
+	}
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesUrlSource_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "packages-add-oras.yaml")
-
-	repoFile := filepath.Join(testDir, "repos/cloud-native-azl3.repo")
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
@@ -456,10 +476,17 @@ func TestCustomizeImagePackagesUrlSource(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesBadRepo(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesBadRepoHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesBadRepoHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesBadRepo")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesBadRepo_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
@@ -508,11 +535,23 @@ func ensureTdnfCacheCleanup(t *testing.T, imageConnection *imageconnection.Image
 }
 
 func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTime")
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesSnapshotTimeHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesSnapshotTimeHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("package snapshot time is not supported on Azure Linux 4")
+	}
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesSnapshotTime_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
-	baseImageInfo := testBaseImageAzl3CoreEfi
-	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
@@ -561,11 +600,23 @@ func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
 }
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile")
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("package snapshot time is not supported on Azure Linux 4")
+	}
+
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 
-	baseImageInfo := testBaseImageAzl3CoreEfi
-	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	snapshotTimeConfig := "2025-03-19"
@@ -614,11 +665,22 @@ func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) 
 }
 
 func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails")
-	defer os.RemoveAll(testTmpDir)
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFailsHelper(t, baseImageInfo)
+		})
+	}
+}
 
-	baseImageInfo := testBaseImageAzl3CoreEfi
+func testCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFailsHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("package snapshot time is not supported on Azure Linux 4")
+	}
+
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
