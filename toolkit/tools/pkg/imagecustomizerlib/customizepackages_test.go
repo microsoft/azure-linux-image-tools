@@ -39,11 +39,11 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Install unzip package.
+	// Install wget package.
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install: []string{"unzip"},
+				Install: []string{"wget"},
 			},
 		},
 	}
@@ -60,9 +60,9 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure unzip was installed.
+	// Ensure wget was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 	)
 
 	// Ensure tree was not installed.
@@ -77,14 +77,14 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Create a copy of the RPMs directory, but without the unzip package.
+	// Create a copy of the RPMs directory, but without the wget package.
 	// This ensures that the package repo metadata is refreshed between runs.
 	err = os.RemoveAll(downloadedRpmsTmpDir)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"unzip-"})
+	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"wget-"})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -112,7 +112,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 
 	// Ensure tree was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 		"/usr/bin/tree",
 	)
 
@@ -185,7 +185,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 		"/usr/bin/tree",
 	)
 }
@@ -228,7 +228,7 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 	)
 
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
@@ -555,7 +555,7 @@ func testCustomizeImagePackagesSnapshotTimeHelper(t *testing.T, baseImageInfo te
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	// Set the snapshot time to a date before unzip-6.0-22 (2025-04-16) was published, so unzip-6.0-21 is expected
+	// Set the snapshot time to a date before wget-2.1.0-6 (2025-02-24) was published, so wget-2.1.0-5 is expected
 	snapshotTime := "2025-01-01"
 
 	config := imagecustomizerapi.Config{
@@ -564,7 +564,7 @@ func testCustomizeImagePackagesSnapshotTimeHelper(t *testing.T, baseImageInfo te
 		},
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"unzip"},
+				Install:      []string{"wget"},
 				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTime),
 			},
 		},
@@ -584,15 +584,15 @@ func testCustomizeImagePackagesSnapshotTimeHelper(t *testing.T, baseImageInfo te
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 	)
 
-	unzipVersionOutput, err := getPkgVersionFromChroot(imageConnection, "unzip")
-	assert.NoError(t, err, "failed to retrieve unzip version from chroot")
+	wgetVersionOutput, err := getPkgVersionFromChroot(imageConnection, "wget")
+	assert.NoError(t, err, "failed to retrieve wget version from chroot")
 
-	expectedVersion := "unzip-6.0-21"
-	assert.Containsf(t, unzipVersionOutput, expectedVersion,
-		"snapshotTime %s should install unzip version %s, but got: %s", snapshotTime, expectedVersion, unzipVersionOutput)
+	expectedVersion := "wget-2.1.0-5"
+	assert.Containsf(t, wgetVersionOutput, expectedVersion,
+		"snapshotTime %s should install wget version %s, but got: %s", snapshotTime, expectedVersion, wgetVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
 
@@ -628,13 +628,13 @@ func testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t *testi
 		},
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"unzip"},
+				Install:      []string{"wget"},
 				SnapshotTime: imagecustomizerapi.PackageSnapshotTime(snapshotTimeConfig),
 			},
 		},
 	}
 
-	// Set the snapshot time in CLI to a date before unzip-6.0-22 (2025-04-16) was published
+	// Set the snapshot time in CLI to a date before wget-2.1.0-6 (2025-02-24) was published
 	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
 		"raw", true, snapshotTimeCLI)
 	if !assert.NoError(t, err) {
@@ -649,15 +649,15 @@ func testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t *testi
 	defer imageConnection.Close()
 
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 	)
 
-	unzipVersionOutput, err := getPkgVersionFromChroot(imageConnection, "unzip")
-	assert.NoError(t, err, "failed to retrieve unzip version from chroot")
+	wgetVersionOutput, err := getPkgVersionFromChroot(imageConnection, "wget")
+	assert.NoError(t, err, "failed to retrieve wget version from chroot")
 
-	expectedVersion := "unzip-6.0-21"
-	assert.Containsf(t, unzipVersionOutput, expectedVersion,
-		"snapshotTime %s should install unzip version %s, but got: %s", snapshotTimeCLI, expectedVersion, unzipVersionOutput)
+	expectedVersion := "wget-2.1.0-5"
+	assert.Containsf(t, wgetVersionOutput, expectedVersion,
+		"snapshotTime %s should install wget version %s, but got: %s", snapshotTimeCLI, expectedVersion, wgetVersionOutput)
 
 	ensureFilesNotExist(t, imageConnection, customTdnfConfRelPath)
 
@@ -688,7 +688,7 @@ func testCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFailsHelper(t *test
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install:      []string{"unzip"},
+				Install:      []string{"wget"},
 				SnapshotTime: "2025-05-22",
 			},
 		},
@@ -732,9 +732,9 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	assert.NoError(t, err, "failed to connect to image after customization")
 	defer imageConnection.Close()
 
-	// Verify both inline (unzip) and list-referenced (tree) packages were installed.
+	// Verify both inline (wget) and list-referenced (tree) packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		"/usr/bin/wget",
 		"/usr/bin/tree",
 	)
 

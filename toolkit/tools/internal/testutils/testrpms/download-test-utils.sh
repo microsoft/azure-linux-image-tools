@@ -126,7 +126,7 @@ else
 fi
 
 # Combine with common testing packages
-FINAL_PACKAGE_LIST="unzip tree $PACKAGE_LIST"
+FINAL_PACKAGE_LIST="wget tree $PACKAGE_LIST"
 
 echo "Final package list: $FINAL_PACKAGE_LIST"
 
