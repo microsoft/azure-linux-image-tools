@@ -1,4 +1,4 @@
-# Differs from verity-usr-uki-azl3 in its use of systemd-boot-unsigned (not systemd-boot), its boot partition being 1G, and the absence of a post-customization script
+# Differs from verity-usr-uki-amd64-azl4 in its use of systemd-boot-unsigned (not systemd-boot) and grub2-efi-aa64 (not grub2-efi-binary)
 previewFeatures:
 - uki
 
@@ -73,7 +73,7 @@ os:
 
   packages:
     remove:
-    - grub2-efi-binary
+    - grub2-efi-aa64
 
     install:
     - openssh-server

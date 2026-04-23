@@ -210,42 +210,47 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, hasUkis bool,
 	existsArgs []string, notExistsArgs []string,
 ) {
-	var grubCfgContents string
+	var cmdline string
+	var err error
 
 	if hasUkis {
-		// UKI image - extract cmdline from UKI files
+		// UKI image: extract cmdline from UKI files.
 		ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
-		cmdlineFromUki, err := extractCmdlineFromUkiForTest(ukiDir)
+		cmdline, err = extractCmdlineFromUkiForTest(ukiDir)
 		if err != nil {
 			t.Fatalf("Failed to extract cmdline from UKI: %v", err)
 			return
 		}
-		grubCfgContents = cmdlineFromUki
 	} else {
-		// GRUB image - read grub.cfg
-		grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-		contents, err := file.Read(grubCfgFilePath)
+		// GRUB image: read grub.cfg or BLS entries.
+		bootDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot")
+
+		distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
 		if err != nil {
-			t.Fatalf("Failed to read grub.cfg: %v", err)
+			t.Fatalf("Failed to detect distro handler: %v", err)
 			return
 		}
-		grubCfgContents = contents
+
+		kernelToArgs, err := distroHandler.ReadKernelCmdlines(bootDir)
+		if err != nil {
+			t.Fatalf("Failed to extract kernel args from boot config: %v", err)
+			return
+		}
+
+		for _, opts := range kernelToArgs {
+			// Like in the UKI scenario, we only test the first seen.
+			cmdline = opts
+			break
+		}
 	}
 
 	for _, existsArg := range existsArgs {
-		if hasUkis {
-			// UKI cmdline is a plain string of args (no "linux" keyword)
-			assert.Containsf(t, grubCfgContents, existsArg,
-				"ensure kernel command arg exists (%s)", existsArg)
-		} else {
-			// GRUB cfg has "linux /boot/vmlinuz... args" format
-			assert.Regexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(existsArg)), grubCfgContents,
-				"ensure kernel command arg exists (%s)", existsArg)
-		}
+		assert.Containsf(t, cmdline, existsArg,
+			"ensure kernel command arg exists (%s)", existsArg)
 	}
 
 	for _, notExistsArg := range notExistsArgs {
-		assert.NotContainsf(t, grubCfgContents, notExistsArg,
+		assert.NotContainsf(t, cmdline, notExistsArg,
 			"ensure kernel command arg not exists (%s)", notExistsArg)
 	}
 }
