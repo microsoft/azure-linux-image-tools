@@ -104,7 +104,12 @@ func NewDistroHandler(distroName string, version string) DistroHandler {
 
 // NewDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
 func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroHandler, error) {
-	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
+	return NewDistroHandlerFromChrootWithConfigurableOsRelease(imageChroot, "etc/os-release")
+}
+
+// NewDistroHandlerFromChrootWithConfigurableOsRelease creates a distro handler by detecting the OS from the chroot and an os-release described by osReleasePath
+func NewDistroHandlerFromChrootWithConfigurableOsRelease(imageChroot safechroot.ChrootInterface, osReleasePath string) (DistroHandler, error) {
+	targetOs, err := targetos.GetInstalledTargetOsWithConfigurableOsRelease(imageChroot.RootDir(), osReleasePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
 	}

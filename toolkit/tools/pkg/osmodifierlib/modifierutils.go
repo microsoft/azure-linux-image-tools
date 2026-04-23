@@ -16,7 +16,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
-func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS) error {
+func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS, osReleasePath string) error {
 	var dummyChroot safechroot.ChrootInterface = &safechroot.DummyChroot{}
 
 	// Create a temporary directory for operations that need a build directory
@@ -26,7 +26,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 	}
 	defer os.RemoveAll(buildDir)
 
-	distroHandler, err := imagecustomizerlib.NewDistroHandlerFromChroot(dummyChroot)
+	distroHandler, err := imagecustomizerlib.NewDistroHandlerFromChrootWithConfigurableOsRelease(dummyChroot, osReleasePath)
 	if err != nil {
 		return err
 	}

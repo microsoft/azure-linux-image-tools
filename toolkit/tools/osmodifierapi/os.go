@@ -22,6 +22,7 @@ type OS struct {
 	Modules           imagecustomizerapi.ModuleList        `yaml:"modules"`
 	Verity            *Verity                              `yaml:"verity"`
 	RootDevice        string                               `yaml:"rootDevice"`
+	OsReleaseOverride string                               `yaml:"osReleaseOverride`
 }
 
 func (s *OS) IsValid() error {

@@ -22,7 +22,11 @@ const (
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
-	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
+	return GetInstalledTargetOsWithConfigurableOsRelease(rootfs, "etc/os-release")
+}
+
+func GetInstalledTargetOsWithConfigurableOsRelease(rootfs string, osReleasePath string) (TargetOs, error) {
+	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, osReleasePath))
 	if err != nil {
 		return "", fmt.Errorf("failed to read /etc/os-release file:\n%w", err)
 	}

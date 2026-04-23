@@ -12,7 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/osmodifierapi"
 )
 
-func ModifyOSWithConfigFile(ctx context.Context, configFile string) error {
+func ModifyOSWithConfigFile(ctx context.Context, configFile string, osReleasePath string) error {
 	var err error
 
 	var osConfig osmodifierapi.OS
@@ -28,7 +28,7 @@ func ModifyOSWithConfigFile(ctx context.Context, configFile string) error {
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = ModifyOS(ctx, absBaseConfigPath, &osConfig)
+	err = ModifyOS(ctx, absBaseConfigPath, &osConfig, osReleasePath)
 	if err != nil {
 		return err
 	}
@@ -36,8 +36,8 @@ func ModifyOSWithConfigFile(ctx context.Context, configFile string) error {
 	return nil
 }
 
-func ModifyOS(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS) error {
-	err := doModifications(ctx, baseConfigPath, osConfig)
+func ModifyOS(ctx context.Context, baseConfigPath string, osConfig *osmodifierapi.OS, osReleasePath string) error {
+	err := doModifications(ctx, baseConfigPath, osConfig, osReleasePath)
 	if err != nil {
 		return err
 	}

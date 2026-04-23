@@ -18,6 +18,7 @@ type RootCmd struct {
 	ConfigFile    string `name:"config-file" help:"Path of the os modification config file."`
 	TimeStampFile string `name:"timestamp-file" help:"File that stores timestamps for this program."`
 	UpdateGrub    bool   `name:"update-grub" help:"Update default GRUB."`
+	OsReleasePath string `name:"os-release-path" help:"Specify the relative-to-root path for os-release." default:"etc/os-release"`
 	exekong.LogFlags
 }
 
@@ -56,7 +57,7 @@ func runCommand(ctx context.Context, cli *RootCmd) error {
 	}
 
 	if cli.ConfigFile != "" {
-		err := modifyImage(ctx, cli.ConfigFile)
+		err := modifyImage(ctx, cli.ConfigFile, cli.OsReleasePath)
 		if err != nil {
 			return fmt.Errorf("OS modification failed:\n%w", err)
 		}
@@ -65,8 +66,8 @@ func runCommand(ctx context.Context, cli *RootCmd) error {
 	return nil
 }
 
-func modifyImage(ctx context.Context, configFile string) error {
-	err := osmodifierlib.ModifyOSWithConfigFile(ctx, configFile)
+func modifyImage(ctx context.Context, configFile string, osReleasePath string) error {
+	err := osmodifierlib.ModifyOSWithConfigFile(ctx, configFile, osReleasePath)
 	if err != nil {
 		return err
 	}
