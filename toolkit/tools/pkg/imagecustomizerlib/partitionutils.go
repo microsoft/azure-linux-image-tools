@@ -1058,17 +1058,17 @@ func extractKernelCmdlineFromBLSEntries(bootDir string, skipRecovery bool) (map[
 
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 				continue
 			}
 
-			key, value, found := strings.Cut(line, " ")
+			key, value, found := strings.Cut(trimmed, " ")
 			if !found {
-				key, value, found = strings.Cut(line, "\t")
+				key, value, found = strings.Cut(trimmed, "\t")
 			}
 			if !found {
-				return nil, fmt.Errorf("malformed BLS entry line in (%s): %q", absPath, line)
+				return nil, fmt.Errorf("malformed BLS entry line in (%s): %q", absPath, trimmed)
 			}
 			key = strings.TrimSpace(key)
 			value = strings.TrimSpace(value)
