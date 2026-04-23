@@ -266,9 +266,13 @@ def test_user_creation_config(
     assert "sudo" in output, f"'sudo' not found in groups: {output}"
 
 
-def is_package_installed(ssh_client: SshClient, pkg_name: str) -> bool:
+def is_package_installed(ssh_client: SshClient, pkg_name: str, distro_id: str, version_id: str) -> bool:
+    # These commands are taken from packagemanager_dnf.go and packagaemanager_tdnf.go in the code base.
     try:
-        cmd = f"tdnf info {pkg_name} --repo @system"
+        if distro_id == "azurelinux" and version_id.startswith("4."):
+            cmd = f"dnf info --installed {pkg_name}"
+        else:
+            cmd = f"tdnf info {pkg_name} --repo @system"
         result = ssh_client.run(cmd)
         return result.exit_code == 0
     except Exception:
@@ -283,10 +287,10 @@ def is_grub_bootloader(ssh_client: SshClient, distro_id: str, version_id: str) -
         grub_packages = ["grub2-efi-binary", "grub2-efi-binary-noprefix"]
         systemd_boot_pkgs = ["systemd-boot"]
 
-    if any(is_package_installed(ssh_client, pkg) for pkg in grub_packages):
+    if any(is_package_installed(ssh_client, pkg, distro_id, version_id) for pkg in grub_packages):
         return True
 
-    if any(is_package_installed(ssh_client, pkg) for pkg in systemd_boot_pkgs):
+    if any(is_package_installed(ssh_client, pkg, distro_id, version_id) for pkg in systemd_boot_pkgs):
         return False
 
     raise RuntimeError(
