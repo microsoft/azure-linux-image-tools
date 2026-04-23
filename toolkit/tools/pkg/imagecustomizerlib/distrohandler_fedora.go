@@ -142,3 +142,21 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
 		currentSELinuxMode, true /* forceGrubMkconfig */, d)
 }
+
+func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromGrubCfg(bootDir, FedoraGrubCfgPath)
+}
+
+func (d *fedoraDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
+	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return grubKernelArgsToStringMap(kernelToArgs), nil
+}
+
+func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}

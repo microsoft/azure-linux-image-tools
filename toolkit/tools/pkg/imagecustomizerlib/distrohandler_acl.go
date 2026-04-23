@@ -115,3 +115,21 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 ) error {
 	return fmt.Errorf("bootloader configuration is not yet supported for ACL")
 }
+
+func (d *aclDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromGrubCfg(bootDir, FedoraGrubCfgPath)
+}
+
+func (d *aclDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
+	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return grubKernelArgsToStringMap(kernelToArgs), nil
+}
+
+func (d *aclDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}

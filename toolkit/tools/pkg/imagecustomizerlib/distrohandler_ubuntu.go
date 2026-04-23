@@ -162,3 +162,21 @@ func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 ) error {
 	return ErrUbuntuBootLoaderHardReset
 }
+
+func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromGrubCfg(bootDir, DebianGrubCfgPath)
+}
+
+func (d *ubuntuDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
+	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return grubKernelArgsToStringMap(kernelToArgs), nil
+}
+
+func (d *ubuntuDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	grubCfgPath := filepath.Join(bootDir, DebianGrubCfgPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}

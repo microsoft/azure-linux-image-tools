@@ -378,6 +378,18 @@ func findCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, err
 	return insertAt, nil
 }
 
+// filterKernelArgsByName extracts arg name=value pairs from parsed kernel args,
+// keeping only those whose name is in the provided list.
+func filterKernelArgsByName(args []grubConfigLinuxArg, names []string) map[string]string {
+	result := make(map[string]string)
+	for _, arg := range args {
+		if arg.Value != "" && sliceutils.ContainsValue(names, arg.Name) {
+			result[arg.Name] = arg.Value
+		}
+	}
+	return result
+}
+
 // Takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.
 func ParseCommandLineArgs(argTokens []grub.Token) ([]grubConfigLinuxArg, error) {
 	args := []grubConfigLinuxArg(nil)
