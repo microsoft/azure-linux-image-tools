@@ -200,6 +200,7 @@ var (
 	}
 
 	defaultAzureLinuxPriorityList = []testBaseImageInfo{
+		testBaseImageAzl4CoreEfi,
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
 		testBaseImageAzl2CoreEfi,
