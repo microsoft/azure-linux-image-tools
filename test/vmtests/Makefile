@@ -114,6 +114,8 @@ test-osmodifier:
 		--osmodifier-binary="${OSMODIFIER_BIN}" \
 		--logs-dir="${LOGS_DIR}" \
 		--input-image="${INPUT_IMAGE}" \
+		--distro-id="${DISTRO_ID}" \
+		--version-id="${VERSION_ID}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \

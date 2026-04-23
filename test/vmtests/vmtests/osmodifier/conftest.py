@@ -10,6 +10,8 @@ import pytest
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--input-image", action="store", help="Path to input image")
     parser.addoption("--osmodifier-binary", action="store", help="Path to osmodifier binary")
+    parser.addoption("--distro-id", action="store", help="Distro ID of the input image (e.g. 'azurelinux')")
+    parser.addoption("--version-id", action="store", help="Version ID of the input image (e.g. '4.0')")
 
 
 @pytest.fixture(scope="session")
@@ -26,3 +28,19 @@ def input_image(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
     if not image:
         raise Exception("--input-image is required for test")
     yield Path(image)
+
+
+@pytest.fixture(scope="session")
+def distro_id(request: pytest.FixtureRequest) -> str:
+    value = request.config.getoption("--distro-id")
+    if not value:
+        raise Exception("--distro-id is required for test")
+    return value
+
+
+@pytest.fixture(scope="session")
+def version_id(request: pytest.FixtureRequest) -> str:
+    value = request.config.getoption("--version-id")
+    if not value:
+        raise Exception("--version-id is required for test")
+    return value
