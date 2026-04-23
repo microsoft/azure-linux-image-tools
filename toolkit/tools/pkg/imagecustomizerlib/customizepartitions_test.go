@@ -278,7 +278,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 
 	// Check that the fstab entries are correct.
 	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions)
-	verifyBootGrubCfg(t, imageConnection, "",
+	verifyBootCfg(t, imageConnection, "",
 		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		baseImageInfo)
@@ -921,7 +921,7 @@ func verifyBootloaderConfig(t *testing.T, imageConnection *imageconnection.Image
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, baseImageInfo testBaseImageInfo,
 ) {
 	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid)
-	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
+	verifyBootCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
 }
 
 func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, bootUuid string) {
@@ -934,7 +934,7 @@ func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnec
 	assert.Regexp(t, fmt.Sprintf("(?m)^search -n -u %s -s$", regexp.QuoteMeta(bootUuid)), grubCfgContents)
 }
 
-func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
+func verifyBootCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
 	baseImageInfo testBaseImageInfo,
 ) {
@@ -950,6 +950,10 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConne
 			grubCfgContents)
 		assert.Regexp(t, fmt.Sprintf(`(?m)^set rootdevice=PARTUUID=%s$`, regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
+		if extraCommandLineArgs != "" {
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)),
+				grubCfgContents)
+		}
 
 	case baseImageVersionAzl3:
 		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
@@ -961,10 +965,38 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConne
 		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* root=(UUID=%s|PARTUUID=%s) `, regexp.QuoteMeta(rootfsInfo.Uuid),
 			regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
-	}
+		if extraCommandLineArgs != "" {
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)),
+				grubCfgContents)
+		}
 
-	if extraCommandLineArgs != "" {
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)), grubCfgContents)
+	case baseImageVersionAzl4:
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
+			grubCfgContents)
+
+		blsDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/loader/entries")
+		entries, err := os.ReadDir(blsDir)
+		assert.NoError(t, err, "read BLS entries directory")
+		blsContents := ""
+		for _, entry := range entries {
+			if entry.IsDir() || filepath.Ext(entry.Name()) != ".conf" {
+				continue
+			}
+
+			entryContent, err := file.Read(filepath.Join(blsDir, entry.Name()))
+			if !assert.NoError(t, err, "read BLS entry %s", entry.Name()) {
+				continue
+			}
+
+			blsContents += fmt.Sprintf("%s\n", entryContent)
+		}
+
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* root=(UUID=%s|PARTUUID=%s) `,
+			regexp.QuoteMeta(rootfsInfo.Uuid), regexp.QuoteMeta(rootfsInfo.PartUuid)), blsContents)
+		if extraCommandLineArgs != "" {
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* %s `, regexp.QuoteMeta(extraCommandLineArgs)),
+				blsContents)
+		}
 	}
 }
 
