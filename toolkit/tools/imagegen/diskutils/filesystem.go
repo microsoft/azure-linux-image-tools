@@ -42,6 +42,8 @@ type fileSystemsOptions struct {
 	Btrfs btrfsOptions
 	// The ext4 options to use.
 	Ext4 ext4Options
+	// The ext4 options to use for the partition that contains the /boot directory.
+	BootExt4 ext4Options
 	// The xfs options to use.
 	Xfs xfsOptions
 	// The xfs options to use for the partition that contains the /boot directory.
@@ -137,6 +139,16 @@ var (
 		},
 	}
 
+	// GRUB 2.06 doesn't support 'metadata_csum_seed'.
+	azl4BootExt4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr", "has_journal", "extent",
+			"huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+			"orphan_file",
+		},
+	}
+
 	// The default ext4 options used by Fedora 42 (kernel v6.11+)
 	// Based on typical Fedora defaults with modern ext4 features
 	fedora42Ext4Options = ext4Options{
@@ -225,40 +237,46 @@ var (
 
 	targetOsFileSystemsOptions = map[targetos.TargetOs]fileSystemsOptions{
 		targetos.TargetOsAzureLinux2: {
-			Btrfs:   azl2BtrfsOptions,
-			Ext4:    azl2Ext4Options,
-			Xfs:     azl2XfsOptions,
-			BootXfs: azl2XfsOptions,
+			Btrfs:    azl2BtrfsOptions,
+			Ext4:     azl2Ext4Options,
+			BootExt4: azl2Ext4Options,
+			Xfs:      azl2XfsOptions,
+			BootXfs:  azl2XfsOptions,
 		},
 		targetos.TargetOsAzureLinux3: {
-			Btrfs:   azl3BtrfsOptions,
-			Ext4:    azl3Ext4Options,
-			Xfs:     azl3XfsOptions,
-			BootXfs: azl3BootXfsOptions,
+			Btrfs:    azl3BtrfsOptions,
+			Ext4:     azl3Ext4Options,
+			BootExt4: azl3Ext4Options,
+			Xfs:      azl3XfsOptions,
+			BootXfs:  azl3BootXfsOptions,
 		},
 		targetos.TargetOsAzureLinux4: {
-			Btrfs:   azl4BtrfsOptions,
-			Ext4:    azl4Ext4Options,
-			Xfs:     azl4XfsOptions,
-			BootXfs: azl4BootXfsOptions,
+			Btrfs:    azl4BtrfsOptions,
+			Ext4:     azl4Ext4Options,
+			BootExt4: azl4BootExt4Options,
+			Xfs:      azl4XfsOptions,
+			BootXfs:  azl4BootXfsOptions,
 		},
 		targetos.TargetOsFedora42: {
-			Btrfs:   fedora42BtrfsOptions,
-			Ext4:    fedora42Ext4Options,
-			Xfs:     fedora42XfsOptions,
-			BootXfs: fedora42XfsOptions,
+			Btrfs:    fedora42BtrfsOptions,
+			Ext4:     fedora42Ext4Options,
+			BootExt4: fedora42Ext4Options,
+			Xfs:      fedora42XfsOptions,
+			BootXfs:  fedora42XfsOptions,
 		},
 		targetos.TargetOsUbuntu2204: {
-			Btrfs:   ubuntu2204BtrfsOptions,
-			Ext4:    ubuntu2204Ext4Options,
-			Xfs:     ubuntu2204XfsOptions,
-			BootXfs: ubuntu2204XfsOptions,
+			Btrfs:    ubuntu2204BtrfsOptions,
+			Ext4:     ubuntu2204Ext4Options,
+			BootExt4: ubuntu2204Ext4Options,
+			Xfs:      ubuntu2204XfsOptions,
+			BootXfs:  ubuntu2204XfsOptions,
 		},
 		targetos.TargetOsUbuntu2404: {
-			Btrfs:   ubuntu2404BtrfsOptions,
-			Ext4:    ubuntu2404Ext4Options,
-			Xfs:     ubuntu2404XfsOptions,
-			BootXfs: ubuntu2404XfsOptions,
+			Btrfs:    ubuntu2404BtrfsOptions,
+			Ext4:     ubuntu2404Ext4Options,
+			BootExt4: ubuntu2404Ext4Options,
+			Xfs:      ubuntu2404XfsOptions,
+			BootXfs:  ubuntu2404XfsOptions,
 		},
 	}
 
@@ -406,7 +424,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "ext4":
-		options, err := getExt4FileSystemOptions(hostKernelVersion, options)
+		options, err := getExt4FileSystemOptions(hostKernelVersion, options, isBootPartition)
 		if err != nil {
 			return nil, err
 		}
@@ -489,16 +507,22 @@ func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSy
 	return args, nil
 }
 
-func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+) ([]string, error) {
 	mke2fsVersion, err := getMke2fsVersion()
 	if err != nil {
 		return nil, err
 	}
 
+	ext4Options := options.Ext4
+	if isBootPartition {
+		ext4Options = options.BootExt4
+	}
+
 	// "none" requests no default options.
 	features := []string{"none"}
 
-	for _, feature := range options.Ext4.Features {
+	for _, feature := range ext4Options.Features {
 		requiredKernelVersion, hasRequiredKernelVersion := ext4FeaturesKernelSupport[feature]
 		if hasRequiredKernelVersion && requiredKernelVersion.Gt(hostKernelVersion) {
 			// Feature is not supported on build host kernel.
@@ -518,7 +542,7 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 
 	featuresArg := strings.Join(features, ",")
 
-	args := []string{"-b", strconv.Itoa(options.Ext4.BlockSize), "-O", featuresArg}
+	args := []string{"-b", strconv.Itoa(ext4Options.BlockSize), "-O", featuresArg}
 	return args, nil
 }
 
