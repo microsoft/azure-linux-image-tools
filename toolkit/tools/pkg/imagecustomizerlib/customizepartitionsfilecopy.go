@@ -68,7 +68,7 @@ func copyPartitionFilesWithOptions(sourceRoot, targetRoot string, noClobber bool
 	// `-a` ensures unix permissions, extended attributes (including SELinux), and sub-directories (-r) are copied.
 	// `--no-dereference` ensures that symlinks are copied as symlinks.
 	copyArgs := []string{
-		"--verbose", "-a", "--no-dereference", "--sparse", "always",
+		"--verbose", "-a", "--no-dereference", "--sparse", "auto",
 		sourceRoot, targetRoot,
 	}
 
