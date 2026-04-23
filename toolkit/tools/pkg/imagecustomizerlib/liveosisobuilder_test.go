@@ -895,7 +895,7 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 }
 
 func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
 	defer os.RemoveAll(testTempDir)
@@ -903,11 +903,20 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
+	grubPackageName := "grub2-efi-binary"
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		if runtime.GOARCH == "arm64" {
+			grubPackageName = "grub2-efi-aa64"
+		} else {
+			grubPackageName = "grub2-efi-x64"
+		}
+	}
+
 	config := &imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
 				Remove: []string{
-					"grub2-efi-binary",
+					grubPackageName,
 				},
 			},
 		},
