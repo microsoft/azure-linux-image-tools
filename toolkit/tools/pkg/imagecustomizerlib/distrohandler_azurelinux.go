@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
@@ -162,4 +163,32 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
 		currentSELinuxMode, forceGrubMkconfig, d)
+}
+
+func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	if d.version == "4.0" {
+		// Azure Linux 4.0 uses BLS (Boot Loader Specification).
+		return readKernelCmdlinesFromBLSEntries(bootDir)
+	}
+
+	// Azure Linux 2.0/3.0 uses grub.cfg with inline linux commands.
+	return readKernelCmdlinesFromGrubCfg(bootDir, FedoraGrubCfgPath)
+}
+
+func (d *azureLinuxDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
+	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return grubKernelArgsToStringMap(kernelToArgs), nil
+}
+
+func (d *azureLinuxDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	if d.version == "4.0" {
+		return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
+	}
+
+	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
 }

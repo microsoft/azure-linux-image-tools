@@ -926,7 +926,7 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, DefaultGrubCfgPath)
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, FedoraGrubCfgPath)
 	_, err = os.Stat(grubCfgFullPath)
 	if err != nil {
 		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
