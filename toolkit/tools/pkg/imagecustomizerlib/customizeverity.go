@@ -66,6 +66,14 @@ const (
 	DracutModuleScriptFileMode = 0o755
 )
 
+// verityKernelArgsToRemove is the list of kernel command-line argument names that should be removed before injecting
+// new verity args.
+var verityKernelArgsToRemove = []string{
+	"rd.systemd.verity", "roothash", "systemd.verity_root_data", "systemd.verity_root_hash",
+	"systemd.verity_root_options", "usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
+	"systemd.verity_usr_options",
+}
+
 func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
 	imageChroot *safechroot.Chroot, distroHandler DistroHandler, uki *imagecustomizerapi.Uki,
 ) (bool, error) {
@@ -226,10 +234,130 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 	return nil
 }
 
+// updateBLSEntriesForVerity updates BLS entry options with verity kernel args.
+func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir string,
+	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
+) error {
+	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
+	if err != nil {
+		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
+	}
+
+	argsToRemove := slices.Clone(verityKernelArgsToRemove)
+
+	rootExists := slices.ContainsFunc(verityMetadata, func(metadata verityDeviceMetadata) bool {
+		return metadata.name == imagecustomizerapi.VerityRootDeviceName
+	})
+	if rootExists {
+		argsToRemove = append(argsToRemove, "root")
+		newArgs = append(newArgs, "root="+imagecustomizerapi.VerityRootDevicePath)
+	}
+
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	entries, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			continue
+		}
+
+		absPath := filepath.Join(entriesDir, entry.Name())
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			return fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
+		}
+
+		updatedContent, err := updateBLSEntryOptions(string(content), argsToRemove, newArgs)
+		if err != nil {
+			return fmt.Errorf("failed to update BLS entry options (%s):\n%w", absPath, err)
+		}
+
+		err = os.WriteFile(absPath, []byte(updatedContent), 0o644)
+		if err != nil {
+			return fmt.Errorf("failed to write BLS entry file (%s):\n%w", absPath, err)
+		}
+	}
+
+	return nil
+}
+
+// updateBLSEntryOptions updates the options line in a BLS entry, removing old args and adding new ones.
+func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) (string, error) {
+	lines := strings.Split(content, "\n")
+
+	// Find all options line indices so we can remove argsToRemove from all of them
+	// and append newArgs only to the last one (BLS spec allows multiple options lines
+	// whose values are concatenated).
+	var optionsLineIndices []int
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		key, _, found := strings.Cut(trimmed, " ")
+		if !found {
+			key, _, found = strings.Cut(trimmed, "\t")
+		}
+		if !found {
+			return "", fmt.Errorf("malformed BLS entry line: %q", trimmed)
+		}
+		if strings.TrimSpace(key) == "options" {
+			optionsLineIndices = append(optionsLineIndices, i)
+		}
+	}
+
+	for idx, lineIndex := range optionsLineIndices {
+		trimmed := strings.TrimSpace(lines[lineIndex])
+		_, value, _ := strings.Cut(trimmed, " ")
+		if value == "" {
+			_, value, _ = strings.Cut(trimmed, "\t")
+		}
+
+		options := strings.TrimSpace(value)
+		var filteredTokens []string
+		for _, token := range strings.Fields(options) {
+			name, _, _ := strings.Cut(token, "=")
+			shouldRemove := false
+			for _, removeArg := range argsToRemove {
+				if name == removeArg {
+					shouldRemove = true
+					break
+				}
+			}
+			if !shouldRemove {
+				filteredTokens = append(filteredTokens, token)
+			}
+		}
+
+		// Append new args only to the last options line.
+		isLast := idx == len(optionsLineIndices)-1
+		if isLast {
+			filteredTokens = append(filteredTokens, newArgs...)
+		}
+
+		lines[lineIndex] = "options " + strings.Join(filteredTokens, " ")
+	}
+
+	// options is optional per BLS spec.
+	if len(optionsLineIndices) == 0 {
+		newLine := "options " + strings.Join(newArgs, " ")
+		lines = append(lines, newLine)
+	}
+
+	return strings.Join(lines, "\n"), nil
+}
+
 func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,
 	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
 ) error {
-	var err error
+	_, err := os.Stat(grubCfgFullPath)
+	if err != nil {
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
+	}
 
 	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
 	if err != nil {
@@ -246,12 +374,7 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 	// So, instead we just modify the /boot/grub2/grub.cfg file directly.
 	grubMkconfigEnabled := isGrubMkconfigConfig(grub2Config)
 
-	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{
-		"rd.systemd.verity", "roothash", "systemd.verity_root_data",
-		"systemd.verity_root_hash", "systemd.verity_root_options",
-		"usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
-		"systemd.verity_usr_options",
-	}, newArgs)
+	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, verityKernelArgsToRemove, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to set verity kernel command line args:\n%w", err)
 	}
@@ -739,7 +862,7 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		// Update kernel args.
 		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
 		isUki := rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout, distroHandler)
 		if err != nil {
 			return nil, err
 		}
@@ -830,6 +953,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
 	verityMetadata []verityDeviceMetadata, isUki bool, partitionsLayout []fstabEntryPartNum,
+	distroHandler DistroHandler,
 ) error {
 	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
@@ -855,14 +979,9 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, FedoraGrubCfgPath)
-	_, err = os.Stat(grubCfgFullPath)
-	if err != nil {
-		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
-	}
-
-	// Update grub.cfg for verity of non-UKI path only.
-	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+	// Update grub.cfg or BLS entries for verity (non-UKI path only).
+	err = distroHandler.UpdateBootConfigForVerity(verityMetadata, bootPartitionTmpDir, bootRelativePath, diskPartitions,
+		buildDir, bootPartition.Uuid)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUpdateGrubConfig, err)
 	}

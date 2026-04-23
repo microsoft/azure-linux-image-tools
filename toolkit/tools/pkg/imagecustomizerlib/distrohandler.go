@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -80,6 +81,11 @@ type DistroHandler interface {
 	// ReadNonRecoveryKernelCmdlines reads kernel command-line arguments from the boot configuration, excluding
 	// recovery entries, and returns only args whose name is in argNames.
 	ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error)
+
+	// UpdateBootConfigForVerity updates the boot configuration (grub.cfg or BLS entries) with verity
+	// kernel arguments. Each distro handler implements the appropriate strategy.
+	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,
+		bootRelativePath string, partitions []diskutils.PartitionInfo, buildDir string, bootUuid string) error
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

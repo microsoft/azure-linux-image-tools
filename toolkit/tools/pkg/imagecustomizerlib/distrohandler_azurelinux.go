@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -176,4 +177,18 @@ func (d *azureLinuxDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, 
 
 	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
 	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}
+
+func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
+	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
+	buildDir string, bootUuid string,
+) error {
+	bootDir := filepath.Join(bootPartitionTmpDir, bootRelativePath)
+
+	if d.version == "4.0" {
+		return updateBLSEntriesForVerity(verityMetadata, bootDir, partitions, buildDir, bootUuid)
+	}
+
+	grubCfgFullPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
