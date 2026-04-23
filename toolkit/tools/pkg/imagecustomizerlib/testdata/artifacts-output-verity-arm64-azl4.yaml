@@ -1,5 +1,7 @@
+# Differs from artifacts-output-verity-amd64-azl4 in its use of grub2-efi-aa64 (not grub2-efi-x64)
 previewFeatures:
 - uki
+- output-artifacts
 
 storage:
   bootType: efi
@@ -8,26 +10,29 @@ storage:
     partitions:
     - id: esp
       type: esp
-      size: 250M
+      size: 500M
 
     - id: boot
       size: 1G
 
     - id: root
-      size: 1G
+      size: 2G
 
     - id: roothash
-      size: 100M
+      size: 17M
 
     - id: var
-      size: 1G
+      size: 2G
 
   verity:
   - id: verityroot
     name: root
     dataDeviceId: root
     hashDeviceId: roothash
-    corruptionOption: panic
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
+    corruptionOption: restart
+    hashSignaturePath: /boot/root.hash
 
   filesystems:
   - deviceId: esp
@@ -38,7 +43,8 @@ storage:
 
   - deviceId: boot
     type: ext4
-    mountPoint: /boot
+    mountPoint:
+      path: /boot
 
   - deviceId: verityroot
     type: ext4
@@ -48,34 +54,32 @@ storage:
 
   - deviceId: var
     type: ext4
-    mountPoint: /var
+    mountPoint:
+      path: /var
+
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - bootloader
+    - verity-hash
+    path: ./output
 
 os:
   bootloader:
     resetType: hard-reset
-
-  kernelCommandLine:
-    extraCommandLine:
-    - rd.info
 
   uki:
     mode: create
 
   packages:
     remove:
-    - grub2-efi-binary
-
+    - grub2-efi-aa64
     install:
+    - systemd-boot-unsigned
     - openssh-server
-    - veritysetup
-    - systemd-boot
-    - device-mapper
 
-scripts:
-  postCustomization:
-  - content: |
-      set -eux
-
-      # Move SSH host keys off of the read-only / partition to /var
-      mkdir -p /var/ssh
-      ln -sr /var/ssh /etc/ssh
+  services:
+    enable:
+    - sshd

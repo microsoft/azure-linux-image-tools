@@ -561,13 +561,13 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 }
 
 // verityUsrUkiConfigFile returns the verity-usr-uki test config file appropriate for the
-// given base image version (azl3 vs azl4).
+// given base image version (azl3 vs azl4) and host architecture.
 func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl3:
 		return "verity-usr-uki-azl3.yaml"
 	case baseImageVersionAzl4:
-		return "verity-usr-uki-azl4.yaml"
+		return fmt.Sprintf("verity-usr-uki-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		t.Fatalf("unsupported base image version for verity-usr-uki test: %s", baseImageInfo.Version)
 		return ""
@@ -575,13 +575,13 @@ func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 }
 
 // verityRootUkiConfigFile returns the verity-root-uki test config file appropriate for the
-// given base image version (azl3 vs azl4).
+// given base image version (azl3 vs azl4) and host architecture.
 func verityRootUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl3:
 		return "verity-root-uki-azl3.yaml"
 	case baseImageVersionAzl4:
-		return "verity-root-uki-azl4.yaml"
+		return fmt.Sprintf("verity-root-uki-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		t.Fatalf("unsupported base image version for verity-root-uki test: %s", baseImageInfo.Version)
 		return ""
