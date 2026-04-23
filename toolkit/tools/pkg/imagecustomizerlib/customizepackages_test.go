@@ -39,11 +39,18 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Install unzip package.
+	packageName := "unzip"
+	packagePath := "/usr/bin/unzip"
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == "4.0" {
+		packageName = "jq"
+		packagePath = "/usr/bin/jq"
+	}
+
+	// Install package.
 	config := imagecustomizerapi.Config{
 		OS: &imagecustomizerapi.OS{
 			Packages: imagecustomizerapi.Packages{
-				Install: []string{"unzip"},
+				Install: []string{packageName},
 			},
 		},
 	}
@@ -60,9 +67,9 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure unzip was installed.
+	// Ensure package was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		packagePath,
 	)
 
 	// Ensure tree was not installed.
@@ -77,14 +84,14 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		return
 	}
 
-	// Create a copy of the RPMs directory, but without the unzip package.
+	// Create a copy of the RPMs directory, but without the  package.
 	// This ensures that the package repo metadata is refreshed between runs.
 	err = os.RemoveAll(downloadedRpmsTmpDir)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{"unzip-"})
+	err = copyRpms(downloadedRpmsDir, downloadedRpmsTmpDir, []string{packageName + "-"})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -112,7 +119,7 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 
 	// Ensure tree was installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		packageName,
 		"/usr/bin/tree",
 	)
 
@@ -168,7 +175,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-	configFile := filepath.Join(testDir, "packages-add-config.yaml")
+	configFile := filepath.Join(testDir, packagesAddConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
@@ -183,11 +190,30 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	}
 	defer imageConnection.Close()
 
+	packagePath := "/usr/bin/unzip"
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == "4.0" {
+		packagePath = "/usr/bin/jq"
+	}
+
 	// Ensure packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		packagePath,
 		"/usr/bin/tree",
 	)
+}
+
+// packagesAddConfigFile returns the packages-add-config test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func packagesAddConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "packages-add-config.yaml"
+	case baseImageVersionAzl4:
+		return "packages-add-azl4-config.yaml"
+	default:
+		t.Fatalf("unsupported base image version for packages-add-config test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func TestCustomizeImagePackagesUpdateAfterInstall(t *testing.T) {
@@ -207,7 +233,7 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-	configFile := filepath.Join(testDir, "packages-update-config.yaml")
+	configFile := filepath.Join(testDir, packagesUpdateConfigFile(t, baseImageInfo))
 
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
@@ -227,11 +253,30 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 	}
 	defer imageConnection.Close()
 
+	packagePath := "/usr/bin/unzip"
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == "4.0" {
+		packagePath = "/usr/bin/jq"
+	}
+
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		packagePath,
 	)
 
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
+}
+
+// packagesUpdateConfigFile returns the packages-update-config test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func packagesUpdateConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "packages-update-config.yaml"
+	case baseImageVersionAzl4:
+		return "packages-update-azl4-config.yaml"
+	default:
+		t.Fatalf("unsupported base image version for packages-update-config test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func TestCustomizeImagePackagesUpdateExisting(t *testing.T) {
@@ -719,7 +764,7 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-	configFile := filepath.Join(testDir, "packages-add-config.yaml")
+	configFile := filepath.Join(testDir, packagesAddConfigFile(t, baseImageInfo))
 
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
@@ -735,9 +780,14 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	assert.NoError(t, err, "failed to connect to image after customization")
 	defer imageConnection.Close()
 
-	// Verify both inline (unzip) and list-referenced (tree) packages were installed.
+	packagePath := "/usr/bin/unzip"
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == "4.0" {
+		packagePath = "/usr/bin/jq"
+	}
+
+	// Verify both inline and list-referenced (tree) packages were installed.
 	ensureFilesExist(t, imageConnection,
-		"/usr/bin/unzip",
+		packagePath,
 		"/usr/bin/tree",
 	)
 

@@ -126,7 +126,13 @@ else
 fi
 
 # Combine with common testing packages
-FINAL_PACKAGE_LIST="unzip tree $PACKAGE_LIST"
+FINAL_PACKAGE_LIST="tree $PACKAGE_LIST"
+if [[ "${DISTRO}-${DISTRO_VERSION}" == "azurelinux-4.0" ]]; then
+  # Azure Linux 4.0 already ships with unzip pre-installed, so we use jq instead.
+  FINAL_PACKAGE_LIST="jq $PACKAGE_LIST"
+else
+  FINAL_PACKAGE_LIST="unzip $PACKAGE_LIST"
+fi
 
 echo "Final package list: $FINAL_PACKAGE_LIST"
 
