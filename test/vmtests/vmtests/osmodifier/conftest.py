@@ -35,7 +35,7 @@ def distro_id(request: pytest.FixtureRequest) -> str:
     value = request.config.getoption("--distro-id")
     if not value:
         raise Exception("--distro-id is required for test")
-    return value
+    return str(value)
 
 
 @pytest.fixture(scope="session")
@@ -43,4 +43,4 @@ def version_id(request: pytest.FixtureRequest) -> str:
     value = request.config.getoption("--version-id")
     if not value:
         raise Exception("--version-id is required for test")
-    return value
+    return str(value)
