@@ -1,7 +1,7 @@
 os:
   packages:
     install:
-    - wget
+    - unzip
 
     update:
-    - wget
+    - unzip
