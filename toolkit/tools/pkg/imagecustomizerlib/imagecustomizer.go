@@ -513,8 +513,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
+		verityMetadata, err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile, partIdToPartUuid,
+			shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout, im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
