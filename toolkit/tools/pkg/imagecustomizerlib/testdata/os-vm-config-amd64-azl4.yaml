@@ -7,4 +7,4 @@ os:
   packages:
     install:
     # multi-kernel test
-    - kernel-6.18.5.1-1.azl4~bootstrap.20260303
+    - kernel-6.18.5-1.8.azl4~20260420
