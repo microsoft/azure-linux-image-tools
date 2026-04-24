@@ -348,7 +348,15 @@ func testCustomizeImagePackagesRemove(t *testing.T, baseImageInfo testBaseImageI
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	removedInlineBinary := "/usr/sbin/chronyd"
+
 	configFile := filepath.Join(testDir, "packages-remove-config.yaml")
+	removedListBinary := "/usr/bin/curl"
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
+		configFile = filepath.Join(testDir, "packages-remove-config-azl4.yaml")
+		removedListBinary = "/usr/bin/nano"
+	}
 
 	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
@@ -368,10 +376,10 @@ func testCustomizeImagePackagesRemove(t *testing.T, baseImageInfo testBaseImageI
 	}
 	defer imageConnection.Close()
 
-	// Verify both inline (chrony) and list-referenced (curl) packages were removed.
+	// Verify both inline (chrony) and list-referenced (curl/nano) packages were removed.
 	ensureFilesNotExist(t, imageConnection,
-		"/usr/sbin/chronyd",
-		"/usr/bin/curl",
+		removedInlineBinary,
+		removedListBinary,
 	)
 
 	ensurePackageCacheCleanup(t, imageConnection, baseImageInfo)
