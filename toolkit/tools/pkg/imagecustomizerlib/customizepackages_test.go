@@ -471,7 +471,7 @@ func ensureAptServicePreventionRestored(t *testing.T, imageConnection *imageconn
 }
 
 func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePackagesDiskSpace")
 	defer os.RemoveAll(testTmpDir)
@@ -479,13 +479,27 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	buildDir := filepath.Join(testTmpDir, "build")
 
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
-	configFile := filepath.Join(testDir, "install-package-disk-space.yaml")
+	configFile := filepath.Join(testDir, installPackageDiskSpaceConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.ErrorContains(t, err, "failed to customize OS")
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
+}
+
+// installPackageDiskSpaceConfigFile returns the install-package-disk-space test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func installPackageDiskSpaceConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "install-package-disk-space.yaml"
+	case baseImageVersionAzl4:
+		return "install-package-disk-space-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for install-package-disk-space test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func TestCustomizeImagePackagesUrlSource(t *testing.T) {
