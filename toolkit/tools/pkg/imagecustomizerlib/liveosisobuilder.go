@@ -279,7 +279,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	}
 
 	// Update grub.cfg
-	err = updateGrubCfg(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+	err = updateGrubCfgForLiveOS(artifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
 		updatedSavedConfigs, getKernelVersions(artifactsStore.files), artifactsStore.files.isoGrubCfgPath,
 		artifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
@@ -372,7 +372,7 @@ func repackageLiveOSHelper(isoBuildDir string, liveosConfig LiveOSConfig, inputA
 	disableSELinux := false
 
 	// Update grub.cfg
-	err = updateGrubCfg(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
+	err = updateGrubCfgForLiveOS(inputArtifactsStore.files.isoGrubCfgPath, outputFormat, liveosConfig.initramfsType, disableSELinux,
 		updatedSavedConfigs, getKernelVersions(inputArtifactsStore.files), inputArtifactsStore.files.isoGrubCfgPath,
 		inputArtifactsStore.files.pxeGrubCfgPath)
 	if err != nil {
