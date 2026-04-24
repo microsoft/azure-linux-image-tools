@@ -10,7 +10,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,10 +21,10 @@ var (
 )
 
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
-	buildImageFile string, newBuildImageFile string, targetOS targetos.TargetOs,
+	buildImageFile string, newBuildImageFile string, distroHandler DistroHandler,
 ) (map[string]string, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
-		true, false, false, nil)
+		true, false, false, distroHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +36,7 @@ func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, stor
 		return copyFilesIntoNewDisk(existingImageConnection.Chroot(), imageChroot)
 	}
 
-	partIdToPartUuid, err := CreateNewImage(targetOS, newBuildImageFile, diskConfig, storage.FileSystems,
+	partIdToPartUuid, err := CreateNewImage(distroHandler.GetTargetOs(), newBuildImageFile, diskConfig, storage.FileSystems,
 		buildDir, "newimageroot", installOSFunc)
 	if err != nil {
 		return nil, err

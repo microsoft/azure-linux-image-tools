@@ -470,7 +470,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.Storage, rc.RawImageFile, im.distroHandler.GetTargetOs())
+		rc.Storage, rc.RawImageFile, im.distroHandler)
 	if err != nil {
 		return im, err
 	}
