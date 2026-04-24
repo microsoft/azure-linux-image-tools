@@ -198,7 +198,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
 	rawImageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
-		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false /*ignoreOverlays*/,
+		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false, /*ignoreOverlays*/
 		distroHandler)
 	if err != nil {
 		return err

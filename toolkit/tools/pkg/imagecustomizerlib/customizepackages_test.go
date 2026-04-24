@@ -382,11 +382,21 @@ func ensurePackageCacheCleanup(t *testing.T, imageConnection *imageconnection.Im
 	baseImageInfo testBaseImageInfo,
 ) {
 	t.Helper()
-	if baseImageInfo.Distro == baseImageDistroUbuntu {
+	switch baseImageInfo.Distro {
+	case baseImageDistroUbuntu:
 		ensureAptCacheCleanup(t, imageConnection)
 		ensureAptServicePreventionRestored(t, imageConnection)
-	} else {
-		ensureTdnfCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
+	case baseImageDistroAzureLinux:
+		switch baseImageInfo.Version {
+		case baseImageVersionAzl2, baseImageVersionAzl3:
+			ensureRpmCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
+		case baseImageVersionAzl4:
+			ensureRpmCacheCleanup(t, imageConnection, "/var/cache/dnf", baseImageInfo)
+		default:
+			t.Fatalf("unsupported Azure Linux version for cache cleanup: %s", baseImageInfo.Version)
+		}
+	default:
+		t.Fatalf("unsupported distro for cache cleanup: %s", baseImageInfo.Distro)
 	}
 }
 
@@ -558,7 +568,7 @@ func testCustomizeImagePackagesBadRepoHelper(t *testing.T, baseImageInfo testBas
 	assert.ErrorIs(t, err, ErrPackageRepoMetadataRefresh)
 }
 
-func ensureTdnfCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageConnection, dirPath string,
+func ensureRpmCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageConnection, dirPath string,
 	baseImageInfo testBaseImageInfo,
 ) {
 	// Array to capture all the files of the provided root directory
