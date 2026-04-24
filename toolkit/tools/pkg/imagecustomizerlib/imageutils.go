@@ -391,6 +391,9 @@ func extractOSRelease(imageConnection *imageconnection.ImageConnection) (string,
 	osReleasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/os-release")
 	data, err := file.Read(osReleasePath)
 	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+		}
 		osReleasePath = filepath.Join(imageConnection.Chroot().RootDir(), "usr/lib/os-release")
 		data, err = file.Read(osReleasePath)
 		if err != nil {
@@ -418,9 +421,10 @@ func clearBtrfsReadOnlyProperties(imageConnection *imageconnection.ImageConnecti
 		mountPath := filepath.Join(imageConnection.Chroot().RootDir(), mp.GetTarget())
 
 		// Check if the subvolume is read-only.
-		stdout, _, err := shell.Execute("btrfs", "property", "get", "-ts", mountPath, "ro")
+		stdout, stderr, err := shell.Execute("btrfs", "property", "get", "-ts", mountPath, "ro")
 		if err != nil {
 			// Not all btrfs mounts have subvolumes; skip on error.
+			logger.Log.Debugf("Skipping btrfs property check on %s: %v: %s", mp.GetTarget(), err, stderr)
 			continue
 		}
 

@@ -31,7 +31,25 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	// TODO: Block unsupported operations (repartitioning, GRUB, initramfs regen, etc.)
+	// ACL Phase 0: only mount/recognize/passthrough is supported.
+	// Block operations that would fail with confusing errors later.
+
+	if rc.Storage.CustomizePartitions() {
+		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
+	}
+
+	if rc.BootLoader.ResetType == imagecustomizerapi.ResetBootLoaderTypeHard {
+		return fmt.Errorf("bootloader hard-reset is not supported on ACL (ACL uses systemd-boot, not GRUB)")
+	}
+
+	if rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough {
+		return fmt.Errorf("only UKI passthrough mode is currently supported for ACL (got %q)", rc.Uki.Mode)
+	}
+
+	if len(rc.OsKernelCommandLine.ExtraCommandLine) > 0 {
+		return fmt.Errorf("kernel command line modification is not yet supported for ACL")
+	}
+
 	return nil
 }
 

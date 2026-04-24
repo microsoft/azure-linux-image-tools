@@ -203,8 +203,10 @@ func findFstabInRoot(diskPartition diskutils.PartitionInfo, tmpDir string) ([]st
 		matchingPaths = append(matchingPaths, "")
 	}
 
-	// ACL places an fstab at /usr/share/ic/etc/fstab on the USR partition. This
-	// path is outside the /etc overlay.
+	// Check for IC-specific fstab.
+	// ACL places an fstab at /usr/share/ic/etc/fstab on the USR partition so
+	// that IC can discover the partition layout without /etc being available.
+	// The path is unique enough to avoid false matches on non-ACL distros.
 	fstabIcPath := filepath.Join(tmpDir, "share/ic/etc/fstab")
 	exists, err = file.PathExists(fstabIcPath)
 	if err != nil {

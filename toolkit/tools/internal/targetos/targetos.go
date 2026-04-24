@@ -4,7 +4,9 @@
 package targetos
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -26,6 +28,9 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 	// Try /etc/os-release first, then fall back to /usr/lib/os-release.
 	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
 	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+		}
 		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, "usr/lib/os-release"))
 		if err != nil {
 			return "", fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
@@ -42,7 +47,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOsAzureLinux2, nil
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for CBL-Mariner in /etc/os-release", versionId)
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for CBL-Mariner in os-release", versionId)
 		}
 
 	case "azurelinux":
@@ -53,7 +58,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			// ACL uses VERSION_ID like "3.0.YYYYMMDD" (e.g. "3.0.20260421").
 			// Accept any version that starts with "3.0".
 			if !strings.HasPrefix(versionId, "3.0") {
-				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in /etc/os-release", versionId)
+				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in os-release", versionId)
 			}
 			return TargetOsAcl, nil
 
@@ -64,11 +69,11 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 				return TargetOsAzureLinux3, nil
 
 			default:
-				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in /etc/os-release", versionId)
+				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in os-release", versionId)
 			}
 
 		default:
-			return "", fmt.Errorf("unknown VARIANT_ID (%s) for Azure Linux in /etc/os-release", variantId)
+			return "", fmt.Errorf("unknown VARIANT_ID (%s) for Azure Linux in os-release", variantId)
 		}
 
 	case "fedora":
@@ -77,7 +82,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOsFedora42, nil
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in /etc/os-release", versionId)
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in os-release", versionId)
 		}
 
 	case "ubuntu":
@@ -89,10 +94,10 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOsUbuntu2404, nil
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Ubuntu in /etc/os-release", versionId)
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for Ubuntu in os-release", versionId)
 		}
 
 	default:
-		return "", fmt.Errorf("unknown ID (%s) in /etc/os-release", distroId)
+		return "", fmt.Errorf("unknown ID (%s) in os-release", distroId)
 	}
 }

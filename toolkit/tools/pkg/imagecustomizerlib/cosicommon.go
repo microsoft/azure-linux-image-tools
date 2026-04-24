@@ -429,7 +429,7 @@ func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler Distro
 
 	var entries []SystemDBootEntry
 	for kernelName, cmdline := range cmdlines {
-		efiPath := filepath.Join("/"+distroHandler.GetEspDir(), "EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
+		efiPath := filepath.Join("/", distroHandler.GetEspDir(), "EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
 		kernelVersion, err := getKernelVersion(kernelName)
 		if err != nil {
 			return nil, fmt.Errorf("invalid kernel name in UKI file (%s):\n%w", kernelName, err)
