@@ -23,6 +23,10 @@ func TestCustomizeImageMultiKernel(t *testing.T) {
 }
 
 func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("AZL4 repos currently only have one kernel version available")
+	}
+
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
