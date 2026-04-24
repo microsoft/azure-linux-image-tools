@@ -747,9 +747,15 @@ func getSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
 
-	// Check if SELinux is disabled.
-	if securityValue != "selinux" || selinuxValue != "1" {
+	// Check if SELinux is explicitly disabled (selinux=0) or not explicitly enabled.
+	if selinuxValue == "0" {
 		return imagecustomizerapi.SELinuxModeDisabled, nil
+	}
+
+	// If there are no SELinux kernel args at all, the mode is determined by /etc/selinux/config.
+	// Signal this by returning the default ("") value.
+	if securityValue != "selinux" || selinuxValue != "1" {
+		return imagecustomizerapi.SELinuxModeDefault, nil
 	}
 
 	// Check if SELinux is in forced enforcing mode.
@@ -757,7 +763,7 @@ func getSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.
 		return imagecustomizerapi.SELinuxModeForceEnforcing, nil
 	}
 
-	// The SELinux mode has been left up to the /etc/selinux/config file.
+	// The SELinux mode has again been left up to the /etc/selinux/config file.
 	// Signal this by returning the default ("") value.
 	return imagecustomizerapi.SELinuxModeDefault, nil
 }
