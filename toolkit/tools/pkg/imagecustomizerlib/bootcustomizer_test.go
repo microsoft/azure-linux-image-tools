@@ -51,6 +51,19 @@ func TestBootCustomizerAddKernelCommandLine30(t *testing.T) {
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 }
 
+func TestBootCustomizerAddKernelCommandLine40(t *testing.T) {
+	b := createBootCustomizerFor40(t)
+	err := b.AddKernelCommandLine([]string{"console=tty0", "console=ttyS0"})
+	assert.NoError(t, err)
+
+	expectedDefaultGrubFileDiff := `1c1
+< GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0 rd.shell=0"
+---
+> GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0 rd.shell=0 console=tty0 console=ttyS0 "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+}
+
 func TestBootCustomizerSELinuxMode20(t *testing.T) {
 	b := createBootCustomizerFor20(t)
 	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
@@ -237,6 +250,24 @@ func TestBootCustomizerVerity30(t *testing.T) {
 	err = b.PrepareForVerity()
 	assert.NoError(t, err)
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
+}
+
+func TestBootCustomizerVerity40(t *testing.T) {
+	b := createBootCustomizerFor40(t)
+
+	err := b.PrepareForVerity()
+	assert.NoError(t, err)
+
+	expectedDefaultGrubFileDiff := `7a8,9
+> GRUB_DISABLE_UUID="true"
+> GRUB_DEVICE="/dev/mapper/root"
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+
+	// Do it again to make sure there aren't any changes.
+	err = b.PrepareForVerity()
+	assert.NoError(t, err)
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
 }
 
 func checkDiffs20(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, expectedDefaultGrubFileDiff string) {
