@@ -209,7 +209,7 @@ func packagesAddConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string
 	case baseImageVersionAzl2, baseImageVersionAzl3:
 		return "packages-add-config.yaml"
 	case baseImageVersionAzl4:
-		return "packages-add-azl4-config.yaml"
+		return "packages-add-config-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for packages-add-config test: %s", baseImageInfo.Version)
 		return ""
