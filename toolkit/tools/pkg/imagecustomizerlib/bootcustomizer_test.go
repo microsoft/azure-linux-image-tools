@@ -53,7 +53,7 @@ func TestBootCustomizerSELinuxMode20(t *testing.T) {
 	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
 
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
 	assert.NoError(t, err)
@@ -117,9 +117,9 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
 
 	expectedDefaultGrubFileDiff := `5c5
-< GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity "
+< GRUB_CMDLINE_LINUX="   selinux=0  rd.auto=1 net.ifnames=0 lockdown=integrity "
 ---
-> GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity security=selinux selinux=1  "
+> GRUB_CMDLINE_LINUX="   security=selinux selinux=1  rd.auto=1 net.ifnames=0 lockdown=integrity "
 `
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 
@@ -132,9 +132,9 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	assert.Equal(t, imagecustomizerapi.SELinuxModeForceEnforcing, selinuxMode)
 
 	expectedDefaultGrubFileDiff = `5c5
-< GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity "
+< GRUB_CMDLINE_LINUX="   selinux=0  rd.auto=1 net.ifnames=0 lockdown=integrity "
 ---
-> GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity  security=selinux selinux=1 enforcing=1  "
+> GRUB_CMDLINE_LINUX="    security=selinux selinux=1 enforcing=1  rd.auto=1 net.ifnames=0 lockdown=integrity "
 `
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 
@@ -147,9 +147,9 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
 
 	expectedDefaultGrubFileDiff = `5c5
-< GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity "
+< GRUB_CMDLINE_LINUX="   selinux=0  rd.auto=1 net.ifnames=0 lockdown=integrity "
 ---
-> GRUB_CMDLINE_LINUX="      rd.auto=1 net.ifnames=0 lockdown=integrity    selinux=0  "
+> GRUB_CMDLINE_LINUX="      selinux=0  rd.auto=1 net.ifnames=0 lockdown=integrity "
 `
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 }
