@@ -912,14 +912,26 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 		}
 	}
 
-	config := &imagecustomizerapi.Config{
-		OS: &imagecustomizerapi.OS{
-			Packages: imagecustomizerapi.Packages{
-				Remove: []string{
-					grubPackageName,
-				},
+	config := &imagecustomizerapi.Config{}
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+		// refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+		// is not an option because shim is needed for the secure boot chain
+		// (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+		// are extracted as build artifacts. Use rpm --nodeps to bypass this.
+		// Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
+		config.Scripts = imagecustomizerapi.Scripts{
+			PostCustomization: []imagecustomizerapi.Script{
+				{Content: "rpm -e --nodeps " + grubPackageName},
 			},
-		},
+		}
+	} else {
+		config.OS = &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Remove: []string{grubPackageName},
+			},
+		}
 	}
 
 	// Customize image.
