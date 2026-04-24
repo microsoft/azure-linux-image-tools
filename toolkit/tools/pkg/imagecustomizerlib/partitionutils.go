@@ -293,8 +293,8 @@ func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 }
 
 func readRootfsMetadata(rootfsPartition *diskutils.PartitionInfo,
-	buildDir string, rootfsPath string,
-) ([]diskutils.FstabEntry, targetos.TargetOs, error) {
+	buildDir string, rootfsPath string, distroHandler DistroHandler,
+) ([]diskutils.FstabEntry, DistroHandler, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
@@ -303,7 +303,7 @@ func readRootfsMetadata(rootfsPartition *diskutils.PartitionInfo,
 	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
 		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+		return nil, nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
@@ -314,23 +314,30 @@ func readRootfsMetadata(rootfsPartition *diskutils.PartitionInfo,
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	// Detect the target OS while the rootfs is mounted.
-	detectedOs, err := targetos.GetInstalledTargetOs(rootDir)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to detect target OS:\n%w", err)
+	// When the caller already knows the distro (e.g. the "create" flow where packages haven't been
+	// installed yet, or after repartitioning where /etc/os-release may be a broken symlink),
+	// it passes a non-nil distroHandler to skip detection.
+	if distroHandler == nil {
+		var detectedOs targetos.TargetOs
+		detectedOs, err = targetos.GetInstalledTargetOs(rootDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to detect target OS:\n%w", err)
+		}
+		distroHandler = NewDistroHandlerFromTargetOs(detectedOs)
 	}
 
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
+		return nil, nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
 			rootfsPartition.Path, err)
 	}
 
-	return fstabEntries, detectedOs, nil
+	return fstabEntries, distroHandler, nil
 }
 
 func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
