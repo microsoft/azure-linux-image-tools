@@ -615,13 +615,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
 			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, requestedSELinuxMode, rc.Iso, rc.Pxe,
-				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
+				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
 			err := repackageLiveOS(rc.BuildDirAbs, rc.Iso, rc.Pxe, inputIsoArtifacts, rc.OutputImageFormat,
-				rc.OutputImageFile)
+				rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
@@ -703,7 +703,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
+		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -898,7 +898,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (DistroHandler, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
-		false /* read-only-verity */, false /* ignore-overlays */)
+		false /* read-only-verity */, false /* ignore-overlays */, nil /* distroHandler */)
 	if err != nil {
 		return nil, err
 	}
