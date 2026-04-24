@@ -1,0 +1,8 @@
+# Differs from packages-remove-config in its removal of nano (not curl, which dnf depends on)
+os:
+  packages:
+    remove:
+    - chrony
+
+    removeLists:
+    - lists/nano.yaml
