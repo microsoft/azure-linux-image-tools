@@ -1,6 +1,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -85,7 +86,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	currentConfigFile := filepath.Join(testDir, "hierarchical-config.yaml")
+	currentConfigFile := filepath.Join(testDir, hierarchicalConfigFile(t, baseImageInfo))
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
 		outImageFilePath, "raw", true, "")
@@ -174,22 +175,33 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	nginxInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), "nginx")
 	assert.True(t, nginxInstalled)
 
-	nginxVersionOutput, err := getPkgVersionFromChroot(imageConnection, "nginx")
-	assert.NoError(t, err, "failed to retrieve nginx version from chroot")
-
-	nginxExpectedVersion := "nginx-1.25.4-5"
-	assert.Containsf(t, nginxVersionOutput, nginxExpectedVersion,
-		"should install nginx version %s, but got: %s", nginxExpectedVersion, nginxVersionOutput)
+	// AZL4 uses dnf which does not support snapshot time, so versions are not pinned.
+	if baseImageInfo.Version != baseImageVersionAzl4 {
+		nginxVersionOutput, err := getPkgVersionFromChroot(imageConnection, "nginx")
+		assert.NoError(t, err, "failed to retrieve nginx version from chroot")
+		nginxExpectedVersion := "nginx-1.25.4-5"
+		assert.Containsf(t, nginxVersionOutput, nginxExpectedVersion,
+			"should install nginx version %s, but got: %s", nginxExpectedVersion, nginxVersionOutput)
+	}
 
 	sshdInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), "openssh-server")
 	assert.True(t, sshdInstalled)
 
-	systemdBootVersionOutput, err := getPkgVersionFromChroot(imageConnection, "systemd-boot")
-	assert.NoError(t, err, "failed to retrieve systemd-boot version from chroot")
+	systemdBootPkgName := "systemd-boot"
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		systemdBootPkgName = "systemd-boot-unsigned"
+	}
+	systemdBootInstalled := isPackageInstalled(imageConnection.Chroot(), systemdBootPkgName)
+	assert.True(t, systemdBootInstalled, "expected %s to be installed", systemdBootPkgName)
 
-	systemdBootExpectedVersion := "systemd-boot-255-24"
-	assert.Containsf(t, systemdBootVersionOutput, systemdBootExpectedVersion,
-		"should install systemd-boot version %s, but got: %s", systemdBootExpectedVersion, systemdBootVersionOutput)
+	// AZL4 uses dnf which does not support snapshot time, so versions are not pinned.
+	if baseImageInfo.Version != baseImageVersionAzl4 {
+		systemdBootVersionOutput, err := getPkgVersionFromChroot(imageConnection, systemdBootPkgName)
+		assert.NoError(t, err, "failed to retrieve %s version from chroot", systemdBootPkgName)
+		systemdBootExpectedVersion := "systemd-boot-255-24"
+		assert.Containsf(t, systemdBootVersionOutput, systemdBootExpectedVersion,
+			"should install systemd-boot version %s, but got: %s", systemdBootExpectedVersion, systemdBootVersionOutput)
+	}
 
 	// Verify services
 	sshdEnabled, err := systemd.IsServiceEnabled("sshd", imageConnection.Chroot())
@@ -265,6 +277,28 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	// Verify scripts ran.
 	animalsFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/animals.txt")
 	verifyFileContentsEqual(t, animalsFilePath, "cockatoo\npelican\nquoll\nbandicoot\n")
+}
+
+// hierarchicalConfigFile returns the hierarchical-config test config file appropriate for the
+// given base image distro and version.
+func hierarchicalConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Distro {
+	case baseImageDistroAzureLinux:
+		switch baseImageInfo.Version {
+		case baseImageVersionAzl2, baseImageVersionAzl3:
+			return "hierarchical-config.yaml"
+		case baseImageVersionAzl4:
+			return fmt.Sprintf("hierarchical-config-%s-azl4.yaml", runtime.GOARCH)
+		default:
+			t.Fatalf("unsupported Azure Linux version for hierarchical-config test: %s", baseImageInfo.Version)
+			return ""
+		}
+	case baseImageDistroUbuntu:
+		return "hierarchical-config.yaml"
+	default:
+		t.Fatalf("unsupported distro for hierarchical-config test: %s", baseImageInfo.Distro)
+		return ""
+	}
 }
 
 func TestBaseConfigsStorageInBaseConfig(t *testing.T) {
