@@ -266,15 +266,23 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 }
 
 // packagesUpdateConfigFile returns the packages-update-config test config file appropriate for the
-// given base image version (azl3 vs azl4) and host architecture.
+// given base image distro and version.
 func packagesUpdateConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
-	switch baseImageInfo.Version {
-	case baseImageVersionAzl2, baseImageVersionAzl3:
+	switch baseImageInfo.Distro {
+	case baseImageDistroAzureLinux:
+		switch baseImageInfo.Version {
+		case baseImageVersionAzl2, baseImageVersionAzl3:
+			return "packages-update-config.yaml"
+		case baseImageVersionAzl4:
+			return "packages-update-config-azl4.yaml"
+		default:
+			t.Fatalf("unsupported Azure Linux version for packages-update-config test: %s", baseImageInfo.Version)
+			return ""
+		}
+	case baseImageDistroUbuntu:
 		return "packages-update-config.yaml"
-	case baseImageVersionAzl4:
-		return "packages-update-azl4-config.yaml"
 	default:
-		t.Fatalf("unsupported base image version for packages-update-config test: %s", baseImageInfo.Version)
+		t.Fatalf("unsupported distro for packages-update-config test: %s", baseImageInfo.Distro)
 		return ""
 	}
 }
