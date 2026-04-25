@@ -29,9 +29,9 @@ APIs marked as **Preview** require the distribution's
 | &emsp;[--output-image-format](./cli/customize.md#--output-image-formatformat)                       | Yes             | Yes             | Preview             |
 | &emsp;&emsp;`baremetal-image`                                                                       | Yes             | Yes             | Preview             |
 | &emsp;&emsp;`cosi`                                                                                  | Yes             | Yes             | Preview             |
-| &emsp;&emsp;`iso`                                                                                   | Yes             | Yes             | No                  |
-| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | Yes             | No                  |
-| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | Yes             | No                  |
+| &emsp;&emsp;`iso`                                                                                   | Yes             | No              | No                  |
+| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | No              | No                  |
+| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | No              | No                  |
 | &emsp;&emsp;`qcow2`                                                                                 | Yes             | Yes             | Preview             |
 | &emsp;&emsp;`raw`                                                                                   | Yes             | Yes             | Preview             |
 | &emsp;&emsp;`vhd-fixed`                                                                             | Yes             | Yes             | Preview             |
@@ -54,8 +54,8 @@ APIs marked as **Preview** require the distribution's
 | [input.image.oci](./configuration/inputImage.md#oci-ociimage)                            | Yes                   | Yes                   | No                  |
 | [input.image.azureLinux](./configuration/inputImage.md#azurelinux-azurelinuximage)       | Yes                   | Yes                   | N/A                 |
 | [storage](./configuration/config.md#storage-storage)                                     | Yes                   | Yes                   | No                  |
-| [iso](./configuration/config.md#iso-iso)                                                 | Yes                   | Yes                   | No                  |
-| [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes                   | Yes                   | No                  |
+| [iso](./configuration/config.md#iso-iso)                                                 | Yes                   | No                    | No                  |
+| [pxe](./configuration/config.md#pxe-pxe)                                                 | Yes                   | No                    | No                  |
 | [os.hostname](./configuration/os.md#hostname-string)                                     | Yes                   | Yes                   | Preview             |
 | [os.kernelCommandLine](./configuration/os.md#kernelcommandline-kernelcommandline)        | Yes                   | Yes                   | No                  |
 | [os.packages](./configuration/os.md#packages-packages)                                   | Yes                   | Yes                   | Preview             |
