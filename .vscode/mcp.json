@@ -1,0 +1,11 @@
+{
+    "servers": {
+        "azure-linux-image-tools": {
+            "type": "stdio",
+            "command": "${workspaceFolder}/test/vmtests/build/venv/bin/python3",
+            "args": [
+                "${workspaceFolder}/.vscode/mcp/build-dev/server.py"
+            ]
+        }
+    }
+}
