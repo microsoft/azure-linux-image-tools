@@ -92,14 +92,16 @@ func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.Ch
 			return BootloaderTypeGrub, nil
 		}
 	}
-	systemdBootPackage := "systemd-boot"
+	systemdBootPackages := []string{"systemd-boot"}
 	if d.version == "4.0" {
-		systemdBootPackage = "systemd-boot-unsigned"
+		systemdBootPackages = []string{"systemd-boot", "systemd-boot-unsigned"}
 	}
-	if d.IsPackageInstalled(imageChroot, systemdBootPackage) {
-		return BootloaderTypeSystemdBoot, nil
+	for _, pkg := range systemdBootPackages {
+		if d.IsPackageInstalled(imageChroot, pkg) {
+			return BootloaderTypeSystemdBoot, nil
+		}
 	}
-	return "", fmt.Errorf("unknown bootloader: none of %v or %s found", grubPackages, systemdBootPackage)
+	return "", fmt.Errorf("unknown bootloader: none of %v or %v found", grubPackages, systemdBootPackages)
 }
 
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
