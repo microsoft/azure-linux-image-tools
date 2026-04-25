@@ -53,6 +53,13 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *azureLinuxDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	if d.version == "4.0" {
+		switch rc.OutputImageFormat {
+		case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
+			return fmt.Errorf("ISO and PXE output formats are not supported for Azure Linux 4.0")
+		}
+	}
+
 	return nil
 }
 
