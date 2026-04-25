@@ -347,18 +347,20 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 }
 
 func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
-	systemdBootPackage := "systemd-boot"
+	systemdBootPackages := []string{"systemd-boot"}
 	if distroHandler.GetTargetOs() == targetos.TargetOsAzureLinux4 {
-		systemdBootPackage = "systemd-boot-unsigned"
+		systemdBootPackages = []string{"systemd-boot", "systemd-boot-unsigned"}
 	}
 
-	logger.Log.Debugf("Checking if package (%s) is installed", systemdBootPackage)
-	if !distroHandler.IsPackageInstalled(imageChroot, systemdBootPackage) {
-		return fmt.Errorf("package (%s) is not installed:\n"+
-			"this package must be installed to use Uki", systemdBootPackage)
+	for _, pkg := range systemdBootPackages {
+		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
+		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+			return nil
+		}
 	}
 
-	return nil
+	return fmt.Errorf("package (%s) is not installed:\n"+
+		"this package must be installed to use Uki", systemdBootPackages[0])
 }
 
 func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error {
