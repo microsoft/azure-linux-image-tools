@@ -31,8 +31,24 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	// ACL Phase 0: only mount/recognize/passthrough is supported.
-	// Block operations that would fail with confusing errors later.
+	// ACL currently supports mutable partition modifications only.
+	//
+	// Supported operations (write to mutable partitions — State /etc, ESP, OEM):
+	//   - os.additionalFiles
+	//   - os.services (enable/disable)
+	//   - os.hostname, os.users, os.groups
+	//   - os.modules (writes to /etc/modprobe.d/, /etc/modules-load.d/)
+	//   - os.uki (passthrough only)
+	//   - scripts.postCustomization, scripts.finalizeCustomization
+	//
+	// Not yet supported (require /usr modification or verity regeneration):
+	//   - os.packages
+	//   - os.additionalDirs
+	//   - os.selinux mode changes (requires UKI kernel cmdline change)
+	//   - os.kernelCommandLine
+	//   - os.overlays
+	//   - storage repartitioning
+	//   - bootloader hard-reset (not applicable — ACL uses systemd-boot)
 
 	if rc.Storage.CustomizePartitions() {
 		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
@@ -48,6 +64,33 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 
 	if len(rc.OsKernelCommandLine.ExtraCommandLine) > 0 {
 		return fmt.Errorf("kernel command line modification is not yet supported for ACL")
+	}
+
+	if rc.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault {
+		return fmt.Errorf("SELinux mode configuration is not yet supported for ACL (got %q)", rc.SELinux.Mode)
+	}
+
+	for _, configWithBase := range rc.ConfigChain {
+		os := configWithBase.Config.OS
+		if os == nil {
+			continue
+		}
+
+		pkgs := os.Packages
+		if len(pkgs.Install) > 0 || len(pkgs.InstallLists) > 0 ||
+			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
+			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
+			pkgs.UpdateExistingPackages {
+			return fmt.Errorf("package management is not yet supported for ACL")
+		}
+
+		if len(os.AdditionalDirs) > 0 {
+			return fmt.Errorf("additionalDirs is not yet supported for ACL")
+		}
+
+		if os.Overlays != nil {
+			return fmt.Errorf("overlays are not yet supported for ACL")
+		}
 	}
 
 	return nil
