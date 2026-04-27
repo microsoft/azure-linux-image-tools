@@ -5,7 +5,9 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -775,6 +777,10 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 	// Read the SELinux config file.
 	selinuxConfig, err := file.Read(selinuxConfigFilePath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// SELinux config file doesn't exist (e.g. when SELinux isn't installed). Treat as disabled.
+			return imagecustomizerapi.SELinuxModeDisabled, nil
+		}
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to read SELinux config file (%s):\n%w",
 			installutils.SELinuxConfigFile, err)
 	}
