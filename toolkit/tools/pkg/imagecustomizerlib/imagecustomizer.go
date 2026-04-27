@@ -445,6 +445,14 @@ func qemuImgEscapeOptionValue(value string) string {
 func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata, error) {
 	im := imageMetadata{}
 
+	distroHandler, err := validateTargetOs(ctx, rc)
+	if err != nil {
+		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
+	}
+
+	// Save target OS information
+	im.distroHandler = distroHandler
+
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -459,14 +467,6 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
-
-	distroHandler, err := validateTargetOs(ctx, rc)
-	if err != nil {
-		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
-	}
-
-	// Save target OS information
-	im.distroHandler = distroHandler
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
