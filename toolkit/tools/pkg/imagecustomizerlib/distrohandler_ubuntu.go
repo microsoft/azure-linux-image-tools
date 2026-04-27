@@ -118,6 +118,14 @@ func (d *ubuntuDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
+func (d *ubuntuDistroHandler) GetSELinuxConfigDir() string {
+	return selinuxConfigDirDefault
+}
+
+func (d *ubuntuDistroHandler) PreserveBootDirLayout() bool {
+	return false
+}
+
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }

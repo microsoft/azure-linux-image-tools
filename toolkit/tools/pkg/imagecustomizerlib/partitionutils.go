@@ -98,6 +98,12 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 		return nil, fmt.Errorf("failed to read EFI system partition's grub.cfg file:\n%w", err)
 	}
 
+	// An empty UUID signals that the ESP itself is the boot partition (e.g. ACL,
+	// which has no separate /boot and no grub.cfg on the ESP).
+	if bootPartitionUuid == "" {
+		return efiSystemPartition, nil
+	}
+
 	// Close the EFI System Partition mount.
 	err = efiSystemPartitionMount.CleanClose()
 	if err != nil {
