@@ -59,6 +59,14 @@ type DistroHandler interface {
 	// returns the UUID of the partition that contains the grub.cfg.
 	FindBootPartitionUuidFromEsp(espMountDir string) (string, error)
 
+	// GetSELinuxConfigDir returns the path to the SELinux configuration
+	// directory relative to the image root.
+	GetSELinuxConfigDir() string
+
+	// PreserveBootDirLayout reports whether /boot is the ESP itself.
+	// When true, cleanBootDirectory only removes kernel/initramfs files and preserves all directories.
+	PreserveBootDirLayout() bool
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 

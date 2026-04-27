@@ -98,6 +98,14 @@ func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
+func (d *fedoraDistroHandler) GetSELinuxConfigDir() string {
+	return selinuxConfigDirDefault
+}
+
+func (d *fedoraDistroHandler) PreserveBootDirLayout() bool {
+	return false
+}
+
 func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }
