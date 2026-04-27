@@ -54,6 +54,20 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			if err != nil {
 				return err
 			}
+
+			// For non-GRUB distros, save UKI cmdline early so handleBootLoader/
+			// handleSELinux can modify it via uki-kernel-info.json.
+			bootloaderType, err := distroHandler.DetectBootloaderType(imageChroot)
+			if err != nil {
+				return err
+			}
+
+			if bootloaderType != BootloaderTypeGrub {
+				err = extractAndSaveUkiCmdlineForCreateMode(rc.BuildDirAbs, imageChroot, distroHandler)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 
