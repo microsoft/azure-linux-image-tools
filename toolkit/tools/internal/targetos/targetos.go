@@ -55,9 +55,9 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 
 		switch variantId {
 		case "azurecontainerlinux":
-			// ACL uses VERSION_ID like "3.0.YYYYMMDD" (e.g. "3.0.20260421").
-			// Accept any version that starts with "3.0.".
-			if !strings.HasPrefix(versionId, "3.0.") {
+			// ACL currently sets VERSION_ID to the full version string (e.g.
+			// "3.0.20260421") Accept any version that starts with "3."
+			if !strings.HasPrefix(versionId, "3.") {
 				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in os-release", versionId)
 			}
 			return TargetOsAzureContainerLinux3, nil
