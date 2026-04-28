@@ -16,12 +16,12 @@ import (
 type TargetOs string
 
 const (
-	TargetOsAzureLinux2 TargetOs = "azl2"
-	TargetOsAzureLinux3 TargetOs = "azl3"
+	TargetOsAzureLinux2          TargetOs = "azl2"
+	TargetOsAzureLinux3          TargetOs = "azl3"
 	TargetOsAzureContainerLinux3 TargetOs = "acl3"
-	TargetOsFedora42    TargetOs = "fedora42"
-	TargetOsUbuntu2204  TargetOs = "ubuntu2204"
-	TargetOsUbuntu2404  TargetOs = "ubuntu2404"
+	TargetOsFedora42             TargetOs = "fedora42"
+	TargetOsUbuntu2204           TargetOs = "ubuntu2204"
+	TargetOsUbuntu2404           TargetOs = "ubuntu2404"
 )
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
