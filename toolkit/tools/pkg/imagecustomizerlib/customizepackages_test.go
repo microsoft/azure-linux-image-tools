@@ -206,7 +206,7 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 // given base image version (azl3 vs azl4) and host architecture.
 func packagesAddConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
 	switch baseImageInfo.Version {
-	case baseImageVersionAzl2, baseImageVersionAzl3:
+	case baseImageVersionAzl2, baseImageVersionAzl3, baseImageVersionUbuntu2204, baseImageVersionUbuntu2404:
 		return "packages-add-config.yaml"
 	case baseImageVersionAzl4:
 		return "packages-add-config-azl4.yaml"
