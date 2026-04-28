@@ -68,7 +68,7 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	}
 
 	// Determine boot configuration type
-	bootConfigType, err := determineBootConfigType(grubCfgContent, imageChroot)
+	bootConfigType, err := determineBootConfigType(grubCfgContent, imageChroot, distroHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -93,16 +93,16 @@ func NewBootCustomizer(imageChroot safechroot.ChrootInterface, uki *imagecustomi
 	return b, nil
 }
 
-func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface) (bootConfigType, error) {
-	// If grub.cfg doesn't exist, check for UKI
+func determineBootConfigType(grubCfgContent string, imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (bootConfigType, error) {
+	// If grub.cfg doesn't exist, check for UKI using the distro-specific ESP path.
 	if grubCfgContent == "" {
-		hasUkis, err := baseImageHasUkis(imageChroot.(*safechroot.Chroot))
-		if err == nil && hasUkis {
+		espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
+		ukiFiles, err := getUkiFiles(espDir)
+		if err == nil && len(ukiFiles) > 0 {
 			// UKI images without grub.cfg are in passthrough mode (grub.cfg not regenerated)
 			// For UKI create mode, grub.cfg is regenerated during kernel extraction, so it would exist
 			return bootConfigTypeUki, nil
 		}
-		// No grub.cfg and no UKIs - this is an error
 		return "", ErrBootNoConfigFound
 	}
 
@@ -183,7 +183,7 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 		}
 
 	case bootConfigTypeUki:
-		espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+		espDir := filepath.Join(imageChroot.RootDir(), b.distroHandler.GetEspDir())
 
 		kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
 		if err != nil {

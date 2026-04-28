@@ -43,14 +43,14 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	// mode, we skip extraction to preserve existing UKIs.
 	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeCreate {
 		// Check if base image has UKIs to determine if extraction is needed
-		hasUkis, err := baseImageHasUkis(imageChroot)
+		hasUkis, err := baseImageHasUkis(imageChroot, distroHandler)
 		if err != nil {
 			return err
 		}
 
 		if hasUkis {
 			// Base image has UKIs and mode is create - extract for re-customization
-			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs)
+			err = extractKernelAndInitramfsFromUkis(ctx, imageChroot, rc.BuildDirAbs, distroHandler)
 			if err != nil {
 				return err
 			}
@@ -65,7 +65,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
 		}
 
-		err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot)
+		err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to extract UKI cmdline for modify mode:\n%w", err)
 		}

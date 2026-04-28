@@ -703,6 +703,14 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 	defer imageConnection.Close()
 
+	// Clear btrfs read-only subvolume properties so that IC can write to
+	// partitions that were sealed at build time (e.g. ACL's USR-A).
+	// The property will be restored later when verity is recalculated.
+	err = clearBtrfsReadOnlyProperties(imageConnection)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
 		return nil, nil, nil, "", err
@@ -712,7 +720,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	logger.Log.Infof("Base OS distro: %s", distro)
 	logger.Log.Infof("Base OS version: %s", version)
 
-	err = validateUkiMode(imageConnection, rc.Uki)
+	err = validateUkiMode(imageConnection, rc.Uki, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}

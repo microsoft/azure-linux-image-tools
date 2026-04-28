@@ -87,6 +87,10 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
 }
 
+func (d *fedoraDistroHandler) GetEspDir() string {
+	return "boot/efi"
+}
+
 func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }
@@ -125,5 +129,5 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, true /* forceGrubMkconfig */)
+		currentSELinuxMode, true /* forceGrubMkconfig */, d)
 }

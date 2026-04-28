@@ -395,7 +395,7 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 		}
 
 		// If no config entries, try extracting standalone UKI .efi entries
-		ukiEntries, err := extractUkiEntriesIfPresent(chrootDir, buildDirAbs)
+		ukiEntries, err := extractUkiEntriesIfPresent(chrootDir, buildDirAbs, distroHandler)
 		if err != nil {
 			return nil, fmt.Errorf("error extracting UKI standalone entries:\n%w", err)
 		}
@@ -419,8 +419,8 @@ func extractCosiBootMetadata(buildDirAbs string, imageConnection *imageconnectio
 	}
 }
 
-func extractUkiEntriesIfPresent(chrootDir, buildDir string) ([]SystemDBootEntry, error) {
-	espDir := filepath.Join(chrootDir, EspDir)
+func extractUkiEntriesIfPresent(chrootDir, buildDir string, distroHandler DistroHandler) ([]SystemDBootEntry, error) {
+	espDir := filepath.Join(chrootDir, distroHandler.GetEspDir())
 
 	cmdlines, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
 	if err != nil {
@@ -429,7 +429,7 @@ func extractUkiEntriesIfPresent(chrootDir, buildDir string) ([]SystemDBootEntry,
 
 	var entries []SystemDBootEntry
 	for kernelName, cmdline := range cmdlines {
-		efiPath := filepath.Join("/boot/efi/EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
+		efiPath := filepath.Join("/", distroHandler.GetEspDir(), "EFI/Linux", fmt.Sprintf("%s.efi", kernelName))
 		kernelVersion, err := getKernelVersion(kernelName)
 		if err != nil {
 			return nil, fmt.Errorf("invalid kernel name in UKI file (%s):\n%w", kernelName, err)
