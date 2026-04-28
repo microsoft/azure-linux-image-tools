@@ -330,11 +330,7 @@ def test_osmodifier_boot_config(
     assert "overlay" in grub_cfg
 
     sestatus_output = ssh_client.run("sudo sestatus").stdout
-    sestatus = dict(
-        line.split(":", 1)
-        for line in sestatus_output.splitlines()
-        if ":" in line
-    )
+    sestatus = dict(line.split(":", 1) for line in sestatus_output.splitlines() if ":" in line)
     sestatus = {k.strip(): v.strip() for k, v in sestatus.items()}
 
     assert sestatus.get("SELinux status") == "enabled", f"SELinux not enabled: {sestatus_output}"
