@@ -34,6 +34,13 @@ func (pm *dnfPackageManager) getCacheOnlyOptions() []string {
 	return []string{"--setopt=cacheonly=metadata"}
 }
 
+// getRefreshMetadataOptions returns DNF-specific options for the metadata refresh command.
+func (pm *dnfPackageManager) getRefreshMetadataOptions() []string {
+	// By default DNF skips repos whose metadata cannot be fetched. Override that so a bad repo
+	// causes refresh to fail, matching TDNF behavior.
+	return []string{"--setopt=skip_if_unavailable=False"}
+}
+
 // supportsSnapshotTime returns whether DNF supports snapshot time functionality
 func (pm *dnfPackageManager) supportsSnapshotTime() bool {
 	return false // DNF does not support snapshot time for Fedora

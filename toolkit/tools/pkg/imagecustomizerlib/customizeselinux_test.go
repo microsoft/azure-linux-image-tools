@@ -36,7 +36,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 
 	// Customize image: SELinux enforcing.
 	// This tests enabling SELinux on a non-SELinux image.
-	configFile := filepath.Join(testDir, "selinux-force-enforcing.yaml")
+	configFile := filepath.Join(testDir, selinuxForceEnforcingConfigFile(t, baseImageInfo))
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -132,7 +132,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 
 	// Customize image: SELinux enforcing.
 	// This tests enabling SELinux on a non-SELinux image.
-	configFile := filepath.Join(testDir, "partitions-selinux-enforcing.yaml")
+	configFile := filepath.Join(testDir, partitionsSELinuxEnforcingConfigFile(t, baseImageInfo))
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -210,42 +210,47 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, hasUkis bool,
 	existsArgs []string, notExistsArgs []string,
 ) {
-	var grubCfgContents string
+	var cmdline string
+	var err error
 
 	if hasUkis {
-		// UKI image - extract cmdline from UKI files
+		// UKI image: extract cmdline from UKI files.
 		ukiDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi/EFI/Linux")
-		cmdlineFromUki, err := extractCmdlineFromUkiForTest(ukiDir)
+		cmdline, err = extractCmdlineFromUkiForTest(ukiDir)
 		if err != nil {
 			t.Fatalf("Failed to extract cmdline from UKI: %v", err)
 			return
 		}
-		grubCfgContents = cmdlineFromUki
 	} else {
-		// GRUB image - read grub.cfg
-		grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-		contents, err := file.Read(grubCfgFilePath)
+		// GRUB image: read grub.cfg or BLS entries.
+		bootDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot")
+
+		distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
 		if err != nil {
-			t.Fatalf("Failed to read grub.cfg: %v", err)
+			t.Fatalf("Failed to detect distro handler: %v", err)
 			return
 		}
-		grubCfgContents = contents
+
+		kernelToArgs, err := distroHandler.ReadKernelCmdlines(bootDir)
+		if err != nil {
+			t.Fatalf("Failed to extract kernel args from boot config: %v", err)
+			return
+		}
+
+		for _, opts := range kernelToArgs {
+			// Like in the UKI scenario, we only test the first seen.
+			cmdline = opts
+			break
+		}
 	}
 
 	for _, existsArg := range existsArgs {
-		if hasUkis {
-			// UKI cmdline is a plain string of args (no "linux" keyword)
-			assert.Containsf(t, grubCfgContents, existsArg,
-				"ensure kernel command arg exists (%s)", existsArg)
-		} else {
-			// GRUB cfg has "linux /boot/vmlinuz... args" format
-			assert.Regexpf(t, fmt.Sprintf("linux.* %s ", regexp.QuoteMeta(existsArg)), grubCfgContents,
-				"ensure kernel command arg exists (%s)", existsArg)
-		}
+		assert.Containsf(t, cmdline, existsArg,
+			"ensure kernel command arg exists (%s)", existsArg)
 	}
 
 	for _, notExistsArg := range notExistsArgs {
-		assert.NotContainsf(t, grubCfgContents, notExistsArg,
+		assert.NotContainsf(t, cmdline, notExistsArg,
 			"ensure kernel command arg not exists (%s)", notExistsArg)
 	}
 }
@@ -280,6 +285,34 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no UKI files found or cmdline not extracted")
+}
+
+// partitionsSELinuxEnforcingConfigFile returns the partitions-selinux-enforcing test config file appropriate for the
+// given base image version.
+func partitionsSELinuxEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "partitions-selinux-enforcing-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "partitions-selinux-enforcing-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for partitions-selinux-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// selinuxForceEnforcingConfigFile returns the selinux-force-enforcing test config file appropriate for the given base
+// image version.
+func selinuxForceEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "selinux-force-enforcing-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "selinux-force-enforcing-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for selinux-force-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func verifySELinuxConfigFile(t *testing.T, imageConnection *imageconnection.ImageConnection, mode string) {

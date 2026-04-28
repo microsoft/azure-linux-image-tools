@@ -88,11 +88,14 @@ test-imagecustomizer:
 		--logs-dir="${LOGS_DIR}" \
 		--core-efi-azl2="${CORE_EFI_AZL2}" \
 		--core-efi-azl3="${CORE_EFI_AZL3}" \
+		--core-efi-azl4="${CORE_EFI_AZL4}" \
 		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \
 		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
 		--rpm-sources-azl3="${RPM_SOURCES_AZL3}" \
+		--rpm-sources-azl4="${RPM_SOURCES_AZL4}" \
 		--rpm-sources-fedora42="${RPM_SOURCES_FEDORA42}" \
 		--tools-file-azl3="${TOOLS_FILE_AZL3}" \
+		--tools-file-azl4="${TOOLS_FILE_AZL4}" \
 		--tools-file-fedora42="${TOOLS_FILE_FEDORA42}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
@@ -113,6 +116,8 @@ test-osmodifier:
 		--osmodifier-binary="${OSMODIFIER_BIN}" \
 		--logs-dir="${LOGS_DIR}" \
 		--input-image="${INPUT_IMAGE}" \
+		--distro-id="${DISTRO_ID}" \
+		--version-id="${VERSION_ID}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \

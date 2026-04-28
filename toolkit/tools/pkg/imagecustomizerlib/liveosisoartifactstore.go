@@ -367,7 +367,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 
 	if filesStore.grubEfiPath == "" {
 		return nil, fmt.Errorf("failed to find the grub efi file (%s or %s):\n"+
-			"this file is provided by either the (grub2-efi-binary) or the (grub2-efi-binary-noprefix) package",
+			"this file is provided by the grub2-efi package (e.g. grub2-efi-binary, grub2-efi-x64, or grub2-efi-aa64)",
 			bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary)
 	}
 

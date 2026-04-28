@@ -101,6 +101,7 @@ jobs:
 
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
         ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+        ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-4.0-$HOST_ARCH" azl-core-efi-4.0
 
         if [ "$HOST_ARCH" == "amd64" ]; then
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
@@ -170,6 +171,7 @@ jobs:
           IMAGE_CUSTOMIZER_CONTAINER_TAG="$CONTAINER_TAG" \
           CORE_EFI_AZL2="../../../azl-core-efi-2.0/image.vhdx" \
           CORE_EFI_AZL3="../../../azl-core-efi-3.0/image.vhdx" \
+          CORE_EFI_AZL4="../../../azl-core-efi-4.0/image.vhdx" \
           CORE_LEGACY_AZL2="$CORE_LEGACY_AZL2" \
           CORE_LEGACY_AZL3="$CORE_LEGACY_AZL3" \
           RPM_SOURCES_AZL3="$TEST_RPMS_DIR/downloadedrpms/azurelinux/3.0" \

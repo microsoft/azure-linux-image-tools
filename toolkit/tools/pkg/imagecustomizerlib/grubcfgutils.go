@@ -5,7 +5,9 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -378,6 +380,18 @@ func findCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, err
 	return insertAt, nil
 }
 
+// filterKernelArgsByName extracts arg name=value pairs from parsed kernel args,
+// keeping only those whose name is in the provided list.
+func filterKernelArgsByName(args []grubConfigLinuxArg, names []string) map[string]string {
+	result := make(map[string]string)
+	for _, arg := range args {
+		if arg.Value != "" && sliceutils.ContainsValue(names, arg.Name) {
+			result[arg.Name] = arg.Value
+		}
+	}
+	return result
+}
+
 // Takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.
 func ParseCommandLineArgs(argTokens []grub.Token) ([]grubConfigLinuxArg, error) {
 	args := []grubConfigLinuxArg(nil)
@@ -735,9 +749,15 @@ func getSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
 
-	// Check if SELinux is disabled.
-	if securityValue != "selinux" || selinuxValue != "1" {
+	// Check if SELinux is explicitly disabled (selinux=0) or not explicitly enabled.
+	if selinuxValue == "0" {
 		return imagecustomizerapi.SELinuxModeDisabled, nil
+	}
+
+	// If there are no SELinux kernel args at all, the mode is determined by /etc/selinux/config.
+	// Signal this by returning the default ("") value.
+	if securityValue != "selinux" || selinuxValue != "1" {
+		return imagecustomizerapi.SELinuxModeDefault, nil
 	}
 
 	// Check if SELinux is in forced enforcing mode.
@@ -745,7 +765,7 @@ func getSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.
 		return imagecustomizerapi.SELinuxModeForceEnforcing, nil
 	}
 
-	// The SELinux mode has been left up to the /etc/selinux/config file.
+	// The SELinux mode has again been left up to the /etc/selinux/config file.
 	// Signal this by returning the default ("") value.
 	return imagecustomizerapi.SELinuxModeDefault, nil
 }
@@ -757,6 +777,10 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 	// Read the SELinux config file.
 	selinuxConfig, err := file.Read(selinuxConfigFilePath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// SELinux config file doesn't exist (e.g. when SELinux isn't installed). Treat as disabled.
+			return imagecustomizerapi.SELinuxModeDisabled, nil
+		}
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to read SELinux config file (%s):\n%w",
 			installutils.SELinuxConfigFile, err)
 	}

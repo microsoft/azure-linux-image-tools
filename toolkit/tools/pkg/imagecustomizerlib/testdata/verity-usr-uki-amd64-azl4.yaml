@@ -1,3 +1,4 @@
+# Differs from verity-usr-uki-azl3 in its use of systemd-boot-unsigned (not systemd-boot), its use of grub2-efi-x64 (not grub2-efi-binary), and the absence of a post-customization script
 previewFeatures:
 - uki
 
@@ -11,7 +12,7 @@ storage:
       size: 250M
 
     - id: boot
-      size: 250M
+      size: 1G
 
     - id: usr
       size: 1G
@@ -71,21 +72,19 @@ os:
     mode: create
 
   packages:
-    remove:
-    - grub2-efi-binary
-
     install:
     - openssh-server
     - veritysetup
-    - systemd-boot
+    - systemd-boot-unsigned
     - device-mapper
 
 scripts:
   postCustomization:
   - content: |
-      set -eux
-
-      # Move iptables script off of the / partition, so that the iptables service can run even though / has the noexec
-      # mount flag.
-      mv /etc/systemd/scripts /usr/bin/
-      ln -sr /usr/bin/scripts /etc/systemd/scripts
+      # Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+      # refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+      # is not an option because shim is needed for the secure boot chain
+      # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+      # are extracted as build artifacts. Use rpm --nodeps to bypass this.
+      # Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
+      rpm -e --nodeps grub2-efi-x64

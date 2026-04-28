@@ -31,8 +31,9 @@ const (
 	initrdPathAzl2Template  = "/boot/initrd.img-%s"
 )
 
-func updateGrubCfgForLiveOS(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string) (string, error) {
+func updateGrubCfgForLiveOSHelper(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType,
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string,
+) (string, error) {
 	searchCommand := fmt.Sprintf(searchCommandTemplate, isogenerator.DefaultVolumeId)
 	inputContentString, err := replaceSearchCommandAll(inputContentString, searchCommand)
 	if err != nil {
@@ -151,7 +152,8 @@ func updateGrubCfgForIso(inputContentString string, initramfsImageType imagecust
 }
 
 func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecustomizerapi.InitramfsImageType, bootstrapBaseUrl string,
-	bootstrapFileUrl string) (string, error) {
+	bootstrapFileUrl string,
+) (string, error) {
 	// remove 'search' commands from PXE grub.cfg because it is not needed.
 	inputContentString, err := removeCommandAll(inputContentString, "search")
 	if err != nil {
@@ -183,8 +185,9 @@ func updateGrubCfgForPxe(inputContentString string, initramfsImageType imagecust
 // kernel parameters added multiple times.
 // This function generates both the iso and the pxe versions of the grub so
 // that the call does not need to call it multiple times.
-func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
-	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string) error {
+func updateGrubCfgForLiveOS(inputGrubCfgPath string, outputFormat imagecustomizerapi.ImageFormatType, initramfsImageType imagecustomizerapi.InitramfsImageType,
+	disableSELinux bool, savedConfigs *SavedConfigs, kernelVersions []string, outputIsoGrubCfgPath, outputPxeGrubCfgPath string,
+) error {
 	logger.Log.Infof("Updating grub.cfg")
 
 	inputContentString, err := file.Read(inputGrubCfgPath)
@@ -193,7 +196,7 @@ func updateGrubCfg(inputGrubCfgPath string, outputFormat imagecustomizerapi.Imag
 	}
 
 	// Update grub.cfg content to be 'live-os compatible'.
-	liveosContentString, err := updateGrubCfgForLiveOS(inputContentString, initramfsImageType, disableSELinux, savedConfigs, kernelVersions)
+	liveosContentString, err := updateGrubCfgForLiveOSHelper(inputContentString, initramfsImageType, disableSELinux, savedConfigs, kernelVersions)
 	if err != nil {
 		return err
 	}

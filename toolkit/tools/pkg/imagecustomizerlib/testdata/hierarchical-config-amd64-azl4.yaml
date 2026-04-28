@@ -1,0 +1,126 @@
+# Differs from hierarchical-config-base in the absence of the package-snapshot-time preview feature and os.packages.snapshotTime config; and its use of selinux-policy-targeted (not selinux-policy-modules), systemd-boot-unsigned (not systemd-boot), grub2-efi-x64 (not grub2-efi-binary), and hierarchical-config-base-azl4 (not hierarchical-config-base)
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      size: 100M
+
+    - id: rootfs
+      size: 2G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+previewFeatures:
+- output-artifacts
+- base-configs
+- uki
+
+baseConfigs:
+  - path: hierarchical-config-base-azl4.yaml
+
+os:
+  additionalFiles:
+  - source: files/b.txt
+    destination: /mnt/b/b.txt
+
+  additionalDirs:
+  - source: dirs/b
+    destination: /
+
+  groups:
+  - name: test-group
+
+  users:
+    - name: test-user
+  hostname: test-hostname
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    mode: create
+
+  packages:
+    install:
+    - systemd-boot-unsigned
+    - openssh-server
+    - selinux-policy
+    - selinux-policy-targeted
+
+  services:
+    enable:
+    - sshd
+    disable:
+    - console-getty
+
+  modules:
+  - name: vfio
+    loadMode: disable
+
+  selinux:
+    mode: disabled
+
+  overlays:
+  - mountPoint: /etc
+    lowerDirs:
+    - /etc
+    upperDir: /var/overlays/etc/upper
+    workDir: /var/overlays/etc/work
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0
+
+scripts:
+  postCustomization:
+  - content: |
+      # Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+      # refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+      # is not an option because shim is needed for the secure boot chain
+      # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+      # are extracted as build artifacts. Use rpm --nodeps to bypass this.
+      # Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
+      rpm -e --nodeps grub2-efi-x64
+  - content: |
+      set -eux
+      echo "pelican" >> "/animals.txt"
+
+  finalizeCustomization:
+  - content: |
+      set -eux
+      echo "bandicoot" >> "/animals.txt"
+
+input:
+  image:
+    path: testimages/empty.vhdx
+  
+output:
+  image:
+    path: ./out/output-image-2.vhdx
+    format: vhdx
+  artifacts:
+    items:
+    - shim
+    path: ./out/artifacts-2

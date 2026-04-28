@@ -1,7 +1,6 @@
 packages:
 - coreutils
 - dosfstools
-- e2fsprogs
 - glibc
 - policycoreutils
 - python3
@@ -11,8 +10,6 @@ packages:
 - xz
 - dracut-config-generic
 - ca-certificates
-- efibootmgr
-- initial-setup
 - libxkbcommon
 - kernel
 # Add dnf to support dnf based package installation in imagecustomizer

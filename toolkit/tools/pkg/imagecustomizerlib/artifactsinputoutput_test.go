@@ -1,6 +1,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -43,7 +44,7 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	buildDirCustomize := filepath.Join(buildDir, "customize")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	originalConfigFile := filepath.Join(testDir, "artifacts-output.yaml")
+	originalConfigFile := filepath.Join(testDir, artifactsOutputConfigFile(t, baseImageInfo))
 	configFile := filepath.Join(testTempDir, "artifacts-output.yaml")
 	outputArtifactsDir := filepath.Join(testTempDir, "output")
 
@@ -104,6 +105,34 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	verifyInjectedFiles(t, filepath.Join(imageConnection.Chroot().RootDir(), "boot/efi"), espFiles)
 }
 
+// artifactsOutputConfigFile returns the artifacts-output test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func artifactsOutputConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "artifacts-output-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("artifacts-output-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for artifacts-output test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// artifactsOutputVerityConfigFile returns the artifacts-output-verity test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func artifactsOutputVerityConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "artifacts-output-verity-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("artifacts-output-verity-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for artifacts-output-verity test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
 func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
@@ -126,7 +155,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	cosiFilePath := filepath.Join(testTempDir, "image.cosi")
-	originalConfigFile := filepath.Join(testDir, "artifacts-output-verity.yaml")
+	originalConfigFile := filepath.Join(testDir, artifactsOutputVerityConfigFile(t, baseImageInfo))
 	configFile := filepath.Join(testTempDir, "artifacts-output-verity.yaml")
 	outputArtifactsDir := filepath.Join(testTempDir, "output")
 	injectConfigPath := filepath.Join(outputArtifactsDir, "inject-files.yaml")

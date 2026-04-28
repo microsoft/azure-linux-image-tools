@@ -446,6 +446,14 @@ func qemuImgEscapeOptionValue(value string) string {
 func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata, error) {
 	im := imageMetadata{}
 
+	distroHandler, err := validateTargetOs(ctx, rc)
+	if err != nil {
+		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
+	}
+
+	// Save target OS information
+	im.distroHandler = distroHandler
+
 	// If there are OS customizations, then we proceed as usual.
 	// If there are no OS customizations, and the input is an iso, we just
 	// return because this function is mainly about OS customizations.
@@ -461,17 +469,9 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_os_contents")
 	defer span.End()
 
-	distroHandler, err := validateTargetOs(ctx, rc)
-	if err != nil {
-		return im, fmt.Errorf("%w:\n%w", ErrCannotValidateTargetOS, err)
-	}
-
-	// Save target OS information
-	im.distroHandler = distroHandler
-
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.Storage, rc.RawImageFile, im.distroHandler.GetTargetOs())
+		rc.Storage, rc.RawImageFile, im.distroHandler)
 	if err != nil {
 		return im, err
 	}
@@ -513,8 +513,8 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
+		verityMetadata, err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile, partIdToPartUuid,
+			shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout, im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
@@ -609,13 +609,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
 			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, requestedSELinuxMode, rc.Iso, rc.Pxe,
-				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
+				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
 			err := repackageLiveOS(rc.BuildDirAbs, rc.Iso, rc.Pxe, inputIsoArtifacts, rc.OutputImageFormat,
-				rc.OutputImageFile)
+				rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
@@ -697,7 +697,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
+		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -884,7 +884,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (DistroHandler, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
-		false /* read-only-verity */, false /* ignore-overlays */)
+		false /* read-only-verity */, false /* ignore-overlays */, nil /* distroHandler */)
 	if err != nil {
 		return nil, err
 	}

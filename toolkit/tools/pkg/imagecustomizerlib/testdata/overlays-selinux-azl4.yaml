@@ -1,0 +1,21 @@
+# Differs from overlays-selinux-azl3 in its use of selinux-policy-targeted (not selinux-policy-modules)
+os:
+  bootloader:
+    resetType: hard-reset
+
+  selinux:
+    mode: enforcing
+
+  packages:
+    install:
+    - selinux-policy
+    - selinux-policy-targeted
+    - setools-console
+    - policycoreutils-python-utils
+
+  overlays:
+  - mountPoint: /var
+    lowerDirs:
+    - /var
+    upperDir: /mnt/overlays/var/upper
+    workDir: /mnt/overlays/var/work

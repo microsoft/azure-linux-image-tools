@@ -26,6 +26,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -291,9 +292,9 @@ func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 	return subvolumes, nil
 }
 
-func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
-	buildDir string, rootfsPath string,
-) ([]diskutils.FstabEntry, error) {
+func readRootfsMetadata(rootfsPartition *diskutils.PartitionInfo,
+	buildDir string, rootfsPath string, distroHandler DistroHandler,
+) ([]diskutils.FstabEntry, DistroHandler, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
@@ -302,30 +303,45 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
 	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
 		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+		return nil, nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
-	fstabPath := filepath.Join(tmpDir, rootfsPath, "etc/fstab")
+	rootDir := filepath.Join(tmpDir, rootfsPath)
+
+	fstabPath := filepath.Join(rootDir, "etc/fstab")
 
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	// Detect the target OS while the rootfs is mounted.
+	// When the caller already knows the distro (e.g. the "create" flow where packages haven't been
+	// installed yet, or after repartitioning where /etc/os-release may be a broken symlink),
+	// it passes a non-nil distroHandler to skip detection.
+	if distroHandler == nil {
+		var detectedOs targetos.TargetOs
+		detectedOs, err = targetos.GetInstalledTargetOs(rootDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to detect target OS:\n%w", err)
+		}
+		distroHandler = NewDistroHandlerFromTargetOs(detectedOs)
 	}
 
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
+		return nil, nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
 			rootfsPartition.Path, err)
 	}
 
-	return fstabEntries, nil
+	return fstabEntries, distroHandler, nil
 }
 
 func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, ignoreOverlays bool,
+	buildDir string, ignoreOverlays bool, distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -339,7 +355,7 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 			return kernelCmdline, nil
 		}
 
-		kernelCmdline, err = extractKernelCmdline(fstabEntries, diskPartitions, buildDir)
+		kernelCmdline, err = extractKernelCmdline(fstabEntries, diskPartitions, buildDir, distroHandler)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read kernel cmdline:\n%w", err)
 		}
@@ -681,16 +697,16 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 }
 
 func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+	buildDir string, distroHandler DistroHandler,
 ) ([]grubConfigLinuxArg, error) {
 	bootDirPartition, bootDirPath, err := findBasicPartitionForPath("/boot", fstabEntries, diskPartitions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
-	cmdline, found, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
+	cmdline, found, err := extractKernelCmdlineHelper(bootDirPartition, bootDirPath, buildDir, distroHandler)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+		return nil, fmt.Errorf("failed to extract kernel arguments from boot config:\n%w", err)
 	}
 	if found {
 		return cmdline, nil
@@ -705,7 +721,7 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
 	} else if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
+		return nil, fmt.Errorf("no kernel arguments found from either boot config or UKI")
 	}
 
 	return cmdline, nil
@@ -921,8 +937,8 @@ func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 	return string(content), nil
 }
 
-func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDirPath string,
-	buildDir string,
+func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPath string, buildDir string,
+	distroHandler DistroHandler,
 ) ([]grubConfigLinuxArg, bool, error) {
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType,
@@ -932,23 +948,23 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
-	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
+	bootDir := filepath.Join(tmpDirBoot, bootDirPath)
+	kernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	if err != nil {
-		// Check if the error is because grub.cfg doesn't exist
+		// Check if the error is because the boot config doesn't exist.
 		if errors.Is(err, fs.ErrNotExist) {
 			closeErr := bootPartitionMount.CleanClose()
 			if closeErr != nil {
-				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing grub.cfg:\n%w", closeErr)
+				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing boot config:\n%w", closeErr)
 			}
 			return nil, false, nil
 		}
-		// For other errors, attempt cleanup and return the error
+		// For other errors, attempt cleanup and return the error.
 		closeErr := bootPartitionMount.CleanClose()
 		if closeErr != nil {
 			return nil, false, fmt.Errorf("failed to close bootPartitionMount (original error: %v):\n%w", err, closeErr)
 		}
-		return nil, false, fmt.Errorf("failed to read grub.cfg:\n%w", err)
+		return nil, false, fmt.Errorf("failed to read boot config:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
@@ -962,7 +978,7 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 		return args, true, nil
 	}
 
-	return nil, false, fmt.Errorf("no kernel args found in grub.cfg file")
+	return nil, false, fmt.Errorf("no kernel args found in boot config")
 }
 
 // Extracts the kernel args for each kernel from the grub.cfg file.
@@ -973,6 +989,12 @@ func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConf
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
+	return extractKernelCmdlineFromGrubCfgContent(grubCfgContent)
+}
+
+// extractKernelCmdlineFromGrubCfgContent parses kernel command-line arguments from
+// grub.cfg content with inline "linux" commands (traditional, non-BLS grub config).
+func extractKernelCmdlineFromGrubCfgContent(grubCfgContent string) (map[string][]grubConfigLinuxArg, error) {
 	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find linux command lines in grub.cfg:\n%w", err)
@@ -994,6 +1016,105 @@ func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConf
 		}
 
 		kernelToArgs[kernel] = args
+	}
+
+	return kernelToArgs, nil
+}
+
+// extractKernelCmdlineFromBLSEntries reads Boot Loader Specification (BLS) entry
+// files from {bootDir}/loader/entries/*.conf and extracts a kernel-to-cmdline mapping,
+// returning the results in the same format as extractKernelCmdlineFromGrubFile.
+func extractKernelCmdlineFromBLSEntries(bootDir string, skipRecovery bool) (map[string][]grubConfigLinuxArg, error) {
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	entries, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
+	}
+
+	kernelToArgs := make(map[string][]grubConfigLinuxArg)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			logger.Log.Debugf("Skipping non-.conf BLS entry file (%s) in directory (%s)", entry.Name(), entriesDir)
+			continue
+		}
+
+		absPath := filepath.Join(entriesDir, entry.Name())
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
+		}
+
+		var linux string
+		var title string
+		var options string
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+
+			key, value, found := strings.Cut(trimmed, " ")
+			if !found {
+				key, value, found = strings.Cut(trimmed, "\t")
+			}
+			if !found {
+				return nil, fmt.Errorf("malformed BLS entry line in (%s): %q", absPath, trimmed)
+			}
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
+
+			switch key {
+			case "linux":
+				if linux != "" {
+					return nil, fmt.Errorf("duplicate linux key in BLS entry (%s)", absPath)
+				}
+				linux = filepath.Base(value)
+			case "title":
+				title = value
+			case "efi", "uki", "uki-url":
+				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, key)
+			case "options":
+				// "options" line may appear multiple times according to BLS spec.
+				if options != "" {
+					options += " "
+				}
+				options += value
+			}
+		}
+
+		if linux == "" {
+			return nil, fmt.Errorf("BLS entry (%s) is missing 'linux' key", absPath)
+		}
+
+		if skipRecovery {
+			if title == "" {
+				return nil, fmt.Errorf("BLS entry (%s) is missing 'title' key", absPath)
+			}
+
+			if strings.Contains(title, "recovery") {
+				logger.Log.Debugf("Skipping recovery BLS entry with title (%s) in file (%s)", title, absPath)
+				continue
+			}
+		}
+
+		if _, exists := kernelToArgs[linux]; exists {
+			return nil, fmt.Errorf("duplicate BLS entries for kernel (%s) in (%s)", linux, entriesDir)
+		}
+
+		// Tokenize and parse the options string into grubConfigLinuxArg format.
+		tokens, err := grub.TokenizeConfig(options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to tokenize BLS options for kernel (%s):\n%w", linux, err)
+		}
+
+		args, err := ParseCommandLineArgs(tokens)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse BLS options for kernel (%s):\n%w", linux, err)
+		}
+
+		kernelToArgs[linux] = args
 	}
 
 	return kernelToArgs, nil

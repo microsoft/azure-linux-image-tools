@@ -1,0 +1,42 @@
+# Differs from create-fedora-btrfs-amd64 in its use of create-fedora-arm64-packages (not create-fedora-amd64-packages)
+previewFeatures:
+- create
+- btrfs
+
+storage:
+  disks:
+  - partitionTableType: gpt
+    maxSize: 3G
+    partitions:
+    - id: boot
+      type: esp
+      size: 32M
+
+    - id: rootfs
+      start: 33M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: boot
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: btrfs
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    installLists:
+    - create-fedora-noarch-packages.yaml
+    - create-fedora-arm64-packages.yaml
+
+    install:
+    - btrfs-progs

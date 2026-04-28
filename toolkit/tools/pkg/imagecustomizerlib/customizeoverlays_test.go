@@ -85,24 +85,20 @@ func TestCustomizeImageOverlays(t *testing.T) {
 func TestCustomizeImageOverlaysSELinux(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageOverlaysSELinuxHelper(t, "TestCustomizeImageOverlaysSELinux"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageOverlaysSELinuxHelper(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
-	if baseImageInfo.Version == baseImageVersionAzl3 {
-		t.Skip("Azure Linux 3.0 is missing policy.kern file")
-	}
-
+func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageOverlaysSELinux_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "overlays-selinux.yaml")
+	configFile := filepath.Join(testDir, overlaysSELinuxConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
@@ -134,6 +130,19 @@ func testCustomizeImageOverlaysSELinuxHelper(t *testing.T, testName string, base
 
 	assert.Contains(t, upperLabel, ":object_r:var_t:s0")
 	assert.Contains(t, workLabel, ":object_r:no_access_t:s0")
+}
+
+// overlaysSELinuxConfigFile returns the overlays-selinux test config file appropriate for the given base image version.
+func overlaysSELinuxConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "overlays-selinux-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "overlays-selinux-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for overlays-selinux test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func getSELinuxLabel(path string) (string, error) {
