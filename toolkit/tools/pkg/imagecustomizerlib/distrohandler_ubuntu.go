@@ -114,6 +114,11 @@ func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }
 
+func (d *ubuntuDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
+) (imagecustomizerapi.SELinuxMode, error) {
+	return getSELinuxModeFromLinuxArgsDeferIfMissing(args)
+}
+
 func (d *ubuntuDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
 	return readGrub2ConfigFile(imageChroot, installutils.DebianGrubCfgFile)
 }

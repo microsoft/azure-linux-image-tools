@@ -762,6 +762,29 @@ func getSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.
 	return imagecustomizerapi.SELinuxModeDefault, nil
 }
 
+// getSELinuxModeFromLinuxArgsDeferIfMissing wraps getSELinuxModeFromLinuxArgs so that absent SELinux cmdline args
+// resolve to SELinuxModeDefault (defer to /etc/selinux/config) rather than SELinuxModeDisabled.
+//
+// Suitable for distros where the kernel honors /etc/selinux/config when no SELinux cmdline args are present
+// (e.g. Azure Linux 4.0, Fedora, Ubuntu). Legacy Azure Linux 2.0/3.0 must keep calling getSELinuxModeFromLinuxArgs
+// directly to preserve their historical "missing args == disabled" behavior.
+func getSELinuxModeFromLinuxArgsDeferIfMissing(args []grubConfigLinuxArg) (imagecustomizerapi.SELinuxMode, error) {
+	mode, err := getSELinuxModeFromLinuxArgs(args)
+	if err != nil || mode != imagecustomizerapi.SELinuxModeDisabled {
+		return mode, err
+	}
+
+	// Distinguish explicit selinux=0 (truly disabled) from missing args (defer to config file).
+	selinuxValue, err := findKernelCommandLineArgValue(args, "selinux")
+	if err != nil {
+		return imagecustomizerapi.SELinuxModeDefault, err
+	}
+	if selinuxValue == "0" {
+		return imagecustomizerapi.SELinuxModeDisabled, nil
+	}
+	return imagecustomizerapi.SELinuxModeDefault, nil
+}
+
 // Gets the SELinux mode set by the /etc/selinux/config file.
 func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (imagecustomizerapi.SELinuxMode, error) {
 	selinuxConfigFilePath := filepath.Join(imageChroot.RootDir(), installutils.SELinuxConfigFile)

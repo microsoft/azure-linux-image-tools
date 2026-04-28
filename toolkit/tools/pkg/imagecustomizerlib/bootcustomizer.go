@@ -197,7 +197,7 @@ func (b *BootCustomizer) getSELinuxModeFromCmdline(buildDir string, imageChroot 
 	}
 
 	// Get the SELinux mode from the kernel command-line args.
-	selinuxMode, err := getSELinuxModeFromLinuxArgs(args)
+	selinuxMode, err := b.distroHandler.GetSELinuxModeFromLinuxArgs(args)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, false, err
 	}

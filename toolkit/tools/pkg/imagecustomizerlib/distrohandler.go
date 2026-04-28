@@ -55,6 +55,12 @@ type DistroHandler interface {
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 
+	// GetSELinuxModeFromLinuxArgs interprets parsed kernel command-line args and returns the effective SELinux mode
+	// the kernel will boot with. Returns SELinuxModeDefault to indicate the caller should fall back to reading
+	// /etc/selinux/config. Distros differ in how to interpret the absence of any SELinux args (e.g. legacy Azure
+	// Linux 2.0/3.0 treat missing args as Disabled, while Azure Linux 4.0 defer to the config file).
+	GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.SELinuxMode, error)
+
 	// ReadGrub2ConfigFile reads the distro-appropriate grub.cfg file from the chroot.
 	ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error)
 
