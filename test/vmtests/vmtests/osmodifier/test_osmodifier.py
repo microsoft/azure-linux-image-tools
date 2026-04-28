@@ -328,8 +328,17 @@ def test_osmodifier_boot_config(
     assert "console=ttyS0" in grub_cfg
     assert "verity" in grub_cfg
     assert "overlay" in grub_cfg
-    assert "selinux=1" in grub_cfg
-    assert "enforcing=0" in grub_cfg
+
+    sestatus_output = ssh_client.run("sudo sestatus").stdout
+    sestatus = dict(
+        line.split(":", 1)
+        for line in sestatus_output.splitlines()
+        if ":" in line
+    )
+    sestatus = {k.strip(): v.strip() for k, v in sestatus.items()}
+
+    assert sestatus.get("SELinux status") == "enabled", f"SELinux not enabled: {sestatus_output}"
+    assert sestatus.get("Current mode") == "permissive", f"Expected permissive mode: {sestatus_output}"
 
 
 def test_uki_selinux_config(
