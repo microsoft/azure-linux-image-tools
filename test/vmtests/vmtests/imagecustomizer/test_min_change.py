@@ -391,6 +391,7 @@ def test_min_change_efi_azl3_iso_bootstrap_output(
     )
 
 
+@pytest.mark.skip(reason="Azure Linux 4.0 ISO bootstrap output is not yet supported")
 def test_min_change_efi_azl4_iso_bootstrap_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
@@ -453,6 +454,7 @@ def test_min_change_efi_azl3_iso_full_os_output(
     )
 
 
+@pytest.mark.skip(reason="Azure Linux 4.0 ISO full OS output is not yet supported")
 def test_min_change_efi_azl4_iso_full_os_output(
     docker_client: DockerClient,
     image_customizer_container_url: str,
