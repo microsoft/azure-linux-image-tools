@@ -18,7 +18,7 @@ type TargetOs string
 const (
 	TargetOsAzureLinux2 TargetOs = "azl2"
 	TargetOsAzureLinux3 TargetOs = "azl3"
-	TargetOsAcl         TargetOs = "acl"
+	TargetOsAzureContainerLinux3 TargetOs = "acl3"
 	TargetOsFedora42    TargetOs = "fedora42"
 	TargetOsUbuntu2204  TargetOs = "ubuntu2204"
 	TargetOsUbuntu2404  TargetOs = "ubuntu2404"
@@ -56,14 +56,14 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 		switch variantId {
 		case "azurecontainerlinux":
 			// ACL uses VERSION_ID like "3.0.YYYYMMDD" (e.g. "3.0.20260421").
-			// Accept any version that starts with "3.0".
-			if !strings.HasPrefix(versionId, "3.0") {
+			// Accept any version that starts with "3.0.".
+			if !strings.HasPrefix(versionId, "3.0.") {
 				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in os-release", versionId)
 			}
-			return TargetOsAcl, nil
+			return TargetOsAzureContainerLinux3, nil
 
-		case "":
-			// Standard Azure Linux.
+		default:
+			// Standard Azure Linux (or unknown variant — treat as standard).
 			switch versionId {
 			case "3.0":
 				return TargetOsAzureLinux3, nil
@@ -71,9 +71,6 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			default:
 				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in os-release", versionId)
 			}
-
-		default:
-			return "", fmt.Errorf("unknown VARIANT_ID (%s) for Azure Linux in os-release", variantId)
 		}
 
 	case "fedora":

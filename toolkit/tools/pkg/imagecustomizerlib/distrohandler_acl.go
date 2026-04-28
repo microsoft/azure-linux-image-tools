@@ -27,7 +27,7 @@ func newAclDistroHandler() *aclDistroHandler {
 }
 
 func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
-	return targetos.TargetOsAcl
+	return targetos.TargetOsAzureContainerLinux3
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
