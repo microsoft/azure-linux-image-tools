@@ -1068,19 +1068,31 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		logger.Log.Infof("Successfully extracted kernel and initramfs for version (%s)", kernelVersion)
 	}
 
-	// Regenerate grub.cfg now that kernels are in /boot
-	logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
-
-	// Ensure /boot/grub2 directory exists
-	grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
-	err = os.MkdirAll(grubDir, 0o755)
+	// Regenerate grub.cfg now that kernels are in /boot.
+	// Only needed for GRUB-based distros. For systemd-boot distros (e.g., ACL),
+	// kernel cmdline extraction happens later via the UKI fallback path
+	// (extractKernelCmdlineFromUkiEfis) in prepareUkiHelper.
+	bootloaderType, err := distroHandler.DetectBootloaderType(imageChroot)
 	if err != nil {
-		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+		return fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
 
-	err = installutils.CallGrubMkconfig(imageChroot)
-	if err != nil {
-		return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
+	if bootloaderType == BootloaderTypeGrub {
+		logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
+
+		// Ensure /boot/grub2 directory exists
+		grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
+		err = os.MkdirAll(grubDir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+		}
+
+		err = installutils.CallGrubMkconfig(imageChroot)
+		if err != nil {
+			return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
+		}
+	} else {
+		logger.Log.Infof("Skipping grub.cfg regeneration (non-GRUB bootloader)")
 	}
 
 	return nil
@@ -1139,6 +1151,16 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot, distroHandler DistroHand
 
 		if entryPath == espPath || entry.Name() == "lost+found" {
 			continue
+		}
+
+		// When ESP is the boot directory itself (e.g., ACL where GetEspDir()="boot"),
+		// only remove standalone files (kernels, initramfs) — preserve known ESP
+		// subdirectories that are needed for UKI creation and systemd-boot.
+		if bootPath == espPath && entry.IsDir() {
+			switch entry.Name() {
+			case "EFI", "loader", "acl":
+				continue
+			}
 		}
 
 		err := os.RemoveAll(entryPath)

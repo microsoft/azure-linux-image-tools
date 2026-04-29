@@ -5,12 +5,18 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
+	"os/exec"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
@@ -31,21 +37,24 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	// ACL currently supports mutable partition modifications only.
+	// ACL supports mutable partition modifications and package installation
+	// (when reinitializeVerity: all is used to make /usr writable).
 	//
-	// Supported operations (write to mutable partitions — State /etc, ESP, OEM):
+	// Supported operations:
 	//   - os.additionalFiles
+	//   - os.additionalDirs
 	//   - os.services (enable/disable)
 	//   - os.hostname, os.users, os.groups
 	//   - os.modules (writes to /etc/modprobe.d/, /etc/modules-load.d/)
-	//   - os.uki (passthrough only)
+	//   - os.uki (passthrough and create modes)
+	//   - os.packages.install (via host tdnf with --installroot)
+	//   - os.selinux mode changes (via UKI cmdline)
+	//   - os.kernelCommandLine (via UKI addon)
 	//   - scripts.postCustomization, scripts.finalizeCustomization
 	//
-	// Not yet supported (require /usr modification or verity regeneration):
-	//   - os.packages
-	//   - os.additionalDirs
-	//   - os.selinux mode changes (requires UKI kernel cmdline change)
-	//   - os.kernelCommandLine
+	// Not yet supported:
+	//   - os.packages.remove, os.packages.update, os.packages.updateExistingPackages
+	//   - os.uki mode: modify (requires addon naming alignment)
 	//   - os.overlays
 	//   - storage repartitioning
 	//   - bootloader hard-reset (not applicable — ACL uses systemd-boot)
@@ -58,16 +67,8 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		return fmt.Errorf("bootloader hard-reset is not supported on ACL (ACL uses systemd-boot, not GRUB)")
 	}
 
-	if rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough {
-		return fmt.Errorf("only UKI passthrough mode is currently supported for ACL (got %q)", rc.Uki.Mode)
-	}
-
-	if len(rc.OsKernelCommandLine.ExtraCommandLine) > 0 {
-		return fmt.Errorf("kernel command line modification is not yet supported for ACL")
-	}
-
-	if rc.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault {
-		return fmt.Errorf("SELinux mode configuration is not yet supported for ACL (got %q)", rc.SELinux.Mode)
+	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
+		return fmt.Errorf("UKI modify mode is not yet supported for ACL (addon naming alignment required); use 'create' or 'passthrough'")
 	}
 
 	for _, configWithBase := range rc.ConfigChain {
@@ -77,15 +78,10 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		}
 
 		pkgs := os.Packages
-		if len(pkgs.Install) > 0 || len(pkgs.InstallLists) > 0 ||
-			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
+		if len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
 			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
 			pkgs.UpdateExistingPackages {
-			return fmt.Errorf("package management is not yet supported for ACL")
-		}
-
-		if len(os.AdditionalDirs) > 0 {
-			return fmt.Errorf("additionalDirs is not yet supported for ACL")
+			return fmt.Errorf("package remove/update is not yet supported for ACL (only install is supported)")
 		}
 
 		if os.Overlays != nil {
@@ -100,9 +96,87 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	return managePackagesRpm(
-		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
-		snapshotTime, d.packageManager)
+	// ACL has no tdnf inside the image. Run tdnf from the host with --installroot
+	// pointing to the mounted image root.
+	if len(config.Packages.Install) == 0 {
+		return nil
+	}
+
+	tdnfPath, err := exec.LookPath("tdnf")
+	if err != nil {
+		return fmt.Errorf("tdnf is required on the host to install packages into ACL images but was not found:\n%w", err)
+	}
+
+	logger.Log.Infof("Using host tdnf (%s) with --installroot for ACL package installation", tdnfPath)
+
+	imageRoot := imageChroot.RootDir()
+
+	// Mount RPM sources into the image root.
+	var mounts *rpmSourcesMounts
+	mounts, err = mountRpmSources(ctx, buildDir, imageChroot, rpmsSources, useBaseImageRpmRepos)
+	if err != nil {
+		return err
+	}
+	defer mounts.close()
+
+	// Refresh metadata using host tdnf.
+	refreshArgs := []string{
+		"check-update", "--refresh", "--assumeyes",
+		"--installroot=" + imageRoot,
+		"--releasever=" + d.packageManager.getReleaseVersion(),
+		"--setopt=reposdir=" + imageRoot + rpmsMountParentDirInChroot,
+	}
+
+	err = shell.NewExecBuilder("tdnf", refreshArgs...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		// Exit code 100 means updates are available — not an error.
+		var exitErr *exec.ExitError
+		if !(errors.As(err, &exitErr) && exitErr.ExitCode() == 100) {
+			return fmt.Errorf("failed to refresh package metadata for ACL:\n%w", err)
+		}
+	}
+
+	// Install packages using host tdnf.
+	logger.Log.Infof("Installing packages into ACL image (%d): %v", len(config.Packages.Install), config.Packages.Install)
+
+	_, span := startInstallPackagesSpan(ctx, config.Packages.Install)
+	defer span.End()
+
+	installArgs := []string{
+		"install", "--assumeyes", "--cacheonly",
+		"--installroot=" + imageRoot,
+		"--releasever=" + d.packageManager.getReleaseVersion(),
+		"--setopt=reposdir=" + imageRoot + rpmsMountParentDirInChroot,
+	}
+	installArgs = append(installArgs, config.Packages.Install...)
+
+	err = shell.NewExecBuilder("tdnf", installArgs...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to install packages into ACL image (%v):\n%w", config.Packages.Install, err)
+	}
+
+	// Clean cache.
+	cleanArgs := []string{
+		"clean", "all",
+		"--installroot=" + imageRoot,
+		"--releasever=" + d.packageManager.getReleaseVersion(),
+	}
+
+	err = shell.NewExecBuilder("tdnf", cleanArgs...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to clean package cache for ACL:\n%w", err)
+	}
+
+	return nil
 }
 
 func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
@@ -143,7 +217,27 @@ func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 }
 
 func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
-	return fmt.Errorf("initramfs regeneration is not yet supported for ACL")
+	logger.Log.Infof("Regenerating initramfs for ACL")
+
+	// Validate dracut is available in the image.
+	if !d.IsPackageInstalled(imageChroot, "dracut") {
+		return fmt.Errorf("dracut package is not installed in the ACL image; " +
+			"cannot regenerate initramfs without dracut")
+	}
+
+	ctx, span := startRegenerateInitramfsSpan(ctx)
+	defer span.End()
+
+	err := shell.NewExecBuilder("dracut", "--force", "--regenerate-all").
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to rebuild initramfs for ACL:\n%w", err)
+	}
+
+	return nil
 }
 
 func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
@@ -151,5 +245,8 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return fmt.Errorf("bootloader configuration is not yet supported for ACL")
+	// ACL uses systemd-boot which auto-discovers UKIs from EFI/Linux/.
+	// Bootloader configuration is handled via UKI create/modify mode.
+	logger.Log.Infof("Skipping bootloader configuration for ACL (systemd-boot auto-discovers UKIs)")
+	return nil
 }
