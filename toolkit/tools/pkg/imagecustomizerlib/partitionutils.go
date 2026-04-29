@@ -319,9 +319,9 @@ func parseBtrfsSubvolumeListOutput(output string) ([]string, error) {
 	return subvolumes, nil
 }
 
-func readRootfsMetadata(rootfsPartition *diskutils.PartitionInfo,
-	buildDir string, rootfsPath string, distroHandler DistroHandler,
-) ([]diskutils.FstabEntry, DistroHandler, error) {
+func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
+	buildDir string, rootfsPath string,
+) ([]diskutils.FstabEntry, error) {
 	logger.Log.Debugf("Reading fstab entries")
 
 	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
@@ -330,41 +330,135 @@ func readRootfsMetadata(rootfsPartition *diskutils.PartitionInfo,
 	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
 		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
 	}
 	defer rootfsPartitionMount.Close()
 
-	rootDir := filepath.Join(tmpDir, rootfsPath)
-
-	fstabPath := filepath.Join(rootDir, "etc/fstab")
+	fstabPath := filepath.Join(tmpDir, rootfsPath, "etc/fstab")
 
 	// Read the fstab file.
 	fstabEntries, err := diskutils.ReadFstabFile(fstabPath)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	// Detect the target OS while the rootfs is mounted.
-	// When the caller already knows the distro (e.g. the "create" flow where packages haven't been
-	// installed yet, or after repartitioning where /etc/os-release may be a broken symlink),
-	// it passes a non-nil distroHandler to skip detection.
-	if distroHandler == nil {
-		var detectedOs targetos.TargetOs
-		detectedOs, err = targetos.GetInstalledTargetOs(rootDir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to detect target OS:\n%w", err)
-		}
-		distroHandler = NewDistroHandlerFromTargetOs(detectedOs)
+		return nil, err
 	}
 
 	// Close the rootfs partition mount.
 	err = rootfsPartitionMount.CleanClose()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
+		return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w",
 			rootfsPartition.Path, err)
 	}
 
-	return fstabEntries, distroHandler, nil
+	return fstabEntries, nil
+}
+
+// detectDistroFromRootfs mounts the rootfs partition (and /usr or /usr/lib from fstab if needed)
+// read-only and returns a DistroHandler derived from /etc/os-release (or /usr/lib/os-release).
+// Returns nil if the os-release file cannot be found (e.g. USR-verity configured images).
+func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.PartitionInfo, rootfsPath string,
+	diskPartitions []diskutils.PartitionInfo, fstabEntries []diskutils.FstabEntry,
+) (DistroHandler, error) {
+	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
+		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+	}
+	defer rootfsPartitionMount.Close()
+
+	rootDir := filepath.Join(tmpDir, rootfsPath)
+
+	// First attempt: try detection using the rootfs alone.
+	detectedOs, err := targetos.GetInstalledTargetOs(rootDir)
+	if err == nil {
+		distroHandler := NewDistroHandlerFromTargetOs(detectedOs)
+		err = rootfsPartitionMount.CleanClose()
+		if err != nil {
+			return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		}
+		return distroHandler, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to get installed target OS from rootfs partition:\n%w", err)
+	}
+
+	// Cascading fallbacks: try /usr from fstab, then /usr/lib from fstab.
+	var fallbackMounts []*safemount.Mount
+	defer func() {
+		for i := len(fallbackMounts) - 1; i >= 0; i-- {
+			fallbackMounts[i].Close()
+		}
+	}()
+	for _, fstabTarget := range []struct {
+		mountTarget string
+		mountSubdir string
+	}{
+		{mountTarget: "/usr", mountSubdir: "usr"},
+		{mountTarget: "/usr/lib", mountSubdir: "usr/lib"},
+	} {
+		var fallbackMount *safemount.Mount
+		fallbackMount, err = mountFstabPartitionReadonly(rootDir, fstabTarget.mountTarget, fstabTarget.mountSubdir,
+			fstabEntries, diskPartitions)
+		if err != nil {
+			return nil, err
+		}
+		if fallbackMount == nil {
+			continue
+		}
+		fallbackMounts = append(fallbackMounts, fallbackMount)
+
+		detectedOs, err = targetos.GetInstalledTargetOs(rootDir)
+		if err == nil {
+			distroHandler := NewDistroHandlerFromTargetOs(detectedOs)
+			for i := len(fallbackMounts) - 1; i >= 0; i-- {
+				err = fallbackMounts[i].CleanClose()
+				if err != nil {
+					return nil, fmt.Errorf("failed to close %s partition mount:\n%w", fstabTarget.mountSubdir, err)
+				}
+			}
+			fallbackMounts = nil
+			err = rootfsPartitionMount.CleanClose()
+			if err != nil {
+				return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+			}
+			return distroHandler, nil
+		}
+
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to get target OS from %s filesystem:\n%w", fstabTarget.mountSubdir, err)
+		}
+	}
+
+	// Always return an os.ErrNotExist if detection couldn't find an os-release file.
+	if err == nil {
+		err = os.ErrNotExist
+	}
+	return nil, fmt.Errorf("failed to find os-release file:\n%w", err)
+}
+
+// mountFstabPartitionReadonly mounts the partition referenced by fstab's mountTarget entry under
+// rootDir/mountSubdir read-only. Returns nil mount when fstab has no entry for mountTarget or its
+// source is not a resolvable disk-partition identifier (e.g. /dev/mapper/* verity device).
+// mountFstabPartitionReadonly mounts the partition referenced by fstab for mountTarget under
+// rootDir/mountSubdir read-only. Returns nil mount when fstab has no entry covering mountTarget,
+// or its source is not a resolvable disk-partition identifier (e.g. /dev/mapper/* verity device).
+// Uses findBasicPartitionForPath to resolve the fstab entry to a disk partition.
+func mountFstabPartitionReadonly(rootDir string, mountTarget string, mountSubdir string,
+	fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+) (*safemount.Mount, error) {
+	partition, _, err := findBasicPartitionForPath(mountTarget, fstabEntries, diskPartitions)
+	if err != nil {
+		// No fstab entry, or source is /dev/* (verity), or partition not found — not fatal.
+		return nil, nil
+	}
+
+	mountDir := filepath.Join(rootDir, mountSubdir)
+	mount, err := safemount.NewMount(partition.Path, mountDir, partition.FileSystemType,
+		unix.MS_RDONLY, "", true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mount %s partition (%s):\n%w", mountTarget, partition.Path, err)
+	}
+	return mount, nil
 }
 
 func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
@@ -977,8 +1071,19 @@ func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPa
 	}
 	defer bootPartitionMount.Close()
 
+	var kernelToArgs map[string][]grubConfigLinuxArg
 	bootDir := filepath.Join(tmpDirBoot, bootDirPath)
-	kernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
+	if distroHandler != nil {
+		kernelToArgs, err = distroHandler.ReadGrubConfigLinuxArgs(bootDir)
+	} else {
+		// Best-effort attempt to find and read grub.cfg if no distro handler is available.
+		grubCfgPath, err := installutils.FindGrubCfgFile(bootDir)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to find grub.cfg file in boot directory (%s):\n%w", bootDir, err)
+		}
+		kernelToArgs, err = readKernelCmdlinesFromGrubCfg(bootDir, grubCfgPath)
+	}
+
 	if err != nil {
 		// Check if the error is because the boot config doesn't exist.
 		if errors.Is(err, fs.ErrNotExist) {
