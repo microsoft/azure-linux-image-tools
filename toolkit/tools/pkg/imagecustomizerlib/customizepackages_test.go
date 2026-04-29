@@ -399,7 +399,9 @@ func ensurePackageCacheCleanup(t *testing.T, imageConnection *imageconnection.Im
 		case baseImageVersionAzl2, baseImageVersionAzl3:
 			ensureRpmCacheCleanup(t, imageConnection, "/var/cache/tdnf", baseImageInfo)
 		case baseImageVersionAzl4:
-			ensureRpmCacheCleanup(t, imageConnection, "/var/cache/dnf", baseImageInfo)
+			// Azure Linux 4 uses DNF 5, which stores its cache under /var/cache/libdnf5
+			// (DNF 4's /var/cache/dnf is not present).
+			ensureRpmCacheCleanup(t, imageConnection, "/var/cache/libdnf5", baseImageInfo)
 		default:
 			t.Fatalf("unsupported Azure Linux version for cache cleanup: %s", baseImageInfo.Version)
 		}
