@@ -133,7 +133,10 @@ func copyRpms(sourceDir string, targetDir string, excludePrefixes []string) erro
 	}
 
 	for _, sourceFile := range sourceFiles {
-		if sourceFile.IsDir() {
+		// Skip anything that isn't a regular file.
+		// The downloaded RPMs directory may also contain GPG key symlinks, some of which intentionally dangle, such as
+		// the Azure Linux 4.0 evergreen-* -> 5.0-primary chain.
+		if !sourceFile.Type().IsRegular() {
 			continue
 		}
 

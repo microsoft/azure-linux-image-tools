@@ -21,10 +21,14 @@ OUT_DIR="$DOWNLOADER_RPMS_DIRS/$DISTRO/$DISTRO_VERSION"
 REPO_WITH_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$DISTRO-$DISTRO_VERSION-withkey.repo"
 REPO_NO_KEY_FILE="$DOWNLOADER_RPMS_DIRS/rpms-$DISTRO-$DISTRO_VERSION-nokey.repo"
 
-# Map distro to GPG key name
+# Map distro and version to the GPG key file name extracted into $OUT_DIR.
+# Azure Linux 2.0/3.0 ship "MICROSOFT-RPM-GPG-KEY"; Azure Linux 4.0 switched to the Fedora-style
+# "RPM-GPG-KEY-azurelinux-<version>-primary" naming via the azurelinux-gpg-keys package.
 declare -A GPG_KEY_MAP
-GPG_KEY_MAP["azurelinux"]="MICROSOFT-RPM-GPG-KEY"
-GPG_KEY_MAP["fedora"]="RPM-GPG-KEY-${DISTRO_VERSION}-fedora"
+GPG_KEY_MAP["azurelinux-2.0"]="MICROSOFT-RPM-GPG-KEY"
+GPG_KEY_MAP["azurelinux-3.0"]="MICROSOFT-RPM-GPG-KEY"
+GPG_KEY_MAP["azurelinux-4.0"]="RPM-GPG-KEY-azurelinux-4.0-primary"
+GPG_KEY_MAP["fedora-${DISTRO_VERSION}"]="RPM-GPG-KEY-${DISTRO_VERSION}-fedora"
 
 mkdir -p "$OUT_DIR"
 
@@ -49,7 +53,7 @@ docker run \
    cp -r /etc/pki/rpm-gpg/. "/rpmsdir"
 
 # Create repo file with the appropriate GPG key, if available
-GPG_KEY_NAME="${GPG_KEY_MAP[$DISTRO]:-}"
+GPG_KEY_NAME="${GPG_KEY_MAP[${DISTRO}-${DISTRO_VERSION}]:-}"
 
 if [[ -n "$GPG_KEY_NAME" ]]; then
   KEY_PATH="$OUT_DIR/$GPG_KEY_NAME"
