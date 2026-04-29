@@ -81,7 +81,7 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 						test2SshPublicKeyPath,
 					},
 					SecondaryGroups: []string{
-						"sudo",
+						"wheel",
 					},
 					StartupCommand: test2StartupCommand,
 					HomeDirectory:  test2HomeDirectory,
