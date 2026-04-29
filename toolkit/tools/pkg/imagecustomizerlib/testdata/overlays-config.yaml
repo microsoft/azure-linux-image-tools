@@ -54,6 +54,7 @@ os:
   packages:
     install:
     - openssh-server
+    - policycoreutils-python-utils
 
   services:
     enable:
