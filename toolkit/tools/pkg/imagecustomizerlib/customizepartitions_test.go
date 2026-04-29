@@ -23,6 +23,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type verifyFstabEntrySource int
+
+const (
+	verifyFstabEntryPartuuidSource verifyFstabEntrySource = iota
+	verifyFstabEntryUuidSource
+)
+
 func TestCustomizeImagePartitions(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
@@ -100,7 +107,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	assert.NoError(t, err, "check for /var/log")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, mountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, mountPoints, partitions, verifyFstabEntryPartuuidSource)
 	verifyBootloaderConfig(t, imageConnection, "console=tty0 console=ttyS0",
 		partitions[mountPoints[1].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
@@ -194,7 +201,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, mountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, mountPoints, partitions, verifyFstabEntryPartuuidSource)
 	verifyBootloaderConfig(t, imageConnection, "",
 		partitions[mountPoints[0].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
@@ -277,7 +284,7 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions, verifyFstabEntryPartuuidSource)
 	verifyBootCfg(t, imageConnection, "",
 		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
@@ -438,7 +445,21 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	}
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions)
+	// `resetPartitionsUuidsType: reset-all` preserves each fstab entry's existing mount-identifier
+	// form (it only rewrites the value, not the prefix). The base images differ:
+	//   - AzL2 / AzL3 ship fstab with `PARTUUID=<part-uuid>`.
+	//   - AzL4 ships fstab with `UUID=<fs-uuid>`.
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions,
+			verifyFstabEntryPartuuidSource)
+	case baseImageVersionAzl4:
+		verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions,
+			verifyFstabEntryUuidSource)
+	default:
+		assert.Failf(t, "unsupported Azure Linux version", "version %q", baseImageInfo.Version)
+	}
+
 	verifyBootloaderConfig(t, imageConnection, "",
 		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
 		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
@@ -900,7 +921,7 @@ func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.Imag
 }
 
 func verifyFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection, mountPoints []testutils.MountPoint,
-	partitions map[int]diskutils.PartitionInfo,
+	partitions map[int]diskutils.PartitionInfo, sourceType verifyFstabEntrySource,
 ) {
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
 	if filteredFstabEntries == nil {
@@ -919,7 +940,13 @@ func verifyFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConn
 		assert.Equalf(t, mountPoint.FileSystemType, fstabEntry.FsType, "fstab [%d]: file system type", i)
 		assert.Equalf(t, mountPoint.Path, fstabEntry.Target, "fstab [%d]: target path", i)
 
-		expectedSource := fmt.Sprintf("PARTUUID=%s", partition.PartUuid)
+		var expectedSource string
+		switch sourceType {
+		case verifyFstabEntryPartuuidSource:
+			expectedSource = fmt.Sprintf("PARTUUID=%s", partition.PartUuid)
+		case verifyFstabEntryUuidSource:
+			expectedSource = fmt.Sprintf("UUID=%s", partition.Uuid)
+		}
 		assert.Equalf(t, expectedSource, fstabEntry.Source, "fstab [%d]: source", i)
 	}
 }
