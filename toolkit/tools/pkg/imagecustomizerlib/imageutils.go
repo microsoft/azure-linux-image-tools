@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -77,13 +78,20 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
-	// distroHandler may be nil here, but will not be nil on return
-	fstabEntries, distroHandler, err := readRootfsMetadata(rootfsPartition, buildDir, rootfsPath, distroHandler)
+	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays, distroHandler)
+	if distroHandler == nil {
+		distroHandler, err = detectDistroFromRootfs(buildDir, rootfsPartition, rootfsPath, partitions, fstabEntries)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, nil, nil, err
+		}
+	}
+
+	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays,
+		distroHandler)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}

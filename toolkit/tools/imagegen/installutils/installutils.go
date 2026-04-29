@@ -108,6 +108,27 @@ const (
 	bootUsrConfigFileMode = 0644
 )
 
+// FindGrubCfgFile returns the path to the first grub.cfg file that exists under bootDir. This should only be used in
+// cases where we cannot determine the right DistroHandler ahead of time.
+func FindGrubCfgFile(bootDir string) (string, error) {
+	grubCfgFiles := []string{
+		FedoraGrubCfgFile,
+		DebianGrubCfgFile,
+	}
+
+	for _, relPath := range grubCfgFiles {
+		absPath := filepath.Join(bootDir, relPath)
+		_, err := os.Stat(absPath)
+		if err == nil {
+			return relPath, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", fmt.Errorf("failed to stat grub config file (%s):\n%w", absPath, err)
+		}
+	}
+	return "", fmt.Errorf("no grub config file found under (%s): %w", bootDir, os.ErrNotExist)
+}
+
 // CreateMountPointPartitionMap creates a map between the mountpoint supplied in the config file and the device path
 // of the partition
 // - partDevPathMap is a map of partition IDs to partition device paths
