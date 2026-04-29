@@ -117,9 +117,9 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 	}
 	defer imageConnection.Close()
 
-	// Ensure tree was installed.
+	// Ensure the previously installed package and tree was installed.
 	ensureFilesExist(t, imageConnection,
-		packageName,
+		packagePath,
 		"/usr/bin/tree",
 	)
 
