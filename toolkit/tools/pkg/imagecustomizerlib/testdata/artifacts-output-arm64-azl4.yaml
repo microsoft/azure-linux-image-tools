@@ -8,7 +8,7 @@ storage:
       size: 100M
 
     - id: boot
-      size: 100M
+      size: 1G
 
     - id: rootfs
       size: 2G
