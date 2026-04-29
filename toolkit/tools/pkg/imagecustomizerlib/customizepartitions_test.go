@@ -500,8 +500,15 @@ func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, ba
 	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
 
 	// The /boot directory is on an XFS partition.
-	// Hence 'nrext64' should be disabled since GRUB 2.06 doesn't support it.
-	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", false)
+	// Hence 'nrext64' should be disabled on AZL2,3 since GRUB 2.06 doesn't support it.
+	// AZL4 ships with GRUB 2.12, so it supports 'nrext64'.
+	nrext64Expected := hostKernelVersion.Ge([]int{5, 19})
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl4:
+	default:
+		nrext64Expected = false
+	}
+	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", nrext64Expected)
 }
 
 func TestCustomizeImagePartitionsBtrfsBoot(t *testing.T) {
