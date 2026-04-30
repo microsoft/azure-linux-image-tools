@@ -1,10 +1,10 @@
-# Differs from install-package-disk-space in storage.disks[0].maxSize being 900M and the esp partition being 32M.
+# Differs from install-package-disk-space in storage.disks[0].maxSize being 1000M and the esp partition being 32M.
 storage:
   disks:
   - partitionTableType: gpt
 
     # Create a small-ish disk.
-    maxSize: 900M
+    maxSize: 1000M
     partitions:
     - id: esp
       type: esp
