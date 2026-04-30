@@ -1029,7 +1029,7 @@ func verifyBootCfg(t *testing.T, imageConnection *imageconnection.ImageConnectio
 		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* root=(UUID=%s|PARTUUID=%s) `,
 			regexp.QuoteMeta(rootfsInfo.Uuid), regexp.QuoteMeta(rootfsInfo.PartUuid)), blsContents)
 		if extraCommandLineArgs != "" {
-			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* %s `, regexp.QuoteMeta(extraCommandLineArgs)),
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* %s$`, regexp.QuoteMeta(extraCommandLineArgs)),
 				blsContents)
 		}
 	}
