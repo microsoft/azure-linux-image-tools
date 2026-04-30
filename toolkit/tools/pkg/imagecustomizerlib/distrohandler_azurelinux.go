@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -175,13 +176,23 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	// Azure Linux 3.0+ always uses grub-mkconfig.
+	// Azure Linux 3.0+ always uses grub2-mkconfig.
 	// The legacy grub config detection logic is only relevant for Azure Linux 2.0.
-	// And for new images, always use grub-mkconfig.
+	// And for new images, always use grub2-mkconfig.
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
+	var assetGrubDefFile string
+	switch d.version {
+	case "2.0", "3.0":
+		assetGrubDefFile = resources.AssetsGrubDefFileAzl3
+	case "4.0":
+		assetGrubDefFile = resources.AssetsGrubDefFileAzl4
+	default:
+		return fmt.Errorf("unsupported Azure Linux version: %s", d.version)
+	}
+
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig, d)
+		currentSELinuxMode, forceGrubMkconfig, d, assetGrubDefFile, installutils.FedoraGrubEnvRelPath)
 }
 
 func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
