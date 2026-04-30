@@ -18,6 +18,7 @@ type TargetOs string
 const (
 	TargetOsAzureLinux2          TargetOs = "azl2"
 	TargetOsAzureLinux3          TargetOs = "azl3"
+	TargetOsAzureLinux4          TargetOs = "azl4"
 	TargetOsAzureContainerLinux3 TargetOs = "acl3"
 	TargetOsFedora42             TargetOs = "fedora42"
 	TargetOsUbuntu2204           TargetOs = "ubuntu2204"
@@ -67,6 +68,9 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			switch versionId {
 			case "3.0":
 				return TargetOsAzureLinux3, nil
+
+			case "4.0":
+				return TargetOsAzureLinux4, nil
 
 			default:
 				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in os-release", versionId)
