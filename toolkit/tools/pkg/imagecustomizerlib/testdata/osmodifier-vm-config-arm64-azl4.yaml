@@ -1,4 +1,4 @@
-# Differs from osmodifier-vm-config-arm64 its use of selinux-policy-targeted (not selinux-policy-modules
+# Differs from osmodifier-vm-config-arm64 its removal of selinux-policy-modules
 os:
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
@@ -10,6 +10,5 @@ os:
   packages:
     install:
     - selinux-policy
-    - selinux-policy-targeted
     - setools-console
     - policycoreutils-python-utils

@@ -1,4 +1,4 @@
-# Differs from hierarchical-config-base in the absence of the package-snapshot-time preview feature and os.packages.snapshotTime config; and its use of selinux-policy-targeted (not selinux-policy-modules), systemd-boot-unsigned (not systemd-boot), grub2-efi-x64 (not grub2-efi-binary), and hierarchical-config-base-azl4 (not hierarchical-config-base)
+# Differs from hierarchical-config-base in the absence of the package-snapshot-time preview feature and os.packages.snapshotTime config; and its use of systemd-boot-unsigned (not systemd-boot), grub2-efi-x64 (not grub2-efi-binary), and hierarchical-config-base-azl4 (not hierarchical-config-base); and its removal of selinux-policy-modules
 storage:
   disks:
   - partitionTableType: gpt
@@ -66,7 +66,6 @@ os:
     - systemd-boot-unsigned
     - openssh-server
     - selinux-policy
-    - selinux-policy-targeted
 
   services:
     enable:

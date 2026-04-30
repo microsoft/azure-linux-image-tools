@@ -1,4 +1,4 @@
-# Differs from partitions-selinux-enforcing-azl3 in its use of selinux-policy-targeted (not selinux-policy-modules)
+# Differs from partitions-selinux-enforcing-azl3 in its removal of selinux-policy-modules
 storage:
   disks:
   - partitionTableType: gpt
@@ -45,6 +45,5 @@ os:
   packages:
     install:
     - selinux-policy
-    - selinux-policy-targeted
     - setools-console
     - policycoreutils-python-utils
