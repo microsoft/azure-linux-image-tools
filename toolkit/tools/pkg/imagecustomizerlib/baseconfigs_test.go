@@ -191,7 +191,7 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		systemdBootPkgName = "systemd-boot-unsigned"
 	}
-	systemdBootInstalled := isPackageInstalled(imageConnection.Chroot(), systemdBootPkgName)
+	systemdBootInstalled := distroHandler.IsPackageInstalled(imageConnection.Chroot(), systemdBootPkgName)
 	assert.True(t, systemdBootInstalled, "expected %s to be installed", systemdBootPkgName)
 
 	// AZL4 uses dnf which does not support snapshot time, so versions are not pinned.
