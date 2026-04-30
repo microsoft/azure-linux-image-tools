@@ -795,7 +795,14 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	selinuxType := strings.TrimSpace(stdout)
 	fileContextPath := fmt.Sprintf(fileContextBasePath, selinuxType)
 
-	targetRootPath := "/mnt/_bindmountroot"
+	// The bind-mount holder must live somewhere that:
+	//   1. is guaranteed writable inside the chroot, and
+	//   2. cannot be hidden by an entry in the image's /etc/fstab
+	//      (e.g. an Azure data-disk placeholder mounted read-only at /mnt during customization).
+	// `/run` is added by safechroot as a fresh tmpfs (RW) on every chroot, and
+	// `getNonSpecialChrootMountPoints` already excludes it from the relabel set,
+	// so it is the safe choice.
+	targetRootPath := "/run/_bindmountroot"
 	targetRootFullPath := filepath.Join(installChroot.RootDir(), targetRootPath)
 
 	for _, mountToLabel := range listOfMountsToLabel {
