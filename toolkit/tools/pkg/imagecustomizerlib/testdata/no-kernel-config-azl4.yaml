@@ -1,0 +1,8 @@
+# Differs from no-kernel-config in that it uses kernel-core (not kernel)
+os:
+  packages:
+    remove:
+    # Removing kernel-core also removes interconnected dependencies: kernel, kernel-modules, and kernel-modules-core
+    # We could also remove kernel-modules or kernel-modules-core here to the same effect.
+    # We cannot use kernel here, since it's just a meta-package. Removing it would not remove any actual files.
+    - kernel-core
