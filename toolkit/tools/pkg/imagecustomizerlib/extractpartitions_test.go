@@ -660,7 +660,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
-			Size:       4106 * diskutils.MiB,
+			Size:       4130 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3}),
 		},
 		Images: []FileSystem{
