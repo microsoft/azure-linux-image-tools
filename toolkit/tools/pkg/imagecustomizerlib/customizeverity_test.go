@@ -1072,13 +1072,7 @@ func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildD
 }
 
 func TestCustomizeImageVerityRootInlineCosi(t *testing.T) {
-	// This test uses a UKI config that requires systemd-boot, which is only
-	// available on AzureLinux 3 for now.
-	azl3Images := []testBaseImageInfo{
-		testBaseImageAzl3CoreEfi,
-		testBaseImageAzl3BareMetal,
-	}
-	for _, baseImageInfo := range azl3Images {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityRootInlineCosiHelper(t, "TestCustomizeImageVerityRootInlineCosi"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -1087,6 +1081,10 @@ func TestCustomizeImageVerityRootInlineCosi(t *testing.T) {
 
 func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
