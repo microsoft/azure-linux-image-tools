@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -85,7 +84,7 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 
 	if distroHandler == nil {
 		distroHandler, err = detectDistroFromRootfs(buildDir, rootfsPartition, rootfsPath, partitions, fstabEntries)
-		if err != nil && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return nil, nil, nil, err
 		}
 	}

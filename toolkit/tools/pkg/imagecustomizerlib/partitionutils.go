@@ -378,7 +378,7 @@ func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.Partitio
 		}
 		return distroHandler, nil
 	}
-	if !os.IsNotExist(err) {
+	if !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to get installed target OS from rootfs partition:\n%w", err)
 	}
 
@@ -424,7 +424,7 @@ func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.Partitio
 			return distroHandler, nil
 		}
 
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("failed to get target OS from %s filesystem:\n%w", fstabTarget.mountSubdir, err)
 		}
 	}
