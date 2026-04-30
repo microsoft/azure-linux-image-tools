@@ -1,4 +1,4 @@
-# Differs from selinux-force-enforcing-azl3 in its use of selinux-policy-targeted (not selinux-policy-modules)
+# Differs from selinux-force-enforcing-azl3 in its removal of selinux-policy-modules
 os:
   selinux:
     mode: force-enforcing
@@ -6,6 +6,5 @@ os:
   packages:
     install:
     - selinux-policy
-    - selinux-policy-targeted
     - setools-console
     - policycoreutils-python-utils

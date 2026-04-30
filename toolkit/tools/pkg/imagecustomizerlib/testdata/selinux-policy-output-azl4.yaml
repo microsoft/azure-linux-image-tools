@@ -1,4 +1,4 @@
-# Differs from selinux-policy-output in its use of selinux-policy-targeted (not selinux-policy-modules)
+# Differs from selinux-policy-output in its removal of selinux-policy-modules
 previewFeatures:
   - output-selinux-policy
 
@@ -6,7 +6,6 @@ os:
   packages:
     install:
     - selinux-policy
-    - selinux-policy-targeted
     - setools-console
     - policycoreutils-python-utils
 

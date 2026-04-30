@@ -5,7 +5,7 @@ packages:
 - policycoreutils
 - python3
 - rpm
-- selinux-policy-targeted
+- selinux-policy
 - systemd
 - xz
 - dracut-config-generic

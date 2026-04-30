@@ -1,4 +1,4 @@
-# Differs from osmodifier-vm-config-amd64 its removal of selinux-policy-modules
+# Differs from osmodifier-vm-config-amd64 in its removal of selinux-policy-modules
 os:
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
