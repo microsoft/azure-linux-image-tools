@@ -53,6 +53,14 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 	test2StartupCommand := "/sbin/nologin"
 	test2PasswordExpiresDays := int64(10)
 
+	var test2SecondaryGroup string
+	switch baseImageInfo.Distro {
+	case baseImageDistroUbuntu:
+		test2SecondaryGroup = "sudo"
+	default:
+		test2SecondaryGroup = "wheel"
+	}
+
 	config := imagecustomizerapi.Config{
 		PreviewFeatures: baseImageInfo.PreviewFeatures,
 		OS: &imagecustomizerapi.OS{
@@ -81,7 +89,7 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 						test2SshPublicKeyPath,
 					},
 					SecondaryGroups: []string{
-						"wheel",
+						test2SecondaryGroup,
 					},
 					StartupCommand: test2StartupCommand,
 					HomeDirectory:  test2HomeDirectory,
@@ -152,7 +160,7 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 
 	test2UserGroups, err := userutils.GetUserGroups(imageConnection.Chroot().RootDir(), "test2")
 	if assert.NoError(t, err) {
-		assert.ElementsMatch(t, test2UserGroups, []string{"sudo"})
+		assert.ElementsMatch(t, test2UserGroups, []string{test2SecondaryGroup})
 	}
 }
 
