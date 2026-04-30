@@ -58,6 +58,40 @@ var (
 		},
 	}
 
+	// Azure Linux 4.0 core-efi base image has a 12 GiB virtual disk and tags the
+	// rootfs with the discoverable-partitions arch-specific root GUID instead of
+	// the legacy linux-filesystem GUID used by AzL2/AzL3.
+	expectedCosiMetadataForAzl4CoreEfi = MetadataJson{
+		Disk: Disk{
+			Size:       12 * diskutils.GiB,
+			GptRegions: newTestCosiGptSections([]int{1, 2}),
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeRoot],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "grub",
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
 	expectedCosiFileSystemsForUbuntu2204 = []FileSystem{
 		{
 			Image: ImageFile{
@@ -160,6 +194,19 @@ var (
 		},
 	}
 )
+
+// expectedCosiMetadataForAzureLinux returns the expected COSI metadata for the given Azure Linux core-efi base image.
+// AzL4 differs from AzL2/AzL3 in disk size and rootfs partition type GUID.
+func expectedCosiMetadataForAzureLinux(baseImageInfo testBaseImageInfo) (MetadataJson, error) {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return expectedCosiMetadataForAzlCoreEfi, nil
+	case baseImageVersionAzl4:
+		return expectedCosiMetadataForAzl4CoreEfi, nil
+	default:
+		return MetadataJson{}, fmt.Errorf("unexpected Azure Linux version: %s", baseImageInfo.Version)
+	}
+}
 
 func TestAddSkippableFrame(t *testing.T) {
 	// Create a skippable frame containing the metadata and prepend the frame to the partition file
@@ -501,7 +548,7 @@ func verifySkippableFrameMetadataFromFile(partitionFilepath string, magicNumber 
 func TestCustomizeImageNopShrink(t *testing.T) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
 	defer os.RemoveAll(testTempDir)
@@ -517,7 +564,9 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	}
 
 	// Attach partition files.
-	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadataForAzlCoreEfi); !ok {
+	expectedCosiMetadata, err := expectedCosiMetadataForAzureLinux(baseImageInfo)
+	assert.NoError(t, err)
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadata); !ok {
 		return
 	}
 
@@ -685,7 +734,7 @@ func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 func TestCustomizeImageFstabDelete(t *testing.T) {
 	var err error
 
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageFstabDelete")
 	defer os.RemoveAll(testTempDir)
@@ -702,7 +751,9 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 		return
 	}
 
-	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadataForAzlCoreEfi); !ok {
+	expectedCosiMetadata, err := expectedCosiMetadataForAzureLinux(baseImageInfo)
+	assert.NoError(t, err)
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, buildDir, expectedCosiMetadata); !ok {
 		return
 	}
 }
