@@ -59,6 +59,7 @@ other Linux distributions as well.
 Image Customizer supports the following input image distributions:
 
 - Azure Linux 3.0
+- Azure Linux 4.0
 - Ubuntu 22.04
 - Ubuntu 24.04
 

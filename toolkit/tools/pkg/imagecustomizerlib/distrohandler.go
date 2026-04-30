@@ -83,6 +83,8 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 		return newAzureLinuxDistroHandler("2.0")
 	case targetos.TargetOsAzureLinux3:
 		return newAzureLinuxDistroHandler("3.0")
+	case targetos.TargetOsAzureLinux4:
+		return newAzureLinuxDistroHandler("4.0")
 	case targetos.TargetOsAzureContainerLinux3:
 		return newAclDistroHandler()
 	case targetos.TargetOsUbuntu2204:
