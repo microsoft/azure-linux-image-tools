@@ -176,6 +176,13 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// On Azure Linux 4.0, selinux-policy is installed by default and cannot be removed
+		// because selinux-policy-targeted (a protected package, also installed by default) depends on it,
+		// so the no-policy scenario this test exercises is unreachable.
+		t.Skip("Azure Linux 4.0 ships selinux-policy by default and cannot remove it")
+	}
+
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageSELinuxNoPolicy")
 	defer os.RemoveAll(testTmpDir)
 
