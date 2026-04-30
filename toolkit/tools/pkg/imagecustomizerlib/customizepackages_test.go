@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -603,6 +604,15 @@ func ensureRpmCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageC
 
 	// Start the directory walk from the initial dirPath and collect all existing files
 	fullPath := filepath.Join(imageConnection.Chroot().RootDir(), dirPath)
+
+	// A missing cache directory is a strictly stronger guarantee than an empty one:
+	// it means the package manager never created/wrote a cache. This happens, for
+	// example, on Azure Linux 4 (libdnf5) for remove-only customizations, where no
+	// metadata refresh occurs and so /var/cache/libdnf5 is never materialized.
+	if _, err := os.Stat(fullPath); errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+
 	err := filepath.WalkDir(fullPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("Failed to access path (%s):\n%w", path, err)
