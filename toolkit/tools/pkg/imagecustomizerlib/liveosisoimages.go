@@ -545,6 +545,13 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		},
 	}
 
+	// Validate and populate computed partition fields (e.g. End, Size) that are
+	// required by downstream code such as diskConfigToImager.
+	err = diskConfig.IsValid()
+	if err != nil {
+		return fmt.Errorf("failed to validate disk config for writeable image:\n%w", err)
+	}
+
 	fileSystemConfigs := []imagecustomizerapi.FileSystem{
 		{
 			DeviceId:    "rootfs",
