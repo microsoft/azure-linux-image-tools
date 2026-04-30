@@ -139,7 +139,9 @@ var (
 		},
 	}
 
-	// GRUB 2.06 doesn't support 'metadata_csum_seed'.
+	// GRUB 2.06 doesn't support 'metadata_csum_seed', we need a new set of ext4 options for the /boot partition.
+	// This is azl4Ext4Options without 'metadata_csum_seed'.
+	// This is needed because AZL4 images are built on AZL3 hosts.
 	azl4BootExt4Options = ext4Options{
 		BlockSize: 4096,
 		Features: []string{
