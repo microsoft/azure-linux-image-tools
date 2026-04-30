@@ -213,7 +213,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[3].PartitionTypeUuid) // linux generic
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(32*diskutils.MiB), partitions[1].SizeInBytes)
 	assert.Equal(t, uint64(2*diskutils.GiB), partitions[2].SizeInBytes)
 	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].SizeInBytes)
 }
