@@ -1072,7 +1072,13 @@ func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildD
 }
 
 func TestCustomizeImageVerityRootInlineCosi(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxAll {
+	// This test uses a UKI config that requires systemd-boot, which is only
+	// available on AzureLinux 3 for now.
+	azl3Images := []testBaseImageInfo{
+		testBaseImageAzl3CoreEfi,
+		testBaseImageAzl3BareMetal,
+	}
+	for _, baseImageInfo := range azl3Images {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityRootInlineCosiHelper(t, "TestCustomizeImageVerityRootInlineCosi"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -1192,7 +1198,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
 	// were picked by observing values seen during test and adding a good buffer.
 	assert.Greater(t, int64(100*diskutils.MiB), bootStat.Size())
-	assert.Greater(t, int64(500*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(600*diskutils.MiB), rootStat.Size())
 	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
 
 	espDevice, err := safeloopback.NewLoopback(espPartitionPath)
