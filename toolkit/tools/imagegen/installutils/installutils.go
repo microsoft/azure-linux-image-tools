@@ -373,7 +373,8 @@ func addEntryToFstab(fullFstabPath, mountPoint, devicePath, fsType, mountArgs st
 func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnable bool,
 	rootMountIdentifier configuration.MountIdentifier, kernelCommandLine configuration.KernelCommandLine,
 	installChroot *safechroot.Chroot, diskDevPath string, mountPointMap map[string]string,
-	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool,
+	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, assetGrubDefFile string,
+	grubEnvRelPath string,
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
@@ -420,13 +421,13 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 
 	// Grub will always use filesystem UUID, never PARTUUID or PARTLABEL
 	err = InstallGrubDefaults(installChroot.RootDir(), rootDevice, bootUUID, bootPrefix, encryptedRoot,
-		kernelCommandLine, isBootPartitionSeparate, !enableGrubMkconfig /*includeLegacyCfg*/)
+		kernelCommandLine, isBootPartitionSeparate, !enableGrubMkconfig /*includeLegacyCfg*/, assetGrubDefFile)
 	if err != nil {
 		err = fmt.Errorf("failed to install main grub config file: %s", err)
 		return
 	}
 
-	err = InstallGrubEnv(installChroot.RootDir())
+	err = InstallGrubEnv(installChroot.RootDir(), grubEnvRelPath)
 	if err != nil {
 		err = fmt.Errorf("failed to install grubenv file: %s", err)
 		return
@@ -444,13 +445,11 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 	return
 }
 
-// InstallGrubEnv installs an empty grubenv f
-func InstallGrubEnv(installRoot string) (err error) {
-	const (
-		assetGrubEnvFile = "assets/grub2/grubenv"
-		grubEnvFile      = "boot/grub2/grubenv"
-	)
-	installGrubEnvFile := filepath.Join(installRoot, grubEnvFile)
+// InstallGrubEnv installs an empty grubenv file from the given embedded resource path to the given
+// install-root-relative destination (e.g. FedoraGrubEnvRelPath or DebianGrubEnvRelPath).
+func InstallGrubEnv(installRoot string, grubEnvRelPath string) (err error) {
+	assetGrubEnvFile := "assets/grub2/grubenv"
+	installGrubEnvFile := filepath.Join(installRoot, grubEnvRelPath)
 	err = file.CopyResourceFile(resources.ResourcesFS, assetGrubEnvFile, installGrubEnvFile, bootDirectoryDirMode,
 		bootDirectoryFileMode)
 	if err != nil {
@@ -471,14 +470,15 @@ func InstallGrubEnv(installRoot string) (err error) {
 // - readOnlyRoot holds the dm-verity read-only root partition information if dm-verity is enabled.
 // - isBootPartitionSeparate is a boolean value which is true if the /boot partition is separate from the root partition
 // - includeLegacyCfg specifies if the legacy grub.cfg from Azure Linux should also be added.
+// - assetGrubDefFile is the embedded resource path to use as the /etc/default/grub template.
 // Note: this boot partition could be different than the boot partition specified in the bootloader.
 // This boot partition specifically indicates where to find the kernel, config files, and initrd
 func InstallGrubDefaults(installRoot, rootDevice, bootUUID, bootPrefix string,
 	encryptedRoot diskutils.EncryptedRootDevice, kernelCommandLine configuration.KernelCommandLine,
-	isBootPartitionSeparate bool, includeLegacyCfg bool,
+	isBootPartitionSeparate bool, includeLegacyCfg bool, assetGrubDefFile string,
 ) (err error) {
 	// Copy the bootloader's /etc/default/grub and set the file permission
-	err = installGrubTemplateFile(resources.AssetsGrubDefFile, GrubDefFile, installRoot, rootDevice, bootUUID,
+	err = installGrubTemplateFile(assetGrubDefFile, GrubDefFile, installRoot, rootDevice, bootUUID,
 		bootPrefix, encryptedRoot, kernelCommandLine, isBootPartitionSeparate)
 	if err != nil {
 		logger.Log.Warnf("Failed to install (%s): %v", GrubDefFile, err)

@@ -9,8 +9,9 @@ import (
 
 const (
 	// Assets
-	AssetsGrubCfgFile = "assets/grub2/grub.cfg"
-	AssetsGrubDefFile = "assets/grub2/grub"
+	AssetsGrubCfgFile     = "assets/grub2/grub.cfg"
+	AssetsGrubDefFileAzl3 = "assets/grub2/grub-azl3"
+	AssetsGrubDefFileAzl4 = "assets/grub2/grub-azl4"
 
 	// Verity Signature Module Files
 	VerityMountBootPartitionSetupFile     = "verity-signature/90mountbootpartition/module-setup.sh"
