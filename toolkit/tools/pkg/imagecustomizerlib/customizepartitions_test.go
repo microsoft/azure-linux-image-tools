@@ -878,7 +878,8 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	expectedCosiMetadata := MetadataJson{}
 	switch baseImageInfo.Distro {
 	case baseImageDistroAzureLinux:
-		expectedCosiMetadata = expectedCosiMetadataForAzlCoreEfi
+		expectedCosiMetadata, err = expectedCosiMetadataForAzureLinux(baseImageInfo)
+		assert.NoError(t, err)
 
 	case baseImageDistroUbuntu:
 		switch baseImageInfo.Version {
