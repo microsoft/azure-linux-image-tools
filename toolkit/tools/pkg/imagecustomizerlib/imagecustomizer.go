@@ -104,8 +104,7 @@ const (
 var ToolVersion = ""
 
 type imageMetadata struct {
-	baseImageVerityMetadata []verityDeviceMetadata
-	verityMetadata          []verityDeviceMetadata
+	verityMetadata []verityDeviceMetadata
 
 	partitionsLayout       []fstabEntryPartNum
 	osRelease              string
@@ -497,24 +496,31 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	}
 
 	im.partitionsLayout = partitionsLayout
-	im.baseImageVerityMetadata = baseImageVerityMetadata
 	im.osRelease = osRelease
+
+	configVerityMetadata, err := collectVerityMetadataFromImage(rc.Storage.Verity, rc.RawImageFile, partIdToPartUuid)
+	if err != nil {
+		return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
+	}
+
+	verityMetadata := slices.Concat(baseImageVerityMetadata, configVerityMetadata)
 
 	// For COSI, always shrink the filesystems.
 	shrinkPartitions := rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeCosi || rc.OutputImageFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if shrinkPartitions {
 		// For customize subcommand, we control the image creation, so filesystems always cover their partitions.
-		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids, false /*isExternalImage*/)
+		partitionOriginalSizes, err := shrinkFilesystemsHelper(ctx, rc.RawImageFile, readonlyPartUuids,
+			verityMetadata, false /*isExternalImage*/)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrShrinkFilesystems, err)
 		}
 		im.partitionOriginalSizes = partitionOriginalSizes
 	}
 
-	if len(rc.Storage.Verity) > 0 || len(im.baseImageVerityMetadata) > 0 {
+	if len(verityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
-		verityMetadata, err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
-			partIdToPartUuid, shrinkPartitions, im.baseImageVerityMetadata, readonlyPartUuids, partitionsLayout)
+		err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
+			shrinkPartitions, verityMetadata, readonlyPartUuids, partitionsLayout)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}

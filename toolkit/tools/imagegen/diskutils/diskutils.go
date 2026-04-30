@@ -716,16 +716,15 @@ func formatSinglePartition(targetOs targetos.TargetOs, diskDevPath string, partD
 			fsType = "vfat"
 		}
 
-		mkfsOptions, err := getFileSystemOptions(targetOs, fsType, isBootPartition)
+		mkfsOptions, err := getFileSystemOptions(targetOs, fsType, isBootPartition, partDevPath, partition.FsSize)
 		if err != nil {
 			err = fmt.Errorf("failed to get mkfs args for filesystem type (%s) and target os (%s):\n%w", fsType,
 				targetOs, err)
 			return fsType, err
 		}
 
-		mkfsArgs := []string{"--timeout", "5", diskDevPath, "mkfs", "-t", fsType}
+		mkfsArgs := []string{"--timeout", "5", diskDevPath}
 		mkfsArgs = append(mkfsArgs, mkfsOptions...)
-		mkfsArgs = append(mkfsArgs, partDevPath)
 
 		err = retry.Run(func() error {
 			_, stderr, err := shell.Execute("flock", mkfsArgs...)

@@ -22,6 +22,9 @@ type Partition struct {
 	Size PartitionSize `yaml:"size" json:"size,omitempty"`
 	// Type specifies the type of the partition.
 	Type PartitionType `yaml:"type" json:"type,omitempty"`
+
+	// Note: Start, End, and Size are filled in by Disk.IsValid().
+	filled bool `json:"-"`
 }
 
 func (p *Partition) IsValid() error {
@@ -30,7 +33,7 @@ func (p *Partition) IsValid() error {
 		return err
 	}
 
-	if p.End != nil && p.Size.Type != PartitionSizeTypeUnset {
+	if !p.filled && p.End != nil && p.Size.Type != PartitionSizeTypeUnset {
 		return fmt.Errorf("cannot specify both end and size on partition (%s)", p.Id)
 	}
 
@@ -44,18 +47,6 @@ func (p *Partition) IsValid() error {
 	}
 
 	return nil
-}
-
-func (p *Partition) GetEnd() (DiskSize, bool) {
-	if p.End != nil {
-		return *p.End, true
-	}
-
-	if p.Size.Type == PartitionSizeTypeExplicit {
-		return *p.Start + p.Size.Size, true
-	}
-
-	return 0, false
 }
 
 // isGPTNameValid checks if a GPT partition name is valid.

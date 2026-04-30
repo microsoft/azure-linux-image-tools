@@ -22,6 +22,12 @@ type FileSystem struct {
 	// Otherwise, it is the same as 'DeviceId'.
 	// Value is filled in by Storage.IsValid().
 	PartitionId string `json:"-"`
+
+	// The size of the filesystem in bytes.
+	// Used to limit the size of the filesystem when inline verity is used.
+	// A value of 0 means the filesystem should fill the entire partition.
+	// Value is filled in by Storage.IsValid().
+	Size uint64 `json:"-"`
 }
 
 // IsValid returns an error if the MountPoint is not valid

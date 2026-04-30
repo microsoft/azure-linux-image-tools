@@ -66,8 +66,8 @@ func (d *Disk) IsValid() error {
 			if i == 0 {
 				partition.Start = ptrutils.PtrTo(DiskSize(DefaultPartitionAlignment))
 			} else {
-				prev := d.Partitions[i-1]
-				prevEnd, prevHasEnd := prev.GetEnd()
+				prev := &d.Partitions[i-1]
+				prevEnd, prevHasEnd := partGetEnd(prev)
 				if !prevHasEnd {
 					return fmt.Errorf("partition (%s) omitted start value but previous partition (%s) has no size or end value",
 						partition.Id, prev.Id)
@@ -85,15 +85,15 @@ func (d *Disk) IsValid() error {
 
 	// Confirm each partition ends before the next starts.
 	for i := 0; i < len(d.Partitions)-1; i++ {
-		a := d.Partitions[i]
-		b := d.Partitions[i+1]
+		a := &d.Partitions[i]
+		b := &d.Partitions[i+1]
 
-		aEnd, aHasEnd := a.GetEnd()
+		aEnd, aHasEnd := partGetEnd(a)
 		if !aHasEnd {
 			return fmt.Errorf("partition (%s) is not last partition but size is set to \"grow\"", a.Id)
 		}
 		if aEnd > *b.Start {
-			bEnd, bHasEnd := b.GetEnd()
+			bEnd, bHasEnd := partGetEnd(b)
 			bEndStr := ""
 			if bHasEnd {
 				bEndStr = bEnd.HumanReadable()
@@ -101,6 +101,9 @@ func (d *Disk) IsValid() error {
 			return fmt.Errorf("partition's (%s) range [%s, %s) overlaps partition's (%s) range [%s, %s)",
 				a.Id, a.Start.HumanReadable(), aEnd.HumanReadable(), b.Id, b.Start.HumanReadable(), bEndStr)
 		}
+
+		// Fill in the End and Size values to make life easier for downstream code.
+		partFillSizeAndEnd(a, aEnd)
 	}
 
 	if d.MaxSize == nil && len(d.Partitions) <= 0 {
@@ -117,7 +120,7 @@ func (d *Disk) IsValid() error {
 
 		// Verify MaxSize value.
 		lastPartition := &d.Partitions[len(d.Partitions)-1]
-		lastPartitionEnd, lastPartitionHasEnd := lastPartition.GetEnd()
+		lastPartitionEnd, lastPartitionHasEnd := partGetEnd(lastPartition)
 
 		switch {
 		case !lastPartitionHasEnd && d.MaxSize == nil:
@@ -128,6 +131,8 @@ func (d *Disk) IsValid() error {
 			// Fill in the disk's size.
 			diskSize := lastPartitionEnd + gptFooterSize
 			d.MaxSize = &diskSize
+
+			partFillSizeAndEnd(lastPartition, lastPartitionEnd)
 
 		default:
 			// Check that the disk is big enough for the partition layout.
@@ -150,7 +155,7 @@ func (d *Disk) IsValid() error {
 				// This allows us to control the alignment of the GPT footer instead of relying on the behavior of the
 				// partitioning tool (e.g. sfdisk).
 				lastPartitionEnd := *d.MaxSize - gptFooterSize
-				lastPartition.End = &lastPartitionEnd
+				partFillSizeAndEnd(lastPartition, lastPartitionEnd)
 			}
 		}
 	}
@@ -165,4 +170,41 @@ func roundUp(size uint64, alignment uint64) uint64 {
 		return size
 	}
 	return (div + 1) * alignment
+}
+
+func roundDown(size uint64, alignment uint64) uint64 {
+	div := size / alignment
+	mod := size % alignment
+	if mod == 0 {
+		return size
+	}
+	if div == 0 {
+		return 0
+	}
+	return (div - 1) * alignment
+}
+
+func partGetEnd(p *Partition) (DiskSize, bool) {
+	if p.End != nil {
+		return *p.End, true
+	}
+
+	if p.Size.Type == PartitionSizeTypeExplicit {
+		return *p.Start + p.Size.Size, true
+	}
+
+	return 0, false
+}
+
+func partFillSizeAndEnd(p *Partition, end DiskSize) {
+	if p.End == nil {
+		p.End = &end
+	}
+
+	if p.Size.Type != PartitionSizeTypeExplicit {
+		p.Size.Type = PartitionSizeTypeExplicit
+		p.Size.Size = end - *p.Start
+	}
+
+	p.filled = true
 }

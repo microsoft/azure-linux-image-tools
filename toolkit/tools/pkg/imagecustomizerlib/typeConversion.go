@@ -20,6 +20,7 @@ var (
 	ErrPartitionTableTypeUnknown  = NewImageCustomizerError("TypeConversion:PartitionTableTypeUnknown", "unknown partition table type")
 	ErrPartitionStartInvalid      = NewImageCustomizerError("TypeConversion:PartitionStartInvalid", "partition start must be multiple of 1 MiB")
 	ErrPartitionEndInvalid        = NewImageCustomizerError("TypeConversion:PartitionEndInvalid", "partition end must be multiple of 1 MiB")
+	ErrFilesystemSizeInvalid      = NewImageCustomizerError("TypeConversion:FilesystemSizeInvalid", "filesystem size must be multiple of 1 MiB")
 	ErrMountIdentifierTypeUnknown = NewImageCustomizerError("TypeConversion:MountIdentifierTypeUnknown", "unknown MountIdentifierType value")
 	ErrSelinuxModeUnknown         = NewImageCustomizerError("TypeConversion:SelinuxModeUnknown", "unknown SELinuxMode value")
 )
@@ -101,10 +102,15 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		return configuration.Partition{}, fmt.Errorf("%w (start='%d')", ErrPartitionStartInvalid, *partition.Start)
 	}
 
-	end, _ := partition.GetEnd()
+	end := *partition.End
 	imagerEnd := end / diskutils.MiB
 	if end%diskutils.MiB != 0 {
 		return configuration.Partition{}, fmt.Errorf("%w (end='%d')", ErrPartitionEndInvalid, end)
+	}
+
+	imagerFsSize := fileSystem.Size / diskutils.MiB
+	if fileSystem.Size%diskutils.MiB != 0 {
+		return configuration.Partition{}, fmt.Errorf("%w (size='%d')", ErrFilesystemSizeInvalid, fileSystem.Size)
 	}
 
 	imagerFlags, typeUuid, err := toImagerPartitionFlags(partition.Type)
@@ -123,6 +129,7 @@ func partitionToImager(partition imagecustomizerapi.Partition, fileSystems []ima
 		Flags:           imagerFlags,
 		TypeUUID:        typeUuid,
 		IsBootPartition: isBootPartition,
+		FsSize:          imagerFsSize,
 	}
 	return imagerPartition, nil
 }

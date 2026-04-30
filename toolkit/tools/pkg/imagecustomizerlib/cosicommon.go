@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
@@ -127,6 +128,11 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 	// Pre-compute a set of verity hash UUIDs for quick lookup
 	verityHashUuids := make(map[string]struct{})
 	for _, verity := range verityMetadata {
+		if verity.hashPartUuid == verity.dataPartUuid {
+			// Inline verity.
+			continue
+		}
+
 		verityHashUuids[verity.hashPartUuid] = struct{}{}
 	}
 
@@ -188,10 +194,16 @@ func buildCosiFile(sourceDir string, outputFile string, partitions []outputParti
 					return fmt.Errorf("missing metadata for hash partition UUID:\n%s", verity.hashPartUuid)
 				}
 
+				hashOffset := (*uint64)(nil)
+				if verity.formatSettings.hashOffsetBytes != 0 {
+					hashOffset = ptrutils.PtrTo(verity.formatSettings.hashOffsetBytes)
+				}
+
 				hashPartition := partitions[hashPartitionIndex]
 				metadataImage.Verity = &VerityConfig{
-					Roothash: verity.rootHash,
-					Image:    partitionImageFiles[hashPartition.PartitionNum],
+					Roothash:   verity.rootHash,
+					Image:      partitionImageFiles[hashPartition.PartitionNum],
+					HashOffset: hashOffset,
 				}
 
 				veritySourcePath := path.Join(sourceDir, hashPartition.PartitionFilename)

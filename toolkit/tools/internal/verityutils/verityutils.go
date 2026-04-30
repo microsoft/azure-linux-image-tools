@@ -6,29 +6,38 @@ package verityutils
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 )
 
-func CalculateHashFileSizeInBytes(hashPartitionPath string) (uint64, error) {
-	superblock, err := ReadVeritySuperblock(hashPartitionPath)
+func CalculateHashFileSizeInBytes(hashPartitionPath string, hashOffsetBytes uint64) (uint64, error) {
+	superblock, err := ReadVeritySuperblock(hashPartitionPath, hashOffsetBytes)
 	if err != nil {
 		return 0, err
 	}
 
-	sizeInBytes, err := calculateHashFileSizeInBytesFromSuperBlock(superblock)
+	sizeInBytes, err := CalculateHashSizeInBytes(superblock.DataBlocks, superblock.HashBlockSize,
+		superblock.GetAlgorithm())
 	if err != nil {
-		return 0, fmt.Errorf("hash partition's (%s) superblock is invalid:\n%w", hashPartitionPath, err)
+		return 0, err
 	}
 
 	return sizeInBytes, nil
 }
 
-func ReadVeritySuperblock(hashPartitionPath string) (VeritySuperBlock, error) {
+func ReadVeritySuperblock(hashPartitionPath string, hashOffsetBytes uint64) (VeritySuperBlock, error) {
 	hashPartition, err := os.Open(hashPartitionPath)
 	if err != nil {
 		return VeritySuperBlock{}, fmt.Errorf("failed to open hash partition (%s) block device:\n%w", hashPartitionPath, err)
 	}
 	defer hashPartition.Close()
+
+	if hashOffsetBytes != 0 {
+		_, err := hashPartition.Seek(int64(hashOffsetBytes), io.SeekStart)
+		if err != nil {
+			return VeritySuperBlock{}, fmt.Errorf("failed to seek to hash partition's (%s) superblock:\n%w", hashPartitionPath, err)
+		}
+	}
 
 	superblock := VeritySuperBlock{}
 	err = binary.Read(hashPartition, binary.LittleEndian, &superblock)
@@ -57,20 +66,29 @@ func verifySuperblock(superblock VeritySuperBlock) error {
 		return fmt.Errorf("unsupported hash type (%d)", superblock.HashType)
 	}
 
-	hashSize, err := getAlgorithmHashSize(superblock.GetAlgorithm())
-	if err != nil {
-		return err
-	}
-
 	if !isPowerOf2(superblock.DataBlockSize) {
 		return fmt.Errorf("invalid data block size (%d)", superblock.DataBlockSize)
 	}
 
-	if !isPowerOf2(superblock.HashBlockSize) || superblock.HashBlockSize < hashSize {
-		return fmt.Errorf("invalid hash block size (%d)", superblock.HashBlockSize)
+	_, err := verifyHashAlgorithmAndBlockSize(superblock.GetAlgorithm(), superblock.HashBlockSize)
+	if err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func verifyHashAlgorithmAndBlockSize(algorithm string, hashBlockSize uint32) (uint32, error) {
+	hashSize, err := getAlgorithmHashSize(algorithm)
+	if err != nil {
+		return 0, err
+	}
+
+	if !isPowerOf2(hashBlockSize) || hashBlockSize < hashSize {
+		return 0, fmt.Errorf("invalid hash block size (%d)", hashBlockSize)
+	}
+
+	return hashSize, nil
 }
 
 func getAlgorithmHashSize(algorithm string) (uint32, error) {
@@ -89,23 +107,22 @@ func getAlgorithmHashSize(algorithm string) (uint32, error) {
 	}
 }
 
-func calculateHashFileSizeInBytesFromSuperBlock(superblock VeritySuperBlock) (uint64, error) {
-	var err error
-
-	hashSize, err := getAlgorithmHashSize(superblock.GetAlgorithm())
+func CalculateHashSizeInBytes(dataBlocksCount uint64, hashBlockSize uint32, algorithm string) (uint64, error) {
+	totalBlocks, err := CalculateHashSizeInBlocks(dataBlocksCount, hashBlockSize, algorithm)
 	if err != nil {
 		return 0, err
 	}
 
-	sizeInBytes, err := calculateHashFileSizeInBytesHelper(superblock.DataBlocks, superblock.HashBlockSize, hashSize)
-	if err != nil {
-		return 0, err
-	}
-
-	return sizeInBytes, nil
+	totalBytes := totalBlocks * uint64(hashBlockSize)
+	return totalBytes, nil
 }
 
-func calculateHashFileSizeInBytesHelper(dataBlocksCount uint64, hashBlockSize uint32, hashSize uint32) (uint64, error) {
+func CalculateHashSizeInBlocks(dataBlocksCount uint64, hashBlockSize uint32, algorithm string) (uint64, error) {
+	hashSize, err := verifyHashAlgorithmAndBlockSize(algorithm, hashBlockSize)
+	if err != nil {
+		return 0, err
+	}
+
 	// dm-verity pads each hash to the nearest power-of-2 to make the math easier.
 	hashSizeFull := roundUpToPowerOf2(hashSize)
 
@@ -126,8 +143,7 @@ func calculateHashFileSizeInBytesHelper(dataBlocksCount uint64, hashBlockSize ui
 	}
 
 	totalBlocks := totalTreeBlocks + 1 // add superblock
-	totalBytes := totalBlocks * uint64(hashBlockSize)
-	return totalBytes, nil
+	return totalBlocks, nil
 }
 
 func isPowerOf2(n uint32) bool {

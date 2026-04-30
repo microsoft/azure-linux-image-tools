@@ -345,7 +345,9 @@ var (
 // - targetOs: The OS the filesystem is being created for.
 // - filesystemType: The requested filesystem type.
 // - isBootPartition: Will the partition contain the /boot directory?
-func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool) ([]string, error) {
+func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool, partDevPath string,
+	fsSizeMiB uint64,
+) ([]string, error) {
 	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host kernel version:\n%w", err)
@@ -362,7 +364,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 
 	switch filesystemType {
 	case "btrfs":
-		options, err := getBtrfsFileSystemOptions(hostKernelVersion, options)
+		options, err := getBtrfsFileSystemOptions(hostKernelVersion, options, partDevPath, fsSizeMiB)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +372,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "ext4":
-		options, err := getExt4FileSystemOptions(hostKernelVersion, options)
+		options, err := getExt4FileSystemOptions(hostKernelVersion, options, partDevPath, fsSizeMiB)
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +380,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "xfs":
-		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition)
+		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition, partDevPath, fsSizeMiB)
 		if err != nil {
 			return nil, err
 		}
@@ -386,11 +388,14 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	default:
-		return []string(nil), nil
+		args := []string{fmt.Sprintf("mkfs.%s", filesystemType), partDevPath}
+		return args, nil
 	}
 }
 
-func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, partDevPath string,
+	fsSizeMiB uint64,
+) ([]string, error) {
 	mkfsBtrfsVersion, err := getMkfsBtrfsVersion()
 	if err != nil {
 		return nil, err
@@ -439,7 +444,7 @@ func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSy
 
 	allFeatures := append(enableFeatures, disableFeatures...)
 
-	args := []string{}
+	args := []string{"mkfs.btrfs"}
 
 	if len(allFeatures) > 0 {
 		featuresArg := strings.Join(allFeatures, ",")
@@ -450,10 +455,18 @@ func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSy
 		args = append(args, "--csum", options.Btrfs.Checksum)
 	}
 
+	if fsSizeMiB != 0 {
+		args = append(args, "--byte-count", fmt.Sprintf("%d", fsSizeMiB*MiB))
+	}
+
+	args = append(args, partDevPath)
+
 	return args, nil
 }
 
-func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, partDevPath string,
+	fsSizeMiB uint64,
+) ([]string, error) {
 	mke2fsVersion, err := getMke2fsVersion()
 	if err != nil {
 		return nil, err
@@ -482,11 +495,17 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 
 	featuresArg := strings.Join(features, ",")
 
-	args := []string{"-b", strconv.Itoa(options.Ext4.BlockSize), "-O", featuresArg}
+	args := []string{"mkfs.ext4", "-b", strconv.Itoa(options.Ext4.BlockSize), "-O", featuresArg, partDevPath}
+
+	if fsSizeMiB != 0 {
+		args = append(args, fmt.Sprintf("%dm", fsSizeMiB))
+	}
+
 	return args, nil
 }
 
 func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+	partDevPath string, fsSizeMiB uint64,
 ) ([]string, error) {
 	mkfsXfsVersion, err := getMkfsXfsVersion()
 	if err != nil {
@@ -555,7 +574,13 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 	inodeArgValue := strings.Join(inodeArgs, ",")
 	namingArgValue := strings.Join(namingArgs, ",")
 
-	args := []string{"-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
+	args := []string{"mkfs.xfs", "-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
+
+	if fsSizeMiB != 0 {
+		args = append(args, "-d", fmt.Sprintf("size=%dm", fsSizeMiB))
+	}
+
+	args = append(args, partDevPath)
 	return args, nil
 }
 
