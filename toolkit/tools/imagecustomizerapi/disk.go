@@ -154,9 +154,10 @@ func (d *Disk) IsValid() error {
 				// Explicitly set the size of the last partition.
 				// This allows us to control the alignment of the GPT footer instead of relying on the behavior of the
 				// partitioning tool (e.g. sfdisk).
-				lastPartitionEnd := *d.MaxSize - gptFooterSize
-				partFillSizeAndEnd(lastPartition, lastPartitionEnd)
+				lastPartitionEnd = *d.MaxSize - gptFooterSize
 			}
+
+			partFillSizeAndEnd(lastPartition, lastPartitionEnd)
 		}
 	}
 
