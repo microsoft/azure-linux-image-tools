@@ -51,7 +51,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	partitionsConfigFile := filepath.Join(testDir, "partitions-config.yaml")
-	noChangeConfigFile := filepath.Join(testDir, "partitions-config.yaml")
+	noChangeConfigFile := filepath.Join(testDir, "nochange-config.yaml")
 	vhdImageFilePath := filepath.Join(testTmpDir, "image1.vhd")
 	vhdFixedImageFilePath := filepath.Join(testTmpDir, "image2.vhd")
 	vhdxImageFilePath := filepath.Join(testTmpDir, "image3.vhdx")
