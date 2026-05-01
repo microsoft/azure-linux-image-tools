@@ -94,7 +94,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 
 	// Customize image: SELinux permissive.
 	// This tests enabling SELinux on an image with SELinux installed but disabled.
-	configFile = filepath.Join(testDir, "selinux-permissive.yaml")
+	configFile = filepath.Join(testDir, selinuxPermissiveConfigFile(t, baseImageInfo))
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -318,6 +318,20 @@ func selinuxForceEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageIn
 		return "selinux-force-enforcing-azl4.yaml"
 	default:
 		t.Fatalf("unsupported base image version for selinux-force-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// selinuxPermissiveConfigFile returns the selinux-permissive test config file appropriate for the given base
+// image version.
+func selinuxPermissiveConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "selinux-permissive-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "selinux-permissive-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for selinux-permissive test: %s", baseImageInfo.Version)
 		return ""
 	}
 }
