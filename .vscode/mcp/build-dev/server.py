@@ -168,33 +168,76 @@ def _download_artifacts(run_id: str, dest_dir: str | None = None) -> str:
 
 def _parse_go_test_results(text: str, marker: str) -> list[dict[str, str]]:
     """Parse Go test output and extract blocks terminated by '--- {marker}:'.
+
+    A block starts at a top-level '=== RUN' (column 0) and includes all
+    nested subtest '=== RUN' lines, body output, and any indented child
+    '--- <result>:' lines. The block ends at the matching top-level
+    '--- <result>:' line (column 0). Blocks are emitted only when the
+    top-level result line matches `marker`, but the captured output
+    preserves all sibling subtest content (failures, skips, and logs)
+    so the caller sees the full picture rather than just the last
+    subtest's tail.
+
+    Top-level vs subtest is distinguished by indentation: Go's testing
+    package emits top-level result lines at column 0 and subtest result
+    lines indented by spaces. Both top-level and subtest '=== RUN' lines
+    start at column 0, so subtest '=== RUN' lines are recognised by
+    being seen while a block is already open, and are simply appended.
     """
     text = _strip_ansi(text)
     results: list[dict[str, str]] = []
     buf: list[str] = []
-    in_run = False
-    marker_re = re.compile(rf"^\s*--- {marker}:\s+(\S+)")
+    # State machine: "idle" (no open block), "in_block" (collecting body
+    # before the parent result line), "in_results" (parent result line
+    # seen; trailing nested '--- ' lines may still be appended until a
+    # new top-level '=== RUN' starts a sibling block).
+    state = "idle"
+    matched_test = ""
+    run_re = re.compile(r"^=== RUN\s+")
+    # Top-level result lines have no leading whitespace; subtest result
+    # lines are indented by Go's testing package.
+    top_result_re = re.compile(r"^--- \w+:")
+    marker_re = re.compile(rf"^--- {marker}:\s+(\S+)")
 
     for line in text.splitlines():
-        if re.match(r"^=== RUN\s+", line):
-            buf = [line]
-            in_run = True
+        if run_re.match(line):
+            if state == "in_results":
+                # Sibling top-level run starting; close the previous block.
+                if matched_test:
+                    results.append({
+                        "test": matched_test,
+                        "output": "\n".join(buf),
+                    })
+                    matched_test = ""
+
+                buf = [line]
+                state = "in_block"
+            elif state == "in_block":
+                # Nested subtest '=== RUN' inside an open block; preserve it.
+                buf.append(line)
+            else:  # state == "idle"
+                buf = [line]
+                state = "in_block"
             continue
 
-        if in_run and re.match(r"^\s*--- ", line):
+        if state == "in_block" and top_result_re.match(line):
+            buf.append(line)
             m = marker_re.match(line)
             if m:
-                buf.append(line)
-                results.append({
-                    "test": m.group(1),
-                    "output": "\n".join(buf),
-                })
-            in_run = False
-            buf = []
+                matched_test = m.group(1)
+            state = "in_results"
             continue
 
-        if in_run:
+        if state in ("in_block", "in_results"):
             buf.append(line)
+
+    if state in ("in_block", "in_results"):
+        if matched_test:
+            results.append({
+                "test": matched_test,
+                "output": "\n".join(buf),
+            })
+            matched_test = ""
 
     return results
 
