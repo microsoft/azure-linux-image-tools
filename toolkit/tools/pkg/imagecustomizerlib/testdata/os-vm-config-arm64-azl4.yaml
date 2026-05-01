@@ -7,7 +7,5 @@ os:
   packages:
     install:
     - dracut-virtio
-  packages:
-    install:
     # multi-kernel test
     - kernel-6.18.5-1.8.azl4~20260420
