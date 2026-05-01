@@ -22,7 +22,7 @@ func TestCreateImageRaw(t *testing.T) {
 		expectedVirtualSize       int64
 	}{
 		{"azl3", "3.0", "create-minimal-os.yaml", int64(1 * diskutils.GiB)},
-		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH), int64(3 * diskutils.GiB)},
+		{"azl4", "4.0", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH), int64(3 * diskutils.GiB)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
 			testCreateImageRaw(t, vi.name, vi.version, vi.configFile, vi.expectedVirtualSize)
@@ -87,7 +87,7 @@ func TestCreateImageBtrfs(t *testing.T) {
 		expectedVirtualSize       int64
 	}{
 		{"azl3", "3.0", "create-minimal-os-btrfs.yaml", int64(1 * diskutils.GiB)},
-		{"azl4", "4.0", fmt.Sprintf("create-fedora-btrfs-%s.yaml", runtime.GOARCH), int64(3 * diskutils.GiB)},
+		{"azl4", "4.0", fmt.Sprintf("create-azl4-btrfs-%s.yaml", runtime.GOARCH), int64(3 * diskutils.GiB)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
 			testCreateImageBtrfs(t, vi.name, vi.version, vi.configFile, vi.expectedVirtualSize)
@@ -156,7 +156,7 @@ func TestCreateImageRawNoTar(t *testing.T) {
 		name, version, configFile string
 	}{
 		{"azl3", "3.0", "create-minimal-os.yaml"},
-		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+		{"azl4", "4.0", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
 			testCreateImageRawNoTar(t, vi.name, vi.version, vi.configFile)
@@ -208,7 +208,7 @@ func TestCreateImage_OutputImageFileAsRelativePath(t *testing.T) {
 		name, version, configFile string
 	}{
 		{"azl3", "3.0", "create-minimal-os.yaml"},
-		{"azl4", "4.0", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+		{"azl4", "4.0", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
 			testCreateImage_OutputImageFileAsRelativePath(t, vi.name, vi.version, vi.configFile)

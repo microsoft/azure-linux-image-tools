@@ -1,7 +1,6 @@
-# Differs from create-fedora-amd64 in the btrfs preview feature being enabled, its use of btrfs (not ext4) for the rootfs filesystem, and its use of btrfs-progs (not e2fsprogs)
+# Differs from create-azl4-amd64 in its use of fedora-arm64-packages (not fedora-amd64-packages)
 previewFeatures:
 - create
-- btrfs
 
 storage:
   disks:
@@ -25,7 +24,7 @@ storage:
       options: umask=0077
 
   - deviceId: rootfs
-    type: btrfs
+    type: ext4
     mountPoint:
       path: /
 
@@ -36,9 +35,7 @@ os:
   packages:
     installLists:
     - create-fedora-noarch-packages.yaml
-    - create-fedora-amd64-packages.yaml
+    - create-fedora-arm64-packages.yaml
 
     install:
-    - btrfs-progs
-    - efibootmgr
-    - initial-setup
+    - e2fsprogs

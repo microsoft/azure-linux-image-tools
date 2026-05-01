@@ -328,9 +328,9 @@ def test_create_image_efi_qcow_output_azl4(
     close_list: List[Closeable],
 ) -> None:
     if platform.machine() == "x86_64":
-        config_path = TEST_CONFIGS_DIR.joinpath("create-fedora-amd64.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("create-azl4-amd64.yaml")
     else:
-        config_path = TEST_CONFIGS_DIR.joinpath("create-fedora-arm64.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("create-azl4-arm64.yaml")
 
     run_create_image_test(
         image_customizer_container_url,

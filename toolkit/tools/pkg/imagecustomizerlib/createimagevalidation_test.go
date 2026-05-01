@@ -54,7 +54,7 @@ func TestValidateCreateImageOutput_AcceptsValidPaths(t *testing.T) {
 		name, configFile string
 	}{
 		{"azl3", "create-minimal-os.yaml"},
-		{"azl4", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+		{"azl4", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
 			testValidateCreateImageOutput_AcceptsValidPaths(t, vi.name, vi.configFile)
@@ -238,7 +238,7 @@ func TestValidateCreateImageConfig_EmptyPackagestoInstall(t *testing.T) {
 		name, configFile string
 	}{
 		{"azl3", "create-minimal-os.yaml"},
-		{"azl4", fmt.Sprintf("create-fedora-%s.yaml", runtime.GOARCH)},
+		{"azl4", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH)},
 	} {
 		t.Run(vi.name, func(t *testing.T) {
 			testValidateCreateImageConfig_EmptyPackagestoInstall(t, vi.name, vi.configFile)

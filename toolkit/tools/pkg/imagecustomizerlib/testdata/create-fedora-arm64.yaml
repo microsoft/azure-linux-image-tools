@@ -39,3 +39,5 @@ os:
 
     install:
     - e2fsprogs
+    - efibootmgr
+    - initial-setup
