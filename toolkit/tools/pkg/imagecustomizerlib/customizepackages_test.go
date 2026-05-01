@@ -173,6 +173,10 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 && withGpgKey {
+		t.Skip("Azure Linux 4.0 currently ships with unsigned RPMs, cannot test with GPG key")
+	}
+
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, baseImageInfo.Distro,
 		baseImageInfo.Version, withGpgKey, false)
 	rpmSources := []string{downloadedRpmsRepoFile}
