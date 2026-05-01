@@ -4,6 +4,7 @@
 package installutils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,11 +65,19 @@ const (
 	// SELinuxConfigDisabled is the string value to set SELinux to disabled in the /etc/selinux/config file.
 	SELinuxConfigDisabled = "disabled"
 
+	// FedoraGrubCfgRelPath is the path to the grub config file on Fedora and Azure Linux systems,
+	// relative to the /boot directory.
+	FedoraGrubCfgRelPath = "grub2/grub.cfg"
+
+	// DebianGrubCfgRelPath is the path to the grub config file on Debian and Ubuntu systems,
+	// relative to the /boot directory.
+	DebianGrubCfgRelPath = "grub/grub.cfg"
+
 	// FedoraGrubCfgFile is the filepath of the grub config file on Fedora and Azure Linux systems.
-	FedoraGrubCfgFile = "/boot/grub2/grub.cfg"
+	FedoraGrubCfgFile = "/boot/" + FedoraGrubCfgRelPath
 
 	// DebianGrubCfgFile is the filepath of the grub config file on Debian and Ubuntu systems.
-	DebianGrubCfgFile = "/boot/grub/grub.cfg"
+	DebianGrubCfgFile = "/boot/" + DebianGrubCfgRelPath
 
 	// FedoraGrubDir is the grub directory on Fedora and Azure Linux systems.
 	FedoraGrubDir = "/boot/grub2"
@@ -119,19 +128,21 @@ var (
 	}
 )
 
+// FindGrubCfgFile returns the bootDir-relative path to the first grub.cfg file that exists
+// under bootDir. This should only be used in cases where we cannot determine the right DistroHandler ahead of time.
 func FindGrubCfgFile(bootDir string) (string, error) {
-	grubCfgFiles := []string{
-		FedoraGrubCfgFile,
-		DebianGrubCfgFile,
+	grubCfgRelPaths := []string{
+		FedoraGrubCfgRelPath,
+		DebianGrubCfgRelPath,
 	}
 
-	for _, relPath := range grubCfgFiles {
+	for _, relPath := range grubCfgRelPaths {
 		absPath := filepath.Join(bootDir, relPath)
 		_, err := os.Stat(absPath)
 		if err == nil {
-			return relPath, nil
+			return absPath, nil
 		}
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("failed to stat grub config file (%s):\n%w", absPath, err)
 		}
 	}

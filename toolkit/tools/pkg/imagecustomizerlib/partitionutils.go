@@ -1079,12 +1079,8 @@ func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPa
 	if distroHandler != nil {
 		kernelToArgs, err = distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	} else {
-		// Best-effort attempt to find and read grub.cfg if no distro handler is available.
-		grubCfgPath, err := installutils.FindGrubCfgFile(bootDir)
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to find grub.cfg file in boot directory (%s):\n%w", bootDir, err)
-		}
-		kernelToArgs, err = readKernelCmdlinesFromGrubCfg(bootDir, grubCfgPath)
+		// Best-effort attempt to read the kernel args if no distro handler is available.
+		kernelToArgs, err = readGrubConfigLinuxArgsBestEffort(bootDir)
 	}
 
 	if err != nil {
@@ -1118,6 +1114,39 @@ func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPa
 	return nil, false, fmt.Errorf("no kernel args found in boot config")
 }
 
+// readGrubConfigLinuxArgsBestEffort probes a boot directory for a kernel command-line source
+// when no DistroHandler is available (e.g. os-release was not detectable on a USR-verity image).
+func readGrubConfigLinuxArgsBestEffort(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	grubCfgFile, err := installutils.FindGrubCfgFile(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	grubCfgContent, err := file.Read(grubCfgFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read grub.cfg (%s):\n%w", grubCfgFile, err)
+	}
+
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize grub.cfg (%s):\n%w", grubCfgFile, err)
+	}
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+
+	usesBLS := FindBlsCfg(grubLines)
+	linuxLines := FindNonRecoveryLinuxLines(grubLines)
+	if usesBLS {
+		if len(linuxLines) > 0 {
+			return nil, fmt.Errorf("found non-recovery linux lines in grub.cfg but also found BLS enablement, which is unsupported")
+		}
+		return readKernelCmdlinesFromBLSEntries(bootDir)
+	}
+	if len(linuxLines) == 0 {
+		return nil, fmt.Errorf("no non-recovery linux command lines or BLS enablement found in grub.cfg")
+	}
+	return formatKernelCmdlineFromLinuxLines(linuxLines)
+}
+
 // Extracts the kernel args for each kernel from the grub.cfg file.
 // Returns a mapping from kernel version to list of kernel args.
 func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
@@ -1126,17 +1155,23 @@ func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConf
 		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
 	}
 
-	return extractKernelCmdlineFromGrubCfgContent(grubCfgContent)
-}
-
-// extractKernelCmdlineFromGrubCfgContent parses kernel command-line arguments from
-// grub.cfg content with inline "linux" commands (traditional, non-BLS grub config).
-func extractKernelCmdlineFromGrubCfgContent(grubCfgContent string) (map[string][]grubConfigLinuxArg, error) {
-	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find linux command lines in grub.cfg:\n%w", err)
+		return nil, fmt.Errorf("failed to tokenize grub.cfg:\n%w", err)
 	}
 
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+	linuxLines := FindNonRecoveryLinuxLines(grubLines)
+	if len(linuxLines) == 0 {
+		return nil, fmt.Errorf("failed to find any non-recovery linux command lines in grub.cfg")
+	}
+
+	return formatKernelCmdlineFromLinuxLines(linuxLines)
+}
+
+// formatKernelCmdlineFromLinuxLines converts a list of `linux` grub.cfg command lines (already filtered)
+// into the kernel-to-args map format.
+func formatKernelCmdlineFromLinuxLines(lines []grub.Line) (map[string][]grubConfigLinuxArg, error) {
 	kernelToArgs := make(map[string][]grubConfigLinuxArg)
 	for _, line := range lines {
 		if len(line.Tokens) < 3 {

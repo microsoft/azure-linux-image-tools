@@ -715,9 +715,15 @@ func readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath string, argNames []str
 		return nil, err
 	}
 
-	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
 	if err != nil {
 		return nil, err
+	}
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+
+	lines := FindNonRecoveryLinuxLines(grubLines)
+	if len(lines) == 0 {
+		return nil, fmt.Errorf("no non-recovery linux lines found in grub.cfg")
 	}
 
 	if len(lines) != 1 {
