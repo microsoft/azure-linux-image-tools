@@ -95,6 +95,11 @@ func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }
 
+func (d *fedoraDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
+) (imagecustomizerapi.SELinuxMode, error) {
+	return getSELinuxModeFromLinuxArgsDeferIfMissing(args)
+}
+
 func (d *fedoraDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
 	return readGrub2ConfigFile(imageChroot, installutils.FedoraGrubCfgFile)
 }

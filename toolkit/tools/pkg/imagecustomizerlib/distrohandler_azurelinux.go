@@ -103,6 +103,15 @@ func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
 }
 
+func (d *azureLinuxDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
+) (imagecustomizerapi.SELinuxMode, error) {
+	if d.version == "2.0" {
+		return getSELinuxModeFromLinuxArgs(args)
+	}
+
+	return getSELinuxModeFromLinuxArgsDeferIfMissing(args)
+}
+
 func (d *azureLinuxDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
 	return readGrub2ConfigFile(imageChroot, installutils.FedoraGrubCfgFile)
 }

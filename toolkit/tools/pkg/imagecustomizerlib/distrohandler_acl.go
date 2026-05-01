@@ -82,6 +82,11 @@ func (d *aclDistroHandler) SELinuxSupported() bool {
 	return true
 }
 
+func (d *aclDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
+) (imagecustomizerapi.SELinuxMode, error) {
+	return getSELinuxModeFromLinuxArgs(args)
+}
+
 func (d *aclDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
 	// ACL does not use GRUB. Return empty string with ErrNotExist so callers
 	// that tolerate a missing grub.cfg can proceed without error.
