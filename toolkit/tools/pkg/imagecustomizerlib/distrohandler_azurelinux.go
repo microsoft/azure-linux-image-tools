@@ -103,10 +103,6 @@ func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
 }
 
-// GetSELinuxModeFromLinuxArgs interprets parsed kernel command-line args.
-// Azure Linux 2.0/3.0 historically treat missing SELinux cmdline args as disabled (their kernels do not honor
-// /etc/selinux/config without cmdline args). Azure Linux 4.0 honors /etc/selinux/config when no SELinux cmdline
-// args are present, so it must defer instead of returning Disabled.
 func (d *azureLinuxDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
 ) (imagecustomizerapi.SELinuxMode, error) {
 	if d.version == "2.0" {
