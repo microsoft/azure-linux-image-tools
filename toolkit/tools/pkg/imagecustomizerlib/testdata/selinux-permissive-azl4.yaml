@@ -1,0 +1,10 @@
+# Differs from selinux-permissive in its removal of selinux-policy-modules
+os:
+  selinux:
+    mode: permissive
+
+  packages:
+    install:
+    - selinux-policy
+    - setools-console
+    - policycoreutils-python-utils
