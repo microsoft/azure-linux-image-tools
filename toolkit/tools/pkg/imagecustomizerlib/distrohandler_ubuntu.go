@@ -114,6 +114,10 @@ func (d *ubuntuDistroHandler) GetEspDir() string {
 	return "boot/efi"
 }
 
+func (d *ubuntuDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl4), bootPartitionRegexAzl4)
+}
+
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }

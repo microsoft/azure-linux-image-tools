@@ -271,7 +271,7 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 		outputDir := file.GetAbsPathWithBase(baseConfigPath, rc.OutputArtifacts.Path)
 
 		err = outputArtifacts(ctx, rc.OutputArtifacts.Items, outputDir, rc.BuildDirAbs,
-			rc.RawImageFile, im.verityMetadata, rc.PreviewFeatures)
+			rc.RawImageFile, im.verityMetadata, rc.PreviewFeatures, im.distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrCustomizeOutputArtifacts, err)
 		}

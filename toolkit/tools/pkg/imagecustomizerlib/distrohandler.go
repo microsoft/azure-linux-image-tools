@@ -56,6 +56,10 @@ type DistroHandler interface {
 	// For example: "boot/efi" for most distros, "boot" for ACL.
 	GetEspDir() string
 
+	// FindBootPartitionUuidFromEsp reads the distro's grub.cfg stub from the already-mounted ESP at espMountDir and
+	// returns the UUID of the partition that contains the grub.cfg.
+	FindBootPartitionUuidFromEsp(espMountDir string) (string, error)
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 

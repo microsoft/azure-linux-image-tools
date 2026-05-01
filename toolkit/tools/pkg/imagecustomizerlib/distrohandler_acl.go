@@ -80,6 +80,10 @@ func (d *aclDistroHandler) GetEspDir() string {
 	return "boot"
 }
 
+func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
+}
+
 func (d *aclDistroHandler) SELinuxSupported() bool {
 	return true
 }

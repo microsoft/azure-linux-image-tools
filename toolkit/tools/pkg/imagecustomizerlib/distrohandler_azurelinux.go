@@ -109,6 +109,17 @@ func (d *azureLinuxDistroHandler) GetEspDir() string {
 	return "boot/efi"
 }
 
+func (d *azureLinuxDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	espGrubCfgPath := espGrubCfgPathAzl3
+	bootPartitionRegex := bootPartitionRegexAzl3
+	if d.version == "4.0" {
+		espGrubCfgPath = espGrubCfgPathAzl4
+		bootPartitionRegex = bootPartitionRegexAzl4
+	}
+
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPath), bootPartitionRegex)
+}
+
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
 }

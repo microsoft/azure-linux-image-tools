@@ -94,6 +94,10 @@ func (d *fedoraDistroHandler) GetEspDir() string {
 	return "boot/efi"
 }
 
+func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl4), bootPartitionRegexAzl4)
+}
+
 func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }
