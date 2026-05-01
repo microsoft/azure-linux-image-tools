@@ -109,7 +109,7 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
 
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
 	assert.NoError(t, err)
