@@ -454,8 +454,11 @@ func mountFstabPartitionReadonly(rootDir string, mountTarget string, mountSubdir
 	}
 
 	mountDir := filepath.Join(rootDir, mountSubdir)
+	// makeAndDeleteDir=false: the mount target (e.g. /usr, /usr/lib) is a directory that already
+	// exists inside the rootfs filesystem, which is mounted read-only at rootDir. Letting safemount
+	// try to remove it on close would fail with EROFS.
 	mount, err := safemount.NewMount(partition.Path, mountDir, partition.FileSystemType,
-		unix.MS_RDONLY, "", true)
+		unix.MS_RDONLY, "", false /*makeAndDeleteDir*/)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mount %s partition (%s):\n%w", mountTarget, partition.Path, err)
 	}
