@@ -182,17 +182,24 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
 	var assetGrubDefFile string
+	var assetGrubStubFile string
+	var grubStubDirs []string
 	switch d.version {
 	case "2.0", "3.0":
 		assetGrubDefFile = resources.AssetsGrubDefFileAzl3
+		assetGrubStubFile = resources.AssetsGrubStubFileAzl3
+		grubStubDirs = installutils.GrubStubDirsAzl3
 	case "4.0":
 		assetGrubDefFile = resources.AssetsGrubDefFileAzl4
+		assetGrubStubFile = resources.AssetsGrubStubFileAzl4
+		grubStubDirs = installutils.GrubStubDirsAzl4
 	default:
 		return fmt.Errorf("unsupported Azure Linux version: %s", d.version)
 	}
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig, d, assetGrubDefFile, installutils.FedoraGrubEnvRelPath)
+		currentSELinuxMode, forceGrubMkconfig, d, assetGrubDefFile, installutils.FedoraGrubEnvRelPath,
+		assetGrubStubFile, grubStubDirs)
 }
 
 func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
