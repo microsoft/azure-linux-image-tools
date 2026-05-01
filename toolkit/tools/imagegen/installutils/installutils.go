@@ -108,8 +108,17 @@ const (
 	bootUsrConfigFileMode = 0644
 )
 
-// FindGrubCfgFile returns the path to the first grub.cfg file that exists under bootDir. This should only be used in
-// cases where we cannot determine the right DistroHandler ahead of time.
+var (
+	GrubStubDirsAzl3 = []string{
+		"boot/grub2",
+	}
+
+	GrubStubDirsAzl4 = []string{
+		"EFI/fedora",
+		"EFI/BOOT",
+	}
+)
+
 func FindGrubCfgFile(bootDir string) (string, error) {
 	grubCfgFiles := []string{
 		FedoraGrubCfgFile,
@@ -373,8 +382,8 @@ func addEntryToFstab(fullFstabPath, mountPoint, devicePath, fsType, mountArgs st
 func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnable bool,
 	rootMountIdentifier configuration.MountIdentifier, kernelCommandLine configuration.KernelCommandLine,
 	installChroot *safechroot.Chroot, diskDevPath string, mountPointMap map[string]string,
-	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, assetGrubDefFile string,
-	grubEnvRelPath string,
+	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, assetGrubDefFile,
+	grubEnvRelPath, assetGrubStubFile string, grubStubDirs []string,
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
@@ -397,7 +406,8 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 		return
 	}
 
-	err = InstallBootloader(installChroot, encryptionEnable, bootType, bootUUID, bootPrefix, diskDevPath)
+	err = InstallBootloader(installChroot, encryptionEnable, bootType, bootUUID, bootPrefix, diskDevPath,
+		assetGrubStubFile, grubStubDirs)
 	if err != nil {
 		err = fmt.Errorf("failed to install bootloader: %s", err)
 		return
@@ -874,7 +884,7 @@ func sed(find, replace, delimiter, file string) (err error) {
 // Note: this boot partition could be different than the boot partition specified in the main grub config.
 // This boot partition specifically indicates where to find the main grub cfg
 func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bootType, bootUUID, bootPrefix,
-	bootDevPath string,
+	bootDevPath, grubAssetFileName string, grubFinalDirs []string,
 ) (err error) {
 	const (
 		efiMountPoint  = "/boot/efi"
@@ -893,7 +903,7 @@ func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bo
 		}
 	case efiBootType:
 		efiPath := filepath.Join(installChroot.RootDir(), efiMountPoint)
-		err = installEfiBootloader(encryptEnabled, efiPath, bootUUID, bootPrefix)
+		err = installEfiBootloader(efiPath, bootUUID, bootPrefix, grubAssetFileName, grubFinalDirs)
 		if err != nil {
 			return
 		}
@@ -1050,43 +1060,33 @@ func enableCryptoDisk() (err error) {
 // installRoot/boot/efi folder
 // It is expected that shim (bootx64.efi) and grub2 (grub2.efi) are installed
 // into the EFI directory via the package list installation mechanism.
-func installEfiBootloader(encryptEnabled bool, installRoot, bootUUID, bootPrefix string) (err error) {
-	const (
-		defaultCfgFilename = "grub.cfg"
-		grubAssetDir       = "assets/efi/grub"
-		grubFinalDir       = "boot/grub2"
-	)
-
-	// Copy the bootloader's grub.cfg
-	grubAssetPath := filepath.Join(grubAssetDir, defaultCfgFilename)
-	grubFinalPath := filepath.Join(installRoot, grubFinalDir, defaultCfgFilename)
-	err = file.CopyResourceFile(resources.ResourcesFS, grubAssetPath, grubFinalPath, bootDirectoryDirMode,
-		bootDirectoryFileMode)
-	if err != nil {
-		logger.Log.Warnf("Failed to copy grub.cfg: %v", err)
-		return
-	}
-
-	// Add in bootUUID
-	err = setGrubCfgBootUUID(bootUUID, grubFinalPath)
-	if err != nil {
-		logger.Log.Warnf("Failed to set bootUUID in grub.cfg: %v", err)
-		return
-	}
-
-	// Set the boot prefix path
+func installEfiBootloader(installRoot, bootUUID, bootPrefix, assetGrubStubFile string, grubStubDirs []string,
+) (err error) {
 	prefixPath := filepath.Join("/", bootPrefix, "grub2")
-	err = setGrubCfgPrefixPath(prefixPath, grubFinalPath)
-	if err != nil {
-		logger.Log.Warnf("Failed to set prefixPath in grub.cfg: %v", err)
-		return
-	}
 
-	// Add in encrypted volume mount command if needed
-	err = setGrubCfgEncryptedVolume(grubFinalPath, encryptEnabled)
-	if err != nil {
-		logger.Log.Warnf("Failed to set encrypted volume in grub.cfg: %v", err)
-		return
+	for _, grubFinalDir := range grubStubDirs {
+		// Copy the bootloader's grub.cfg
+		grubFinalPath := filepath.Join(installRoot, grubFinalDir, "grub.cfg")
+		err = file.CopyResourceFile(resources.ResourcesFS, assetGrubStubFile, grubFinalPath, bootDirectoryDirMode,
+			bootDirectoryFileMode)
+		if err != nil {
+			logger.Log.Warnf("Failed to copy grub.cfg: %v", err)
+			return
+		}
+
+		// Add in bootUUID
+		err = setGrubCfgBootUUID(bootUUID, grubFinalPath)
+		if err != nil {
+			logger.Log.Warnf("Failed to set bootUUID in grub.cfg: %v", err)
+			return
+		}
+
+		// Set the boot prefix path
+		err = setGrubCfgPrefixPath(prefixPath, grubFinalPath)
+		if err != nil {
+			logger.Log.Warnf("Failed to set prefixPath in grub.cfg: %v", err)
+			return
+		}
 	}
 
 	return
@@ -1287,29 +1287,6 @@ func setGrubCfgBootPrefix(bootPrefix, grubPath string) (err error) {
 	err = sed(bootPrefixPattern, bootPrefix, cmdline.GetSedDelimeter(), grubPath)
 	if err != nil {
 		logger.Log.Warnf("Failed to set grub.cfg's bootPrefix: %v", err)
-		return
-	}
-	return
-}
-
-func setGrubCfgEncryptedVolume(grubPath string, enableEncryptedVolume bool) (err error) {
-	const (
-		encryptedVolPattern = "{{.CryptoMountCommand}}"
-		cryptoMountCommand  = "cryptomount -a"
-	)
-	var (
-		cmdline         configuration.KernelCommandLine
-		encryptedVolArg = ""
-	)
-
-	if enableEncryptedVolume {
-		encryptedVolArg = cryptoMountCommand
-	}
-
-	logger.Log.Debugf("Adding CryptoMountCommand('%s') to '%s'", encryptedVolArg, grubPath)
-	err = sed(encryptedVolPattern, encryptedVolArg, cmdline.GetSedDelimeter(), grubPath)
-	if err != nil {
-		logger.Log.Warnf("Failed to grub.cfg's encryptedVolume: %v", err)
 		return
 	}
 	return

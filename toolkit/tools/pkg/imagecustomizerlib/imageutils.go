@@ -232,7 +232,7 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, forceGrubMkconfig bool, distroHandler DistroHandler,
-	assetGrubDefFile string, grubEnvRelPath string,
+	assetGrubDefFile string, grubEnvRelPath string, assetGrubStubFile string, grubStubDirs []string,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -272,7 +272,8 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	// Configure the boot loader.
 	err = installutils.ConfigureDiskBootloaderWithRootMountIdType(imagerBootType, false, imagerRootMountIdType,
 		imagerKernelCommandLine, imageConnection.Chroot(), imageConnection.Loopback().DevicePath(), mountPointMap,
-		diskutils.EncryptedRootDevice{}, useGrubMkconfig, assetGrubDefFile, grubEnvRelPath)
+		diskutils.EncryptedRootDevice{}, useGrubMkconfig, assetGrubDefFile, grubEnvRelPath, assetGrubStubFile,
+		grubStubDirs)
 	if err != nil {
 		return fmt.Errorf("failed to install bootloader:\n%w", err)
 	}
