@@ -694,17 +694,123 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string, distro
 	return kernelToArgs, nil
 }
 
-// readKernelCmdlinesFromGrubCfg reads kernel command-line arguments from a traditional
-// grub.cfg file with inline "linux" commands. Used by non-BLS distros.
+// readKernelCmdlinesFromGrubCfg reads kernel command-line arguments from the grub.cfg,
+// extracting a kernel-to-cmdline mapping for non-recovery entries.
 func readKernelCmdlinesFromGrubCfg(bootDir string, grubCfgRelPath string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgPath := filepath.Join(bootDir, grubCfgRelPath)
-	return extractKernelCmdlineFromGrubFile(grubCfgPath)
+	grubCfgContent, err := file.Read(grubCfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+	}
+
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize grub.cfg:\n%w", err)
+	}
+
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+	linuxLines := FindNonRecoveryLinuxLines(grubLines)
+	if len(linuxLines) == 0 {
+		return nil, fmt.Errorf("failed to find any non-recovery linux command lines in grub.cfg")
+	}
+
+	return formatKernelCmdlineFromLinuxLines(linuxLines)
 }
 
-// readKernelCmdlinesFromBLSEntries reads kernel command-line arguments from Boot Loader Specification (BLS) entry files
-// under {bootDir}/loader/entries/.
+// readKernelCmdlinesFromBLSEntries reads Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf,
+// extracting a kernel-to-cmdline mapping for non-recovery entries.
 func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLinuxArg, error) {
-	return extractKernelCmdlineFromBLSEntries(bootDir, false /*skipRecovery*/)
+	entriesDir := filepath.Join(bootDir, "loader", "entries")
+	entries, err := os.ReadDir(entriesDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
+	}
+
+	kernelToArgs := make(map[string][]grubConfigLinuxArg)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			logger.Log.Debugf("Skipping non-.conf BLS entry file (%s) in directory (%s)", entry.Name(), entriesDir)
+			continue
+		}
+
+		absPath := filepath.Join(entriesDir, entry.Name())
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
+		}
+
+		var linux string
+		var title string
+		var options string
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue
+			}
+
+			key, value, found := strings.Cut(trimmed, " ")
+			if !found {
+				key, value, found = strings.Cut(trimmed, "\t")
+			}
+			if !found {
+				return nil, fmt.Errorf("malformed BLS entry line in (%s): %q", absPath, trimmed)
+			}
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
+
+			switch key {
+			case "linux":
+				if linux != "" {
+					return nil, fmt.Errorf("duplicate linux key in BLS entry (%s)", absPath)
+				}
+				linux = filepath.Base(value)
+			case "title":
+				title = value
+			case "efi", "uki", "uki-url":
+				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, key)
+			case "options":
+				// "options" line may appear multiple times according to BLS spec.
+				if options != "" {
+					options += " "
+				}
+				options += value
+			}
+		}
+
+		if linux == "" {
+			return nil, fmt.Errorf("BLS entry (%s) is missing 'linux' key", absPath)
+		}
+
+		if title == "" {
+			return nil, fmt.Errorf("BLS entry (%s) is missing 'title' key", absPath)
+		}
+
+		if strings.Contains(title, "recovery") {
+			logger.Log.Debugf("Skipping recovery BLS entry with title (%s) in file (%s)", title, absPath)
+			continue
+		}
+
+		if _, exists := kernelToArgs[linux]; exists {
+			return nil, fmt.Errorf("duplicate BLS entries for kernel (%s) in (%s)", linux, entriesDir)
+		}
+
+		// Tokenize and parse the options string into grubConfigLinuxArg format.
+		tokens, err := grub.TokenizeConfig(options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to tokenize BLS options for kernel (%s):\n%w", linux, err)
+		}
+
+		args, err := ParseCommandLineArgs(tokens)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse BLS options for kernel (%s):\n%w", linux, err)
+		}
+
+		kernelToArgs[linux] = args
+	}
+
+	return kernelToArgs, nil
 }
 
 // readNonRecoveryKernelCmdlinesFromGrubCfg reads the first non-recovery kernel's command-line
@@ -741,7 +847,7 @@ func readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath string, argNames []str
 // readNonRecoveryKernelCmdlinesFromBLS reads the first non-recovery kernel's command-line
 // arguments from BLS entry files.
 func readNonRecoveryKernelCmdlinesFromBLS(bootDir string, argNames []string) (map[string]string, error) {
-	kernelToArgs, err := extractKernelCmdlineFromBLSEntries(bootDir, true /*skipRecovery*/)
+	kernelToArgs, err := readKernelCmdlinesFromBLSEntries(bootDir)
 	if err != nil {
 		return nil, err
 	}
