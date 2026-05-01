@@ -1,3 +1,4 @@
+# Differs from create-azl4-amd64 in its addition of efibootmgr and initial-setup
 previewFeatures:
 - create
 
@@ -38,3 +39,5 @@ os:
 
     install:
     - e2fsprogs
+    - efibootmgr
+    - initial-setup

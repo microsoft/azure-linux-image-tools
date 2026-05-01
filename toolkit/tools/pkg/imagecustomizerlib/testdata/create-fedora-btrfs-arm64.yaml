@@ -40,3 +40,5 @@ os:
 
     install:
     - btrfs-progs
+    - efibootmgr
+    - initial-setup

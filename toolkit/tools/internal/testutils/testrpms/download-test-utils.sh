@@ -79,10 +79,10 @@ declare -A DISTRO_CONFIG_MAP
 DISTRO_CONFIG_MAP["azurelinux-3.0"]="create-minimal-os.yaml create-minimal-os-btrfs.yaml"
 if [[ "$(uname -m)" == "x86_64" ]]; then
   DISTRO_CONFIG_MAP["fedora-42"]="create-fedora-amd64.yaml create-fedora-btrfs-amd64.yaml"
-  DISTRO_CONFIG_MAP["azurelinux-4.0"]="${DISTRO_CONFIG_MAP["fedora-42"]}"
+  DISTRO_CONFIG_MAP["azurelinux-4.0"]="create-azl4-amd64.yaml create-azl4-btrfs-amd64.yaml"
 else
   DISTRO_CONFIG_MAP["fedora-42"]="create-fedora-arm64.yaml create-fedora-btrfs-arm64.yaml"
-  DISTRO_CONFIG_MAP["azurelinux-4.0"]="${DISTRO_CONFIG_MAP["fedora-42"]}"
+  DISTRO_CONFIG_MAP["azurelinux-4.0"]="create-azl4-arm64.yaml create-azl4-btrfs-arm64.yaml"
 fi
 
 # Get configuration files for the distro-version
