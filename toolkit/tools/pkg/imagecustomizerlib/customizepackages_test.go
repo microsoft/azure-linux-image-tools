@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -511,9 +512,9 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 func installPackageDiskSpaceConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl3:
-		return "install-package-disk-space.yaml"
+		return "install-package-disk-space-azl3.yaml"
 	case baseImageVersionAzl4:
-		return "install-package-disk-space-azl4.yaml"
+		return fmt.Sprintf("install-package-disk-space-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		t.Fatalf("unsupported base image version for install-package-disk-space test: %s", baseImageInfo.Version)
 		return ""
