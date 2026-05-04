@@ -960,13 +960,18 @@ func verifyBootloaderConfig(t *testing.T, imageConnection *imageconnection.Image
 }
 
 func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, bootUuid string) {
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if !assert.NoError(t, err, "create distro handler from chroot") {
+		return
+	}
+
+	espMountDir := filepath.Join(imageConnection.Chroot().RootDir(), distroHandler.GetEspDir())
+	actualBootUuid, err := distroHandler.FindBootPartitionUuidFromEsp(espMountDir)
 	if !assert.NoError(t, err, "read ESP grub.cfg file") {
 		return
 	}
 
-	assert.Regexp(t, fmt.Sprintf("(?m)^search -n -u %s -s$", regexp.QuoteMeta(bootUuid)), grubCfgContents)
+	assert.Equal(t, bootUuid, actualBootUuid, "boot partition UUID in ESP grub.cfg")
 }
 
 func verifyBootCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
