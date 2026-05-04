@@ -605,7 +605,12 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
 	ReportActionf("Running %s...", FedoraGrubMkconfigBinary)
 
-	return shell.NewExecBuilder(FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
+	// Force-disable os-prober. grub2-mkconfig is run inside an image-customization
+	// chroot that has the host's /dev bind-mounted; without this, /etc/grub.d/30_os-prober
+	// would enumerate the build host's disks and inject menuentries pointing at the
+	// host's kernels and partitions into the customized image's grub.cfg. Set via env
+	// so the protection applies regardless of /etc/default/grub state in the target image.
+	return shell.NewExecBuilder("env", "GRUB_DISABLE_OS_PROBER=true", FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		Chroot(installChroot.ChrootDir()).
 		Execute()
