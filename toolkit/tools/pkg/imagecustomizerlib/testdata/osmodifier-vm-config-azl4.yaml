@@ -1,3 +1,4 @@
+# Differs from osmodifier-vm-config-azl3 its removal of selinux-policy-modules
 os:
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.
@@ -5,10 +6,6 @@ os:
     destination: /etc/systemd/network/89-ethernet.network
   packages:
     install:
-    - dracut-virtio
-  packages:
-    install:
     - selinux-policy
-    - selinux-policy-modules
     - setools-console
     - policycoreutils-python-utils
