@@ -1128,6 +1128,8 @@ func readGrubConfigLinuxArgsBestEffort(bootDir string) (map[string][]grubConfigL
 		return nil, fmt.Errorf("failed to read grub.cfg (%s):\n%w", grubCfgFile, err)
 	}
 
+	logger.Log.Debugf("readGrubConfigLinuxArgsBestEffort: grub.cfg (%s) contents:\n%s", grubCfgFile, grubCfgContent)
+
 	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to tokenize grub.cfg (%s):\n%w", grubCfgFile, err)
