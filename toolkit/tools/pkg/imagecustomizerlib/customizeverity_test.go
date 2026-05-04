@@ -1091,7 +1091,9 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
-			Size:       2550 * diskutils.MiB,
+			// 4348 MiB = 1 (alignment) + 250 (esp) + 1024 (boot) + 2048 (root) + 1024 (var) + 1 (secondary GPT).
+			// Tracks the partition layout in verity-root-inline-uki.yaml.
+			Size:       4348 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4}),
 		},
 		Images: []FileSystem{
