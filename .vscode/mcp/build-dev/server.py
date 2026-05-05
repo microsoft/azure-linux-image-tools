@@ -24,10 +24,18 @@ ARTIFACTS_PER_PAGE = 100
 ARTIFACTS_MAX_PAGES = 100
 FAILED_REPORT_SUFFIX = ".failed.txt"
 SKIPPED_REPORT_SUFFIX = ".skipped.txt"
+
 # Safety caps for polling loops.
 WATCH_MAX_CONSECUTIVE_ERRORS = 10
 WATCH_DEFAULT_TIMEOUT_SECONDS = 6 * 60 * 60  # 6 hours
 
+# Repo root resolved from this file's location: <repo>/.vscode/mcp/build-dev/server.py.
+REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+DOWNLOAD_IMAGE_SH = f"{REPO_DIR}/.github/workflows/scripts/download-image.sh"
+BASE_IMAGE_DIR = os.path.join(REPO_DIR, "test", "base-images")
+BASE_IMAGE_STORAGE_ACCOUNT = "maritimusgithubstorage"
+BASE_IMAGE_CONTAINER = "os-images-cache"
+BASE_IMAGE_SUBSCRIPTION = "b3e01d89-bd55-414f-bbb4-cdfeb2628caa"
 
 def _strip_ansi(text: str) -> str:
     return ANSI_RE.sub("", text)
@@ -512,6 +520,56 @@ def download_build_dev_artifacts(run_id: str, repo_dir: str) -> str:
     for entry in entries:
         lines.append(f"  - {entry}")
     return "\n".join(lines)
+
+
+@mcp.tool()
+def download_image(distro: str, variant: str, version: str, arch: str) -> str:
+    """Download a base image from the maritimusgithubstorage Azure blob cache.
+
+    The image is downloaded into `<repo>/test/base-images/` and renamed to
+    `<distro>-<variant>-<version>-<arch>.<format>`. If that file already exists, the download is skipped.
+
+    Args:
+        distro: Distro name (e.g. 'azure-linux', 'ubuntu').
+        variant: Image variant (e.g. 'core-efi', 'core-legacy', 'azure-cloud').
+        version: Distro version (e.g. '2.0', '3.0', '4.0', '22.04', '24.04').
+        arch: Architecture ('amd64' or 'arm64').
+        format: Image file extension ('vhd' or 'vhdx').
+    """
+    format = "vhd" if variant == "core-legacy" else "vhdx"
+    output_path = os.path.join(BASE_IMAGE_DIR, f"{distro}-{variant}-{version}-{arch}.{format}")
+
+    if os.path.isfile(output_path):
+        return f"Base image already exists: {output_path}"
+
+    original_sub = ""
+    try:
+        try:
+            stdout = _run(["az", "account", "show", "--query", "id", "-o", "tsv"]).stdout
+            original_sub = cast(str, stdout).strip()
+        except subprocess.CalledProcessError as e:
+            return f"ERROR reading current az subscription: {e.stderr or e.stdout or str(e)}"
+
+        _run(["az", "account", "set", "--subscription", BASE_IMAGE_SUBSCRIPTION])
+
+        base_image_name = f"{distro}/{variant}-{format}-{version}-{arch}"
+        _run([DOWNLOAD_IMAGE_SH, BASE_IMAGE_STORAGE_ACCOUNT, BASE_IMAGE_CONTAINER, base_image_name, BASE_IMAGE_DIR])
+    except subprocess.CalledProcessError as e:
+        return f"ERROR downloading image: {e.stderr or e.stdout or str(e)}"
+    finally:
+        if original_sub:
+            try:
+                _run(["az", "account", "set", "--subscription", original_sub])
+            except subprocess.CalledProcessError:
+                pass
+
+    src_path = os.path.join(BASE_IMAGE_DIR, f"image.{format}")
+    try:
+        shutil.move(src_path, output_path)
+    except OSError as e:
+        return f"ERROR moving {src_path} to {output_path}: {e}"
+
+    return f"SUCCESS saved download to: {output_path}"
 
 
 @mcp.tool()
