@@ -208,10 +208,7 @@ def test_min_change_efi_azl3_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    if platform.machine() == "x86_64":
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-amd64-azl3.yaml")
-    else:
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64-azl3.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl3.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
@@ -242,10 +239,7 @@ def test_min_change_efi_azl4_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 4
-    if platform.machine() == "x86_64":
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-amd64-azl4.yaml")
-    else:
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64-azl4.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl4.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
@@ -309,7 +303,7 @@ def test_min_change_legacy_azl3_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-amd64-azl3.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl3.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
@@ -341,7 +335,7 @@ def test_min_change_legacy_azl4_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 4
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-amd64-azl4.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl4.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
