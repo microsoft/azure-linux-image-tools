@@ -1,0 +1,108 @@
+# Differs from verity-root-inline-uki-amd64-azl4 in its removal of grub2-efi-aa64 (not grub2-efi-x64).
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 250M
+
+    - id: boot
+      size: 1G
+
+    - id: root
+      size: 2G
+
+    - id: var
+      size: 1G
+
+  verity:
+  - id: verityroot
+    name: root
+    dataDeviceId: root
+    hashDeviceId: root
+    dataDeviceMountIdType: uuid
+    hashDeviceMountIdType: uuid
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: verityroot
+    type: ext4
+    mountPoint:
+      path: /
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint:
+      path: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    mode: create
+
+  selinux:
+    mode: disabled
+
+  kernelCommandLine:
+    extraCommandLine:
+    - "rd.info"
+
+  packages:
+    install:
+    - openssh-server
+    - veritysetup
+    - vim
+    - device-mapper
+    - systemd-boot-unsigned
+
+  additionalFiles:
+    # Change the directory that the sshd-keygen service writes the SSH host keys to.
+  - source: files/sshd-keygen.service
+    destination: /usr/lib/systemd/system/sshd-keygen.service
+
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
+
+  services:
+    enable:
+    - sshd
+    
+  users:
+  - name: test
+    sshPublicKeys:
+      # Your SSH public key here.
+    secondaryGroups:
+    - wheel
+
+scripts:
+  postCustomization:
+  - content: |
+      # Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+      # refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+      # is not an option because shim is needed for the secure boot chain
+      # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+      # are extracted as build artifacts. Use rpm --nodeps to bypass this.
+      # Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
+      rpm -e --nodeps grub2-efi-aa64
+    # Move the SSH host keys off of the read-only /etc directory, so that sshd can run.
+  - path: scripts/ssh-move-host-keys.sh

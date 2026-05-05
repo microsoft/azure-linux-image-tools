@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -1079,7 +1080,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
-	configFile := filepath.Join(testDir, "verity-root-inline-uki.yaml")
+	configFile := filepath.Join(testDir, verityRootInlineUkiConfigFile(baseImageInfo))
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
@@ -1092,7 +1093,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
 			// 4348 MiB = 1 (alignment) + 250 (esp) + 1024 (boot) + 2048 (root) + 1024 (var) + 1 (secondary GPT).
-			// Tracks the partition layout in verity-root-inline-uki.yaml.
+			// Tracks the partition layout in verity-root-inline-uki-*.yaml.
 			Size:       4348 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4}),
 		},
@@ -1212,4 +1213,17 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 	verifyVerityUki(t, espMountPath, rootDevice.DevicePath(), rootDevice.DevicePath(),
 		"UUID="+metadata.Images[2].FsUuid, "UUID="+metadata.Images[2].FsUuid, "root", buildDir, "rd.info",
 		"panic-on-corruption", true /*inlineVerity*/)
+}
+
+// verityRootInlineUkiConfigFile returns the verity-root-inline-uki test config file appropriate for
+// the given base image version (azl3 vs azl4) and host architecture.
+func verityRootInlineUkiConfigFile(baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-root-inline-uki-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("verity-root-inline-uki-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		panic(fmt.Sprintf("unsupported base image version for verity-root-inline-uki test: %s", baseImageInfo.Version))
+	}
 }
