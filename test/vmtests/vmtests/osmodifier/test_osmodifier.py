@@ -39,9 +39,9 @@ def setup_vm_with_osmodifier(
     session_close_list: List[Closeable],
 ) -> Tuple[SshClient, Path, Path]:
     if distro_id == "azurelinux" and version_id == "4.0":
-        config_path = TEST_CONFIGS_DIR.joinpath(f"osmodifier-vm-config-azl4.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl4.yaml")
     else:
-        config_path = TEST_CONFIGS_DIR.joinpath(f"osmodifier-vm-config-azl3.yaml")
+        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl3.yaml")
 
     output_format = "qcow2"
     ssh_public_key, ssh_private_key_path = ssh_key
