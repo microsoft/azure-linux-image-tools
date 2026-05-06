@@ -129,7 +129,7 @@ func populateWriteableRootfsDir(sourceDir, writeableRootfsDir string) error {
 func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore,
 	requestedSelinuxMode imagecustomizerapi.SELinuxMode, resolvedIso imagecustomizerapi.Iso,
 	resolvedPxe imagecustomizerapi.Pxe, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
-	outputPath string, distroHandler DistroHandler,
+	outputPath string,
 ) (err error) {
 	logger.Log.Infof("Creating Live OS artifacts using customized full OS image")
 
@@ -138,7 +138,7 @@ func createLiveOSFromRaw(ctx context.Context, buildDir string, inputArtifactsSto
 		return fmt.Errorf("failed to build live OS configuration from input configuration:\n%w", err)
 	}
 
-	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, outputPath, distroHandler)
+	err = createLiveOSFromRawHelper(ctx, buildDir, inputArtifactsStore, requestedSelinuxMode, liveosConfig, rawImageFile, outputFormat, outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create live OS artifacts:\n%w", err)
 	}
@@ -181,7 +181,7 @@ func isIsoBootImageNeeded(outputFormat imagecustomizerapi.ImageFormatType, initr
 
 func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifactsStore *IsoArtifactsStore, requestedSelinuxMode imagecustomizerapi.SELinuxMode,
 	liveosConfig LiveOSConfig, rawImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
-	outputPath string, distroHandler DistroHandler,
+	outputPath string,
 ) (err error) {
 	isoBuildDir := filepath.Join(buildDir, "liveosbuild")
 	defer func() {
@@ -204,7 +204,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	defer rawImageConnection.Close()
 
 	// Detect the distro handler for the image.
-	distroHandler, err = NewDistroHandlerFromChroot(rawImageConnection.Chroot())
+	distroHandler, err := NewDistroHandlerFromChroot(rawImageConnection.Chroot())
 	if err != nil {
 		return fmt.Errorf("failed to detect distribution:\n%w", err)
 	}
