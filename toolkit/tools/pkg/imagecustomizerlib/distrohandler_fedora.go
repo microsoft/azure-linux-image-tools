@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -89,6 +90,10 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 
 func (d *fedoraDistroHandler) GetEspDir() string {
 	return "boot/efi"
+}
+
+func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
 func (d *fedoraDistroHandler) SELinuxSupported() bool {
