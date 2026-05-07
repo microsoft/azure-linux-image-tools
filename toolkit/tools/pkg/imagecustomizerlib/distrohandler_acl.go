@@ -212,9 +212,7 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	// ACL does not ship an RPM database in the image, so rpm -qa is not available.
-	logger.Log.Warningf("Package enumeration is not supported on ACL (no in-image RPM database); returning empty list")
-	return nil, nil
+	return getAllPackagesFromChrootRpm(imageChroot)
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
@@ -253,12 +251,6 @@ func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
 	logger.Log.Infof("Regenerating initramfs for ACL")
 
-	// Validate dracut is available in the image.
-	if !d.IsPackageInstalled(imageChroot, "dracut") {
-		return fmt.Errorf("dracut package is not installed in the ACL image; " +
-			"cannot regenerate initramfs without dracut")
-	}
-
 	ctx, span := startRegenerateInitramfsSpan(ctx)
 	defer span.End()
 
@@ -279,8 +271,5 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	// ACL uses systemd-boot which auto-discovers UKIs from EFI/Linux/.
-	// Bootloader configuration is handled via UKI create/modify mode.
-	logger.Log.Infof("Skipping bootloader configuration for ACL (systemd-boot auto-discovers UKIs)")
-	return nil
+	return fmt.Errorf("bootloader configuration is not supported on ACL (systemd-boot auto-discovers UKIs)")
 }
