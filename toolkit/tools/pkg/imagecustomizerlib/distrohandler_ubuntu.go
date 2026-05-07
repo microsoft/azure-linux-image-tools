@@ -114,6 +114,7 @@ func (d *ubuntuDistroHandler) GetEspDir() string {
 }
 
 func (d *ubuntuDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	// Reading Ubuntu's grub.cfg stub is not supported, so for now just use Azure Linux 3.0's values.
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 

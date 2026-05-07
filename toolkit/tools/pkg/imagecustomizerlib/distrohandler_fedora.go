@@ -93,6 +93,7 @@ func (d *fedoraDistroHandler) GetEspDir() string {
 }
 
 func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	// Reading Fedora's grub.cfg stub is not supported, so for now just use Azure Linux 3.0's values.
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
