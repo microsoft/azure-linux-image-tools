@@ -21,7 +21,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0
 	golang.org/x/sys v0.43.0
 	gonum.org/v1/gonum v0.17.0
-	gopkg.in/ini.v1 v1.67.1
+	gopkg.in/ini.v1 v1.67.2
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
 )
