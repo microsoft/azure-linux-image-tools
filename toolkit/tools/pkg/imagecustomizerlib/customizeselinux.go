@@ -102,13 +102,13 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 	selinuxConfigFileFullPath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 	selinuxConfigFileExists, err := file.PathExists(selinuxConfigFileFullPath)
 	if err != nil {
-		return fmt.Errorf("%w (file='%s'):\n%w", ErrSELinuxConfigFileCheck, selinuxConfigFile, err)
+		return fmt.Errorf("%w (file='/%s'):\n%w", ErrSELinuxConfigFileCheck, selinuxConfigFile, err)
 	}
 
 	// Ensure an SELinux policy has been installed.
 	// Typically, this is provided by the 'selinux-policy' package.
 	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled && !selinuxConfigFileExists {
-		return fmt.Errorf("%w (file='%s'):\n"+
+		return fmt.Errorf("%w (file='/%s'):\n"+
 			"please ensure an SELinux policy is installed:\n"+
 			"the '%s' package provides the default policy",
 			ErrSELinuxPolicyMissing, selinuxConfigFile, configuration.SELinuxPolicyDefault)
