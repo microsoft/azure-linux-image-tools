@@ -215,8 +215,8 @@ func (b *BootCustomizer) GetSELinuxMode(buildDir string, imageChroot safechroot.
 		return selinuxMode, nil
 	}
 
-	// Fallback: Get the SELinux mode from the /etc/selinux/config file.
-	selinuxMode, err = getSELinuxModeFromConfigFile(imageChroot)
+	// Fallback: Get the SELinux mode from the SELinux config file.
+	selinuxMode, err = getSELinuxModeFromConfigFile(imageChroot, b.distroHandler)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}

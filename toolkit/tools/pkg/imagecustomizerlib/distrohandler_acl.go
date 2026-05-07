@@ -227,6 +227,15 @@ func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (str
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
+func (d *aclDistroHandler) GetSELinuxConfigDir() string {
+	// ACL uses overlayfs for /etc. At runtime, /etc is composed from the
+	// immutable lowerdir and a writable upperdir on the ROOT ext4 partition.
+	// When IC mounts the partitions individually (no overlay), /etc/selinux/
+	// does not exist on the bare rootfs — the actual SELinux config lives in
+	// the overlay lowerdir.
+	return "usr/share/distro/etc/selinux"
+}
+
 func (d *aclDistroHandler) SELinuxSupported() bool {
 	return true
 }

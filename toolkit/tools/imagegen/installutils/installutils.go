@@ -717,7 +717,9 @@ func ConfigureUserStartupCommand(installChroot safechroot.ChrootInterface, usern
 	return
 }
 
-func SELinuxUpdateConfig(selinuxMode configuration.SELinux, installChroot safechroot.ChrootInterface) (err error) {
+func SELinuxUpdateConfig(selinuxMode configuration.SELinux, installChroot safechroot.ChrootInterface,
+	selinuxConfigFile string,
+) (err error) {
 	const (
 		selinuxPattern = "^SELINUX=.*"
 	)
@@ -732,17 +734,18 @@ func SELinuxUpdateConfig(selinuxMode configuration.SELinux, installChroot safech
 		mode = SELinuxConfigDisabled
 	}
 
-	selinuxConfigPath := filepath.Join(installChroot.RootDir(), SELinuxConfigFile)
+	selinuxConfigPath := filepath.Join(installChroot.RootDir(), selinuxConfigFile)
 	selinuxProperty := fmt.Sprintf("SELINUX=%s", mode)
 	err = sed(selinuxPattern, selinuxProperty, "`", selinuxConfigPath)
 	return
 }
 
 func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToFsTypeMap map[string]string, isRootFS bool,
+	selinuxConfigFile string,
 ) (err error) {
-	const (
-		fileContextBasePath = "etc/selinux/%s/contexts/files/file_contexts"
-	)
+	// Derive the file_contexts path from the SELinux config file path.
+	selinuxDir := filepath.Dir(selinuxConfigFile)
+	fileContextBasePath := filepath.Join(selinuxDir, "%s", "contexts", "files", "file_contexts")
 	var listOfMountsToLabel []string
 
 	if isRootFS {
@@ -765,7 +768,7 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	}
 
 	// Find the type of policy we want to label with
-	selinuxConfigPath := filepath.Join(installChroot.RootDir(), SELinuxConfigFile)
+	selinuxConfigPath := filepath.Join(installChroot.RootDir(), selinuxConfigFile)
 	stdout, stderr, err := shell.Execute("sed", "-n", "s/^SELINUXTYPE=\\(.*\\)$/\\1/p", selinuxConfigPath)
 	if err != nil {
 		err = fmt.Errorf("failed to find an SELINUXTYPE in (%s):\n%w\n%v", selinuxConfigPath, err, stderr)

@@ -59,6 +59,10 @@ type DistroHandler interface {
 	// returns the UUID of the partition that contains the grub.cfg.
 	FindBootPartitionUuidFromEsp(espMountDir string) (string, error)
 
+	// GetSELinuxConfigDir returns the path to the SELinux configuration
+	// directory relative to the image root.
+	GetSELinuxConfigDir() string
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 

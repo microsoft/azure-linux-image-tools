@@ -105,7 +105,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 		}
 
 		if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault {
-			err = updateSELinuxForGrubBasedBoot(buildDir, osConfig.SELinux.Mode, bootCustomizer, dummyChroot)
+			err = updateSELinuxForGrubBasedBoot(buildDir, osConfig.SELinux.Mode, bootCustomizer, dummyChroot, distroHandler)
 			if err != nil {
 				return err
 			}
@@ -119,7 +119,7 @@ func doModifications(ctx context.Context, baseConfigPath string, osConfig *osmod
 
 	if osConfig.SELinux.Mode != imagecustomizerapi.SELinuxModeDefault &&
 		bootloaderType == imagecustomizerlib.BootloaderTypeSystemdBoot {
-		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot)
+		err = updateSELinuxForUkiBoot(osConfig.SELinux.Mode, dummyChroot, distroHandler)
 		if err != nil {
 			return err
 		}
@@ -183,14 +183,16 @@ func updateGrubConfigForOverlay(overlays []osmodifierapi.Overlay, bootCustomizer
 	return nil
 }
 
-func updateSELinuxForUkiBoot(selinuxMode imagecustomizerapi.SELinuxMode, installChroot safechroot.ChrootInterface) error {
+func updateSELinuxForUkiBoot(selinuxMode imagecustomizerapi.SELinuxMode, installChroot safechroot.ChrootInterface,
+	distroHandler imagecustomizerlib.DistroHandler,
+) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDefault {
 		return nil
 	}
 
 	logger.Log.Infof("Applying SELinux mode ('%s') for UKI-based system", selinuxMode)
 
-	err := imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot)
+	err := imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to update SELinux mode in config file: %w", err)
 	}
@@ -198,7 +200,10 @@ func updateSELinuxForUkiBoot(selinuxMode imagecustomizerapi.SELinuxMode, install
 	return nil
 }
 
-func updateSELinuxForGrubBasedBoot(buildDir string, selinuxMode imagecustomizerapi.SELinuxMode, bootCustomizer *imagecustomizerlib.BootCustomizer, installChroot safechroot.ChrootInterface) error {
+func updateSELinuxForGrubBasedBoot(buildDir string, selinuxMode imagecustomizerapi.SELinuxMode,
+	bootCustomizer *imagecustomizerlib.BootCustomizer, installChroot safechroot.ChrootInterface,
+	distroHandler imagecustomizerlib.DistroHandler,
+) error {
 	currentSELinuxMode, err := bootCustomizer.GetSELinuxMode(buildDir, installChroot)
 	if err != nil {
 		return fmt.Errorf("failed to get current SELinux mode: %w", err)
@@ -215,7 +220,7 @@ func updateSELinuxForGrubBasedBoot(buildDir string, selinuxMode imagecustomizera
 		return fmt.Errorf("failed to update SELinux kernel cmdline: %w", err)
 	}
 
-	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot)
+	err = imagecustomizerlib.UpdateSELinuxModeInConfigFile(selinuxMode, installChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("failed to update SELinux mode in config file: %w", err)
 	}
