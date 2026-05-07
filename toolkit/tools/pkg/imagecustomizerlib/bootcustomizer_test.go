@@ -20,6 +20,9 @@ const (
 
 	sampleGrubCfg30Path     = "bootcfgtests/3.0-grub.cfg"
 	sampleDefaultGrub30Path = "bootcfgtests/3.0-default-grub"
+
+	sampleGrubCfg40Path     = "bootcfgtests/4.0-grub.cfg"
+	sampleDefaultGrub40Path = "bootcfgtests/4.0-default-grub"
 )
 
 func TestBootCustomizerAddKernelCommandLine20(t *testing.T) {
@@ -106,7 +109,7 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
 
 	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
 	assert.NoError(t, err)
@@ -154,6 +157,61 @@ func TestBootCustomizerSELinuxMode30(t *testing.T) {
 	checkDiffs30(t, b, "", expectedDefaultGrubFileDiff)
 }
 
+func TestBootCustomizerSELinuxMode40(t *testing.T) {
+	// AZL4 only has GRUB_CMDLINE_LINUX_DEFAULT (no GRUB_CMDLINE_LINUX).
+	// SELinux args should be added to a new GRUB_CMDLINE_LINUX variable.
+	b := createBootCustomizerFor40(t)
+
+	// AZL4 has no SELinux kernel args at all. The mode should be Default (defer to /etc/selinux/config),
+	// not Disabled.
+	selinuxMode, found, err := b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeDisabled)
+	assert.NoError(t, err)
+
+	// Explicit selinux=0 must read back as Disabled (not Default).
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDisabled, selinuxMode)
+
+	expectedDefaultGrubFileDiff := `7a8
+> GRUB_CMDLINE_LINUX=" selinux=0 "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModePermissive)
+	assert.NoError(t, err)
+
+	// "security=selinux selinux=1" without enforcing=1 means the kernel defers to /etc/selinux/config.
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeDefault, selinuxMode)
+
+	expectedDefaultGrubFileDiff = `7a8
+> GRUB_CMDLINE_LINUX=" security=selinux selinux=1 "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+
+	err = b.UpdateSELinuxCommandLine(imagecustomizerapi.SELinuxModeForceEnforcing)
+	assert.NoError(t, err)
+
+	// enforcing=1 alongside the security/selinux pair locks the mode to enforcing.
+	selinuxMode, found, err = b.getSELinuxModeFromCmdline("", nil)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, imagecustomizerapi.SELinuxModeForceEnforcing, selinuxMode)
+
+	expectedDefaultGrubFileDiff = `7a8
+> GRUB_CMDLINE_LINUX="  security=selinux selinux=1 enforcing=1 "
+`
+	checkDiffs40(t, b, "", expectedDefaultGrubFileDiff)
+}
+
 func TestBootCustomizerVerity20(t *testing.T) {
 	b := createBootCustomizerFor20(t)
 
@@ -191,6 +249,11 @@ func checkDiffs30(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, e
 		expectedGrubCfgDiff, expectedDefaultGrubFileDiff)
 }
 
+func checkDiffs40(t *testing.T, b *BootCustomizer, expectedGrubCfgDiff string, expectedDefaultGrubFileDiff string) {
+	checkDiffs(t, b, filepath.Join(testDir, sampleGrubCfg40Path), filepath.Join(testDir, sampleDefaultGrub40Path),
+		expectedGrubCfgDiff, expectedDefaultGrubFileDiff)
+}
+
 func checkDiffs(t *testing.T, b *BootCustomizer, originalGrubCfgPath string, originalDefaultGrubFilePath string,
 	expectedGrubCfgDiff string, expectedDefaultGrubFileDiff string,
 ) {
@@ -214,15 +277,21 @@ func calcDiff(t *testing.T, oldPath string, newContent string) string {
 
 func createBootCustomizerFor20(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg20Path),
-		filepath.Join(testDir, sampleDefaultGrub20Path), false)
+		filepath.Join(testDir, sampleDefaultGrub20Path), false, newAzureLinuxDistroHandler("2.0"))
 }
 
 func createBootCustomizerFor30(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg30Path),
-		filepath.Join(testDir, sampleDefaultGrub30Path), true)
+		filepath.Join(testDir, sampleDefaultGrub30Path), true, newAzureLinuxDistroHandler("3.0"))
+}
+
+func createBootCustomizerFor40(t *testing.T) *BootCustomizer {
+	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg40Path),
+		filepath.Join(testDir, sampleDefaultGrub40Path), true, newAzureLinuxDistroHandler("4.0"))
 }
 
 func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultGrubFilePath string, isGrubMkconfig bool,
+	distroHandler DistroHandler,
 ) *BootCustomizer {
 	sampleGrubCfgContent, err := os.ReadFile(sampleGrubCfgPath)
 	assert.NoError(t, err, "failed to read sample grub.cfg file")
@@ -239,6 +308,7 @@ func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultG
 		grubCfgContent:         string(sampleGrubCfgContent),
 		defaultGrubFileContent: string(sampleDefaultGrubFileContent),
 		bootConfigType:         bootConfigType,
+		distroHandler:          distroHandler,
 	}
 	return b
 }
