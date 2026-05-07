@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
@@ -17,10 +18,13 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sys/unix"
 )
 
 type installOSFunc func(imageChroot *safechroot.Chroot) error
@@ -217,7 +221,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
-	currentSELinuxMode imagecustomizerapi.SELinuxMode, forceGrubMkconfig bool,
+	currentSELinuxMode imagecustomizerapi.SELinuxMode, forceGrubMkconfig bool, distroHandler DistroHandler,
 ) error {
 	imagerBootType, err := bootTypeToImager(bootType)
 	if err != nil {
@@ -237,12 +241,12 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	useGrubMkconfig := forceGrubMkconfig
 	if !forceGrubMkconfig {
 		// Detect the boot configuration type to determine whether to use grub mkconfig.
-		grubCfgContent, err := readGrub2ConfigFile(imageConnection.Chroot(), installutils.FedoraGrubCfgFile)
+		grubCfgContent, err := distroHandler.ReadGrub2ConfigFile(imageConnection.Chroot())
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
 
-		bootConfigType, err := determineBootConfigType(grubCfgContent, imageConnection.Chroot())
+		bootConfigType, err := determineBootConfigType(grubCfgContent, imageConnection.Chroot(), distroHandler)
 		if err != nil {
 			return err
 		}
@@ -381,11 +385,59 @@ func createPartIdToPartUuidMap(partIDToDevPathMap map[string]string, diskPartiti
 }
 
 func extractOSRelease(imageConnection *imageconnection.ImageConnection) (string, error) {
+	// Try /etc/os-release first, then fall back to /usr/lib/os-release.
+	// The fallback is per the os-release(5) spec and is needed for distros like
+	// ACL where /etc is an overlay that may not be mounted during customization.
 	osReleasePath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/os-release")
 	data, err := file.Read(osReleasePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+		}
+		osReleasePath = filepath.Join(imageConnection.Chroot().RootDir(), "usr/lib/os-release")
+		data, err = file.Read(osReleasePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
+		}
 	}
 
 	return string(data), nil
+}
+
+// clearBtrfsReadOnlyProperties clears the btrfs read-only subvolume property on
+// any btrfs mount that IC mounted as read-write. Some distros (e.g. ACL) set
+// this property at build time to make partitions immutable at runtime.
+func clearBtrfsReadOnlyProperties(imageConnection *imageconnection.ImageConnection) error {
+	for _, mp := range imageConnection.Chroot().GetMountPoints() {
+		if mp.GetFSType() != "btrfs" {
+			continue
+		}
+
+		// Skip mounts that IC intentionally mounted read-only.
+		if (mp.GetFlags() & unix.MS_RDONLY) != 0 {
+			continue
+		}
+
+		mountPath := filepath.Join(imageConnection.Chroot().RootDir(), mp.GetTarget())
+
+		// Check if the subvolume is read-only.
+		stdout, stderr, err := shell.Execute("btrfs", "property", "get", "-ts", mountPath, "ro")
+		if err != nil {
+			// Not all btrfs mounts have subvolumes; skip on error.
+			logger.Log.Debugf("Skipping btrfs property check on %s: %v: %s", mp.GetTarget(), err, stderr)
+			continue
+		}
+
+		if strings.TrimSpace(stdout) != "ro=true" {
+			continue
+		}
+
+		logger.Log.Debugf("Clearing btrfs read-only property on %s", mp.GetTarget())
+		err = shell.ExecuteLive(true, "btrfs", "property", "set", "-ts", mountPath, "ro", "false")
+		if err != nil {
+			return fmt.Errorf("failed to clear btrfs read-only property on %s:\n%w", mp.GetTarget(), err)
+		}
+	}
+
+	return nil
 }

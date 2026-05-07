@@ -3126,3 +3126,19 @@ func TestStorageIsValid_BtrfsSubvolumeMountPointIdTypePartLabel_Pass(t *testing.
 	err := value.IsValid()
 	assert.NoError(t, err)
 }
+
+func TestCalculateInlineVerityDataSizeZero(t *testing.T) {
+	_, err := calculateInlineVerityDataSize(0)
+	assert.ErrorContains(t, err, "partition is too small for inline verity")
+}
+
+func TestCalculateInlineVerityDataSize1MiB(t *testing.T) {
+	_, err := calculateInlineVerityDataSize(1 * diskutils.MiB)
+	assert.ErrorContains(t, err, "partition is too small for inline verity")
+}
+
+func TestCalculateInlineVerityDataSize100MiB(t *testing.T) {
+	fsSize, err := calculateInlineVerityDataSize(100 * diskutils.MiB)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(98*diskutils.MiB), fsSize)
+}

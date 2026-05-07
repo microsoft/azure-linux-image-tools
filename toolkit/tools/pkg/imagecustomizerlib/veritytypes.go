@@ -23,4 +23,10 @@ type verityFormatSettings struct {
 	hashAlgorithm      string
 	dataBlockSizeBytes uint32
 	hashBlockSizeBytes uint32
+	dataSizeBytes      uint64
+	hashOffsetBytes    uint64
+}
+
+func (s *verityFormatSettings) IsInlineVerity() bool {
+	return s.hashOffsetBytes != 0
 }

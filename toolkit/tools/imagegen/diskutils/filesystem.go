@@ -42,6 +42,8 @@ type fileSystemsOptions struct {
 	Btrfs btrfsOptions
 	// The ext4 options to use.
 	Ext4 ext4Options
+	// The ext4 options to use for the partition that contains the /boot directory.
+	BootExt4 ext4Options
 	// The xfs options to use.
 	Xfs xfsOptions
 	// The xfs options to use for the partition that contains the /boot directory.
@@ -64,6 +66,13 @@ var (
 	// The default btrfs options used by an Azure Linux 3.0 image (kernel v6.6).
 	// Same as AZL2 since nothing has changed since v5.15.
 	azl3BtrfsOptions = btrfsOptions{
+		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
+		Checksum: "crc32c",
+	}
+
+	// The default btrfs options used by an Azure Linux 4.0 image (kernel v6.18).
+	// Same as AZL3 since nothing has changed since v5.15.
+	azl4BtrfsOptions = btrfsOptions{
 		Features: []string{"extref", "skinny-metadata", "no-holes", "free-space-tree"},
 		Checksum: "crc32c",
 	}
@@ -119,6 +128,29 @@ var (
 		},
 	}
 
+	// The default ext4 options used by an Azure Linux 4.0 image.
+	// See, the /etc/mke2fs.conf file in an Azure Linux 4.0 image.
+	azl4Ext4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr", "has_journal", "extent",
+			"huge_file", "flex_bg", "metadata_csum", "metadata_csum_seed", "64bit", "dir_nlink", "extra_isize",
+			"orphan_file",
+		},
+	}
+
+	// GRUB 2.06 doesn't support 'metadata_csum_seed', we need a new set of ext4 options for the /boot partition.
+	// This is azl4Ext4Options without 'metadata_csum_seed'.
+	// This is needed because AZL4 images are built on AZL3 hosts.
+	azl4BootExt4Options = ext4Options{
+		BlockSize: 4096,
+		Features: []string{
+			"sparse_super", "large_file", "filetype", "resize_inode", "dir_index", "ext_attr", "has_journal", "extent",
+			"huge_file", "flex_bg", "metadata_csum", "64bit", "dir_nlink", "extra_isize",
+			"orphan_file",
+		},
+	}
+
 	// The default ext4 options used by Fedora 42 (kernel v6.11+)
 	// Based on typical Fedora defaults with modern ext4 features
 	fedora42Ext4Options = ext4Options{
@@ -170,6 +202,17 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
+	// The default xfs options used by an Azure Linux 4.0 image (kernel v6.18).
+	// See, the /usr/share/xfsprogs/mkfs/lts_6.12.conf file.
+	azl4XfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+	}
+
+	// GRUB 2.12 supports 'nrext64'.
+	azl4BootXfsOptions = xfsOptions{
+		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse", "nrext64"},
+	}
+
 	// The default xfs options used by Fedora 42 (kernel v6.11+)
 	// Based on modern XFS features supported in recent kernels
 	fedora42XfsOptions = xfsOptions{
@@ -196,34 +239,46 @@ var (
 
 	targetOsFileSystemsOptions = map[targetos.TargetOs]fileSystemsOptions{
 		targetos.TargetOsAzureLinux2: {
-			Btrfs:   azl2BtrfsOptions,
-			Ext4:    azl2Ext4Options,
-			Xfs:     azl2XfsOptions,
-			BootXfs: azl2XfsOptions,
+			Btrfs:    azl2BtrfsOptions,
+			Ext4:     azl2Ext4Options,
+			BootExt4: azl2Ext4Options,
+			Xfs:      azl2XfsOptions,
+			BootXfs:  azl2XfsOptions,
 		},
 		targetos.TargetOsAzureLinux3: {
-			Btrfs:   azl3BtrfsOptions,
-			Ext4:    azl3Ext4Options,
-			Xfs:     azl3XfsOptions,
-			BootXfs: azl3BootXfsOptions,
+			Btrfs:    azl3BtrfsOptions,
+			Ext4:     azl3Ext4Options,
+			BootExt4: azl3Ext4Options,
+			Xfs:      azl3XfsOptions,
+			BootXfs:  azl3BootXfsOptions,
+		},
+		targetos.TargetOsAzureLinux4: {
+			Btrfs:    azl4BtrfsOptions,
+			Ext4:     azl4Ext4Options,
+			BootExt4: azl4BootExt4Options,
+			Xfs:      azl4XfsOptions,
+			BootXfs:  azl4BootXfsOptions,
 		},
 		targetos.TargetOsFedora42: {
-			Btrfs:   fedora42BtrfsOptions,
-			Ext4:    fedora42Ext4Options,
-			Xfs:     fedora42XfsOptions,
-			BootXfs: fedora42XfsOptions,
+			Btrfs:    fedora42BtrfsOptions,
+			Ext4:     fedora42Ext4Options,
+			BootExt4: fedora42Ext4Options,
+			Xfs:      fedora42XfsOptions,
+			BootXfs:  fedora42XfsOptions,
 		},
 		targetos.TargetOsUbuntu2204: {
-			Btrfs:   ubuntu2204BtrfsOptions,
-			Ext4:    ubuntu2204Ext4Options,
-			Xfs:     ubuntu2204XfsOptions,
-			BootXfs: ubuntu2204XfsOptions,
+			Btrfs:    ubuntu2204BtrfsOptions,
+			Ext4:     ubuntu2204Ext4Options,
+			BootExt4: ubuntu2204Ext4Options,
+			Xfs:      ubuntu2204XfsOptions,
+			BootXfs:  ubuntu2204XfsOptions,
 		},
 		targetos.TargetOsUbuntu2404: {
-			Btrfs:   ubuntu2404BtrfsOptions,
-			Ext4:    ubuntu2404Ext4Options,
-			Xfs:     ubuntu2404XfsOptions,
-			BootXfs: ubuntu2404XfsOptions,
+			Btrfs:    ubuntu2404BtrfsOptions,
+			Ext4:     ubuntu2404Ext4Options,
+			BootExt4: ubuntu2404Ext4Options,
+			Xfs:      ubuntu2404XfsOptions,
+			BootXfs:  ubuntu2404XfsOptions,
 		},
 	}
 
@@ -274,7 +329,8 @@ var (
 	//
 	// Ref: https://e2fsprogs.sourceforge.net/e2fsprogs-release.html
 	ext4FeaturesE2fsprogsSupport = map[string]version.Version{
-		"orphan_file": {1, 47, 0},
+		"orphan_file":        {1, 47, 0},
+		"metadata_csum_seed": {1, 47, 0},
 	}
 
 	// A list of XFS features and their minimum supported xfsprogs / kernel versions.
@@ -345,7 +401,9 @@ var (
 // - targetOs: The OS the filesystem is being created for.
 // - filesystemType: The requested filesystem type.
 // - isBootPartition: Will the partition contain the /boot directory?
-func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool) ([]string, error) {
+func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isBootPartition bool, partDevPath string,
+	fsSizeMiB uint64,
+) ([]string, error) {
 	hostKernelVersion, err := kernelversion.GetBuildHostKernelVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host kernel version:\n%w", err)
@@ -362,7 +420,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 
 	switch filesystemType {
 	case "btrfs":
-		options, err := getBtrfsFileSystemOptions(hostKernelVersion, options)
+		options, err := getBtrfsFileSystemOptions(hostKernelVersion, options, partDevPath, fsSizeMiB)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +428,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "ext4":
-		options, err := getExt4FileSystemOptions(hostKernelVersion, options)
+		options, err := getExt4FileSystemOptions(hostKernelVersion, options, partDevPath, fsSizeMiB, isBootPartition)
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +436,7 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	case "xfs":
-		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition)
+		options, err := getXfsFileSystemOptions(hostKernelVersion, options, isBootPartition, partDevPath, fsSizeMiB)
 		if err != nil {
 			return nil, err
 		}
@@ -386,11 +444,14 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return options, nil
 
 	default:
-		return []string(nil), nil
+		args := []string{fmt.Sprintf("mkfs.%s", filesystemType), partDevPath}
+		return args, nil
 	}
 }
 
-func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, partDevPath string,
+	fsSizeMiB uint64,
+) ([]string, error) {
 	mkfsBtrfsVersion, err := getMkfsBtrfsVersion()
 	if err != nil {
 		return nil, err
@@ -439,7 +500,7 @@ func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSy
 
 	allFeatures := append(enableFeatures, disableFeatures...)
 
-	args := []string{}
+	args := []string{"mkfs.btrfs"}
 
 	if len(allFeatures) > 0 {
 		featuresArg := strings.Join(allFeatures, ",")
@@ -450,19 +511,32 @@ func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSy
 		args = append(args, "--csum", options.Btrfs.Checksum)
 	}
 
+	if fsSizeMiB != 0 {
+		args = append(args, "--byte-count", fmt.Sprintf("%d", fsSizeMiB*MiB))
+	}
+
+	args = append(args, partDevPath)
+
 	return args, nil
 }
 
-func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions) ([]string, error) {
+func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, partDevPath string,
+	fsSizeMiB uint64, isBootPartition bool,
+) ([]string, error) {
 	mke2fsVersion, err := getMke2fsVersion()
 	if err != nil {
 		return nil, err
 	}
 
+	ext4Options := options.Ext4
+	if isBootPartition {
+		ext4Options = options.BootExt4
+	}
+
 	// "none" requests no default options.
 	features := []string{"none"}
 
-	for _, feature := range options.Ext4.Features {
+	for _, feature := range ext4Options.Features {
 		requiredKernelVersion, hasRequiredKernelVersion := ext4FeaturesKernelSupport[feature]
 		if hasRequiredKernelVersion && requiredKernelVersion.Gt(hostKernelVersion) {
 			// Feature is not supported on build host kernel.
@@ -482,11 +556,17 @@ func getExt4FileSystemOptions(hostKernelVersion version.Version, options fileSys
 
 	featuresArg := strings.Join(features, ",")
 
-	args := []string{"-b", strconv.Itoa(options.Ext4.BlockSize), "-O", featuresArg}
+	args := []string{"mkfs.ext4", "-b", strconv.Itoa(ext4Options.BlockSize), "-O", featuresArg, partDevPath}
+
+	if fsSizeMiB != 0 {
+		args = append(args, fmt.Sprintf("%dm", fsSizeMiB))
+	}
+
 	return args, nil
 }
 
 func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, isBootPartition bool,
+	partDevPath string, fsSizeMiB uint64,
 ) ([]string, error) {
 	mkfsXfsVersion, err := getMkfsXfsVersion()
 	if err != nil {
@@ -555,7 +635,13 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 	inodeArgValue := strings.Join(inodeArgs, ",")
 	namingArgValue := strings.Join(namingArgs, ",")
 
-	args := []string{"-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
+	args := []string{"mkfs.xfs", "-m", metadataArgValue, "-i", inodeArgValue, "-n", namingArgValue}
+
+	if fsSizeMiB != 0 {
+		args = append(args, "-d", fmt.Sprintf("size=%dm", fsSizeMiB))
+	}
+
+	args = append(args, partDevPath)
 	return args, nil
 }
 

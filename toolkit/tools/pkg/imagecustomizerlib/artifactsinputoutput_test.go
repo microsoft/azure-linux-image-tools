@@ -216,7 +216,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	}
 
 	// Connect to image.
-	if !extractCosiAndVerifyMetadata(t, cosiFilePath, testTempDir, expectedCosiMetadata) {
+	if _, ok := extractCosiAndVerifyMetadata(t, cosiFilePath, testTempDir, expectedCosiMetadata); !ok {
 		return
 	}
 
@@ -281,7 +281,7 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 
 	verifyInjectedFiles(t, espMountPath, espFiles)
 	verifyVerityUki(t, espMountPath, rootPartitionPath, rootHashPartitionPath, "UUID="+rootUuid, "UUID="+rootHashUuid,
-		"root", buildDir, "", "restart-on-corruption")
+		"root", buildDir, "", "restart-on-corruption", false /*inlineVerity*/)
 }
 
 func verifyAndSignOutputtedArtifacts(t *testing.T, outputArtifactsDir string, expectVerityHash bool) []string {

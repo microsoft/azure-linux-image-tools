@@ -851,7 +851,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 		}
 	}
 
-	if !extractCosiAndVerifyMetadata(t, outImageCosiFilePath, testTmpDir, expectedCosiMetadata) {
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageCosiFilePath, testTmpDir, expectedCosiMetadata); !ok {
 		return
 	}
 }

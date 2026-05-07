@@ -3,7 +3,6 @@
 
 import logging
 import os
-import platform
 import tempfile
 from pathlib import Path
 from typing import List, Tuple
@@ -37,10 +36,7 @@ def setup_vm_with_osmodifier(
     libvirt_conn: libvirt.virConnect,
     session_close_list: List[Closeable],
 ) -> Tuple[SshClient, Path, Path]:
-    if platform.machine() == "x86_64":
-        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config.yaml")
-    else:
-        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-arm64.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config.yaml")
 
     output_format = "qcow2"
     ssh_public_key, ssh_private_key_path = ssh_key

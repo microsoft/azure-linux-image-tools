@@ -51,8 +51,17 @@ type DistroHandler interface {
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
+	// GetEspDir returns the ESP directory path relative to the image root.
+	// For example: "boot/efi" for most distros, "boot" for ACL.
+	GetEspDir() string
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
+
+	// GetSELinuxModeFromLinuxArgs interprets parsed kernel command-line args and returns the effective SELinux mode
+	// the kernel will boot with. Returns SELinuxModeDefault to indicate the caller should fall back to reading
+	// /etc/selinux/config.
+	GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.SELinuxMode, error)
 
 	// ReadGrub2ConfigFile reads the distro-appropriate grub.cfg file from the chroot.
 	ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error)
@@ -79,6 +88,10 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 		return newAzureLinuxDistroHandler("2.0")
 	case targetos.TargetOsAzureLinux3:
 		return newAzureLinuxDistroHandler("3.0")
+	case targetos.TargetOsAzureLinux4:
+		return newAzureLinuxDistroHandler("4.0")
+	case targetos.TargetOsAzureContainerLinux3:
+		return newAclDistroHandler()
 	case targetos.TargetOsUbuntu2204:
 		return newUbuntuDistroHandler("22.04")
 	case targetos.TargetOsUbuntu2404:

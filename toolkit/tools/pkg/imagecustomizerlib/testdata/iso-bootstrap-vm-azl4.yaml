@@ -1,0 +1,24 @@
+# Differs from iso-bootstrap-vm-azl3 in the kernel version and its removal of selinux-policy-modules
+iso:
+  initramfsType: bootstrap
+
+os:
+  selinux:
+    mode: enforcing
+
+  packages:
+    install:
+    # multi-kernel test
+    - kernel-6.18.5-1.8.azl4~20260420
+    # iso required packages
+    - squashfs-tools
+    - tar
+    - device-mapper
+    - curl
+    # Required package for SELinux.
+    - selinux-policy
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
