@@ -17,7 +17,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -32,10 +31,16 @@ import (
 )
 
 var (
-	bootPartitionRegex = regexp.MustCompile(`(?m)^search -n -u ([a-zA-Z0-9\-]+) -s$`)
+	bootPartitionRegexAzl3 = regexp.MustCompile(`(?m)^[\t ]*search\s+-n\s+-u\s+([a-zA-Z0-9\-]+)\s+-s\s*$`)
+	bootPartitionRegexAzl4 = regexp.MustCompile(`(?m)^[\t ]*search\s+--fs-uuid\s+--set=root\s+([a-zA-Z0-9\-]+)\s*$`)
 
 	// Extract the partition number from the loopback partition path.
 	partitionNumberRegex = regexp.MustCompile(`^/dev/loop\d+p(\d+)$`)
+)
+
+const (
+	espGrubCfgPathAzl3 = "boot/grub2/grub.cfg"
+	espGrubCfgPathAzl4 = "EFI/fedora/grub.cfg"
 )
 
 const (
@@ -76,7 +81,9 @@ func findSystemBootPartition(diskPartitions []diskutils.PartitionInfo) (*diskuti
 	return bootPartition, nil
 }
 
-func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo, buildDir string) (*diskutils.PartitionInfo, error) {
+func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskPartitions []diskutils.PartitionInfo,
+	buildDir string, distroHandler DistroHandler,
+) (*diskutils.PartitionInfo, error) {
 	tmpDir := filepath.Join(buildDir, tmpEspPartitionDirName)
 
 	// Mount the EFI System Partition.
@@ -86,9 +93,7 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	}
 	defer efiSystemPartitionMount.Close()
 
-	// Read the grub.cfg file.
-	grubConfigFilePath := filepath.Join(tmpDir, installutils.FedoraGrubCfgFile)
-	grubConfigFile, err := os.ReadFile(grubConfigFilePath)
+	bootPartitionUuid, err := distroHandler.FindBootPartitionUuidFromEsp(tmpDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read EFI system partition's grub.cfg file:\n%w", err)
 	}
@@ -98,14 +103,6 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	if err != nil {
 		return nil, fmt.Errorf("failed to close EFI system partition mount:\n%w", err)
 	}
-
-	// Look for the bootloader partition declaration line in the grub.cfg file.
-	match := bootPartitionRegex.FindStringSubmatch(string(grubConfigFile))
-	if match == nil {
-		return nil, fmt.Errorf("failed to find boot partition in grub.cfg file")
-	}
-
-	bootPartitionUuid := match[1]
 
 	var bootPartition *diskutils.PartitionInfo
 	for i := range diskPartitions {
@@ -122,6 +119,23 @@ func findBootPartitionFromEsp(efiSystemPartition *diskutils.PartitionInfo, diskP
 	}
 
 	return bootPartition, nil
+}
+
+// readBootPartitionUuidFromGrubCfg reads the grub.cfg file at grubConfigFilePath and
+// returns the UUID captured by bootPartitionRegex's first capture group.
+func readBootPartitionUuidFromGrubCfg(grubConfigFilePath string, bootPartitionRegex *regexp.Regexp,
+) (string, error) {
+	grubConfigFile, err := os.ReadFile(grubConfigFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read EFI system partition's grub.cfg file (%s):\n%w", grubConfigFilePath, err)
+	}
+
+	match := bootPartitionRegex.FindStringSubmatch(string(grubConfigFile))
+	if match == nil {
+		return "", fmt.Errorf("failed to find boot partition in grub.cfg file (%s)", grubConfigFilePath)
+	}
+
+	return match[1], nil
 }
 
 // Searches for the partition that contains the /etc/fstab file.

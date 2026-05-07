@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -110,6 +111,11 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 
 func (d *ubuntuDistroHandler) GetEspDir() string {
 	return "boot/efi"
+}
+
+func (d *ubuntuDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	// Reading Ubuntu's grub.cfg stub is not supported, so for now just use Azure Linux 3.0's values.
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {

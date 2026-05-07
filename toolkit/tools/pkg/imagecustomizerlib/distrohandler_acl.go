@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -76,6 +77,10 @@ func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInt
 
 func (d *aclDistroHandler) GetEspDir() string {
 	return "boot"
+}
+
+func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
 func (d *aclDistroHandler) SELinuxSupported() bool {

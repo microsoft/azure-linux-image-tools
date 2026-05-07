@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -89,6 +90,11 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 
 func (d *fedoraDistroHandler) GetEspDir() string {
 	return "boot/efi"
+}
+
+func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
+	// Reading Fedora's grub.cfg stub is not supported, so for now just use Azure Linux 3.0's values.
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
 func (d *fedoraDistroHandler) SELinuxSupported() bool {

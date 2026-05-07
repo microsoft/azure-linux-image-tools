@@ -57,7 +57,7 @@ var ukiRegex = regexp.MustCompile(`^vmlinuz-.*\.efi$`)
 
 func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtifactsItemType,
 	outputDir string, buildDir string, buildImage string, verityMetadata []verityDeviceMetadata,
-	previewFeatures []imagecustomizerapi.PreviewFeature,
+	previewFeatures []imagecustomizerapi.PreviewFeature, distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Outputting artifacts")
 
@@ -82,7 +82,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 		return err
 	}
 
-	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir)
+	bootPartition, err := findBootPartitionFromEsp(systemBootPartition, diskPartitions, buildDir, distroHandler)
 	if err != nil {
 		return err
 	}
