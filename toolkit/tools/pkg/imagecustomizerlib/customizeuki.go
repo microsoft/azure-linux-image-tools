@@ -433,22 +433,17 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
 	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki,
 ) error {
-	// Resolve the EFI stub path, falling back to the ESP stash location
-	efiStubSrc, err := resolveUkiStubPath(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath,
-		filepath.Join(BootDir, "EFI/Linux/.build", bootConfig.ukiEfiStubBinary))
-	if err != nil {
-		return fmt.Errorf("failed to find UKI EFI stub:\n%w", err)
+	// Resolve the EFI stub path
+	efiStubSrc := filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath)
+	if _, err := os.Stat(efiStubSrc); err != nil {
+		return fmt.Errorf("UKI EFI stub not found at %s:\n%w", bootConfig.ukiEfiStubBinaryPath, err)
 	}
 
-	// Resolve the addon stub path, falling back to:
-	// 1. ESP stash location for addon stub
-	// 2. The main EFI stub
-	addonStubSrc, err := resolveUkiStubPath(imageChroot.RootDir(), bootConfig.ukiAddonStubBinaryPath,
-		filepath.Join(BootDir, "EFI/Linux/.build", bootConfig.ukiAddonStubBinary),
-		filepath.Join(BootDir, "EFI/Linux/.build", bootConfig.ukiEfiStubBinary),
-		bootConfig.ukiEfiStubBinaryPath)
-	if err != nil {
-		return fmt.Errorf("failed to find UKI addon stub:\n%w", err)
+	// Resolve the addon stub path, falling back to the main EFI stub
+	addonStubSrc := filepath.Join(imageChroot.RootDir(), bootConfig.ukiAddonStubBinaryPath)
+	if _, err := os.Stat(addonStubSrc); err != nil {
+		logger.Log.Infof("UKI addon stub not found at %s, using main EFI stub as fallback", bootConfig.ukiAddonStubBinaryPath)
+		addonStubSrc = efiStubSrc
 	}
 
 	// Both create and modify modes need the stub files
@@ -486,25 +481,6 @@ func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChr
 	}
 
 	return nil
-}
-
-// resolveUkiStubPath checks the primary path and fallback paths for a UKI stub file.
-// Returns the first path that exists as an absolute path.
-func resolveUkiStubPath(rootDir string, primaryRelPath string, fallbackRelPaths ...string) (string, error) {
-	primaryPath := filepath.Join(rootDir, primaryRelPath)
-	if _, err := os.Stat(primaryPath); err == nil {
-		return primaryPath, nil
-	}
-
-	for _, fallback := range fallbackRelPaths {
-		fallbackPath := filepath.Join(rootDir, fallback)
-		if _, err := os.Stat(fallbackPath); err == nil {
-			logger.Log.Infof("UKI stub not found at %s, using fallback: %s", primaryRelPath, fallback)
-			return fallbackPath, nil
-		}
-	}
-
-	return "", fmt.Errorf("UKI stub not found at %s or any fallback location", primaryRelPath)
 }
 
 func getKernelToInitramfsMap(bootDir string) (map[string]string, error) {
