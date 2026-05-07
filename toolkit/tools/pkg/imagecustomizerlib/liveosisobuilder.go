@@ -314,7 +314,8 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	case imagecustomizerapi.InitramfsImageTypeBootstrap:
 		// Generate the initrd image(s)
 		for kernelVersion, kernelBootFiles := range artifactsStore.files.kernelBootFiles {
-			err = createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, kernelBootFiles.initrdImagePath)
+			err = createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, kernelBootFiles.initrdImagePath,
+				distroHandler)
 			if err != nil {
 				return fmt.Errorf("failed to create initrd image:\n%w", err)
 			}
