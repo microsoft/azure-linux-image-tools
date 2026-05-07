@@ -320,7 +320,7 @@ func verifyUsrVerity(t *testing.T, buildDir string, imagePath string,
 	usrDevice := testutils.PartitionDevPath(imageConnection, 3)
 	usrHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, usrDevice, usrHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "usr", buildDir, "rd.info", "panic-on-corruption", false /*inlineVerity*/)
 
 	// Verify fstab entries
 	expectedFstabEntries := []diskutils.FstabEntry{
@@ -460,7 +460,7 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	rootHashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityUki(t, espPath, rootDevice, rootHashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "", "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "root", buildDir, "", "panic-on-corruption", false /*inlineVerity*/)
 
 	expectedFstabEntries := []diskutils.FstabEntry{
 		{
@@ -565,4 +565,46 @@ func getUkiAddonFiles(espPath string) ([]string, error) {
 	}
 
 	return addonFiles, nil
+}
+
+func TestGetKernelNameFromUki(t *testing.T) {
+	tests := []struct {
+		name        string
+		ukiPath     string
+		expected    string
+		expectError bool
+	}{
+		{
+			name:     "standard vmlinuz naming",
+			ukiPath:  "/boot/efi/EFI/Linux/vmlinuz-6.6.51.1-5.azl3.efi",
+			expected: "vmlinuz-6.6.51.1-5.azl3",
+		},
+		{
+			name:     "non-standard naming (ACL)",
+			ukiPath:  "/boot/EFI/Linux/acl.efi",
+			expected: "acl",
+		},
+		{
+			name:     "non-standard naming with path",
+			ukiPath:  "/some/path/custom-kernel.efi",
+			expected: "custom-kernel",
+		},
+		{
+			name:        "no .efi extension",
+			ukiPath:     "/boot/EFI/Linux/vmlinuz-6.6.51",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := getKernelNameFromUki(tt.ukiPath)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
 }

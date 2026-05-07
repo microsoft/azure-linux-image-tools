@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -102,7 +103,8 @@ func verifyRootVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir st
 	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
 	hashDevice := testutils.PartitionDevPath(imageConnection, 4)
 	verifyVerityGrub(t, bootPath, rootDevice, hashDevice, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption",
+		false /*inlineVerity*/)
 
 	err = imageConnection.CleanClose()
 	if !assert.NoError(t, err) {
@@ -128,12 +130,6 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
 	configFile := filepath.Join(testDir, "verity-partition-labels.yaml")
 
-	var config imagecustomizerapi.Config
-	err := imagecustomizerapi.UnmarshalAndValidateYamlFile(configFile, &config)
-	if !assert.NoError(t, err) {
-		return
-	}
-
 	espPartitionNum := 1
 	bootPartitionNum := 2
 	rootPartitionNum := 3
@@ -141,7 +137,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	varPartitionNum := 5
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
-	err = CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "cosi",
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 
 	if !assert.NoError(t, err) {
@@ -201,7 +197,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	}
 
 	// Attach partition files.
-	if !extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadata) {
+	if _, ok := extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadata); !ok {
 		return
 	}
 
@@ -270,11 +266,12 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 
 	// Verify that verity is configured correctly.
 	verifyVerityGrub(t, bootMountPath, rootDevice.DevicePath(), hashDevice.DevicePath(), "PARTLABEL=root",
-		"PARTLABEL=roothash", "root", "rd.info", baseImageInfo, "panic-on-corruption")
+		"PARTLABEL=roothash", "root", "rd.info", baseImageInfo, "panic-on-corruption", false /*inlineVerity*/)
 }
 
 func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevice string, dataId string, hashId string,
 	verityType string, extraCommandLine string, baseImageInfo testBaseImageInfo, corruptionOption string,
+	inlineVerity bool,
 ) {
 	// Extract kernel command line args.
 	grubCfgPath := filepath.Join(bootPath, "/grub2/grub.cfg")
@@ -292,7 +289,8 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 	}
 
 	// Verify verity.
-	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption)
+	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption,
+		inlineVerity)
 
 	// Verity extra command line args.
 	recoveryCount := 0
@@ -317,7 +315,7 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 
 func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	hashDevice string, dataId string, hashId string, verityType string, buildDir string, extraCommandLine string,
-	corruptionOption string,
+	corruptionOption string, inlineVerity bool,
 ) {
 	// Extract kernel command line args.
 	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espPath, buildDir)
@@ -332,7 +330,8 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 	}
 
 	// Verify verity
-	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption)
+	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption,
+		inlineVerity)
 
 	// Verify extra command line
 	if extraCommandLine != "" {
@@ -344,27 +343,30 @@ func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
 
 func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string,
 	hashDevice string, dataId string, hashId string, verityType string, corruptionOption string,
+	inlineVerity bool,
 ) {
 	assert.GreaterOrEqual(t, len(kernelArgsList), 1)
 
 	hash := ""
+	hashOffset := ""
 	for _, kernelArgs := range kernelArgsList {
 		var hashRegexp *regexp.Regexp
+		var optionsRegexp *regexp.Regexp
 		switch verityType {
 		case "root":
 			assert.Regexp(t, ` rd.systemd.verity=1 `, kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_data=%s `, dataId), kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_hash=%s `, hashId), kernelArgs)
-			assert.Regexp(t, fmt.Sprintf(` systemd.verity_root_options=%s(,| |$)`, corruptionOption), kernelArgs)
 
+			optionsRegexp = regexp.MustCompile(` systemd.verity_root_options=(\S*)( |$)`)
 			hashRegexp = regexp.MustCompile(` roothash=([a-fA-F0-9]*) `)
 
 		case "usr":
 			assert.Regexp(t, ` rd.systemd.verity=1 `, kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_data=%s `, dataId), kernelArgs)
 			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_hash=%s `, hashId), kernelArgs)
-			assert.Regexp(t, fmt.Sprintf(` systemd.verity_usr_options=%s(,| |$)`, corruptionOption), kernelArgs)
 
+			optionsRegexp = regexp.MustCompile(` systemd.verity_usr_options=(\S*)( |$)`)
 			hashRegexp = regexp.MustCompile(` usrhash=([a-fA-F0-9]*) `)
 
 		default:
@@ -372,23 +374,45 @@ func verifyVerityHelper(t *testing.T, kernelArgsList []string, dataDevice string
 			continue
 		}
 
-		hashMatches := hashRegexp.FindStringSubmatch(kernelArgs)
-		if !assert.Equal(t, 2, len(hashMatches)) {
-			continue
+		optionsMatch := optionsRegexp.FindStringSubmatch(kernelArgs)
+		if assert.Equal(t, 3, len(optionsMatch)) {
+			optionsStr := optionsMatch[1]
+			options := strings.Split(optionsStr, ",")
+
+			assert.Contains(t, options, corruptionOption)
+
+			if inlineVerity {
+				hashOffsetOption, hasHashOffset := sliceutils.FindValueFunc(options, func(option string) bool {
+					return strings.HasPrefix(option, "hash-offset=")
+				})
+				assert.True(t, hasHashOffset)
+				hashOffset = strings.TrimPrefix(hashOffsetOption, "hash-offset=")
+			}
 		}
 
-		kernelArgsHash := hashMatches[1]
-		if hash == "" {
-			hash = kernelArgsHash
-		} else {
-			// Ensure all the hashes are the same for all kernel versions.
-			assert.Equal(t, hash, kernelArgsHash)
+		hashMatches := hashRegexp.FindStringSubmatch(kernelArgs)
+		if assert.Equal(t, 2, len(hashMatches)) {
+			kernelArgsHash := hashMatches[1]
+			if hash == "" {
+				hash = kernelArgsHash
+			} else {
+				// Ensure all the hashes are the same for all kernel versions.
+				assert.Equal(t, hash, kernelArgsHash)
+			}
 		}
 	}
 
 	if assert.NotEqual(t, "", hash) {
 		// Verify verity hashes.
-		err := shell.ExecuteLive(false, "veritysetup", "verify", dataDevice, hashDevice, hash)
+		args := []string{"verify"}
+
+		if inlineVerity {
+			args = append(args, fmt.Sprintf("--hash-offset=%s", hashOffset))
+		}
+
+		args = append(args, dataDevice, hashDevice, hash)
+
+		err := shell.ExecuteLive(false, "veritysetup", args...)
 		assert.NoError(t, err)
 	}
 }
@@ -468,7 +492,7 @@ func verityUsrVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir str
 	usrDevice := testutils.PartitionDevPath(imageConnection, 2)
 	hashDevice := testutils.PartitionDevPath(imageConnection, 3)
 	verifyVerityGrub(t, bootPath, usrDevice, hashDevice, "UUID="+partitions[2].Uuid,
-		"UUID="+partitions[3].Uuid, "usr", "rd.info", baseImageInfo, corruptionOption)
+		"UUID="+partitions[3].Uuid, "usr", "rd.info", baseImageInfo, corruptionOption, false /*inlineVerity*/)
 }
 
 func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
@@ -798,7 +822,7 @@ func verifyBtrfsVerityRoot(t *testing.T, baseImageInfo testBaseImageInfo, outIma
 	defer bootMount.Close()
 
 	verifyVerityGrub(t, bootMountDir, rootPartitionPath, hashPartitionPath, "PARTUUID="+partitions[3].PartUuid,
-		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption")
+		"PARTUUID="+partitions[4].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption", false)
 
 	err = bootMount.CleanClose()
 	if !assert.NoError(t, err) {
@@ -852,4 +876,352 @@ func findFstabEntryByTarget(entries []diskutils.FstabEntry, target string) *disk
 		}
 	}
 	return nil
+}
+
+func TestCustomizeImageVerityRootInline(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityRootInlineHelper(t, "TestCustomizeImageVerityRootInline"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-root-inline.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+
+	// Recustomize the image.
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+
+	// Reinit verity without customizing partitions.
+	configFile = filepath.Join(testDir, "verity-reinit.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyRootInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+}
+
+func verifyRootInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
+	outImageFilePath string,
+) {
+	// Connect to customized image.
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   3,
+			Path:           "/",
+			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/boot",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   4,
+			Path:           "/var",
+			FileSystemType: "ext4",
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify that verity is configured correctly.
+	// This helps verify that verity-enabled images can be recustomized.
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	rootDevice := testutils.PartitionDevPath(imageConnection, 3)
+	verifyVerityGrub(t, bootPath, rootDevice, rootDevice, "PARTUUID="+partitions[3].PartUuid,
+		"PARTUUID="+partitions[3].PartUuid, "root", "rd.info", baseImageInfo, "panic-on-corruption",
+		true /*inlineVerity*/)
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
+}
+
+func TestCustomizeImageVerityUsrInline(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrInlineHelper(t, "TestCustomizeImageVerityUsrInline"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.raw")
+	configFile := filepath.Join(testDir, "verity-usr-inline.yaml")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+
+	// Recustomize the image.
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+
+	// Reinit verity without customizing partitions.
+	configFile = filepath.Join(testDir, "verity-reinit.yaml")
+
+	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	verifyUsrInlineVerity(t, baseImageInfo, buildDir, outImageFilePath)
+}
+
+func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildDir string,
+	outImageFilePath string,
+) {
+	// Connect to customized image.
+	mountPoints := []testutils.MountPoint{
+		{
+			PartitionNum:   3,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot/efi",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   2,
+			Path:           "/usr",
+			FileSystemType: "ext4",
+			Flags:          unix.MS_RDONLY,
+		},
+	}
+
+	imageConnection, err := testutils.ConnectToImage(buildDir, outImageFilePath, false /*includeDefaultMounts*/, mountPoints)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	partitions, err := getDiskPartitionsMap(imageConnection.Loopback().DevicePath())
+	assert.NoError(t, err, "get disk partitions")
+
+	// Verify that verity is configured correctly.
+	// This helps verify that verity-enabled images can be recustomized.
+	bootPath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot")
+	usrDevice := testutils.PartitionDevPath(imageConnection, 2)
+	verifyVerityGrub(t, bootPath, usrDevice, usrDevice, "PARTUUID="+partitions[2].PartUuid,
+		"PARTUUID="+partitions[2].PartUuid, "usr", "rd.info", baseImageInfo, "ignore-corruption",
+		true /*inlineVerity*/)
+
+	err = imageConnection.CleanClose()
+	if !assert.NoError(t, err) {
+		return
+	}
+}
+
+func TestCustomizeImageVerityRootInlineCosi(t *testing.T) {
+	// This test uses a UKI config that requires systemd-boot, which is only
+	// available on AzureLinux 3 for now.
+	azl3Images := []testBaseImageInfo{
+		testBaseImageAzl3CoreEfi,
+		testBaseImageAzl3BareMetal,
+	}
+	for _, baseImageInfo := range azl3Images {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityRootInlineCosiHelper(t, "TestCustomizeImageVerityRootInlineCosi"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
+	configFile := filepath.Join(testDir, "verity-root-inline-uki.yaml")
+
+	// Customize image, shrink partitions, and split the partitions into individual files.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
+		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	expectedCosiMetadata := MetadataJson{
+		Disk: Disk{
+			Size:       2550 * diskutils.MiB,
+			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4}),
+		},
+		Images: []FileSystem{
+			{
+				Image: ImageFile{
+					Path: "images/image_1.raw.zst",
+				},
+				MountPoint: "/boot/efi",
+				FsType:     "vfat",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeESP],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_2.raw.zst",
+				},
+				MountPoint: "/boot",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_3.raw.zst",
+				},
+				MountPoint: "/",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+				Verity: &VerityConfig{
+					Image: ImageFile{
+						Path: "images/image_3.raw.zst",
+					},
+				},
+			},
+			{
+				Image: ImageFile{
+					Path: "images/image_4.raw.zst",
+				},
+				MountPoint: "/var",
+				FsType:     "ext4",
+				PartType:   imagecustomizerapi.PartitionTypeToUuid[imagecustomizerapi.PartitionTypeLinuxGeneric],
+			},
+		},
+		Bootloader: CosiBootloader{
+			Type: "systemd-boot",
+			SystemdBoot: &SystemDBoot{
+				Entries: []SystemDBootEntry{
+					{
+						Type: "uki-standalone",
+					},
+				},
+			},
+		},
+		Compression: Compression{
+			MaxWindowLog: imagecustomizerapi.DefaultCosiCompressionLong,
+		},
+	}
+
+	// Attach partition files.
+	metadata, metadataOk := extractCosiAndVerifyMetadata(t, outImageFilePath, testTempDir, expectedCosiMetadata)
+	if !metadataOk {
+		return
+	}
+
+	gptPath := filepath.Join(testTempDir, "image_gpt.raw")
+	espPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", 1))
+	bootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", 2))
+	rootPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", 3))
+	varPartitionPath := filepath.Join(testTempDir, fmt.Sprintf("image_%d.raw", 4))
+
+	gptStat, err := os.Stat(gptPath)
+	assert.NoError(t, err)
+
+	espStat, err := os.Stat(espPartitionPath)
+	assert.NoError(t, err)
+
+	bootStat, err := os.Stat(bootPartitionPath)
+	assert.NoError(t, err)
+
+	rootStat, err := os.Stat(rootPartitionPath)
+	assert.NoError(t, err)
+
+	varStat, err := os.Stat(varPartitionPath)
+	assert.NoError(t, err)
+
+	// Check partition sizes.
+	// Standard GPT size = MBR (512) + GPT Header (512) + Partition Entries (128 × 128 = 16384) = 17408 bytes
+	assert.Equal(t, int64(17408), gptStat.Size())
+	assert.Equal(t, int64(250*diskutils.MiB), espStat.Size())
+
+	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
+	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
+	// were picked by observing values seen during test and adding a good buffer.
+	assert.Greater(t, int64(100*diskutils.MiB), bootStat.Size())
+	assert.Greater(t, int64(600*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
+
+	espDevice, err := safeloopback.NewLoopback(espPartitionPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espDevice.Close()
+
+	rootDevice, err := safeloopback.NewLoopback(rootPartitionPath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer rootDevice.Close()
+
+	espMountPath := filepath.Join(testTempDir, "esppartition")
+	espMount, err := safemount.NewMount(espDevice.DevicePath(), espMountPath, "vfat", 0, "", true)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer espMount.Close()
+
+	// Verify that verity is configured correctly.
+	verifyVerityUki(t, espMountPath, rootDevice.DevicePath(), rootDevice.DevicePath(),
+		"UUID="+metadata.Images[2].FsUuid, "UUID="+metadata.Images[2].FsUuid, "root", buildDir, "rd.info",
+		"panic-on-corruption", true /*inlineVerity*/)
 }

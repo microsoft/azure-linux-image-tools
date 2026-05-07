@@ -157,6 +157,9 @@ def run_basic_checks(
         elif input_image_azl_release == 3:
             assert "ID=azurelinux" in os_release_text
             assert 'VERSION_ID="3.0"' in os_release_text
+        elif input_image_azl_release == 4:
+            assert "ID=azurelinux" in os_release_text
+            assert "VERSION_ID=4.0" in os_release_text
         else:
             assert False, "Unexpected image identity in /etc/os-release"
 
@@ -205,16 +208,44 @@ def test_min_change_efi_azl3_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    if platform.machine() == "x86_64":
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
-    else:
-        config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-arm64.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl3.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
         docker_client,
         image_customizer_container_url,
         core_efi_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+def test_min_change_efi_azl4_qcow_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl4.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
         azl_release,
         config_path,
         output_format,
@@ -272,13 +303,45 @@ def test_min_change_legacy_azl3_qcow_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl3.yaml")
     output_format = "qcow2"
 
     run_min_change_test(
         docker_client,
         image_customizer_container_url,
         core_legacy_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+def test_min_change_legacy_azl4_qcow_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("os-vm-config-azl4.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl4,
         azl_release,
         config_path,
         output_format,
@@ -335,13 +398,45 @@ def test_min_change_efi_azl3_iso_bootstrap_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl3.yaml")
     output_format = "iso"
 
     run_min_change_test(
         docker_client,
         image_customizer_container_url,
         core_efi_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skip(reason="Azure Linux 4.0 ISO bootstrap output is not yet supported")
+def test_min_change_efi_azl4_iso_bootstrap_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl4.yaml")
+    output_format = "iso"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
         azl_release,
         config_path,
         output_format,
@@ -366,13 +461,45 @@ def test_min_change_efi_azl3_iso_full_os_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-full-os-vm.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-full-os-vm-azl3.yaml")
     output_format = "iso"
 
     run_min_change_test(
         docker_client,
         image_customizer_container_url,
         core_efi_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skip(reason="Azure Linux 4.0 ISO full OS output is not yet supported")
+def test_min_change_efi_azl4_iso_full_os_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_efi_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-full-os-vm-azl4.yaml")
+    output_format = "iso"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_efi_azl4,
         azl_release,
         config_path,
         output_format,
@@ -430,13 +557,46 @@ def test_min_change_legacy_azl3_iso_output(
     close_list: List[Closeable],
 ) -> None:
     azl_release = 3
-    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm.yaml")
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl3.yaml")
     output_format = "iso"
 
     run_min_change_test(
         docker_client,
         image_customizer_container_url,
         core_legacy_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+@pytest.mark.skip(reason="Azure Linux 4.0 ISO bootstrap output is not yet supported")
+def test_min_change_legacy_azl4_iso_output(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("iso-bootstrap-vm-azl4.yaml")
+    output_format = "iso"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl4,
         azl_release,
         config_path,
         output_format,

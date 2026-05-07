@@ -30,6 +30,10 @@ type Partition struct {
 	Artifacts []Artifact      `json:"Artifacts"`
 	// If the partition will contain pre-kernel/initramfs boot resources (e.g. /boot partition).
 	IsBootPartition bool `json:"IsBootPartition"`
+	// Limits the size of the filesystem in the partition.
+	// A value of 0 means the filesystem fills the entire partition.
+	// This field is useful when implementing inline verity.
+	FsSize uint64 `json:"FsSize"`
 }
 
 // HasFlag returns true if a given partition has a specific flag set.

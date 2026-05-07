@@ -63,8 +63,8 @@ type UkiKernelInfo struct {
 	Initramfs string `json:"initramfs,omitempty"` // Optional: empty in modify mode
 }
 
-func baseImageHasUkis(imageChroot *safechroot.Chroot) (bool, error) {
-	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+func baseImageHasUkis(imageChroot *safechroot.Chroot, distroHandler DistroHandler) (bool, error) {
+	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return false, fmt.Errorf("failed to check for UKI files:\n%w", err)
@@ -112,8 +112,8 @@ func baseImageHasUkiAddons(espPath string) (bool, error) {
 //   - mode: create: Extract and regenerate UKIs
 //   - mode: passthrough: Preserve existing UKIs without modification
 //   - mode: modify: Check for addon, modify addon only (preserve main UKI)
-func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imagecustomizerapi.Uki) error {
-	hasUkis, err := baseImageHasUkis(imageConnection.Chroot())
+func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imagecustomizerapi.Uki, distroHandler DistroHandler) error {
+	hasUkis, err := baseImageHasUkis(imageConnection.Chroot(), distroHandler)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 
 	// For modify mode, validate that base image has UKI addons
 	if uki.Mode == imagecustomizerapi.UkiModeModify {
-		espDir := filepath.Join(imageConnection.Chroot().RootDir(), EspDir)
+		espDir := filepath.Join(imageConnection.Chroot().RootDir(), distroHandler.GetEspDir())
 		hasAddons, err := baseImageHasUkiAddons(espDir)
 		if err != nil {
 			return fmt.Errorf("failed to check for UKI addons:\n%w", err)
@@ -173,8 +173,8 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 }
 
 // extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
-func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot) error {
-	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
+	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return fmt.Errorf("failed to get UKI files:\n%w", err)
@@ -307,13 +307,13 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	}
 
 	// Extract kernel command line arguments from either grub.cfg or UKI.
-	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
 
-	err = cleanBootDirectory(imageChroot)
+	err = cleanBootDirectory(imageChroot, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
@@ -965,13 +965,17 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	fileName := filepath.Base(ukiPath)
 
 	matches := ukiNamePattern.FindStringSubmatch(fileName)
-	if len(matches) != 2 {
-		return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
+	if len(matches) == 2 {
+		// Standard UKI naming: vmlinuz-<version>.efi → vmlinuz-<version>
+		return "vmlinuz-" + matches[1], nil
 	}
 
-	// Reconstruct kernel name (vmlinuz-<version>, e.g., vmlinuz-6.6.51.1-5.azl3)
-	kernelName := "vmlinuz-" + matches[1]
-	return kernelName, nil
+	// Non-standard UKI naming (e.g., acl.efi): use filename without .efi extension
+	if strings.HasSuffix(fileName, ".efi") {
+		return strings.TrimSuffix(fileName, ".efi"), nil
+	}
+
+	return "", fmt.Errorf("invalid UKI file name: (%s)", fileName)
 }
 
 func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, outputPath string, buildDir string) error {
@@ -998,8 +1002,8 @@ func extractSectionFromUkiWithObjcopy(ukiPath string, sectionName string, output
 	return nil
 }
 
-func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
-	err := extractKernelAndInitramfsFromUkisHelper(ctx, imageChroot, buildDir)
+func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string, distroHandler DistroHandler) error {
+	err := extractKernelAndInitramfsFromUkisHelper(ctx, imageChroot, buildDir, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIExtractComponents, err)
 	}
@@ -1007,13 +1011,13 @@ func extractKernelAndInitramfsFromUkis(ctx context.Context, imageChroot *safechr
 	return nil
 }
 
-func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string) error {
+func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *safechroot.Chroot, buildDir string, distroHandler DistroHandler) error {
 	logger.Log.Infof("Extracting kernel and initramfs from existing UKIs for re-customization")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "extract_kernel_initramfs_from_ukis")
 	defer span.End()
 
-	espDir := filepath.Join(imageChroot.RootDir(), EspDir)
+	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 	ukiFiles, err := getUkiFiles(espDir)
 	if err != nil {
 		return err
@@ -1121,9 +1125,9 @@ func cleanUkiDirectory(ukiOutputDir string) error {
 	return nil
 }
 
-func cleanBootDirectory(imageChroot *safechroot.Chroot) error {
+func cleanBootDirectory(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	bootPath := filepath.Join(imageChroot.RootDir(), BootDir)
-	espPath := filepath.Join(imageChroot.RootDir(), EspDir)
+	espPath := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
 
 	dirEntries, err := os.ReadDir(bootPath)
 	if err != nil {

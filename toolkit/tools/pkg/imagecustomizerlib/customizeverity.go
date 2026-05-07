@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -44,6 +45,7 @@ var (
 	ErrFindVerityDataPartition           = NewImageCustomizerError("Verity:FindDataPartition", "failed to find verity data partition")
 	ErrFindVerityHashPartition           = NewImageCustomizerError("Verity:FindHashPartition", "failed to find verity hash partition")
 	ErrCalculateRootHash                 = NewImageCustomizerError("Verity:CalculateRootHash", "failed to calculate root hash")
+	ErrUnalignedVerityDataSize           = NewImageCustomizerError("Verity:UnalignedDataSize", "data size is not a multiple of the data block size")
 	ErrCompileRootHashRegex              = NewImageCustomizerError("Verity:CompileRootHashRegex", "failed to compile root hash regex")
 	ErrParseRootHash                     = NewImageCustomizerError("Verity:ParseRootHash", "failed to parse root hash from veritysetup output")
 	ErrCalculateHashSize                 = NewImageCustomizerError("Verity:CalculateHashSize", "failed to calculate hash partition size")
@@ -333,6 +335,10 @@ func constructVerityKernelCmdlineArgs(verityMetadata []verityDeviceMetadata,
 			hasSignatureInjection = true
 		}
 
+		if metadata.formatSettings.hashOffsetBytes != 0 {
+			options += fmt.Sprintf(",hash-offset=%d", metadata.formatSettings.hashOffsetBytes)
+		}
+
 		newArgs = append(newArgs,
 			fmt.Sprintf("%s=%s", hashArg, metadata.rootHash),
 			fmt.Sprintf("%s=%s", dataArg, formattedDataPartition),
@@ -430,9 +436,12 @@ func SystemdFormatCorruptionOption(corruptionOption imagecustomizerapi.Corruptio
 	}
 }
 
-func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, string, error) {
+func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOption, string, uint64, error) {
+	var err error
+
 	corruptionOption := imagecustomizerapi.CorruptionOptionIoError
 	var hashSigPath string
+	var hashOffset uint64
 
 	optionValues := strings.Split(options, ",")
 	for _, option := range optionValues {
@@ -452,12 +461,20 @@ func parseSystemdVerityOptions(options string) (imagecustomizerapi.CorruptionOpt
 		case strings.HasPrefix(option, "root-hash-signature="):
 			hashSigPath = strings.TrimPrefix(option, "root-hash-signature=")
 
+		case strings.HasPrefix(option, "hash-offset="):
+			hashOffsetStr := strings.TrimPrefix(option, "hash-offset=")
+			hashOffset, err = strconv.ParseUint(hashOffsetStr, 10, 64)
+			if err != nil {
+				err = fmt.Errorf("failed to parse verity hash-offset value (%s):\n%w", hashOffsetStr, err)
+				return "", "", 0, err
+			}
+
 		default:
-			return "", "", fmt.Errorf("unknown verity option (%s)", option)
+			return "", "", 0, fmt.Errorf("unknown verity option (%s)", option)
 		}
 	}
 
-	return corruptionOption, hashSigPath, nil
+	return corruptionOption, hashSigPath, hashOffset, nil
 }
 
 func validateVerityDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
@@ -510,7 +527,6 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 		return err
 	}
 
-	verityDeviceMount := make(map[*imagecustomizerapi.Verity]*imagecustomizerapi.VerityMount)
 	for i := range storage.Verity {
 		verity := &storage.Verity[i]
 
@@ -557,10 +573,11 @@ func validateVerityMountPaths(imageConnection *imageconnection.ImageConnection, 
 			MountOptions:  dataEntry.FstabEntry.Options,
 			SubvolumePath: extractSubvolPath(dataEntry.FstabEntry.Options),
 		}
-		verityDeviceMount[verity] = verityMount
+
+		verity.Mount = verityMount
 	}
 
-	err = imagecustomizerapi.ValidateVerityMounts(storage.Verity, verityDeviceMount)
+	err = imagecustomizerapi.ValidateVerityMounts(storage.Verity)
 	if err != nil {
 		return err
 	}
@@ -621,38 +638,118 @@ func findIdentifiedPartition(partitions []diskutils.PartitionInfo, ref imagecust
 	return partition, nil
 }
 
-func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConfig,
-	buildImageFile string, partIdToPartUuid map[string]string, shrinkHashPartition bool,
-	baseImageVerity []verityDeviceMetadata, readonlyPartUuids []string,
-	partitionsLayout []fstabEntryPartNum,
+func collectVerityMetadataFromImage(verity []imagecustomizerapi.Verity, imageFile string,
+	partIdToPartUuid map[string]string,
 ) ([]verityDeviceMetadata, error) {
+	if len(verity) <= 0 {
+		return nil, nil
+	}
+
+	imageLoopback, err := safeloopback.NewLoopback(imageFile)
+	if err != nil {
+		return nil, err
+	}
+	defer imageLoopback.Close()
+
+	// Get partition info
+	diskPartitions, err := diskutils.GetDiskPartitions(imageLoopback.DevicePath())
+	if err != nil {
+		return nil, err
+	}
+
+	verityMetadata, err := collectVerityMetadata(verity, diskPartitions, partIdToPartUuid)
+	if err != nil {
+		return nil, err
+	}
+
+	err = imageLoopback.CleanClose()
+	if err != nil {
+		return nil, err
+	}
+
+	return verityMetadata, nil
+}
+
+func collectVerityMetadata(verity []imagecustomizerapi.Verity, diskPartitions []diskutils.PartitionInfo,
+	partIdToPartUuid map[string]string,
+) ([]verityDeviceMetadata, error) {
+	verityMetadata := []verityDeviceMetadata(nil)
+
+	for _, verityConfig := range verity {
+		// Extract the partition block device path.
+		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
+			diskPartitions)
+		if err != nil {
+			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityDataPartition, verityConfig.Id, err)
+		}
+
+		var hashPartition diskutils.PartitionInfo
+		dataSize := uint64(0)
+
+		if verityConfig.InlineVerity() {
+			// Inline verity is being used.
+			hashPartition = dataPartition
+			dataSize = verityConfig.Mount.DataSize
+		} else {
+			hashPartition, err = verityIdToPartition(verityConfig.HashDeviceId, verityConfig.HashDevice, partIdToPartUuid,
+				diskPartitions)
+			if err != nil {
+				return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityHashPartition, verityConfig.Id, err)
+			}
+		}
+
+		metadata := verityDeviceMetadata{
+			name:                  verityConfig.Name,
+			dataPartUuid:          dataPartition.PartUuid,
+			hashPartUuid:          hashPartition.PartUuid,
+			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
+			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
+			corruptionOption:      verityConfig.CorruptionOption,
+			hashSignaturePath:     verityConfig.HashSignaturePath,
+			formatSettings: verityFormatSettings{
+				hashAlgorithm:      imagecustomizerapi.DefaultVerityHashAlgorithm,
+				dataBlockSizeBytes: imagecustomizerapi.DefaultVerityDataBlockSize,
+				hashBlockSizeBytes: imagecustomizerapi.DefaultVerityHashBlockSize,
+				dataSizeBytes:      dataSize,
+				hashOffsetBytes:    dataSize,
+			},
+		}
+		verityMetadata = append(verityMetadata, metadata)
+	}
+
+	return verityMetadata, nil
+}
+
+func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConfig,
+	buildImageFile string, shrinkHashPartition bool,
+	verityMetadata []verityDeviceMetadata, readonlyPartUuids []string,
+	partitionsLayout []fstabEntryPartNum,
+) error {
 	logger.Log.Infof("Provisioning verity")
 
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "provision_verity")
 	defer span.End()
 
-	verityMetadata := []verityDeviceMetadata(nil)
-
 	loopback, err := safeloopback.NewLoopback(buildImageFile)
 	if err != nil {
-		return nil, fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
+		return fmt.Errorf("%w:\n%w", ErrVerityImageConnection, err)
 	}
 	defer loopback.Close()
 
 	diskPartitions, err := diskutils.GetDiskPartitions(loopback.DevicePath())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	sectorSize, _, err := diskutils.GetSectorSize(loopback.DevicePath())
 	if err != nil {
-		return nil, fmt.Errorf("%w (device='%s'):\n%w", ErrGetDiskSectorSize, loopback.DevicePath(), err)
+		return fmt.Errorf("%w (device='%s'):\n%w", ErrGetDiskSectorSize, loopback.DevicePath(), err)
 	}
 
 	verityUpdated := false
 
-	for _, metadata := range baseImageVerity {
-		newMetadata := metadata
+	for i := range verityMetadata {
+		metadata := &verityMetadata[i]
 
 		readonly := slices.Contains(readonlyPartUuids, metadata.dataPartUuid)
 		if !readonly {
@@ -660,80 +757,37 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 			dataPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
 				metadata.dataPartUuid, diskPartitions)
 			if err != nil {
-				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityDataPartition, metadata.name, err)
+				return fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityDataPartition, metadata.name, err)
 			}
 
 			hashPartition, _, err := findPartitionHelper(imagecustomizerapi.MountIdentifierTypePartUuid,
 				metadata.hashPartUuid, diskPartitions)
 			if err != nil {
-				return nil, fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityHashPartition, metadata.name, err)
+				return fmt.Errorf("%w (name='%s'):\n%w", ErrFindVerityHashPartition, metadata.name, err)
 			}
 
 			// Format hash partition.
 			rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
 				shrinkHashPartition, sectorSize, metadata.name, metadata.formatSettings)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
-			newMetadata.rootHash = rootHash
+			metadata.rootHash = rootHash
 			verityUpdated = true
 		}
-
-		verityMetadata = append(verityMetadata, newMetadata)
-	}
-
-	for _, verityConfig := range rc.Storage.Verity {
-		// Extract the partition block device path.
-		dataPartition, err := verityIdToPartition(verityConfig.DataDeviceId, verityConfig.DataDevice, partIdToPartUuid,
-			diskPartitions)
-		if err != nil {
-			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityDataPartition, verityConfig.Id, err)
-		}
-		hashPartition, err := verityIdToPartition(verityConfig.HashDeviceId, verityConfig.HashDevice, partIdToPartUuid,
-			diskPartitions)
-		if err != nil {
-			return nil, fmt.Errorf("%w (id='%s'):\n%w", ErrFindVerityHashPartition, verityConfig.Id, err)
-		}
-
-		// Format hash partition.
-		formatSettings := verityFormatSettings{
-			hashAlgorithm:      imagecustomizerapi.DefaultVerityHashAlgorithm,
-			dataBlockSizeBytes: imagecustomizerapi.DefaultVerityDataBlockSize,
-			hashBlockSizeBytes: imagecustomizerapi.DefaultVerityHashBlockSize,
-		}
-
-		rootHash, err := verityFormat(loopback.DevicePath(), dataPartition.Path, hashPartition.Path,
-			shrinkHashPartition, sectorSize, verityConfig.Name, formatSettings)
-		if err != nil {
-			return nil, err
-		}
-
-		metadata := verityDeviceMetadata{
-			name:                  verityConfig.Name,
-			rootHash:              rootHash,
-			dataPartUuid:          dataPartition.PartUuid,
-			hashPartUuid:          hashPartition.PartUuid,
-			dataDeviceMountIdType: verityConfig.DataDeviceMountIdType,
-			hashDeviceMountIdType: verityConfig.HashDeviceMountIdType,
-			corruptionOption:      verityConfig.CorruptionOption,
-			hashSignaturePath:     verityConfig.HashSignaturePath,
-			formatSettings:        formatSettings,
-		}
-		verityMetadata = append(verityMetadata, metadata)
-		verityUpdated = true
 	}
 
 	// Refresh disk partitions after running veritysetup so that the hash partition's UUID is correct.
 	err = diskutils.RefreshPartitions(loopback.DevicePath())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if verityUpdated {
 		diskPartitions, err = diskutils.GetDiskPartitions(loopback.DevicePath())
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// Update kernel args.
@@ -741,13 +795,13 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		isUki := rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough
 		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	err = loopback.CleanClose()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	deviceNamesJson := getVerityNames(verityMetadata)
@@ -756,7 +810,7 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		attribute.StringSlice("verity_device_name", deviceNamesJson),
 	)
 
-	return verityMetadata, nil
+	return nil
 }
 
 func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartitionPath string, shrinkHashPartition bool,
@@ -768,6 +822,21 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 		"--hash", formatSettings.hashAlgorithm,
 		"--data-block-size", fmt.Sprintf("%d", formatSettings.dataBlockSizeBytes),
 		"--hash-block-size", fmt.Sprintf("%d", formatSettings.hashBlockSizeBytes),
+	}
+
+	if formatSettings.dataSizeBytes != 0 {
+		dataBlocks := formatSettings.dataSizeBytes / uint64(formatSettings.dataBlockSizeBytes)
+		if formatSettings.dataSizeBytes%uint64(formatSettings.dataBlockSizeBytes) != 0 {
+			return "", fmt.Errorf("%w (partition='%s')", ErrUnalignedVerityDataSize, dataPartitionPath)
+		}
+
+		formatArgs = append(formatArgs,
+			"--data-blocks", fmt.Sprintf("%d", dataBlocks))
+	}
+
+	if formatSettings.hashOffsetBytes != 0 {
+		formatArgs = append(formatArgs,
+			"--hash-offset", fmt.Sprintf("%d", formatSettings.hashOffsetBytes))
 	}
 
 	verityOutput, _, err := shell.NewExecBuilder("veritysetup", formatArgs...).
@@ -799,19 +868,21 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 	// Calculate the size of the hash partition from its superblock.
 	// In newer `veritysetup` versions, `veritysetup format` returns the size in its output. But that feature
 	// is too new for now.
-	hashPartitionSizeInBytes, err := verityutils.CalculateHashFileSizeInBytes(hashPartitionPath)
+	hashSizeInBytes, err := verityutils.CalculateHashFileSizeInBytes(hashPartitionPath,
+		formatSettings.hashOffsetBytes)
 	if err != nil {
 		return "", fmt.Errorf("%w (partition='%s'):\n%w", ErrCalculateHashSize, hashPartitionPath, err)
 	}
 
-	hashPartitionSizeInSectors := convertBytesToSectors(hashPartitionSizeInBytes, sectorSize)
+	logger.Log.Infof("Verity hash written (name=%s, size=%s)", name,
+		imagecustomizerapi.DiskSize(hashSizeInBytes).HumanReadable())
 
-	hashPartitionSizeInRoundedBytes := hashPartitionSizeInSectors * sectorSize
-	logger.Log.Infof("Verity hash partition formatted (name=%s, size=%s)", name,
-		imagecustomizerapi.DiskSize(hashPartitionSizeInRoundedBytes).HumanReadable())
+	// Note: When inline verity is used, the partition will have already been shrunk to the correct size during the
+	// partition shrinking phase.
+	if shrinkHashPartition && !formatSettings.IsInlineVerity() {
+		partitionSizeInSectors := convertBytesToSectors(hashSizeInBytes, sectorSize)
 
-	if shrinkHashPartition {
-		err = resizePartition(hashPartitionPath, diskDevicePath, hashPartitionSizeInSectors)
+		err = resizePartition(hashPartitionPath, diskDevicePath, partitionSizeInSectors)
 		if err != nil {
 			return "", fmt.Errorf("%w (device='%s'):\n%w", ErrShrinkHashPartition, diskDevicePath, err)
 		}

@@ -24,9 +24,16 @@ type azureLinuxDistroHandler struct {
 }
 
 func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
+	var packageManager rpmPackageManagerHandler
+	if version == "4.0" {
+		packageManager = newDnfPackageManager(version)
+	} else {
+		packageManager = newTdnfPackageManager(version)
+	}
+
 	return &azureLinuxDistroHandler{
 		version:        version,
-		packageManager: newTdnfPackageManager(version),
+		packageManager: packageManager,
 	}
 }
 
@@ -36,6 +43,8 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 		return targetos.TargetOsAzureLinux2
 	case "3.0":
 		return targetos.TargetOsAzureLinux3
+	case "4.0":
+		return targetos.TargetOsAzureLinux4
 	default:
 		panic("unsupported Azure Linux version: " + d.version)
 	}
@@ -65,17 +74,42 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.IsPackageInstalled(imageChroot, "grub2-efi-binary") || d.IsPackageInstalled(imageChroot, "grub2-efi-binary-noprefix") {
-		return BootloaderTypeGrub, nil
+	grubPackages := []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
+	if d.version == "4.0" {
+		grubPackages = []string{"grub2-efi-x64", "grub2-efi-aa64"}
 	}
-	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
+	for _, pkg := range grubPackages {
+		if d.IsPackageInstalled(imageChroot, pkg) {
+			return BootloaderTypeGrub, nil
+		}
 	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot found")
+	systemdBootPackages := []string{"systemd-boot"}
+	if d.version == "4.0" {
+		systemdBootPackages = []string{"systemd-boot", "systemd-boot-unsigned"}
+	}
+	for _, pkg := range systemdBootPackages {
+		if d.IsPackageInstalled(imageChroot, pkg) {
+			return BootloaderTypeSystemdBoot, nil
+		}
+	}
+	return "", fmt.Errorf("unknown bootloader: none of %v or %v found", grubPackages, systemdBootPackages)
+}
+
+func (d *azureLinuxDistroHandler) GetEspDir() string {
+	return "boot/efi"
 }
 
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
+}
+
+func (d *azureLinuxDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
+) (imagecustomizerapi.SELinuxMode, error) {
+	if d.version == "2.0" {
+		return getSELinuxModeFromLinuxArgs(args)
+	}
+
+	return getSELinuxModeFromLinuxArgsDeferIfMissing(args)
 }
 
 func (d *azureLinuxDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInterface) (string, error) {
@@ -127,5 +161,5 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig)
+		currentSELinuxMode, forceGrubMkconfig, d)
 }

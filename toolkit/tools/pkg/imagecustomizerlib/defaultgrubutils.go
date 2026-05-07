@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -32,6 +33,8 @@ const (
 	// The variable in the /etc/default/grub file that contains the SELinux args.
 	defaultGrubFileVarNameCmdlineForSELinux = defaultGrubFileVarNameCmdlineLinux
 )
+
+var errDefaultGrubFileVarNotFound = errors.New("default grub variable not found")
 
 type defaultGrubFileVarAssign struct {
 	Token grub.Token
@@ -122,7 +125,8 @@ func findDefaultGrubFileVarAssign(varAssigns []defaultGrubFileVarAssign, name de
 		}
 	}
 
-	err := fmt.Errorf("failed to find %s variable assignment (%s)", installutils.GrubDefFile, name)
+	err := fmt.Errorf("failed to find %s variable assignment (%s): %w", installutils.GrubDefFile, name,
+		errDefaultGrubFileVarNotFound)
 	return defaultGrubFileVarAssign{}, err
 }
 
@@ -211,7 +215,7 @@ func GetDefaultGrubFileLinuxArgsFromMultipleVars(defaultGrubFileContent string) 
 
 // Takes the string contents of /etc/default/grub file and inserts the provided command-line args.
 func addExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCommandLine string) (string, error) {
-	cmdLineVarAssign, _, insertAt, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent,
+	cmdLineVarAssign, _, insertAt, err := getDefaultGrubFileLinuxArgsOrEmpty(defaultGrubFileContent,
 		defaultGrubFileVarNameCmdlineLinuxDefault)
 	if err != nil {
 		return "", err
@@ -222,9 +226,23 @@ func addExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCo
 	// Add the extra command-line args.
 	argsString = argsString[:insertAt] + " " + extraCommandLine + " " + argsString[insertAt:]
 
-	// Rewrite GRUB_CMDLINE_LINUX_DEFAULT line.
-	defaultGrubFileContent = replaceDefaultGrubFileVarAssign(defaultGrubFileContent, cmdLineVarAssign, argsString)
-	return defaultGrubFileContent, nil
+	// Write the variable, creating it if it doesn't exist.
+	return UpdateDefaultGrubFileVariable(defaultGrubFileContent, string(defaultGrubFileVarNameCmdlineLinuxDefault), argsString)
+}
+
+// getDefaultGrubFileLinuxArgsOrEmpty is like GetDefaultGrubFileLinuxArgs but treats a missing variable as having an
+// empty value instead of returning an error. Real parse errors are still returned.
+func getDefaultGrubFileLinuxArgsOrEmpty(defaultGrubFileContent string, varName defaultGrubFileVarName,
+) (defaultGrubFileVarAssign, []grubConfigLinuxArg, int, error) {
+	cmdLineVarAssign, args, insertAt, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent, varName)
+	if errors.Is(err, errDefaultGrubFileVarNotFound) {
+		// Variable doesn't exist — treat as empty.
+		return defaultGrubFileVarAssign{}, nil, 0, nil
+	} else if err != nil {
+		return defaultGrubFileVarAssign{}, nil, 0, err
+	}
+
+	return cmdLineVarAssign, args, insertAt, nil
 }
 
 // Takes the string contents of the /etc/default/grub file and replaces a set of command-line args.
@@ -241,7 +259,7 @@ func addExtraCommandLineToDefaultGrubFile(defaultGrubFileContent string, extraCo
 func updateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string, varName defaultGrubFileVarName,
 	argsToRemove []string, newArgs []string,
 ) (string, error) {
-	cmdLineVarAssign, args, insertAt, err := GetDefaultGrubFileLinuxArgs(defaultGrubFileContent, varName)
+	cmdLineVarAssign, args, insertAt, err := getDefaultGrubFileLinuxArgsOrEmpty(defaultGrubFileContent, varName)
 	if err != nil {
 		return "", err
 	}
@@ -252,9 +270,8 @@ func updateDefaultGrubFileKernelCommandLineArgs(defaultGrubFileContent string, v
 		return "", err
 	}
 
-	// Rewrite GRUB_CMDLINE_LINUX line.
-	defaultGrubFileContent = replaceDefaultGrubFileVarAssign(defaultGrubFileContent, cmdLineVarAssign, value)
-	return defaultGrubFileContent, nil
+	// Write the variable, creating it if it doesn't exist.
+	return UpdateDefaultGrubFileVariable(defaultGrubFileContent, string(varName), value)
 }
 
 // Takes the string contents of the /etc/default/grub file and rewrites one of the variable assignments lines.
