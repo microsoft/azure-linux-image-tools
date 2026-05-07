@@ -62,8 +62,9 @@ type Verity struct {
 	HashSignaturePath string `yaml:"hashSignaturePath" json:"hashSignaturePath,omitempty"`
 
 	// Mount information of the verity device.
-	// Value is filled in by ValidateVerityMounts() (via Storage.IsValid() or validateVerityMountPaths()).
-	Mount VerityMount `json:"-"`
+	// Value is filled in by Storage.IsValid() or validateVerityMountPaths().
+	// See also: ValidateVerityMounts().
+	Mount *VerityMount `json:"-"`
 }
 
 // VerityMount contains mount point information for a verity device.
@@ -74,6 +75,8 @@ type VerityMount struct {
 	MountOptions string
 	// SubvolumePath is the BTRFS subvolume path (if applicable).
 	SubvolumePath string
+	// When inline verity is used, the size of data section.
+	DataSize uint64
 }
 
 func (v *Verity) IsValid() error {
@@ -132,4 +135,8 @@ func (v *Verity) IsValid() error {
 	}
 
 	return nil
+}
+
+func (v *Verity) InlineVerity() bool {
+	return v.DataDeviceId != "" && v.DataDeviceId == v.HashDeviceId
 }

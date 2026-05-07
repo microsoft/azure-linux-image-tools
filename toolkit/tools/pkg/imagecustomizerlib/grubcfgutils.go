@@ -750,6 +750,22 @@ func getSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg) (imagecustomizerapi.
 	return imagecustomizerapi.SELinuxModeDefault, nil
 }
 
+// getSELinuxModeFromLinuxArgsDeferIfMissing wraps getSELinuxModeFromLinuxArgs so that completely absent
+// SELinux cmdline args resolve to SELinuxModeDefault (defer to /etc/selinux/config) rather than SELinuxModeDisabled.
+// If any is present (e.g. security=apparmor, selinux=0, enforcing=1), the original Disabled result is preserved.
+func getSELinuxModeFromLinuxArgsDeferIfMissing(args []grubConfigLinuxArg) (imagecustomizerapi.SELinuxMode, error) {
+	mode, err := getSELinuxModeFromLinuxArgs(args)
+	if err != nil || mode != imagecustomizerapi.SELinuxModeDisabled {
+		return mode, err
+	}
+
+	if len(findMatchingCommandLineArgs(args, selinuxArgNames)) == 0 {
+		return imagecustomizerapi.SELinuxModeDefault, nil
+	}
+
+	return imagecustomizerapi.SELinuxModeDisabled, nil
+}
+
 // Gets the SELinux mode set by the /etc/selinux/config file.
 func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (imagecustomizerapi.SELinuxMode, error) {
 	selinuxConfigFilePath := filepath.Join(imageChroot.RootDir(), installutils.SELinuxConfigFile)

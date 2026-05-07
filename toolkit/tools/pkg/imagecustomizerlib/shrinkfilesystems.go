@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel"
 )
@@ -30,7 +31,9 @@ var (
 // (convert/inject-files subcommands), filesystems are only shrunk if they completely cover
 // their partition. When false (customize subcommand), filesystems are always shrunk since
 // IC controls the image creation.
-func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string, isExternalImage bool) (map[string]uint64, error) {
+func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonlyPartUuids []string,
+	verityMetadata []verityDeviceMetadata, isExternalImage bool,
+) (map[string]uint64, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "shrink_filesystems")
 	defer span.End()
 
@@ -41,7 +44,8 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonl
 	defer imageLoopback.Close()
 
 	// Shrink the filesystems and capture original sizes.
-	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids, isExternalImage)
+	partitionOriginalSizes, err := shrinkFilesystems(imageLoopback.DevicePath(), readonlyPartUuids,
+		verityMetadata, isExternalImage)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +58,9 @@ func shrinkFilesystemsHelper(ctx context.Context, buildImageFile string, readonl
 	return partitionOriginalSizes, nil
 }
 
-func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, isExternalImage bool) (map[string]uint64, error) {
+func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, verityMetadata []verityDeviceMetadata,
+	isExternalImage bool,
+) (map[string]uint64, error) {
 	logger.Log.Infof("Shrinking filesystems")
 
 	// Get partition info
@@ -127,7 +133,12 @@ func shrinkFilesystems(imageLoopDevice string, readonlyPartUuids []string, isExt
 			continue
 		}
 
-		fileSystemSizeInSectors := convertBytesToSectors(fileSystemSizeInBytes, sectorSize)
+		totalSizeInBytes, err := addVeritySuffixSize(fileSystemSizeInBytes, verityMetadata, diskPartition)
+		if err != nil {
+			return nil, err
+		}
+
+		fileSystemSizeInSectors := convertBytesToSectors(totalSizeInBytes, sectorSize)
 
 		err = resizePartition(partitionLoopDevice, imageLoopDevice, fileSystemSizeInSectors)
 		if err != nil {
@@ -290,4 +301,47 @@ func getExtFilesystemSize(partitionDevice string) (uint64, error) {
 
 	filesystemSizeInBytes := blockCount * blockSize
 	return filesystemSizeInBytes, nil
+}
+
+// Returns the size of the partition, including the size of the inline verity footer if applicable.
+func addVeritySuffixSize(fileSystemSizeInBytes uint64, verityMetadata []verityDeviceMetadata,
+	diskPartition diskutils.PartitionInfo,
+) (uint64, error) {
+	verityIndex := slices.IndexFunc(verityMetadata,
+		func(metadata verityDeviceMetadata) bool {
+			return metadata.dataPartUuid == diskPartition.PartUuid
+		})
+	if verityIndex < 0 {
+		// Partition is not a verity data partition.
+		return fileSystemSizeInBytes, nil
+	}
+
+	metadata := &verityMetadata[verityIndex]
+	if !metadata.formatSettings.IsInlineVerity() {
+		// Verity is not inline.
+		return fileSystemSizeInBytes, nil
+	}
+
+	// Calculate the size of the verity footer.
+
+	dataBlocks := fileSystemSizeInBytes / uint64(metadata.formatSettings.dataBlockSizeBytes)
+	if fileSystemSizeInBytes%uint64(metadata.formatSettings.dataBlockSizeBytes) != 0 {
+		// Round up data size to nearest verity data block.
+		dataBlocks += 1
+	}
+
+	veritySizeInBytes, err := verityutils.CalculateHashSizeInBytes(dataBlocks,
+		uint32(metadata.formatSettings.hashBlockSizeBytes), metadata.formatSettings.hashAlgorithm)
+	if err != nil {
+		return 0, fmt.Errorf("failed to calculate verity hash size:\n%w", err)
+	}
+
+	dataSizeInBytes := dataBlocks * uint64(metadata.formatSettings.dataBlockSizeBytes)
+	totalSizeInBytes := dataSizeInBytes + veritySizeInBytes
+
+	// Store the calculated sizes for when `veritysetup format` is called.
+	metadata.formatSettings.dataSizeBytes = dataSizeInBytes
+	metadata.formatSettings.hashOffsetBytes = dataSizeInBytes
+
+	return totalSizeInBytes, nil
 }

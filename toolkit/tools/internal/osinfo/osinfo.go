@@ -1,6 +1,8 @@
 package osinfo
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +12,14 @@ import (
 func GetDistroAndVersion(rootDir string) (string, string) {
 	output, err := os.ReadFile(filepath.Join(rootDir, "etc/os-release"))
 	if err != nil {
-		return "Unknown Distro", "Unknown Version"
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "Unknown Distro", "Unknown Version"
+		}
+		// Fall back to /usr/lib/os-release per the os-release(5) spec.
+		output, err = os.ReadFile(filepath.Join(rootDir, "usr/lib/os-release"))
+		if err != nil {
+			return "Unknown Distro", "Unknown Version"
+		}
 	}
 
 	lines := strings.Split(string(output), "\n")

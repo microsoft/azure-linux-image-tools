@@ -142,7 +142,9 @@ func createFullOSInitrdImage(writeableRootfsDir string, kernelKdumpFiles *imagec
 	return nil
 }
 
-func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string) error {
+func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdPath string,
+	distroHandler DistroHandler,
+) error {
 	logger.Log.Infof("Creating bootstrap initrd for %s", kernelVersion)
 
 	dracutConfigFile := filepath.Join(writeableRootfsDir, "/etc/dracut.conf.d/20-live-cd.conf")
@@ -166,7 +168,7 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 	requiredRpms := []string{"squashfs-tools", "tar", "device-mapper", "curl"}
 	for _, requiredRpm := range requiredRpms {
 		logger.Log.Debugf("Checking if (%s) is installed", requiredRpm)
-		if !isPackageInstalled(chroot, requiredRpm) {
+		if !distroHandler.IsPackageInstalled(chroot, requiredRpm) {
 			return fmt.Errorf("package (%s) is not installed:\nthe following packages must be installed to generate an iso: %v", requiredRpm, requiredRpms)
 		}
 	}
@@ -543,6 +545,13 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 				Start: &partitionStart,
 			},
 		},
+	}
+
+	// Validate and populate computed partition fields (e.g. End, Size) that are
+	// required by downstream code such as diskConfigToImager.
+	err = diskConfig.IsValid()
+	if err != nil {
+		return fmt.Errorf("failed to validate disk config for writeable image:\n%w", err)
 	}
 
 	fileSystemConfigs := []imagecustomizerapi.FileSystem{

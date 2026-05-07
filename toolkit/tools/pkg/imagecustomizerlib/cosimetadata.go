@@ -83,8 +83,9 @@ type FileSystem struct {
 }
 
 type VerityConfig struct {
-	Image    ImageFile `json:"image"`
-	Roothash string    `json:"roothash"`
+	Image      ImageFile `json:"image"`
+	Roothash   string    `json:"roothash"`
+	HashOffset *uint64   `json:"hashOffset,omitempty"`
 }
 
 type ImageFile struct {
