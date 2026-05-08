@@ -30,8 +30,8 @@ APIs marked as **Preview** require the distribution's
 | &emsp;&emsp;`baremetal-image`                                                                       | Yes             | No              | Preview             |
 | &emsp;&emsp;`cosi`                                                                                  | Yes             | No              | Preview             |
 | &emsp;&emsp;`iso`                                                                                   | Yes             | No              | No                  |
-| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | Yes             | No                  |
-| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | Yes             | No                  |
+| &emsp;&emsp;`pxe-dir`                                                                               | Yes             | No              | No                  |
+| &emsp;&emsp;`pxe-tar`                                                                               | Yes             | No              | No                  |
 | &emsp;&emsp;`qcow2`                                                                                 | Yes             | Yes             | Preview             |
 | &emsp;&emsp;`raw`                                                                                   | Yes             | Yes             | Preview             |
 | &emsp;&emsp;`vhd-fixed`                                                                             | Yes             | Yes             | Preview             |
