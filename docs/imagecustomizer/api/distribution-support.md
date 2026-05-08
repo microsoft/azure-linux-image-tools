@@ -42,7 +42,7 @@ APIs marked as **Preview** require the distribution's
 | &emsp;[--config-file](./cli/customize.md#--config-filefile-path)                                    | Yes             | Yes             | Preview             |
 | &emsp;[--rpm-source](./cli/customize.md#--rpm-sourcepath)                                           | Yes             | Yes             | No                  |
 | &emsp;[--disable-base-image-rpm-repos](./cli/customize.md#--disable-base-image-rpm-repos)           | Yes             | Yes             | No                  |
-| &emsp;[--package-snapshot-time](./cli/customize.md#--package-snapshot-time)                         | Yes             | Yes             | No                  |
+| &emsp;[--package-snapshot-time](./cli/customize.md#--package-snapshot-time)                         | Yes             | No              | No                  |
 | &emsp;[--image-cache-dir](./cli/customize.md#--image-cache-dir)                                     | Yes             | Yes             | No                  |
 | [inject-files](./cli/inject-files.md)                                                               | Yes             | Yes             | No                  |
 
@@ -66,7 +66,7 @@ APIs marked as **Preview** require the distribution's
 | &emsp;[.remove](./configuration/packages.md#remove-string)                               | Yes                   | Yes                   | Preview             |
 | &emsp;[.updateLists](./configuration/packages.md#updatelists-string)                     | Yes                   | Yes                   | Preview             |
 | &emsp;[.update](./configuration/packages.md#update-string)                               | Yes                   | Yes                   | Preview             |
-| &emsp;[.snapshotTime](./configuration/packages.md#snapshottime-string)                   | Yes                   | Yes                   | No                  |
+| &emsp;[.snapshotTime](./configuration/packages.md#snapshottime-string)                   | Yes                   | No                    | No                  |
 | [os.additionalFiles](./configuration/os.md#additionalfiles-additionalfile)               | Yes                   | Yes                   | Preview             |
 | [os.additionalDirs](./configuration/os.md#additionaldirs-dirconfig)                      | Yes                   | Yes                   | Preview             |
 | [os.groups](./configuration/os.md#groups-group)                                          | Yes                   | Yes                   | Preview             |
