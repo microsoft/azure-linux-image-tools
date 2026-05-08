@@ -39,6 +39,9 @@ def setup_vm_with_osmodifier(
     session_close_list: List[Closeable],
 ) -> Tuple[SshClient, Path, Path]:
     if distro_id == "azurelinux" and version_id == "4.0":
+        pytest.skip("Azure Linux 4.0 does not currently support this test.")
+
+    if distro_id == "azurelinux" and version_id == "4.0":
         config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl4.yaml")
     else:
         config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl3.yaml")
