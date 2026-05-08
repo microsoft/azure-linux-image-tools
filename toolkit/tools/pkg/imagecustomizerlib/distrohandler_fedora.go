@@ -98,7 +98,7 @@ func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (
 }
 
 func (d *fedoraDistroHandler) GetSELinuxConfigDir() string {
-	return "etc/selinux"
+	return selinuxConfigDirDefault
 }
 
 func (d *fedoraDistroHandler) SELinuxSupported() bool {

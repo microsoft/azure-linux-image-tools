@@ -119,7 +119,7 @@ func (d *ubuntuDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (
 }
 
 func (d *ubuntuDistroHandler) GetSELinuxConfigDir() string {
-	return "etc/selinux"
+	return selinuxConfigDirDefault
 }
 
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {

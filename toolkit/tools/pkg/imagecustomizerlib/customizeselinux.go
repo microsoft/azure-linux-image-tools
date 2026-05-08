@@ -19,6 +19,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	// selinuxConfigDirDefault is the path to the SELinux configuration directory for most distros.
+	selinuxConfigDirDefault = "etc/selinux"
+)
+
 var (
 	// SELinux-related errors
 	ErrSELinuxGetCurrentMode  = NewImageCustomizerError("SELinux:GetCurrentMode", "failed to get current SELinux mode")
@@ -81,7 +86,7 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		}
 	}
 
-	err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, distroHandler)
+	err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, distroHandler.GetSELinuxConfigDir())
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
@@ -90,14 +95,13 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 }
 
 func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface,
-	distroHandler DistroHandler,
+	selinuxConfigDir string,
 ) error {
 	imagerSELinuxMode, err := selinuxModeToImager(selinuxMode)
 	if err != nil {
 		return err
 	}
 
-	selinuxConfigDir := distroHandler.GetSELinuxConfigDir()
 	selinuxConfigFile := filepath.Join(selinuxConfigDir, "config")
 	selinuxConfigFileFullPath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 	selinuxConfigFileExists, err := file.PathExists(selinuxConfigFileFullPath)
@@ -125,7 +129,7 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 }
 
 func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot,
-	distroHandler DistroHandler,
+	selinuxConfigDir string,
 ) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDisabled {
 		// SELinux is disabled in the kernel command line.
@@ -149,7 +153,7 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 		mountPointToFsTypeMap[mountPoint.GetTarget()] = mountPoint.GetFSType()
 	}
 
-	selinuxConfigFile := filepath.Join(distroHandler.GetSELinuxConfigDir(), "config")
+	selinuxConfigFile := filepath.Join(selinuxConfigDir, "config")
 
 	// Set the SELinux config file and relabel all the files.
 	err := installutils.SELinuxRelabelFiles(imageChroot, mountPointToFsTypeMap, false, selinuxConfigFile)

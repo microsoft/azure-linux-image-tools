@@ -55,15 +55,18 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 				return err
 			}
 
-			// For non-GRUB distros, save UKI cmdline early so handleBootLoader/
+			// For systemd-boot distros, save UKI cmdline early so handleBootLoader/
 			// handleSELinux can modify it via uki-kernel-info.json.
 			bootloaderType, err := distroHandler.DetectBootloaderType(imageChroot)
 			if err != nil {
 				return err
 			}
 
-			if bootloaderType != BootloaderTypeGrub {
-				err = extractAndSaveUkiCmdlineForCreateMode(rc.BuildDirAbs, imageChroot, distroHandler)
+			// Only needed for systemd-boot distros: GRUB distros regenerate their
+			// cmdline via grub-mkconfig in handleBootLoader, so the UKI cmdline does
+			// not need to be saved to uki-kernel-info.json.
+			if bootloaderType == BootloaderTypeSystemdBoot {
+				err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot, distroHandler.GetEspDir())
 				if err != nil {
 					return err
 				}
@@ -71,15 +74,11 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 	}
 
-	// If UKI mode is 'modify', extract cmdline early so BootCustomizer can modify it
+	// If UKI mode is 'modify', extract cmdline early so BootCustomizer can modify it.
+	// Unlike create mode, no bootloader-type gate is needed: any distro in modify mode
+	// has UKIs with an embedded cmdline that must be read regardless of bootloader type.
 	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
-		ukiBuildDir := filepath.Join(rc.BuildDirAbs, UkiBuildDir)
-		err = os.MkdirAll(ukiBuildDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create UKI build directory:\n%w", err)
-		}
-
-		err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot, distroHandler)
+		err = extractAndSaveUkiCmdline(rc.BuildDirAbs, imageChroot, distroHandler.GetEspDir())
 		if err != nil {
 			return fmt.Errorf("failed to extract UKI cmdline for modify mode:\n%w", err)
 		}
@@ -221,7 +220,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = selinuxSetFiles(ctx, selinuxMode, imageChroot, distroHandler)
+	err = selinuxSetFiles(ctx, selinuxMode, imageChroot, distroHandler.GetSELinuxConfigDir())
 	if err != nil {
 		return err
 	}

@@ -172,69 +172,25 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 	return nil
 }
 
-// extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
-func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
-	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
-	ukiFiles, err := getUkiFiles(espDir)
-	if err != nil {
-		return fmt.Errorf("failed to get UKI files:\n%w", err)
-	}
-
-	if len(ukiFiles) == 0 {
-		return fmt.Errorf("no UKI files found for cmdline extraction")
-	}
-
-	// Extract cmdline from each UKI addon and create per-kernel entries
-	kernelInfo := make(map[string]UkiKernelInfo)
-	for _, ukiFile := range ukiFiles {
-		ukiFileName := filepath.Base(ukiFile)
-		kernelName := strings.TrimSuffix(ukiFileName, ".efi")
-		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
-		addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
-
-		if _, err := os.Stat(addonFilePath); os.IsNotExist(err) {
-			return fmt.Errorf("addon file does not exist: %s", addonFilePath)
-		}
-
-		cmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
-		if err != nil {
-			return fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
-		}
-
-		// In modify mode, we don't have initramfs info, so leave it empty
-		kernelInfo[kernelName] = UkiKernelInfo{
-			Cmdline:   cmdline,
-			Initramfs: "", // Empty for modify mode
-		}
-
-		logger.Log.Debugf("Extracted cmdline from UKI (%s): %s", ukiFileName, cmdline)
-	}
-
-	// Save to uki-kernel-info.json for consistency with create mode
-	ukiKernelInfoPath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
-	if err != nil {
-		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
-	}
-
-	logger.Log.Debugf("Extracted and saved UKI cmdlines to: %s", ukiKernelInfoPath)
-	return nil
-}
-
-// extractAndSaveUkiCmdlineForCreateMode extracts kernel cmdline from existing
-// UKIs and their addons, saving to uki-kernel-info.json before handleBootLoader/
-// handleSELinux run. Needed for non-GRUB distros in UKI create mode.
-func extractAndSaveUkiCmdlineForCreateMode(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
+// extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKIs and their
+// addons (main UKI + addons in lexicographic order, mirroring systemd-boot behavior),
+// then saves the result to uki-kernel-info.json. Used in both modify and create modes
+// before handleBootLoader/handleSELinux run.
+func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, espDir string) error {
 	ukiBuildDir := filepath.Join(buildDir, UkiBuildDir)
 	err := os.MkdirAll(ukiBuildDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create UKI build directory:\n%w", err)
 	}
 
-	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
-	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espDir, buildDir)
+	espAbsDir := filepath.Join(imageChroot.RootDir(), espDir)
+	kernelToArgs, err := extractKernelCmdlineFromUkiEfis(espAbsDir, buildDir)
 	if err != nil {
-		return fmt.Errorf("failed to extract UKI cmdline for create mode:\n%w", err)
+		return fmt.Errorf("failed to extract UKI cmdline:\n%w", err)
+	}
+
+	if len(kernelToArgs) == 0 {
+		return fmt.Errorf("no UKI files found for cmdline extraction")
 	}
 
 	kernelInfo := make(map[string]UkiKernelInfo)
@@ -247,10 +203,9 @@ func extractAndSaveUkiCmdlineForCreateMode(buildDir string, imageChroot *safechr
 	ukiKernelInfoPath := filepath.Join(ukiBuildDir, UkiKernelInfoJson)
 	err = writeUkiKernelInfoFile(ukiKernelInfoPath, kernelInfo)
 	if err != nil {
-		return fmt.Errorf("failed to write early UKI kernel info for create mode:\n%w", err)
+		return fmt.Errorf("failed to write UKI kernel info file:\n%w", err)
 	}
 
-	logger.Log.Infof("Extracted and saved UKI cmdline early for create mode (non-GRUB distro)")
 	return nil
 }
 
@@ -362,7 +317,6 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		var cmdline string
 		if existErr == nil {
 			if existingInfo, ok := existingKernelInfo[kernel]; ok {
-				// Use cmdline from early extraction (potentially modified by handleBootLoader/handleSELinux).
 				cmdline = existingInfo.Cmdline
 			} else {
 				var exists bool

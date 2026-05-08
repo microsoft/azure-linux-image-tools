@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 
 	"github.com/sirupsen/logrus"
 
@@ -39,27 +40,9 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	// ACL supports mutable partition modifications and package installation
-	// (when reinitializeVerity: all is used to make /usr writable).
-	//
-	// Supported operations:
-	//   - os.additionalFiles
-	//   - os.additionalDirs
-	//   - os.services (enable/disable)
-	//   - os.hostname, os.users, os.groups
-	//   - os.modules (writes to /etc/modprobe.d/, /etc/modules-load.d/)
-	//   - os.uki (passthrough and create modes)
-	//   - os.packages.install (via host tdnf with --installroot)
-	//   - os.selinux mode changes (via UKI cmdline)
-	//   - os.kernelCommandLine (via UKI addon)
-	//   - scripts.postCustomization, scripts.finalizeCustomization
-	//
-	// Not yet supported:
-	//   - os.packages.remove, os.packages.update, os.packages.updateExistingPackages
-	//   - os.uki mode: modify (requires addon naming alignment)
-	//   - os.overlays
-	//   - storage repartitioning
-	//   - bootloader hard-reset (not applicable — ACL uses systemd-boot)
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAzureContainerLinux3) {
+		return ErrAzureContainerLinux3PreviewFeatureRequired
+	}
 
 	if rc.Storage.CustomizePartitions() {
 		return fmt.Errorf("storage repartitioning is not yet supported for ACL")

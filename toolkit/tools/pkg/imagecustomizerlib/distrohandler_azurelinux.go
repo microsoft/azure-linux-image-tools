@@ -119,7 +119,7 @@ func (d *azureLinuxDistroHandler) FindBootPartitionUuidFromEsp(espMountDir strin
 }
 
 func (d *azureLinuxDistroHandler) GetSELinuxConfigDir() string {
-	return "etc/selinux"
+	return selinuxConfigDirDefault
 }
 
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
