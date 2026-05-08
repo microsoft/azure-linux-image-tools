@@ -1,17 +1,18 @@
+# Differs from create-fedora-amd64 in its use of fedora-arm64-packages (not fedora-amd64-packages)
 previewFeatures:
 - create
 
 storage:
   disks:
   - partitionTableType: gpt
-
+    maxSize: 3G
     partitions:
     - id: boot
       type: esp
-      size: 15M
+      size: 32M
 
     - id: rootfs
-      size: 3G
+      start: 33M
 
   bootType: efi
 
@@ -33,7 +34,10 @@ os:
 
   packages:
     installLists:
-    - create-fedora-common-packages.yaml
+    - create-fedora-noarch-packages.yaml
+    - create-fedora-arm64-packages.yaml
+
     install:
-    - grub2-efi-aa64
-    - shim-aa64
+    - e2fsprogs
+    - efibootmgr
+    - initial-setup

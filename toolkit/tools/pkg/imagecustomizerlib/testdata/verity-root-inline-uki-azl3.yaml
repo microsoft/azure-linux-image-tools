@@ -11,10 +11,10 @@ storage:
       size: 250M
 
     - id: boot
-      size: 250M
+      size: 1G
 
     - id: root
-      size: 1G
+      size: 2G
 
     - id: var
       size: 1G
@@ -94,7 +94,7 @@ os:
     sshPublicKeys:
       # Your SSH public key here.
     secondaryGroups:
-    - sudo
+    - wheel
 
 scripts:
   postCustomization:

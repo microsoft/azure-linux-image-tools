@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -49,10 +50,23 @@ func createDummyTarGz(filename string) error {
 }
 
 func TestValidateCreateImageOutput_AcceptsValidPaths(t *testing.T) {
+	for _, vi := range []struct {
+		name, configFile string
+	}{
+		{"azl3", "create-minimal-os.yaml"},
+		{"azl4", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH)},
+	} {
+		t.Run(vi.name, func(t *testing.T) {
+			testValidateCreateImageOutput_AcceptsValidPaths(t, vi.name, vi.configFile)
+		})
+	}
+}
+
+func testValidateCreateImageOutput_AcceptsValidPaths(t *testing.T, name string, configFileName string) {
 	cwd, err := os.Getwd()
 	assert.NoError(t, err)
 
-	testTmpDir := filepath.Join(tmpDir, "TestValidateCreateImageOutput_AcceptsValidPaths")
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestValidateCreateImageOutput_AcceptsValidPaths_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
 	buildDir := testTmpDir
@@ -61,7 +75,7 @@ func TestValidateCreateImageOutput_AcceptsValidPaths(t *testing.T) {
 	assert.NoError(t, err)
 
 	baseConfigPath := testDir
-	configFile := filepath.Join(testDir, "create-minimal-os.yaml")
+	configFile := filepath.Join(testDir, configFileName)
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
@@ -220,13 +234,26 @@ func TestValidateCreateImageConfig_EmptyConfig(t *testing.T) {
 }
 
 func TestValidateCreateImageConfig_EmptyPackagestoInstall(t *testing.T) {
-	testTmpDir := filepath.Join(tmpDir, "TestValidateCreateImageConfig_EmptyPackagestoInstall")
+	for _, vi := range []struct {
+		name, configFile string
+	}{
+		{"azl3", "create-minimal-os.yaml"},
+		{"azl4", fmt.Sprintf("create-azl4-%s.yaml", runtime.GOARCH)},
+	} {
+		t.Run(vi.name, func(t *testing.T) {
+			testValidateCreateImageConfig_EmptyPackagestoInstall(t, vi.name, vi.configFile)
+		})
+	}
+}
+
+func testValidateCreateImageConfig_EmptyPackagestoInstall(t *testing.T, name string, configFileName string) {
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestValidateCreateImageConfig_EmptyPackagestoInstall_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
 	err := os.MkdirAll(testTmpDir, os.ModePerm)
 	assert.NoError(t, err)
 
-	configFile := filepath.Join(testDir, "create-minimal-os.yaml")
+	configFile := filepath.Join(testDir, configFileName)
 	var config imagecustomizerapi.Config
 	err = imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	assert.NoError(t, err)
@@ -241,7 +268,8 @@ func TestValidateCreateImageConfig_EmptyPackagestoInstall(t *testing.T) {
 	assert.NoError(t, err)
 	// Set the packages to install to an empty slice
 	config.OS.Packages.Install = []string{}
-	_, err = validateCreateImageConfig(t.Context(), configFile, &config, rpmSources, toolsFile, outputImageFile,
+	config.OS.Packages.InstallLists = []string{}
+	_, err = validateCreateImageConfig(t.Context(), testDir, &config, rpmSources, toolsFile, outputImageFile,
 		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.ErrorContains(t, err, "no packages to install specified, please specify at least one package to install for a new image")
 }
@@ -259,7 +287,7 @@ func TestValidateCreateImageConfig_InvalidFieldsVerityConfig(t *testing.T) {
 	packageSnapshotTime := ""
 	buildDir := "./"
 
-	_, err = validateCreateImageConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile,
+	_, err = validateCreateImageConfig(t.Context(), testDir, &config, rpmSources, "", outputImageFile,
 		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.ErrorContains(t, err, "storage verity field is not supported by the create subcommand")
 }
@@ -277,7 +305,7 @@ func TestValidateCreateImageConfig_InvalidFieldsOverlaysConfig(t *testing.T) {
 	packageSnapshotTime := ""
 	buildDir := "./"
 
-	_, err = validateCreateImageConfig(t.Context(), configFile, &config, rpmSources, "", outputImageFile,
+	_, err = validateCreateImageConfig(t.Context(), testDir, &config, rpmSources, "", outputImageFile,
 		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.ErrorContains(t, err, "overlay field is not supported by the create subcommand")
 }

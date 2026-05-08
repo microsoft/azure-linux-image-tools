@@ -25,6 +25,8 @@ from ..utils.user_utils import get_username
 
 @pytest.fixture(scope="session")
 def setup_vm_with_osmodifier(
+    distro_id: str,
+    version_id: str,
     docker_client: DockerClient,
     image_customizer_container_url: str,
     osmodifier_binary: Path,
@@ -36,7 +38,10 @@ def setup_vm_with_osmodifier(
     libvirt_conn: libvirt.virConnect,
     session_close_list: List[Closeable],
 ) -> Tuple[SshClient, Path, Path]:
-    config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config.yaml")
+    if distro_id == "azurelinux" and version_id == "4.0":
+        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl4.yaml")
+    else:
+        config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl3.yaml")
 
     output_format = "qcow2"
     ssh_public_key, ssh_private_key_path = ssh_key
@@ -258,25 +263,29 @@ def test_user_creation_config(
     result.check_exit_code()
 
     output = result.stdout.strip()
-    assert "sudo" in output, f"'sudo' not found in groups: {output}"
+    assert "wheel" in output, f"'sudo' not found in groups: {output}"
 
 
-def is_package_installed(ssh_client: SshClient, pkg_name: str) -> bool:
+def is_package_installed(ssh_client: SshClient, pkg_name: str, distro_id: str, version_id: str) -> bool:
+    # These commands are taken from packagemanager_dnf.go and packagaemanager_tdnf.go in the code base.
     try:
-        cmd = f"tdnf info {pkg_name} --repo @system"
+        if distro_id == "azurelinux" and version_id == "4.0":
+            cmd = f"dnf info --installed {pkg_name}"
+        else:
+            cmd = f"tdnf info {pkg_name} --repo @system"
         result = ssh_client.run(cmd)
         return result.exit_code == 0
     except Exception:
         return False
 
 
-def is_grub_bootloader(ssh_client: SshClient) -> bool:
-    if is_package_installed(ssh_client, "grub2-efi-binary") or is_package_installed(
-        ssh_client, "grub2-efi-binary-noprefix"
+def is_grub_bootloader(ssh_client: SshClient, distro_id: str, version_id: str) -> bool:
+    if is_package_installed(ssh_client, "grub2-efi-binary", distro_id, version_id) or is_package_installed(
+        ssh_client, "grub2-efi-binary-noprefix", distro_id, version_id
     ):
         return True
 
-    if is_package_installed(ssh_client, "systemd-boot"):
+    if is_package_installed(ssh_client, "systemd-boot", distro_id, version_id):
         return False
 
     raise RuntimeError(
@@ -286,6 +295,8 @@ def is_grub_bootloader(ssh_client: SshClient) -> bool:
 
 def test_osmodifier_boot_config(
     setup_vm_with_osmodifier: Tuple[SshClient, Path, Path],
+    distro_id: str,
+    version_id: str,
 ) -> None:
     """
     Verifies that osmodifier correctly modifies bootloader config when kernelCommandLine,
@@ -293,7 +304,7 @@ def test_osmodifier_boot_config(
     """
     ssh_client, _, logs_dir = setup_vm_with_osmodifier
 
-    if not is_grub_bootloader(ssh_client):
+    if not is_grub_bootloader(ssh_client, distro_id, version_id):
         pytest.skip("Test requires GRUB bootloader, but system uses systemd-boot")
 
     config_filename = "osmodifier-boot-config.yaml"
@@ -315,13 +326,15 @@ def test_osmodifier_boot_config(
 
 def test_uki_selinux_config(
     setup_vm_with_osmodifier: Tuple[SshClient, Path, Path],
+    distro_id: str,
+    version_id: str,
 ) -> None:
     """
     Verifies that osmodifier correctly updates SELinux mode in systemd-boot systems.
     """
     ssh_client, remote_bin_path, log_path = setup_vm_with_osmodifier
 
-    if is_grub_bootloader(ssh_client):
+    if is_grub_bootloader(ssh_client, distro_id, version_id):
         pytest.skip("Test requires systemd-boot, but system uses GRUB")
 
     config_filename = "selinux-enforcing-nopackages.yaml"

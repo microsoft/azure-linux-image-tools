@@ -4,7 +4,6 @@ previewFeatures:
 storage:
   disks:
   - partitionTableType: gpt
-
     maxSize: 1G
     partitions:
     - id: boot

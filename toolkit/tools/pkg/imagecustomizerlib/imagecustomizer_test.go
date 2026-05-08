@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -50,7 +51,7 @@ func TestCustomizeImageVhd(t *testing.T) {
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	partitionsConfigFile := filepath.Join(testDir, "partitions-config.yaml")
-	noChangeConfigFile := filepath.Join(testDir, "partitions-config.yaml")
+	noChangeConfigFile := filepath.Join(testDir, "nochange-config.yaml")
 	vhdImageFilePath := filepath.Join(testTmpDir, "image1.vhd")
 	vhdFixedImageFilePath := filepath.Join(testTmpDir, "image2.vhd")
 	vhdxImageFilePath := filepath.Join(testTmpDir, "image3.vhdx")
@@ -652,15 +653,39 @@ func testCustomizeImageKernelCommandLineAddHelper(t *testing.T, testName string,
 	}
 	defer imageConnection.Close()
 
-	// Read the grub.cfg file.
-	grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), installutils.FedoraGrubCfgFile)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// AZL4 uses BLS (Boot Loader Specification) entries instead of inline linux lines in grub.cfg.
+		blsEntriesDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/loader/entries")
+		blsEntries, err := os.ReadDir(blsEntriesDir)
+		if !assert.NoError(t, err, "read BLS entries dir") {
+			return
+		}
 
-	grub2ConfigFile, err := os.ReadFile(grub2ConfigFilePath)
-	if !assert.NoError(t, err) {
-		return
+		blsOptionsRegex := regexp.MustCompile(`(?m)^options\s+.* console=tty0 console=ttyS0`)
+		entryCount := 0
+		for _, entry := range blsEntries {
+			if !entry.IsDir() && filepath.Ext(entry.Name()) == ".conf" {
+				entryCount++
+				blsPath := filepath.Join(blsEntriesDir, entry.Name())
+				blsContents, readErr := file.Read(blsPath)
+				if !assert.NoError(t, readErr, "read BLS entry %s", entry.Name()) {
+					continue
+				}
+				assert.Regexp(t, blsOptionsRegex, blsContents,
+					"BLS entry %s should contain extraCommandLine args", entry.Name())
+			}
+		}
+		assert.GreaterOrEqual(t, entryCount, 1, "BLS entry files in %s", blsEntriesDir)
+	} else {
+		// Read the grub.cfg file.
+		grub2ConfigFilePath := filepath.Join(imageConnection.Chroot().RootDir(), installutils.FedoraGrubCfgFile)
+		grub2ConfigFile, err := os.ReadFile(grub2ConfigFilePath)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		assert.Regexp(t, `linux\s+.*\s+console=tty0 console=ttyS0\s+`, grub2ConfigFile)
 	}
-
-	assert.Regexp(t, `linux\s+.*\s+console=tty0 console=ttyS0\s+`, grub2ConfigFile)
 }
 
 func TestCustomizeImage_OutputImageFileSelection(t *testing.T) {

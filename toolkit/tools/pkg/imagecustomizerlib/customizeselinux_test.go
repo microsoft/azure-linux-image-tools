@@ -28,6 +28,10 @@ func TestCustomizeImageSELinux(t *testing.T) {
 func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
 
@@ -36,7 +40,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 
 	// Customize image: SELinux enforcing.
 	// This tests enabling SELinux on a non-SELinux image.
-	configFile := filepath.Join(testDir, "selinux-force-enforcing.yaml")
+	configFile := filepath.Join(testDir, selinuxForceEnforcingConfigFile(t, baseImageInfo))
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -94,7 +98,7 @@ func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInf
 
 	// Customize image: SELinux permissive.
 	// This tests enabling SELinux on an image with SELinux installed but disabled.
-	configFile = filepath.Join(testDir, "selinux-permissive.yaml")
+	configFile = filepath.Join(testDir, selinuxPermissiveConfigFile(t, baseImageInfo))
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, outImageFilePath, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -124,6 +128,10 @@ func TestCustomizeImageSELinuxAndPartitions(t *testing.T) {
 func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
 
@@ -132,7 +140,7 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 
 	// Customize image: SELinux enforcing.
 	// This tests enabling SELinux on a non-SELinux image.
-	configFile := filepath.Join(testDir, "partitions-selinux-enforcing.yaml")
+	configFile := filepath.Join(testDir, partitionsSELinuxEnforcingConfigFile(t, baseImageInfo))
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	if !assert.NoError(t, err) {
@@ -175,6 +183,13 @@ func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string,
 
 func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// On Azure Linux 4.0, selinux-policy is installed by default and cannot be removed
+		// because selinux-policy-targeted (a protected package, also installed by default) depends on it,
+		// so the no-policy scenario this test exercises is unreachable.
+		t.Skip("Azure Linux 4.0 ships selinux-policy by default and cannot remove it")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageSELinuxNoPolicy")
 	defer os.RemoveAll(testTmpDir)
@@ -280,6 +295,48 @@ func extractCmdlineFromUkiForTest(ukiDir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no UKI files found or cmdline not extracted")
+}
+
+// partitionsSELinuxEnforcingConfigFile returns the partitions-selinux-enforcing test config file appropriate for the
+// given base image version.
+func partitionsSELinuxEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "partitions-selinux-enforcing-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "partitions-selinux-enforcing-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for partitions-selinux-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// selinuxForceEnforcingConfigFile returns the selinux-force-enforcing test config file appropriate for the given base
+// image version.
+func selinuxForceEnforcingConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "selinux-force-enforcing-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "selinux-force-enforcing-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for selinux-force-enforcing test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// selinuxPermissiveConfigFile returns the selinux-permissive test config file appropriate for the given base
+// image version.
+func selinuxPermissiveConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "selinux-permissive-azl3.yaml"
+	case baseImageVersionAzl4:
+		return "selinux-permissive-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for selinux-permissive test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func verifySELinuxConfigFile(t *testing.T, imageConnection *imageconnection.ImageConnection, mode string) {

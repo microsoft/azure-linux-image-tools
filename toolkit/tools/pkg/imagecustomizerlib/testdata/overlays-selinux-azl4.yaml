@@ -1,0 +1,20 @@
+# Differs from overlays-selinux-azl3 in its removal of selinux-policy-modules
+os:
+  bootloader:
+    resetType: hard-reset
+
+  selinux:
+    mode: enforcing
+
+  packages:
+    install:
+    - selinux-policy
+    - setools-console
+    - policycoreutils-python-utils
+
+  overlays:
+  - mountPoint: /var
+    lowerDirs:
+    - /var
+    upperDir: /mnt/overlays/var/upper
+    workDir: /mnt/overlays/var/work
