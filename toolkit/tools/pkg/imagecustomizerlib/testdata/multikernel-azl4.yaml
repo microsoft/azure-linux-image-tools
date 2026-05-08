@@ -1,0 +1,37 @@
+# Differs from multikernel-azl3 in the kernel versions and the esp partition being 32M
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 32M
+
+    - id: rootfs
+      size: 4G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+    - kernel-6.18.5-1.8.azl4~20260420
+
+  kernelCommandLine:
+    extraCommandLine:
+    - console=tty0
+    - console=ttyS0

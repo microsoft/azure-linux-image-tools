@@ -1,0 +1,91 @@
+previewFeatures:
+- uki
+
+storage:
+  bootType: efi
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 250M
+
+    - id: boot
+      size: 1G
+
+    - id: usr
+      size: 1G
+
+    - id: usrhash
+      size: 100M
+
+    - id: root
+      size: 500M
+
+    - id: var
+      size: 1G
+
+  verity:
+  - id: verityusr
+    name: usr
+    dataDeviceId: usr
+    hashDeviceId: usrhash
+    corruptionOption: panic
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint: /boot
+
+  - deviceId: root
+    type: ext4
+    mountPoint:
+      path: /
+      options: noexec
+
+  - deviceId: verityusr
+    type: ext4
+    mountPoint:
+      path: /usr
+      options: ro
+
+  - deviceId: var
+    type: ext4
+    mountPoint: /var
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  kernelCommandLine:
+    extraCommandLine:
+    - rd.info
+
+  uki:
+    mode: create
+
+  packages:
+    remove:
+    - grub2-efi-binary
+
+    install:
+    - openssh-server
+    - veritysetup
+    - systemd-boot
+    - device-mapper
+
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Move iptables script off of the / partition, so that the iptables service can run even though / has the noexec
+      # mount flag.
+      mv /etc/systemd/scripts /usr/bin/
+      ln -sr /usr/bin/scripts /etc/systemd/scripts

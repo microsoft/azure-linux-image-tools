@@ -25,9 +25,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// azl4IsoPxeUnsupportedError is the validation error returned by the
+// Azure Linux distro handler when ISO or PXE output is requested with
+// an Azure Linux 4.0 base image. ISO and PXE outputs are not supported
+// on Azure Linux 4.0; LiveOS tests expect this error in that case.
+const azl4IsoPxeUnsupportedError = "ISO and PXE output formats are not supported for Azure Linux 4.0"
+
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
 	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
-	selinuxMode imagecustomizerapi.SELinuxMode) *imagecustomizerapi.Config {
+	selinuxMode imagecustomizerapi.SELinuxMode,
+) *imagecustomizerapi.Config {
 	fileNamesArray := strings.Split(fileNames, ";")
 
 	pkgsToInstall := []string{}
@@ -46,6 +53,8 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 			kernelPackageName = "kernel-5.15.122.1-2.cm2"
 		case baseImageVersionAzl3:
 			kernelPackageName = "kernel-6.6.57.1-6.azl3"
+		case baseImageVersionAzl4:
+			kernelPackageName = "kernel-6.18.5-1.8.azl4~20260420"
 		default:
 			assert.NoError(t, fmt.Errorf("undefined image version"), "unsupported distro version")
 		}
@@ -98,7 +107,7 @@ func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParame
 						Id: "esp",
 						Size: imagecustomizerapi.PartitionSize{
 							Type: imagecustomizerapi.PartitionSizeTypeExplicit,
-							Size: 8 * diskutils.MiB,
+							Size: 32 * diskutils.MiB,
 						},
 						Type: imagecustomizerapi.PartitionTypeESP,
 					},
@@ -183,7 +192,8 @@ func VerifyBootstrappedImageExists(t *testing.T, initramfsType imagecustomizerap
 }
 
 func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFormatType, config *imagecustomizerapi.Config,
-	testTempDir string, artifactsPath, bootstrappedImage string) {
+	testTempDir string, artifactsPath, bootstrappedImage string,
+) {
 	var additionalFiles imagecustomizerapi.AdditionalFileList
 	var extraCommandLineParameters []string
 	var keepKdumpBootFiles bool
@@ -248,7 +258,8 @@ func ValidateLiveOSContent(t *testing.T, outputFormat imagecustomizerapi.ImageFo
 
 func VerifyFullOSContents(t *testing.T, testTempDir, artifactsPath string, outputFormat imagecustomizerapi.ImageFormatType,
 	osConfig *imagecustomizerapi.OS, bootstrappedImagePath string, initramfsType imagecustomizerapi.InitramfsImageType,
-	keepKdumpBootFiles bool) {
+	keepKdumpBootFiles bool,
+) {
 	if osConfig == nil {
 		return
 	}
@@ -424,15 +435,15 @@ func TestCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T) {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSKeepKdumpFilesA(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSKeepKdumpFilesA(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageLiveOSKeepKdumpFilesA_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -457,6 +468,10 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, testName string, base
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -545,15 +560,15 @@ func TestCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T) {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSKeepKdumpFilesBC(t, "TestCustomizeImageLiveOSKeepKdumpFiles"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSKeepKdumpFilesBC(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageLiveOSKeepKdumpFilesBC_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -575,6 +590,10 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, testName string, bas
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -610,15 +629,15 @@ func TestCustomizeImageLiveOSMultiKernel(t *testing.T) {
 			continue
 		}
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
-			testCustomizeImageLiveOSMultiKernel(t, "TestCustomizeImageLiveOSMultiKernel"+baseImageInfo.Name, baseImageInfo)
+			testCustomizeImageLiveOSMultiKernel(t, baseImageInfo)
 		})
 	}
 }
 
-func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := *baseImageInfo.Param
 
-	testTempDir := filepath.Join(tmpDir, testName)
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageLiveOSMultiKernel_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
@@ -636,7 +655,8 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl2 {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2:
 		// Azl2 should fail.
 		if !assert.Error(t, err) {
 			return
@@ -644,8 +664,10 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, testName string, baseImag
 		if !assert.ErrorContains(t, err, "unsupported number of kernels") {
 			return
 		}
-	} else {
-		// Azl3+ should succeed.
+	case baseImageVersionAzl4:
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+	default:
+		// Azl3 should succeed.
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -680,6 +702,10 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -735,6 +761,10 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -793,6 +823,10 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
 }
 
@@ -818,6 +852,10 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -842,6 +880,10 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -886,11 +928,15 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
 
 func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageLiveOSIsoNoGrubEfi")
 	defer os.RemoveAll(testTempDir)
@@ -898,19 +944,44 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
-	config := &imagecustomizerapi.Config{
-		OS: &imagecustomizerapi.OS{
-			Packages: imagecustomizerapi.Packages{
-				Remove: []string{
-					"grub2-efi-binary",
-				},
+	grubPackageName := "grub2-efi-binary"
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		if runtime.GOARCH == "arm64" {
+			grubPackageName = "grub2-efi-aa64"
+		} else {
+			grubPackageName = "grub2-efi-x64"
+		}
+	}
+
+	config := &imagecustomizerapi.Config{}
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+		// refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+		// is not an option because shim is needed for the secure boot chain
+		// (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+		// are extracted as build artifacts. Use rpm --nodeps to bypass this.
+		// Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
+		config.Scripts = imagecustomizerapi.Scripts{
+			PostCustomization: []imagecustomizerapi.Script{
+				{Content: "rpm -e --nodeps " + grubPackageName},
 			},
-		},
+		}
+	} else {
+		config.OS = &imagecustomizerapi.OS{
+			Packages: imagecustomizerapi.Packages{
+				Remove: []string{grubPackageName},
+			},
+		}
 	}
 
 	// Customize image.
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
+		return
+	}
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }

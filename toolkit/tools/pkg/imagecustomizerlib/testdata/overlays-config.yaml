@@ -4,24 +4,24 @@ previewFeatures:
 storage:
   disks:
   - partitionTableType: gpt
-    maxSize: 4096M
+    maxSize: 5G
     partitions:
     - id: esp
       type: esp
       start: 1M
-      end: 9M
+      end: 33M
 
     - id: boot
-      start: 9M
-      end: 108M
+      start: 33M
+      end: 1G
 
     - id: rootfs
-      start: 108M
-      end: 2048M
+      start: 1G
+      end: 3G
     
     - id: var
-      start: 2048M
-      
+      start: 3G
+
   bootType: efi
 
   filesystems:
@@ -54,6 +54,7 @@ os:
   packages:
     install:
     - openssh-server
+    - policycoreutils-python-utils
 
   services:
     enable:

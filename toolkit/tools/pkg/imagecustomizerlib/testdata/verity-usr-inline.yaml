@@ -5,7 +5,7 @@ storage:
     partitions:
     - id: esp
       type: esp
-      size: 8M
+      size: 32M
 
     - id: usr
       size: 2G
@@ -65,4 +65,4 @@ os:
     sshPublicKeys:
       # Your SSH public key here.
     secondaryGroups:
-    - sudo
+    - wheel

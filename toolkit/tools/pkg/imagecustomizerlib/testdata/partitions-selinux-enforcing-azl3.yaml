@@ -1,22 +1,25 @@
 storage:
   disks:
   - partitionTableType: gpt
+    maxSize: 4G
     partitions:
     - id: esp
       type: esp
-      size: 100M
+      start: 1M
+      end: 33M
 
     - id: boot
-      size: 100M
+      start: 33M
+      end: 1G
 
     - id: rootfs
-      size: 2G
+      start: 1G
 
   bootType: efi
 
   filesystems:
   - deviceId: esp
-    type: fat32
+    type: vfat
     mountPoint:
       path: /boot/efi
       options: umask=0077
@@ -31,32 +34,16 @@ storage:
     mountPoint:
       path: /
 
-previewFeatures:
-- uki
-- output-artifacts
-
-output:
-  artifacts:
-    items: 
-    - ukis
-    - shim
-    - bootloader
-    path: ./output
-
 os:
   bootloader:
     resetType: hard-reset
 
-  uki:
-    mode: create
+  selinux:
+    mode: enforcing
 
   packages:
-    remove:
-    - grub2-efi-binary
     install:
-    - systemd-boot
-    - openssh-server
-
-  services:
-    enable:
-    - sshd
+    - selinux-policy
+    - selinux-policy-modules
+    - setools-console
+    - policycoreutils-python-utils

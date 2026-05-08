@@ -97,6 +97,9 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -175,6 +178,9 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -252,6 +258,9 @@ func TestConvertImageToBareMetalImage(t *testing.T) {
 
 func testConvertImageToBareMetalImage(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageToBareMetalImage_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)

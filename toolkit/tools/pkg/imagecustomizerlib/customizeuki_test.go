@@ -18,8 +18,19 @@ import (
 )
 
 func TestCustomizeImageVerityUsrUki(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrUkiHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -31,12 +42,12 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageUsrVerityUki")
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUki_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
+	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
@@ -64,8 +75,19 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrUkiRecustomizeHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -77,12 +99,12 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageUsrVerityUkiRecustomize")
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUkiRecustomize_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
+	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -172,8 +194,19 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 }
 
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityUsrUkiPassthroughHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -185,12 +218,12 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageUsrVerityUkiPassthrough")
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUkiPassthrough_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "verity-usr-uki.yaml")
+	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
 		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
@@ -228,8 +261,19 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 }
 
 func TestCustomizeImageVerityRootUki(t *testing.T) {
-	baseImageInfo := testBaseImageAzl3CoreEfi
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImageVerityRootUkiHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -241,12 +285,12 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
-	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageRootVerityUki")
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageRootVerityUki_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	configFile := filepath.Join(testDir, "verity-root-uki.yaml")
+	configFile := filepath.Join(testDir, verityRootUkiConfigFile(t, baseImageInfo))
 
 	// Customize image.
 	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
@@ -530,6 +574,34 @@ func verifyRootVerityUki(t *testing.T, buildDir string, imagePath string, expect
 	}
 
 	return ukiFilesChecksums, true
+}
+
+// verityUsrUkiConfigFile returns the verity-usr-uki test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func verityUsrUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-usr-uki-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("verity-usr-uki-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for verity-usr-uki test: %s", baseImageInfo.Version)
+		return ""
+	}
+}
+
+// verityRootUkiConfigFile returns the verity-root-uki test config file appropriate for the
+// given base image version (azl3 vs azl4) and host architecture.
+func verityRootUkiConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-root-uki-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("verity-root-uki-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		t.Fatalf("unsupported base image version for verity-root-uki test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 // calculateUkiFileChecksums generates SHA256 checksums for a list of UKI files.
