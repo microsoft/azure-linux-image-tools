@@ -21,7 +21,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/sirupsen/logrus"
 )
 
@@ -47,9 +46,7 @@ hostonly="no"
 	usrLibLocaleDir = "/usr/lib/locale"
 )
 
-var (
-	kdumpInitramfsRegEx = regexp.MustCompile(`/initramfs-(.*)kdump\.img$`)
-)
+var kdumpInitramfsRegEx = regexp.MustCompile(`/initramfs-(.*)kdump\.img$`)
 
 type StageFile struct {
 	sourcePath    string
@@ -113,7 +110,8 @@ func cleanFullOSFolderForLiveOS(fullOSDir string, kdumpBootFiles *imagecustomize
 }
 
 func createFullOSInitrdImage(writeableRootfsDir string, kernelKdumpFiles *imagecustomizerapi.KdumpBootFilesType,
-	kdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string) error {
+	kdumpBootFilesMap map[string]*KdumpBootFiles, outputInitrdPath string,
+) error {
 	logger.Log.Infof("Creating full OS initrd")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, kernelKdumpFiles, kdumpBootFilesMap)
@@ -178,7 +176,8 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 		initrdPathInChroot,
 		"--kver", kernelVersion,
 		"--filesystems", "squashfs",
-		"--include", usrLibLocaleDir, usrLibLocaleDir}
+		"--include", usrLibLocaleDir, usrLibLocaleDir,
+	}
 
 	err = shell.NewExecBuilder("dracut", dracutParams...).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
@@ -198,7 +197,8 @@ func createBootstrapInitrdImage(writeableRootfsDir, kernelVersion, outputInitrdP
 }
 
 func createSquashfsImage(writeableRootfsDir string, kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType,
-	kdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string) error {
+	kdumpBootFilesMap map[string]*KdumpBootFiles, outputSquashfsPath string,
+) error {
 	logger.Log.Infof("Creating squashfs")
 
 	err := cleanFullOSFolderForLiveOS(writeableRootfsDir, kdumpBootFiles, kdumpBootFilesMap)
@@ -415,7 +415,8 @@ func stageLiveOSFiles(initramfsType imagecustomizerapi.InitramfsImageType, outpu
 
 func createIsoImage(buildDir string, initramfsType imagecustomizerapi.InitramfsImageType, filesStore *IsoFilesStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	outputImagePath string) error {
+	outputImagePath string,
+) error {
 	stagingDir := filepath.Join(buildDir, "iso-staging")
 
 	err := stageLiveOSFiles(initramfsType, imagecustomizerapi.ImageFormatTypeIso, filesStore,
@@ -459,7 +460,6 @@ func getSizeOnDiskInBytes(fileOrDir string) (size uint64, err error) {
 }
 
 func getDiskSizeEstimateInMBs(filesOrDirs []string, safetyFactor float64) (size uint64, err error) {
-
 	totalSizeInBytes := uint64(0)
 	for _, fileOrDir := range filesOrDirs {
 		sizeInBytes, err := getSizeOnDiskInBytes(fileOrDir)
@@ -522,7 +522,8 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		rootfsDir,
 		inputArtifactsStore.files.bootEfiPath,
 		inputArtifactsStore.files.grubEfiPath,
-		artifactsBootDir}
+		artifactsBootDir,
+	}
 
 	// estimate the new disk size
 	safeDiskSizeMB, err := getDiskSizeEstimateInMBs(imageContentList, expansionSafetyFactor)
@@ -565,7 +566,7 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		},
 	}
 
-	targetOs, err := targetos.GetInstalledTargetOs(rootfsDir)
+	distroHandler, err := NewDistroHandlerFromRootDir(rootfsDir)
 	if err != nil {
 		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
 	}
@@ -664,7 +665,7 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
-	_, err = CreateNewImage(targetOs, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
+	_, err = CreateNewImage(distroHandler, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
 		installOSFunc)
 	if err != nil {
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)

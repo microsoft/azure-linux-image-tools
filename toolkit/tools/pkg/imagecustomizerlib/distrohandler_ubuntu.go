@@ -224,3 +224,8 @@ func (d *ubuntuDistroHandler) GrubEfiPackage() string {
 		return grubEfiPackageDebianArm64
 	}
 }
+
+func (d *ubuntuDistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}

@@ -212,3 +212,25 @@ func (d *azureLinux4DistroHandler) GrubEfiPackage() string {
 		return grubEfiPackageFedoraArm64
 	}
 }
+
+// DefaultMountIdTypeForTargetOs picks a per-distro default mount identifier
+// type for fileSystem when the user has not explicitly specified one.
+//
+// On Azure Linux 4.0 we key /boot/efi by filesystem UUID, matching the AZL4
+// base image which ships
+//
+//	UUID=<fs-uuid>  /boot/efi  vfat  defaults  0 0
+//
+// in /etc/fstab.
+//
+// This is a "match the base image" alignment, not a fix for any specific
+// boot failure: the rootfs entry, the kernel command line, and any
+// filesystem the user explicitly configures are unaffected.
+func (d *azureLinux4DistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	if fileSystem.MountPoint != nil && fileSystem.MountPoint.Path == "/boot/efi" {
+		return imagecustomizerapi.MountIdentifierTypeUuid
+	}
+
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}

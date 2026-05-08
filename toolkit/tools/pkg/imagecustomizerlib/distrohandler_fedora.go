@@ -212,3 +212,8 @@ func (d *fedoraDistroHandler) GrubEfiPackage() string {
 		return grubEfiPackageFedoraArm64
 	}
 }
+
+func (d *fedoraDistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}

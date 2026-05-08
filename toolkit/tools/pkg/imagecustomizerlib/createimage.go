@@ -80,9 +80,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	// Create distro config from distro name and version
 	distroHandler := NewDistroHandler(distro, distroVersion)
 
-	partIdToPartUuid, err := CreateNewImage(
-		distroHandler.GetTargetOs(), rc.RawImageFile,
-		diskConfig, rc.Storage.FileSystems,
+	partIdToPartUuid, err := CreateNewImage(distroHandler, rc.RawImageFile, diskConfig, rc.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
 	if err != nil {
 		return err

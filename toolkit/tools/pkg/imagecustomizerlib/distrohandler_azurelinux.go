@@ -206,3 +206,8 @@ func (d *azureLinuxDistroHandler) ShimPackage() string {
 func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
 	return grubEfiPackageAzl3
 }
+
+func (d *ubuntuDistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}

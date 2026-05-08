@@ -220,3 +220,8 @@ func (d *aclDistroHandler) GrubEfiPackage() string {
 	// ACL does not use grub.
 	return ""
 }
+
+func (d *aclDistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}

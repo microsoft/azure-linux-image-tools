@@ -127,6 +127,12 @@ type DistroHandler interface {
 
 	// GrubEfiPackage returns the package that provides the grub EFI binary for this distro on the current architecture.
 	GrubEfiPackage() string
+
+	// DefaultMountIdTypeForTargetOs returns the mount identifier type to use for fileSystem in /etc/fstab when the user
+	// did not explicitly request one (i.e. they left the global default in place). Implementations must return
+	// MountIdentifierTypeDefault to signal "no distro-specific override; let the global default apply", and may return
+	// any other type to override it for this particular partition.
+	DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem) imagecustomizerapi.MountIdentifierType
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
@@ -166,11 +172,16 @@ func NewDistroHandler(distroName string, version string) DistroHandler {
 	}
 }
 
-// NewDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
-func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroHandler, error) {
-	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
+// NewDistroHandlerFromRootDir creates a distro handler by detecting the OS from the given root directory
+func NewDistroHandlerFromRootDir(rootDir string) (DistroHandler, error) {
+	targetOs, err := targetos.GetInstalledTargetOs(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
 	}
 	return NewDistroHandlerFromTargetOs(targetOs), nil
+}
+
+// NewDistroHandlerFromChroot creates a distro handler by detecting the OS from the chroot
+func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroHandler, error) {
+	return NewDistroHandlerFromRootDir(imageChroot.RootDir())
 }
