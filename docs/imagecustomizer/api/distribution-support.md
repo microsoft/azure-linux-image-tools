@@ -80,6 +80,6 @@ APIs marked as **Preview** require the distribution's
 | [os.imageHistory](./configuration/os.md#imagehistory-string)                             | Yes                   | Preview             | Preview                   |
 | [scripts](./configuration/config.md#scripts-scripts)                                     | Yes                   | Preview             | Preview                   |
 | [output.image](./configuration/output.md#image-outputimage)                              | Yes                   | Preview             | Preview                   |
-| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes                   | No                  | No                        |
+| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes                   | No                  | Preview                   |
 | [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)           | Yes                   | No                  | No                        |
 | [previewFeatures](./configuration/config.md#previewfeatures-string)                      | Yes                   | Yes                 | Yes                       |

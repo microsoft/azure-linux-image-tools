@@ -651,6 +651,11 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 		return fmt.Errorf("%w:\n%w", ErrUKICleanOldFiles, err)
 	}
 
+	err = os.MkdirAll(ukiOutputFullPath, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create UKI output directory (%s):\n%w", ukiOutputFullPath, err)
+	}
+
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
 	addonStubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiAddonStubBinary)
 	osSubreleaseFullPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, "os-release")

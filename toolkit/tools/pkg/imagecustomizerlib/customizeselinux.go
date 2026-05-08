@@ -86,9 +86,16 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		}
 	}
 
-	err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, distroHandler.GetSELinuxConfigDir())
-	if err != nil {
-		return imagecustomizerapi.SELinuxModeDefault, err
+	selinuxConfigDir := distroHandler.GetSELinuxConfigDir()
+	if isPathOnReadOnlyMount(selinuxConfigDir, imageChroot) {
+		// The SELinux config dir is on a read-only partition (e.g. dm-verity /usr on ACL).
+		// The mode has already been applied via the kernel command line above; skip the file update.
+		logger.Log.Debugf("Skipping SELinux config file update: %s is on a read-only mount", selinuxConfigDir)
+	} else {
+		err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigDir)
+		if err != nil {
+			return imagecustomizerapi.SELinuxModeDefault, err
+		}
 	}
 
 	return selinuxMode, nil
