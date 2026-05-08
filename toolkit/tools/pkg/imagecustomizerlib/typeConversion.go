@@ -173,11 +173,11 @@ func toImagerPartitionFlags(partitionType imagecustomizerapi.PartitionType,
 	}
 }
 
-func partitionSettingsToImager(fileSystems []imagecustomizerapi.FileSystem,
+func partitionSettingsToImager(distroHandler DistroHandler, fileSystems []imagecustomizerapi.FileSystem,
 ) ([]configuration.PartitionSetting, error) {
 	imagerPartitionSettings := []configuration.PartitionSetting(nil)
 	for _, fileSystem := range fileSystems {
-		settings, err := partitionSettingsForFileSystem(fileSystem)
+		settings, err := partitionSettingsForFileSystem(distroHandler, fileSystem)
 		if err != nil {
 			return nil, err
 		}
@@ -186,7 +186,7 @@ func partitionSettingsToImager(fileSystems []imagecustomizerapi.FileSystem,
 	return imagerPartitionSettings, nil
 }
 
-func partitionSettingsForFileSystem(fileSystem imagecustomizerapi.FileSystem,
+func partitionSettingsForFileSystem(distroHandler DistroHandler, fileSystem imagecustomizerapi.FileSystem,
 ) ([]configuration.PartitionSetting, error) {
 	// For BTRFS filesystems with subvolumes, create a partition setting for each subvolume
 	if fileSystem.Type == imagecustomizerapi.FileSystemTypeBtrfs &&
@@ -195,7 +195,7 @@ func partitionSettingsForFileSystem(fileSystem imagecustomizerapi.FileSystem,
 	}
 
 	// For other filesystems or BTRFS without subvolumes, use the standard conversion
-	imagerPartitionSetting, err := partitionSettingToImager(fileSystem)
+	imagerPartitionSetting, err := partitionSettingToImager(distroHandler, fileSystem)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func partitionSettingsForBtrfsSubvolumes(fileSystem imagecustomizerapi.FileSyste
 	return settings, nil
 }
 
-func partitionSettingToImager(fileSystem imagecustomizerapi.FileSystem,
+func partitionSettingToImager(distroHandler DistroHandler, fileSystem imagecustomizerapi.FileSystem,
 ) (configuration.PartitionSetting, error) {
 	mountIdType := imagecustomizerapi.MountIdentifierTypeDefault
 	mountOptions := ""
@@ -245,6 +245,10 @@ func partitionSettingToImager(fileSystem imagecustomizerapi.FileSystem,
 		mountIdType = fileSystem.MountPoint.IdType
 		mountOptions = fileSystem.MountPoint.Options
 		mountPath = fileSystem.MountPoint.Path
+	}
+
+	if mountIdType == imagecustomizerapi.MountIdentifierTypeDefault {
+		mountIdType = distroHandler.DefaultMountIdTypeForTargetOs(fileSystem)
 	}
 
 	imagerMountIdentifierType, err := mountIdentifierTypeToImager(mountIdType)

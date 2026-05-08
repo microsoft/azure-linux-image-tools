@@ -8,8 +8,17 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 )
+
+// testDistroHandler returns a DistroHandler suitable for unit-testing the
+// generic partition-conversion code. AZL3 was chosen because it does not
+// override DefaultMountIdTypeForTargetOs, so the global default
+// (MountIdentifierPartUuid) applies and the existing test expectations hold.
+func testDistroHandler() DistroHandler {
+	return NewDistroHandlerFromTargetOs(targetos.TargetOsAzureLinux3)
+}
 
 func TestCalcIsBootPartition(t *testing.T) {
 	assert.True(t, calcIsBootPartition(
@@ -189,7 +198,7 @@ func TestPartitionSettingsForFileSystemBtrfs(t *testing.T) {
 		},
 	}
 
-	settings, err := partitionSettingsForFileSystem(fileSystem)
+	settings, err := partitionSettingsForFileSystem(testDistroHandler(), fileSystem)
 	assert.NoError(t, err)
 
 	expected := []configuration.PartitionSetting{
@@ -212,7 +221,7 @@ func TestPartitionSettingsForFileSystemExt4(t *testing.T) {
 		},
 	}
 
-	settings, err := partitionSettingsForFileSystem(fileSystem)
+	settings, err := partitionSettingsForFileSystem(testDistroHandler(), fileSystem)
 	assert.NoError(t, err)
 
 	expected := []configuration.PartitionSetting{
@@ -232,7 +241,7 @@ func TestPartitionSettingsForFileSystemExt4NoMountPoint(t *testing.T) {
 		MountPoint:  nil,
 	}
 
-	settings, err := partitionSettingsForFileSystem(fileSystem)
+	settings, err := partitionSettingsForFileSystem(testDistroHandler(), fileSystem)
 	assert.NoError(t, err)
 
 	// Non-BTRFS filesystems should get a partition setting even without a mount point

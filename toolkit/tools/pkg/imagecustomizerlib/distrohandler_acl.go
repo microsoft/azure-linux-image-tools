@@ -142,3 +142,8 @@ func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDevi
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, FedoraGrubCfgPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
+
+func (d *aclDistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}

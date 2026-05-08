@@ -99,6 +99,12 @@ type DistroHandler interface {
 	// kernel arguments. Each distro handler implements the appropriate strategy.
 	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,
 		bootRelativePath string, partitions []diskutils.PartitionInfo, buildDir string, bootUuid string) error
+
+	// DefaultMountIdTypeForTargetOs returns the mount identifier type to use for fileSystem in /etc/fstab when the user
+	// did not explicitly request one (i.e. they left the global default in place). Implementations must return
+	// MountIdentifierTypeDefault to signal "no distro-specific override; let the global default apply", and may return
+	// any other type to override it for this particular partition.
+	DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem) imagecustomizerapi.MountIdentifierType
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

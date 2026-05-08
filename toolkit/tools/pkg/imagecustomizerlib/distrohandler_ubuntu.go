@@ -189,3 +189,8 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, DebianGrubCfgPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
+
+func (d *ubuntuDistroHandler) DefaultMountIdTypeForTargetOs(fileSystem imagecustomizerapi.FileSystem,
+) imagecustomizerapi.MountIdentifierType {
+	return imagecustomizerapi.MountIdentifierTypeDefault
+}
