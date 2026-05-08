@@ -277,9 +277,9 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 
 	// --setopt=skip_if_unavailable=False ensures failures to fetch repo metadata are fatal. TDNF already does this by
 	// default, but DNF on some distros (e.g. Azure Linux 4.0) defaults to skip_if_unavailable=True, so we set it
-	// explicitly for both. It's important to ensure repo metadata is refreshed successfully to ensure correct package
-	// versions are installed as intended by the user's repo configuration. It also has the benefit of failing slightly
-	// faster when repos are misconfigured.
+	// explicitly for both. It is important to ensure metadata is refreshed successfully to ensure correctness of
+	// package install operations and to catch any typos in user-provided repository configuration. Otherwise, the wrong
+	// package versions might be silently installed.
 	args := []string{
 		pmHandler.getVerbosityOption(), "check-update", "--refresh", "--assumeyes",
 		"--setopt=skip_if_unavailable=False",
