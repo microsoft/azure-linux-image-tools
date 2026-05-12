@@ -169,10 +169,8 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 	// queries via rpm/tdnf are not possible. Instead, check for known
 	// binaries or files that each package provides.
 	knownPackageFiles := map[string][]string{
-		// systemd-boot: on ACL the signed systemd-boot binary is installed as
-		// grubx64.efi (shim's second-stage) on the ESP. BOOTX64.EFI is shim.
 		"systemd-boot": {
-			"boot/EFI/BOOT/grubx64.efi",
+			"boot/loader/loader.conf",
 		},
 		"dracut":        {"usr/bin/dracut"},
 		"device-mapper": {"usr/sbin/dmsetup"},
