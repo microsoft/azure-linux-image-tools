@@ -1076,7 +1076,8 @@ func enableCryptoDisk() (err error) {
 // installRoot/boot/efi folder
 // It is expected that shim (bootx64.efi) and grub2 (grub2.efi) are installed
 // into the EFI directory via the package list installation mechanism.
-func installEfiBootloader(encryptEnabled bool, installRoot, bootUUID, bootPrefix, assetGrubStubFile string, grubStubDirs []string,
+func installEfiBootloader(encryptEnabled bool, installRoot, bootUUID, bootPrefix, assetGrubStubFile string,
+	grubStubDirs []string,
 ) (err error) {
 	prefixPath := filepath.Join("/", bootPrefix, "grub2")
 

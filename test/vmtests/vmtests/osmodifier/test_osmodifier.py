@@ -25,12 +25,12 @@ from ..utils.user_utils import get_username
 
 @pytest.fixture(scope="session")
 def setup_vm_with_osmodifier(
+    distro_id: str,
+    version_id: str,
     docker_client: DockerClient,
     image_customizer_container_url: str,
     osmodifier_binary: Path,
     input_image: Path,
-    distro_id: str,
-    version_id: str,
     ssh_key: Tuple[str, Path],
     session_temp_dir: Path,
     session_instance_name: str,
@@ -269,7 +269,7 @@ def test_user_creation_config(
 def is_package_installed(ssh_client: SshClient, pkg_name: str, distro_id: str, version_id: str) -> bool:
     # These commands are taken from packagemanager_dnf.go and packagaemanager_tdnf.go in the code base.
     try:
-        if distro_id == "azurelinux" and version_id.startswith("4."):
+        if distro_id == "azurelinux" and version_id == "4.0":
             cmd = f"dnf info --installed {pkg_name}"
         else:
             cmd = f"tdnf info {pkg_name} --repo @system"

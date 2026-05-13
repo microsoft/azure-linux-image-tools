@@ -4,12 +4,10 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
 from docker import DockerClient
 
 from ..conftest import TEST_CONFIGS_DIR
-from ..utils.closeable import Closeable
 from ..utils.imagecustomizer import run_image_customizer
 
 
@@ -35,11 +33,11 @@ def _run_json_logs_nochange_test(
         log_format="json",
     )
 
-    json_lines = []
+    json_lines: list[dict[str, str]] = []
 
     # Ensure all the stderr lines are valid JSON.
     for line in stderr_lines:
-        line_json = json.loads(line)
+        line_json: dict[str, str] = json.loads(line)
         json_lines.append(line_json)
 
         assert isinstance(line_json, dict)
@@ -57,9 +55,6 @@ def test_json_logs_nochange_azl3(
     image_customizer_container_url: str,
     core_efi_azl3: Path,
     test_temp_dir: Path,
-    test_instance_name: str,
-    logs_dir: Path,
-    close_list: List[Closeable],
 ) -> None:
     _run_json_logs_nochange_test(docker_client, image_customizer_container_url, core_efi_azl3, test_temp_dir)
 
@@ -69,8 +64,5 @@ def test_json_logs_nochange_azl4(
     image_customizer_container_url: str,
     core_efi_azl4: Path,
     test_temp_dir: Path,
-    test_instance_name: str,
-    logs_dir: Path,
-    close_list: List[Closeable],
 ) -> None:
     _run_json_logs_nochange_test(docker_client, image_customizer_container_url, core_efi_azl4, test_temp_dir)
