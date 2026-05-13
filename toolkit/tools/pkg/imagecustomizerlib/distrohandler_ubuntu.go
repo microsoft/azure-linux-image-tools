@@ -122,6 +122,14 @@ func (d *ubuntuDistroHandler) GetSELinuxConfigDir() string {
 	return selinuxConfigDirDefault
 }
 
+func (d *ubuntuDistroHandler) GetSELinuxRelabelExcludePaths() []string {
+	return nil
+}
+
+func (d *ubuntuDistroHandler) PreserveBootDirLayout() bool {
+	return false
+}
+
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }

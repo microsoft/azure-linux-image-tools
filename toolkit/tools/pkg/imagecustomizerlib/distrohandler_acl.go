@@ -81,30 +81,52 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	// ACL has no tdnf inside the image. Run tdnf from the host with --installroot
-	// pointing to the mounted image root.
+	// ACL has no tdnf inside the image. Run tdnf from either the provided
+	// toolsChroot (preferred, e.g. an AZL3 tools tarball via --tools-file) or
+	// directly from the host, using --installroot to target the image.
 	if len(config.Packages.Install) == 0 {
 		return nil
 	}
 
-	tdnfPath, err := exec.LookPath("tdnf")
-	if err != nil {
-		return fmt.Errorf("tdnf is required on the host to install packages into ACL images but was not found:\n%w", err)
-	}
+	var tdnfPath string
+	var chrootDir string // empty = run on host, non-empty = chroot into this dir
 
-	logger.Log.Infof("Using host tdnf (%s) with --installroot for ACL package installation", tdnfPath)
+	if toolsChroot != nil {
+		// Use tdnf from inside the tools chroot.
+		tdnfPath = "/usr/bin/tdnf"
+		chrootDir = toolsChroot.ChrootDir()
+		logger.Log.Infof("Using toolsChroot tdnf (%s) with --installroot for ACL package installation", chrootDir+tdnfPath)
+	} else {
+		// Fall back to host tdnf.
+		var err error
+		tdnfPath, err = exec.LookPath("tdnf")
+		if err != nil {
+			return fmt.Errorf("tdnf is required to install packages into ACL images but was not found on the host.\n" +
+				"Provide an AZL3 tools tarball via --tools-file, or install tdnf on the host:\n%w", err)
+		}
+		logger.Log.Infof("Using host tdnf (%s) with --installroot for ACL package installation", tdnfPath)
+	}
 
 	imageRoot := imageChroot.RootDir()
 
 	// Mount RPM sources into the image root.
-	var mounts *rpmSourcesMounts
-	mounts, err = mountRpmSources(ctx, buildDir, imageChroot, rpmsSources, useBaseImageRpmRepos)
+	mounts, err := mountRpmSources(ctx, buildDir, imageChroot, rpmsSources, useBaseImageRpmRepos)
 	if err != nil {
 		return err
 	}
 	defer mounts.close()
 
-	// Refresh metadata using host tdnf.
+	newExec := func(args ...string) shell.ExecBuilder {
+		b := shell.NewExecBuilder(tdnfPath, args...).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(1)
+		if chrootDir != "" {
+			b = b.Chroot(chrootDir)
+		}
+		return b
+	}
+
+	// Refresh metadata.
 	refreshArgs := []string{
 		"check-update", "--refresh", "--assumeyes",
 		"--installroot=" + imageRoot,
@@ -112,10 +134,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		"--setopt=reposdir=" + imageRoot + rpmsMountParentDirInChroot,
 	}
 
-	err = shell.NewExecBuilder(tdnfPath, refreshArgs...).
-		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-		ErrorStderrLines(1).
-		Execute()
+	err = newExec(refreshArgs...).Execute()
 	if err != nil {
 		// Exit code 100 means updates are available — not an error.
 		var exitErr *exec.ExitError
@@ -124,7 +143,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		}
 	}
 
-	// Install packages using host tdnf.
+	// Install packages.
 	logger.Log.Infof("Installing packages into ACL image (%d): %v", len(config.Packages.Install), config.Packages.Install)
 
 	_, span := startInstallPackagesSpan(ctx, config.Packages.Install)
@@ -138,10 +157,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	}
 	installArgs = append(installArgs, config.Packages.Install...)
 
-	err = shell.NewExecBuilder(tdnfPath, installArgs...).
-		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-		ErrorStderrLines(1).
-		Execute()
+	err = newExec(installArgs...).Execute()
 	if err != nil {
 		return fmt.Errorf("failed to install packages into ACL image (%v):\n%w", config.Packages.Install, err)
 	}
@@ -153,10 +169,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		"--releasever=" + d.packageManager.getReleaseVersion(),
 	}
 
-	err = shell.NewExecBuilder(tdnfPath, cleanArgs...).
-		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-		ErrorStderrLines(1).
-		Execute()
+	err = newExec(cleanArgs...).Execute()
 	if err != nil {
 		return fmt.Errorf("failed to clean package cache for ACL:\n%w", err)
 	}
@@ -217,6 +230,21 @@ func (d *aclDistroHandler) GetSELinuxConfigDir() string {
 	// does not exist on the bare rootfs — the actual SELinux config lives in
 	// the overlay lowerdir.
 	return "usr/share/distro/etc/selinux"
+}
+
+func (d *aclDistroHandler) GetSELinuxRelabelExcludePaths() []string {
+	// ACL's /usr partition is a btrfs volume with AZL3-specific SELinux context
+	// type names baked in. Running setfiles from a Fedora host kernel causes
+	// EINVAL because the host's loaded policy does not know those type names.
+	// The OEM partition (ext4-like, few files) is safe to relabel.
+	return []string{"/usr"}
+}
+
+func (d *aclDistroHandler) PreserveBootDirLayout() bool {
+	// ACL mounts the ESP directly at /boot, so /boot IS the ESP.
+	// cleanBootDirectory must not delete any directories or unrecognized files
+	// from /boot — only kernel/initramfs file patterns may be removed.
+	return true
 }
 
 func (d *aclDistroHandler) SELinuxSupported() bool {

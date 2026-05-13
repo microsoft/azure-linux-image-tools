@@ -1179,12 +1179,19 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot, distroHandler DistroHand
 			continue
 		}
 
-		// When ESP is the boot directory itself (GetEspDir()="boot"),
-		// only remove standalone files (kernels, initramfs) — preserve known ESP
-		// subdirectories that are needed for UKI creation and systemd-boot.
-		if bootPath == espPath && entry.IsDir() {
-			switch entry.Name() {
-			case "EFI", "loader", "acl":
+		// Some distros (e.g. ACL) mount the ESP directly at /boot, so /boot IS
+		// the ESP. In that case, preserve all directories and non-kernel files —
+		// only delete standalone kernel images and initramfs archives that would
+		// normally live directly in /boot on traditional distros.
+		if distroHandler.PreserveBootDirLayout() {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			isKernelOrInitramfs := strings.HasPrefix(name, "vmlinuz-") ||
+				strings.HasPrefix(name, "initramfs-") ||
+				strings.HasPrefix(name, "initrd-")
+			if !isKernelOrInitramfs {
 				continue
 			}
 		}

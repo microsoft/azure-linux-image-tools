@@ -122,6 +122,14 @@ func (d *azureLinuxDistroHandler) GetSELinuxConfigDir() string {
 	return selinuxConfigDirDefault
 }
 
+func (d *azureLinuxDistroHandler) GetSELinuxRelabelExcludePaths() []string {
+	return nil
+}
+
+func (d *azureLinuxDistroHandler) PreserveBootDirLayout() bool {
+	return false
+}
+
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 	return true
 }

@@ -63,6 +63,21 @@ type DistroHandler interface {
 	// directory relative to the image root.
 	GetSELinuxConfigDir() string
 
+	// GetSELinuxRelabelExcludePaths returns a list of absolute mount-point paths
+	// (e.g. "/usr") that should be skipped when running setfiles. Distros that
+	// have partitions whose SELinux context types are incompatible with the host
+	// kernel's loaded policy should exclude those paths here.
+	// Return nil to include all writable mount points (the default behaviour).
+	GetSELinuxRelabelExcludePaths() []string
+
+	// PreserveBootDirLayout reports whether the distro's /boot directory is the
+	// ESP itself (rather than a directory containing kernels/initramfs plus a
+	// nested ESP mount). When true, cleanBootDirectory will only delete files
+	// matching kernel/initramfs name patterns and will preserve all directories
+	// and other files intact. When false (the default for standard distros),
+	// cleanBootDirectory deletes everything in /boot except the ESP sub-mount.
+	PreserveBootDirLayout() bool
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 

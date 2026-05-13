@@ -136,7 +136,7 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 }
 
 func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot,
-	selinuxConfigDir string,
+	selinuxConfigDir string, excludePaths []string,
 ) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDisabled {
 		// SELinux is disabled in the kernel command line.
@@ -157,7 +157,21 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 			continue
 		}
 
-		mountPointToFsTypeMap[mountPoint.GetTarget()] = mountPoint.GetFSType()
+		target := mountPoint.GetTarget()
+
+		excluded := false
+		for _, excludePath := range excludePaths {
+			if target == excludePath {
+				logger.Log.Debugf("Skipping SELinux relabel for excluded mount point: %s", target)
+				excluded = true
+				break
+			}
+		}
+		if excluded {
+			continue
+		}
+
+		mountPointToFsTypeMap[target] = mountPoint.GetFSType()
 	}
 
 	selinuxConfigFile := filepath.Join(selinuxConfigDir, "config")

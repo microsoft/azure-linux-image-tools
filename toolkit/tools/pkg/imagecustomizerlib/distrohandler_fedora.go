@@ -101,6 +101,14 @@ func (d *fedoraDistroHandler) GetSELinuxConfigDir() string {
 	return selinuxConfigDirDefault
 }
 
+func (d *fedoraDistroHandler) GetSELinuxRelabelExcludePaths() []string {
+	return nil
+}
+
+func (d *fedoraDistroHandler) PreserveBootDirLayout() bool {
+	return false
+}
+
 func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }
