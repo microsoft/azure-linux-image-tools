@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -32,8 +33,9 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	// ACL Phase 0: only mount/recognize/passthrough is supported.
-	// Block operations that would fail with confusing errors later.
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAzureContainerLinux3) {
+		return ErrAzureContainerLinux3PreviewFeatureRequired
+	}
 
 	if rc.Storage.CustomizePartitions() {
 		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
