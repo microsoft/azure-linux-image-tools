@@ -81,31 +81,18 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
-	// ACL has no tdnf inside the image. Run tdnf from either the provided
-	// toolsChroot (preferred, e.g. an AZL3 tools tarball via --tools-file) or
-	// directly from the host, using --installroot to target the image.
+	// ACL has no tdnf inside the image. Run tdnf from the host with --installroot
+	// pointing to the mounted image root.
 	if len(config.Packages.Install) == 0 {
 		return nil
 	}
 
-	var tdnfPath string
-	var chrootDir string // empty = run on host, non-empty = chroot into this dir
-
-	if toolsChroot != nil {
-		// Use tdnf from inside the tools chroot.
-		tdnfPath = "/usr/bin/tdnf"
-		chrootDir = toolsChroot.ChrootDir()
-		logger.Log.Infof("Using toolsChroot tdnf (%s) with --installroot for ACL package installation", chrootDir+tdnfPath)
-	} else {
-		// Fall back to host tdnf.
-		var err error
-		tdnfPath, err = exec.LookPath("tdnf")
-		if err != nil {
-			return fmt.Errorf("tdnf is required to install packages into ACL images but was not found on the host.\n" +
-				"Provide an AZL3 tools tarball via --tools-file, or install tdnf on the host:\n%w", err)
-		}
-		logger.Log.Infof("Using host tdnf (%s) with --installroot for ACL package installation", tdnfPath)
+	tdnfPath, err := exec.LookPath("tdnf")
+	if err != nil {
+		return fmt.Errorf("tdnf is required on the host to install packages into ACL images but was not found:\n%w", err)
 	}
+
+	logger.Log.Infof("Using host tdnf (%s) with --installroot for ACL package installation", tdnfPath)
 
 	imageRoot := imageChroot.RootDir()
 
@@ -116,17 +103,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	}
 	defer mounts.close()
 
-	newExec := func(args ...string) shell.ExecBuilder {
-		b := shell.NewExecBuilder(tdnfPath, args...).
-			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-			ErrorStderrLines(1)
-		if chrootDir != "" {
-			b = b.Chroot(chrootDir)
-		}
-		return b
-	}
-
-	// Refresh metadata.
+	// Refresh metadata using host tdnf.
 	refreshArgs := []string{
 		"check-update", "--refresh", "--assumeyes",
 		"--installroot=" + imageRoot,
@@ -134,7 +111,10 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		"--setopt=reposdir=" + imageRoot + rpmsMountParentDirInChroot,
 	}
 
-	err = newExec(refreshArgs...).Execute()
+	err = shell.NewExecBuilder(tdnfPath, refreshArgs...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
 	if err != nil {
 		// Exit code 100 means updates are available — not an error.
 		var exitErr *exec.ExitError
@@ -143,7 +123,7 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		}
 	}
 
-	// Install packages.
+	// Install packages using host tdnf.
 	logger.Log.Infof("Installing packages into ACL image (%d): %v", len(config.Packages.Install), config.Packages.Install)
 
 	_, span := startInstallPackagesSpan(ctx, config.Packages.Install)
@@ -157,7 +137,10 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	}
 	installArgs = append(installArgs, config.Packages.Install...)
 
-	err = newExec(installArgs...).Execute()
+	err = shell.NewExecBuilder(tdnfPath, installArgs...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to install packages into ACL image (%v):\n%w", config.Packages.Install, err)
 	}
@@ -169,7 +152,10 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 		"--releasever=" + d.packageManager.getReleaseVersion(),
 	}
 
-	err = newExec(cleanArgs...).Execute()
+	err = shell.NewExecBuilder(tdnfPath, cleanArgs...).
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Execute()
 	if err != nil {
 		return fmt.Errorf("failed to clean package cache for ACL:\n%w", err)
 	}
