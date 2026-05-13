@@ -193,7 +193,7 @@ jobs:
         env:
           IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
           OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
-          INPUT_IMAGE: ${{ steps.setup_image.outputs.azl4_path  }}
+          INPUT_IMAGE: ${{ steps.setup_image.outputs.azl4_path }}
         run: |
           set -eux
           pushd ./repo/test/vmtests

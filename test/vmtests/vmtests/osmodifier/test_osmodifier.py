@@ -263,7 +263,7 @@ def test_user_creation_config(
     result.check_exit_code()
 
     output = result.stdout.strip()
-    assert "wheel" in output, f"'sudo' not found in groups: {output}"
+    assert "wheel" in output, f"'wheel' not found in groups: {output}"
 
 
 def is_package_installed(ssh_client: SshClient, pkg_name: str, distro_id: str, version_id: str) -> bool:
