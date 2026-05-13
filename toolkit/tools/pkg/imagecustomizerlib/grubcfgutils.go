@@ -149,19 +149,14 @@ func FindLinuxLine(inputGrubCfgContent string) (grub.Line, error) {
 	return lines[0], nil
 }
 
-// Find the linux command within non-recovery mode menuentry block in the grub config file.
-func FindNonRecoveryLinuxLine(inputGrubCfgContent string) ([]grub.Line, error) {
-	grubTokens, err := grub.TokenizeConfig(inputGrubCfgContent)
-	if err != nil {
-		return nil, err
-	}
+// Find the linux commands within non-recovery mode menuentry block in the grub config lines.
 
-	grubLines := grub.SplitTokensIntoLines(grubTokens)
+func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 	var linuxLines []grub.Line
 	inMenuEntry := false
 	isRecoveryMenu := false
 
-	// Iterate over all lines to find non-recovery mode menuentry and its linux line
+	// Iterate over all lines to find non-recovery mode menuentries and their linux lines
 	for _, line := range grubLines {
 		if len(line.Tokens) > 1 && grub.IsTokenKeyword(line.Tokens[0], "menuentry") {
 			// Found a new 'menuentry', reset flags
@@ -186,11 +181,16 @@ func FindNonRecoveryLinuxLine(inputGrubCfgContent string) ([]grub.Line, error) {
 		}
 	}
 
-	if len(linuxLines) == 0 {
-		return nil, fmt.Errorf("no linux line found in non-recovery menuentry")
-	}
+	return linuxLines
+}
 
-	return linuxLines, nil
+func FindBlsCfg(grubLines []grub.Line) bool {
+	for _, line := range grubLines {
+		if len(line.Tokens) >= 1 && grub.IsTokenKeyword(line.Tokens[0], "blscfg") {
+			return true
+		}
+	}
+	return false
 }
 
 // Overrides the path of the kernel binary/initrd image in all the linux
@@ -376,6 +376,18 @@ func findCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, err
 	insertAtToken := insertAtTokens[0]
 	insertAt := insertAtToken.Loc.Start.Index
 	return insertAt, nil
+}
+
+// filterKernelArgsByName extracts arg name=value pairs from parsed kernel args,
+// keeping only those whose name is in the provided list.
+func filterKernelArgsByName(args []grubConfigLinuxArg, names []string) map[string]string {
+	result := make(map[string]string)
+	for _, arg := range args {
+		if arg.Value != "" && sliceutils.ContainsValue(names, arg.Name) {
+			result[arg.Name] = arg.Value
+		}
+	}
+	return result
 }
 
 // Takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.

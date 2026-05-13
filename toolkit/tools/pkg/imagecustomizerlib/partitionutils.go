@@ -17,6 +17,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -25,6 +26,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/verityutils"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -351,8 +353,120 @@ func readFstabEntriesFromRootfs(rootfsPartition *diskutils.PartitionInfo,
 	return fstabEntries, nil
 }
 
+// detectDistroFromRootfs mounts the rootfs partition (and /usr or /usr/lib from fstab if needed)
+// read-only and returns a DistroHandler derived from /etc/os-release (or /usr/lib/os-release).
+// Returns nil if the os-release file cannot be found (e.g. USR-verity configured images).
+func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.PartitionInfo, rootfsPath string,
+	diskPartitions []diskutils.PartitionInfo, fstabEntries []diskutils.FstabEntry,
+) (DistroHandler, error) {
+	tmpDir := filepath.Join(buildDir, tmpPartitionDirName)
+	rootfsPartitionMount, err := safemount.NewMount(rootfsPartition.Path, tmpDir,
+		rootfsPartition.FileSystemType, unix.MS_RDONLY, "", true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mount rootfs partition (%s):\n%w", rootfsPartition.Path, err)
+	}
+	defer rootfsPartitionMount.Close()
+
+	rootDir := filepath.Join(tmpDir, rootfsPath)
+
+	// First attempt: try detection using the rootfs alone.
+	detectedOs, err := targetos.GetInstalledTargetOs(rootDir)
+	if err == nil {
+		distroHandler := NewDistroHandlerFromTargetOs(detectedOs)
+		err = rootfsPartitionMount.CleanClose()
+		if err != nil {
+			return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+		}
+		return distroHandler, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("failed to get installed target OS from rootfs partition:\n%w", err)
+	}
+
+	// Cascading fallbacks: try /usr from fstab, then /usr/lib from fstab.
+	var fallbackMounts []*safemount.Mount
+	defer func() {
+		for i := len(fallbackMounts) - 1; i >= 0; i-- {
+			fallbackMounts[i].Close()
+		}
+	}()
+	for _, fstabTarget := range []struct {
+		mountTarget string
+		mountSubdir string
+	}{
+		{mountTarget: "/usr", mountSubdir: "usr"},
+		{mountTarget: "/usr/lib", mountSubdir: "usr/lib"},
+	} {
+		var fallbackMount *safemount.Mount
+		fallbackMount, err = mountFstabPartitionReadonly(rootDir, fstabTarget.mountTarget, fstabTarget.mountSubdir,
+			fstabEntries, diskPartitions)
+		if err != nil {
+			return nil, err
+		}
+		if fallbackMount == nil {
+			continue
+		}
+		fallbackMounts = append(fallbackMounts, fallbackMount)
+
+		detectedOs, err = targetos.GetInstalledTargetOs(rootDir)
+		if err == nil {
+			distroHandler := NewDistroHandlerFromTargetOs(detectedOs)
+			for i := len(fallbackMounts) - 1; i >= 0; i-- {
+				err = fallbackMounts[i].CleanClose()
+				if err != nil {
+					return nil, fmt.Errorf("failed to close %s partition mount:\n%w", fstabTarget.mountSubdir, err)
+				}
+			}
+			fallbackMounts = nil
+			err = rootfsPartitionMount.CleanClose()
+			if err != nil {
+				return nil, fmt.Errorf("failed to close rootfs partition mount (%s):\n%w", rootfsPartition.Path, err)
+			}
+			return distroHandler, nil
+		}
+
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("failed to get target OS from %s filesystem:\n%w", fstabTarget.mountSubdir, err)
+		}
+	}
+
+	// Always return an os.ErrNotExist if detection couldn't find an os-release file.
+	if err == nil {
+		err = os.ErrNotExist
+	}
+	return nil, fmt.Errorf("failed to find os-release file:\n%w", err)
+}
+
+// mountFstabPartitionReadonly mounts the partition referenced by fstab's mountTarget entry under
+// rootDir/mountSubdir read-only. Returns nil mount when fstab has no entry for mountTarget or its
+// source is not a resolvable disk-partition identifier (e.g. /dev/mapper/* verity device).
+// mountFstabPartitionReadonly mounts the partition referenced by fstab for mountTarget under
+// rootDir/mountSubdir read-only. Returns nil mount when fstab has no entry covering mountTarget,
+// or its source is not a resolvable disk-partition identifier (e.g. /dev/mapper/* verity device).
+// Uses findBasicPartitionForPath to resolve the fstab entry to a disk partition.
+func mountFstabPartitionReadonly(rootDir string, mountTarget string, mountSubdir string,
+	fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
+) (*safemount.Mount, error) {
+	partition, _, err := findBasicPartitionForPath(mountTarget, fstabEntries, diskPartitions)
+	if err != nil {
+		// No fstab entry, or source is /dev/* (verity), or partition not found — not fatal.
+		return nil, nil
+	}
+
+	mountDir := filepath.Join(rootDir, mountSubdir)
+	// makeAndDeleteDir=false: the mount target (e.g. /usr, /usr/lib) is a directory that already
+	// exists inside the rootfs filesystem, which is mounted read-only at rootDir. Letting safemount
+	// try to remove it on close would fail with EROFS.
+	mount, err := safemount.NewMount(partition.Path, mountDir, partition.FileSystemType,
+		unix.MS_RDONLY, "", false /*makeAndDeleteDir*/)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mount %s partition (%s):\n%w", mountTarget, partition.Path, err)
+	}
+	return mount, nil
+}
+
 func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, ignoreOverlays bool,
+	buildDir string, ignoreOverlays bool, distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -366,7 +480,7 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 			return kernelCmdline, nil
 		}
 
-		kernelCmdline, err = extractKernelCmdline(fstabEntries, diskPartitions, buildDir)
+		kernelCmdline, err = extractKernelCmdline(fstabEntries, diskPartitions, buildDir, distroHandler)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read kernel cmdline:\n%w", err)
 		}
@@ -710,16 +824,16 @@ func findVerityPartitionsFromCmdline(partitions []diskutils.PartitionInfo, cmdli
 }
 
 func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string,
+	buildDir string, distroHandler DistroHandler,
 ) ([]grubConfigLinuxArg, error) {
 	bootDirPartition, bootDirPath, err := findBasicPartitionForPath("/boot", fstabEntries, diskPartitions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find /boot partition:\n%w", err)
 	}
 
-	cmdline, found, err := extractKernelCmdlineFromGrub(bootDirPartition, bootDirPath, buildDir)
+	cmdline, found, err := extractKernelCmdlineHelper(bootDirPartition, bootDirPath, buildDir, distroHandler)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract kernel arguments from grub.cfg:\n%w", err)
+		return nil, fmt.Errorf("failed to extract kernel arguments from boot config:\n%w", err)
 	}
 	if found {
 		return cmdline, nil
@@ -734,7 +848,7 @@ func extractKernelCmdline(fstabEntries []diskutils.FstabEntry, diskPartitions []
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel arguments from UKI:\n%w", err)
 	} else if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
+		return nil, fmt.Errorf("no kernel arguments found from either boot config or UKI")
 	}
 
 	return cmdline, nil
@@ -950,8 +1064,8 @@ func extractCmdlineFromSinglePE(originalPath, buildDir string) (string, error) {
 	return string(content), nil
 }
 
-func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDirPath string,
-	buildDir string,
+func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPath string, buildDir string,
+	distroHandler DistroHandler,
 ) ([]grubConfigLinuxArg, bool, error) {
 	tmpDirBoot := filepath.Join(buildDir, tmpBootPartitionDirName)
 	bootPartitionMount, err := safemount.NewMount(bootPartition.Path, tmpDirBoot, bootPartition.FileSystemType,
@@ -961,23 +1075,30 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgPath := filepath.Join(tmpDirBoot, bootDirPath, DefaultGrubCfgPath)
-	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
+	var kernelToArgs map[string][]grubConfigLinuxArg
+	bootDir := filepath.Join(tmpDirBoot, bootDirPath)
+	if distroHandler != nil {
+		kernelToArgs, err = distroHandler.ReadGrubConfigLinuxArgs(bootDir)
+	} else {
+		// Best-effort attempt to read the kernel args if no distro handler is available.
+		kernelToArgs, err = readGrubConfigLinuxArgsBestEffort(bootDir)
+	}
+
 	if err != nil {
-		// Check if the error is because grub.cfg doesn't exist
+		// Check if the error is because the boot config doesn't exist.
 		if errors.Is(err, fs.ErrNotExist) {
 			closeErr := bootPartitionMount.CleanClose()
 			if closeErr != nil {
-				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing grub.cfg:\n%w", closeErr)
+				return nil, false, fmt.Errorf("failed to close bootPartitionMount after missing boot config:\n%w", closeErr)
 			}
 			return nil, false, nil
 		}
-		// For other errors, attempt cleanup and return the error
+		// For other errors, attempt cleanup and return the error.
 		closeErr := bootPartitionMount.CleanClose()
 		if closeErr != nil {
 			return nil, false, fmt.Errorf("failed to close bootPartitionMount (original error: %v):\n%w", err, closeErr)
 		}
-		return nil, false, fmt.Errorf("failed to read grub.cfg:\n%w", err)
+		return nil, false, fmt.Errorf("failed to read boot config:\n%w", err)
 	}
 
 	err = bootPartitionMount.CleanClose()
@@ -991,22 +1112,45 @@ func extractKernelCmdlineFromGrub(bootPartition diskutils.PartitionInfo, bootDir
 		return args, true, nil
 	}
 
-	return nil, false, fmt.Errorf("no kernel args found in grub.cfg file")
+	return nil, false, fmt.Errorf("no kernel args found in boot config")
 }
 
-// Extracts the kernel args for each kernel from the grub.cfg file.
-// Returns a mapping from kernel version to list of kernel args.
-func extractKernelCmdlineFromGrubFile(grubCfgPath string) (map[string][]grubConfigLinuxArg, error) {
-	grubCfgContent, err := file.Read(grubCfgPath)
+// readGrubConfigLinuxArgsBestEffort probes a boot directory for a kernel command-line source
+// when no DistroHandler is available (e.g. os-release was not detectable on a USR-verity image).
+func readGrubConfigLinuxArgsBestEffort(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	grubCfgFile, err := installutils.FindGrubCfgFile(bootDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+		return nil, err
 	}
 
-	lines, err := FindNonRecoveryLinuxLine(grubCfgContent)
+	grubCfgContent, err := file.Read(grubCfgFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find linux command lines in grub.cfg:\n%w", err)
+		return nil, fmt.Errorf("failed to read grub.cfg (%s):\n%w", grubCfgFile, err)
 	}
 
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize grub.cfg (%s):\n%w", grubCfgFile, err)
+	}
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+
+	usesBLS := FindBlsCfg(grubLines)
+	linuxLines := FindNonRecoveryLinuxLines(grubLines)
+	if usesBLS {
+		if len(linuxLines) > 0 {
+			return nil, fmt.Errorf("found non-recovery linux lines in grub.cfg but also found BLS enablement, which is unsupported")
+		}
+		return readKernelCmdlinesFromBLSEntries(bootDir)
+	}
+	if len(linuxLines) == 0 {
+		return nil, fmt.Errorf("no non-recovery linux command lines or BLS enablement found in grub.cfg")
+	}
+	return formatKernelCmdlineFromLinuxLines(linuxLines)
+}
+
+// formatKernelCmdlineFromLinuxLines converts a list of `linux` grub.cfg command lines (already filtered)
+// into the kernel-to-args map format.
+func formatKernelCmdlineFromLinuxLines(lines []grub.Line) (map[string][]grubConfigLinuxArg, error) {
 	kernelToArgs := make(map[string][]grubConfigLinuxArg)
 	for _, line := range lines {
 		if len(line.Tokens) < 3 {
