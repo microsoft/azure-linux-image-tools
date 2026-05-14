@@ -35,12 +35,6 @@ func (pm *tdnfPackageManager) getCacheOnlyOptions() []string {
 	return nil // TDNF doesn't need additional cache options
 }
 
-// getRefreshMetadataOptions returns TDNF-specific options for the metadata refresh command.
-func (pm *tdnfPackageManager) getRefreshMetadataOptions() []string {
-	// TDNF already treats failures to fetch repo metadata as fatal.
-	return nil
-}
-
 // supportsSnapshotTime returns whether TDNF supports snapshot time functionality
 func (pm *tdnfPackageManager) supportsSnapshotTime() bool {
 	return true // TDNF supports snapshot time for Azure Linux
