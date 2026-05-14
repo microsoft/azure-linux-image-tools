@@ -102,12 +102,14 @@ func (d *fedoraDistroHandler) GetSELinuxConfigFile() string {
 	return selinuxConfigFileDefault
 }
 
-func (d *fedoraDistroHandler) IsSELinuxConfigFileReadOnly() bool {
-	return false
+func (d *fedoraDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
-func (d *fedoraDistroHandler) AllowsMissingUkiAddon() bool {
-	return false
+func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
 func (d *fedoraDistroHandler) PreserveBootDirLayout() bool {
