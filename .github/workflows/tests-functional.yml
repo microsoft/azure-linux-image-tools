@@ -68,6 +68,14 @@ jobs:
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
 
+    - name: Patch ukify (AZL3)
+      if: inputs.hostDistro == 'azl3'
+      run: |
+        set -eux
+
+        UKIFY_PATH=$(which ukify)
+        sudo patch "$UKIFY_PATH" ./repo/.github/workflows/scripts/ukify-fix-insertion-of-padding-in-merged-sections.patch
+
     - name: Install prerequisites (Ubuntu 24.04)
       if: inputs.hostDistro == 'ubuntu2404'
       run: |

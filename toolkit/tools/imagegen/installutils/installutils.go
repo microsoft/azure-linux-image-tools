@@ -4,6 +4,7 @@
 package installutils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,11 +65,19 @@ const (
 	// SELinuxConfigDisabled is the string value to set SELinux to disabled in the /etc/selinux/config file.
 	SELinuxConfigDisabled = "disabled"
 
+	// FedoraGrubCfgRelPath is the path to the grub config file on Fedora and Azure Linux systems,
+	// relative to the /boot directory.
+	FedoraGrubCfgRelPath = "grub2/grub.cfg"
+
+	// DebianGrubCfgRelPath is the path to the grub config file on Debian and Ubuntu systems,
+	// relative to the /boot directory.
+	DebianGrubCfgRelPath = "grub/grub.cfg"
+
 	// FedoraGrubCfgFile is the filepath of the grub config file on Fedora and Azure Linux systems.
-	FedoraGrubCfgFile = "/boot/grub2/grub.cfg"
+	FedoraGrubCfgFile = "/boot/" + FedoraGrubCfgRelPath
 
 	// DebianGrubCfgFile is the filepath of the grub config file on Debian and Ubuntu systems.
-	DebianGrubCfgFile = "/boot/grub/grub.cfg"
+	DebianGrubCfgFile = "/boot/" + DebianGrubCfgRelPath
 
 	// FedoraGrubDir is the grub directory on Fedora and Azure Linux systems.
 	FedoraGrubDir = "/boot/grub2"
@@ -118,6 +127,27 @@ var (
 		"EFI/BOOT",
 	}
 )
+
+// FindGrubCfgFile returns the bootDir-relative path to the first grub.cfg file that exists
+// under bootDir. This should only be used in cases where we cannot determine the right DistroHandler ahead of time.
+func FindGrubCfgFile(bootDir string) (string, error) {
+	grubCfgRelPaths := []string{
+		FedoraGrubCfgRelPath,
+		DebianGrubCfgRelPath,
+	}
+
+	for _, relPath := range grubCfgRelPaths {
+		absPath := filepath.Join(bootDir, relPath)
+		_, err := os.Stat(absPath)
+		if err == nil {
+			return absPath, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("failed to stat grub config file (%s):\n%w", absPath, err)
+		}
+	}
+	return "", fmt.Errorf("no grub config file found under (%s): %w", bootDir, os.ErrNotExist)
+}
 
 // CreateMountPointPartitionMap creates a map between the mountpoint supplied in the config file and the device path
 // of the partition
@@ -575,7 +605,12 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
 	ReportActionf("Running %s...", FedoraGrubMkconfigBinary)
 
-	return shell.NewExecBuilder(FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
+	// Force-disable os-prober. grub2-mkconfig is run inside an image-customization
+	// chroot that has the host's /dev bind-mounted; without this, /etc/grub.d/30_os-prober
+	// would enumerate the build host's disks and inject menuentries pointing at the
+	// host's kernels and partitions into the customized image's grub.cfg. Set via env
+	// so the protection applies regardless of /etc/default/grub state in the target image.
+	return shell.NewExecBuilder("env", "GRUB_DISABLE_OS_PROBER=true", FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		Chroot(installChroot.ChrootDir()).
 		Execute()
@@ -786,7 +821,14 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 	selinuxType := strings.TrimSpace(stdout)
 	fileContextPath := fmt.Sprintf(fileContextBasePath, selinuxType)
 
-	targetRootPath := "/mnt/_bindmountroot"
+	// The bind-mount holder must live somewhere that:
+	//   1. is guaranteed writable inside the chroot, and
+	//   2. cannot be hidden by an entry in the image's /etc/fstab
+	//      (e.g. an Azure data-disk placeholder mounted read-only at /mnt during customization).
+	// `/run` is added by safechroot as a fresh tmpfs (RW) on every chroot, and
+	// `getNonSpecialChrootMountPoints` already excludes it from the relabel set,
+	// so it is the safe choice.
+	targetRootPath := "/run/_bindmountroot"
 	targetRootFullPath := filepath.Join(installChroot.RootDir(), targetRootPath)
 
 	for _, mountToLabel := range listOfMountsToLabel {

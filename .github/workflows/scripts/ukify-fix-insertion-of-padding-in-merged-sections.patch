@@ -1,0 +1,30 @@
+From c66a29f6f7b070bc653bce88e14fc5296e226768 Mon Sep 17 00:00:00 2001
+From: Vince Perri <5596945+vinceaperri@users.noreply.github.com>
+Date: Tue, 21 Apr 2026 22:46:42 +0000
+Subject: [PATCH] ukify: fix insertion of padding in merged sections
+
+Original patch:
+https://github.com/systemd/systemd/commit/ec1d031f3de02f84beca89e2b402d085fba62be4
+
+---
+ ukify | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/ukify b/ukify
+index 7f9d6e6..232ebe4 100755
+--- a/ukify
++++ b/ukify
+@@ -618,9 +618,8 @@ def pe_add_sections(uki: UKI, output: str):
+                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
+                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
+ 
+-                padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
++                padding = bytes(s.SizeOfRawData - new_section.Misc_VirtualSize)
+                 pe.__data__ = pe.__data__[:s.PointerToRawData] + data + padding + pe.__data__[pe.sections[i+1].PointerToRawData:]
+-                s.SizeOfRawData = new_section.SizeOfRawData
+                 s.Misc_VirtualSize = new_section.Misc_VirtualSize
+                 break
+         else:
+-- 
+2.45.4
+

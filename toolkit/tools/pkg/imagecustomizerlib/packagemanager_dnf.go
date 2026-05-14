@@ -34,6 +34,13 @@ func (pm *dnfPackageManager) getCacheOnlyOptions() []string {
 	return []string{"--setopt=cacheonly=metadata"}
 }
 
+// getRefreshMetadataOptions returns DNF-specific options for the metadata refresh command.
+func (pm *dnfPackageManager) getRefreshMetadataOptions() []string {
+	// By default DNF skips repos whose metadata cannot be fetched. Override that so a bad repo
+	// causes refresh to fail, matching TDNF behavior.
+	return []string{"--setopt=skip_if_unavailable=False"}
+}
+
 // supportsSnapshotTime returns whether DNF supports snapshot time functionality
 func (pm *dnfPackageManager) supportsSnapshotTime() bool {
 	return false // DNF does not support snapshot time for Fedora
@@ -181,7 +188,9 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	err := shell.NewExecBuilder("dnf", "info", "--installed", packageName).
+	// dnf unconditionally opens /var/log/dnf.log for writing during info operations, so set logdir to a location we
+	// know is always writable, even in read-only chroots.
+	err := shell.NewExecBuilder("dnf", "info", "--setopt=logdir=/tmp", "--installed", packageName).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
 		Execute()
