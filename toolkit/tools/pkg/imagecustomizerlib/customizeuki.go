@@ -172,6 +172,20 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 	return nil
 }
 
+// defaultExtractUkiAddonCmdline extracts the cmdline from an IC-managed UKI addon.
+// Returns an error if the addon file does not exist — callers that support a
+// missing addon on first run should implement their own logic instead.
+func defaultExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	_, err := os.Stat(addonFilePath)
+	if os.IsNotExist(err) {
+		return "", fmt.Errorf("IC addon not found at (%s): expected addon file is missing", addonFilePath)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, err)
+	}
+	return extractCmdlineFromSinglePE(addonFilePath, buildDir)
+}
+
 // extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
 func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
@@ -192,22 +206,9 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
 		addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
 
-		var cmdline string
-		_, statErr := os.Stat(addonFilePath)
-		if statErr == nil {
-			cmdline, err = extractCmdlineFromSinglePE(addonFilePath, buildDir)
-			if err != nil {
-				return fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
-			}
-		} else if os.IsNotExist(statErr) {
-			if !distroHandler.AllowsMissingUkiAddon() {
-				return fmt.Errorf("IC addon not found at (%s): expected addon file is missing", addonFilePath)
-			}
-			// No IC-managed addon yet (e.g., ACL has only oem/firstboot addons on first run).
-			// Start with empty cmdline; modifyUkiAddon will create the addon.
-			logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)
-		} else {
-			return fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
+		cmdline, err := distroHandler.ExtractUkiAddonCmdline(addonFilePath, buildDir)
+		if err != nil {
+			return err
 		}
 
 		// In modify mode, we don't have initramfs info, so leave it empty

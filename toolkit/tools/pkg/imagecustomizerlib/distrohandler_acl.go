@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"slices"
 
 	"github.com/sirupsen/logrus"
@@ -110,16 +111,27 @@ func (d *aclDistroHandler) GetSELinuxConfigFile() string {
 	return "usr/share/distro/etc/selinux/config"
 }
 
-func (d *aclDistroHandler) IsSELinuxConfigFileReadOnly() bool {
-	// ACL's /usr is a btrfs+dm-verity volume and is always mounted read-only,
-	// so the SELinux config file cannot be written during image customization.
-	return true
+func (d *aclDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	// ACL's /usr is a btrfs+dm-verity volume and is always mounted read-only.
+	// The SELinux mode is applied solely via the kernel command line; skip the file update.
+	logger.Log.Debugf("Skipping SELinux config file update: /usr is read-only on ACL")
+	return nil
 }
 
-func (d *aclDistroHandler) AllowsMissingUkiAddon() bool {
-	// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
-	// A missing addon is valid — IC will create it from scratch.
-	return true
+func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	_, statErr := os.Stat(addonFilePath)
+	if statErr == nil {
+		return extractCmdlineFromSinglePE(addonFilePath, buildDir)
+	}
+	if os.IsNotExist(statErr) {
+		// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
+		// Start with empty cmdline; modifyUkiAddon will create the addon.
+		logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)
+		return "", nil
+	}
+	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
 }
 
 func (d *aclDistroHandler) PreserveBootDirLayout() bool {

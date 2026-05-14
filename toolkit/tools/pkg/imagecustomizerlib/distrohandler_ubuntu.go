@@ -122,12 +122,14 @@ func (d *ubuntuDistroHandler) GetSELinuxConfigFile() string {
 	return selinuxConfigFileDefault
 }
 
-func (d *ubuntuDistroHandler) IsSELinuxConfigFileReadOnly() bool {
-	return false
+func (d *ubuntuDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
 }
 
-func (d *ubuntuDistroHandler) AllowsMissingUkiAddon() bool {
-	return false
+func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
 func (d *ubuntuDistroHandler) PreserveBootDirLayout() bool {

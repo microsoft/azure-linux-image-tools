@@ -63,16 +63,17 @@ type DistroHandler interface {
 	// file relative to the image root.
 	GetSELinuxConfigFile() string
 
-	// IsSELinuxConfigFileReadOnly reports whether the SELinux config file lives
-	// on a read-only partition and cannot be written during image customization.
-	// When true, SELinux mode must be applied via the kernel command line only.
-	IsSELinuxConfigFileReadOnly() bool
+	// UpdateSELinuxConfigFile writes the given SELinux mode to the distro's
+	// SELinux config file. Implementations may no-op when the config file
+	// resides on a read-only partition (e.g. dm-verity /usr on ACL), since
+	// the mode is already applied via the kernel command line in that case.
+	UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface) error
 
-	// AllowsMissingUkiAddon reports whether it is valid for the IC-managed UKI
-	// addon to be absent on the first customization run. When true, a missing
-	// addon results in an empty base cmdline and the addon is created from scratch.
-	// When false, a missing addon is an error (invalid image state).
-	AllowsMissingUkiAddon() bool
+	// ExtractUkiAddonCmdline returns the current kernel command line from the
+	// IC-managed UKI addon at addonFilePath. If the addon does not yet exist,
+	// distros that support a first-run addon-creation flow (e.g. ACL) return an
+	// empty string; all other distros return an error.
+	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
 
 	// PreserveBootDirLayout reports whether /boot is the ESP itself.
 	// When true, cleanBootDirectory only removes kernel/initramfs files and preserves all directories.
