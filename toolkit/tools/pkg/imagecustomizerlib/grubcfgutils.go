@@ -766,21 +766,22 @@ func getSELinuxModeFromLinuxArgsDeferIfMissing(args []grubConfigLinuxArg) (image
 	return imagecustomizerapi.SELinuxModeDisabled, nil
 }
 
-// Gets the SELinux mode set by the /etc/selinux/config file.
-func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (imagecustomizerapi.SELinuxMode, error) {
-	selinuxConfigFilePath := filepath.Join(imageChroot.RootDir(), installutils.SELinuxConfigFile)
+// Gets the SELinux mode set by the SELinux config file.
+func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (imagecustomizerapi.SELinuxMode, error) {
+	selinuxConfigFile := distroHandler.GetSELinuxConfigFile()
+	selinuxConfigFilePath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 
 	// Read the SELinux config file.
 	selinuxConfig, err := file.Read(selinuxConfigFilePath)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to read SELinux config file (%s):\n%w",
-			installutils.SELinuxConfigFile, err)
+			selinuxConfigFile, err)
 	}
 
 	match := selinuxConfigModeRegex.FindStringSubmatch(selinuxConfig)
 	if match == nil {
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("failed to find SELinux mode in (%s) file",
-			installutils.SELinuxConfigFile)
+			selinuxConfigFile)
 	}
 
 	selinuxConfigMode := match[selinuxConfigModeRegexSELinuxMode]
@@ -797,7 +798,7 @@ func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface) (image
 
 	default:
 		return imagecustomizerapi.SELinuxModeDefault, fmt.Errorf("unknown SELinux mode (%s) found in (%s) file",
-			selinuxConfigMode, installutils.SELinuxConfigFile)
+			selinuxConfigMode, selinuxConfigFile)
 	}
 }
 

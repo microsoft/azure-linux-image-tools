@@ -172,6 +172,20 @@ func validateUkiMode(imageConnection *imageconnection.ImageConnection, uki *imag
 	return nil
 }
 
+// defaultExtractUkiAddonCmdline extracts the cmdline from an IC-managed UKI addon.
+// Returns an error if the addon file does not exist — callers that support a
+// missing addon on first run should implement their own logic instead.
+func defaultExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	_, err := os.Stat(addonFilePath)
+	if os.IsNotExist(err) {
+		return "", fmt.Errorf("IC addon not found at (%s): expected addon file is missing", addonFilePath)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, err)
+	}
+	return extractCmdlineFromSinglePE(addonFilePath, buildDir)
+}
+
 // extractAndSaveUkiCmdline extracts the kernel cmdline from existing UKI addons and saves them to uki-kernel-info.json.
 func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
@@ -192,13 +206,9 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 		addonDirPath := filepath.Join(filepath.Dir(ukiFile), fmt.Sprintf("%s.extra.d", ukiFileName))
 		addonFilePath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
 
-		if _, err := os.Stat(addonFilePath); os.IsNotExist(err) {
-			return fmt.Errorf("addon file does not exist: %s", addonFilePath)
-		}
-
-		cmdline, err := extractCmdlineFromSinglePE(addonFilePath, buildDir)
+		cmdline, err := distroHandler.ExtractUkiAddonCmdline(addonFilePath, buildDir)
 		if err != nil {
-			return fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
+			return err
 		}
 
 		// In modify mode, we don't have initramfs info, so leave it empty
@@ -318,13 +328,31 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
 
-	// Combine kernel-to-initramfs mapping and kernel command line arguments into a single structure.
+	// Combine kernel-to-initramfs mapping and kernel command line arguments.
+	// Prefer existing uki-kernel-info.json (may have been modified by handleBootLoader/handleSELinux).
+	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
+	existingKernelInfo, existErr := readUkiKernelInfoFile(cmdlineFilePath)
+
 	kernelInfo := make(map[string]UkiKernelInfo)
 
 	for kernel, initramfs := range kernelToInitramfs {
-		cmdline, exists := kernelToArgs[kernel]
-		if !exists {
-			return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+		var cmdline string
+		if existErr == nil {
+			if existingInfo, ok := existingKernelInfo[kernel]; ok {
+				cmdline = existingInfo.Cmdline
+			} else {
+				var exists bool
+				cmdline, exists = kernelToArgs[kernel]
+				if !exists {
+					return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+				}
+			}
+		} else {
+			var exists bool
+			cmdline, exists = kernelToArgs[kernel]
+			if !exists {
+				return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
+			}
 		}
 
 		kernelInfo[kernel] = UkiKernelInfo{
@@ -334,7 +362,6 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	}
 
 	// Dump kernel information to a file in buildDir.
-	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 	err = writeUkiKernelInfoFile(cmdlineFilePath, kernelInfo)
 	if err != nil {
 		return fmt.Errorf("%w (path='%s'):\n%w", ErrUKICmdlineFileWrite, cmdlineFilePath, err)
@@ -382,15 +409,33 @@ func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error
 func copyUkiFiles(buildDir string, kernelToInitramfs map[string]string, imageChroot *safechroot.Chroot,
 	bootConfig BootFilesArchConfig, uki *imagecustomizerapi.Uki,
 ) error {
+	// Resolve the EFI stub path
+	efiStubSrc := filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath)
+	if _, err := os.Stat(efiStubSrc); err != nil {
+		return fmt.Errorf("UKI EFI stub not found at %s:\n%w", bootConfig.ukiEfiStubBinaryPath, err)
+	}
+
+	// Resolve the addon stub path, falling back to the main EFI stub
+	addonStubSrc := filepath.Join(imageChroot.RootDir(), bootConfig.ukiAddonStubBinaryPath)
+	if _, err := os.Stat(addonStubSrc); err != nil {
+		logger.Log.Infof("UKI addon stub not found at %s, using main EFI stub as fallback", bootConfig.ukiAddonStubBinaryPath)
+		addonStubSrc = efiStubSrc
+	}
+
 	// Both create and modify modes need the stub files
 	filesToCopy := map[string]string{
-		filepath.Join(imageChroot.RootDir(), bootConfig.ukiEfiStubBinaryPath):   filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
-		filepath.Join(imageChroot.RootDir(), bootConfig.ukiAddonStubBinaryPath): filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiAddonStubBinary),
+		efiStubSrc:   filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiEfiStubBinary),
+		addonStubSrc: filepath.Join(buildDir, UkiBuildDir, bootConfig.ukiAddonStubBinary),
 	}
 
 	// Create mode needs additional files (os-release, kernels, initramfs)
 	if uki == nil || uki.Mode != imagecustomizerapi.UkiModeModify {
-		filesToCopy[filepath.Join(imageChroot.RootDir(), "/etc/os-release")] = filepath.Join(buildDir, UkiBuildDir, "os-release")
+		// Try /etc/os-release first, then fall back to /usr/lib/os-release.
+		osReleaseSrc := filepath.Join(imageChroot.RootDir(), "/etc/os-release")
+		if _, err := os.Stat(osReleaseSrc); err != nil {
+			osReleaseSrc = filepath.Join(imageChroot.RootDir(), "/usr/lib/os-release")
+		}
+		filesToCopy[osReleaseSrc] = filepath.Join(buildDir, UkiBuildDir, "os-release")
 
 		for kernel, initramfs := range kernelToInitramfs {
 			kernelSource := filepath.Join(imageChroot.RootDir(), BootDir, kernel)
@@ -554,6 +599,11 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	addonDirPath := filepath.Join(filepath.Dir(ukiFilePath), fmt.Sprintf("%s.extra.d", ukiFileName))
 	addonFullPath := filepath.Join(addonDirPath, fmt.Sprintf("%s.addon.efi", kernelName))
 
+	err = os.MkdirAll(addonDirPath, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create addon directory (%s):\n%w", addonDirPath, err)
+	}
+
 	ukifyCmd := []string{
 		"build",
 		fmt.Sprintf("--cmdline=%s", modifiedCmdline),
@@ -626,6 +676,11 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	err = cleanUkiDirectory(ukiOutputFullPath)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKICleanOldFiles, err)
+	}
+
+	err = os.MkdirAll(ukiOutputFullPath, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create UKI output directory (%s):\n%w", ukiOutputFullPath, err)
 	}
 
 	stubPath := filepath.Join(rc.BuildDirAbs, UkiBuildDir, bootConfig.ukiEfiStubBinary)
@@ -1068,19 +1123,29 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		logger.Log.Infof("Successfully extracted kernel and initramfs for version (%s)", kernelVersion)
 	}
 
-	// Regenerate grub.cfg now that kernels are in /boot
-	logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
-
-	// Ensure /boot/grub2 directory exists
-	grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
-	err = os.MkdirAll(grubDir, 0o755)
+	// Regenerate grub.cfg now that kernels are in /boot.
+	// Only needed for GRUB-based distros; systemd-boot distros skip this.
+	bootloaderType, err := distroHandler.DetectBootloaderType(imageChroot)
 	if err != nil {
-		return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+		return fmt.Errorf("failed to detect bootloader type:\n%w", err)
 	}
 
-	err = installutils.CallGrubMkconfig(imageChroot)
-	if err != nil {
-		return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
+	if bootloaderType == BootloaderTypeGrub {
+		logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
+
+		// Ensure /boot/grub2 directory exists
+		grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
+		err = os.MkdirAll(grubDir, 0o755)
+		if err != nil {
+			return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
+		}
+
+		err = installutils.CallGrubMkconfig(imageChroot)
+		if err != nil {
+			return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
+		}
+	} else {
+		logger.Log.Infof("Skipping grub.cfg regeneration (non-GRUB bootloader)")
 	}
 
 	return nil
@@ -1139,6 +1204,23 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot, distroHandler DistroHand
 
 		if entryPath == espPath || entry.Name() == "lost+found" {
 			continue
+		}
+
+		// Some distros (e.g. ACL) mount the ESP directly at /boot, so /boot IS
+		// the ESP. In that case, preserve all directories and non-kernel files —
+		// only delete standalone kernel images and initramfs archives that would
+		// normally live directly in /boot on traditional distros.
+		if distroHandler.PreserveBootDirLayout() {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			isKernelOrInitramfs := strings.HasPrefix(name, "vmlinuz-") ||
+				strings.HasPrefix(name, "initramfs-") ||
+				strings.HasPrefix(name, "initrd-")
+			if !isKernelOrInitramfs {
+				continue
+			}
 		}
 
 		err := os.RemoveAll(entryPath)

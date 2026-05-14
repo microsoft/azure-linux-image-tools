@@ -118,6 +118,24 @@ func (d *ubuntuDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
+func (d *ubuntuDistroHandler) GetSELinuxConfigFile() string {
+	return selinuxConfigFileDefault
+}
+
+func (d *ubuntuDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
+}
+
+func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
+}
+
+func (d *ubuntuDistroHandler) PreserveBootDirLayout() bool {
+	return false
+}
+
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {
 	return false
 }

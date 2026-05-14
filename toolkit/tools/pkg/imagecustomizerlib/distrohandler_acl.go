@@ -7,11 +7,16 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"path/filepath"
+	"os"
+	"slices"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
@@ -32,8 +37,9 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	// ACL Phase 0: only mount/recognize/passthrough is supported.
-	// Block operations that would fail with confusing errors later.
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAzureContainerLinux3) {
+		return ErrAzureContainerLinux3PreviewFeatureRequired
+	}
 
 	if rc.Storage.CustomizePartitions() {
 		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
@@ -43,12 +49,23 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		return fmt.Errorf("bootloader hard-reset is not supported on ACL (ACL uses systemd-boot, not GRUB)")
 	}
 
-	if rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough {
-		return fmt.Errorf("only UKI passthrough mode is currently supported for ACL (got %q)", rc.Uki.Mode)
-	}
+	for _, configWithBase := range rc.ConfigChain {
+		os := configWithBase.Config.OS
+		if os == nil {
+			continue
+		}
 
-	if len(rc.OsKernelCommandLine.ExtraCommandLine) > 0 {
-		return fmt.Errorf("kernel command line modification is not yet supported for ACL")
+		pkgs := os.Packages
+		if len(pkgs.Install) > 0 || len(pkgs.InstallLists) > 0 ||
+			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
+			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
+			pkgs.UpdateExistingPackages {
+			return fmt.Errorf("package operations are not yet supported for ACL")
+		}
+
+		if os.Overlays != nil {
+			return fmt.Errorf("overlays are not yet supported for ACL")
+		}
 	}
 
 	return nil
@@ -80,7 +97,48 @@ func (d *aclDistroHandler) GetEspDir() string {
 }
 
 func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
-	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
+	// ACL does not use GRUB and the EFI System Partition IS the boot partition.
+	// Return an empty UUID to signal that the ESP itself is the boot partition.
+	return "", nil
+}
+
+func (d *aclDistroHandler) GetSELinuxConfigFile() string {
+	// ACL uses overlayfs for /etc. At runtime, /etc is composed from the
+	// immutable lowerdir and a writable upperdir on the ROOT ext4 partition.
+	// When IC mounts the partitions individually (no overlay), /etc/selinux/
+	// does not exist on the bare rootfs — the actual SELinux config lives in
+	// the overlay lowerdir.
+	return "usr/share/distro/etc/selinux/config"
+}
+
+func (d *aclDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	// ACL's /usr is a btrfs+dm-verity volume and is always mounted read-only.
+	// The SELinux mode is applied solely via the kernel command line; skip the file update.
+	logger.Log.Debugf("Skipping SELinux config file update: /usr is read-only on ACL")
+	return nil
+}
+
+func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	_, statErr := os.Stat(addonFilePath)
+	if statErr == nil {
+		return extractCmdlineFromSinglePE(addonFilePath, buildDir)
+	}
+	if os.IsNotExist(statErr) {
+		// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
+		// Start with empty cmdline; modifyUkiAddon will create the addon.
+		logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)
+		return "", nil
+	}
+	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
+}
+
+func (d *aclDistroHandler) PreserveBootDirLayout() bool {
+	// ACL mounts the ESP directly at /boot, so /boot IS the ESP.
+	// cleanBootDirectory must not delete any directories or unrecognized files
+	// from /boot — only kernel/initramfs file patterns may be removed.
+	return true
 }
 
 func (d *aclDistroHandler) SELinuxSupported() bool {
@@ -105,7 +163,21 @@ func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string,
 }
 
 func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
-	return fmt.Errorf("initramfs regeneration is not yet supported for ACL")
+	logger.Log.Infof("Regenerating initramfs for ACL")
+
+	ctx, span := startRegenerateInitramfsSpan(ctx)
+	defer span.End()
+
+	err := shell.NewExecBuilder("dracut", "--force", "--regenerate-all").
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		ErrorStderrLines(1).
+		Chroot(imageChroot.ChrootDir()).
+		Execute()
+	if err != nil {
+		return fmt.Errorf("failed to rebuild initramfs for ACL:\n%w", err)
+	}
+
+	return nil
 }
 
 func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
@@ -113,5 +185,5 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	return fmt.Errorf("bootloader configuration is not yet supported for ACL")
+	return fmt.Errorf("bootloader configuration is not supported on ACL (systemd-boot auto-discovers UKIs)")
 }

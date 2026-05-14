@@ -59,6 +59,26 @@ type DistroHandler interface {
 	// returns the UUID of the partition that contains the grub.cfg.
 	FindBootPartitionUuidFromEsp(espMountDir string) (string, error)
 
+	// GetSELinuxConfigFile returns the path to the SELinux configuration
+	// file relative to the image root.
+	GetSELinuxConfigFile() string
+
+	// UpdateSELinuxConfigFile writes the given SELinux mode to the distro's
+	// SELinux config file. Implementations may no-op when the config file
+	// resides on a read-only partition (e.g. dm-verity /usr on ACL), since
+	// the mode is already applied via the kernel command line in that case.
+	UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface) error
+
+	// ExtractUkiAddonCmdline returns the current kernel command line from the
+	// IC-managed UKI addon at addonFilePath. If the addon does not yet exist,
+	// distros that support a first-run addon-creation flow (e.g. ACL) return an
+	// empty string; all other distros return an error.
+	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
+
+	// PreserveBootDirLayout reports whether /boot is the ESP itself.
+	// When true, cleanBootDirectory only removes kernel/initramfs files and preserves all directories.
+	PreserveBootDirLayout() bool
+
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool
 
