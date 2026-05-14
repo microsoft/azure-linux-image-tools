@@ -610,7 +610,8 @@ func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
 	// would enumerate the build host's disks and inject menuentries pointing at the
 	// host's kernels and partitions into the customized image's grub.cfg. Set via env
 	// so the protection applies regardless of /etc/default/grub state in the target image.
-	return shell.NewExecBuilder("env", "GRUB_DISABLE_OS_PROBER=true", FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
+	return shell.NewExecBuilder(FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
+		EnvironmentVariables(append(os.Environ(), "GRUB_DISABLE_OS_PROBER=true")).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 		Chroot(installChroot.ChrootDir()).
 		Execute()
