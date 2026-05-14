@@ -14,7 +14,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -282,44 +281,33 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 	verityType string, extraCommandLine string, baseImageInfo testBaseImageInfo, corruptionOption string,
 	inlineVerity bool,
 ) {
-	// Extract kernel command line args.
-	grubCfgPath := filepath.Join(bootPath, "/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgPath)
+	distroHandler := NewDistroHandler(baseImageInfo.Distro, baseImageInfo.Version)
+	kernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootPath)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	argsRegexp := regexp.MustCompile(`(?m)^[\t ]*linux[\t ]*\S+[\t ]*(.*)$`)
-	matches := argsRegexp.FindAllStringSubmatch(grubCfgContents, -1)
-
 	kernelArgsList := []string(nil)
-	for _, match := range matches {
-		kernelArgsList = append(kernelArgsList, match[1])
+	for _, args := range grubKernelArgsToStringMap(kernelToArgs) {
+		kernelArgsList = append(kernelArgsList, args)
 	}
 
 	// Verify verity.
 	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption,
 		inlineVerity)
 
-	// Verity extra command line args.
-	recoveryCount := 0
-	if baseImageInfo.Version == baseImageVersionAzl3 {
-		// Count the number of recovery menu items there are.
-		// These menu items won't contain the extra command line args.
-		recoveryCount = strings.Count(grubCfgContents, "(recovery mode)")
-	}
-
+	// Verify extra command line args.
 	cmdlineRegexp := regexp.MustCompile(fmt.Sprintf(` %s( |$)`, regexp.QuoteMeta(extraCommandLine)))
 
 	// Count the number of linux lines contain the extra command line args.
-	extracCommandLineMatchCount := 0
+	extraCommandLineMatchCount := 0
 	for _, kernelArgs := range kernelArgsList {
 		if cmdlineRegexp.MatchString(kernelArgs) {
-			extracCommandLineMatchCount += 1
+			extraCommandLineMatchCount += 1
 		}
 	}
 
-	assert.Equal(t, len(kernelArgsList)-recoveryCount, extracCommandLineMatchCount)
+	assert.Equal(t, len(kernelArgsList), extraCommandLineMatchCount)
 }
 
 func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
@@ -1125,9 +1113,6 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
 	}
 
 	testTempDir := filepath.Join(tmpDir, testName)

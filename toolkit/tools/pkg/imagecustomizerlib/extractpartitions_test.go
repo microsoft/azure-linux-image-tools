@@ -550,10 +550,6 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
 	defer os.RemoveAll(testTempDir)
 
@@ -743,10 +739,6 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 	var err error
 
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageFstabDelete")
 	defer os.RemoveAll(testTempDir)

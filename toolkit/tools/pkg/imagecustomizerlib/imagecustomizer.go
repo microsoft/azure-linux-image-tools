@@ -471,7 +471,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 
 	// Customize the partitions.
 	partitionsCustomized, newRawImageFile, partIdToPartUuid, err := customizePartitions(ctx, rc.BuildDirAbs,
-		rc.Storage, rc.RawImageFile, im.distroHandler.GetTargetOs())
+		rc.Storage, rc.RawImageFile, im.distroHandler)
 	if err != nil {
 		return im, err
 	}
@@ -521,7 +521,7 @@ func customizeOSContents(ctx context.Context, rc *ResolvedConfig) (imageMetadata
 	if len(verityMetadata) > 0 {
 		// Customize image for dm-verity, setting up verity metadata and security features.
 		err := customizeVerityImage(ctx, rc.BuildDirAbs, rc, rc.RawImageFile,
-			shrinkPartitions, verityMetadata, readonlyPartUuids, partitionsLayout)
+			shrinkPartitions, verityMetadata, readonlyPartUuids, partitionsLayout, im.distroHandler)
 		if err != nil {
 			return im, fmt.Errorf("%w:\n%w", ErrCustomizeProvisionVerity, err)
 		}
@@ -616,13 +616,13 @@ func convertWriteableFormatToOutputImage(ctx context.Context, rc *ResolvedConfig
 		if rebuildFullOsImage {
 			requestedSELinuxMode := rc.SELinux.Mode
 			err := createLiveOSFromRaw(ctx, rc.BuildDirAbs, inputIsoArtifacts, requestedSELinuxMode, rc.Iso, rc.Pxe,
-				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile)
+				rc.RawImageFile, rc.OutputImageFormat, rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
 		} else {
 			err := repackageLiveOS(rc.BuildDirAbs, rc.Iso, rc.Pxe, inputIsoArtifacts, rc.OutputImageFormat,
-				rc.OutputImageFile)
+				rc.OutputImageFile, im.distroHandler)
 			if err != nil {
 				return fmt.Errorf("%w:\n%w", ErrCreateLiveOSArtifacts, err)
 			}
@@ -704,7 +704,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false)
+		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -899,7 +899,7 @@ func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (DistroHandler, error) {
 	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
-		false /* read-only-verity */, false /* ignore-overlays */)
+		false /* read-only-verity */, false /* ignore-overlays */, nil /* distroHandler */)
 	if err != nil {
 		return nil, err
 	}

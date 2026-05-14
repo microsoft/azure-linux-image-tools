@@ -585,10 +585,6 @@ func TestCustomizeImagePackagesBadRepo(t *testing.T) {
 func testCustomizeImagePackagesBadRepoHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesBadRepo_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTmpDir)
 

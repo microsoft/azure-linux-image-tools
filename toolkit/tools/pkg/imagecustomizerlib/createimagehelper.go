@@ -29,7 +29,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile
 	defer toolsChroot.Close(false)
 
 	imageConnection, partitionsLayout, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
-		toolsRootImageDir, true, false, false, false)
+		toolsRootImageDir, true, false, false, false, distroHandler)
 	if err != nil {
 		return nil, "", err
 	}

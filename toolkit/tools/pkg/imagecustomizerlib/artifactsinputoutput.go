@@ -466,7 +466,7 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true)
+		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true, nil)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err

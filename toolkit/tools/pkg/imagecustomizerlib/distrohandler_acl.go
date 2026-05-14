@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -185,4 +186,30 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return fmt.Errorf("bootloader configuration is not supported on ACL (systemd-boot auto-discovers UKIs)")
+}
+
+func (d *aclDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromGrubCfg(bootDir, FedoraGrubCfgPath)
+}
+
+func (d *aclDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
+	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return grubKernelArgsToStringMap(kernelToArgs), nil
+}
+
+func (d *aclDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}
+
+func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
+	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
+	buildDir string, bootUuid string,
+) error {
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, FedoraGrubCfgPath)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
