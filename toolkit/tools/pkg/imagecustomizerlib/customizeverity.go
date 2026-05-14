@@ -287,70 +287,76 @@ func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir st
 }
 
 // updateBLSEntryOptions updates the options line in a BLS entry, removing old args and adding new ones.
+//
+// Implementation notes:
+//   - Uses the grub tokenizer so the reader (readKernelCmdlinesFromBLSEntries) and this
+//     writer share the same quoting/whitespace rules. This preserves quoted values like
+//     rd.cmdline="foo bar" across a remove/append round-trip instead of shredding them
+//     on whitespace.
+//   - Per BLS spec an entry may contain multiple "options" lines whose values are
+//     concatenated. argsToRemove is applied to every options line; newArgs is appended
+//     only to the last one (so re-runs converge instead of duplicating).
+//   - Each existing options line is replaced byte-for-byte at the source location of its
+//     tokens, so surrounding lines, comments, indentation and the trailing newline are
+//     preserved exactly.
+//   - If no options line exists, a new one is appended, matching the file's existing
+//     trailing-newline convention.
 func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) (string, error) {
-	lines := strings.Split(content, "\n")
-
-	// Find all options line indices so we can remove argsToRemove from all of them
-	// and append newArgs only to the last one (BLS spec allows multiple options lines
-	// whose values are concatenated).
-	var optionsLineIndices []int
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-
-		key, _, found := strings.Cut(trimmed, " ")
-		if !found {
-			key, _, found = strings.Cut(trimmed, "\t")
-		}
-		if !found {
-			return "", fmt.Errorf("malformed BLS entry line: %q", trimmed)
-		}
-		if strings.TrimSpace(key) == "options" {
-			optionsLineIndices = append(optionsLineIndices, i)
-		}
+	tokens, err := grub.TokenizeConfig(content)
+	if err != nil {
+		return "", fmt.Errorf("failed to tokenize BLS entry:\n%w", err)
 	}
 
-	for idx, lineIndex := range optionsLineIndices {
-		trimmed := strings.TrimSpace(lines[lineIndex])
-		_, value, _ := strings.Cut(trimmed, " ")
-		if value == "" {
-			_, value, _ = strings.Cut(trimmed, "\t")
+	lines := grub.SplitTokensIntoLines(tokens)
+	optionsLines := grub.FindCommandAll(lines, "options")
+
+	if len(optionsLines) == 0 {
+		newLine := "options"
+		if len(newArgs) > 0 {
+			newLine += " " + GrubArgsToString(newArgs)
+		}
+		if content != "" && !strings.HasSuffix(content, "\n") {
+			content = content + "\n"
+		}
+		return content + newLine + "\n", nil
+	}
+
+	result := content
+
+	// Splice in reverse order so earlier byte offsets in result remain valid as we make replacements.
+	for i := len(optionsLines) - 1; i >= 0; i-- {
+		line := optionsLines[i]
+
+		// line.Tokens[0] is the "options" keyword; the rest are the args.
+		args, err := ParseCommandLineArgs(line.Tokens[1:])
+		if err != nil {
+			return "", fmt.Errorf("failed to parse BLS options line:\n%w", err)
 		}
 
-		options := strings.TrimSpace(value)
-		var filteredTokens []string
-		for _, token := range strings.Fields(options) {
-			name, _, _ := strings.Cut(token, "=")
-			shouldRemove := false
-			for _, removeArg := range argsToRemove {
-				if name == removeArg {
-					shouldRemove = true
-					break
-				}
+		argStrings := make([]string, 0, len(args))
+		for _, arg := range args {
+			if slices.Contains(argsToRemove, arg.Name) {
+				continue
 			}
-			if !shouldRemove {
-				filteredTokens = append(filteredTokens, token)
-			}
+			argStrings = append(argStrings, arg.Arg)
 		}
 
 		// Append new args only to the last options line.
-		isLast := idx == len(optionsLineIndices)-1
-		if isLast {
-			filteredTokens = append(filteredTokens, newArgs...)
+		if i == len(optionsLines)-1 {
+			argStrings = append(argStrings, newArgs...)
 		}
 
-		lines[lineIndex] = "options " + strings.Join(filteredTokens, " ")
+		replacement := "options"
+		if len(argStrings) > 0 {
+			replacement += " " + GrubArgsToString(argStrings)
+		}
+
+		start := line.Tokens[0].Loc.Start.Index
+		end := line.Tokens[len(line.Tokens)-1].Loc.End.Index
+		result = result[:start] + replacement + result[end:]
 	}
 
-	// options is optional per BLS spec.
-	if len(optionsLineIndices) == 0 {
-		newLine := "options " + strings.Join(newArgs, " ")
-		lines = append(lines, newLine)
-	}
-
-	return strings.Join(lines, "\n"), nil
+	return result, nil
 }
 
 func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,
