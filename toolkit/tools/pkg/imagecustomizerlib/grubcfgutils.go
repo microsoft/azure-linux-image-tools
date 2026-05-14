@@ -768,7 +768,7 @@ func getSELinuxModeFromLinuxArgsDeferIfMissing(args []grubConfigLinuxArg) (image
 
 // Gets the SELinux mode set by the SELinux config file.
 func getSELinuxModeFromConfigFile(imageChroot safechroot.ChrootInterface, distroHandler DistroHandler) (imagecustomizerapi.SELinuxMode, error) {
-	selinuxConfigFile := filepath.Join(distroHandler.GetSELinuxConfigDir(), "config")
+	selinuxConfigFile := distroHandler.GetSELinuxConfigFile()
 	selinuxConfigFilePath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 
 	// Read the SELinux config file.

@@ -59,9 +59,20 @@ type DistroHandler interface {
 	// returns the UUID of the partition that contains the grub.cfg.
 	FindBootPartitionUuidFromEsp(espMountDir string) (string, error)
 
-	// GetSELinuxConfigDir returns the path to the SELinux configuration
-	// directory relative to the image root.
-	GetSELinuxConfigDir() string
+	// GetSELinuxConfigFile returns the path to the SELinux configuration
+	// file relative to the image root.
+	GetSELinuxConfigFile() string
+
+	// IsSELinuxConfigFileReadOnly reports whether the SELinux config file lives
+	// on a read-only partition and cannot be written during image customization.
+	// When true, SELinux mode must be applied via the kernel command line only.
+	IsSELinuxConfigFileReadOnly() bool
+
+	// AllowsMissingUkiAddon reports whether it is valid for the IC-managed UKI
+	// addon to be absent on the first customization run. When true, a missing
+	// addon results in an empty base cmdline and the addon is created from scratch.
+	// When false, a missing addon is an error (invalid image state).
+	AllowsMissingUkiAddon() bool
 
 	// PreserveBootDirLayout reports whether /boot is the ESP itself.
 	// When true, cleanBootDirectory only removes kernel/initramfs files and preserves all directories.
