@@ -10,7 +10,12 @@ import (
 const (
 	// Assets
 	AssetsGrubCfgFile = "assets/grub2/grub.cfg"
-	AssetsGrubDefFile = "assets/grub2/grub"
+
+	AssetsGrubDefFileAzl3  = "assets/azurelinux/azurelinux-3.0/grub2/grub"
+	AssetsGrubStubFileAzl3 = "assets/azurelinux/azurelinux-3.0/efi/grub/grub.cfg"
+
+	AssetsGrubDefFileAzl4  = "assets/azurelinux/azurelinux-4.0/grub2/grub"
+	AssetsGrubStubFileAzl4 = "assets/azurelinux/azurelinux-4.0/efi/grub/grub.cfg"
 
 	// Verity Signature Module Files
 	VerityMountBootPartitionSetupFile     = "verity-signature/90mountbootpartition/module-setup.sh"

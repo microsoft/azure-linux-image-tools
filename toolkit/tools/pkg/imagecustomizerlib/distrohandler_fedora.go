@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -140,5 +141,6 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, true /* forceGrubMkconfig */, d)
+		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl3,
+		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4)
 }

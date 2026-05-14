@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -179,6 +180,23 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	// And for new images, always use grub-mkconfig.
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
+	var assetGrubDefFile string
+	var assetGrubStubFile string
+	var grubStubDirs []string
+	switch d.version {
+	case "2.0", "3.0":
+		assetGrubDefFile = resources.AssetsGrubDefFileAzl3
+		assetGrubStubFile = resources.AssetsGrubStubFileAzl3
+		grubStubDirs = installutils.GrubStubDirsAzl3
+	case "4.0":
+		assetGrubDefFile = resources.AssetsGrubDefFileAzl4
+		assetGrubStubFile = resources.AssetsGrubStubFileAzl4
+		grubStubDirs = installutils.GrubStubDirsAzl4
+	default:
+		return fmt.Errorf("unsupported Azure Linux version: %s", d.version)
+	}
+
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig, d)
+		currentSELinuxMode, forceGrubMkconfig, d, assetGrubDefFile, installutils.FedoraGrubEnvRelPath,
+		assetGrubStubFile, grubStubDirs)
 }
