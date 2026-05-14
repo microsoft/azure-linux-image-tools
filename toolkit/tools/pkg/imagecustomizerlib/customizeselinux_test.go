@@ -28,10 +28,6 @@ func TestCustomizeImageSELinux(t *testing.T) {
 func testCustomizeImageSELinuxHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
 
@@ -127,10 +123,6 @@ func TestCustomizeImageSELinuxAndPartitions(t *testing.T) {
 
 func testCustomizeImageSELinuxAndPartitionsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)

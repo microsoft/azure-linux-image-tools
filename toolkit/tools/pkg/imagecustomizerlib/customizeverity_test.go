@@ -34,10 +34,6 @@ func TestCustomizeImageVerity(t *testing.T) {
 func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -126,10 +122,6 @@ func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 
 func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -425,10 +417,6 @@ func TestCustomizeImageVerityUsr(t *testing.T) {
 func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -507,10 +495,6 @@ func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
 func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -555,10 +539,6 @@ func TestCustomizeImageVerityReinitRoot(t *testing.T) {
 
 func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -608,10 +588,6 @@ func TestCustomizeImageVerityReinitUsr(t *testing.T) {
 
 func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -734,10 +710,6 @@ func TestCustomizeImageVerityBtrfsRoot(t *testing.T) {
 func testCustomizeImageVerityBtrfsRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -777,10 +749,6 @@ func TestCustomizeImageVerityBtrfsNoSubvolumes(t *testing.T) {
 
 func testCustomizeImageVerityBtrfsNoSubvolumesHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -910,10 +878,6 @@ func TestCustomizeImageVerityRootInline(t *testing.T) {
 func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -1012,10 +976,6 @@ func TestCustomizeImageVerityUsrInline(t *testing.T) {
 
 func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
