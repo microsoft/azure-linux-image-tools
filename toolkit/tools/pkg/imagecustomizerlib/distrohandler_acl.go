@@ -10,8 +10,6 @@ import (
 	"os"
 	"slices"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -19,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/sirupsen/logrus"
 )
 
 // aclDistroHandler implements DistroHandler for Azure Container Linux (ACL).
@@ -100,7 +99,8 @@ func (d *aclDistroHandler) GetEspDir() string {
 func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
 	// ACL does not use GRUB and the EFI System Partition IS the boot partition.
 	// Return an empty UUID to signal that the ESP itself is the boot partition.
-	return "", nil
+	// See comment in ReadGrub2ConfigFile.
+	return "", fs.ErrNotExist
 }
 
 func (d *aclDistroHandler) GetSELinuxConfigFile() string {
@@ -156,10 +156,9 @@ func (d *aclDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInte
 	return "", fs.ErrNotExist
 }
 
-func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string,
-	imageChroot safechroot.ChrootInterface,
-) error {
-	return fmt.Errorf("GRUB is not supported on ACL")
+func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface) error {
+	// See comment in ReadGrub2ConfigFile.
+	return fs.ErrNotExist
 }
 
 func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
@@ -189,7 +188,8 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 }
 
 func (d *aclDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
-	return readKernelCmdlinesFromGrubCfg(bootDir, FedoraGrubCfgPath)
+	// See comment in ReadGrub2ConfigFile.
+	return nil, fs.ErrNotExist
 }
 
 func (d *aclDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
@@ -202,14 +202,14 @@ func (d *aclDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string
 }
 
 func (d *aclDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
-	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+	// See comment in ReadGrub2ConfigFile.
+	return nil, fs.ErrNotExist
 }
 
 func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,
 ) error {
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, FedoraGrubCfgPath)
-	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+	// See comment in ReadGrub2ConfigFile.
+	return fs.ErrNotExist
 }
