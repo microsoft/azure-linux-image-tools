@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	// selinuxConfigDirDefault is the path to the SELinux configuration directory for most distros.
-	selinuxConfigDirDefault = "etc/selinux"
+	// selinuxConfigFileDefault is the path to the SELinux configuration file for most distros.
+	selinuxConfigFileDefault = "etc/selinux/config"
 )
 
 var (
@@ -86,13 +86,13 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		}
 	}
 
-	selinuxConfigDir := distroHandler.GetSELinuxConfigDir()
-	if isPathOnReadOnlyMount("/"+selinuxConfigDir, imageChroot) {
-		// The SELinux config dir is on a read-only partition (e.g. dm-verity /usr on ACL).
+	selinuxConfigFile := distroHandler.GetSELinuxConfigFile()
+	if distroHandler.IsSELinuxConfigFileReadOnly() {
+		// The SELinux config file is on a read-only partition (e.g. dm-verity /usr on ACL).
 		// The mode has already been applied via the kernel command line above; skip the file update.
-		logger.Log.Debugf("Skipping SELinux config file update: %s is on a read-only mount", selinuxConfigDir)
+		logger.Log.Debugf("Skipping SELinux config file update: %s is on a read-only mount", selinuxConfigFile)
 	} else {
-		err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigDir)
+		err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFile)
 		if err != nil {
 			return imagecustomizerapi.SELinuxModeDefault, err
 		}
@@ -102,14 +102,13 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 }
 
 func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface,
-	selinuxConfigDir string,
+	selinuxConfigFile string,
 ) error {
 	imagerSELinuxMode, err := selinuxModeToImager(selinuxMode)
 	if err != nil {
 		return err
 	}
 
-	selinuxConfigFile := filepath.Join(selinuxConfigDir, "config")
 	selinuxConfigFileFullPath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 	selinuxConfigFileExists, err := file.PathExists(selinuxConfigFileFullPath)
 	if err != nil {
@@ -136,7 +135,7 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 }
 
 func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot,
-	selinuxConfigDir string,
+	selinuxConfigFile string,
 ) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDisabled {
 		// SELinux is disabled in the kernel command line.
@@ -159,8 +158,6 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 
 		mountPointToFsTypeMap[mountPoint.GetTarget()] = mountPoint.GetFSType()
 	}
-
-	selinuxConfigFile := filepath.Join(selinuxConfigDir, "config")
 
 	// Set the SELinux config file and relabel all the files.
 	err := installutils.SELinuxRelabelFiles(imageChroot, mountPointToFsTypeMap, false, selinuxConfigFile)

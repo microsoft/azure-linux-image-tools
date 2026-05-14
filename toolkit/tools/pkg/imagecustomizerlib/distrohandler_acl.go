@@ -101,13 +101,25 @@ func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (str
 	return "", nil
 }
 
-func (d *aclDistroHandler) GetSELinuxConfigDir() string {
+func (d *aclDistroHandler) GetSELinuxConfigFile() string {
 	// ACL uses overlayfs for /etc. At runtime, /etc is composed from the
 	// immutable lowerdir and a writable upperdir on the ROOT ext4 partition.
 	// When IC mounts the partitions individually (no overlay), /etc/selinux/
 	// does not exist on the bare rootfs — the actual SELinux config lives in
 	// the overlay lowerdir.
-	return "usr/share/distro/etc/selinux"
+	return "usr/share/distro/etc/selinux/config"
+}
+
+func (d *aclDistroHandler) IsSELinuxConfigFileReadOnly() bool {
+	// ACL's /usr is a btrfs+dm-verity volume and is always mounted read-only,
+	// so the SELinux config file cannot be written during image customization.
+	return true
+}
+
+func (d *aclDistroHandler) AllowsMissingUkiAddon() bool {
+	// ACL ships with oem/firstboot addons but no IC-managed addon on first run.
+	// A missing addon is valid — IC will create it from scratch.
+	return true
 }
 
 func (d *aclDistroHandler) PreserveBootDirLayout() bool {

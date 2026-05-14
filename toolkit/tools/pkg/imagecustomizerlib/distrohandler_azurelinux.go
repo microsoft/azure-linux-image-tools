@@ -119,8 +119,16 @@ func (d *azureLinuxDistroHandler) FindBootPartitionUuidFromEsp(espMountDir strin
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPath), bootPartitionRegex)
 }
 
-func (d *azureLinuxDistroHandler) GetSELinuxConfigDir() string {
-	return selinuxConfigDirDefault
+func (d *azureLinuxDistroHandler) GetSELinuxConfigFile() string {
+	return selinuxConfigFileDefault
+}
+
+func (d *azureLinuxDistroHandler) IsSELinuxConfigFileReadOnly() bool {
+	return false
+}
+
+func (d *azureLinuxDistroHandler) AllowsMissingUkiAddon() bool {
+	return false
 }
 
 func (d *azureLinuxDistroHandler) PreserveBootDirLayout() bool {

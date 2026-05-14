@@ -200,6 +200,9 @@ func extractAndSaveUkiCmdline(buildDir string, imageChroot *safechroot.Chroot, d
 				return fmt.Errorf("failed to extract cmdline from addon (%s):\n%w", addonFilePath, err)
 			}
 		} else if os.IsNotExist(statErr) {
+			if !distroHandler.AllowsMissingUkiAddon() {
+				return fmt.Errorf("IC addon not found at (%s): expected addon file is missing", addonFilePath)
+			}
 			// No IC-managed addon yet (e.g., ACL has only oem/firstboot addons on first run).
 			// Start with empty cmdline; modifyUkiAddon will create the addon.
 			logger.Log.Infof("No IC addon found at (%s); a new addon will be created with user-specified args", addonFilePath)

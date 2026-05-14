@@ -207,7 +207,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = selinuxSetFiles(ctx, selinuxMode, imageChroot, distroHandler.GetSELinuxConfigDir())
+	err = selinuxSetFiles(ctx, selinuxMode, imageChroot, distroHandler.GetSELinuxConfigFile())
 	if err != nil {
 		return err
 	}
