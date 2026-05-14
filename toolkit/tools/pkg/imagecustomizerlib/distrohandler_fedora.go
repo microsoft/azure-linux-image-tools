@@ -142,7 +142,7 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl3,
+		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl4,
 		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4)
 }
 
