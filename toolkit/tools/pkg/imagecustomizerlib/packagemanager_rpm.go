@@ -19,9 +19,6 @@ type rpmPackageManagerHandler interface {
 	// Package manager specific cache options for install/update operations
 	getCacheOnlyOptions() []string
 
-	// Package manager specific options for the metadata refresh command.
-	getRefreshMetadataOptions() []string
-
 	// Package manager specific snapshot time support
 	supportsSnapshotTime() bool
 
