@@ -643,11 +643,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	var err error
 
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageExtractEmptyPartition")
 	defer os.RemoveAll(testTempDir)
