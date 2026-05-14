@@ -6,17 +6,17 @@ storage:
     - id: esp
       type: esp
       start: 1M
-      end: 9M
+      end: 33M
 
     - id: boot
       type: xbootldr
-      start: 9M
-      end: 108M
+      start: 33M
+      end: 1G
 
     - id: rootfs
       type: root
       label: rootfs
-      start: 108M
+      start: 1G
       end: 2G
 
     - id: var

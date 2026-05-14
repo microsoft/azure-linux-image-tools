@@ -149,6 +149,7 @@ jobs:
         pushd ./repo/toolkit/tools/internal/testutils/testrpms
 
         ./download-test-utils.sh -d azurelinux -t 3.0 -s true
+        ./download-test-utils.sh -d azurelinux -t 4.0 -s true
         ./download-test-utils.sh -d fedora -t 42 -s true -r "$AZURE_CR_CACHE"
       env:
         AZURE_CR_CACHE: ${{ vars.AZURE_CR_CACHE }}
@@ -179,8 +180,10 @@ jobs:
           CORE_LEGACY_AZL3="$CORE_LEGACY_AZL3" \
           CORE_LEGACY_AZL4="$CORE_LEGACY_AZL4" \
           RPM_SOURCES_AZL3="$TEST_RPMS_DIR/downloadedrpms/azurelinux/3.0" \
+          RPM_SOURCES_AZL4="$TEST_RPMS_DIR/downloadedrpms/azurelinux/4.0" \
           RPM_SOURCES_FEDORA42="$TEST_RPMS_DIR/downloadedrpms/fedora/42" \
           TOOLS_FILE_AZL3="$TEST_RPMS_DIR/build/tools-azurelinux-3.0.tar.gz" \
+          TOOLS_FILE_AZL4="$TEST_RPMS_DIR/build/tools-azurelinux-4.0.tar.gz" \
           TOOLS_FILE_FEDORA42="$TEST_RPMS_DIR/build/tools-fedora-42.tar.gz" \
           SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
       env:

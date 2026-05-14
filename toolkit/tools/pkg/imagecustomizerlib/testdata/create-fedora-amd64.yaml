@@ -1,17 +1,18 @@
+# Differs from create-azl4-amd64 in its addition of efibootmgr and initial-setup
 previewFeatures:
 - create
 
 storage:
   disks:
   - partitionTableType: gpt
-
+    maxSize: 3G
     partitions:
     - id: boot
       type: esp
-      size: 15M
+      size: 32M
 
     - id: rootfs
-      size: 3G
+      start: 33M
 
   bootType: efi
 
@@ -33,7 +34,10 @@ os:
 
   packages:
     installLists:
-    - create-fedora-common-packages.yaml
+    - create-fedora-noarch-packages.yaml
+    - create-fedora-amd64-packages.yaml
+
     install:
-    - grub2-efi-x64
-    - shim-x64
+    - e2fsprogs
+    - efibootmgr
+    - initial-setup

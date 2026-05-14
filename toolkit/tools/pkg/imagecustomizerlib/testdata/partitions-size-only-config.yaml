@@ -4,7 +4,7 @@ storage:
     partitions:
     - id: esp
       type: esp
-      size: 8M
+      size: 32M
 
     - id: rootfs
       size: 2G

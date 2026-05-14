@@ -23,6 +23,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type verifyFstabEntrySource int
+
+const (
+	verifyFstabEntryPartuuidSource verifyFstabEntrySource = iota
+	verifyFstabEntryUuidSource
+)
+
 func TestCustomizeImagePartitions(t *testing.T) {
 	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
@@ -33,6 +40,10 @@ func TestCustomizeImagePartitions(t *testing.T) {
 
 func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
@@ -100,7 +111,7 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	assert.NoError(t, err, "check for /var/log")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, mountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, mountPoints, partitions, verifyFstabEntryPartuuidSource)
 	verifyBootloaderConfig(t, imageConnection, "console=tty0 console=ttyS0",
 		partitions[mountPoints[1].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
@@ -119,9 +130,9 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 	}
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
-	assert.Equal(t, uint64(99*diskutils.MiB), partitions[2].SizeInBytes)
-	assert.Equal(t, uint64(1940*diskutils.MiB), partitions[3].SizeInBytes)
+	assert.Equal(t, uint64(32*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(991*diskutils.MiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(1024*diskutils.MiB), partitions[3].SizeInBytes)
 	assert.Equal(t, uint64(2047*diskutils.MiB), partitions[4].SizeInBytes)
 
 	// Check filesystem features
@@ -141,6 +152,10 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePartitionsSizeOnly")
 	defer os.RemoveAll(testTmpDir)
@@ -194,7 +209,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, mountPoints, partitions)
+	verifyFstabEntries(t, imageConnection, mountPoints, partitions, verifyFstabEntryPartuuidSource)
 	verifyBootloaderConfig(t, imageConnection, "",
 		partitions[mountPoints[0].PartitionNum],
 		partitions[mountPoints[0].PartitionNum],
@@ -206,7 +221,7 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[3].PartitionTypeUuid) // linux generic
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(32*diskutils.MiB), partitions[1].SizeInBytes)
 	assert.Equal(t, uint64(2*diskutils.GiB), partitions[2].SizeInBytes)
 	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].SizeInBytes)
 }
@@ -226,6 +241,10 @@ func TestCustomizeImagePartitionsLegacy(t *testing.T) {
 
 func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
@@ -277,8 +296,8 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.NoError(t, err, "get disk partitions")
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions)
-	verifyBootGrubCfg(t, imageConnection, "",
+	verifyFstabEntries(t, imageConnection, azureLinuxCoreLegacyMountPoints, partitions, verifyFstabEntryPartuuidSource)
+	verifyBootCfg(t, imageConnection, "",
 		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		partitions[azureLinuxCoreLegacyMountPoints[0].PartitionNum],
 		baseImageInfo)
@@ -288,8 +307,8 @@ func verifyLegacyBootImage(t *testing.T, outImageFilePath string, baseImageInfo 
 	assert.Equal(t, "0fc63daf-8483-4772-8e79-3d69d8477de4", partitions[2].PartitionTypeUuid) // linux generic
 
 	// Check the partition sizes.
-	assert.Equal(t, uint64(8*diskutils.MiB), partitions[1].SizeInBytes)
-	assert.Equal(t, uint64(4086*diskutils.MiB), partitions[2].SizeInBytes)
+	assert.Equal(t, uint64(1023*diskutils.MiB), partitions[1].SizeInBytes)
+	assert.Equal(t, uint64(3071*diskutils.MiB), partitions[2].SizeInBytes)
 }
 
 func TestCustomizeImageKernelCommandLine(t *testing.T) {
@@ -323,11 +342,36 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 	}
 	defer imageConnection.Close()
 
-	// Check that the extraCommandLine was added to the grub.cfg file.
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	assert.NoError(t, err, "read grub.cfg file")
-	assert.Regexp(t, "linux.* console=tty0 console=ttyS0 ", grubCfgContents)
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		// AZL4 uses BLS (Boot Loader Specification) entries instead of inline linux lines in grub.cfg.
+		blsEntriesDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/loader/entries")
+		blsEntries, err := os.ReadDir(blsEntriesDir)
+		if !assert.NoError(t, err, "read BLS entries dir") {
+			return
+		}
+
+		blsOptionsRegex := regexp.MustCompile(`(?m)^options\s+.* console=tty0 console=ttyS0`)
+		entryCount := 0
+		for _, entry := range blsEntries {
+			if !entry.IsDir() && filepath.Ext(entry.Name()) == ".conf" {
+				entryCount++
+				blsPath := filepath.Join(blsEntriesDir, entry.Name())
+				blsContents, readErr := file.Read(blsPath)
+				if !assert.NoError(t, readErr, "read BLS entry %s", entry.Name()) {
+					continue
+				}
+				assert.Regexp(t, blsOptionsRegex, blsContents,
+					"BLS entry %s should contain extraCommandLine args", entry.Name())
+			}
+		}
+		assert.GreaterOrEqual(t, entryCount, 1, "BLS entry files in %s", blsEntriesDir)
+	} else {
+		// Check that the extraCommandLine was added to the grub.cfg file.
+		grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/grub2/grub.cfg")
+		grubCfgContents, err := file.Read(grubCfgFilePath)
+		assert.NoError(t, err, "read grub.cfg file")
+		assert.Regexp(t, "linux.* console=tty0 console=ttyS0 ", grubCfgContents)
+	}
 }
 
 func TestCustomizeImageNewUUIDs(t *testing.T) {
@@ -340,6 +384,10 @@ func TestCustomizeImageNewUUIDs(t *testing.T) {
 
 func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
@@ -413,7 +461,21 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	}
 
 	// Check that the fstab entries are correct.
-	verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions)
+	// `resetPartitionsUuidsType: reset-all` preserves each fstab entry's existing mount-identifier
+	// form (it only rewrites the value, not the prefix). The base images differ:
+	//   - AzL2 / AzL3 ship fstab with `PARTUUID=<part-uuid>`.
+	//   - AzL4 ships fstab with `UUID=<fs-uuid>`.
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions,
+			verifyFstabEntryPartuuidSource)
+	case baseImageVersionAzl4:
+		verifyFstabEntries(t, imageConnection, azureLinuxCoreEfiMountPoints, newImagePartitions,
+			verifyFstabEntryUuidSource)
+	default:
+		assert.Failf(t, "unsupported Azure Linux version", "version %q", baseImageInfo.Version)
+	}
+
 	verifyBootloaderConfig(t, imageConnection, "",
 		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
 		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
@@ -475,8 +537,15 @@ func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, ba
 	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "sparse", hostKernelVersion.Ge([]int{4, 10}))
 
 	// The /boot directory is on an XFS partition.
-	// Hence 'nrext64' should be disabled since GRUB 2.06 doesn't support it.
-	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", false)
+	// Hence 'nrext64' should be disabled on AZL2,3 since GRUB 2.06 doesn't support it.
+	// AZL4 ships with GRUB 2.12, so it supports 'nrext64'.
+	nrext64Expected := hostKernelVersion.Ge([]int{5, 19})
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl4:
+	default:
+		nrext64Expected = false
+	}
+	verifyXfsFeature(t, partitions[mountPoints[0].PartitionNum].Path, "nrext64", nrext64Expected)
 }
 
 func TestCustomizeImagePartitionsBtrfsBoot(t *testing.T) {
@@ -739,6 +808,10 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 ) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
 
@@ -825,7 +898,8 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	expectedCosiMetadata := MetadataJson{}
 	switch baseImageInfo.Distro {
 	case baseImageDistroAzureLinux:
-		expectedCosiMetadata = expectedCosiMetadataForAzlCoreEfi
+		expectedCosiMetadata, err = expectedCosiMetadataForAzureLinux(baseImageInfo)
+		assert.NoError(t, err)
 
 	case baseImageDistroUbuntu:
 		switch baseImageInfo.Version {
@@ -868,7 +942,7 @@ func getFilteredFstabEntries(t *testing.T, imageConnection *imageconnection.Imag
 }
 
 func verifyFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConnection, mountPoints []testutils.MountPoint,
-	partitions map[int]diskutils.PartitionInfo,
+	partitions map[int]diskutils.PartitionInfo, sourceType verifyFstabEntrySource,
 ) {
 	filteredFstabEntries := getFilteredFstabEntries(t, imageConnection)
 	if filteredFstabEntries == nil {
@@ -887,7 +961,13 @@ func verifyFstabEntries(t *testing.T, imageConnection *imageconnection.ImageConn
 		assert.Equalf(t, mountPoint.FileSystemType, fstabEntry.FsType, "fstab [%d]: file system type", i)
 		assert.Equalf(t, mountPoint.Path, fstabEntry.Target, "fstab [%d]: target path", i)
 
-		expectedSource := fmt.Sprintf("PARTUUID=%s", partition.PartUuid)
+		var expectedSource string
+		switch sourceType {
+		case verifyFstabEntryPartuuidSource:
+			expectedSource = fmt.Sprintf("PARTUUID=%s", partition.PartUuid)
+		case verifyFstabEntryUuidSource:
+			expectedSource = fmt.Sprintf("UUID=%s", partition.Uuid)
+		}
 		assert.Equalf(t, expectedSource, fstabEntry.Source, "fstab [%d]: source", i)
 	}
 }
@@ -896,20 +976,25 @@ func verifyBootloaderConfig(t *testing.T, imageConnection *imageconnection.Image
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo, baseImageInfo testBaseImageInfo,
 ) {
 	verifyEspGrubCfg(t, imageConnection, bootInfo.Uuid)
-	verifyBootGrubCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
+	verifyBootCfg(t, imageConnection, extraCommandLineArgs, bootInfo, rootfsInfo, baseImageInfo)
 }
 
 func verifyEspGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, bootUuid string) {
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/efi/boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
+	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
+	if !assert.NoError(t, err, "create distro handler from chroot") {
+		return
+	}
+
+	espMountDir := filepath.Join(imageConnection.Chroot().RootDir(), distroHandler.GetEspDir())
+	actualBootUuid, err := distroHandler.FindBootPartitionUuidFromEsp(espMountDir)
 	if !assert.NoError(t, err, "read ESP grub.cfg file") {
 		return
 	}
 
-	assert.Regexp(t, fmt.Sprintf("(?m)^search -n -u %s -s$", regexp.QuoteMeta(bootUuid)), grubCfgContents)
+	assert.Equal(t, bootUuid, actualBootUuid, "boot partition UUID in ESP grub.cfg")
 }
 
-func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
+func verifyBootCfg(t *testing.T, imageConnection *imageconnection.ImageConnection, extraCommandLineArgs string,
 	bootInfo diskutils.PartitionInfo, rootfsInfo diskutils.PartitionInfo,
 	baseImageInfo testBaseImageInfo,
 ) {
@@ -925,6 +1010,10 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConne
 			grubCfgContents)
 		assert.Regexp(t, fmt.Sprintf(`(?m)^set rootdevice=PARTUUID=%s$`, regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
+		if extraCommandLineArgs != "" {
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)),
+				grubCfgContents)
+		}
 
 	case baseImageVersionAzl3:
 		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
@@ -936,10 +1025,38 @@ func verifyBootGrubCfg(t *testing.T, imageConnection *imageconnection.ImageConne
 		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* root=(UUID=%s|PARTUUID=%s) `, regexp.QuoteMeta(rootfsInfo.Uuid),
 			regexp.QuoteMeta(rootfsInfo.PartUuid)),
 			grubCfgContents)
-	}
+		if extraCommandLineArgs != "" {
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)),
+				grubCfgContents)
+		}
 
-	if extraCommandLineArgs != "" {
-		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*linux.* %s `, regexp.QuoteMeta(extraCommandLineArgs)), grubCfgContents)
+	case baseImageVersionAzl4:
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*search.* --fs-uuid --set=root %s$`, regexp.QuoteMeta(bootInfo.Uuid)),
+			grubCfgContents)
+
+		blsDir := filepath.Join(imageConnection.Chroot().RootDir(), "boot/loader/entries")
+		entries, err := os.ReadDir(blsDir)
+		assert.NoError(t, err, "read BLS entries directory")
+		blsContents := ""
+		for _, entry := range entries {
+			if entry.IsDir() || filepath.Ext(entry.Name()) != ".conf" {
+				continue
+			}
+
+			entryContent, err := file.Read(filepath.Join(blsDir, entry.Name()))
+			if !assert.NoError(t, err, "read BLS entry %s", entry.Name()) {
+				continue
+			}
+
+			blsContents += fmt.Sprintf("%s\n", entryContent)
+		}
+
+		assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* root=(UUID=%s|PARTUUID=%s) `,
+			regexp.QuoteMeta(rootfsInfo.Uuid), regexp.QuoteMeta(rootfsInfo.PartUuid)), blsContents)
+		if extraCommandLineArgs != "" {
+			assert.Regexp(t, fmt.Sprintf(`(?m)[\t ]*options.* %s$`, regexp.QuoteMeta(extraCommandLineArgs)),
+				blsContents)
+		}
 	}
 }
 

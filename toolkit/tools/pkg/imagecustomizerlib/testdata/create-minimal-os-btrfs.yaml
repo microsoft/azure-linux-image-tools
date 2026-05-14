@@ -1,7 +1,10 @@
+previewFeatures:
+- create
+- btrfs
+
 storage:
   disks:
   - partitionTableType: gpt
-
     maxSize: 1G
     partitions:
     - id: boot
@@ -65,7 +68,3 @@ os:
     - util-linux
     - zlib
     - kernel
-
-previewFeatures:
-- create
-- btrfs

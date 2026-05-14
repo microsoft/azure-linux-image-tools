@@ -6,10 +6,10 @@ storage:
     - id: boot
       type: bios-grub
       start: 1M
-      size: 8M
+      size: 1023M
 
     - id: rootfs
-      start: 9M
+      start: 1G
       size: grow
 
   bootType: legacy

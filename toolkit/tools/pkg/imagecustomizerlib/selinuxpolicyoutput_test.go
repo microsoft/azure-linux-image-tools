@@ -13,15 +13,15 @@ import (
 )
 
 func TestOutputSelinuxPolicy(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestOutputSelinuxPolicy")
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
-	originalConfigFile := filepath.Join(testDir, "selinux-policy-output.yaml")
-	configFile := filepath.Join(testTempDir, "selinux-policy-output.yaml")
+	originalConfigFile := filepath.Join(testDir, selinuxPolicyOutputConfigFile(t, baseImageInfo))
+	configFile := filepath.Join(testTempDir, selinuxPolicyOutputConfigFile(t, baseImageInfo))
 	outputSelinuxPolicyDir := filepath.Join(testTempDir, "selinux-output")
 
 	err := file.Copy(originalConfigFile, configFile)
@@ -34,6 +34,20 @@ func TestOutputSelinuxPolicy(t *testing.T) {
 	}
 
 	verifyExtractedSelinuxPolicy(t, outputSelinuxPolicyDir)
+}
+
+// selinuxPolicyOutputConfigFile returns the SELinux policy output config file to use for testing, based on the
+// given base image version.
+func selinuxPolicyOutputConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		return "selinux-policy-output.yaml"
+	case baseImageVersionAzl4:
+		return "selinux-policy-output-azl4.yaml"
+	default:
+		t.Fatalf("unsupported base image version for SELinux policy test: %s", baseImageInfo.Version)
+		return ""
+	}
 }
 
 func verifyExtractedSelinuxPolicy(t *testing.T, outputDir string) {

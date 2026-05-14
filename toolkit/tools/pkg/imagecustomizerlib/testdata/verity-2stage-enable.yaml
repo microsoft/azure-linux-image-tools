@@ -21,4 +21,4 @@ os:
     sshPublicKeys:
       # Your SSH public key here.
     secondaryGroups:
-    - sudo
+    - wheel

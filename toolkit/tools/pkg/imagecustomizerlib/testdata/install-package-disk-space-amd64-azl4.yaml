@@ -1,0 +1,38 @@
+# Differs from install-package-disk-space in storage.disks[0].maxSize being 1000M and the esp partition being 32M.
+storage:
+  disks:
+  - partitionTableType: gpt
+
+    # Create a small-ish disk.
+    maxSize: 1000M
+    partitions:
+    - id: esp
+      type: esp
+      start: 1M
+      end: 33M
+
+    - id: rootfs
+      start: 33M
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+    # Install a large-ish package.
+    - gcc

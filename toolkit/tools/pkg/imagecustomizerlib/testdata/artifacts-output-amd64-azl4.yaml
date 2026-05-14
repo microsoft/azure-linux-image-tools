@@ -1,0 +1,72 @@
+# Differs from artifacts-output-azl3 in its use of systemd-boot-unsigned (not systemd-boot) and grub2-efi-x64 (not grub2-efi-binary)
+storage:
+  disks:
+  - partitionTableType: gpt
+    partitions:
+    - id: esp
+      type: esp
+      size: 100M
+
+    - id: boot
+      size: 1G
+
+    - id: rootfs
+      size: 2G
+
+  bootType: efi
+
+  filesystems:
+  - deviceId: esp
+    type: fat32
+    mountPoint:
+      path: /boot/efi
+      options: umask=0077
+
+  - deviceId: boot
+    type: ext4
+    mountPoint:
+      path: /boot
+
+  - deviceId: rootfs
+    type: ext4
+    mountPoint:
+      path: /
+
+previewFeatures:
+- uki
+- output-artifacts
+
+output:
+  artifacts:
+    items: 
+    - ukis
+    - shim
+    - bootloader
+    path: ./output
+
+os:
+  bootloader:
+    resetType: hard-reset
+
+  uki:
+    mode: create
+
+  packages:
+    install:
+    - systemd-boot-unsigned
+    - openssh-server
+
+  services:
+    enable:
+    - sshd
+
+scripts:
+  postCustomization:
+  - content: |
+      # Workaround: shim-<arch> 15.8 has a hard Requires on grub2-efi-<arch>, so dnf
+      # refuses to remove grub2-efi-<arch> while shim is installed. Removing shim
+      # is not an option because shim is needed for the secure boot chain
+      # (UEFI -> shim -> systemd-boot -> kernel) and its EFI binaries on the ESP
+      # are extracted as build artifacts. Use rpm --nodeps to bypass this.
+      # Fixed in shim 16.1+ (Fedora 44+) which drops the hard grub2 dep.
+      rpm -e --nodeps grub2-efi-x64

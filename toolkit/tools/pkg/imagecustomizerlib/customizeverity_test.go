@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -33,6 +34,10 @@ func TestCustomizeImageVerity(t *testing.T) {
 
 func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -123,6 +128,10 @@ func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -146,7 +155,7 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
-			Size:       5230 * diskutils.MiB,
+			Size:       5254 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4, 5}),
 		},
 		Images: []FileSystem{
@@ -229,14 +238,14 @@ func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, ba
 	// Check partition sizes.
 	// Standard GPT size = MBR (512) + GPT Header (512) + Partition Entries (128 × 128 = 16384) = 17408 bytes
 	assert.Equal(t, int64(17408), gptStat.Size())
-	assert.Equal(t, int64(8*diskutils.MiB), espStat.Size())
+	assert.Equal(t, int64(32*diskutils.MiB), espStat.Size())
 
 	// These partitions are shrunk. Their final size will vary based on base image version, package versions, filesystem
 	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
 	// were picked by observing values seen during test and adding a good buffer.
-	assert.Greater(t, int64(150*diskutils.MiB), bootStat.Size())
-	assert.Greater(t, int64(750*diskutils.MiB), rootStat.Size())
-	assert.Greater(t, int64(10*diskutils.MiB), hashStat.Size())
+	assert.Greater(t, int64(250*diskutils.MiB), bootStat.Size())
+	assert.Greater(t, int64(1500*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(16*diskutils.MiB), hashStat.Size())
 	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
 
 	bootDevice, err := safeloopback.NewLoopback(bootPartitionPath)
@@ -428,6 +437,10 @@ func TestCustomizeImageVerityUsr(t *testing.T) {
 func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -506,6 +519,10 @@ func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
 func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -550,6 +567,10 @@ func TestCustomizeImageVerityReinitRoot(t *testing.T) {
 
 func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -599,6 +620,10 @@ func TestCustomizeImageVerityReinitUsr(t *testing.T) {
 
 func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -721,6 +746,10 @@ func TestCustomizeImageVerityBtrfsRoot(t *testing.T) {
 func testCustomizeImageVerityBtrfsRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -760,6 +789,10 @@ func TestCustomizeImageVerityBtrfsNoSubvolumes(t *testing.T) {
 
 func testCustomizeImageVerityBtrfsNoSubvolumesHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -889,6 +922,10 @@ func TestCustomizeImageVerityRootInline(t *testing.T) {
 func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -988,6 +1025,10 @@ func TestCustomizeImageVerityUsrInline(t *testing.T) {
 func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -1072,13 +1113,7 @@ func verifyUsrInlineVerity(t *testing.T, baseImageInfo testBaseImageInfo, buildD
 }
 
 func TestCustomizeImageVerityRootInlineCosi(t *testing.T) {
-	// This test uses a UKI config that requires systemd-boot, which is only
-	// available on AzureLinux 3 for now.
-	azl3Images := []testBaseImageInfo{
-		testBaseImageAzl3CoreEfi,
-		testBaseImageAzl3BareMetal,
-	}
-	for _, baseImageInfo := range azl3Images {
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityRootInlineCosiHelper(t, "TestCustomizeImageVerityRootInlineCosi"+baseImageInfo.Name, baseImageInfo)
 		})
@@ -1088,12 +1123,19 @@ func TestCustomizeImageVerityRootInlineCosi(t *testing.T) {
 func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
+	if baseImageInfo.Version == baseImageVersionAzl2 {
+		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
+	}
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		t.Skip("Azure Linux 4.0 does not yet support this test")
+	}
+
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, "image.cosi")
-	configFile := filepath.Join(testDir, "verity-root-inline-uki.yaml")
+	configFile := filepath.Join(testDir, verityRootInlineUkiConfigFile(baseImageInfo))
 
 	// Customize image, shrink partitions, and split the partitions into individual files.
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "cosi",
@@ -1105,7 +1147,9 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 
 	expectedCosiMetadata := MetadataJson{
 		Disk: Disk{
-			Size:       2550 * diskutils.MiB,
+			// 4348 MiB = 1 (alignment) + 250 (esp) + 1024 (boot) + 2048 (root) + 1024 (var) + 1 (secondary GPT).
+			// Tracks the partition layout in verity-root-inline-uki-*.yaml.
+			Size:       4348 * diskutils.MiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2, 3, 4}),
 		},
 		Images: []FileSystem{
@@ -1198,7 +1242,7 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 	// implementation details, and randomness. So, just enforce that the final size is below an arbitary value. Values
 	// were picked by observing values seen during test and adding a good buffer.
 	assert.Greater(t, int64(100*diskutils.MiB), bootStat.Size())
-	assert.Greater(t, int64(600*diskutils.MiB), rootStat.Size())
+	assert.Greater(t, int64(1500*diskutils.MiB), rootStat.Size())
 	assert.Greater(t, int64(150*diskutils.MiB), varStat.Size())
 
 	espDevice, err := safeloopback.NewLoopback(espPartitionPath)
@@ -1224,4 +1268,17 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 	verifyVerityUki(t, espMountPath, rootDevice.DevicePath(), rootDevice.DevicePath(),
 		"UUID="+metadata.Images[2].FsUuid, "UUID="+metadata.Images[2].FsUuid, "root", buildDir, "rd.info",
 		"panic-on-corruption", true /*inlineVerity*/)
+}
+
+// verityRootInlineUkiConfigFile returns the verity-root-inline-uki test config file appropriate for
+// the given base image version (azl3 vs azl4) and host architecture.
+func verityRootInlineUkiConfigFile(baseImageInfo testBaseImageInfo) string {
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl3:
+		return "verity-root-inline-uki-azl3.yaml"
+	case baseImageVersionAzl4:
+		return fmt.Sprintf("verity-root-inline-uki-%s-azl4.yaml", runtime.GOARCH)
+	default:
+		panic(fmt.Sprintf("unsupported base image version for verity-root-inline-uki test: %s", baseImageInfo.Version))
+	}
 }

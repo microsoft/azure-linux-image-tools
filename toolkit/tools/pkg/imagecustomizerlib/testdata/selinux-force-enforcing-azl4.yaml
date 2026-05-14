@@ -1,0 +1,10 @@
+# Differs from selinux-force-enforcing-azl3 in its removal of selinux-policy-modules
+os:
+  selinux:
+    mode: force-enforcing
+
+  packages:
+    install:
+    - selinux-policy
+    - setools-console
+    - policycoreutils-python-utils

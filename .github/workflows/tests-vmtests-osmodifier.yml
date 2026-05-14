@@ -123,6 +123,7 @@ jobs:
 
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-2.0-$HOST_ARCH" azl-core-efi-2.0
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-3.0-$HOST_ARCH" azl-core-efi-3.0
+          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-efi-vhdx-4.0-$HOST_ARCH" azl-core-efi-4.0
         env:
           HOST_ARCH: ${{ inputs.hostArch }}
           AZURE_STORAGE: ${{ vars.AZURE_STORAGE }}
@@ -136,9 +137,11 @@ jobs:
 
           AZL2_IMAGE="../../../azl-core-efi-2.0/image.vhdx"
           AZL3_IMAGE="../../../azl-core-efi-3.0/image.vhdx"
+          AZL4_IMAGE="../../../azl-core-efi-4.0/image.vhdx"
 
           echo "azl2_path=$AZL2_IMAGE" >> "$GITHUB_OUTPUT"
           echo "azl3_path=$AZL3_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "azl4_path=$AZL4_IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Test setup
         run: |
@@ -165,6 +168,8 @@ jobs:
             IMAGE_CUSTOMIZER_CONTAINER_TAG="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
             OSMODIFIER_BIN="${OSMODIFIER_BIN}" \
             INPUT_IMAGE="${INPUT_IMAGE}" \
+            DISTRO_ID="azurelinux" \
+            VERSION_ID="2.0" \
             SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
       - name: Run tests (AZL3)
@@ -180,6 +185,25 @@ jobs:
             IMAGE_CUSTOMIZER_CONTAINER_TAG="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
             OSMODIFIER_BIN="${OSMODIFIER_BIN}" \
             INPUT_IMAGE="${INPUT_IMAGE}" \
+            DISTRO_ID="azurelinux" \
+            VERSION_ID="3.0" \
+            SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
+
+      - name: Run tests (AZL4)
+        env:
+          IMAGE_CUSTOMIZER_CONTAINER_TAG: ${{ steps.importContainer.outputs.containerTag }}
+          OSMODIFIER_BIN: ${{ steps.osmodifier_bin.outputs.path }}
+          INPUT_IMAGE: ${{ steps.setup_image.outputs.azl4_path }}
+        run: |
+          set -eux
+          pushd ./repo/test/vmtests
+
+          sudo make test-osmodifier \
+            IMAGE_CUSTOMIZER_CONTAINER_TAG="${IMAGE_CUSTOMIZER_CONTAINER_TAG}" \
+            OSMODIFIER_BIN="${OSMODIFIER_BIN}" \
+            INPUT_IMAGE="${INPUT_IMAGE}" \
+            DISTRO_ID="azurelinux" \
+            VERSION_ID="4.0" \
             SSH_PRIVATE_KEY_FILE=~/.ssh/id_ed25519
 
       - uses: actions/upload-artifact@v7
