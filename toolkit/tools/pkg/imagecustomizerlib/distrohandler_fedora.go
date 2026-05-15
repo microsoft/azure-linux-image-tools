@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -81,13 +82,18 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.IsPackageInstalled(imageChroot, "grub2-efi-x64") || d.IsPackageInstalled(imageChroot, "grub2-efi-aa64") {
-		return BootloaderTypeGrub, nil
+	var grubEfiPackage string
+	switch runtime.GOARCH {
+	case "amd64":
+		grubEfiPackage = grubEfiPackageFedoraAmd64
+	default:
+		grubEfiPackage = grubEfiPackageFedoraArm64
 	}
-	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
-	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
+	return detectBootloaderType(d, imageChroot, []string{grubEfiPackage}, []string{systemdBootPackage})
+}
+
+func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	return validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
 }
 
 func (d *fedoraDistroHandler) GetEspDir() string {

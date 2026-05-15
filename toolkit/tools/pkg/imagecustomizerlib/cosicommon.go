@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -19,6 +20,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/randomization"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
@@ -595,4 +597,26 @@ func padToMegabyte(imageFile string) error {
 	}
 
 	return nil
+}
+
+// detectBootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
+// candidate package.
+func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface, grubEfiPackages,
+	systemdBootPackages []string,
+) (BootloaderType, error) {
+	for _, pkg := range grubEfiPackages {
+		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
+		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+			return BootloaderTypeGrub, nil
+		}
+	}
+	if err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages); err == nil {
+		return BootloaderTypeSystemdBoot, nil
+	}
+
+	allPackages := slices.Concat(grubEfiPackages, systemdBootPackages)
+	if len(allPackages) == 1 {
+		return "", fmt.Errorf("unknown bootloader: package (%s) is not installed", allPackages[0])
+	}
+	return "", fmt.Errorf("unknown bootloader: none of the packages (%v) are installed", allPackages)
 }
