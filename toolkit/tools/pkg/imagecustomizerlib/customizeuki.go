@@ -28,7 +28,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
 var (
@@ -727,6 +726,50 @@ func readKernelCmdlinesFromGrubCfg(bootDir string, grubCfgRelPath string) (map[s
 	return formatKernelCmdlineFromLinuxLines(linuxLines)
 }
 
+// parseBLSLinuxValue parses the value following a "linux" key in a BLS entry.
+func parseBLSLinuxValue(lineTokens []grub.Token) (string, error) {
+	if len(lineTokens) != 2 {
+		return "", fmt.Errorf("expected 1 value token, found %d", len(lineTokens)-1)
+	}
+	valueToken := lineTokens[1]
+	if valueToken.Type != grub.WORD {
+		return "", fmt.Errorf("unexpected non-word value token: %v", valueToken.RawContent)
+	}
+	if len(valueToken.SubWords) != 1 {
+		return "", fmt.Errorf("expected 1 subword, found %d", len(valueToken.SubWords))
+	}
+	sw := valueToken.SubWords[0]
+	if sw.Type != grub.KEYWORD_STRING && sw.Type != grub.STRING {
+		return "", fmt.Errorf("unexpected non-string subword: %v", sw.RawContent)
+	}
+	return sw.Value, nil
+}
+
+// parseBLSTitleValue parses the value following a "title" key in a BLS entry.
+func parseBLSTitleValue(lineTokens []grub.Token) (string, error) {
+	if len(lineTokens) < 2 {
+		return "", fmt.Errorf("expected at least 1 value token, found 0")
+	}
+	valueParts := make([]string, 0, len(lineTokens)-1)
+	for _, valueToken := range lineTokens[1:] {
+		if valueToken.Type != grub.WORD {
+			return "", fmt.Errorf("unexpected non-word value token: %v", valueToken.RawContent)
+		}
+		if len(valueToken.SubWords) < 1 {
+			return "", fmt.Errorf("expected at least 1 subword, found 0")
+		}
+		var sb strings.Builder
+		for _, sw := range valueToken.SubWords {
+			if sw.Type != grub.KEYWORD_STRING && sw.Type != grub.STRING {
+				return "", fmt.Errorf("unexpected non-string subword: %v", sw.RawContent)
+			}
+			sb.WriteString(sw.Value)
+		}
+		valueParts = append(valueParts, sb.String())
+	}
+	return strings.Join(valueParts, " "), nil
+}
+
 // readKernelCmdlinesFromBLSEntries reads Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf,
 // extracting a kernel-to-cmdline mapping for non-recovery entries.
 func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLinuxArg, error) {
@@ -749,43 +792,59 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 			return nil, fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
 		}
 
+		// BLS entries are grub-syntax key/value pairs, so we can leverage the grub parsing code here.
+		tokens, err := grub.TokenizeConfig(string(content))
+		if err != nil {
+			return nil, fmt.Errorf("failed to tokenize BLS entry (%s):\n%w", absPath, err)
+		}
+		lines := grub.SplitTokensIntoLines(tokens)
+
 		var linux string
 		var title string
-		var options string
+		var args []grubConfigLinuxArg
 
-		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
-			trimmed := strings.TrimSpace(line)
-			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			if len(line.Tokens) == 0 {
 				continue
 			}
 
-			key, value, found := strings.Cut(trimmed, " ")
-			if !found {
-				key, value, found = strings.Cut(trimmed, "\t")
+			keyToken := line.Tokens[0]
+			if keyToken.Type != grub.WORD {
+				return nil, fmt.Errorf("unexpected non-word token in BLS entry (%s): %v", absPath, keyToken.RawContent)
 			}
-			if !found {
-				return nil, fmt.Errorf("malformed BLS entry line in (%s): %q", absPath, trimmed)
+			if len(keyToken.SubWords) != 1 {
+				return nil, fmt.Errorf("unexpected token with multiple subwords in BLS entry (%s): %v", absPath, keyToken.RawContent)
 			}
-			key = strings.TrimSpace(key)
-			value = strings.TrimSpace(value)
+			if keyToken.SubWords[0].Type != grub.KEYWORD_STRING {
+				return nil, fmt.Errorf("unexpected non-string token in BLS entry (%s): %v", absPath, keyToken.SubWords[0].RawContent)
+			}
+			key := keyToken.SubWords[0].Value
 
 			switch key {
 			case "linux":
 				if linux != "" {
-					return nil, fmt.Errorf("duplicate linux key in BLS entry (%s)", absPath)
+					return nil, fmt.Errorf("duplicate key (%s) in BLS entry (%s)", key, absPath)
 				}
-				linux = filepath.Base(value)
+				linuxValue, err := parseBLSLinuxValue(line.Tokens)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", key, absPath, err)
+				}
+				linux = filepath.Base(linuxValue)
 			case "title":
-				title = value
+				titleValue, err := parseBLSTitleValue(line.Tokens)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", key, absPath, err)
+				}
+				title = titleValue
 			case "efi", "uki", "uki-url":
 				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, key)
 			case "options":
-				// "options" line may appear multiple times according to BLS spec.
-				if options != "" {
-					options += " "
+				// "options" may appear multiple times per BLS spec.
+				lineArgs, err := ParseCommandLineArgs(line.Tokens[1:])
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", key, absPath, err)
 				}
-				options += value
+				args = append(args, lineArgs...)
 			}
 		}
 
@@ -804,17 +863,6 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 
 		if _, exists := kernelToArgs[linux]; exists {
 			return nil, fmt.Errorf("duplicate BLS entries for kernel (%s) in (%s)", linux, entriesDir)
-		}
-
-		// Tokenize and parse the options string into grubConfigLinuxArg format.
-		tokens, err := grub.TokenizeConfig(options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to tokenize BLS options for kernel (%s):\n%w", linux, err)
-		}
-
-		args, err := ParseCommandLineArgs(tokens)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse BLS options for kernel (%s):\n%w", linux, err)
 		}
 
 		kernelToArgs[linux] = args

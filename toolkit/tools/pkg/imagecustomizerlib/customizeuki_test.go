@@ -664,3 +664,180 @@ func TestGetKernelNameFromUki(t *testing.T) {
 		})
 	}
 }
+
+func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
+	tests := []struct {
+		name          string
+		files         map[string]string
+		wantKernels   []string
+		wantArgsFor   map[string][]string // kernel -> expected arg strings (Arg field) in order
+		wantErrSubstr string
+	}{
+		{
+			name: "preserves quoted value with embedded space in options",
+			files: map[string]string{
+				"azl.conf": "title Azure Linux\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1 rd.cmdline=\"foo bar\" quiet\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1", "rd.cmdline=foo bar", "quiet"},
+			},
+		},
+		{
+			name: "tab between key and value is recognized",
+			files: map[string]string{
+				"azl.conf": "title Azure Linux\n" +
+					"linux\t/vmlinuz-6.6\n" +
+					"options\troot=/dev/sda1 quiet\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1", "quiet"},
+			},
+		},
+		{
+			name: "mixed tab-then-space separator is recognized",
+			files: map[string]string{
+				"azl.conf": "title Azure Linux\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options\troot=/dev/sda1 quiet\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1", "quiet"},
+			},
+		},
+		{
+			name: "multiple options lines are concatenated per BLS spec",
+			files: map[string]string{
+				"azl.conf": "title Azure Linux\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1\n" +
+					"options quiet rhgb\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1", "quiet", "rhgb"},
+			},
+		},
+		{
+			name: "recovery entries are skipped, not errored",
+			files: map[string]string{
+				"normal.conf": "title Azure Linux\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1\n",
+				"rescue.conf": "title Azure Linux (recovery)\n" +
+					"linux /vmlinuz-6.6-rescue\n" +
+					"options root=/dev/sda1 systemd.unit=rescue.target\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1"},
+			},
+		},
+		{
+			name: "comments and blank lines are tolerated",
+			files: map[string]string{
+				"azl.conf": "# An Azure Linux BLS entry\n" +
+					"\n" +
+					"title Azure Linux\n" +
+					"linux /vmlinuz-6.6\n" +
+					"# kernel command line:\n" +
+					"options root=/dev/sda1 quiet\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1", "quiet"},
+			},
+		},
+		{
+			name: "'efi' key produces an error",
+			files: map[string]string{
+				"efi.conf": "title Azure Linux\n" +
+					"efi /EFI/Linux/vmlinuz.efi\n",
+			},
+			wantErrSubstr: "uses 'efi' key",
+		},
+		{
+			name: "'uki' key produces an error",
+			files: map[string]string{
+				"uki.conf": "title Azure Linux\n" +
+					"uki /EFI/Linux/vmlinuz.efi\n",
+			},
+			wantErrSubstr: "uses 'uki' key",
+		},
+		{
+			name: "'uki-url' key produces an error",
+			files: map[string]string{
+				"uki-url.conf": "title Azure Linux\n" +
+					"uki-url https://example.com/vmlinuz.efi\n",
+			},
+			wantErrSubstr: "uses 'uki-url' key",
+		},
+		{
+			name: "no 'linux' key produces an error",
+			files: map[string]string{
+				"bad.conf": "title Azure Linux\n" +
+					"options root=/dev/sda1\n",
+			},
+			wantErrSubstr: "missing 'linux' key",
+		},
+		{
+			name: "no 'title' key produces an error",
+			files: map[string]string{
+				"bad.conf": "linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1\n",
+			},
+			wantErrSubstr: "missing 'title' key",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bootDir := t.TempDir()
+			entriesDir := filepath.Join(bootDir, "loader", "entries")
+			err := os.MkdirAll(entriesDir, 0o755)
+			if !assert.NoError(t, err) {
+				return
+			}
+			for name, content := range tc.files {
+				err := os.WriteFile(filepath.Join(entriesDir, name), []byte(content), 0o644)
+				if !assert.NoError(t, err) {
+					return
+				}
+			}
+
+			got, err := readKernelCmdlinesFromBLSEntries(bootDir)
+			if tc.wantErrSubstr != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErrSubstr)
+				}
+				return
+			}
+
+			if !assert.NoError(t, err) {
+				return
+			}
+
+			gotKernels := make([]string, 0, len(got))
+			for k := range got {
+				gotKernels = append(gotKernels, k)
+			}
+			assert.ElementsMatch(t, tc.wantKernels, gotKernels)
+
+			for kernel, wantArgs := range tc.wantArgsFor {
+				args, ok := got[kernel]
+				if !assert.True(t, ok, "expected kernel %q in result", kernel) {
+					continue
+				}
+				gotArgStrings := make([]string, 0, len(args))
+				for _, arg := range args {
+					gotArgStrings = append(gotArgStrings, arg.Arg)
+				}
+				assert.Equal(t, wantArgs, gotArgStrings, "args for kernel %q", kernel)
+			}
+		})
+	}
+}
