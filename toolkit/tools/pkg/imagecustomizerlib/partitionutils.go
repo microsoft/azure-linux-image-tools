@@ -1120,7 +1120,11 @@ func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPa
 func readGrubConfigLinuxArgsBestEffort(bootDir string) (map[string][]grubConfigLinuxArg, error) {
 	grubCfgFile, err := installutils.FindGrubCfgFile(bootDir)
 	if err != nil {
-		return nil, err
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+		logger.Log.Debugf("No grub.cfg found under (%s): attempting BLS entries directly", bootDir)
+		return readKernelCmdlinesFromBLSEntries(bootDir)
 	}
 
 	grubCfgContent, err := file.Read(grubCfgFile)
@@ -1140,11 +1144,13 @@ func readGrubConfigLinuxArgsBestEffort(bootDir string) (map[string][]grubConfigL
 		if len(linuxLines) > 0 {
 			return nil, fmt.Errorf("found non-recovery linux lines in grub.cfg but also found BLS enablement, which is unsupported")
 		}
+		logger.Log.Debugf("Found BLS enablement in grub.cfg: parsing BLS entries directly")
 		return readKernelCmdlinesFromBLSEntries(bootDir)
 	}
 	if len(linuxLines) == 0 {
 		return nil, fmt.Errorf("no non-recovery linux command lines or BLS enablement found in grub.cfg")
 	}
+	logger.Log.Debugf("Found non-recovery linux lines in grub.cfg without BLS enablement: parsing grub.cfg")
 	return formatKernelCmdlineFromLinuxLines(linuxLines)
 }
 
