@@ -856,8 +856,8 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 			return nil, fmt.Errorf("BLS entry (%s) is missing 'title' key", absPath)
 		}
 
-		if strings.Contains(title, "recovery") {
-			logger.Log.Debugf("Skipping recovery BLS entry with title (%s) in file (%s)", title, absPath)
+		if isRecoveryOrRescueTitle(title) {
+			logger.Log.Debugf("Skipping recovery/rescue BLS entry with title (%s) in file (%s)", title, absPath)
 			continue
 		}
 

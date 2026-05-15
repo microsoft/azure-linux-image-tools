@@ -149,6 +149,11 @@ func FindLinuxLine(inputGrubCfgContent string) (grub.Line, error) {
 	return lines[0], nil
 }
 
+func isRecoveryOrRescueTitle(title string) bool {
+	lowerTitle := strings.ToLower(title)
+	return strings.Contains(lowerTitle, "recovery") || strings.Contains(lowerTitle, "rescue")
+}
+
 // Find the linux commands within non-recovery mode menuentry block in the grub config lines.
 
 func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
@@ -163,8 +168,7 @@ func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 			inMenuEntry = true
 			isRecoveryMenu = false
 
-			// Check if the title (second token) contains the word 'recovery'
-			if strings.Contains(line.Tokens[1].RawContent, "recovery") {
+			if isRecoveryOrRescueTitle(line.Tokens[1].RawContent) {
 				isRecoveryMenu = true
 			}
 
