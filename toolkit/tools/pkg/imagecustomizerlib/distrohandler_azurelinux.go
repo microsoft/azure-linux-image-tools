@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -84,25 +85,23 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	grubPackages := []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
-	if d.version == "4.0" {
-		grubPackages = []string{"grub2-efi-x64", "grub2-efi-aa64"}
-	}
-	for _, pkg := range grubPackages {
-		if d.IsPackageInstalled(imageChroot, pkg) {
-			return BootloaderTypeGrub, nil
+	var grubEfiPackages []string
+	switch d.version {
+	case "4.0":
+		switch runtime.GOARCH {
+		case "amd64":
+			grubEfiPackages = []string{grubEfiPackageFedoraAmd64}
+		default:
+			grubEfiPackages = []string{grubEfiPackageFedoraArm64}
 		}
+	default:
+		grubEfiPackages = grubEfiPackagesAzureLinux3
 	}
-	systemdBootPackages := []string{"systemd-boot"}
-	if d.version == "4.0" {
-		systemdBootPackages = []string{"systemd-boot", "systemd-boot-unsigned"}
-	}
-	for _, pkg := range systemdBootPackages {
-		if d.IsPackageInstalled(imageChroot, pkg) {
-			return BootloaderTypeSystemdBoot, nil
-		}
-	}
-	return "", fmt.Errorf("unknown bootloader: none of %v or %v found", grubPackages, systemdBootPackages)
+	return detectBootloaderType(d, imageChroot, grubEfiPackages, d.getSystemdBootPackagesForVersion())
+}
+
+func (d *azureLinuxDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	return validateUkiDependencies(d, imageChroot, d.getSystemdBootPackagesForVersion())
 }
 
 func (d *azureLinuxDistroHandler) GetEspDir() string {
@@ -242,4 +241,11 @@ func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []ver
 
 	grubCfgFullPath := filepath.Join(bootDir, FedoraGrubCfgPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+}
+
+func (d *azureLinuxDistroHandler) getSystemdBootPackagesForVersion() []string {
+	if d.version == "4.0" {
+		return []string{systemdBootPackage, systemdBootUnsignedPackage}
+	}
+	return []string{systemdBootPackage}
 }

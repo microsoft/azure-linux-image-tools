@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -101,13 +102,18 @@ func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.IsPackageInstalled(imageChroot, "grub-efi-amd64") || d.IsPackageInstalled(imageChroot, "grub-efi-arm64") || d.IsPackageInstalled(imageChroot, "grub-efi") {
-		return BootloaderTypeGrub, nil
+	grubEfiPackages := []string{"grub-efi"}
+	switch runtime.GOARCH {
+	case "amd64":
+		grubEfiPackages = append(grubEfiPackages, grubEfiPackageDebianAmd64)
+	default:
+		grubEfiPackages = append(grubEfiPackages, grubEfiPackageDebianArm64)
 	}
-	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
-	}
-	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi-arm64, nor systemd-boot found")
+	return detectBootloaderType(d, imageChroot, grubEfiPackages, []string{systemdBootPackage})
+}
+
+func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	return validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
 }
 
 func (d *ubuntuDistroHandler) GetEspDir() string {

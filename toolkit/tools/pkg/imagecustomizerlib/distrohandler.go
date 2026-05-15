@@ -18,6 +18,13 @@ const (
 	packageManagerTDNF = "tdnf"
 	packageManagerDNF  = "dnf"
 	packageManagerAPT  = "apt-get"
+
+	grubEfiPackageFedoraAmd64  = "grub2-efi-x64"
+	grubEfiPackageDebianAmd64  = "grub-efi-amd64"
+	grubEfiPackageFedoraArm64  = "grub2-efi-aa64"
+	grubEfiPackageDebianArm64  = "grub-efi-arm64"
+	systemdBootPackage         = "systemd-boot"
+	systemdBootUnsignedPackage = "systemd-boot-unsigned"
 )
 
 // PackageType represents the type of package format
@@ -29,6 +36,12 @@ type DistroName string
 const (
 	distroNameAzureLinux DistroName = "azurelinux"
 	distroNameFedora     DistroName = "fedora"
+)
+
+var (
+	grubEfiPackagesAzureLinux3     = []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
+	systemdBootPackagesAzureLinux4 = []string{systemdBootPackage, systemdBootUnsignedPackage}
+	systemdBootPackagesDefault     = []string{systemdBootPackage}
 )
 
 // DistroHandler represents the interface for distribution-specific configuration
@@ -51,6 +64,9 @@ type DistroHandler interface {
 
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
+
+	// ValidateUkiDependencies verifies that the necessary dependencies for UKI customization are present in the image.
+	ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error
 
 	// GetEspDir returns the ESP directory path relative to the image root.
 	// For example: "boot/efi" for most distros, "boot" for ACL.

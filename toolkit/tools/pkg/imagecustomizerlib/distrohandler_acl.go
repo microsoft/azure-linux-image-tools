@@ -72,7 +72,11 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	return BootloaderTypeSystemdBoot, nil
+	return detectBootloaderType(d, imageChroot, nil, []string{systemdBootPackage})
+}
+
+func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	return validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
 }
 
 func (d *aclDistroHandler) GetEspDir() string {

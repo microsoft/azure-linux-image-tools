@@ -278,9 +278,9 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	defer span.End()
 
 	// Check UKI dependency packages.
-	err = validateUkiDependencies(imageChroot, distroHandler)
+	err = distroHandler.ValidateUkiDependencies(imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
+		return err
 	}
 
 	// Create necessary directories for UKI.
@@ -346,21 +346,31 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	return nil
 }
 
-func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
-	systemdBootPackages := []string{"systemd-boot"}
-	if distroHandler.GetTargetOs() == targetos.TargetOsAzureLinux4 {
-		systemdBootPackages = []string{"systemd-boot", "systemd-boot-unsigned"}
+func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
+	systemdBootPackages []string,
+) error {
+	if err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages); err != nil {
+		return fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
 	}
+	return nil
+}
 
+func isSystemdBootPackageInstalled(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
+	systemdBootPackages []string,
+) error {
 	for _, pkg := range systemdBootPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
 		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+			if pkg == systemdBootUnsignedPackage {
+				logger.Log.Warnf("Detected package (%s): Customized image will fail Secure Boot verification", pkg)
+			}
 			return nil
 		}
 	}
-
-	return fmt.Errorf("package (%s) is not installed:\n"+
-		"this package must be installed to use Uki", systemdBootPackages[0])
+	if len(systemdBootPackages) == 1 {
+		return fmt.Errorf("package (%s) is not installed", systemdBootPackages[0])
+	}
+	return fmt.Errorf("none of the packages (%v) are installed", systemdBootPackages)
 }
 
 func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error {
