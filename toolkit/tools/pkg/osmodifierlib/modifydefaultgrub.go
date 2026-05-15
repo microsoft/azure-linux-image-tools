@@ -76,11 +76,17 @@ func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface, distroH
 		return nil, "", err
 	}
 
-	var values []string
 	rootDevice := argMap["root"]
-	delete(argMap, "root")
-	for name, value := range argMap {
-		values = append(values, name+"="+value)
+
+	// Iterate grubArgs (not argMap) to preserve a deterministic order.
+	var values []string
+	for _, name := range grubArgs {
+		if name == "root" {
+			continue
+		}
+		if value, ok := argMap[name]; ok {
+			values = append(values, name+"="+value)
+		}
 	}
 
 	return values, rootDevice, nil
