@@ -785,12 +785,15 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 			wantErrSubstr: "missing 'linux' key",
 		},
 		{
-			name: "no 'title' key produces an error",
+			name: "no 'title' key is treated as a normal entry",
 			files: map[string]string{
 				"bad.conf": "linux /vmlinuz-6.6\n" +
 					"options root=/dev/sda1\n",
 			},
-			wantErrSubstr: "missing 'title' key",
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1"},
+			},
 		},
 	}
 
