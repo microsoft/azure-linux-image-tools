@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
@@ -107,10 +106,6 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 		t.Skip("The 'ukify' command is not available")
 	}
 
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
-	}
-
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageRawToCosi_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
@@ -186,10 +181,6 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 	assert.NoError(t, err)
 	if !ukifyExists {
 		t.Skip("The 'ukify' command is not available")
-	}
-
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
 	testTempDir := filepath.Join(tmpDir,
