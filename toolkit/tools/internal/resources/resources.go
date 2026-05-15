@@ -23,9 +23,16 @@ const (
 	VerityMountBootPartitionGenRulesFile  = "verity-signature/90mountbootpartition/mountbootpartition-genrules.sh"
 	VerityMountBootPartitionScriptFile    = "verity-signature/90mountbootpartition/mountbootpartition.sh"
 
+	// Verity Workaround Hook
+	// Dracut cmdline hook that injects Upholds= directives on partition device
+	// units to prevent a race condition where systemd-veritysetup@root.service
+	// fails to start because its BindsTo= dependencies are consumed before the
+	// relationship is established.
+	VerityUpholdsWorkaroundFile = "verity-workaround/10-verity-upholds-workaround.sh"
+
 	// Certificates
 	MicrosoftSupplyChainRSARootCA2022File = "certificates/Microsoft Supply Chain RSA Root CA 2022.crt"
 )
 
-//go:embed assets verity-signature certificates
+//go:embed assets verity-signature verity-workaround certificates
 var ResourcesFS embed.FS

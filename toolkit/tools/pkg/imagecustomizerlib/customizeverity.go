@@ -53,6 +53,7 @@ var (
 	ErrVerifyVerity                      = NewImageCustomizerError("Verity:Verify", "failed to verify verity")
 	ErrUpdateKernelArgs                  = NewImageCustomizerError("Verity:UpdateKernelArgs", "failed to update kernel cmdline arguments for verity")
 	ErrUpdateGrubConfig                  = NewImageCustomizerError("Verity:UpdateGrubConfig", "failed to update grub config for verity")
+	ErrVerityUpholdsWorkaround           = NewImageCustomizerError("Verity:UpholdsWorkaround", "failed to install verity Upholds= workaround hook")
 )
 
 const (
@@ -62,6 +63,8 @@ const (
 
 	// Dracut module directory path for verity boot partition support.
 	VerityMountBootPartitionModuleDir = "/usr/lib/dracut/modules.d/90mountbootpartition"
+	// Dracut hook directory for the verity Upholds= workaround.
+	VerityUpholdsWorkaroundHookDir = "/lib/dracut/hooks/cmdline"
 	// Standard permission mode for dracut module directories.
 	DracutModuleDirMode = 0o755
 	// Standard permission mode for executable scripts in dracut modules.
@@ -91,6 +94,16 @@ func enableVerityPartition(ctx context.Context, buildDir string, verity []imagec
 	err = addDracutModuleAndDriver(systemdVerityDracutModule, dmVerityDracutDriver, imageChroot)
 	if err != nil {
 		return false, fmt.Errorf("%w:\n%w", ErrVerityDracutModuleAdd, err)
+	}
+
+	// Install the verity Upholds= workaround hook into the initramfs.
+	// This prevents a race condition where systemd-veritysetup@root.service
+	// fails to start because partition device units appear before the
+	// BindsTo= dependency chain is established, causing the dm-verity root
+	// device to never be created and sysroot.mount to hang indefinitely.
+	err = installVerityUpholdsWorkaround(imageChroot.RootDir())
+	if err != nil {
+		return false, fmt.Errorf("%w:\n%w", ErrVerityUpholdsWorkaround, err)
 	}
 
 	err = updateFstabForVerity(verity, imageChroot)
@@ -223,6 +236,28 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 		if err != nil {
 			return fmt.Errorf("failed to install verity dracut file (%s):\n%w", dst, err)
 		}
+	}
+
+	return nil
+}
+
+// installVerityUpholdsWorkaround installs a dracut cmdline hook that prevents
+// a race condition in systemd-veritysetup@root.service startup. The hook
+// injects Upholds= directives on partition device units so they actively
+// trigger the veritysetup service when they appear, rather than relying on
+// passive BindsTo= dependency resolution.
+//
+// This is critical for UKI images where the initrd cannot be regenerated at
+// runtime (trident skips initrd regeneration for UKI). Without this hook,
+// ~1% of boots after A/B updates hang at sysroot.mount because the verity
+// device (dm-0) is never created.
+func installVerityUpholdsWorkaround(installRoot string) error {
+	targetDir := filepath.Join(installRoot, VerityUpholdsWorkaroundHookDir)
+
+	dst := filepath.Join(targetDir, "10-verity-upholds-workaround.sh")
+	err := file.CopyResourceFile(resources.ResourcesFS, resources.VerityUpholdsWorkaroundFile, dst, DracutModuleDirMode, DracutModuleScriptFileMode)
+	if err != nil {
+		return fmt.Errorf("failed to install verity upholds workaround hook (%s):\n%w", dst, err)
 	}
 
 	return nil
