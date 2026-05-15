@@ -38,10 +38,6 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 		t.Skip("The 'ukify' command is not available")
 	}
 
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
-	}
-
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUki_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
@@ -93,10 +89,6 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	assert.NoError(t, err)
 	if !ukifyExists {
 		t.Skip("The 'ukify' command is not available")
-	}
-
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUkiRecustomize_%s", baseImageInfo.Name))
@@ -214,10 +206,6 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 		t.Skip("The 'ukify' command is not available")
 	}
 
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
-	}
-
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageUsrVerityUkiPassthrough_%s", baseImageInfo.Name))
 	defer os.RemoveAll(testTempDir)
 
@@ -279,10 +267,6 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 	assert.NoError(t, err)
 	if !ukifyExists {
 		t.Skip("The 'ukify' command is not available")
-	}
-
-	if runtime.GOARCH == "arm64" {
-		t.Skip("systemd-boot not available on AZL3 ARM64 yet")
 	}
 
 	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImageRootVerityUki_%s", baseImageInfo.Name))
