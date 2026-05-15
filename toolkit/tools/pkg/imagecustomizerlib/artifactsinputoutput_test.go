@@ -27,9 +27,6 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
 	}
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -140,9 +137,6 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
 	}
 
 	ukifyExists, err := file.CommandExists("ukify")

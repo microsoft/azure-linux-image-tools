@@ -41,10 +41,6 @@ func TestCustomizeImagePartitions(t *testing.T) {
 func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
 
@@ -153,10 +149,6 @@ func verifyEfiPartitionsImage(t *testing.T, outImageFilePath string, baseImageIn
 func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImagePartitionsSizeOnly")
 	defer os.RemoveAll(testTmpDir)
 
@@ -241,10 +233,6 @@ func TestCustomizeImagePartitionsLegacy(t *testing.T) {
 
 func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
@@ -384,10 +372,6 @@ func TestCustomizeImageNewUUIDs(t *testing.T) {
 
 func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)
@@ -807,10 +791,6 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	baseImageInfo testBaseImageInfo,
 ) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Distro == baseImageDistroAzureLinux && baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTmpDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTmpDir)

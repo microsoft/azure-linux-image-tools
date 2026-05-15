@@ -14,7 +14,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
@@ -34,10 +33,6 @@ func TestCustomizeImageVerity(t *testing.T) {
 
 func testCustomizeImageVerityHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -127,10 +122,6 @@ func TestCustomizeImageVerityCosiShrinkExtract(t *testing.T) {
 
 func testCustomizeImageVerityCosiExtractHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -282,44 +273,33 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 	verityType string, extraCommandLine string, baseImageInfo testBaseImageInfo, corruptionOption string,
 	inlineVerity bool,
 ) {
-	// Extract kernel command line args.
-	grubCfgPath := filepath.Join(bootPath, "/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgPath)
+	distroHandler := NewDistroHandler(baseImageInfo.Distro, baseImageInfo.Version)
+	kernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootPath)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	argsRegexp := regexp.MustCompile(`(?m)^[\t ]*linux[\t ]*\S+[\t ]*(.*)$`)
-	matches := argsRegexp.FindAllStringSubmatch(grubCfgContents, -1)
-
 	kernelArgsList := []string(nil)
-	for _, match := range matches {
-		kernelArgsList = append(kernelArgsList, match[1])
+	for _, args := range grubKernelArgsToStringMap(kernelToArgs) {
+		kernelArgsList = append(kernelArgsList, args)
 	}
 
 	// Verify verity.
 	verifyVerityHelper(t, kernelArgsList, dataDevice, hashDevice, dataId, hashId, verityType, corruptionOption,
 		inlineVerity)
 
-	// Verity extra command line args.
-	recoveryCount := 0
-	if baseImageInfo.Version == baseImageVersionAzl3 {
-		// Count the number of recovery menu items there are.
-		// These menu items won't contain the extra command line args.
-		recoveryCount = strings.Count(grubCfgContents, "(recovery mode)")
-	}
-
+	// Verify extra command line args.
 	cmdlineRegexp := regexp.MustCompile(fmt.Sprintf(` %s( |$)`, regexp.QuoteMeta(extraCommandLine)))
 
 	// Count the number of linux lines contain the extra command line args.
-	extracCommandLineMatchCount := 0
+	extraCommandLineMatchCount := 0
 	for _, kernelArgs := range kernelArgsList {
 		if cmdlineRegexp.MatchString(kernelArgs) {
-			extracCommandLineMatchCount += 1
+			extraCommandLineMatchCount += 1
 		}
 	}
 
-	assert.Equal(t, len(kernelArgsList)-recoveryCount, extracCommandLineMatchCount)
+	assert.Equal(t, len(kernelArgsList), extraCommandLineMatchCount)
 }
 
 func verifyVerityUki(t *testing.T, espPath string, dataDevice string,
@@ -437,10 +417,6 @@ func TestCustomizeImageVerityUsr(t *testing.T) {
 func testCustomizeImageVerityUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -519,10 +495,6 @@ func TestCustomizeImageVerityUsr2Stage(t *testing.T) {
 func testCustomizeImageVerityUsr2StageHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -567,10 +539,6 @@ func TestCustomizeImageVerityReinitRoot(t *testing.T) {
 
 func testCustomizeImageVerityReinitRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -620,10 +588,6 @@ func TestCustomizeImageVerityReinitUsr(t *testing.T) {
 
 func testCustomizeImageVerityReinitUsrHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -746,10 +710,6 @@ func TestCustomizeImageVerityBtrfsRoot(t *testing.T) {
 func testCustomizeImageVerityBtrfsRootHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -789,10 +749,6 @@ func TestCustomizeImageVerityBtrfsNoSubvolumes(t *testing.T) {
 
 func testCustomizeImageVerityBtrfsNoSubvolumesHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
@@ -922,10 +878,6 @@ func TestCustomizeImageVerityRootInline(t *testing.T) {
 func testCustomizeImageVerityRootInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -1025,10 +977,6 @@ func TestCustomizeImageVerityUsrInline(t *testing.T) {
 func testCustomizeImageVerityUsrInlineHelper(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, testName)
 	defer os.RemoveAll(testTempDir)
 
@@ -1125,9 +1073,6 @@ func testCustomizeImageVerityRootInlineCosiHelper(t *testing.T, testName string,
 
 	if baseImageInfo.Version == baseImageVersionAzl2 {
 		t.Skip("'systemd-boot' is not available on Azure Linux 2.0")
-	}
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
 	}
 
 	testTempDir := filepath.Join(tmpDir, testName)
@@ -1280,5 +1225,209 @@ func verityRootInlineUkiConfigFile(baseImageInfo testBaseImageInfo) string {
 		return fmt.Sprintf("verity-root-inline-uki-%s-azl4.yaml", runtime.GOARCH)
 	default:
 		panic(fmt.Sprintf("unsupported base image version for verity-root-inline-uki test: %s", baseImageInfo.Version))
+	}
+}
+
+func TestUpdateBLSEntryOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		content      string
+		argsToRemove []string
+		newArgs      []string
+		want         string
+	}{
+		{
+			name: "preserves quoted value with embedded space",
+			content: "title Foo\n" +
+				"linux /vmlinuz\n" +
+				"options root=/dev/sda1 rd.cmdline=\"foo bar\" quiet\n",
+			argsToRemove: []string{"quiet"},
+			newArgs:      []string{"verity=1"},
+			// rd.cmdline="foo bar" must remain a single arg; only "quiet"
+			// should disappear. GrubArgsToString re-quotes as double-quoted.
+			want: "title Foo\n" +
+				"linux /vmlinuz\n" +
+				"options root=/dev/sda1 \"rd.cmdline=foo bar\" verity=1\n",
+		},
+		{
+			name: "removes named arg whose value is quoted with spaces",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 rd.cmdline=\"foo bar\" quiet\n",
+			argsToRemove: []string{"rd.cmdline"},
+			newArgs:      nil,
+			// The whole rd.cmdline=... token must be removed atomically.
+			// Pre-fix strings.Fields would have dropped only `rd.cmdline="foo`
+			// and left a dangling `bar"` token.
+			want: "title Foo\n" +
+				"options root=/dev/sda1 quiet\n",
+		},
+		{
+			name: "tab between key and value is recognized",
+			content: "title Foo\n" +
+				"options\troot=/dev/sda1 quiet\n",
+			argsToRemove: []string{"quiet"},
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"options root=/dev/sda1 verity=1\n",
+		},
+		{
+			name: "mixed tab-then-space is recognized",
+			content: "title Foo\n" +
+				"options\troot=/dev/sda1 quiet\n",
+			argsToRemove: []string{"root"},
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"options quiet verity=1\n",
+		},
+		{
+			name: "multiple options lines: remove from all, append to last",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 stale=yes\n" +
+				"options quiet stale=also\n",
+			argsToRemove: []string{"stale"},
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"options root=/dev/sda1\n" +
+				"options quiet verity=1\n",
+		},
+		{
+			name:         "no options line: appended preserving trailing newline",
+			content:      "title Foo\nlinux /vmlinuz\n",
+			argsToRemove: []string{"stale"},
+			newArgs:      []string{"verity=1"},
+			want:         "title Foo\nlinux /vmlinuz\noptions verity=1\n",
+		},
+		{
+			name:         "no options line and no trailing newline: newline inserted",
+			content:      "title Foo\nlinux /vmlinuz",
+			argsToRemove: nil,
+			newArgs:      []string{"verity=1"},
+			want:         "title Foo\nlinux /vmlinuz\noptions verity=1\n",
+		},
+		{
+			name: "comments and unrelated keys are preserved",
+			content: "# a comment\n" +
+				"title Foo\n" +
+				"linux /vmlinuz\n" +
+				"options root=/dev/sda1\n" +
+				"initrd /initrd.img\n",
+			argsToRemove: nil,
+			newArgs:      []string{"verity=1"},
+			want: "# a comment\n" +
+				"title Foo\n" +
+				"linux /vmlinuz\n" +
+				"options root=/dev/sda1 verity=1\n" +
+				"initrd /initrd.img\n",
+		},
+		{
+			// argsToRemove that matches nothing must be a true no-op semantically.
+			// The args list survives the tokenize -> filter -> re-emit round-trip.
+			name: "argsToRemove with no matches preserves args",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 quiet\n",
+			argsToRemove: []string{"nonexistent", "alsogone"},
+			newArgs:      nil,
+			want: "title Foo\n" +
+				"options root=/dev/sda1 quiet\n",
+		},
+		{
+			// nil argsToRemove + nil newArgs must still survive the round-trip
+			// without losing or duplicating args.
+			name: "nil args lists: passthrough preserves all args",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 ro quiet\n",
+			argsToRemove: nil,
+			newArgs:      nil,
+			want: "title Foo\n" +
+				"options root=/dev/sda1 ro quiet\n",
+		},
+		{
+			// When every existing arg is removed and no new args are added the
+			// options line must collapse to a bare "options" rather than being
+			// dropped or producing trailing whitespace.
+			name: "all args removed and no newArgs yields bare options line",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 quiet\n",
+			argsToRemove: []string{"root", "quiet"},
+			newArgs:      nil,
+			want: "title Foo\n" +
+				"options\n",
+		},
+		{
+			// Grub permits single-quoted values; the tokenizer normalizes them
+			// during read. On re-emit GrubArgsToString always uses double quotes,
+			// so a single-quoted input becomes double-quoted output but the
+			// arg's name/value identity is preserved.
+			name: "single-quoted value is preserved as one arg",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 rd.cmdline='foo bar' quiet\n",
+			argsToRemove: []string{"quiet"},
+			newArgs:      nil,
+			want: "title Foo\n" +
+				"options root=/dev/sda1 \"rd.cmdline=foo bar\"\n",
+		},
+		{
+			// A quoted value containing '=' characters must remain a single arg.
+			// ParseCommandLineArgs splits the assembled token on the FIRST '='
+			// only, so name="rd.cmdline" and value="a=b c=d".
+			name: "quoted value containing '=' preserved as one arg",
+			content: "title Foo\n" +
+				"options \"rd.cmdline=a=b c=d\" quiet\n",
+			argsToRemove: []string{"quiet"},
+			newArgs:      nil,
+			want: "title Foo\n" +
+				"options \"rd.cmdline=a=b c=d\"\n",
+		},
+		{
+			// Any leading indentation before the "options" keyword sits outside
+			// the splice range and must be preserved verbatim.
+			name: "indented options line: leading whitespace preserved",
+			content: "title Foo\n" +
+				"  options root=/dev/sda1\n",
+			argsToRemove: nil,
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"  options root=/dev/sda1 verity=1\n",
+		},
+		{
+			// Empty input + newArgs must produce a single options line with
+			// trailing newline (the no-options-line append path).
+			name:         "empty content with newArgs yields just options line",
+			content:      "",
+			argsToRemove: nil,
+			newArgs:      []string{"verity=1"},
+			want:         "options verity=1\n",
+		},
+		{
+			// Empty input + nil newArgs must produce a bare options line.
+			name:         "empty content with no newArgs yields bare options line",
+			content:      "",
+			argsToRemove: nil,
+			newArgs:      nil,
+			want:         "options\n",
+		},
+		{
+			// With multiple options lines, the writer applies argsToRemove to
+			// every line but appends newArgs only to the last. When the first
+			// line becomes empty it must collapse to a bare "options" rather
+			// than being dropped (preserving BLS-spec multi-line semantics).
+			name: "multiple options lines: emptied line collapses, newArgs on last",
+			content: "title Foo\n" +
+				"options root=/dev/sda1\n" +
+				"options quiet\n",
+			argsToRemove: []string{"root"},
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"options\n" +
+				"options quiet verity=1\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := updateBLSEntryOptions(tc.content, tc.argsToRemove, tc.newArgs)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
 	}
 }

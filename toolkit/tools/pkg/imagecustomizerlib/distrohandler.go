@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -17,6 +18,13 @@ const (
 	packageManagerTDNF = "tdnf"
 	packageManagerDNF  = "dnf"
 	packageManagerAPT  = "apt-get"
+
+	grubEfiPackageFedoraAmd64  = "grub2-efi-x64"
+	grubEfiPackageDebianAmd64  = "grub-efi-amd64"
+	grubEfiPackageFedoraArm64  = "grub2-efi-aa64"
+	grubEfiPackageDebianArm64  = "grub-efi-arm64"
+	systemdBootPackage         = "systemd-boot"
+	systemdBootUnsignedPackage = "systemd-boot-unsigned"
 )
 
 // PackageType represents the type of package format
@@ -28,6 +36,12 @@ type DistroName string
 const (
 	distroNameAzureLinux DistroName = "azurelinux"
 	distroNameFedora     DistroName = "fedora"
+)
+
+var (
+	grubEfiPackagesAzureLinux3     = []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
+	systemdBootPackagesAzureLinux4 = []string{systemdBootPackage, systemdBootUnsignedPackage}
+	systemdBootPackagesDefault     = []string{systemdBootPackage}
 )
 
 // DistroHandler represents the interface for distribution-specific configuration
@@ -50,6 +64,9 @@ type DistroHandler interface {
 
 	// Detect the bootloader type installed in the image
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
+
+	// ValidateUkiDependencies verifies that the necessary dependencies for UKI customization are present in the image.
+	ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error
 
 	// GetEspDir returns the ESP directory path relative to the image root.
 	// For example: "boot/efi" for most distros, "boot" for ACL.
@@ -81,6 +98,23 @@ type DistroHandler interface {
 		rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 		selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 		currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool) error
+
+	// ReadGrubConfigLinuxArgs reads kernel command-line arguments from the distro's boot configuration, returning them
+	// in parsed grubConfigLinuxArg format.
+	ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error)
+
+	// ReadKernelCmdlines reads kernel command-line arguments from the distro's boot configuration (e.g., grub.cfg linux
+	// lines or BLS entries). Returns a mapping from kernel filename to the full command-line argument string.
+	ReadKernelCmdlines(bootDir string) (map[string]string, error)
+
+	// ReadNonRecoveryKernelCmdlines reads kernel command-line arguments from the boot configuration, excluding
+	// recovery entries, and returns only args whose name is in argNames.
+	ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error)
+
+	// UpdateBootConfigForVerity updates the boot configuration (grub.cfg or BLS entries) with verity
+	// kernel arguments. Each distro handler implements the appropriate strategy.
+	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,
+		bootRelativePath string, partitions []diskutils.PartitionInfo, buildDir string, bootUuid string) error
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
