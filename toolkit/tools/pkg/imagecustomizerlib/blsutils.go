@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// Helpers for working with Boot Loader Specification (BLS) entries.
-// See https://uapi-group.org/specifications/specs/boot_loader_specification/
+// Helpers for working with Boot Loader Specification (BLS) entries that depend
+// on higher-level concepts in this package (grub cmdline parsing, verity
+// metadata, etc.). The file-format parser itself lives in internal/bls.
 //
-// The parsers in this file handle the text entry files under
-// /loader/entries/*.conf, which contain simple line-based key/value pairs
-// (e.g. `title`, `linux`, `initrd`, `options`).
+// See https://uapi-group.org/specifications/specs/boot_loader_specification/
 
 package imagecustomizerlib
 
@@ -19,112 +18,10 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/bls"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 )
-
-// blsField is one key-value pair from a BLS entry file.
-type blsField struct {
-	Key   string
-	Value string
-}
-
-// blsLine is one logical line of a BLS entry file, with byte offsets into the source content so callers can splice
-// in-place rewrites while preserving the rest of the file verbatim.
-type blsLine struct {
-	blsField
-	ContentStart int
-	ContentEnd   int
-}
-
-// FindBlsCfg reports whether the given grub.cfg lines contain a `blscfg` command, indicating that the distro uses BLS
-// entries for its boot menu.
-func FindBlsCfg(grubLines []grub.Line) bool {
-	for _, line := range grubLines {
-		if len(line.Tokens) >= 1 && grub.IsTokenKeyword(line.Tokens[0], "blscfg") {
-			return true
-		}
-	}
-	return false
-}
-
-// parseBLSFields parses a BLS entry file into its key-value pairs, in source order, with blank lines and comments
-// dropped. This is the canonical entry point for code that interprets BLS values.
-func parseBLSFields(content string) []blsField {
-	lines := parseBLSLines(content)
-	fields := make([]blsField, 0, len(lines))
-	for _, line := range lines {
-		if line.Key == "" {
-			continue
-		}
-		fields = append(fields, line.blsField)
-	}
-	return fields
-}
-
-// parseBLSLines parses a BLS entry file into logical lines, following the rules used by systemd's
-// `boot_entry_load_type1` in src/shared/bootspec.c:
-//
-//   - Lines are LF-terminated; CRLF is tolerated.
-//   - Each line is stripped of leading and trailing whitespace (space, tab) before further processing.
-//   - Empty lines and lines whose first non-whitespace character is '#' are returned with Key="".
-//   - Otherwise the line is split on the FIRST run of whitespace into a key and a value. The value is taken verbatim to
-//     end-of-line. '$', '"', "'", and '\\' inside a value are LITERAL characters, not subject to grub-style variable
-//     expansion, quote stripping, or escape processing. (This is the key difference from grub.cfg syntax.)
-//
-// Prefer parseBLSFields unless you need byte offsets for in-place rewriting.
-func parseBLSLines(content string) []blsLine {
-	if content == "" {
-		return nil
-	}
-	var lines []blsLine
-	pos := 0
-	for pos < len(content) {
-		rel := strings.IndexByte(content[pos:], '\n')
-		var lineEnd int
-		if rel < 0 {
-			lineEnd = len(content)
-		} else {
-			lineEnd = pos + rel
-		}
-
-		// Trim trailing whitespace and any CR (for CRLF tolerance).
-		end := lineEnd
-		for end > pos && (content[end-1] == ' ' || content[end-1] == '\t' || content[end-1] == '\r') {
-			end--
-		}
-
-		// Trim leading whitespace.
-		start := pos
-		for start < end && (content[start] == ' ' || content[start] == '\t') {
-			start++
-		}
-
-		line := blsLine{ContentStart: start, ContentEnd: end}
-		if start < end && content[start] != '#' {
-			// Split on the first whitespace run.
-			sep := start
-			for sep < end && content[sep] != ' ' && content[sep] != '\t' {
-				sep++
-			}
-			line.Key = content[start:sep]
-
-			// Trim leading whitespace of value.
-			valStart := sep
-			for valStart < end && (content[valStart] == ' ' || content[valStart] == '\t') {
-				valStart++
-			}
-			line.Value = content[valStart:end]
-		}
-		lines = append(lines, line)
-
-		if rel < 0 {
-			break
-		}
-		pos = lineEnd + 1
-	}
-	return lines
-}
 
 // parseBLSOptionsValue parses the verbatim value of a BLS `options` key as a kernel command line. The kernel cmdline
 // uses double-quote-grouped, whitespace-separated tokens, which the grub tokenizer handles correctly. But the grub
@@ -144,13 +41,6 @@ func parseBLSOptionsValue(value string) ([]grubConfigLinuxArg, error) {
 		}
 	}
 	return ParseCommandLineArgs(tokens)
-}
-
-// isBLSRescueEntryTitle reports whether the given BLS entry title looks like a rescue entry emitted by systemd's
-// `kernel-install` (via 90-loaderentry.install). Those entries hardcode the substring "0-rescue-<machine-id>" inside
-// the title.
-func isBLSRescueEntryTitle(title string) bool {
-	return strings.Contains(strings.ToLower(title), "rescue")
 }
 
 // readKernelCmdlinesFromBLSEntries reads Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf,
@@ -179,7 +69,7 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 		var title string
 		var args []grubConfigLinuxArg
 
-		for _, field := range parseBLSFields(string(content)) {
+		for _, field := range bls.ParseFields(string(content)) {
 			switch field.Key {
 			case "linux":
 				if linux != "" {
@@ -208,7 +98,7 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 		}
 
 		// Entries without titles are treated as normal entries.
-		if isBLSRescueEntryTitle(title) {
+		if bls.IsRescueEntryTitle(title) {
 			logger.Log.Debugf("Skipping recovery/rescue BLS entry with title (%s) in file (%s)", title, absPath)
 			continue
 		}
@@ -304,7 +194,7 @@ func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir st
 //     whitespace, comments, and unrelated lines are preserved exactly.
 //   - If no options line exists, a new one is appended.
 func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) (string, error) {
-	lines := parseBLSLines(content)
+	lines := bls.ParseLines(content)
 
 	// Collect indices of all "options" lines.
 	var optionsIdx []int

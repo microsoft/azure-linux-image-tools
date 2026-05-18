@@ -156,6 +156,17 @@ func isGrubRecoveryMenuentryTitle(title string) bool {
 	return strings.Contains(strings.ToLower(title), "recovery")
 }
 
+// FindBlsCfg reports whether the given grub.cfg lines contain a `blscfg` command, indicating that the distro uses BLS
+// entries for its boot menu.
+func FindBlsCfg(grubLines []grub.Line) bool {
+	for _, line := range grubLines {
+		if len(line.Tokens) >= 1 && grub.IsTokenKeyword(line.Tokens[0], "blscfg") {
+			return true
+		}
+	}
+	return false
+}
+
 // Find the linux commands within non-recovery mode menuentry block in the grub config lines.
 
 func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
