@@ -184,7 +184,7 @@ func (d *fedoraDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]str
 }
 
 func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
 	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
 }
 
@@ -192,6 +192,6 @@ func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,
 ) error {
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, FedoraGrubCfgPath)
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.FedoraGrubCfgRelPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }

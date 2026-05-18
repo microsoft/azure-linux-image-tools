@@ -46,8 +46,6 @@ var (
 const (
 	BootDir           = "boot"
 	EspDir            = "boot/efi"
-	FedoraGrubCfgPath = "grub2/grub.cfg"
-	DebianGrubCfgPath = "grub/grub.cfg"
 	UkiKernelInfoJson = "uki-kernel-info.json"
 	KernelPrefix      = "vmlinuz-"
 	UkiBuildDir       = "UkiBuildDir"

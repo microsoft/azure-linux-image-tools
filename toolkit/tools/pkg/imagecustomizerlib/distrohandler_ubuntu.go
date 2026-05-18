@@ -189,7 +189,7 @@ func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 }
 
 func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
-	return readKernelCmdlinesFromGrubCfg(bootDir, DebianGrubCfgPath)
+	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.DebianGrubCfgRelPath)
 }
 
 func (d *ubuntuDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
@@ -202,7 +202,7 @@ func (d *ubuntuDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]str
 }
 
 func (d *ubuntuDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	grubCfgPath := filepath.Join(bootDir, DebianGrubCfgPath)
+	grubCfgPath := filepath.Join(bootDir, installutils.DebianGrubCfgRelPath)
 	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
 }
 
@@ -210,6 +210,6 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,
 ) error {
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, DebianGrubCfgPath)
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.DebianGrubCfgRelPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }

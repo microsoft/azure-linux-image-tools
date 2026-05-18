@@ -226,7 +226,7 @@ func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[s
 	}
 
 	// Azure Linux 2.0/3.0 uses grub.cfg with inline linux commands.
-	return readKernelCmdlinesFromGrubCfg(bootDir, FedoraGrubCfgPath)
+	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.FedoraGrubCfgRelPath)
 }
 
 func (d *azureLinuxDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
@@ -243,7 +243,7 @@ func (d *azureLinuxDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, 
 		return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
 	}
 
-	grubCfgPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
 	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
 }
 
@@ -257,7 +257,7 @@ func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []ver
 		return updateBLSEntriesForVerity(verityMetadata, bootDir, partitions, buildDir, bootUuid)
 	}
 
-	grubCfgFullPath := filepath.Join(bootDir, FedoraGrubCfgPath)
+	grubCfgFullPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
 
