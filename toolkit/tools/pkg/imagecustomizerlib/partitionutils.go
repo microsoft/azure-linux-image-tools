@@ -1084,7 +1084,11 @@ func extractKernelCmdlineHelper(bootPartition diskutils.PartitionInfo, bootDirPa
 	if distroHandler != nil {
 		kernelToArgs, err = distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	} else {
-		// Best-effort attempt to read the kernel args if no distro handler is available.
+		// Best-effort attempt to read the kernel args if no distro handler is available. This happens when
+		// detectDistroFromRootfs could not find an os-release file on either the rootfs or the /usr (or /usr/lib)
+		// partition referenced by fstab. The typical case is a USR-verity configured image, where /usr is a dm-verity
+		// device whose source can't be resolved to a plain disk partition for a read-only probe, so /usr/lib/os-release
+		// is unreachable and /etc/os-release is not present on the rootfs either.
 		kernelToArgs, err = readGrubConfigLinuxArgsBestEffort(bootDir)
 	}
 
