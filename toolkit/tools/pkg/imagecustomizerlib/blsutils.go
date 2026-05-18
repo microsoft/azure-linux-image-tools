@@ -146,6 +146,13 @@ func parseBLSOptionsValue(value string) ([]grubConfigLinuxArg, error) {
 	return ParseCommandLineArgs(tokens)
 }
 
+// isBLSRescueEntryTitle reports whether the given BLS entry title looks like a rescue entry emitted by systemd's
+// `kernel-install` (via 90-loaderentry.install). Those entries hardcode the substring "0-rescue-<machine-id>" inside
+// the title.
+func isBLSRescueEntryTitle(title string) bool {
+	return strings.Contains(strings.ToLower(title), "rescue")
+}
+
 // readKernelCmdlinesFromBLSEntries reads Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf,
 // extracting a kernel-to-cmdline mapping for non-recovery entries.
 func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLinuxArg, error) {
@@ -201,7 +208,7 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 		}
 
 		// Entries without titles are treated as normal entries.
-		if isRecoveryOrRescueTitle(title) {
+		if isBLSRescueEntryTitle(title) {
 			logger.Log.Debugf("Skipping recovery/rescue BLS entry with title (%s) in file (%s)", title, absPath)
 			continue
 		}

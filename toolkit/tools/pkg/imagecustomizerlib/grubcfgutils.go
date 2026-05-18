@@ -149,9 +149,11 @@ func FindLinuxLine(inputGrubCfgContent string) (grub.Line, error) {
 	return lines[0], nil
 }
 
-func isRecoveryOrRescueTitle(title string) bool {
-	lowerTitle := strings.ToLower(title)
-	return strings.Contains(lowerTitle, "recovery") || strings.Contains(lowerTitle, "rescue")
+// isGrubRecoveryMenuentryTitle reports whether the given grub.cfg `menuentry` title looks like a recovery-mode entry
+// emitted by grub-mkconfig (via /etc/grub.d/10_linux). Those entries hardcode the substring "recovery mode" in the
+// title.
+func isGrubRecoveryMenuentryTitle(title string) bool {
+	return strings.Contains(strings.ToLower(title), "recovery")
 }
 
 // Find the linux commands within non-recovery mode menuentry block in the grub config lines.
@@ -168,7 +170,7 @@ func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 			inMenuEntry = true
 			isRecoveryMenu = false
 
-			if isRecoveryOrRescueTitle(line.Tokens[1].RawContent) {
+			if isGrubRecoveryMenuentryTitle(line.Tokens[1].RawContent) {
 				isRecoveryMenu = true
 			}
 
