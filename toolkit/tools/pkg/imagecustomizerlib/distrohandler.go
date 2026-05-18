@@ -75,9 +75,10 @@ type DistroHandler interface {
 	// empty string; all other distros return an error.
 	ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error)
 
-	// PreserveBootDirLayout reports whether /boot is the ESP itself.
-	// When true, cleanBootDirectory only removes kernel/initramfs files and preserves all directories.
-	PreserveBootDirLayout() bool
+	// CleanBootDirectory removes stale kernel/initramfs/UKI artifacts from /boot
+	// after kernel extraction. Distros where /boot IS the ESP (e.g. ACL) only
+	// remove kernel and initramfs files; all other entries are preserved.
+	CleanBootDirectory(imageChroot *safechroot.Chroot) error
 
 	// Reports whether SELinux configuration is supported by the tool for this distro.
 	SELinuxSupported() bool

@@ -112,8 +112,8 @@ func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, build
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *fedoraDistroHandler) PreserveBootDirLayout() bool {
-	return false
+func (d *fedoraDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }
 
 func (d *fedoraDistroHandler) SELinuxSupported() bool {

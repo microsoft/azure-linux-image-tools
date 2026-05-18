@@ -133,8 +133,8 @@ func (d *azureLinuxDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, b
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *azureLinuxDistroHandler) PreserveBootDirLayout() bool {
-	return false
+func (d *azureLinuxDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }
 
 func (d *azureLinuxDistroHandler) SELinuxSupported() bool {

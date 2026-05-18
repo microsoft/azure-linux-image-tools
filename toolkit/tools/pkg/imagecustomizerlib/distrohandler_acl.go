@@ -134,11 +134,10 @@ func (d *aclDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir
 	return "", fmt.Errorf("failed to stat addon file (%s):\n%w", addonFilePath, statErr)
 }
 
-func (d *aclDistroHandler) PreserveBootDirLayout() bool {
+func (d *aclDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
 	// ACL mounts the ESP directly at /boot, so /boot IS the ESP.
-	// cleanBootDirectory must not delete any directories or unrecognized files
-	// from /boot — only kernel/initramfs file patterns may be removed.
-	return true
+	// Only remove kernel/initramfs file patterns; preserve all directories and other files.
+	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), true)
 }
 
 func (d *aclDistroHandler) SELinuxSupported() bool {

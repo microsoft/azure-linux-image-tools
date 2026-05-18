@@ -132,8 +132,8 @@ func (d *ubuntuDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, build
 	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
 }
 
-func (d *ubuntuDistroHandler) PreserveBootDirLayout() bool {
-	return false
+func (d *ubuntuDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
 }
 
 func (d *ubuntuDistroHandler) SELinuxSupported() bool {

@@ -755,9 +755,11 @@ func SELinuxUpdateConfig(selinuxMode configuration.SELinux, installChroot safech
 func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToFsTypeMap map[string]string, isRootFS bool,
 	selinuxConfigFile string,
 ) (err error) {
+	const selinuxFileContextsRelPath = "contexts/files/file_contexts"
+
 	// Derive the file_contexts path from the SELinux config file path.
 	selinuxDir := filepath.Dir(selinuxConfigFile)
-	fileContextBasePath := filepath.Join(selinuxDir, "%s", "contexts", "files", "file_contexts")
+	fileContextBasePath := filepath.Join(selinuxDir, "%s", selinuxFileContextsRelPath)
 	var listOfMountsToLabel []string
 
 	if isRootFS {

@@ -19,7 +19,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
@@ -323,7 +322,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
 
-	err = cleanBootDirectory(imageChroot, distroHandler)
+	err = distroHandler.CleanBootDirectory(imageChroot)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKICleanBootDir, err)
 	}
@@ -332,6 +331,9 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// Prefer existing uki-kernel-info.json (may have been modified by handleBootLoader/handleSELinux).
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
 	existingKernelInfo, existErr := readUkiKernelInfoFile(cmdlineFilePath)
+	if existErr != nil && !errors.Is(existErr, fs.ErrNotExist) {
+		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, existErr)
+	}
 
 	kernelInfo := make(map[string]UkiKernelInfo)
 
@@ -1123,31 +1125,6 @@ func extractKernelAndInitramfsFromUkisHelper(ctx context.Context, imageChroot *s
 		logger.Log.Infof("Successfully extracted kernel and initramfs for version (%s)", kernelVersion)
 	}
 
-	// Regenerate grub.cfg now that kernels are in /boot.
-	// Only needed for GRUB-based distros; systemd-boot distros skip this.
-	bootloaderType, err := distroHandler.DetectBootloaderType(imageChroot)
-	if err != nil {
-		return fmt.Errorf("failed to detect bootloader type:\n%w", err)
-	}
-
-	if bootloaderType == BootloaderTypeGrub {
-		logger.Log.Infof("Regenerating grub.cfg after kernel extraction")
-
-		// Ensure /boot/grub2 directory exists
-		grubDir := filepath.Join(imageChroot.RootDir(), filepath.Dir(installutils.FedoraGrubCfgFile))
-		err = os.MkdirAll(grubDir, 0o755)
-		if err != nil {
-			return fmt.Errorf("failed to create grub directory (%s):\n%w", grubDir, err)
-		}
-
-		err = installutils.CallGrubMkconfig(imageChroot)
-		if err != nil {
-			return fmt.Errorf("failed to regenerate grub.cfg after kernel extraction:\n%w", err)
-		}
-	} else {
-		logger.Log.Infof("Skipping grub.cfg regeneration (non-GRUB bootloader)")
-	}
-
 	return nil
 }
 
@@ -1190,9 +1167,9 @@ func cleanUkiDirectory(ukiOutputDir string) error {
 	return nil
 }
 
-func cleanBootDirectory(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
+func defaultCleanBootDirectory(imageChroot *safechroot.Chroot, espDir string, preserveBootDirLayout bool) error {
 	bootPath := filepath.Join(imageChroot.RootDir(), BootDir)
-	espPath := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
+	espPath := filepath.Join(imageChroot.RootDir(), espDir)
 
 	dirEntries, err := os.ReadDir(bootPath)
 	if err != nil {
@@ -1210,7 +1187,7 @@ func cleanBootDirectory(imageChroot *safechroot.Chroot, distroHandler DistroHand
 		// the ESP. In that case, preserve all directories and non-kernel files —
 		// only delete standalone kernel images and initramfs archives that would
 		// normally live directly in /boot on traditional distros.
-		if distroHandler.PreserveBootDirLayout() {
+		if preserveBootDirLayout {
 			if entry.IsDir() {
 				continue
 			}
