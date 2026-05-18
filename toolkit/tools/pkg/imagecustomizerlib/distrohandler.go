@@ -33,8 +33,6 @@ const (
 	distroNameFedora     DistroName = "fedora"
 )
 
-var systemdBootPackagesDefault = []string{systemdBootPackage}
-
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {
 	GetTargetOs() targetos.TargetOs
@@ -139,7 +137,7 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 	case targetos.TargetOsAzureLinux3:
 		return newAzureLinuxDistroHandler("3.0")
 	case targetos.TargetOsAzureLinux4:
-		return newAzureLinuxDistroHandler("4.0")
+		return newAzureLinux4DistroHandler()
 	case targetos.TargetOsAzureContainerLinux3:
 		return newAclDistroHandler()
 	case targetos.TargetOsUbuntu2204:
@@ -157,6 +155,9 @@ func NewDistroHandler(distroName string, version string) DistroHandler {
 	case string(distroNameFedora):
 		return newFedoraDistroHandler(version)
 	case string(distroNameAzureLinux):
+		if version == "4.0" {
+			return newAzureLinux4DistroHandler()
+		}
 		return newAzureLinuxDistroHandler(version)
 	default:
 		panic("unsupported distro name: " + distroName)

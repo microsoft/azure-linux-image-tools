@@ -318,7 +318,7 @@ func createBootCustomizerFor30(t *testing.T) *BootCustomizer {
 
 func createBootCustomizerFor40(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg40Path),
-		filepath.Join(testDir, sampleDefaultGrub40Path), true, newAzureLinuxDistroHandler("4.0"))
+		filepath.Join(testDir, sampleDefaultGrub40Path), true, newAzureLinux4DistroHandler())
 }
 
 func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultGrubFilePath string, isGrubMkconfig bool,
