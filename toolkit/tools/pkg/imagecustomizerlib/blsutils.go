@@ -3,6 +3,10 @@
 
 // Helpers for working with Boot Loader Specification (BLS) entries.
 // See https://uapi-group.org/specifications/specs/boot_loader_specification/
+//
+// The parsers in this file handle the text entry files under
+// /loader/entries/*.conf, which contain simple line-based key/value pairs
+// (e.g. `title`, `linux`, `initrd`, `options`).
 
 package imagecustomizerlib
 
@@ -19,8 +23,22 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 )
 
-// FindBlsCfg reports whether the given grub.cfg lines contain a `blscfg`
-// command, indicating that the distro uses BLS entries for its boot menu.
+// blsField is one key-value pair from a BLS entry file.
+type blsField struct {
+	Key   string
+	Value string
+}
+
+// blsLine is one logical line of a BLS entry file, with byte offsets into the source content so callers can splice
+// in-place rewrites while preserving the rest of the file verbatim.
+type blsLine struct {
+	blsField
+	ContentStart int
+	ContentEnd   int
+}
+
+// FindBlsCfg reports whether the given grub.cfg lines contain a `blscfg` command, indicating that the distro uses BLS
+// entries for its boot menu.
 func FindBlsCfg(grubLines []grub.Line) bool {
 	for _, line := range grubLines {
 		if len(line.Tokens) >= 1 && grub.IsTokenKeyword(line.Tokens[0], "blscfg") {
@@ -30,48 +48,102 @@ func FindBlsCfg(grubLines []grub.Line) bool {
 	return false
 }
 
-// parseBLSLinuxValue parses the value following a "linux" key in a BLS entry.
-func parseBLSLinuxValue(lineTokens []grub.Token) (string, error) {
-	if len(lineTokens) != 2 {
-		return "", fmt.Errorf("expected 1 value token, found %d", len(lineTokens)-1)
+// parseBLSFields parses a BLS entry file into its key-value pairs, in source order, with blank lines and comments
+// dropped. This is the canonical entry point for code that interprets BLS values.
+func parseBLSFields(content string) []blsField {
+	lines := parseBLSLines(content)
+	fields := make([]blsField, 0, len(lines))
+	for _, line := range lines {
+		if line.Key == "" {
+			continue
+		}
+		fields = append(fields, line.blsField)
 	}
-	valueToken := lineTokens[1]
-	if valueToken.Type != grub.WORD {
-		return "", fmt.Errorf("unexpected non-word value token: %v", valueToken.RawContent)
-	}
-	if len(valueToken.SubWords) != 1 {
-		return "", fmt.Errorf("expected 1 subword, found %d", len(valueToken.SubWords))
-	}
-	sw := valueToken.SubWords[0]
-	if sw.Type != grub.KEYWORD_STRING && sw.Type != grub.STRING {
-		return "", fmt.Errorf("unexpected non-string subword: %v", sw.RawContent)
-	}
-	return sw.Value, nil
+	return fields
 }
 
-// parseBLSTitleValue parses the value following a "title" key in a BLS entry.
-func parseBLSTitleValue(lineTokens []grub.Token) (string, error) {
-	if len(lineTokens) < 2 {
-		return "", fmt.Errorf("expected at least 1 value token, found 0")
+// parseBLSLines parses a BLS entry file into logical lines, following the rules used by systemd's
+// `boot_entry_load_type1` in src/shared/bootspec.c:
+//
+//   - Lines are LF-terminated; CRLF is tolerated.
+//   - Each line is stripped of leading and trailing whitespace (space, tab) before further processing.
+//   - Empty lines and lines whose first non-whitespace character is '#' are returned with Key="".
+//   - Otherwise the line is split on the FIRST run of whitespace into a key and a value. The value is taken verbatim to
+//     end-of-line. '$', '"', "'", and '\\' inside a value are LITERAL characters, not subject to grub-style variable
+//     expansion, quote stripping, or escape processing. (This is the key difference from grub.cfg syntax.)
+//
+// Prefer parseBLSFields unless you need byte offsets for in-place rewriting.
+func parseBLSLines(content string) []blsLine {
+	if content == "" {
+		return nil
 	}
-	valueParts := make([]string, 0, len(lineTokens)-1)
-	for _, valueToken := range lineTokens[1:] {
-		if valueToken.Type != grub.WORD {
-			return "", fmt.Errorf("unexpected non-word value token: %v", valueToken.RawContent)
+	var lines []blsLine
+	pos := 0
+	for pos < len(content) {
+		rel := strings.IndexByte(content[pos:], '\n')
+		var lineEnd int
+		if rel < 0 {
+			lineEnd = len(content)
+		} else {
+			lineEnd = pos + rel
 		}
-		if len(valueToken.SubWords) < 1 {
-			return "", fmt.Errorf("expected at least 1 subword, found 0")
+
+		// Trim trailing whitespace and any CR (for CRLF tolerance).
+		end := lineEnd
+		for end > pos && (content[end-1] == ' ' || content[end-1] == '\t' || content[end-1] == '\r') {
+			end--
 		}
-		var sb strings.Builder
-		for _, sw := range valueToken.SubWords {
-			if sw.Type != grub.KEYWORD_STRING && sw.Type != grub.STRING {
-				return "", fmt.Errorf("unexpected non-string subword: %v", sw.RawContent)
+
+		// Trim leading whitespace.
+		start := pos
+		for start < end && (content[start] == ' ' || content[start] == '\t') {
+			start++
+		}
+
+		line := blsLine{ContentStart: start, ContentEnd: end}
+		if start < end && content[start] != '#' {
+			// Split on the first whitespace run.
+			sep := start
+			for sep < end && content[sep] != ' ' && content[sep] != '\t' {
+				sep++
 			}
-			sb.WriteString(sw.Value)
+			line.Key = content[start:sep]
+
+			// Trim leading whitespace of value.
+			valStart := sep
+			for valStart < end && (content[valStart] == ' ' || content[valStart] == '\t') {
+				valStart++
+			}
+			line.Value = content[valStart:end]
 		}
-		valueParts = append(valueParts, sb.String())
+		lines = append(lines, line)
+
+		if rel < 0 {
+			break
+		}
+		pos = lineEnd + 1
 	}
-	return strings.Join(valueParts, " "), nil
+	return lines
+}
+
+// parseBLSOptionsValue parses the verbatim value of a BLS `options` key as a kernel command line. The kernel cmdline
+// uses double-quote-grouped, whitespace-separated tokens, which the grub tokenizer handles correctly. But the grub
+// tokenizer also treats unquoted grub metacharacters (e.g. `;`, `|`, `&`, `<`, `>`, `{`, `}`) as framing tokens, which
+// the kernel does not. Such a token in a BLS options value would silently corrupt the resulting cmdline, so we reject
+// it explicitly rather than guess at the author's intent.
+func parseBLSOptionsValue(value string) ([]grubConfigLinuxArg, error) {
+	tokens, err := grub.TokenizeConfig(value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize kernel cmdline:\n%w", err)
+	}
+	for _, t := range tokens {
+		if t.Type != grub.WORD {
+			return nil, fmt.Errorf(
+				"unexpected grub metacharacter (%s) in BLS options value (%q): missing quotes around value?",
+				grub.TokenTypeString(t.Type), t.RawContent)
+		}
+	}
+	return ParseCommandLineArgs(tokens)
 }
 
 // readKernelCmdlinesFromBLSEntries reads Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf,
@@ -96,57 +168,29 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 			return nil, fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
 		}
 
-		// BLS entries are grub-syntax key/value pairs, so we can leverage the grub parsing code here.
-		tokens, err := grub.TokenizeConfig(string(content))
-		if err != nil {
-			return nil, fmt.Errorf("failed to tokenize BLS entry (%s):\n%w", absPath, err)
-		}
-		lines := grub.SplitTokensIntoLines(tokens)
-
 		var linux string
 		var title string
 		var args []grubConfigLinuxArg
 
-		for _, line := range lines {
-			if len(line.Tokens) == 0 {
-				continue
-			}
-
-			keyToken := line.Tokens[0]
-			if keyToken.Type != grub.WORD {
-				return nil, fmt.Errorf("unexpected non-word token in BLS entry (%s): %v", absPath, keyToken.RawContent)
-			}
-			if len(keyToken.SubWords) != 1 {
-				return nil, fmt.Errorf("unexpected token with multiple subwords in BLS entry (%s): %v", absPath, keyToken.RawContent)
-			}
-			if keyToken.SubWords[0].Type != grub.KEYWORD_STRING {
-				return nil, fmt.Errorf("unexpected non-string token in BLS entry (%s): %v", absPath, keyToken.SubWords[0].RawContent)
-			}
-			key := keyToken.SubWords[0].Value
-
-			switch key {
+		for _, field := range parseBLSFields(string(content)) {
+			switch field.Key {
 			case "linux":
 				if linux != "" {
-					return nil, fmt.Errorf("duplicate key (%s) in BLS entry (%s)", key, absPath)
+					return nil, fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
 				}
-				linuxValue, err := parseBLSLinuxValue(line.Tokens)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", key, absPath, err)
+				if field.Value == "" {
+					return nil, fmt.Errorf("BLS entry (%s) 'linux' key has empty value", absPath)
 				}
-				linux = filepath.Base(linuxValue)
+				linux = filepath.Base(field.Value)
 			case "title":
-				titleValue, err := parseBLSTitleValue(line.Tokens)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", key, absPath, err)
-				}
-				title = titleValue
+				title = field.Value
 			case "efi", "uki", "uki-url":
-				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, key)
+				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, field.Key)
 			case "options":
 				// "options" may appear multiple times per BLS spec.
-				lineArgs, err := ParseCommandLineArgs(line.Tokens[1:])
+				lineArgs, err := parseBLSOptionsValue(field.Value)
 				if err != nil {
-					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", key, absPath, err)
+					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", field.Key, absPath, err)
 				}
 				args = append(args, lineArgs...)
 			}
@@ -244,28 +288,26 @@ func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir st
 // updateBLSEntryOptions updates the options line in a BLS entry, removing old args and adding new ones.
 //
 // Implementation notes:
-//   - Uses the grub tokenizer so the reader (readKernelCmdlinesFromBLSEntries) and this
-//     writer share the same quoting/whitespace rules. This preserves quoted values like
-//     rd.cmdline="foo bar" across a remove/append round-trip instead of shredding them
-//     on whitespace.
-//   - Per BLS spec an entry may contain multiple "options" lines whose values are
-//     concatenated. argsToRemove is applied to every options line; newArgs is appended
-//     only to the last one (so re-runs converge instead of duplicating).
-//   - Each existing options line is replaced byte-for-byte at the source location of its
-//     tokens, so surrounding lines, comments, indentation and the trailing newline are
-//     preserved exactly.
-//   - If no options line exists, a new one is appended, matching the file's existing
-//     trailing-newline convention.
+//   - The file-level structure is parsed per the BLS spec (line-based, value taken verbatim to end-of-line). The
+//     *value* of an `options` line is then parsed as a kernel command line with the grub tokenizer, so quoted values
+//     like rd.cmdline="foo bar" survive the remove/append round-trip instead of being shredded on whitespace.
+//   - Per BLS spec an entry may contain multiple "options" lines whose values are concatenated. argsToRemove is applied
+//     to every options line. newArgs is appended only to the last one.
+//   - Each existing options line is replaced byte-for-byte at the source location of its trimmed content, so leading
+//     whitespace, comments, and unrelated lines are preserved exactly.
+//   - If no options line exists, a new one is appended.
 func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) (string, error) {
-	tokens, err := grub.TokenizeConfig(content)
-	if err != nil {
-		return "", fmt.Errorf("failed to tokenize BLS entry:\n%w", err)
+	lines := parseBLSLines(content)
+
+	// Collect indices of all "options" lines.
+	var optionsIdx []int
+	for i, line := range lines {
+		if line.Key == "options" {
+			optionsIdx = append(optionsIdx, i)
+		}
 	}
 
-	lines := grub.SplitTokensIntoLines(tokens)
-	optionsLines := grub.FindCommandAll(lines, "options")
-
-	if len(optionsLines) == 0 {
+	if len(optionsIdx) == 0 {
 		newLine := "options"
 		if len(newArgs) > 0 {
 			newLine += " " + GrubArgsToString(newArgs)
@@ -278,12 +320,11 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 
 	result := content
 
-	// Splice in reverse order so earlier byte offsets in result remain valid as we make replacements.
-	for i := len(optionsLines) - 1; i >= 0; i-- {
-		line := optionsLines[i]
+	// Splice in reverse byte order so earlier offsets remain valid as we make replacements.
+	for i := len(optionsIdx) - 1; i >= 0; i-- {
+		line := lines[optionsIdx[i]]
 
-		// line.Tokens[0] is the "options" keyword; the rest are the args.
-		args, err := ParseCommandLineArgs(line.Tokens[1:])
+		args, err := parseBLSOptionsValue(line.Value)
 		if err != nil {
 			return "", fmt.Errorf("failed to parse BLS options line:\n%w", err)
 		}
@@ -297,7 +338,7 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 		}
 
 		// Append new args only to the last options line.
-		if i == len(optionsLines)-1 {
+		if i == len(optionsIdx)-1 {
 			argStrings = append(argStrings, newArgs...)
 		}
 
@@ -306,9 +347,7 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 			replacement += " " + GrubArgsToString(argStrings)
 		}
 
-		start := line.Tokens[0].Loc.Start.Index
-		end := line.Tokens[len(line.Tokens)-1].Loc.End.Index
-		result = result[:start] + replacement + result[end:]
+		result = result[:line.ContentStart] + replacement + result[line.ContentEnd:]
 	}
 
 	return result, nil

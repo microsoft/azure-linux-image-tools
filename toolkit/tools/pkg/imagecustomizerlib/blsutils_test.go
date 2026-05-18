@@ -394,3 +394,60 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 		})
 	}
 }
+
+func TestParseBLSOptionsValue(t *testing.T) {
+	tests := []struct {
+		name          string
+		value         string
+		wantArg       []string // expected .Arg fields, in order; ignored if wantErrSubstr is set
+		wantErrSubstr string   // if non-empty, parse must fail with this substring in the error
+	}{
+		{
+			name:    "empty value yields no args",
+			value:   "",
+			wantArg: []string{},
+		},
+		{
+			name:    "plain args",
+			value:   "console=ttyS0 root=/dev/sda1",
+			wantArg: []string{"console=ttyS0", "root=/dev/sda1"},
+		},
+		{
+			name:    "quoted value with embedded space is one arg",
+			value:   `rd.cmdline="foo bar" quiet`,
+			wantArg: []string{"rd.cmdline=foo bar", "quiet"},
+		},
+		{
+			// Quoted grub metacharacters are literal inside the WORD subword,
+			// so the whole value parses as one arg.
+			name:    "quoted value with embedded semicolon is one arg",
+			value:   `rd.cmdline="foo;bar" quiet`,
+			wantArg: []string{"rd.cmdline=foo;bar", "quiet"},
+		},
+		{
+			// An unquoted grub metacharacter in a BLS options value cannot be
+			// faithfully represented as a kernel cmdline arg.
+			name:          "unquoted semicolon is rejected",
+			value:         "console=ttyS0;quiet",
+			wantErrSubstr: "unexpected grub metacharacter",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			args, err := parseBLSOptionsValue(tc.value)
+			if tc.wantErrSubstr != "" {
+				if assert.Error(t, err) {
+					assert.Contains(t, err.Error(), tc.wantErrSubstr)
+				}
+				return
+			}
+			assert.NoError(t, err)
+			gotArgs := make([]string, 0, len(args))
+			for _, a := range args {
+				gotArgs = append(gotArgs, a.Arg)
+			}
+			assert.Equal(t, tc.wantArg, gotArgs)
+		})
+	}
+}
