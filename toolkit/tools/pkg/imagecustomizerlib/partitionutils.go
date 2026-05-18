@@ -443,9 +443,6 @@ func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.Partitio
 	return nil, fmt.Errorf("failed to find os-release file:\n%w", err)
 }
 
-// mountFstabPartitionReadonly mounts the partition referenced by fstab's mountTarget entry under
-// rootDir/mountSubdir read-only. Returns nil mount when fstab has no entry for mountTarget or its
-// source is not a resolvable disk-partition identifier (e.g. /dev/mapper/* verity device).
 // mountFstabPartitionReadonly mounts the partition referenced by fstab for mountTarget under
 // rootDir/mountSubdir read-only. Returns nil mount when fstab has no entry covering mountTarget,
 // or its source is not a resolvable disk-partition identifier (e.g. /dev/mapper/* verity device).
