@@ -181,9 +181,10 @@ func (pm *dnfPackageManager) createOutputCallback() func(string) {
 }
 
 func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	// dnf unconditionally opens /var/log/dnf.log for writing during info operations, so set logdir to a location we
-	// know is always writable, even in read-only chroots.
-	err := shell.NewExecBuilder("dnf", "info", "--setopt=logdir=/tmp", "--installed", packageName).
+	// Use `rpm -q` rather than `dnf info --installed` here: it queries the local rpm database directly without
+	// opening any log files for writing, so it works on read-only chroots and avoids the security concerns of
+	// pointing dnf's logdir at a fixed, predictable path inside the chroot.
+	err := shell.NewExecBuilder("rpm", "-q", "--", packageName).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Chroot(imageChroot.ChrootDir()).
 		Execute()
