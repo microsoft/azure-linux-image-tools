@@ -278,7 +278,7 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 				"normal.conf": "title Azure Linux\n" +
 					"linux /vmlinuz-6.6\n" +
 					"options root=/dev/sda1\n",
-				"rescue.conf": "title Azure Linux (recovery)\n" +
+				"rescue.conf": "title Azure Linux 0-rescue-abc123\n" +
 					"linux /vmlinuz-6.6-rescue\n" +
 					"options root=/dev/sda1 systemd.unit=rescue.target\n",
 			},
