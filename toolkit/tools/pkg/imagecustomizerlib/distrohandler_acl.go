@@ -219,3 +219,13 @@ func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDevi
 	// See comment in ReadGrub2ConfigFile.
 	return fs.ErrNotExist
 }
+
+func (d *aclDistroHandler) ShimPackage() string {
+	// ACL uses systemd-boot + UKI (no shim/grub from a package).
+	return ""
+}
+
+func (d *aclDistroHandler) GrubEfiPackage() string {
+	// ACL does not use grub.
+	return ""
+}

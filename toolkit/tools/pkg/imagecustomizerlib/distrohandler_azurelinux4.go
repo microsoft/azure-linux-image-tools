@@ -185,3 +185,21 @@ func (d *azureLinux4DistroHandler) warnIfUnsignedSystemdBootPackage(detectedPack
 		logger.Log.Warnf("Detected package (%s): Customized image will fail Secure Boot verification", detectedPackage)
 	}
 }
+
+func (d *azureLinux4DistroHandler) ShimPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return shimPackageFedoraAmd64
+	default:
+		return shimPackageFedoraArm64
+	}
+}
+
+func (d *azureLinux4DistroHandler) GrubEfiPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return grubEfiPackageFedoraAmd64
+	default:
+		return grubEfiPackageFedoraArm64
+	}
+}

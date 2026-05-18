@@ -125,6 +125,12 @@ type DistroHandler interface {
 	// kernel arguments. Each distro handler implements the appropriate strategy.
 	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,
 		bootRelativePath string, partitions []diskutils.PartitionInfo, buildDir string, bootUuid string) error
+
+	// ShimPackage returns the package that provides the shim EFI binary for this distro on the current architecture.
+	ShimPackage() string
+
+	// GrubEfiPackage returns the package that provides the grub EFI binary for this distro on the current architecture.
+	GrubEfiPackage() string
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs

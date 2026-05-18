@@ -31,6 +31,8 @@ type fedoraDistroHandler struct {
 const (
 	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
 	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
+	shimPackageFedoraAmd64    = "shim-x64"
+	shimPackageFedoraArm64    = "shim-aa64"
 )
 
 func newFedoraDistroHandler(version string) *fedoraDistroHandler {
@@ -201,4 +203,22 @@ func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 ) error {
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.FedoraGrubCfgRelPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+}
+
+func (d *fedoraDistroHandler) ShimPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return shimPackageFedoraAmd64
+	default:
+		return shimPackageFedoraArm64
+	}
+}
+
+func (d *fedoraDistroHandler) GrubEfiPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return grubEfiPackageFedoraAmd64
+	default:
+		return grubEfiPackageFedoraArm64
+	}
 }

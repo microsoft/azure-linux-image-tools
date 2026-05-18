@@ -220,3 +220,16 @@ func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityD
 	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.DebianGrubCfgRelPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
+
+func (d *ubuntuDistroHandler) ShimPackage() string {
+	return "shim"
+}
+
+func (d *ubuntuDistroHandler) GrubEfiPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return grubEfiPackageDebianAmd64
+	default:
+		return grubEfiPackageDebianArm64
+	}
+}

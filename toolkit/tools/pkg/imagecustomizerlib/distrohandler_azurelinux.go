@@ -27,8 +27,14 @@ type azureLinuxDistroHandler struct {
 	packageManager rpmPackageManagerHandler
 }
 
+const (
+	shimPackageAzl3            = "shim"
+	grubEfiPackageAzl3         = "grub2-efi-binary"
+	grubEfiNoPrefixPackageAzl3 = "grub2-efi-binary-noprefix"
+)
+
 var (
-	grubEfiPackagesAzl3     = []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
+	grubEfiPackagesAzl3     = []string{grubEfiPackageAzl3, grubEfiNoPrefixPackageAzl3}
 	systemdBootPackagesAzl3 = []string{systemdBootPackage}
 )
 
@@ -200,4 +206,12 @@ func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []ver
 	bootDir := filepath.Join(bootPartitionTmpDir, bootRelativePath)
 	grubCfgFullPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+}
+
+func (d *azureLinuxDistroHandler) ShimPackage() string {
+	return shimPackageAzl3
+}
+
+func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
+	return grubEfiPackageAzl3
 }
