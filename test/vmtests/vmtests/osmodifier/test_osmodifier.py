@@ -3,6 +3,7 @@
 
 import logging
 import os
+import platform
 import tempfile
 from pathlib import Path
 from typing import List, Tuple
@@ -281,8 +282,8 @@ def is_package_installed(ssh_client: SshClient, pkg_name: str, distro_id: str, v
 
 def is_grub_bootloader(ssh_client: SshClient, distro_id: str, version_id: str) -> bool:
     if distro_id == "azurelinux" and version_id == "4.0":
-        grub_packages = ["grub2-efi-x64", "grub2-efi-aa64"]
-        systemd_boot_pkgs = ["systemd-boot-unsigned", "systemd-boot"]
+        grub_packages = ["grub2-efi-x64"] if platform.machine() == "x86_64" else ["grub2-efi-aa64"]
+        systemd_boot_pkgs = ["systemd-boot", "systemd-boot-unsigned"]
     else:
         grub_packages = ["grub2-efi-binary", "grub2-efi-binary-noprefix"]
         systemd_boot_pkgs = ["systemd-boot"]
