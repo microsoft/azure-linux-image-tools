@@ -19,11 +19,7 @@ const (
 	packageManagerDNF  = "dnf"
 	packageManagerAPT  = "apt-get"
 
-	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
-	grubEfiPackageDebianAmd64 = "grub-efi-amd64"
-	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
-	grubEfiPackageDebianArm64 = "grub-efi-arm64"
-	systemdBootPackage        = "systemd-boot"
+	systemdBootPackage = "systemd-boot"
 )
 
 // PackageType represents the type of package format
@@ -37,11 +33,7 @@ const (
 	distroNameFedora     DistroName = "fedora"
 )
 
-var (
-	grubEfiPackagesAzureLinux3     = []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
-	systemdBootPackagesAzureLinux4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzureLinux4}
-	systemdBootPackagesDefault     = []string{systemdBootPackage}
-)
+var systemdBootPackagesDefault = []string{systemdBootPackage}
 
 // DistroHandler represents the interface for distribution-specific configuration
 type DistroHandler interface {

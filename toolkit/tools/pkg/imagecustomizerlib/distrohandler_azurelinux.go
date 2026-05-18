@@ -31,6 +31,11 @@ const (
 	systemdBootUnsignedPackageAzureLinux4 = "systemd-boot-unsigned"
 )
 
+var (
+	grubEfiPackagesAzureLinux3     = []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
+	systemdBootPackagesAzureLinux4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzureLinux4}
+)
+
 func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
 	var packageManager rpmPackageManagerHandler
 	if version == "4.0" {

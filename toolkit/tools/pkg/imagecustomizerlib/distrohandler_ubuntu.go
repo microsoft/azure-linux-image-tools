@@ -26,6 +26,11 @@ type ubuntuDistroHandler struct {
 	version string
 }
 
+const (
+	grubEfiPackageDebianAmd64 = "grub-efi-amd64"
+	grubEfiPackageDebianArm64 = "grub-efi-arm64"
+)
+
 func newUbuntuDistroHandler(version string) *ubuntuDistroHandler {
 	return &ubuntuDistroHandler{
 		version: version,

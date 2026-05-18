@@ -28,6 +28,11 @@ type fedoraDistroHandler struct {
 	packageManager rpmPackageManagerHandler
 }
 
+const (
+	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
+	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
+)
+
 func newFedoraDistroHandler(version string) *fedoraDistroHandler {
 	return &fedoraDistroHandler{
 		version:        version,
