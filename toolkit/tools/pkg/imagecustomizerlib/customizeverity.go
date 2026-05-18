@@ -16,7 +16,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/resources"
@@ -235,129 +234,6 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 	}
 
 	return nil
-}
-
-// updateBLSEntriesForVerity updates BLS entry options with verity kernel args.
-func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir string,
-	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
-) error {
-	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
-	if err != nil {
-		return fmt.Errorf("failed to generate verity kernel arguments:\n%w", err)
-	}
-
-	argsToRemove := slices.Clone(verityKernelArgsToRemove)
-
-	rootExists := slices.ContainsFunc(verityMetadata, func(metadata verityDeviceMetadata) bool {
-		return metadata.name == imagecustomizerapi.VerityRootDeviceName
-	})
-	if rootExists {
-		argsToRemove = append(argsToRemove, "root")
-		newArgs = append(newArgs, "root="+imagecustomizerapi.VerityRootDevicePath)
-	}
-
-	entriesDir := filepath.Join(bootDir, "loader", "entries")
-	entries, err := os.ReadDir(entriesDir)
-	if err != nil {
-		return fmt.Errorf("failed to read BLS entries directory (%s):\n%w", entriesDir, err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
-			continue
-		}
-
-		absPath := filepath.Join(entriesDir, entry.Name())
-		content, err := os.ReadFile(absPath)
-		if err != nil {
-			return fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
-		}
-
-		updatedContent, err := updateBLSEntryOptions(string(content), argsToRemove, newArgs)
-		if err != nil {
-			return fmt.Errorf("failed to update BLS entry options (%s):\n%w", absPath, err)
-		}
-
-		err = os.WriteFile(absPath, []byte(updatedContent), 0o644)
-		if err != nil {
-			return fmt.Errorf("failed to write BLS entry file (%s):\n%w", absPath, err)
-		}
-	}
-
-	return nil
-}
-
-// updateBLSEntryOptions updates the options line in a BLS entry, removing old args and adding new ones.
-//
-// Implementation notes:
-//   - Uses the grub tokenizer so the reader (readKernelCmdlinesFromBLSEntries) and this
-//     writer share the same quoting/whitespace rules. This preserves quoted values like
-//     rd.cmdline="foo bar" across a remove/append round-trip instead of shredding them
-//     on whitespace.
-//   - Per BLS spec an entry may contain multiple "options" lines whose values are
-//     concatenated. argsToRemove is applied to every options line; newArgs is appended
-//     only to the last one (so re-runs converge instead of duplicating).
-//   - Each existing options line is replaced byte-for-byte at the source location of its
-//     tokens, so surrounding lines, comments, indentation and the trailing newline are
-//     preserved exactly.
-//   - If no options line exists, a new one is appended, matching the file's existing
-//     trailing-newline convention.
-func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) (string, error) {
-	tokens, err := grub.TokenizeConfig(content)
-	if err != nil {
-		return "", fmt.Errorf("failed to tokenize BLS entry:\n%w", err)
-	}
-
-	lines := grub.SplitTokensIntoLines(tokens)
-	optionsLines := grub.FindCommandAll(lines, "options")
-
-	if len(optionsLines) == 0 {
-		newLine := "options"
-		if len(newArgs) > 0 {
-			newLine += " " + GrubArgsToString(newArgs)
-		}
-		if content != "" && !strings.HasSuffix(content, "\n") {
-			content = content + "\n"
-		}
-		return content + newLine + "\n", nil
-	}
-
-	result := content
-
-	// Splice in reverse order so earlier byte offsets in result remain valid as we make replacements.
-	for i := len(optionsLines) - 1; i >= 0; i-- {
-		line := optionsLines[i]
-
-		// line.Tokens[0] is the "options" keyword; the rest are the args.
-		args, err := ParseCommandLineArgs(line.Tokens[1:])
-		if err != nil {
-			return "", fmt.Errorf("failed to parse BLS options line:\n%w", err)
-		}
-
-		argStrings := make([]string, 0, len(args))
-		for _, arg := range args {
-			if slices.Contains(argsToRemove, arg.Name) {
-				continue
-			}
-			argStrings = append(argStrings, arg.Arg)
-		}
-
-		// Append new args only to the last options line.
-		if i == len(optionsLines)-1 {
-			argStrings = append(argStrings, newArgs...)
-		}
-
-		replacement := "options"
-		if len(argStrings) > 0 {
-			replacement += " " + GrubArgsToString(argStrings)
-		}
-
-		start := line.Tokens[0].Loc.Start.Index
-		end := line.Tokens[len(line.Tokens)-1].Loc.End.Index
-		result = result[:start] + replacement + result[end:]
-	}
-
-	return result, nil
 }
 
 func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,

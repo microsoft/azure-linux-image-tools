@@ -188,15 +188,6 @@ func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 	return linuxLines
 }
 
-func FindBlsCfg(grubLines []grub.Line) bool {
-	for _, line := range grubLines {
-		if len(line.Tokens) >= 1 && grub.IsTokenKeyword(line.Tokens[0], "blscfg") {
-			return true
-		}
-	}
-	return false
-}
-
 // Overrides the path of the kernel binary/initrd image in all the linux
 // commands within a grub config file.
 func setLinuxOrInitrdPathAll(inputGrubCfgContent string, commandName string, filePath string, allowMultiple bool) (outputGrubCfgContent string, oldFilePaths []string, err error) {
