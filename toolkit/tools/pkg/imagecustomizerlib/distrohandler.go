@@ -19,12 +19,11 @@ const (
 	packageManagerDNF  = "dnf"
 	packageManagerAPT  = "apt-get"
 
-	grubEfiPackageFedoraAmd64  = "grub2-efi-x64"
-	grubEfiPackageDebianAmd64  = "grub-efi-amd64"
-	grubEfiPackageFedoraArm64  = "grub2-efi-aa64"
-	grubEfiPackageDebianArm64  = "grub-efi-arm64"
-	systemdBootPackage         = "systemd-boot"
-	systemdBootUnsignedPackage = "systemd-boot-unsigned"
+	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
+	grubEfiPackageDebianAmd64 = "grub-efi-amd64"
+	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
+	grubEfiPackageDebianArm64 = "grub-efi-arm64"
+	systemdBootPackage        = "systemd-boot"
 )
 
 // PackageType represents the type of package format
@@ -40,7 +39,7 @@ const (
 
 var (
 	grubEfiPackagesAzureLinux3     = []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
-	systemdBootPackagesAzureLinux4 = []string{systemdBootPackage, systemdBootUnsignedPackage}
+	systemdBootPackagesAzureLinux4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzureLinux4}
 	systemdBootPackagesDefault     = []string{systemdBootPackage}
 )
 
@@ -62,7 +61,7 @@ type DistroHandler interface {
 	// Get all installed packages from the chroot
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 
-	// Detect the bootloader type installed in the image
+	// Detect the bootloader type installed in the image.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
 
 	// ValidateUkiDependencies verifies that the necessary dependencies for UKI customization are present in the image.

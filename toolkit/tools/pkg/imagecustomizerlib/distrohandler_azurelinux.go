@@ -27,6 +27,10 @@ type azureLinuxDistroHandler struct {
 	packageManager rpmPackageManagerHandler
 }
 
+const (
+	systemdBootUnsignedPackageAzureLinux4 = "systemd-boot-unsigned"
+)
+
 func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
 	var packageManager rpmPackageManagerHandler
 	if version == "4.0" {
@@ -97,11 +101,23 @@ func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.Ch
 	default:
 		grubEfiPackages = grubEfiPackagesAzureLinux3
 	}
-	return detectBootloaderType(d, imageChroot, grubEfiPackages, d.getSystemdBootPackagesForVersion())
+	bootloaderType, detectedPackage, err := detectBootloaderType(d, imageChroot, grubEfiPackages, d.getSystemdBootPackagesForVersion())
+	if err != nil {
+		return bootloaderType, err
+	}
+	if bootloaderType == BootloaderTypeSystemdBoot {
+		d.warnIfUnsignedSystemdBootPackage(detectedPackage)
+	}
+	return bootloaderType, nil
 }
 
 func (d *azureLinuxDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	return validateUkiDependencies(d, imageChroot, d.getSystemdBootPackagesForVersion())
+	detectedSystemdBootPackage, err := validateUkiDependencies(d, imageChroot, d.getSystemdBootPackagesForVersion())
+	if err != nil {
+		return err
+	}
+	d.warnIfUnsignedSystemdBootPackage(detectedSystemdBootPackage)
+	return nil
 }
 
 func (d *azureLinuxDistroHandler) GetEspDir() string {
@@ -261,9 +277,15 @@ func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []ver
 	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
 }
 
+func (d *azureLinuxDistroHandler) warnIfUnsignedSystemdBootPackage(detectedPackage string) {
+	if detectedPackage == systemdBootUnsignedPackageAzureLinux4 {
+		logger.Log.Warnf("Detected package (%s): Customized image will fail Secure Boot verification", detectedPackage)
+	}
+}
+
 func (d *azureLinuxDistroHandler) getSystemdBootPackagesForVersion() []string {
 	if d.version == "4.0" {
-		return []string{systemdBootPackage, systemdBootUnsignedPackage}
+		return []string{systemdBootPackage, systemdBootUnsignedPackageAzureLinux4}
 	}
 	return []string{systemdBootPackage}
 }

@@ -366,29 +366,27 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 
 func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
 	systemdBootPackages []string,
-) error {
-	if err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages); err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
+) (string, error) {
+	detectedPackage, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages)
+	if err != nil {
+		return "", fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
 	}
-	return nil
+	return detectedPackage, nil
 }
 
 func isSystemdBootPackageInstalled(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
 	systemdBootPackages []string,
-) error {
+) (string, error) {
 	for _, pkg := range systemdBootPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
 		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
-			if pkg == systemdBootUnsignedPackage {
-				logger.Log.Warnf("Detected package (%s): Customized image will fail Secure Boot verification", pkg)
-			}
-			return nil
+			return pkg, nil
 		}
 	}
 	if len(systemdBootPackages) == 1 {
-		return fmt.Errorf("package (%s) is not installed", systemdBootPackages[0])
+		return "", fmt.Errorf("package (%s) is not installed", systemdBootPackages[0])
 	}
-	return fmt.Errorf("none of the packages (%v) are installed", systemdBootPackages)
+	return "", fmt.Errorf("none of the packages (%v) are installed", systemdBootPackages)
 }
 
 func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error {

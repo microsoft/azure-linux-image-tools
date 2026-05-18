@@ -600,23 +600,24 @@ func padToMegabyte(imageFile string) error {
 }
 
 // detectBootloaderType reports which bootloader is installed in imageChroot by probing for the presence of any
-// candidate package.
+// candidate package. The name of the detected package is also returned.
 func detectBootloaderType(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface, grubEfiPackages,
 	systemdBootPackages []string,
-) (BootloaderType, error) {
+) (BootloaderType, string, error) {
 	for _, pkg := range grubEfiPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
 		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
-			return BootloaderTypeGrub, nil
+			return BootloaderTypeGrub, pkg, nil
 		}
 	}
-	if err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages); err == nil {
-		return BootloaderTypeSystemdBoot, nil
+	pkg, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages)
+	if err == nil {
+		return BootloaderTypeSystemdBoot, pkg, nil
 	}
 
 	allPackages := slices.Concat(grubEfiPackages, systemdBootPackages)
 	if len(allPackages) == 1 {
-		return "", fmt.Errorf("unknown bootloader: package (%s) is not installed", allPackages[0])
+		return "", "", fmt.Errorf("unknown bootloader: package (%s) is not installed", allPackages[0])
 	}
-	return "", fmt.Errorf("unknown bootloader: none of the packages (%v) are installed", allPackages)
+	return "", "", fmt.Errorf("unknown bootloader: none of the packages (%v) are installed", allPackages)
 }

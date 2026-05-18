@@ -109,11 +109,13 @@ func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	default:
 		grubEfiPackages = append(grubEfiPackages, grubEfiPackageDebianArm64)
 	}
-	return detectBootloaderType(d, imageChroot, grubEfiPackages, []string{systemdBootPackage})
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, grubEfiPackages, []string{systemdBootPackage})
+	return bootloaderType, err
 }
 
 func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	return validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	return err
 }
 
 func (d *ubuntuDistroHandler) GetEspDir() string {

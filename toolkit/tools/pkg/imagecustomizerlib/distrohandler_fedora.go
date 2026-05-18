@@ -89,11 +89,13 @@ func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.Chroot
 	default:
 		grubEfiPackage = grubEfiPackageFedoraArm64
 	}
-	return detectBootloaderType(d, imageChroot, []string{grubEfiPackage}, []string{systemdBootPackage})
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, []string{grubEfiPackage}, []string{systemdBootPackage})
+	return bootloaderType, err
 }
 
 func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	return validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	return err
 }
 
 func (d *fedoraDistroHandler) GetEspDir() string {
