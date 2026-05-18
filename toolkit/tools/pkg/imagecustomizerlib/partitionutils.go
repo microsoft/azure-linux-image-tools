@@ -469,7 +469,8 @@ func mountFstabPartitionReadonly(rootDir string, mountTarget string, mountSubdir
 }
 
 func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
-	buildDir string, ignoreOverlays bool, distroHandler DistroHandler,
+	buildDir string, ignoreOverlays bool, rootfsPartition *diskutils.PartitionInfo, rootfsPath string,
+	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
@@ -481,6 +482,16 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 
 		if gotKernelCmdline {
 			return kernelCmdline, nil
+		}
+
+		// Distro detection mounts the rootfs (and possibly /usr) read-only, which is extra work we only want to do if
+		// we absolutely need it, so do it here, only when the cmdline is actually about to be read.
+		if distroHandler == nil && rootfsPartition != nil {
+			distroHandler, err = detectDistroFromRootfs(buildDir, rootfsPartition, rootfsPath, diskPartitions,
+				fstabEntries)
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
 		}
 
 		kernelCmdline, err = extractKernelCmdline(fstabEntries, diskPartitions, buildDir, distroHandler)

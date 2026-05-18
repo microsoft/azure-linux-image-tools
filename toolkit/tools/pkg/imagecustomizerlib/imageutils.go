@@ -82,15 +82,8 @@ func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnecti
 		return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	if distroHandler == nil {
-		distroHandler, err = detectDistroFromRootfs(buildDir, rootfsPartition, rootfsPath, partitions, fstabEntries)
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return nil, nil, nil, err
-		}
-	}
-
 	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays,
-		distroHandler)
+		rootfsPartition, rootfsPath, distroHandler)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
@@ -360,7 +353,8 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageco
 
 	distroHandler := NewDistroHandlerFromTargetOs(targetOs)
 
-	partitionsLayout, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false, distroHandler)
+	partitionsLayout, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false, nil, "",
+		distroHandler)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
