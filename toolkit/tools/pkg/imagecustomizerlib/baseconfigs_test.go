@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/systemd"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/userutils"
@@ -235,10 +233,6 @@ func TestBaseConfigsFullRun(t *testing.T) {
 	verifyKernelCommandLine(t, imageConnection, hasUkis, []string{}, []string{"security=selinux", "selinux=1", "enforcing=1"})
 	verifySELinuxConfigFile(t, imageConnection, "disabled")
 
-	// Verify os-prober was disabled during grub2-mkconfig so the build host's
-	// boot entries did not leak into the customized image's grub.cfg.
-	verifyOsProberBlockEmpty(t, imageConnection)
-
 	// Verify overlays
 	fstabPath := filepath.Join(imageConnection.Chroot().RootDir(), "etc/fstab")
 	fstabContents, err := file.Read(fstabPath)
@@ -316,38 +310,4 @@ func TestBaseConfigsStorageInBaseConfig(t *testing.T) {
 	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
 		outImageFilePath, "raw", true, "")
 	assert.ErrorIs(t, err, ErrStorageInBaseConfig)
-}
-
-// verifyOsProberBlockEmpty asserts that the 30_os-prober section in /boot/grub2/grub.cfg contains no boot entries
-// injected by os-prober.
-func verifyOsProberBlockEmpty(t *testing.T, imageConnection *imageconnection.ImageConnection) {
-	t.Helper()
-
-	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "boot/grub2/grub.cfg")
-	grubCfgContents, err := file.Read(grubCfgFilePath)
-	if !assert.NoError(t, err, "read grub.cfg file") {
-		return
-	}
-
-	// (?s) so '.' matches newlines
-	// (.*?) isn't greedy to stop at the first END marker.
-	blockRegex := regexp.MustCompile(
-		`(?s)### BEGIN /etc/grub\.d/30_os-prober ###(.*?)### END /etc/grub\.d/30_os-prober ###`)
-	match := blockRegex.FindStringSubmatch(grubCfgContents)
-	assert.Len(t, match, 2, "could not find /etc/grub.d/30_os-prober BEGIN/END markers in grub.cfg:\n%s",
-		grubCfgContents)
-
-	block := match[1]
-
-	// After stripping whitespace the block should contain no meaningful characters.
-	var meaningful []string
-	for _, line := range strings.Split(block, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		meaningful = append(meaningful, trimmed)
-	}
-	assert.Emptyf(t, meaningful, "os-prober block in grub.cfg should contain no directives, found:\n%s",
-		strings.Join(meaningful, "\n"))
 }

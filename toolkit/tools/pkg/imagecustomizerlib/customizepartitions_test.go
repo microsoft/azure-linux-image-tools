@@ -464,6 +464,48 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
 		newImagePartitions[azureLinuxCoreEfiMountPoints[0].PartitionNum],
 		baseImageInfo)
+
+	// AZL2 does not use grub-mkconfig, so the 30_os-prober BEGIN/END markers won't
+	// appear in grub.cfg there.
+	if baseImageInfo.Version != baseImageVersionAzl2 {
+		// Verify os-prober was disabled during grub2-mkconfig so the build host's
+		// boot entries did not leak into the customized image's grub.cfg.
+		verifyOsProberBlockEmpty(t, imageConnection)
+	}
+}
+
+// verifyOsProberBlockEmpty asserts that the 30_os-prober section in /boot/grub2/grub.cfg contains no boot entries
+// injected by os-prober.
+func verifyOsProberBlockEmpty(t *testing.T, imageConnection *imageconnection.ImageConnection) {
+	t.Helper()
+
+	grubCfgFilePath := filepath.Join(imageConnection.Chroot().RootDir(), "boot/grub2/grub.cfg")
+	grubCfgContents, err := file.Read(grubCfgFilePath)
+	if !assert.NoError(t, err, "read grub.cfg file") {
+		return
+	}
+
+	// (?s) so '.' matches newlines
+	// (.*?) isn't greedy to stop at the first END marker.
+	blockRegex := regexp.MustCompile(
+		`(?s)### BEGIN /etc/grub\.d/30_os-prober ###(.*?)### END /etc/grub\.d/30_os-prober ###`)
+	match := blockRegex.FindStringSubmatch(grubCfgContents)
+	assert.Len(t, match, 2, "could not find /etc/grub.d/30_os-prober BEGIN/END markers in grub.cfg:\n%s",
+		grubCfgContents)
+
+	block := match[1]
+
+	// After stripping whitespace the block should contain no meaningful characters.
+	var meaningful []string
+	for _, line := range strings.Split(block, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		meaningful = append(meaningful, trimmed)
+	}
+	assert.Emptyf(t, meaningful, "os-prober block in grub.cfg should contain no directives, found:\n%s",
+		strings.Join(meaningful, "\n"))
 }
 
 func TestCustomizeImagePartitionsXfsBoot(t *testing.T) {
