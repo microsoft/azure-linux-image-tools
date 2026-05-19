@@ -107,6 +107,24 @@ func (d *azureLinux4DistroHandler) FindBootPartitionUuidFromEsp(espMountDir stri
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl4), bootPartitionRegexAzl4)
 }
 
+func (d *azureLinux4DistroHandler) GetSELinuxConfigFile() string {
+	return selinuxConfigFileDefault
+}
+
+func (d *azureLinux4DistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
+}
+
+func (d *azureLinux4DistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
+}
+
+func (d *azureLinux4DistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
+}
+
 func (d *azureLinux4DistroHandler) SELinuxSupported() bool {
 	return true
 }
