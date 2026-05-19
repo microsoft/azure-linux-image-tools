@@ -19,6 +19,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	// selinuxConfigFileDefault is the path to the SELinux configuration file for most distros.
+	selinuxConfigFileDefault = "etc/selinux/config"
+)
+
 var (
 	// SELinux-related errors
 	ErrSELinuxGetCurrentMode  = NewImageCustomizerError("SELinux:GetCurrentMode", "failed to get current SELinux mode")
@@ -81,7 +86,7 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 		}
 	}
 
-	err = UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot)
+	err = distroHandler.UpdateSELinuxConfigFile(selinuxMode, imageChroot)
 	if err != nil {
 		return imagecustomizerapi.SELinuxModeDefault, err
 	}
@@ -89,29 +94,31 @@ func handleSELinux(ctx context.Context, buildDir string, selinuxMode imagecustom
 	return selinuxMode, nil
 }
 
-func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface) error {
+func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, imageChroot safechroot.ChrootInterface,
+	selinuxConfigFile string,
+) error {
 	imagerSELinuxMode, err := selinuxModeToImager(selinuxMode)
 	if err != nil {
 		return err
 	}
 
-	selinuxConfigFileFullPath := filepath.Join(imageChroot.RootDir(), installutils.SELinuxConfigFile)
+	selinuxConfigFileFullPath := filepath.Join(imageChroot.RootDir(), selinuxConfigFile)
 	selinuxConfigFileExists, err := file.PathExists(selinuxConfigFileFullPath)
 	if err != nil {
-		return fmt.Errorf("%w (file='%s'):\n%w", ErrSELinuxConfigFileCheck, installutils.SELinuxConfigFile, err)
+		return fmt.Errorf("%w (file='/%s'):\n%w", ErrSELinuxConfigFileCheck, selinuxConfigFile, err)
 	}
 
 	// Ensure an SELinux policy has been installed.
 	// Typically, this is provided by the 'selinux-policy' package.
 	if selinuxMode != imagecustomizerapi.SELinuxModeDisabled && !selinuxConfigFileExists {
-		return fmt.Errorf("%w (file='%s'):\n"+
+		return fmt.Errorf("%w (file='/%s'):\n"+
 			"please ensure an SELinux policy is installed:\n"+
 			"the '%s' package provides the default policy",
-			ErrSELinuxPolicyMissing, installutils.SELinuxConfigFile, configuration.SELinuxPolicyDefault)
+			ErrSELinuxPolicyMissing, selinuxConfigFile, configuration.SELinuxPolicyDefault)
 	}
 
 	if selinuxConfigFileExists {
-		err = installutils.SELinuxUpdateConfig(imagerSELinuxMode, imageChroot)
+		err = installutils.SELinuxUpdateConfig(imagerSELinuxMode, imageChroot, selinuxConfigFile)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrSELinuxConfigUpdate, err)
 		}
@@ -120,7 +127,9 @@ func UpdateSELinuxModeInConfigFile(selinuxMode imagecustomizerapi.SELinuxMode, i
 	return nil
 }
 
-func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot) error {
+func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinuxMode, imageChroot *safechroot.Chroot,
+	selinuxConfigFile string,
+) error {
 	if selinuxMode == imagecustomizerapi.SELinuxModeDisabled {
 		// SELinux is disabled in the kernel command line.
 		// So, no need to call setfiles.
@@ -144,7 +153,7 @@ func selinuxSetFiles(ctx context.Context, selinuxMode imagecustomizerapi.SELinux
 	}
 
 	// Set the SELinux config file and relabel all the files.
-	err := installutils.SELinuxRelabelFiles(imageChroot, mountPointToFsTypeMap, false)
+	err := installutils.SELinuxRelabelFiles(imageChroot, mountPointToFsTypeMap, false, selinuxConfigFile)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrSELinuxRelabelFiles, err)
 	}

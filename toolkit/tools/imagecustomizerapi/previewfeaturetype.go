@@ -49,6 +49,9 @@ const (
 
 	// PreviewFeatureCreate enables the create command for building new images from scratch.
 	PreviewFeatureCreate PreviewFeature = "create"
+
+	// PreviewFeatureAzureContainerLinux3 enables support for Azure Container Linux 3 images.
+	PreviewFeatureAzureContainerLinux3 PreviewFeature = "azure-container-linux-3"
 )
 
 func (pf PreviewFeature) IsValid() error {
@@ -57,7 +60,7 @@ func (pf PreviewFeature) IsValid() error {
 		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
 		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
 		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
-		PreviewFeatureBtrfs, PreviewFeatureCreate:
+		PreviewFeatureBtrfs, PreviewFeatureCreate, PreviewFeatureAzureContainerLinux3:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

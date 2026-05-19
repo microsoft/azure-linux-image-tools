@@ -98,6 +98,24 @@ func (d *fedoraDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (
 	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
+func (d *fedoraDistroHandler) GetSELinuxConfigFile() string {
+	return selinuxConfigFileDefault
+}
+
+func (d *fedoraDistroHandler) UpdateSELinuxConfigFile(selinuxMode imagecustomizerapi.SELinuxMode,
+	imageChroot safechroot.ChrootInterface,
+) error {
+	return UpdateSELinuxModeInConfigFile(selinuxMode, imageChroot, selinuxConfigFileDefault)
+}
+
+func (d *fedoraDistroHandler) ExtractUkiAddonCmdline(addonFilePath string, buildDir string) (string, error) {
+	return defaultExtractUkiAddonCmdline(addonFilePath, buildDir)
+}
+
+func (d *fedoraDistroHandler) CleanBootDirectory(imageChroot *safechroot.Chroot) error {
+	return defaultCleanBootDirectory(imageChroot, d.GetEspDir(), false)
+}
+
 func (d *fedoraDistroHandler) SELinuxSupported() bool {
 	return true
 }
