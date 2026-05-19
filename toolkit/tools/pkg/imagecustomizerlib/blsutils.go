@@ -19,28 +19,46 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/bls"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/grub"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 )
 
-// parseBLSOptionsValue parses the verbatim value of a BLS `options` key as a kernel command line. The kernel cmdline
-// uses double-quote-grouped, whitespace-separated tokens, which the grub tokenizer handles correctly. But the grub
-// tokenizer also treats unquoted grub metacharacters (e.g. `;`, `|`, `&`, `<`, `>`, `{`, `}`) as framing tokens, which
-// the kernel does not. Such a token in a BLS options value would silently corrupt the resulting cmdline, so we reject
-// it explicitly rather than guess at the author's intent.
-func parseBLSOptionsValue(value string) ([]grubConfigLinuxArg, error) {
-	tokens, err := grub.TokenizeConfig(value)
-	if err != nil {
-		return nil, fmt.Errorf("failed to tokenize kernel cmdline:\n%w", err)
+// parseBLSOptionsValue parses the string value of a BLS `options` key as a kernel command line. Per the kernel's
+// cmdline parsing rules (lib/cmdline.c:next_arg), tokens are whitespace-separated with double-quote grouping. Even
+// special characters (e.g. `;`, `|`, `&`, `<`, `>`, `{`, `}`) are passed through verbatim. We return
+// []grubConfigLinuxArg but deliberately do not use the grub tokenizer to align with the kernel's parsing behavior.
+func parseBLSOptionsValue(value string) []grubConfigLinuxArg {
+	var args []grubConfigLinuxArg
+	var cur strings.Builder
+	inQuotes := false
+
+	flush := func() {
+		if cur.Len() == 0 {
+			return
+		}
+		tok := cur.String()
+		cur.Reset()
+		name := tok
+		val := ""
+		if eq := strings.IndexByte(tok, '='); eq >= 0 {
+			name = tok[:eq]
+			val = tok[eq+1:]
+		}
+		args = append(args, grubConfigLinuxArg{Arg: tok, Name: name, Value: val})
 	}
-	for _, t := range tokens {
-		if t.Type != grub.WORD {
-			return nil, fmt.Errorf(
-				"unexpected grub metacharacter (%s) in BLS options value (%q): missing quotes around value?",
-				grub.TokenTypeString(t.Type), t.RawContent)
+
+	for i := 0; i < len(value); i++ {
+		c := value[i]
+		switch {
+		case c == '"':
+			inQuotes = !inQuotes
+		case !inQuotes && (c == ' ' || c == '\t'):
+			flush()
+		default:
+			cur.WriteByte(c)
 		}
 	}
-	return ParseCommandLineArgs(tokens)
+	flush()
+	return args
 }
 
 // readKernelCmdlinesFromBLSEntries reads Boot Loader Specification (BLS) entries in {bootDir}/loader/entries/*.conf,
@@ -85,11 +103,7 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, field.Key)
 			case "options":
 				// "options" may appear multiple times per BLS spec.
-				lineArgs, err := parseBLSOptionsValue(field.Value)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse BLS key (%s) for entry (%s):\n%w", field.Key, absPath, err)
-				}
-				args = append(args, lineArgs...)
+				args = append(args, parseBLSOptionsValue(field.Value)...)
 			}
 		}
 
@@ -220,12 +234,7 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 	// Splice in reverse byte order so earlier offsets remain valid as we make replacements.
 	for i := len(optionsIdx) - 1; i >= 0; i-- {
 		line := lines[optionsIdx[i]]
-
-		args, err := parseBLSOptionsValue(line.Value)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse BLS options line:\n%w", err)
-		}
-
+		args := parseBLSOptionsValue(line.Value)
 		argStrings := make([]string, 0, len(args))
 		for _, arg := range args {
 			if slices.Contains(argsToRemove, arg.Name) {
