@@ -54,15 +54,6 @@ func TestUpdateBLSEntryOptions(t *testing.T) {
 				"options root=/dev/sda1 verity=1\n",
 		},
 		{
-			name: "mixed tab-then-space is recognized",
-			content: "title Foo\n" +
-				"options\troot=/dev/sda1 quiet\n",
-			argsToRemove: []string{"root"},
-			newArgs:      []string{"verity=1"},
-			want: "title Foo\n" +
-				"options quiet verity=1\n",
-		},
-		{
 			name: "multiple options lines: remove from all, append to last",
 			content: "title Foo\n" +
 				"options root=/dev/sda1 stale=yes\n" +
@@ -137,17 +128,14 @@ func TestUpdateBLSEntryOptions(t *testing.T) {
 				"options\n",
 		},
 		{
-			// Grub permits single-quoted values; the tokenizer normalizes them
-			// during read. On re-emit GrubArgsToString always uses double quotes,
-			// so a single-quoted input becomes double-quoted output but the
-			// arg's name/value identity is preserved.
-			name: "single-quoted value is preserved as one arg",
+			// The Linux kernel cmdline parser only recognizes double quotes for grouping.
+			name: "single-quoted value is treated as literal characters per kernel cmdline semantics",
 			content: "title Foo\n" +
 				"options root=/dev/sda1 rd.cmdline='foo bar' quiet\n",
 			argsToRemove: []string{"quiet"},
 			newArgs:      nil,
 			want: "title Foo\n" +
-				"options root=/dev/sda1 \"rd.cmdline=foo bar\"\n",
+				"options root=/dev/sda1 \"rd.cmdline='foo\" \"bar'\"\n",
 		},
 		{
 			// A quoted value containing '=' characters must remain a single arg.
@@ -204,12 +192,63 @@ func TestUpdateBLSEntryOptions(t *testing.T) {
 				"options\n" +
 				"options quiet verity=1\n",
 		},
+		{
+			name: "unquoted semicolon: edit applies and value is re-quoted on emit",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 console=ttyS0;115200 quiet\n",
+			argsToRemove: []string{"quiet"},
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"options root=/dev/sda1 \"console=ttyS0;115200\" verity=1\n",
+		},
+		{
+			name: "unquoted semicolon: arg whose value contains semicolon is removable atomically",
+			content: "title Foo\n" +
+				"options root=/dev/sda1 console=ttyS0;115200 quiet\n",
+			argsToRemove: []string{"console"},
+			newArgs:      nil,
+			want: "title Foo\n" +
+				"options root=/dev/sda1 quiet\n",
+		},
+		{
+			name: "newArgs containing whitespace are quoted on append",
+			content: "title Foo\n" +
+				"options root=/dev/sda1\n",
+			argsToRemove: nil,
+			newArgs:      []string{"rd.cmdline=foo bar"},
+			want: "title Foo\n" +
+				"options root=/dev/sda1 \"rd.cmdline=foo bar\"\n",
+		},
+		{
+			name:         "CRLF line endings are preserved across the rewrite",
+			content:      "title Foo\r\noptions root=/dev/sda1 quiet\r\n",
+			argsToRemove: []string{"quiet"},
+			newArgs:      []string{"verity=1"},
+			want:         "title Foo\r\noptions root=/dev/sda1 verity=1\r\n",
+		},
+		{
+			name:         "options line at EOF without trailing newline keeps shape",
+			content:      "title Foo\noptions root=/dev/sda1 quiet",
+			argsToRemove: []string{"quiet"},
+			newArgs:      []string{"verity=1"},
+			want:         "title Foo\noptions root=/dev/sda1 verity=1",
+		},
+		{
+			name: "multiple options lines: last line emptied gets re-populated by newArgs",
+			content: "title Foo\n" +
+				"options root=/dev/sda1\n" +
+				"options stale=yes\n",
+			argsToRemove: []string{"stale"},
+			newArgs:      []string{"verity=1"},
+			want: "title Foo\n" +
+				"options root=/dev/sda1\n" +
+				"options verity=1\n",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := updateBLSEntryOptions(tc.content, tc.argsToRemove, tc.newArgs)
-			assert.NoError(t, err)
+			got := updateBLSEntryOptions(tc.content, tc.argsToRemove, tc.newArgs)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -335,7 +374,7 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 			wantErrSubstr: "missing 'linux' key",
 		},
 		{
-			name: "no 'title' key is treated as a normal entry",
+			name: "missing title key is treated as a normal entry",
 			files: map[string]string{
 				"bad.conf": "linux /vmlinuz-6.6\n" +
 					"options root=/dev/sda1\n",
@@ -343,6 +382,48 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 			wantKernels: []string{"vmlinuz-6.6"},
 			wantArgsFor: map[string][]string{
 				"vmlinuz-6.6": {"root=/dev/sda1"},
+			},
+		},
+		{
+			name: "duplicate 'linux' key in a single entry produces an error",
+			files: map[string]string{
+				"dup-linux.conf": "title Azure Linux\n" +
+					"linux /vmlinuz-6.6\n" +
+					"linux /vmlinuz-6.6.also\n",
+			},
+			wantErrSubstr: "duplicate key (linux)",
+		},
+		{
+			name: "empty 'linux' value produces an error",
+			files: map[string]string{
+				"empty-linux.conf": "title Azure Linux\n" +
+					"linux \n" +
+					"options root=/dev/sda1\n",
+			},
+			wantErrSubstr: "'linux' key has empty value",
+		},
+		{
+			name: "duplicate BLS entries for the same kernel produce an error",
+			files: map[string]string{
+				"a.conf": "title Azure Linux A\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1\n",
+				"b.conf": "title Azure Linux B\n" +
+					"linux /boot/vmlinuz-6.6\n" + // filepath.Base normalises this to the same kernel
+					"options root=/dev/sda2\n",
+			},
+			wantErrSubstr: "duplicate BLS entries for kernel",
+		},
+		{
+			name: "CRLF line endings are tolerated",
+			files: map[string]string{
+				"azl.conf": "title Azure Linux\r\n" +
+					"linux /vmlinuz-6.6\r\n" +
+					"options root=/dev/sda1 quiet\r\n",
+			},
+			wantKernels: []string{"vmlinuz-6.6"},
+			wantArgsFor: map[string][]string{
+				"vmlinuz-6.6": {"root=/dev/sda1", "quiet"},
 			},
 		},
 	}
@@ -397,10 +478,9 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 
 func TestParseBLSOptionsValue(t *testing.T) {
 	tests := []struct {
-		name          string
-		value         string
-		wantArg       []string // expected .Arg fields, in order; ignored if wantErrSubstr is set
-		wantErrSubstr string   // if non-empty, parse must fail with this substring in the error
+		name    string
+		value   string
+		wantArg []string // expected .Arg fields, in order
 	}{
 		{
 			name:    "empty value yields no args",
@@ -418,31 +498,50 @@ func TestParseBLSOptionsValue(t *testing.T) {
 			wantArg: []string{"rd.cmdline=foo bar", "quiet"},
 		},
 		{
-			// Quoted grub metacharacters are literal inside the WORD subword,
-			// so the whole value parses as one arg.
-			name:    "quoted value with embedded semicolon is one arg",
-			value:   `rd.cmdline="foo;bar" quiet`,
-			wantArg: []string{"rd.cmdline=foo;bar", "quiet"},
+			name:    "unquoted semicolon is passed through verbatim",
+			value:   "console=ttyS0;115200 quiet",
+			wantArg: []string{"console=ttyS0;115200", "quiet"},
 		},
 		{
-			// An unquoted grub metacharacter in a BLS options value cannot be
-			// faithfully represented as a kernel cmdline arg.
-			name:          "unquoted semicolon is rejected",
-			value:         "console=ttyS0;quiet",
-			wantErrSubstr: "unexpected grub metacharacter",
+			name:    "tab separates tokens",
+			value:   "console=ttyS0\tquiet",
+			wantArg: []string{"console=ttyS0", "quiet"},
+		},
+		{
+			name:    "boolean arg (no equals) is a single token with empty Value",
+			value:   "quiet",
+			wantArg: []string{"quiet"},
+		},
+		{
+			name:    "multiple '=' splits on the first only",
+			value:   "a=b=c",
+			wantArg: []string{"a=b=c"},
+		},
+		{
+			name:    "single quote is literal, not grouping",
+			value:   "rd.cmdline='foo bar' quiet",
+			wantArg: []string{"rd.cmdline='foo", "bar'", "quiet"},
+		},
+		{
+			name:    "backslash is literal (no escape)",
+			value:   `foo\"bar baz" qux`,
+			wantArg: []string{`foo\bar baz`, "qux"},
+		},
+		{
+			name:    "unterminated quote absorbs to end of input as one token",
+			value:   `foo="bar baz`,
+			wantArg: []string{"foo=bar baz"},
+		},
+		{
+			name:    "runs of whitespace collapse",
+			value:   "   foo\t\t  bar   ",
+			wantArg: []string{"foo", "bar"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			args, err := parseBLSOptionsValue(tc.value)
-			if tc.wantErrSubstr != "" {
-				if assert.Error(t, err) {
-					assert.Contains(t, err.Error(), tc.wantErrSubstr)
-				}
-				return
-			}
-			assert.NoError(t, err)
+			args := parseBLSOptionsValue(tc.value)
 			gotArgs := make([]string, 0, len(args))
 			for _, a := range args {
 				gotArgs = append(gotArgs, a.Arg)
