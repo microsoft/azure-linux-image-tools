@@ -238,11 +238,12 @@ func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.Imag
 			return
 		}
 
-		kernelToArgs, err := distroHandler.ReadKernelCmdlines(bootDir)
+		parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 		if err != nil {
 			t.Fatalf("Failed to extract kernel args from boot config: %v", err)
 			return
 		}
+		kernelToArgs := grubKernelArgsToStringMap(parsedKernelToArgs)
 
 		for _, opts := range kernelToArgs {
 			// Like in the UKI scenario, we only test the first seen.

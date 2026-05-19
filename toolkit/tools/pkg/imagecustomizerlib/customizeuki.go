@@ -723,14 +723,18 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 func extractKernelToArgs(espPath string, bootDir string, buildDir string, distroHandler DistroHandler,
 ) (map[string]string, error) {
 	// Try extracting from boot config (grub.cfg or BLS entries) first.
-	kernelToArgs, err := distroHandler.ReadKernelCmdlines(bootDir)
+	var kernelToArgs map[string]string
+	parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("failed to extract kernel args from boot config:\n%w", err)
 		}
-	} else if len(kernelToArgs) > 0 {
-		// Successfully extracted kernel cmdline from boot config.
-		return kernelToArgs, nil
+	} else {
+		kernelToArgs = grubKernelArgsToStringMap(parsedKernelToArgs)
+		if len(kernelToArgs) > 0 {
+			// Successfully extracted kernel cmdline from boot config.
+			return kernelToArgs, nil
+		}
 	}
 
 	// Fallback to extracting from UKI.

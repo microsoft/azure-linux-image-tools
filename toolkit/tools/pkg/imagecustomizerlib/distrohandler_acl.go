@@ -198,15 +198,6 @@ func (d *aclDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][
 	return nil, fs.ErrNotExist
 }
 
-func (d *aclDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
-	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return grubKernelArgsToStringMap(kernelToArgs), nil
-}
-
 func (d *aclDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
 	// See comment in ReadGrub2ConfigFile.
 	return nil, fs.ErrNotExist

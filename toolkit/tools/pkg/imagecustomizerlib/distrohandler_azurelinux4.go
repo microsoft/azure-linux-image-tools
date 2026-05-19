@@ -159,15 +159,6 @@ func (d *azureLinux4DistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[
 	return readKernelCmdlinesFromBLSEntries(bootDir)
 }
 
-func (d *azureLinux4DistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
-	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return grubKernelArgsToStringMap(kernelToArgs), nil
-}
-
 func (d *azureLinux4DistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
 	return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
 }

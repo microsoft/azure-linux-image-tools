@@ -185,15 +185,6 @@ func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[s
 	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.FedoraGrubCfgRelPath)
 }
 
-func (d *azureLinuxDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
-	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return grubKernelArgsToStringMap(kernelToArgs), nil
-}
-
 func (d *azureLinuxDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
 	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
 	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)

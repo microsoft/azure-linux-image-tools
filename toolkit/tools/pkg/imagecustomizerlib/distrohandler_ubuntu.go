@@ -199,15 +199,6 @@ func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[strin
 	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.DebianGrubCfgRelPath)
 }
 
-func (d *ubuntuDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
-	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return grubKernelArgsToStringMap(kernelToArgs), nil
-}
-
 func (d *ubuntuDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
 	grubCfgPath := filepath.Join(bootDir, installutils.DebianGrubCfgRelPath)
 	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)

@@ -183,15 +183,6 @@ func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[strin
 	return readKernelCmdlinesFromBLSEntries(bootDir)
 }
 
-func (d *fedoraDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]string, error) {
-	kernelToArgs, err := d.ReadGrubConfigLinuxArgs(bootDir)
-	if err != nil {
-		return nil, err
-	}
-
-	return grubKernelArgsToStringMap(kernelToArgs), nil
-}
-
 func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
 	return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
 }

@@ -113,10 +113,6 @@ type DistroHandler interface {
 	// in parsed grubConfigLinuxArg format.
 	ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error)
 
-	// ReadKernelCmdlines reads kernel command-line arguments from the distro's boot configuration (e.g., grub.cfg linux
-	// lines or BLS entries). Returns a mapping from kernel filename to the full command-line argument string.
-	ReadKernelCmdlines(bootDir string) (map[string]string, error)
-
 	// ReadNonRecoveryKernelCmdlines reads kernel command-line arguments from the boot configuration, excluding
 	// recovery entries, and returns only args whose name is in argNames.
 	ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error)
