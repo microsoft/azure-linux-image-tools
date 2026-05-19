@@ -330,25 +330,17 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	// Combine kernel-to-initramfs mapping and kernel command line arguments.
 	// Prefer existing uki-kernel-info.json (may have been modified by handleBootLoader/handleSELinux).
 	cmdlineFilePath := filepath.Join(buildDir, UkiBuildDir, UkiKernelInfoJson)
-	existingKernelInfo, existErr := readUkiKernelInfoFile(cmdlineFilePath)
-	if existErr != nil && !errors.Is(existErr, fs.ErrNotExist) {
-		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, existErr)
+	existingKernelInfo, err := readUkiKernelInfoFile(cmdlineFilePath)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to read existing UKI kernel info file (%s):\n%w", cmdlineFilePath, err)
 	}
 
 	kernelInfo := make(map[string]UkiKernelInfo)
 
 	for kernel, initramfs := range kernelToInitramfs {
 		var cmdline string
-		if existErr == nil {
-			if existingInfo, ok := existingKernelInfo[kernel]; ok {
-				cmdline = existingInfo.Cmdline
-			} else {
-				var exists bool
-				cmdline, exists = kernelToArgs[kernel]
-				if !exists {
-					return fmt.Errorf("no command line arguments found for kernel (%s)", kernel)
-				}
-			}
+		if existingInfo, ok := existingKernelInfo[kernel]; ok {
+			cmdline = existingInfo.Cmdline
 		} else {
 			var exists bool
 			cmdline, exists = kernelToArgs[kernel]
