@@ -182,10 +182,7 @@ func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir st
 			return fmt.Errorf("failed to read BLS entry file (%s):\n%w", absPath, err)
 		}
 
-		updatedContent, err := updateBLSEntryOptions(string(content), argsToRemove, newArgs)
-		if err != nil {
-			return fmt.Errorf("failed to update BLS entry options (%s):\n%w", absPath, err)
-		}
+		updatedContent := updateBLSEntryOptions(string(content), argsToRemove, newArgs)
 
 		err = os.WriteFile(absPath, []byte(updatedContent), 0o644)
 		if err != nil {
@@ -200,14 +197,14 @@ func updateBLSEntriesForVerity(verityMetadata []verityDeviceMetadata, bootDir st
 //
 // Implementation notes:
 //   - The file-level structure is parsed per the BLS spec (line-based, value taken verbatim to end-of-line). The
-//     *value* of an `options` line is then parsed as a kernel command line with the grub tokenizer, so quoted values
+//     *value* of an `options` line is then parsed as a kernel command line (parseBLSOptionsValue) so quoted values
 //     like rd.cmdline="foo bar" survive the remove/append round-trip instead of being shredded on whitespace.
 //   - Per BLS spec an entry may contain multiple "options" lines whose values are concatenated. argsToRemove is applied
 //     to every options line. newArgs is appended only to the last one.
 //   - Each existing options line is replaced byte-for-byte at the source location of its trimmed content, so leading
 //     whitespace, comments, and unrelated lines are preserved exactly.
 //   - If no options line exists, a new one is appended.
-func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) (string, error) {
+func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []string) string {
 	lines := bls.ParseLines(content)
 
 	// Collect indices of all "options" lines.
@@ -226,7 +223,7 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 		if content != "" && !strings.HasSuffix(content, "\n") {
 			content = content + "\n"
 		}
-		return content + newLine + "\n", nil
+		return content + newLine + "\n"
 	}
 
 	result := content
@@ -256,5 +253,5 @@ func updateBLSEntryOptions(content string, argsToRemove []string, newArgs []stri
 		result = result[:line.ContentStart] + replacement + result[line.ContentEnd:]
 	}
 
-	return result, nil
+	return result
 }
