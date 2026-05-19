@@ -25,8 +25,15 @@ type Field struct {
 // in-place rewrites while preserving the rest of the file verbatim.
 type Line struct {
 	Field
+	// ContentStart is the byte offset (into the original `content` passed to ParseLines) of the first byte of the
+	// line's logical content after any leading whitespace has been skipped. For blank or comment lines it points at the
+	// first non-whitespace byte or at ContentEnd if the line is entirely whitespace.
 	ContentStart int
-	ContentEnd   int
+	// ContentEnd is the byte offset (into the original `content` passed to ParseLines) one past the last byte of the
+	// line's logical content before any trailing whitespace and before the terminating LF/CRLF. The half-open range
+	// content[ContentStart:ContentEnd] is therefore the line with surrounding whitespace stripped, and is exactly what
+	// a splice-style rewrite should replace.
+	ContentEnd int
 }
 
 // ParseFields parses a BLS entry file into its key-value pairs, in source order, with blank lines and comments
