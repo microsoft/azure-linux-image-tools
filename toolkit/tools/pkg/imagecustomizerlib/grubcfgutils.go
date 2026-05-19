@@ -168,7 +168,6 @@ func FindBlsCfg(grubLines []grub.Line) bool {
 }
 
 // Find the linux commands within non-recovery mode menuentry block in the grub config lines.
-
 func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 	var linuxLines []grub.Line
 	inMenuEntry := false
