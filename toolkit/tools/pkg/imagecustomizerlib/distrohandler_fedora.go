@@ -193,16 +193,15 @@ func (d *fedoraDistroHandler) ReadKernelCmdlines(bootDir string) (map[string]str
 }
 
 func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
-	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
-	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+	return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
 }
 
 func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
 	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
 	buildDir string, bootUuid string,
 ) error {
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.FedoraGrubCfgRelPath)
-	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+	bootDir := filepath.Join(bootPartitionTmpDir, bootRelativePath)
+	return updateBLSEntriesForVerity(verityMetadata, bootDir, partitions, buildDir, bootUuid)
 }
 
 func (d *fedoraDistroHandler) ShimPackage() string {
