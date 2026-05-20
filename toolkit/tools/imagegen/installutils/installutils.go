@@ -605,11 +605,16 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 func CallGrubMkconfig(installChroot safechroot.ChrootInterface) (err error) {
 	ReportActionf("Running %s...", FedoraGrubMkconfigBinary)
 
-	// Force-disable os-prober. grub2-mkconfig is run inside an image-customization
-	// chroot that has the host's /dev bind-mounted; without this, /etc/grub.d/30_os-prober
-	// would enumerate the build host's disks and inject menuentries pointing at the
-	// host's kernels and partitions into the customized image's grub.cfg. Set via env
-	// so the protection applies regardless of /etc/default/grub state in the target image.
+	// Force-disable os-prober to guard against insecure images that do not disable this feature. grub2-mkconfig is run
+	// inside an image-customization chroot that has the host's /dev bind-mounted. With os-prober enabled,
+	// /etc/grub.d/30_os-prober may enumerate the build host's disks and inject menuentries pointing at the host's
+	// kernels and partitions into the customized image's grub.cfg. Ensuring its disabled gives us defense in depth
+	// against potential attack vectors, and provides full control over what gets injected into grub.cfg.
+	//
+	// grub2 as of 2.06 defaults to having os-prober disabled, but distributions (like Fedora) may still ship with it
+	// enabled, so we explicitly disable it here to be safe. os-prober injection was detected on Ubuntu 24.04 while
+	// customizing an Azure Linux 4.0 image. (Ubuntu 24.04 test hosts have os-prober installed and the version
+	// of Azure Linux 4.0 inherited Fedora policy by enabling it by default.)
 	return shell.NewExecBuilder(FedoraGrubMkconfigBinary, "-o", FedoraGrubCfgFile).
 		EnvironmentVariables(append(os.Environ(), "GRUB_DISABLE_OS_PROBER=true")).
 		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
