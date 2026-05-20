@@ -56,11 +56,29 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		}
 
 		pkgs := os.Packages
-		if len(pkgs.Install) > 0 || len(pkgs.InstallLists) > 0 ||
+
+		// updateExistingPackages is blocked until sysext regeneration is available.
+		if pkgs.UpdateExistingPackages {
+			return fmt.Errorf("'os.packages.updateExistingPackages' is not supported for ACL: " +
+				"updating base packages requires sysext regeneration.")
+		}
+
+		hasPackageOps := len(pkgs.Install) > 0 || len(pkgs.InstallLists) > 0 ||
 			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
-			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
-			pkgs.UpdateExistingPackages {
-			return fmt.Errorf("package operations are not yet supported for ACL")
+			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0
+
+		if hasPackageOps {
+			// ACL package operations require verity regeneration because /usr is dm-verity sealed.
+			if rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll {
+				return fmt.Errorf("ACL package operations require verity regeneration: " +
+					"set 'os.storage.reinitializeVerity: all' in your config")
+			}
+
+			// Package ops on ACL require a tools chroot because ACL images have no tdnf.
+			if rc.Options.ToolsFile == "" {
+				return fmt.Errorf("ACL package operations require a tools chroot: " +
+					"provide an Azure Linux bootstrap OS tarball via '--tools-file'")
+			}
 		}
 
 		if os.Overlays != nil {
@@ -75,6 +93,12 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
+	// For now, block any operation that would conflict with existing sysext overlays.
+	if err := checkACLSysextConflicts(ctx, buildDir, baseConfigPath, imageChroot, toolsChroot,
+		config, rpmsSources, useBaseImageRpmRepos, d.packageManager); err != nil {
+		return err
+	}
+
 	return managePackagesRpm(
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager)
