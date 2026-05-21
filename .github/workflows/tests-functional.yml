@@ -18,9 +18,6 @@ on:
         required: true
         type: string
 
-env:
-  EXPECTED_GO_VERSION: "1.25.0"
-
 jobs:
   tests-functional:
     name: Functional test suite - ${{ inputs.testDistro }} on ${{ inputs.hostDistro }} ${{ inputs.hostArch }}
@@ -34,54 +31,11 @@ jobs:
       id-token: write
     environment: public
     steps:
-    - name: setup go 1.x
-      uses: actions/setup-go@v6
-      with:
-        go-version: "~${{ env.EXPECTED_GO_VERSION }}"
-
     - name: Checkout
       uses: actions/checkout@v6
       with:
         path: repo
         persist-credentials: false
-
-    - name: Install prerequisites (AZL3)
-      if: inputs.hostDistro == 'azl3'
-      run: |
-        set -eux
-
-        # Install Image Customizer prerequisities.
-        PACKAGES="qemu-img rpm coreutils util-linux systemd openssl \
-            sed createrepo_c squashfs-tools cdrkit e2fsprogs dosfstools \
-            xfsprogs btrfs-progs zstd veritysetup grub2 binutils lsof \
-            git azure-cli systemd-ukify"
-
-        # grub2-pc is only available on x86.
-        if [[ "$HOST_ARCH" == "amd64" ]]; then
-            PACKAGES+=" grub2-pc"
-        fi
-
-        sudo ./repo/.github/workflows/scripts/retry.sh 5 5 \
-            tdnf install -y $PACKAGES
-
-        sudo tdnf list installed
-      env:
-        HOST_ARCH: ${{ inputs.hostArch }}
-
-    - name: Install prerequisites (Ubuntu 24.04)
-      if: inputs.hostDistro == 'ubuntu2404'
-      run: |
-        set -eux
-
-        # Install Image Customizer prerequisities.
-        sudo apt list --installed
-        sudo apt update -y
-
-        sudo apt -y install qemu-utils rpm coreutils util-linux mount fdisk udev openssl \
-          sed createrepo-c squashfs-tools genisoimage e2fsprogs dosfstools \
-          xfsprogs btrfs-progs zstd cryptsetup-bin grub2-common binutils lsof systemd-ukify
-
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
     - name: Azure Login
       uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
