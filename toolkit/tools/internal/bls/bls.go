@@ -114,7 +114,7 @@ func ParseLines(content string) []Line {
 	return lines
 }
 
-// isBLSRescueEntryTitle reports whether the given BLS entry title looks like a rescue entry emitted by systemd's
+// IsRescueEntryTitle reports whether the given BLS entry title looks like a rescue entry emitted by systemd's
 // `kernel-install` (via 90-loaderentry.install). Those entries hardcode the substring "0-rescue-<machine-id>" inside
 // the title.
 func IsRescueEntryTitle(title string) bool {

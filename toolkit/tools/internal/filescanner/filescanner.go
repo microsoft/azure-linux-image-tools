@@ -7,8 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// Iterator for scanning through a file a character (i.e. UTF-8 rune) at a time, while keeping track of the location
-// (line and column) of each character.
+// FileScanner is an iterator for scanning through a file a character (i.e. UTF-8 rune) at a time, while keeping track
+// of the location (line and column) of each character.
 type FileScanner struct {
 	content   string
 	col       int

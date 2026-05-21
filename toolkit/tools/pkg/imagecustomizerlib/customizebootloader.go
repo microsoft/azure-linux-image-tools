@@ -106,7 +106,7 @@ func hardResetBootLoader(ctx context.Context, rc *ResolvedConfig, imageConnectio
 	return nil
 }
 
-// Inserts new kernel command-line args into the grub config file.
+// AddKernelCommandLine inserts new kernel command-line args into the grub config file.
 func AddKernelCommandLine(ctx context.Context, buildDir string, extraCommandLine []string,
 	imageChroot safechroot.ChrootInterface, uki *imagecustomizerapi.Uki, distroHandler DistroHandler,
 ) error {

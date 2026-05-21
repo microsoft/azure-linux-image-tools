@@ -92,7 +92,7 @@ func Execute(program string, args ...string) (stdout, stderr string, err error) 
 		ExecuteCaptureOutput()
 }
 
-// ExecuteWithStdin - Run the command and use Stdin to pass input during execution
+// ExecuteWithStdin runs the command and uses Stdin to pass input during execution.
 func ExecuteWithStdin(input, program string, args ...string) (stdout, stderr string, err error) {
 	return NewExecBuilder(program, args...).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).

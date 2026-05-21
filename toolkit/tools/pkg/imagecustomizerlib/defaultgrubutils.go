@@ -115,8 +115,8 @@ func findDefaultGrubFileVarAssigns(defaultGrubFileContent string) ([]defaultGrub
 	return varAssigns, nil
 }
 
-// Takes the list of variable assignments in a /etc/defaukt/grub file and looks for the assignment to the variables that
-// matches the provided name.
+// findDefaultGrubFileVarAssign takes the list of variable assignments in a /etc/default/grub file and looks for the
+// assignment to the variables that matches the provided name.
 func findDefaultGrubFileVarAssign(varAssigns []defaultGrubFileVarAssign, name defaultGrubFileVarName,
 ) (defaultGrubFileVarAssign, error) {
 	for _, varAssign := range varAssigns {

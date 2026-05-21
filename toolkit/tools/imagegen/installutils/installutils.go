@@ -569,7 +569,7 @@ func installGrubTemplateFile(assetFile, targetFile, installRoot, rootDevice, boo
 	// Configure IMA policy
 	err = setGrubCfgIMA(installGrubDefFile, kernelCommandLine)
 	if err != nil {
-		logger.Log.Warnf("Failed to set ima_policy in in %s: %v", installGrubDefFile, err)
+		logger.Log.Warnf("Failed to set ima_policy in %s: %v", installGrubDefFile, err)
 		return
 	}
 

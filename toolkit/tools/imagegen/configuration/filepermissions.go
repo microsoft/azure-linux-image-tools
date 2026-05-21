@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-// The file permissions to set on the file.
+// FilePermissions represents the file permissions to set on a file.
 //
 // Accepted formats:
 //

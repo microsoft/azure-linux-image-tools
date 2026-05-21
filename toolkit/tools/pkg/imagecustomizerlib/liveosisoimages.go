@@ -575,7 +575,7 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		logger.Log.Infof("Installing files to empty image")
 		// At the point when this copy will be executed, both the boot and the
 		// root partitions will be mounted, and the files of /boot/efi will
-		// land on the the boot partition, while the rest will be on the rootfs
+		// land on the boot partition, while the rest will be on the rootfs
 		// partition.
 		err := copyPartitionFiles(rootfsDir+"/.", imageChroot.RootDir())
 		if err != nil {

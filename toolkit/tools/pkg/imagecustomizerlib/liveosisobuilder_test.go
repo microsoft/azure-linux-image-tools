@@ -483,7 +483,7 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 	//         kdumpBootFiles=none
 	//       Expected: {iso}/boot/{initramfs + kernel}
 	//
-	// This test case ensures that the kdump file can move from inside the the full-os to the iso
+	// This test case ensures that the kdump file can move from inside the full-os to the iso
 	// if the user changes the kdumpBootFiles from keep to none.
 	//
 	kdumpBootFiles := imagecustomizerapi.KdumpBootFilesTypeNone

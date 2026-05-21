@@ -225,7 +225,7 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 		return err
 	}
 
-	// Download base image (if neccessary)
+	// Download base image (if necessary)
 	inputImageFilePath, err := downloadImage(ctx, rc.InputImage, rc.InputImageOciDescriptor, rc.BuildDirAbs,
 		options.ImageCacheDir)
 	if err != nil {

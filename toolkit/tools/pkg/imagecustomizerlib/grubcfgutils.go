@@ -35,7 +35,7 @@ const (
 	selinuxConfigModeRegexSELinuxMode = 1
 )
 
-// Looks for all occurences of a command with the provided name.
+// Looks for all occurrences of a command with the provided name.
 // Returns the lines containing the command.
 func findGrubCommandAll(inputGrubCfgContent string, commandName string, allowMultiple bool) ([]grub.Line, error) {
 	grubTokens, err := grub.TokenizeConfig(inputGrubCfgContent)
@@ -57,7 +57,7 @@ func findGrubCommandAll(inputGrubCfgContent string, commandName string, allowMul
 	return lines, nil
 }
 
-// Finds all search command occurences and replaces them.
+// Finds all search command occurrences and replaces them.
 func replaceSearchCommandAll(inputGrubCfgContent string, newSearchCommand string) (outputGrubCfgContent string, err error) {
 	lines, err := findGrubCommandAll(inputGrubCfgContent, "search", true /*allowMultiple*/)
 	if err != nil {
@@ -77,7 +77,7 @@ func replaceSearchCommandAll(inputGrubCfgContent string, newSearchCommand string
 	return outputGrubCfgContent, nil
 }
 
-// Finds all command occurences and removes them.
+// Finds all command occurrences and removes them.
 func removeCommandAll(inputGrubCfgContent string, command string) (outputGrubCfgContent string, err error) {
 	lines, err := findGrubCommandAll(inputGrubCfgContent, command, true /*allowMultiple*/)
 	if err != nil {
@@ -125,7 +125,7 @@ func replaceToken(inputGrubCfgContent string, oldToken string, newToken string) 
 	return outputGrubCfgContent, nil
 }
 
-// Find all occurences of the initrd or kernel command within the grub config file.
+// Find all occurrences of the initrd or kernel command within the grub config file.
 func findLinuxOrInitrdLineAll(inputGrubCfgContent string, commandName string, allowMultiple bool) ([]grub.Line, error) {
 	lines, err := findGrubCommandAll(inputGrubCfgContent, commandName, allowMultiple)
 	if err != nil {
@@ -140,7 +140,7 @@ func findLinuxOrInitrdLineAll(inputGrubCfgContent string, commandName string, al
 	return lines, nil
 }
 
-// Find the linux command within the grub config file.
+// FindLinuxLine finds the linux command within the grub config file.
 func FindLinuxLine(inputGrubCfgContent string) (grub.Line, error) {
 	lines, err := findLinuxOrInitrdLineAll(inputGrubCfgContent, linuxCommand, false /*allowMultiple*/)
 	if err != nil {
@@ -167,7 +167,7 @@ func FindBlsCfg(grubLines []grub.Line) bool {
 	return false
 }
 
-// Find the linux commands within non-recovery mode menuentry block in the grub config lines.
+// FindNonRecoveryLinuxLines finds the linux commands within non-recovery mode menuentry block in the grub config lines.
 func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 	var linuxLines []grub.Line
 	inMenuEntry := false
@@ -397,7 +397,7 @@ func filterKernelArgsByName(args []grubConfigLinuxArg, names []string) map[strin
 	return result
 }
 
-// Takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.
+// ParseCommandLineArgs takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.
 func ParseCommandLineArgs(argTokens []grub.Token) ([]grubConfigLinuxArg, error) {
 	args := []grubConfigLinuxArg(nil)
 
@@ -598,8 +598,8 @@ func updateKernelCommandLineArgsHelper(value string, args []grubConfigLinuxArg, 
 	return value, nil
 }
 
-// Takes a list of unescaped and unquoted kernel command-line args and combines them into a single string with
-// appropriate quoting for a grub.cfg file.
+// GrubArgsToString takes a list of unescaped and unquoted kernel command-line args and combines them into a single
+// string with appropriate quoting for a grub.cfg file.
 func GrubArgsToString(args []string) string {
 	builder := strings.Builder{}
 	for i, arg := range args {
