@@ -2,7 +2,7 @@
 
 ## How to file issues and get help
 
-This project uses [GitHub issues][gh-issue] to [track bugs][gh-bug] and [feature requests][gh-feature]. Please search the existing issues before filing new issues to avoid duplicates. For new topics, file your bug or feature request as a new issue.
+This project uses [GitHub issues][gh-issue] to [track bugs][gh-bug] and [feature requests][gh-feature]. For more guidance, see [how to report issues](https://aka.ms/azurelinux-reportissues).
 
 For questions about using this project, please look at the [How To for Image Customizer][tutorial] and our [Contributor's Guide][contributor] if you want to work on Azure Linux Image Tools.
 

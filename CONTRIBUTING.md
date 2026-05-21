@@ -4,6 +4,13 @@
 
 Please use the [auto-generated table of contents](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes#auto-generated-table-of-contents-for-readme-files) GitHub creates. To reveal it, select the three bar menu icon at the top of the page.
 
+## Azure Linux Contribution Philosophy and Best Practices
+
+Before contributing, please review our [Azure Linux contribution philosophy and best practices](https://aka.ms/azurelinux-contributing). It covers the principles we follow when accepting changes and other guidance that will help
+your PR land smoothly.
+
+Guidelines specific to this repo can be found below.
+
 ## Contributing License Agreement
 
 This project welcomes contributions and suggestions. Most contributions require you to
