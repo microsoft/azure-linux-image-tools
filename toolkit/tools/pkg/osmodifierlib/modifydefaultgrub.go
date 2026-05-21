@@ -77,6 +77,9 @@ func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface, distroH
 	}
 
 	rootDevice := argMap["root"]
+	if rootDevice == "" {
+		return nil, "", fmt.Errorf("failed to find 'root=' kernel argument in non-recovery boot entry")
+	}
 
 	// Iterate grubArgs (not argMap) to preserve a deterministic order.
 	var values []string
