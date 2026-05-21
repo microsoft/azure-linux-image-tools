@@ -6,10 +6,10 @@ package osmodifierlib
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
 )
 
@@ -68,37 +68,24 @@ func modifyDefaultGrub() error {
 	return nil
 }
 
-func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface, distroHandler imagecustomizerlib.DistroHandler) ([]string, string, error) {
-	grubCfgContent, err := distroHandler.ReadGrub2ConfigFile(imageChroot)
+func extractValuesFromGrubConfig(imageChroot safechroot.ChrootInterface, distroHandler imagecustomizerlib.DistroHandler,
+) ([]string, string, error) {
+	bootDir := filepath.Join(imageChroot.RootDir(), "boot")
+	argMap, err := distroHandler.ReadNonRecoveryKernelCmdlines(bootDir, grubArgs)
 	if err != nil {
 		return nil, "", err
 	}
 
-	lines, err := imagecustomizerlib.FindNonRecoveryLinuxLine(grubCfgContent)
-	if err != nil {
-		return nil, "", err
-	}
+	rootDevice := argMap["root"]
 
-	if len(lines) != 1 {
-		return nil, "", fmt.Errorf("expected 1 non-recovery linux line, found %d", len(lines))
-	}
-
-	argTokens, err := imagecustomizerlib.ParseCommandLineArgs(lines[0].Tokens)
-	if err != nil {
-		return nil, "", err
-	}
-
+	// Iterate grubArgs (not argMap) to preserve a deterministic order.
 	var values []string
-	var rootDevice string
-	for _, arg := range argTokens {
-		if sliceutils.ContainsValue(grubArgs, arg.Name) {
-			if arg.Value != "" {
-				if arg.Name == "root" {
-					rootDevice = arg.Value
-				} else {
-					values = append(values, arg.Name+"="+arg.Value)
-				}
-			}
+	for _, name := range grubArgs {
+		if name == "root" {
+			continue
+		}
+		if value, ok := argMap[name]; ok {
+			values = append(values, name+"="+value)
 		}
 	}
 

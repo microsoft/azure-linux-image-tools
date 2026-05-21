@@ -944,13 +944,17 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	buildDir := filepath.Join(testTempDir, "build")
 	outImageFilePath := filepath.Join(testTempDir, defaultIsoImageName)
 
-	grubPackageName := "grub2-efi-binary"
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		if runtime.GOARCH == "arm64" {
-			grubPackageName = "grub2-efi-aa64"
-		} else {
-			grubPackageName = "grub2-efi-x64"
+	var grubPackageName string
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl4:
+		switch runtime.GOARCH {
+		case "amd64":
+			grubPackageName = grubEfiPackageFedoraAmd64
+		default:
+			grubPackageName = grubEfiPackageFedoraArm64
 		}
+	default:
+		grubPackageName = "grub2-efi-binary"
 	}
 
 	config := &imagecustomizerapi.Config{}

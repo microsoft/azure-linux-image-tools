@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -19,23 +20,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// azureLinuxDistroHandler implements distroHandler for Azure Linux
+// azureLinuxDistroHandler implements DistroHandler for Azure Linux 2.0 and 3.0.
+// Azure Linux 4.0 is handled by azureLinux4DistroHandler.
 type azureLinuxDistroHandler struct {
 	version        string
 	packageManager rpmPackageManagerHandler
 }
 
-func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
-	var packageManager rpmPackageManagerHandler
-	if version == "4.0" {
-		packageManager = newDnfPackageManager(version)
-	} else {
-		packageManager = newTdnfPackageManager(version)
-	}
+const (
+	shimPackageAzl3            = "shim"
+	grubEfiPackageAzl3         = "grub2-efi-binary"
+	grubEfiNoPrefixPackageAzl3 = "grub2-efi-binary-noprefix"
+)
 
+var (
+	grubEfiPackagesAzl3     = []string{grubEfiPackageAzl3, grubEfiNoPrefixPackageAzl3}
+	systemdBootPackagesAzl3 = []string{systemdBootPackage}
+)
+
+func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
 	return &azureLinuxDistroHandler{
 		version:        version,
-		packageManager: packageManager,
+		packageManager: newTdnfPackageManager(version),
 	}
 }
 
@@ -45,21 +51,12 @@ func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
 		return targetos.TargetOsAzureLinux2
 	case "3.0":
 		return targetos.TargetOsAzureLinux3
-	case "4.0":
-		return targetos.TargetOsAzureLinux4
 	default:
 		panic("unsupported Azure Linux version: " + d.version)
 	}
 }
 
 func (d *azureLinuxDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	if d.version == "4.0" {
-		switch rc.OutputImageFormat {
-		case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
-			return fmt.Errorf("ISO and PXE output formats are not supported for Azure Linux 4.0")
-		}
-	}
-
 	return nil
 }
 
@@ -83,25 +80,13 @@ func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroo
 }
 
 func (d *azureLinuxDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	grubPackages := []string{"grub2-efi-binary", "grub2-efi-binary-noprefix"}
-	if d.version == "4.0" {
-		grubPackages = []string{"grub2-efi-x64", "grub2-efi-aa64"}
-	}
-	for _, pkg := range grubPackages {
-		if d.IsPackageInstalled(imageChroot, pkg) {
-			return BootloaderTypeGrub, nil
-		}
-	}
-	systemdBootPackages := []string{"systemd-boot"}
-	if d.version == "4.0" {
-		systemdBootPackages = []string{"systemd-boot", "systemd-boot-unsigned"}
-	}
-	for _, pkg := range systemdBootPackages {
-		if d.IsPackageInstalled(imageChroot, pkg) {
-			return BootloaderTypeSystemdBoot, nil
-		}
-	}
-	return "", fmt.Errorf("unknown bootloader: none of %v or %v found", grubPackages, systemdBootPackages)
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, grubEfiPackagesAzl3, systemdBootPackagesAzl3)
+	return bootloaderType, err
+}
+
+func (d *azureLinuxDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	_, err := validateUkiDependencies(d, imageChroot, systemdBootPackagesAzl3)
+	return err
 }
 
 func (d *azureLinuxDistroHandler) GetEspDir() string {
@@ -109,14 +94,7 @@ func (d *azureLinuxDistroHandler) GetEspDir() string {
 }
 
 func (d *azureLinuxDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
-	espGrubCfgPath := espGrubCfgPathAzl3
-	bootPartitionRegex := bootPartitionRegexAzl3
-	if d.version == "4.0" {
-		espGrubCfgPath = espGrubCfgPathAzl4
-		bootPartitionRegex = bootPartitionRegexAzl4
-	}
-
-	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPath), bootPartitionRegex)
+	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl3), bootPartitionRegexAzl3)
 }
 
 func (d *azureLinuxDistroHandler) GetSELinuxConfigFile() string {
@@ -193,28 +171,38 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
-	// Azure Linux 3.0+ always uses grub-mkconfig.
+	// Azure Linux 3.0+ always uses grub2-mkconfig.
 	// The legacy grub config detection logic is only relevant for Azure Linux 2.0.
-	// And for new images, always use grub-mkconfig.
+	// And for new images, always use grub2-mkconfig.
 	forceGrubMkconfig := newImage || d.version != "2.0"
 
-	var assetGrubDefFile string
-	var assetGrubStubFile string
-	var grubStubDirs []string
-	switch d.version {
-	case "2.0", "3.0":
-		assetGrubDefFile = resources.AssetsGrubDefFileAzl3
-		assetGrubStubFile = resources.AssetsGrubStubFileAzl3
-		grubStubDirs = installutils.GrubStubDirsAzl3
-	case "4.0":
-		assetGrubDefFile = resources.AssetsGrubDefFileAzl4
-		assetGrubStubFile = resources.AssetsGrubStubFileAzl4
-		grubStubDirs = installutils.GrubStubDirsAzl4
-	default:
-		return fmt.Errorf("unsupported Azure Linux version: %s", d.version)
-	}
-
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, forceGrubMkconfig, d, assetGrubDefFile, installutils.FedoraGrubEnvRelPath,
-		assetGrubStubFile, grubStubDirs)
+		currentSELinuxMode, forceGrubMkconfig, d, resources.AssetsGrubDefFileAzl3, installutils.FedoraGrubEnvRelPath,
+		resources.AssetsGrubStubFileAzl3, installutils.GrubStubDirsAzl3)
+}
+
+func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.FedoraGrubCfgRelPath)
+}
+
+func (d *azureLinuxDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	grubCfgPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}
+
+func (d *azureLinuxDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
+	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
+	buildDir string, bootUuid string,
+) error {
+	bootDir := filepath.Join(bootPartitionTmpDir, bootRelativePath)
+	grubCfgFullPath := filepath.Join(bootDir, installutils.FedoraGrubCfgRelPath)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+}
+
+func (d *azureLinuxDistroHandler) ShimPackage() string {
+	return shimPackageAzl3
+}
+
+func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
+	return grubEfiPackageAzl3
 }

@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -23,6 +25,11 @@ import (
 type ubuntuDistroHandler struct {
 	version string
 }
+
+const (
+	grubEfiPackageDebianAmd64 = "grub-efi-amd64"
+	grubEfiPackageDebianArm64 = "grub-efi-arm64"
+)
 
 func newUbuntuDistroHandler(version string) *ubuntuDistroHandler {
 	return &ubuntuDistroHandler{
@@ -100,13 +107,20 @@ func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *ubuntuDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.IsPackageInstalled(imageChroot, "grub-efi-amd64") || d.IsPackageInstalled(imageChroot, "grub-efi-arm64") || d.IsPackageInstalled(imageChroot, "grub-efi") {
-		return BootloaderTypeGrub, nil
+	grubEfiPackages := []string{"grub-efi"}
+	switch runtime.GOARCH {
+	case "amd64":
+		grubEfiPackages = append(grubEfiPackages, grubEfiPackageDebianAmd64)
+	default:
+		grubEfiPackages = append(grubEfiPackages, grubEfiPackageDebianArm64)
 	}
-	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
-	}
-	return "", fmt.Errorf("unknown bootloader: neither grub-efi-amd64, grub-efi-arm64, nor systemd-boot found")
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, grubEfiPackages, []string{systemdBootPackage})
+	return bootloaderType, err
+}
+
+func (d *ubuntuDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	return err
 }
 
 func (d *ubuntuDistroHandler) GetEspDir() string {
@@ -179,4 +193,34 @@ func (d *ubuntuDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return ErrUbuntuBootLoaderHardReset
+}
+
+func (d *ubuntuDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromGrubCfg(bootDir, installutils.DebianGrubCfgRelPath)
+}
+
+func (d *ubuntuDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	grubCfgPath := filepath.Join(bootDir, installutils.DebianGrubCfgRelPath)
+	return readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath, argNames)
+}
+
+func (d *ubuntuDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
+	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
+	buildDir string, bootUuid string,
+) error {
+	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, installutils.DebianGrubCfgRelPath)
+	return updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, partitions, buildDir, bootUuid)
+}
+
+func (d *ubuntuDistroHandler) ShimPackage() string {
+	return "shim"
+}
+
+func (d *ubuntuDistroHandler) GrubEfiPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return grubEfiPackageDebianAmd64
+	default:
+		return grubEfiPackageDebianArm64
+	}
 }

@@ -149,27 +149,38 @@ func FindLinuxLine(inputGrubCfgContent string) (grub.Line, error) {
 	return lines[0], nil
 }
 
-// Find the linux command within non-recovery mode menuentry block in the grub config file.
-func FindNonRecoveryLinuxLine(inputGrubCfgContent string) ([]grub.Line, error) {
-	grubTokens, err := grub.TokenizeConfig(inputGrubCfgContent)
-	if err != nil {
-		return nil, err
-	}
+// isGrubRecoveryMenuentryTitle reports whether the given grub.cfg `menuentry` title looks like a recovery-mode entry
+// emitted by grub-mkconfig (via /etc/grub.d/10_linux). Those entries hardcode the substring "recovery mode" in the
+// title.
+func isGrubRecoveryMenuentryTitle(title string) bool {
+	return strings.Contains(strings.ToLower(title), "recovery")
+}
 
-	grubLines := grub.SplitTokensIntoLines(grubTokens)
+// FindBlsCfg reports whether the given grub.cfg lines contain a `blscfg` command, indicating that the distro uses BLS
+// entries for its boot menu.
+func FindBlsCfg(grubLines []grub.Line) bool {
+	for _, line := range grubLines {
+		if len(line.Tokens) >= 1 && grub.IsTokenKeyword(line.Tokens[0], "blscfg") {
+			return true
+		}
+	}
+	return false
+}
+
+// Find the linux commands within non-recovery mode menuentry block in the grub config lines.
+func FindNonRecoveryLinuxLines(grubLines []grub.Line) []grub.Line {
 	var linuxLines []grub.Line
 	inMenuEntry := false
 	isRecoveryMenu := false
 
-	// Iterate over all lines to find non-recovery mode menuentry and its linux line
+	// Iterate over all lines to find non-recovery mode menuentries and their linux lines
 	for _, line := range grubLines {
 		if len(line.Tokens) > 1 && grub.IsTokenKeyword(line.Tokens[0], "menuentry") {
 			// Found a new 'menuentry', reset flags
 			inMenuEntry = true
 			isRecoveryMenu = false
 
-			// Check if the title (second token) contains the word 'recovery'
-			if strings.Contains(line.Tokens[1].RawContent, "recovery") {
+			if isGrubRecoveryMenuentryTitle(line.Tokens[1].RawContent) {
 				isRecoveryMenu = true
 			}
 
@@ -186,11 +197,7 @@ func FindNonRecoveryLinuxLine(inputGrubCfgContent string) ([]grub.Line, error) {
 		}
 	}
 
-	if len(linuxLines) == 0 {
-		return nil, fmt.Errorf("no linux line found in non-recovery menuentry")
-	}
-
-	return linuxLines, nil
+	return linuxLines
 }
 
 // Overrides the path of the kernel binary/initrd image in all the linux
@@ -376,6 +383,18 @@ func findCommandLineInsertAt(argTokens []grub.Token, defaultValue int) (int, err
 	insertAtToken := insertAtTokens[0]
 	insertAt := insertAtToken.Loc.Start.Index
 	return insertAt, nil
+}
+
+// filterKernelArgsByName extracts arg name=value pairs from parsed kernel args,
+// keeping only those whose name is in the provided list.
+func filterKernelArgsByName(args []grubConfigLinuxArg, names []string) map[string]string {
+	result := make(map[string]string)
+	for _, arg := range args {
+		if arg.Value != "" && sliceutils.ContainsValue(names, arg.Name) {
+			result[arg.Name] = arg.Value
+		}
+	}
+	return result
 }
 
 // Takes a tokenized grub.cfg file and makes a best effort to extract the kernel command-line args.

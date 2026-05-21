@@ -28,9 +28,7 @@ const (
 	savedConfigsFileNamePath = "/" + savedConfigsDir + "/" + savedConfigsFileName
 )
 
-var (
-	kernelVersionRegEx = regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.(azl|cm)\d)(\b|kdump)`)
-)
+var kernelVersionRegEx = regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.(azl|cm)\d)(\b|kdump)`)
 
 type IsoInfoStore struct {
 	seLinuxMode              imagecustomizerapi.SELinuxMode
@@ -88,11 +86,9 @@ func containsGrubNoPrefix(filePaths []string) (bool, error) {
 		return false, err
 	}
 	for _, filePath := range filePaths {
-
 		if filepath.Base(filePath) == bootFilesConfig.grubNoPrefixBinary {
 			return true, nil
 		}
-
 	}
 	return false, nil
 }
@@ -171,7 +167,9 @@ func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string) boo
 	return scheduleAdditionalFile
 }
 
-func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string) (filesStore *IsoFilesStore, err error) {
+func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore, imageRootDir string, storeDir string,
+	distroHandler DistroHandler,
+) (filesStore *IsoFilesStore, err error) {
 	artifactsDir := filepath.Join(storeDir, "artifacts")
 
 	filesStore = &IsoFilesStore{
@@ -361,14 +359,15 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 	}
 	if filesStore.bootEfiPath == "" {
 		return nil, fmt.Errorf("failed to find the boot efi file (%s):\n"+
-			"this file is provided by the (shim) package",
-			bootFilesConfig.bootBinary)
+			"this file is provided by the %s package",
+			bootFilesConfig.bootBinary, distroHandler.ShimPackage())
 	}
 
 	if filesStore.grubEfiPath == "" {
 		return nil, fmt.Errorf("failed to find the grub efi file (%s or %s):\n"+
-			"this file is provided by either the (grub2-efi-binary) or the (grub2-efi-binary-noprefix) package",
-			bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary)
+			"this file is provided by the %s package",
+			bootFilesConfig.grubBinary, bootFilesConfig.grubNoPrefixBinary,
+			distroHandler.GrubEfiPackage())
 	}
 
 	return filesStore, nil
@@ -521,7 +520,7 @@ func createIsoArtifactStoreFromMountedImage(inputArtifactsStore *IsoArtifactsSto
 
 	artifactStore = &IsoArtifactsStore{}
 
-	filesStore, err := createIsoFilesStoreFromMountedImage(inputArtifactsStore, imageRootDir, storeDir)
+	filesStore, err := createIsoFilesStoreFromMountedImage(inputArtifactsStore, imageRootDir, storeDir, distroHandler)
 	if err != nil {
 		return nil, err
 	}

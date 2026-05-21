@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
@@ -25,6 +27,13 @@ type fedoraDistroHandler struct {
 	version        string
 	packageManager rpmPackageManagerHandler
 }
+
+const (
+	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
+	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
+	shimPackageFedoraAmd64    = "shim-x64"
+	shimPackageFedoraArm64    = "shim-aa64"
+)
 
 func newFedoraDistroHandler(version string) *fedoraDistroHandler {
 	return &fedoraDistroHandler{
@@ -80,13 +89,20 @@ func (d *fedoraDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Ch
 }
 
 func (d *fedoraDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	if d.IsPackageInstalled(imageChroot, "grub2-efi-x64") || d.IsPackageInstalled(imageChroot, "grub2-efi-aa64") {
-		return BootloaderTypeGrub, nil
+	var grubEfiPackage string
+	switch runtime.GOARCH {
+	case "amd64":
+		grubEfiPackage = grubEfiPackageFedoraAmd64
+	default:
+		grubEfiPackage = grubEfiPackageFedoraArm64
 	}
-	if d.IsPackageInstalled(imageChroot, "systemd-boot") {
-		return BootloaderTypeSystemdBoot, nil
-	}
-	return "", fmt.Errorf("unknown bootloader: neither grub2-efi-x64, grub2-efi-aa64, nor systemd-boot found")
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, []string{grubEfiPackage}, []string{systemdBootPackage})
+	return bootloaderType, err
+}
+
+func (d *fedoraDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	return err
 }
 
 func (d *fedoraDistroHandler) GetEspDir() string {
@@ -159,6 +175,40 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
-		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl3,
+		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl4,
 		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4)
+}
+
+func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	return readKernelCmdlinesFromBLSEntries(bootDir)
+}
+
+func (d *fedoraDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	return readNonRecoveryKernelCmdlinesFromBLS(bootDir, argNames)
+}
+
+func (d *fedoraDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
+	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
+	buildDir string, bootUuid string,
+) error {
+	bootDir := filepath.Join(bootPartitionTmpDir, bootRelativePath)
+	return updateBLSEntriesForVerity(verityMetadata, bootDir, partitions, buildDir, bootUuid)
+}
+
+func (d *fedoraDistroHandler) ShimPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return shimPackageFedoraAmd64
+	default:
+		return shimPackageFedoraArm64
+	}
+}
+
+func (d *fedoraDistroHandler) GrubEfiPackage() string {
+	switch runtime.GOARCH {
+	case "amd64":
+		return grubEfiPackageFedoraAmd64
+	default:
+		return grubEfiPackageFedoraArm64
+	}
 }

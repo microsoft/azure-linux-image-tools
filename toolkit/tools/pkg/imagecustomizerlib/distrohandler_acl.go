@@ -10,14 +10,14 @@ import (
 	"os"
 	"slices"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/sirupsen/logrus"
 )
 
 // aclDistroHandler implements DistroHandler for Azure Container Linux (ACL).
@@ -89,7 +89,13 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	return BootloaderTypeSystemdBoot, nil
+	bootloaderType, _, err := detectBootloaderType(d, imageChroot, nil, []string{systemdBootPackage})
+	return bootloaderType, err
+}
+
+func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
+	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
+	return err
 }
 
 func (d *aclDistroHandler) GetEspDir() string {
@@ -99,7 +105,8 @@ func (d *aclDistroHandler) GetEspDir() string {
 func (d *aclDistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
 	// ACL does not use GRUB and the EFI System Partition IS the boot partition.
 	// Return an empty UUID to signal that the ESP itself is the boot partition.
-	return "", nil
+	// See comment in ReadGrub2ConfigFile.
+	return "", fs.ErrNotExist
 }
 
 func (d *aclDistroHandler) GetSELinuxConfigFile() string {
@@ -155,10 +162,9 @@ func (d *aclDistroHandler) ReadGrub2ConfigFile(imageChroot safechroot.ChrootInte
 	return "", fs.ErrNotExist
 }
 
-func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string,
-	imageChroot safechroot.ChrootInterface,
-) error {
-	return fmt.Errorf("GRUB is not supported on ACL")
+func (d *aclDistroHandler) WriteGrub2ConfigFile(grub2Config string, imageChroot safechroot.ChrootInterface) error {
+	// See comment in ReadGrub2ConfigFile.
+	return fs.ErrNotExist
 }
 
 func (d *aclDistroHandler) RegenerateInitramfs(ctx context.Context, imageChroot *safechroot.Chroot) error {
@@ -185,4 +191,32 @@ func (d *aclDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconnect
 	currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool,
 ) error {
 	return fmt.Errorf("bootloader configuration is not supported on ACL (systemd-boot auto-discovers UKIs)")
+}
+
+func (d *aclDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
+	// See comment in ReadGrub2ConfigFile.
+	return nil, fs.ErrNotExist
+}
+
+func (d *aclDistroHandler) ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error) {
+	// See comment in ReadGrub2ConfigFile.
+	return nil, fs.ErrNotExist
+}
+
+func (d *aclDistroHandler) UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata,
+	bootPartitionTmpDir string, bootRelativePath string, partitions []diskutils.PartitionInfo,
+	buildDir string, bootUuid string,
+) error {
+	// See comment in ReadGrub2ConfigFile.
+	return fs.ErrNotExist
+}
+
+func (d *aclDistroHandler) ShimPackage() string {
+	// ACL uses systemd-boot + UKI (no shim/grub from a package).
+	return ""
+}
+
+func (d *aclDistroHandler) GrubEfiPackage() string {
+	// ACL does not use grub.
+	return ""
 }

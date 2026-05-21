@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
@@ -17,6 +18,8 @@ const (
 	packageManagerTDNF = "tdnf"
 	packageManagerDNF  = "dnf"
 	packageManagerAPT  = "apt-get"
+
+	systemdBootPackage = "systemd-boot"
 )
 
 // PackageType represents the type of package format
@@ -48,8 +51,11 @@ type DistroHandler interface {
 	// Get all installed packages from the chroot
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 
-	// Detect the bootloader type installed in the image
+	// Detect the bootloader type installed in the image.
 	DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error)
+
+	// ValidateUkiDependencies verifies that the necessary dependencies for UKI customization are present in the image.
+	ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error
 
 	// GetEspDir returns the ESP directory path relative to the image root.
 	// For example: "boot/efi" for most distros, "boot" for ACL.
@@ -102,6 +108,25 @@ type DistroHandler interface {
 		rootMountIdType imagecustomizerapi.MountIdentifierType, bootType imagecustomizerapi.BootType,
 		selinuxConfig imagecustomizerapi.SELinux, kernelCommandLine imagecustomizerapi.KernelCommandLine,
 		currentSELinuxMode imagecustomizerapi.SELinuxMode, newImage bool) error
+
+	// ReadGrubConfigLinuxArgs reads kernel command-line arguments from the distro's boot configuration, returning them
+	// in parsed grubConfigLinuxArg format.
+	ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error)
+
+	// ReadNonRecoveryKernelCmdlines reads kernel command-line arguments from the boot configuration, excluding
+	// recovery entries, and returns only args whose name is in argNames.
+	ReadNonRecoveryKernelCmdlines(bootDir string, argNames []string) (map[string]string, error)
+
+	// UpdateBootConfigForVerity updates the boot configuration (grub.cfg or BLS entries) with verity
+	// kernel arguments. Each distro handler implements the appropriate strategy.
+	UpdateBootConfigForVerity(verityMetadata []verityDeviceMetadata, bootPartitionTmpDir string,
+		bootRelativePath string, partitions []diskutils.PartitionInfo, buildDir string, bootUuid string) error
+
+	// ShimPackage returns the package that provides the shim EFI binary for this distro on the current architecture.
+	ShimPackage() string
+
+	// GrubEfiPackage returns the package that provides the grub EFI binary for this distro on the current architecture.
+	GrubEfiPackage() string
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
@@ -114,7 +139,7 @@ func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
 	case targetos.TargetOsAzureLinux3:
 		return newAzureLinuxDistroHandler("3.0")
 	case targetos.TargetOsAzureLinux4:
-		return newAzureLinuxDistroHandler("4.0")
+		return newAzureLinux4DistroHandler()
 	case targetos.TargetOsAzureContainerLinux3:
 		return newAclDistroHandler()
 	case targetos.TargetOsUbuntu2204:
@@ -132,6 +157,9 @@ func NewDistroHandler(distroName string, version string) DistroHandler {
 	case string(distroNameFedora):
 		return newFedoraDistroHandler(version)
 	case string(distroNameAzureLinux):
+		if version == "4.0" {
+			return newAzureLinux4DistroHandler()
+		}
 		return newAzureLinuxDistroHandler(version)
 	default:
 		panic("unsupported distro name: " + distroName)
