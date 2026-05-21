@@ -394,6 +394,26 @@ func TestReadKernelCmdlinesFromBLSEntries(t *testing.T) {
 			wantErrSubstr: "duplicate key (linux)",
 		},
 		{
+			name: "duplicate 'title' key in a single entry produces an error",
+			files: map[string]string{
+				"dup-title.conf": "title Azure Linux\n" +
+					"title Azure Linux Also\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1\n",
+			},
+			wantErrSubstr: "duplicate key (title)",
+		},
+		{
+			name: "duplicate empty 'title' key in a single entry produces an error",
+			files: map[string]string{
+				"dup-empty-title.conf": "title\n" +
+					"title\n" +
+					"linux /vmlinuz-6.6\n" +
+					"options root=/dev/sda1\n",
+			},
+			wantErrSubstr: "duplicate key (title)",
+		},
+		{
 			name: "empty 'linux' value produces an error",
 			files: map[string]string{
 				"empty-linux.conf": "title Azure Linux\n" +
