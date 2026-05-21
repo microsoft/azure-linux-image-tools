@@ -34,7 +34,7 @@ Please attach or paste the relevant logs.
 
 **Environment**
 - How was Image Customizer invoked? (binary, container image, built from source):
-- Host OS and version (e.g. Ubuntu 22.04, Azure Linux 3.0):
+- Host OS and version (e.g. Ubuntu 22.04, Azure Linux 4.0):
 - Host architecture (x86_64 / arm64):
 - Base image used (path / URL / format - vhd, vhdx, qcow2, iso, cosi):
 - Target image format:
