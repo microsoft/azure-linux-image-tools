@@ -7,7 +7,8 @@ import (
 	"bytes"
 )
 
-// From: https://gitlab.com/cryptsetup/cryptsetup/-/wikis/DMVerity
+// VeritySuperBlock represents the DM-Verity superblock format.
+// See https://gitlab.com/cryptsetup/cryptsetup/-/wikis/DMVerity
 type VeritySuperBlock struct {
 	Signature     [8]uint8   // "verity\0\0"
 	Version       uint32     // Superblock version: 1

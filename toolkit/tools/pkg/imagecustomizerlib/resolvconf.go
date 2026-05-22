@@ -85,7 +85,7 @@ func overrideResolvConf(imageChroot *safechroot.Chroot) (resolvConfInfo, error) 
 
 	// Remove the existing resolv.conf file, if it exists.
 	// Note: It is assumed that the image will have a process that runs on boot that will override the resolv.conf
-	// file. For example, systemd-resolved. So, it isn't neccessary to make a back-up of the existing file.
+	// file. For example, systemd-resolved. So, it isn't necessary to make a back-up of the existing file.
 	err = os.RemoveAll(imageResolveConfPath)
 	if err != nil {
 		return resolvConfInfo{}, fmt.Errorf("%w:\n%w", ErrResolvConfDelete, err)
