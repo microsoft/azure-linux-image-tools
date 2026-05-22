@@ -5,6 +5,14 @@
 
 set -e
 
+# Refresh the container's trust store before any network operation runs.
+# See trust-store-init.sh for env vars and behaviour. We deliberately
+# source this rather than exec it so SSL_CERT_FILE / REQUESTS_CA_BUNDLE
+# exports propagate to imagecustomizer and the telemetry hopper.
+# shellcheck source=trust-store-init.sh
+. /usr/lib/imagecustomizer/trust-store-init.sh
+imagecustomizer_init_trust_store
+
 ENABLE_TELEMETRY="${ENABLE_TELEMETRY:-true}"
 
 # Check if --disable-telemetry flag is present in arguments

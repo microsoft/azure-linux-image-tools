@@ -75,6 +75,7 @@ licensesDir="$enlistmentRoot/toolkit/out/LICENSES"
 telemetryScript="$enlistmentRoot/toolkit/scripts/telemetry_hopper/telemetry_hopper.py"
 telemetryRequirements="$enlistmentRoot/toolkit/scripts/telemetry_hopper/requirements.txt"
 entrypointScript="$scriptDir/entrypoint.sh"
+trustStoreInitScript="$scriptDir/trust-store-init.sh"
 
 stagingBinDir="${containerStagingFolder}/usr/bin"
 stagingLibDir="${containerStagingFolder}/usr/lib/imagecustomizer"
@@ -93,6 +94,7 @@ cp "$runScriptPath" "${stagingLibDir}"
 cp -R "$licensesDir" "${stagingLicensesDir}"
 cp "$telemetryScript" "${stagingLibDir}"
 cp "$entrypointScript" "${stagingLibDir}"
+cp "$trustStoreInitScript" "${stagingLibDir}"
 
 cp "$telemetryRequirements" "${containerStagingFolder}"/telemetry-requirements.txt
 

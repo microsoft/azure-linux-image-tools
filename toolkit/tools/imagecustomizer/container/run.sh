@@ -3,6 +3,12 @@
 set -euo pipefail
 shopt -s nullglob
 
+# Refresh the container's trust store before we talk to MCR with oras
+# or to PMC with tdnf. See trust-store-init.sh for env vars.
+# shellcheck source=trust-store-init.sh
+. /usr/lib/imagecustomizer/trust-store-init.sh
+imagecustomizer_init_trust_store
+
 exit_with_usage() {
     local error_msg=""
     if [[ $# -gt 0 ]]; then
