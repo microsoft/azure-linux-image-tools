@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestItemIsValid_ValidItems(t *testing.T) {
+func TestOutputArtifactsItemTypeIsValid_ValidItems_Pass(t *testing.T) {
 	validItems := []OutputArtifactsItemType{
 		OutputArtifactsItemUkis,
 		OutputArtifactsItemShim,
@@ -24,7 +24,13 @@ func TestItemIsValid_ValidItems(t *testing.T) {
 	}
 }
 
-func TestItemIsValid_InvalidItem(t *testing.T) {
+func TestOutputArtifactsItemTypeIsValid_UkiAddons_Fail(t *testing.T) {
+	err := OutputArtifactsItemUkiAddons.IsValid()
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "uki-addons are automatically included with ukis")
+}
+
+func TestOutputArtifactsItemTypeIsValid_InvalidItem_Fail(t *testing.T) {
 	invalidItem := OutputArtifactsItemType("invalidItem")
 	err := invalidItem.IsValid()
 	assert.Error(t, err)

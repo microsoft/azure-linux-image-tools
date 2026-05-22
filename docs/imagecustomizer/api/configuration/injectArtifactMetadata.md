@@ -79,6 +79,16 @@ Optional.
 The type of artifact being injected. This field helps users identify which signing
 process to apply to each artifact.
 
-For supported values, see [`output.artifacts.items`](./outputArtifacts.md#items-string).
+Supported values:
+
+- `ukis` – UKI PE images (`vmlinuz-<version>.efi`).
+- `uki-addons` – Their associated addon files
+  (`vmlinuz-<version>.efi.extra.d/vmlinuz-<version>.addon.efi`).
+  *Added in v1.2.*
+- `shim` – Bootloader shim executable (`boot<arch>.efi`).
+- `bootloader` – Bootloader executable (`grub<arch>.efi`).
+  *Added in v1.3.*
+- `verity-hash` – Verity hash files associated with dm-verity protected partitions.
+  *Added in v0.16.*
 
 Added in v1.1.
