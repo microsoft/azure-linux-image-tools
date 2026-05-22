@@ -85,6 +85,7 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 
 		var linux string
 		var title string
+		var titleSeen bool
 		var args []grubConfigLinuxArg
 
 		for _, field := range bls.ParseFields(string(content)) {
@@ -98,6 +99,13 @@ func readKernelCmdlinesFromBLSEntries(bootDir string) (map[string][]grubConfigLi
 				}
 				linux = filepath.Base(field.Value)
 			case "title":
+				// Per BLS spec each non-options key may appear at most once. An empty title value
+				// is still a valid (normal) entry, so we cannot infer duplication from title != "";
+				// track it explicitly.
+				if titleSeen {
+					return nil, fmt.Errorf("duplicate key (%s) in BLS entry (%s)", field.Key, absPath)
+				}
+				titleSeen = true
 				title = field.Value
 			case "efi", "uki", "uki-url":
 				return nil, fmt.Errorf("BLS entry (%s) uses '%s' key, which is not supported", absPath, field.Key)
