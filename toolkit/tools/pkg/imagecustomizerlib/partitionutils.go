@@ -41,9 +41,18 @@ var (
 )
 
 const (
-	espGrubCfgPathAzl3 = "boot/grub2/grub.cfg"
-	espGrubCfgPathAzl4 = "EFI/fedora/grub.cfg"
+	espGrubCfgPathAzl3           = "boot/grub2/grub.cfg"
+	espGrubCfgPathAzl4Fedora     = "EFI/fedora/grub.cfg"
+	espGrubCfgPathAzl4AzureLinux = "EFI/azurelinux/grub.cfg"
 )
+
+// espGrubCfgPathsAzl4 lists the ESP-relative grub.cfg paths to probe for Azure Linux 4.0
+// images, in preference order. EFI/azurelinux is the preferred location; EFI/fedora is
+// kept for backwards compatibility with existing AZL4 base images.
+var espGrubCfgPathsAzl4 = []string{
+	espGrubCfgPathAzl4AzureLinux,
+	espGrubCfgPathAzl4Fedora,
+}
 
 const (
 	// BtrfsTopLevelSubvolumeId is the ID of the top-level subvolume in a BTRFS filesystem.
