@@ -79,6 +79,4 @@ Optional.
 The type of artifact being injected. This field helps users identify which signing
 process to apply to each artifact.
 
-For supported values, see [`output.artifacts.items`](./outputArtifacts.md#items-string).
-
 Added in v1.1.
