@@ -25,12 +25,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// azl4IsoPxeUnsupportedError is the validation error returned by the
-// Azure Linux distro handler when ISO or PXE output is requested with
-// an Azure Linux 4.0 base image. ISO and PXE outputs are not supported
-// on Azure Linux 4.0; LiveOS tests expect this error in that case.
-const azl4IsoPxeUnsupportedError = "ISO and PXE output formats are not supported for Azure Linux 4.0"
-
 func createConfig(t *testing.T, baseImageVersion string, fileNames, kernelParameter string, initramfsType imagecustomizerapi.InitramfsImageType,
 	bootstrapFileUrl string, enlargeDisk, enableOsConfig, bootstrapPrereqs, twoKernels bool, kdumpBootFiles imagecustomizerapi.KdumpBootFilesType,
 	selinuxMode imagecustomizerapi.SELinuxMode,
@@ -468,10 +462,6 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -590,10 +580,6 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -664,8 +650,6 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseIma
 		if !assert.ErrorContains(t, err, "unsupported number of kernels") {
 			return
 		}
-	case baseImageVersionAzl4:
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 	default:
 		// Azl3 should succeed.
 		if !assert.NoError(t, err) {
@@ -702,10 +686,6 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -761,10 +741,6 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -823,10 +799,6 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	assert.ErrorContains(t, err, "selinux is not supported for full OS initramfs image")
 }
 
@@ -852,10 +824,6 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -880,10 +848,6 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -928,10 +892,6 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	assert.ErrorContains(t, err, "failed to find the boot efi file")
 }
 
@@ -983,9 +943,5 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
 		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
 	assert.Error(t, err)
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
-		return
-	}
 	assert.ErrorContains(t, err, "failed to find the grub efi file")
 }
