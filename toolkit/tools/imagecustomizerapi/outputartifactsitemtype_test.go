@@ -30,7 +30,7 @@ func TestItemIsValid_UkiAddons_Fail(t *testing.T) {
 	assert.ErrorContains(t, err, "uki-addons are automatically included with ukis")
 }
 
-func TestItemIsValid_InvalidItem_Fail(t *testing.T) {
+func TestItemIsValid_InvalidItem(t *testing.T) {
 	invalidItem := OutputArtifactsItemType("invalidItem")
 	err := invalidItem.IsValid()
 	assert.Error(t, err)
