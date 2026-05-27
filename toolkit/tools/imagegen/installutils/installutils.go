@@ -123,6 +123,15 @@ var (
 	}
 
 	GrubStubDirsAzl4 = []string{
+		"EFI/azurelinux",
+		"EFI/fedora",
+		"EFI/BOOT",
+	}
+
+	// GrubStubDirsFedora lists the ESP-relative directories where the grub stub
+	// grub.cfg is written for Fedora images. Unlike AZL4, Fedora does not use the
+	// EFI/azurelinux location.
+	GrubStubDirsFedora = []string{
 		"EFI/fedora",
 		"EFI/BOOT",
 	}

@@ -5,7 +5,9 @@ package imagecustomizerlib
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 
@@ -104,7 +106,28 @@ func (d *azureLinux4DistroHandler) GetEspDir() string {
 }
 
 func (d *azureLinux4DistroHandler) FindBootPartitionUuidFromEsp(espMountDir string) (string, error) {
-	return readBootPartitionUuidFromGrubCfg(filepath.Join(espMountDir, espGrubCfgPathAzl4), bootPartitionRegexAzl4)
+	// Azure Linux 4.0 base images may place the ESP grub.cfg under either
+	// EFI/azurelinux (preferred, going forward) or EFI/fedora (legacy). Probe in
+	// preference order and use the first one that exists.
+	var firstErr error
+	for _, relPath := range espGrubCfgPathsAzl4 {
+		grubCfgPath := filepath.Join(espMountDir, relPath)
+		if _, err := os.Stat(grubCfgPath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed to stat EFI system partition's grub.cfg file (%s):\n%w", grubCfgPath, err)
+			}
+			continue
+		}
+		return readBootPartitionUuidFromGrubCfg(grubCfgPath, bootPartitionRegexAzl4)
+	}
+	if firstErr != nil {
+		return "", firstErr
+	}
+	return "", fmt.Errorf("failed to find EFI system partition's grub.cfg file under %s (looked for %v)",
+		espMountDir, espGrubCfgPathsAzl4)
 }
 
 func (d *azureLinux4DistroHandler) GetSELinuxConfigFile() string {
