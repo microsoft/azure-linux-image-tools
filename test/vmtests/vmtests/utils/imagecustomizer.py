@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import logging
+import platform
 import tempfile
 from os import fdopen
 from pathlib import Path
@@ -110,9 +111,10 @@ def run_image_customizer(
     )
 
 
-# Modify an image customizer config file:
+# Modify an image customizer config file to prepare an image for VM testing:
 # - Install the SSH server package,
-# - Add a user with an SSH public key.
+# - Add a user with an SSH public key,
+# - Extend systemd's default device timeout (arm64 only)
 def add_ssh_to_config(config_path: Path, username: str, ssh_public_key: str, close_list: List[Closeable]) -> Path:
     config_str = config_path.read_text()
     config = yaml.safe_load(config_str)
@@ -150,6 +152,21 @@ def add_ssh_to_config(config_path: Path, username: str, ssh_public_key: str, clo
 
     additional_files = dict_get_or_set(os, "additionalFiles", [])
     additional_files.append(sudoers_add_file)
+
+    # On arm64 hosts, extend systemd's default device timeout for VM tests.
+    #
+    # The arm64 VM test runners boot the guest much more slowly than the x86_64 runners. Boot can wait a long time
+    # before udev creates the /dev/disk/by-uuid/<UUID> symlink for the ESP. systemd's default
+    # DefaultDeviceTimeoutSec=90s is then exceeded, which fails the device unit, which fails boot-efi.mount, which fails
+    # local-fs.target, which drops the system into emergency.target: sshd never starts and the test fails with
+    # "Unable to connect to port 22".
+    #
+    # x86_64 VM tests have not exhibited this flake, so we leave the default behaviour in place there and only bump the
+    # timeout on arm64.
+    if platform.machine() == "aarch64":
+        kernel_command_line = dict_get_or_set(os, "kernelCommandLine", {})
+        extra_command_line = dict_get_or_set(kernel_command_line, "extraCommandLine", [])
+        extra_command_line.append("systemd.default_device_timeout_sec=600")
 
     # Write out new config file to a temporary file.
     fd, modified_config_path = tempfile.mkstemp(prefix=config_path.name + "~", suffix=".tmp", dir=config_path.parent)
