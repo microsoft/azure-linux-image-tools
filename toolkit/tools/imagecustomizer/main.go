@@ -55,11 +55,12 @@ type InjectFilesCmd struct {
 }
 
 type ConvertCmd struct {
-	BuildDir             string `name:"build-dir" help:"Directory to run build out of. Required when --output-image-format is 'baremetal-image' or 'cosi'."`
+	BuildDir             string `name:"build-dir" help:"Directory to run build out of. Required when --output-image-format is 'baremetal-image' or 'cosi', or when --new-uuids is set."`
 	InputImageFile       string `name:"image-file" help:"Path of the image to convert." required:""`
 	OutputImageFile      string `name:"output-image-file" aliases:"output-path" help:"Path to write the converted image to." required:""`
 	OutputImageFormat    string `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw|cosi|baremetal-image)" help:"Format of output image." required:"" enum:"${imageformatconvert}"`
 	CosiCompressionLevel *int   `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
+	NewUuids             bool   `name:"new-uuids" help:"Generate new random filesystem and partition UUIDs during conversion."`
 }
 
 type ValidateConfigCmd struct {
@@ -211,6 +212,7 @@ func convertImage(ctx context.Context, cmd ConvertCmd) error {
 			OutputImageFile:      cmd.OutputImageFile,
 			OutputImageFormat:    imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
 			CosiCompressionLevel: cmd.CosiCompressionLevel,
+			NewUuids:             cmd.NewUuids,
 		})
 	if err != nil {
 		return err

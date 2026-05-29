@@ -15,6 +15,7 @@ type ConvertImageOptions struct {
 	OutputImageFile      string
 	OutputImageFormat    imagecustomizerapi.ImageFormatType
 	CosiCompressionLevel *int
+	NewUuids             bool
 }
 
 func (o *ConvertImageOptions) IsValid() error {
@@ -32,9 +33,10 @@ func (o *ConvertImageOptions) IsValid() error {
 
 	outputFormat := o.OutputImageFormat
 
-	// Build directory is required for COSI and bare-metal-image output formats
+	// Build directory is required for COSI, bare-metal-image, and --new-uuids
 	requiresBuildDir := outputFormat == imagecustomizerapi.ImageFormatTypeCosi ||
-		outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
+		outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage ||
+		o.NewUuids
 	if requiresBuildDir && o.BuildDir == "" {
 		return ErrConvertBuildDirRequired
 	}

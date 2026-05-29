@@ -77,7 +77,14 @@ func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) 
 		outputFormat == imagecustomizerapi.ImageFormatTypeBareMetalImage
 	if isCosiOutput {
 		err = convertImageToCosi(ctx, options.BuildDir, options.InputImageFile, options.OutputImageFile,
-			outputFormat, options.CosiCompressionLevel)
+			outputFormat, options.CosiCompressionLevel, options.NewUuids)
+		if err != nil {
+			return err
+		}
+	} else if options.NewUuids {
+		// Non-COSI with --new-uuids: convert to raw intermediate, reinitialize UUIDs, then convert to target.
+		err = convertImageWithNewUuids(ctx, options.BuildDir, options.InputImageFile,
+			options.OutputImageFile, outputFormat)
 		if err != nil {
 			return err
 		}
@@ -95,7 +102,7 @@ func ConvertImage(ctx context.Context, options ConvertImageOptions) (err error) 
 }
 
 func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile string, outputImageFile string,
-	outputFormat imagecustomizerapi.ImageFormatType, cosiCompressionLevel *int,
+	outputFormat imagecustomizerapi.ImageFormatType, cosiCompressionLevel *int, newUuids bool,
 ) error {
 	buildDirAbs, err := filepath.Abs(buildDir)
 	if err != nil {
@@ -111,6 +118,13 @@ func convertImageToCosi(ctx context.Context, buildDir string, inputImageFile str
 	_, err = convertImageToRaw(inputImageFile, rawImageFile)
 	if err != nil {
 		return err
+	}
+
+	if newUuids {
+		err = reinitializeUuidsForConvert(ctx, rawImageFile, buildDirAbs)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = convertRawImageToOutputFormat(ctx, buildDirAbs, rawImageFile, outputFormat,
@@ -161,6 +175,41 @@ func convertRawImageToOutputFormat(ctx context.Context, buildDirAbs string, rawI
 			return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion, outputImageFile,
 				outputFormat, err)
 		}
+	}
+
+	return nil
+}
+
+// convertImageWithNewUuids handles non-COSI conversion with --new-uuids.
+// Converts to raw intermediate, reinitializes UUIDs, then converts to target format.
+func convertImageWithNewUuids(ctx context.Context, buildDir string, inputImageFile string,
+	outputImageFile string, outputFormat imagecustomizerapi.ImageFormatType,
+) error {
+	buildDirAbs, err := filepath.Abs(buildDir)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(buildDirAbs, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	rawImageFile := filepath.Join(buildDirAbs, BaseImageName)
+	_, err = convertImageToRaw(inputImageFile, rawImageFile)
+	if err != nil {
+		return err
+	}
+
+	err = reinitializeUuidsForConvert(ctx, rawImageFile, buildDirAbs)
+	if err != nil {
+		return err
+	}
+
+	err = ConvertImageFile(rawImageFile, outputImageFile, outputFormat)
+	if err != nil {
+		return fmt.Errorf("%w (output='%s', format='%s'):\n%w", ErrArtifactOutputImageConversion,
+			outputImageFile, outputFormat, err)
 	}
 
 	return nil

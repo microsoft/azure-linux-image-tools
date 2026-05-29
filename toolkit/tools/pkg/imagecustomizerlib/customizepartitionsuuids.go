@@ -56,7 +56,7 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 			continue
 		}
 
-		newUuid, err := resetFileSystemUuid(partition)
+		newUuid, err := resetFileSystemUuid(partition, false /*skipVerityHash*/)
 		if err != nil {
 			return fmt.Errorf("%w (partition='%s', type='%s'):\n%w", ErrPartitionUuidResetFilesystem, partition.Path, partition.FileSystemType, err)
 		}
@@ -99,7 +99,11 @@ func resetPartitionsUuids(ctx context.Context, buildImageFile string, buildDir s
 	return nil
 }
 
-func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
+// resetFileSystemUuid resets the filesystem UUID of a partition.
+// When skipVerityHash is true, DM_verity_hash partitions are silently skipped
+// (returning "", nil) instead of returning an error. This is used by the convert
+// path where verity hashes will be regenerated after the UUID reset.
+func resetFileSystemUuid(partition diskutils.PartitionInfo, skipVerityHash bool) (string, error) {
 	newUuid := ""
 	switch partition.FileSystemType {
 	case "btrfs":
@@ -147,6 +151,11 @@ func resetFileSystemUuid(partition diskutils.PartitionInfo) (string, error) {
 		newUuid = newUuid[:4] + "-" + newUuid[4:]
 
 	case "DM_verity_hash":
+		if skipVerityHash {
+			// Verity hash partitions don't have a meaningful filesystem UUID.
+			// The caller will regenerate verity hashes after UUID reset.
+			return "", nil
+		}
 		// Resetting partition IDs on a disk with verity would require updating the kernel command-line args.
 		// This is probably doable, just not implemented yet.
 		return "", ErrResetPartitionIdOnVerityImage
