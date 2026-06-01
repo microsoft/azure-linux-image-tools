@@ -14,6 +14,11 @@ func TestPreviewFeatureIsValid_ValidFeature_Pass(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestPreviewFeatureIsValid_LegacyUbuntuFeature_Pass(t *testing.T) {
+	err := PreviewFeatureUbuntu.IsValid()
+	assert.NoError(t, err)
+}
+
 func TestPreviewFeatureIsValid_InvalidFeature_Fail(t *testing.T) {
 	invalidFeature := PreviewFeature("invalid-feature")
 	err := invalidFeature.IsValid()

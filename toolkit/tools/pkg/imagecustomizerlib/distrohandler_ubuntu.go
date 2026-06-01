@@ -49,13 +49,17 @@ func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *ubuntuDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	hasLegacyUbuntuPreviewFeature := slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu)
+
 	switch d.version {
 	case "22.04":
-		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
+		if !hasLegacyUbuntuPreviewFeature &&
+			!slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
 			return ErrUbuntu2204PreviewFeatureRequired
 		}
 	case "24.04":
-		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
+		if !hasLegacyUbuntuPreviewFeature &&
+			!slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
 			return ErrUbuntu2404PreviewFeatureRequired
 		}
 

@@ -29,6 +29,10 @@ const (
 	// PreviewFeatureFedora42 enables support for Fedora 42 images.
 	PreviewFeatureFedora42 PreviewFeature = "fedora-42"
 
+	// PreviewFeatureUbuntu enables support for Ubuntu images.
+	// Deprecated: use PreviewFeatureUbuntu2204 or PreviewFeatureUbuntu2404.
+	PreviewFeatureUbuntu PreviewFeature = "ubuntu"
+
 	// PreviewFeatureUbuntu2204 enables support for Ubuntu 22.04 images.
 	PreviewFeatureUbuntu2204 PreviewFeature = "ubuntu-22.04"
 
@@ -57,7 +61,7 @@ const (
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
-		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
+		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42, PreviewFeatureUbuntu,
 		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
 		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
 		PreviewFeatureBtrfs, PreviewFeatureCreate, PreviewFeatureAzureContainerLinux3:
