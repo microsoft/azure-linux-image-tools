@@ -3,8 +3,6 @@ name: Question / Feedback
 about: Ask a general question or share feedback that is not a bug or feature request
 title: '[Question]: '
 labels: question
-assignees: ''
-
 ---
 
 **Your question or feedback**

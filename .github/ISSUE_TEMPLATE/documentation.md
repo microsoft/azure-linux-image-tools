@@ -3,8 +3,6 @@ name: Documentation issue
 about: Report a problem with the documentation or suggest a doc improvement
 title: '[Docs]: '
 labels: documentation
-assignees: ''
-
 ---
 
 **Which documentation page is affected?**

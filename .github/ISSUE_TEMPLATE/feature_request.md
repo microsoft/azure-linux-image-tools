@@ -2,9 +2,7 @@
 name: Feature request
 about: Suggest a new feature or enhancement for Image Customizer
 title: '[Feature]: '
-labels: feature-request
-assignees: ''
-
+labels: enhancement
 ---
 
 **Image Customizer version**

@@ -6,8 +6,7 @@ Please use the [auto-generated table of contents](https://docs.github.com/en/rep
 
 ## Azure Linux Contribution Philosophy and Best Practices
 
-Before contributing, please review our [Azure Linux contribution philosophy and best practices](https://aka.ms/azurelinux-contributing). It covers the principles we follow when accepting changes and other guidance that will help
-your PR land smoothly.
+Before contributing, please review our [Azure Linux contribution philosophy and best practices](https://aka.ms/azurelinux-contributing). It covers the principles we follow when accepting changes and other guidance that will help your PR land smoothly.
 
 Guidelines specific to this repo can be found below.
 
@@ -118,7 +117,3 @@ When creating your PR, please ensure the following:
    ```
 
 * Documentation has been updated to match any changes to the build system.
-
-## Bugs
-
-If the bug is security related, please use the [security guidelines](#security-vulnerabilities) above. Otherwise, please use the [issues page](https://github.com/microsoft/azure-linux-image-tools/issues) on Azure Linux Image Tools to file bugs.

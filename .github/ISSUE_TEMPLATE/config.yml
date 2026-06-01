@@ -3,6 +3,9 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/microsoft/azure-linux-image-tools/security/policy
     about: Please report security vulnerabilities privately via the Microsoft Security Response Center (see SECURITY.md). Do NOT open a public issue.
+  - name: Documentation
+    url: https://microsoft.github.io/azure-linux-image-tools/
+    about: Browse the Azure Linux Image Tools documentation for guides, references, and how-tos.
   - name: Azure Linux distro issues
     url: https://github.com/microsoft/azurelinux/issues
     about: For issues with the Azure Linux distribution itself (packages, kernel, etc.), please file in the azurelinux repo.
