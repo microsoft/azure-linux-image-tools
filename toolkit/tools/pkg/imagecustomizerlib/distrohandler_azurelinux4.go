@@ -25,6 +25,7 @@ import (
 
 // azureLinux4DistroHandler implements DistroHandler for Azure Linux 4.0.
 type azureLinux4DistroHandler struct {
+	targetOs       targetos.TargetOs
 	packageManager rpmPackageManagerHandler
 }
 
@@ -34,17 +35,29 @@ const (
 
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
 
-func newAzureLinux4DistroHandler() *azureLinux4DistroHandler {
+func newAzureLinux4DistroHandler(targetOs targetos.TargetOs) *azureLinux4DistroHandler {
 	return &azureLinux4DistroHandler{
+		targetOs:       targetOs,
 		packageManager: newDnfPackageManager("4.0"),
 	}
 }
 
 func (d *azureLinux4DistroHandler) GetTargetOs() targetos.TargetOs {
-	return targetos.TargetOsAzureLinux4
+	return d.targetOs
 }
 
 func (d *azureLinux4DistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	switch d.targetOs.VersionId {
+	case "4.0":
+		// Supported versions
+
+	default:
+		err := handleUnsupportedDistroVersion(rc, d.targetOs)
+		if err != nil {
+			return err
+		}
+	}
+
 	switch rc.OutputImageFormat {
 	case imagecustomizerapi.ImageFormatTypeIso, imagecustomizerapi.ImageFormatTypePxeDir,
 		imagecustomizerapi.ImageFormatTypePxeTar:

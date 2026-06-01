@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/sirupsen/logrus"
 )
@@ -163,7 +164,7 @@ var (
 		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: defaultShellUbuntu2204,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureUbuntu2204,
+			imagecustomizerapi.PreviewFeatureUbuntu,
 		},
 	}
 
@@ -177,7 +178,7 @@ var (
 		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: defaultShellUbuntu2404,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureUbuntu2404,
+			imagecustomizerapi.PreviewFeatureUbuntu,
 		},
 	}
 
@@ -200,9 +201,9 @@ var (
 	}
 
 	defaultAzureLinuxPriorityList = []testBaseImageInfo{
-		testBaseImageAzl4CoreEfi,
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
+		testBaseImageAzl4CoreEfi,
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl2BareMetal,
 	}
@@ -324,4 +325,8 @@ func checkSkipForCustomizeDefaultImages(t *testing.T) []testBaseImageInfo {
 	}
 
 	return images
+}
+
+func (i *testBaseImageInfo) TargetOs() targetos.TargetOs {
+	return targetos.New(i.Distro, i.Version)
 }

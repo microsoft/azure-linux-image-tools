@@ -1,0 +1,7 @@
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Set VERSION_ID to a large number.
+      sed -i 's/VERSION_ID=.*/VERSION_ID=999999999/' /etc/os-release

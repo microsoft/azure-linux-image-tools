@@ -162,7 +162,7 @@ def run_create_image_test(
 
     final_config_path = config_path
     if distro.lower() == "fedora":
-        final_config_path = add_preview_features_to_config(config_path, "fedora-42", close_list)
+        final_config_path = add_preview_features_to_config(config_path, "fedora", close_list)
 
     run_image_customizer(
         docker_client,
@@ -188,7 +188,7 @@ def run_create_image_test(
 
     # Add Fedora preview features if needed
     if distro.lower() == "fedora":
-        customizer_config_path_obj = add_preview_features_to_config(customizer_config_path_obj, "fedora-42", close_list)
+        customizer_config_path_obj = add_preview_features_to_config(customizer_config_path_obj, "fedora", close_list)
 
     run_image_customizer(
         docker_client,

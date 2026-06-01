@@ -273,7 +273,11 @@ func verifyVerityGrub(t *testing.T, bootPath string, dataDevice string, hashDevi
 	verityType string, extraCommandLine string, baseImageInfo testBaseImageInfo, corruptionOption string,
 	inlineVerity bool,
 ) {
-	distroHandler := NewDistroHandler(baseImageInfo.Distro, baseImageInfo.Version)
+	distroHandler, err := NewDistroHandler(baseImageInfo.TargetOs())
+	if !assert.NoError(t, err) {
+		return
+	}
+
 	kernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootPath)
 	if !assert.NoError(t, err) {
 		return

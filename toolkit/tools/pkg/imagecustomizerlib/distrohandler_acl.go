@@ -23,22 +23,34 @@ import (
 // aclDistroHandler implements DistroHandler for Azure Container Linux (ACL).
 // ACL uses systemd-boot + UKI (no GRUB) and has an immutable /usr with dm-verity.
 type aclDistroHandler struct {
+	targetOs       targetos.TargetOs
 	packageManager rpmPackageManagerHandler
 }
 
-func newAclDistroHandler() *aclDistroHandler {
+func newAclDistroHandler(targetOs targetos.TargetOs) *aclDistroHandler {
 	return &aclDistroHandler{
+		targetOs:       targetOs,
 		packageManager: newTdnfPackageManager("3.0"),
 	}
 }
 
 func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
-	return targetos.TargetOsAzureContainerLinux3
+	return d.targetOs
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAzureContainerLinux3) {
-		return ErrAzureContainerLinux3PreviewFeatureRequired
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAzureContainerLinux) {
+		return ErrAzureContainerLinuxPreviewFeatureRequired
+	}
+
+	switch d.targetOs.VersionId {
+	case "3.0":
+		// Supported versions
+
+	default:
+		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUnsupportedDistroVersion) {
+			return ErrUnsupportedDistroVersion
+		}
 	}
 
 	if rc.Storage.CustomizePartitions() {

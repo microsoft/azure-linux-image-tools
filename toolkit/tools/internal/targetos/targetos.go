@@ -8,97 +8,144 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 )
 
-type TargetOs string
+type Distro string
 
 const (
-	TargetOsAzureLinux2          TargetOs = "azl2"
-	TargetOsAzureLinux3          TargetOs = "azl3"
-	TargetOsAzureLinux4          TargetOs = "azl4"
-	TargetOsAzureContainerLinux3 TargetOs = "acl3"
-	TargetOsFedora42             TargetOs = "fedora42"
-	TargetOsUbuntu2204           TargetOs = "ubuntu2204"
-	TargetOsUbuntu2404           TargetOs = "ubuntu2404"
+	AzureLinux          Distro = "azurelinux"
+	AzureContainerLinux Distro = "azurecontainerlinux"
+	Fedora              Distro = "fedora"
+	Ubuntu              Distro = "ubuntu"
 )
+
+type TargetOs struct {
+	Distro    Distro
+	VersionId string
+
+	// Version is the parsed version of VersionId, which can be used for version comparisons.
+	// Value is nil if VersionId is not a valid version string.
+	Version version.Version
+}
+
+var (
+	TargetOsAzureLinux2 = TargetOs{
+		Distro:    AzureLinux,
+		VersionId: "2.0",
+		Version:   []int{2, 0},
+	}
+
+	TargetOsAzureLinux3 = TargetOs{
+		Distro:    AzureLinux,
+		VersionId: "3.0",
+		Version:   []int{3, 0},
+	}
+
+	TargetOsAzureLinux4 = TargetOs{
+		Distro:    AzureLinux,
+		VersionId: "4.0",
+		Version:   []int{4, 0},
+	}
+
+	TargetOsAzureContainerLinux3 = TargetOs{
+		Distro:    AzureContainerLinux,
+		VersionId: "3.0",
+		Version:   []int{3, 0},
+	}
+
+	TargetOsFedora42 = TargetOs{
+		Distro:    Fedora,
+		VersionId: "42",
+		Version:   []int{42},
+	}
+
+	TargetOsUbuntu2204 = TargetOs{
+		Distro:    Ubuntu,
+		VersionId: "22.04",
+		Version:   []int{22, 4},
+	}
+
+	TargetOsUbuntu2404 = TargetOs{
+		Distro:    Ubuntu,
+		VersionId: "24.04",
+		Version:   []int{24, 4},
+	}
+)
+
+func New(distroId string, versionId string) TargetOs {
+	version, _ := version.ParseBasicVersion(versionId)
+
+	return TargetOs{
+		Distro:    Distro(distroId),
+		VersionId: versionId,
+		Version:   version,
+	}
+}
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 	// Try /etc/os-release first, then fall back to /usr/lib/os-release.
 	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+			return TargetOs{}, fmt.Errorf("failed to read /etc/os-release:\n%w", err)
 		}
 		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, "usr/lib/os-release"))
 		if err != nil {
-			return "", fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
+			return TargetOs{}, fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
 		}
 	}
 
 	distroId := fields["ID"]
 	versionId := fields["VERSION_ID"]
 
+	version, _ := version.ParseBasicVersion(versionId)
+
 	switch distroId {
 	case "mariner":
-		switch versionId {
-		case "2.0":
-			return TargetOsAzureLinux2, nil
-
-		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for CBL-Mariner in os-release", versionId)
-		}
+		return TargetOs{
+			Distro:    AzureLinux,
+			VersionId: versionId,
+			Version:   version,
+		}, nil
 
 	case "azurelinux":
 		variantId := fields["VARIANT_ID"]
 
 		switch variantId {
 		case "azurecontainerlinux":
-			// ACL currently sets VERSION_ID to the full version string (e.g.
-			// "3.0.20260421") Accept any version that starts with "3."
-			if !strings.HasPrefix(versionId, "3.") {
-				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in os-release", versionId)
-			}
-			return TargetOsAzureContainerLinux3, nil
+			return TargetOs{
+				Distro:    AzureLinux,
+				VersionId: versionId,
+				Version:   version,
+			}, nil
 
 		default:
 			// Standard Azure Linux (or unknown variant — treat as standard).
-			switch versionId {
-			case "3.0":
-				return TargetOsAzureLinux3, nil
-
-			case "4.0":
-				return TargetOsAzureLinux4, nil
-
-			default:
-				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in os-release", versionId)
-			}
+			return TargetOs{
+				Distro:    AzureLinux,
+				VersionId: versionId,
+				Version:   version,
+			}, nil
 		}
 
 	case "fedora":
-		switch versionId {
-		case "42":
-			return TargetOsFedora42, nil
-
-		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in os-release", versionId)
-		}
+		return TargetOs{
+			Distro:    Fedora,
+			VersionId: versionId,
+			Version:   version,
+		}, nil
 
 	case "ubuntu":
-		switch versionId {
-		case "22.04":
-			return TargetOsUbuntu2204, nil
-
-		case "24.04":
-			return TargetOsUbuntu2404, nil
-
-		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Ubuntu in os-release", versionId)
-		}
+		return TargetOs{
+			Distro:    Ubuntu,
+			VersionId: versionId,
+			Version:   version,
+		}, nil
 
 	default:
-		return "", fmt.Errorf("unknown ID (%s) in os-release", distroId)
+		return TargetOs{}, fmt.Errorf("unknown ID (%s) in os-release", distroId)
 	}
 }

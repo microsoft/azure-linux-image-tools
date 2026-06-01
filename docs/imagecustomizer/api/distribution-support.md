@@ -10,7 +10,7 @@ The following tables show which APIs are supported for each distribution.
 
 APIs marked as **Preview** require the distribution's
 [previewFeatures](./configuration/config.md#previewfeatures-string) value to be set
-(e.g. `ubuntu-22.04`, `ubuntu-24.04`, `azure-container-linux-3`).
+(e.g. `ubuntu`, `azure-container-linux`).
 
 ## Command line
 

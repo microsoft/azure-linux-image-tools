@@ -1,0 +1,7 @@
+scripts:
+  postCustomization:
+  - content: |
+      set -eux
+
+      # Add some extra stuff to the end of the VERSION_ID value to make it invalid.
+      sed -i 's/VERSION_ID=.*/VERSION_ID=invalid/' /etc/os-release
