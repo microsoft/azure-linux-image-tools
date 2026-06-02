@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/cavaliergopher/cpio"
+	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 )
 
@@ -105,7 +106,14 @@ func openInitrdDecompressor(r io.Reader) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("xz-compressed initrd is not yet supported")
 
 	case bytes.HasPrefix(head, magicZstd):
-		return nil, fmt.Errorf("zstd-compressed initrd is not yet supported")
+		zr, err := zstd.NewReader(br)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open zstd reader for initrd:\n%w", err)
+		}
+
+		// zstd.Decoder satisfies io.Reader but not io.Closer since its Close() returns no error, so wrap it to
+		// implement io.ReadCloser, like pgzip.Reader.
+		return zstdReadCloser{Decoder: zr}, nil
 
 	default:
 		return nil, fmt.Errorf("unrecognized initrd compression format (leading bytes: % x)", head)
