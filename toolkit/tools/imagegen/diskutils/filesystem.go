@@ -242,74 +242,81 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
+	azlFileSystemsOptions = []versionFileSystemsOptions{
+		{
+			targetos.TargetOsAzureLinux2.Version,
+			fileSystemsOptions{
+				Btrfs:    azl2BtrfsOptions,
+				Ext4:     azl2Ext4Options,
+				BootExt4: azl2Ext4Options,
+				Xfs:      azl2XfsOptions,
+				BootXfs:  azl2XfsOptions,
+			},
+		},
+		{
+			targetos.TargetOsAzureLinux3.Version,
+			fileSystemsOptions{
+				Btrfs:    azl3BtrfsOptions,
+				Ext4:     azl3Ext4Options,
+				BootExt4: azl3Ext4Options,
+				Xfs:      azl3XfsOptions,
+				BootXfs:  azl3BootXfsOptions,
+			},
+		},
+		{
+			targetos.TargetOsAzureLinux4.Version,
+			fileSystemsOptions{
+				Btrfs:    azl4BtrfsOptions,
+				Ext4:     azl4Ext4Options,
+				BootExt4: azl4BootExt4Options,
+				Xfs:      azl4XfsOptions,
+				BootXfs:  azl4BootXfsOptions,
+			},
+		},
+	}
+
+	fedoraFileSystemsOptions = []versionFileSystemsOptions{
+		{
+			targetos.TargetOsFedora42.Version,
+			fileSystemsOptions{
+				Btrfs:    fedora42BtrfsOptions,
+				Ext4:     fedora42Ext4Options,
+				BootExt4: fedora42Ext4Options,
+				Xfs:      fedora42XfsOptions,
+				BootXfs:  fedora42XfsOptions,
+			},
+		},
+	}
+
+	ubuntuFileSystemsOptions = []versionFileSystemsOptions{
+		{
+			targetos.TargetOsUbuntu2204.Version,
+			fileSystemsOptions{
+				Btrfs:    ubuntu2204BtrfsOptions,
+				Ext4:     ubuntu2204Ext4Options,
+				BootExt4: ubuntu2204Ext4Options,
+				Xfs:      ubuntu2204XfsOptions,
+				BootXfs:  ubuntu2204XfsOptions,
+			},
+		},
+		{
+			targetos.TargetOsUbuntu2404.Version,
+			fileSystemsOptions{
+				Btrfs:    ubuntu2404BtrfsOptions,
+				Ext4:     ubuntu2404Ext4Options,
+				BootExt4: ubuntu2404Ext4Options,
+				Xfs:      ubuntu2404XfsOptions,
+				BootXfs:  ubuntu2404XfsOptions,
+			},
+		},
+	}
+
 	// Note: Distro versions must be in order from oldest to newest.
 	distroFileSystemsOptions = map[targetos.Distro][]versionFileSystemsOptions{
-		targetos.AzureLinux: {
-			{
-				targetos.TargetOsAzureLinux2.Version,
-				fileSystemsOptions{
-					Btrfs:    azl2BtrfsOptions,
-					Ext4:     azl2Ext4Options,
-					BootExt4: azl2Ext4Options,
-					Xfs:      azl2XfsOptions,
-					BootXfs:  azl2XfsOptions,
-				},
-			},
-			{
-				targetos.TargetOsAzureLinux3.Version,
-				fileSystemsOptions{
-					Btrfs:    azl3BtrfsOptions,
-					Ext4:     azl3Ext4Options,
-					BootExt4: azl3Ext4Options,
-					Xfs:      azl3XfsOptions,
-					BootXfs:  azl3BootXfsOptions,
-				},
-			},
-			{
-				targetos.TargetOsAzureLinux4.Version,
-				fileSystemsOptions{
-					Btrfs:    azl4BtrfsOptions,
-					Ext4:     azl4Ext4Options,
-					BootExt4: azl4BootExt4Options,
-					Xfs:      azl4XfsOptions,
-					BootXfs:  azl4BootXfsOptions,
-				},
-			},
-		},
-		targetos.Fedora: {
-			{
-				targetos.TargetOsFedora42.Version,
-				fileSystemsOptions{
-					Btrfs:    fedora42BtrfsOptions,
-					Ext4:     fedora42Ext4Options,
-					BootExt4: fedora42Ext4Options,
-					Xfs:      fedora42XfsOptions,
-					BootXfs:  fedora42XfsOptions,
-				},
-			},
-		},
-		targetos.Ubuntu: {
-			{
-				targetos.TargetOsUbuntu2204.Version,
-				fileSystemsOptions{
-					Btrfs:    ubuntu2204BtrfsOptions,
-					Ext4:     ubuntu2204Ext4Options,
-					BootExt4: ubuntu2204Ext4Options,
-					Xfs:      ubuntu2204XfsOptions,
-					BootXfs:  ubuntu2204XfsOptions,
-				},
-			},
-			{
-				targetos.TargetOsUbuntu2404.Version,
-				fileSystemsOptions{
-					Btrfs:    ubuntu2404BtrfsOptions,
-					Ext4:     ubuntu2404Ext4Options,
-					BootExt4: ubuntu2404Ext4Options,
-					Xfs:      ubuntu2404XfsOptions,
-					BootXfs:  ubuntu2404XfsOptions,
-				},
-			},
-		},
+		targetos.AzureLinux:          azlFileSystemsOptions,
+		targetos.AzureContainerLinux: azlFileSystemsOptions,
+		targetos.Fedora:              fedoraFileSystemsOptions,
+		targetos.Ubuntu:              ubuntuFileSystemsOptions,
 	}
 
 	// A list of btrfs features and their minimum supported kernel versions.
