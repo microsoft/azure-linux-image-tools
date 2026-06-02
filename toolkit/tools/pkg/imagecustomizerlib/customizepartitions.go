@@ -11,7 +11,6 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"go.opentelemetry.io/otel"
 )
 
@@ -21,7 +20,7 @@ var (
 )
 
 func customizePartitions(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
-	buildImageFile string, targetOS targetos.TargetOs,
+	buildImageFile string, distroHandler DistroHandler,
 ) (bool, string, map[string]string, error) {
 	switch {
 	case storage.CustomizePartitions():
@@ -35,7 +34,7 @@ func customizePartitions(ctx context.Context, buildDir string, storage imagecust
 		// If there is no known way to create the new partition layout from the old one,
 		// then fallback to creating the new partitions from scratch and doing a file copy.
 		partIdToPartUuid, err := customizePartitionsUsingFileCopy(ctx, buildDir, storage,
-			buildImageFile, newBuildImageFile, targetOS)
+			buildImageFile, newBuildImageFile, distroHandler)
 		if err != nil {
 			os.Remove(newBuildImageFile)
 			return false, "", nil, fmt.Errorf("%w:\n%w", ErrPartitionsCustomize, err)

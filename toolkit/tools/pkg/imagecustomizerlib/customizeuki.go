@@ -44,13 +44,12 @@ var (
 )
 
 const (
-	BootDir            = "boot"
-	EspDir             = "boot/efi"
-	DefaultGrubCfgPath = "grub2/grub.cfg"
-	UkiKernelInfoJson  = "uki-kernel-info.json"
-	KernelPrefix       = "vmlinuz-"
-	UkiBuildDir        = "UkiBuildDir"
-	UkiOutputDir       = "EFI/Linux"
+	BootDir           = "boot"
+	EspDir            = "boot/efi"
+	UkiKernelInfoJson = "uki-kernel-info.json"
+	KernelPrefix      = "vmlinuz-"
+	UkiBuildDir       = "UkiBuildDir"
+	UkiOutputDir      = "EFI/Linux"
 )
 
 // Matches UKI filenames like "vmlinuz-<version>.efi"
@@ -285,9 +284,9 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	defer span.End()
 
 	// Check UKI dependency packages.
-	err = validateUkiDependencies(imageChroot, distroHandler)
+	err = distroHandler.ValidateUkiDependencies(imageChroot)
 	if err != nil {
-		return fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
+		return err
 	}
 
 	// Create necessary directories for UKI.
@@ -315,9 +314,9 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 		return fmt.Errorf("%w:\n%w", ErrUKIFileCopy, err)
 	}
 
-	// Extract kernel command line arguments from either grub.cfg or UKI.
+	// Extract kernel command line arguments from either boot config or UKI.
 	espDir := filepath.Join(imageChroot.RootDir(), distroHandler.GetEspDir())
-	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir)
+	kernelToArgs, err := extractKernelToArgs(espDir, bootDir, buildDir, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUKIKernelCmdlineExtract, err)
 	}
@@ -365,23 +364,29 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	return nil
 }
 
-func validateUkiDependencies(imageChroot *safechroot.Chroot, distroHandler DistroHandler) error {
-	// The following packages are required for the UKI feature:
-	// - "systemd-boot": Checked as a package dependency here to ensure installation,
-	//    but additional configuration is handled elsewhere in the UKI workflow.
-	requiredRpms := []string{"systemd-boot"}
+func validateUkiDependencies(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
+	systemdBootPackages []string,
+) (string, error) {
+	detectedPackage, err := isSystemdBootPackageInstalled(distroHandler, imageChroot, systemdBootPackages)
+	if err != nil {
+		return "", fmt.Errorf("%w:\n%w", ErrUKIPackageDependencyValidation, err)
+	}
+	return detectedPackage, nil
+}
 
-	// Iterate over each required package and check if it's installed.
-	for _, pkg := range requiredRpms {
+func isSystemdBootPackageInstalled(distroHandler DistroHandler, imageChroot safechroot.ChrootInterface,
+	systemdBootPackages []string,
+) (string, error) {
+	for _, pkg := range systemdBootPackages {
 		logger.Log.Debugf("Checking if package (%s) is installed", pkg)
-		installed := distroHandler.IsPackageInstalled(imageChroot, pkg)
-		if !installed {
-			return fmt.Errorf("package (%s) is not installed:\n"+
-				"the following packages must be installed to use Uki: (%v)", pkg, requiredRpms)
+		if distroHandler.IsPackageInstalled(imageChroot, pkg) {
+			return pkg, nil
 		}
 	}
-
-	return nil
+	if len(systemdBootPackages) == 1 {
+		return "", fmt.Errorf("package (%s) is not installed", systemdBootPackages[0])
+	}
+	return "", fmt.Errorf("none of the packages (%v) are installed", systemdBootPackages)
 }
 
 func createUkiDirectories(buildDir string, imageChroot *safechroot.Chroot) error {
@@ -715,23 +720,29 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	return nil
 }
 
-func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[string]string, error) {
-	// Try extracting from grub.cfg first
-	grubCfgPath := filepath.Join(bootDir, DefaultGrubCfgPath)
-	kernelToArgs, err := extractKernelToArgsFromGrub(grubCfgPath)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("failed to extract kernel args from grub.cfg:\n%w", err)
-	} else if !errors.Is(err, fs.ErrNotExist) && len(kernelToArgs) > 0 {
-		// Successfully extracted kernel cmdline from grub.cfg
-		return kernelToArgs, nil
+func extractKernelToArgs(espPath string, bootDir string, buildDir string, distroHandler DistroHandler,
+) (map[string]string, error) {
+	// Try extracting from boot config (grub.cfg or BLS entries) first.
+	var kernelToArgs map[string]string
+	parsedKernelToArgs, err := distroHandler.ReadGrubConfigLinuxArgs(bootDir)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("failed to extract kernel args from boot config:\n%w", err)
+		}
+	} else {
+		kernelToArgs = grubKernelArgsToStringMap(parsedKernelToArgs)
+		if len(kernelToArgs) > 0 {
+			// Successfully extracted kernel cmdline from boot config.
+			return kernelToArgs, nil
+		}
 	}
 
-	// Fallback to extracting from UKI
+	// Fallback to extracting from UKI.
 	kernelToArgs, err = extractKernelCmdlineFromUkiEfis(espPath, buildDir)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("failed to extract kernel args from UKI:\n%w", err)
 	} else if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("no kernel arguments found from either grub.cfg or UKI")
+		return nil, fmt.Errorf("no kernel arguments found from either boot config or UKI")
 	}
 
 	if len(kernelToArgs) == 0 {
@@ -741,14 +752,63 @@ func extractKernelToArgs(espPath string, bootDir string, buildDir string) (map[s
 	return kernelToArgs, nil
 }
 
-// Note: This function will be optimized by leveraging the internal functions
-// under grubcfgutils.go when implementing bootloader customization.
-func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) {
-	kernelToArgs, err := extractKernelCmdlineFromGrubFile(grubCfgPath)
+// readKernelCmdlinesFromGrubCfg reads kernel command-line arguments from the grub.cfg,
+// extracting a kernel-to-cmdline mapping for non-recovery entries.
+func readKernelCmdlinesFromGrubCfg(bootDir string, grubCfgRelPath string) (map[string][]grubConfigLinuxArg, error) {
+	grubCfgPath := filepath.Join(bootDir, grubCfgRelPath)
+	grubCfgContent, err := file.Read(grubCfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read grub.cfg file at (%s):\n%w", grubCfgPath, err)
+	}
+
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tokenize grub.cfg:\n%w", err)
+	}
+
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+	linuxLines := FindNonRecoveryLinuxLines(grubLines)
+	if len(linuxLines) == 0 {
+		return nil, fmt.Errorf("failed to find any non-recovery linux command lines in grub.cfg")
+	}
+
+	return formatKernelCmdlineFromLinuxLines(linuxLines)
+}
+
+// readNonRecoveryKernelCmdlinesFromGrubCfg reads the first non-recovery kernel's command-line
+// arguments from grub.cfg. This reproduces the original osmodifier behavior for non-BLS distros.
+func readNonRecoveryKernelCmdlinesFromGrubCfg(grubCfgPath string, argNames []string) (map[string]string, error) {
+	grubCfgContent, err := file.Read(grubCfgPath)
 	if err != nil {
 		return nil, err
 	}
 
+	grubTokens, err := grub.TokenizeConfig(grubCfgContent)
+	if err != nil {
+		return nil, err
+	}
+	grubLines := grub.SplitTokensIntoLines(grubTokens)
+
+	lines := FindNonRecoveryLinuxLines(grubLines)
+	if len(lines) == 0 {
+		return nil, fmt.Errorf("no non-recovery linux lines found in grub.cfg")
+	}
+
+	if len(lines) != 1 {
+		return nil, fmt.Errorf("expected 1 non-recovery linux line, found %d", len(lines))
+	}
+
+	args, err := ParseCommandLineArgs(lines[0].Tokens)
+	if err != nil {
+		return nil, err
+	}
+
+	return filterKernelArgsByName(args, argNames), nil
+}
+
+// grubKernelArgsToStringMap converts a kernel-to-args mapping from the parsed grubConfigLinuxArg format to a simple
+// kernel-to-cmdline-string format. Normalizes kernel paths and filters out args with variable expansions.
+func grubKernelArgsToStringMap(kernelToArgs map[string][]grubConfigLinuxArg) map[string]string {
 	kernelToArgsString := make(map[string]string)
 	for kernel, args := range kernelToArgs {
 		normalizedKernel := kernel
@@ -771,7 +831,7 @@ func extractKernelToArgsFromGrub(grubCfgPath string) (map[string]string, error) 
 		kernelToArgsString[normalizedKernel] = filteredArgsString
 	}
 
-	return kernelToArgsString, nil
+	return kernelToArgsString
 }
 
 func buildUki(kernel string, initramfs string, kernelArgs string, osSubreleaseFullPath string,

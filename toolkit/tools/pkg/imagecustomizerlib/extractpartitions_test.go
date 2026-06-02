@@ -550,10 +550,6 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageNopShrink")
 	defer os.RemoveAll(testTempDir)
 
@@ -638,7 +634,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 	rootfsFreeSpace := int64(rootfsStat.Bfree) * rootfsStat.Frsize
 	assert.LessOrEqual(t, rootfsFreeSpace, int64(32*diskutils.MiB), "check rootfs free space")
 
-	// Ensure that zst succesfully compressed the rootfs partition.
+	// Ensure that zst successfully compressed the rootfs partition.
 	// In particular, bigfile, which is all 0s, should compress down to basically nothing.
 	rootfsSizeLessBigFile := int64(rootfsStat.Blocks)*rootfsStat.Frsize - bigFileStat.Size()
 	assert.LessOrEqual(t, rootfsZstFileStat.Size(), rootfsSizeLessBigFile, "check compression size")
@@ -647,11 +643,7 @@ func TestCustomizeImageNopShrink(t *testing.T) {
 func TestCustomizeImageExtractEmptyPartition(t *testing.T) {
 	var err error
 
-	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
+	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageExtractEmptyPartition")
 	defer os.RemoveAll(testTempDir)
@@ -743,10 +735,6 @@ func TestCustomizeImageFstabDelete(t *testing.T) {
 	var err error
 
 	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	testTempDir := filepath.Join(tmpDir, "TestCustomizeImageFstabDelete")
 	defer os.RemoveAll(testTempDir)

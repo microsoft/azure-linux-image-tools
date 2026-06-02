@@ -68,6 +68,14 @@ const (
 	DracutModuleScriptFileMode = 0o755
 )
 
+// verityKernelArgsToRemove is the list of kernel command-line argument names that should be removed before injecting
+// new verity args.
+var verityKernelArgsToRemove = []string{
+	"rd.systemd.verity", "roothash", "systemd.verity_root_data", "systemd.verity_root_hash",
+	"systemd.verity_root_options", "usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
+	"systemd.verity_usr_options",
+}
+
 func enableVerityPartition(ctx context.Context, buildDir string, verity []imagecustomizerapi.Verity,
 	imageChroot *safechroot.Chroot, distroHandler DistroHandler, uki *imagecustomizerapi.Uki,
 ) (bool, error) {
@@ -231,7 +239,10 @@ func installVerityMountBootPartitionDracutModule(installRoot string) error {
 func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFullPath string,
 	partitions []diskutils.PartitionInfo, buildDir string, bootUuid string,
 ) error {
-	var err error
+	_, err := os.Stat(grubCfgFullPath)
+	if err != nil {
+		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
+	}
 
 	newArgs, err := constructVerityKernelCmdlineArgs(verityMetadata, partitions, bootUuid)
 	if err != nil {
@@ -248,12 +259,7 @@ func updateGrubConfigForVerity(verityMetadata []verityDeviceMetadata, grubCfgFul
 	// So, instead we just modify the /boot/grub2/grub.cfg file directly.
 	grubMkconfigEnabled := isGrubMkconfigConfig(grub2Config)
 
-	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, []string{
-		"rd.systemd.verity", "roothash", "systemd.verity_root_data",
-		"systemd.verity_root_hash", "systemd.verity_root_options",
-		"usrhash", "systemd.verity_usr_data", "systemd.verity_usr_hash",
-		"systemd.verity_usr_options",
-	}, newArgs)
+	grub2Config, err = updateKernelCommandLineArgsAll(grub2Config, verityKernelArgsToRemove, newArgs)
 	if err != nil {
 		return fmt.Errorf("failed to set verity kernel command line args:\n%w", err)
 	}
@@ -723,7 +729,7 @@ func collectVerityMetadata(verity []imagecustomizerapi.Verity, diskPartitions []
 func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConfig,
 	buildImageFile string, shrinkHashPartition bool,
 	verityMetadata []verityDeviceMetadata, readonlyPartUuids []string,
-	partitionsLayout []fstabEntryPartNum,
+	partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Provisioning verity")
 
@@ -793,7 +799,7 @@ func customizeVerityImage(ctx context.Context, buildDir string, rc *ResolvedConf
 		// Update kernel args.
 		// UKI mode can be 'create' or 'modify' - both use UKI bootloader (not GRUB)
 		isUki := rc.Uki != nil && rc.Uki.Mode != imagecustomizerapi.UkiModePassthrough
-		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout)
+		err = updateKernelArgsForVerity(buildDir, diskPartitions, verityMetadata, isUki, partitionsLayout, distroHandler)
 		if err != nil {
 			return err
 		}
@@ -901,6 +907,7 @@ func verityFormat(diskDevicePath string, dataPartitionPath string, hashPartition
 
 func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.PartitionInfo,
 	verityMetadata []verityDeviceMetadata, isUki bool, partitionsLayout []fstabEntryPartNum,
+	distroHandler DistroHandler,
 ) error {
 	bootPartition, bootRelativePath, err := getPartitionOfPath("/boot", diskPartitions, partitionsLayout)
 	if err != nil {
@@ -926,14 +933,9 @@ func updateKernelArgsForVerity(buildDir string, diskPartitions []diskutils.Parti
 	}
 	defer bootPartitionMount.Close()
 
-	grubCfgFullPath := filepath.Join(bootPartitionTmpDir, bootRelativePath, DefaultGrubCfgPath)
-	_, err = os.Stat(grubCfgFullPath)
-	if err != nil {
-		return fmt.Errorf("%w (file='%s'):\n%w", ErrStatFile, grubCfgFullPath, err)
-	}
-
-	// Update grub.cfg for verity of non-UKI path only.
-	err = updateGrubConfigForVerity(verityMetadata, grubCfgFullPath, diskPartitions, buildDir, bootPartition.Uuid)
+	// Update grub.cfg or BLS entries for verity (non-UKI path only).
+	err = distroHandler.UpdateBootConfigForVerity(verityMetadata, bootPartitionTmpDir, bootRelativePath, diskPartitions,
+		buildDir, bootPartition.Uuid)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrUpdateGrubConfig, err)
 	}

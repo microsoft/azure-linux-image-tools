@@ -28,10 +28,6 @@ func TestCustomizeImageVerityUsrUki(t *testing.T) {
 func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
 	if !ukifyExists {
@@ -80,10 +76,6 @@ func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
 
 func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
@@ -196,10 +188,6 @@ func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
 func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
-
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)
 	if !ukifyExists {
@@ -258,10 +246,6 @@ func TestCustomizeImageVerityRootUki(t *testing.T) {
 
 func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
-
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("Azure Linux 4.0 does not yet support this test")
-	}
 
 	ukifyExists, err := file.CommandExists("ukify")
 	assert.NoError(t, err)

@@ -18,9 +18,11 @@ const (
 
 func (i OutputArtifactsItemType) IsValid() error {
 	switch i {
-	case OutputArtifactsItemUkis, OutputArtifactsItemUkiAddons, OutputArtifactsItemShim, OutputArtifactsItemBootloader,
-		OutputArtifactsItemVerityHash, OutputArtifactsItemDefault:
+	case OutputArtifactsItemUkis, OutputArtifactsItemShim, OutputArtifactsItemBootloader, OutputArtifactsItemVerityHash,
+		OutputArtifactsItemDefault:
 		return nil
+	case OutputArtifactsItemUkiAddons:
+		return fmt.Errorf("invalid item value (%v); uki-addons are automatically included with ukis", i)
 	default:
 		return fmt.Errorf("invalid item value (%v)", i)
 	}

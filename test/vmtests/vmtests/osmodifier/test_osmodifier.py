@@ -3,6 +3,7 @@
 
 import logging
 import os
+import platform
 import tempfile
 from pathlib import Path
 from typing import List, Tuple
@@ -38,9 +39,6 @@ def setup_vm_with_osmodifier(
     libvirt_conn: libvirt.virConnect,
     session_close_list: List[Closeable],
 ) -> Tuple[SshClient, Path, Path]:
-    if distro_id == "azurelinux" and version_id == "4.0":
-        pytest.skip("Azure Linux 4.0 does not currently support this test.")
-
     if distro_id == "azurelinux" and version_id == "4.0":
         config_path = TEST_CONFIGS_DIR.joinpath("osmodifier-vm-config-azl4.yaml")
     else:
@@ -283,16 +281,21 @@ def is_package_installed(ssh_client: SshClient, pkg_name: str, distro_id: str, v
 
 
 def is_grub_bootloader(ssh_client: SshClient, distro_id: str, version_id: str) -> bool:
-    if is_package_installed(ssh_client, "grub2-efi-binary", distro_id, version_id) or is_package_installed(
-        ssh_client, "grub2-efi-binary-noprefix", distro_id, version_id
-    ):
+    if distro_id == "azurelinux" and version_id == "4.0":
+        grub_packages = ["grub2-efi-x64"] if platform.machine() == "x86_64" else ["grub2-efi-aa64"]
+        systemd_boot_pkgs = ["systemd-boot", "systemd-boot-unsigned"]
+    else:
+        grub_packages = ["grub2-efi-binary", "grub2-efi-binary-noprefix"]
+        systemd_boot_pkgs = ["systemd-boot"]
+
+    if any(is_package_installed(ssh_client, pkg, distro_id, version_id) for pkg in grub_packages):
         return True
 
-    if is_package_installed(ssh_client, "systemd-boot", distro_id, version_id):
+    if any(is_package_installed(ssh_client, pkg, distro_id, version_id) for pkg in systemd_boot_pkgs):
         return False
 
     raise RuntimeError(
-        "Unknown bootloader: neither grub2-efi-binary, grub2-efi-binary-noprefix, nor systemd-boot is installed"
+        f"Unknown bootloader on {distro_id}-{version_id}: none of {grub_packages + systemd_boot_pkgs} is installed"
     )
 
 
