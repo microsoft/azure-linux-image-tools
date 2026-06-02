@@ -33,3 +33,13 @@ func TestGetFileSystemOptionsForTargetOsUnsupportedDistro(t *testing.T) {
 	_, err := getFileSystemOptionsForTargetOs(targetos.New("lyrebird", "1.0"))
 	assert.ErrorContains(t, err, "unknown target OS (distro='lyrebird', version='1.0')")
 }
+
+func TestDistroFileSystemsOptionsOrdering(t *testing.T) {
+	for distro, verFsOptions := range distroFileSystemsOptions {
+		for i := 0; i < len(verFsOptions)-1; i++ {
+			a := verFsOptions[i].Version
+			b := verFsOptions[i+1].Version
+			assert.Truef(t, a.Le(b), "%s not ordered correctly: %v must be <= %v", distro, a, b)
+		}
+	}
+}
