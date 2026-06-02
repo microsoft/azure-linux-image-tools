@@ -127,6 +127,10 @@ type DistroHandler interface {
 
 	// GrubEfiPackage returns the package that provides the grub EFI binary for this distro on the current architecture.
 	GrubEfiPackage() string
+
+	// GetBootArchConfig returns the boot-files configuration appropriate for this distro on the current runtime
+	// architecture.
+	GetBootArchConfig() (BootFilesArchConfig, error)
 }
 
 // NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
@@ -171,6 +175,17 @@ func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroH
 	targetOs, err := targetos.GetInstalledTargetOs(imageChroot.RootDir())
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
+	}
+	return NewDistroHandlerFromTargetOs(targetOs), nil
+}
+
+// NewDistroHandlerFromInitrd creates a distro handler by detecting the OS from the dracut-emitted initrd-release file
+// inside the initramfs at initrdPath. Used in pipelines (e.g. ISO-to-ISO) where no rootfs is mounted yet but a
+// canonical distro identity is needed to pick the correct boot-file layout.
+func NewDistroHandlerFromInitrd(initrdPath string) (DistroHandler, error) {
+	targetOs, err := targetos.GetInitrdTargetOs(initrdPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine the target OS from initrd (%s):\n%w", initrdPath, err)
 	}
 	return NewDistroHandlerFromTargetOs(targetOs), nil
 }

@@ -347,7 +347,7 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		err = createPXEArtifacts(isoBuildDir, outputFormat, liveosConfig.initramfsType, artifactsStore,
 			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles,
-			liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
+			liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to generate PXE artifacts\n%w", err)
 		}
@@ -398,7 +398,7 @@ func repackageLiveOSHelper(isoBuildDir string, liveosConfig LiveOSConfig, inputA
 	case imagecustomizerapi.ImageFormatTypePxeDir, imagecustomizerapi.ImageFormatTypePxeTar:
 		err = createPXEArtifacts(isoBuildDir, outputFormat, liveosConfig.initramfsType, inputArtifactsStore,
 			liveosConfig.kdumpBootFiles, liveosConfig.additionalFiles,
-			liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath)
+			liveosConfig.bootstrapBaseUrl, liveosConfig.bootstrapFileUrl, outputPath, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to generate PXE artifacts folder\n%w", err)
 		}

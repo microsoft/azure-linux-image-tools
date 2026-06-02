@@ -45,13 +45,12 @@ const (
 
 	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
 	// In the ISO image, the kernel is named 'vmlinuz'.
-	vmLinuzPrefix     = "vmlinuz"
-	initramfsPrefix   = "initramfs-"  // Azl3
-	initrdPrefix      = "initrd.img-" // CBL-Mariner
-	isoKernelDir      = "/boot"
-	isoInitrdPath     = "/boot/" + initrdImage
-	isoBootloadersDir = "/efi/boot"
-	isoBootImagePath  = "/boot/grub2/efiboot.img"
+	vmLinuzPrefix    = "vmlinuz"
+	initramfsPrefix  = "initramfs-"  // Azl3
+	initrdPrefix     = "initrd.img-" // CBL-Mariner
+	isoKernelDir     = "/boot"
+	isoInitrdPath    = "/boot/" + initrdImage
+	isoBootImagePath = "/boot/grub2/efiboot.img"
 
 	// Minimum dracut version required to enable PXE booting.
 	LiveOsPxeDracutMinVersion        = 102
@@ -125,12 +124,15 @@ var bootloaderFilesConfig = map[string]BootFilesArchConfig{
 	},
 }
 
-func getBootArchConfig() (string, BootFilesArchConfig, error) {
+// bootArchConfigFromMap looks up the current runtime architecture in the provided per-arch boot files config map.
+func bootArchConfigFromMap(configByArch map[string]BootFilesArchConfig) (BootFilesArchConfig, error) {
 	arch := runtime.GOARCH
-	if arch != "amd64" && arch != "arm64" {
-		return "", BootFilesArchConfig{}, fmt.Errorf("unsupported architecture: %s", arch)
+	switch arch {
+	case "amd64", "arm64":
+		return configByArch[arch], nil
+	default:
+		return BootFilesArchConfig{}, fmt.Errorf("unsupported architecture: %s", arch)
 	}
-	return arch, bootloaderFilesConfig[arch], nil
 }
 
 // verifies that the dracut package supports PXE booting for LiveOS images.

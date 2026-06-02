@@ -224,3 +224,7 @@ func (d *ubuntuDistroHandler) GrubEfiPackage() string {
 		return grubEfiPackageDebianArm64
 	}
 }
+
+func (d *ubuntuDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfig)
+}

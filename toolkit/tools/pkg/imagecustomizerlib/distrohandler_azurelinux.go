@@ -206,3 +206,7 @@ func (d *azureLinuxDistroHandler) ShimPackage() string {
 func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
 	return grubEfiPackageAzl3
 }
+
+func (d *azureLinuxDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfig)
+}

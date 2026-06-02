@@ -45,7 +45,7 @@ func getPxeBootstrapFileName(bootstrapBaseUrl, bootstrapFileUrl string) (string,
 func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFormatType,
 	initramfsType imagecustomizerapi.InitramfsImageType, artifactsStore *IsoArtifactsStore,
 	kdumpBootFiles *imagecustomizerapi.KdumpBootFilesType, additionalIsoFiles imagecustomizerapi.AdditionalFileList,
-	bootstrapBaseUrl, bootstrapFileUrl, outputPath string) (err error) {
+	bootstrapBaseUrl, bootstrapFileUrl, outputPath string, distroHandler DistroHandler) (err error) {
 	logger.Log.Infof("Creating PXE output at (%s)", outputPath)
 
 	outputPXEArtifactsDir := ""
@@ -116,12 +116,13 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 	// created because some of these files are needed by the ISO so it is
 	// bootable.
 
-	// Move bootloader files from under '<pxe-folder>/efi/boot' to '<pxe-folder>/'
-	_, bootFilesConfig, err := getBootArchConfig()
+	// Move bootloader files from under '<outputPXEArtifactsDir>/<isoBootloaderDir>' to '<outputPXEArtifactsDir>/'.
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return err
 	}
-	bootloaderSrcDir := filepath.Join(outputPXEArtifactsDir, isoBootloadersDir)
+	isoBootloaderDir := filepath.Dir(bootFilesConfig.isoBootBinaryPath)
+	bootloaderSrcDir := filepath.Join(outputPXEArtifactsDir, isoBootloaderDir)
 	bootloaderFiles := []string{bootFilesConfig.bootBinary, bootFilesConfig.grubBinary}
 
 	for _, bootloaderFile := range bootloaderFiles {
@@ -133,8 +134,8 @@ func createPXEArtifacts(buildDir string, outputFormat imagecustomizerapi.ImageFo
 		}
 	}
 
-	// Remove the empty 'pxe-folder>/efi' folder.
-	isoEFIDir := filepath.Join(outputPXEArtifactsDir, "efi")
+	// Remove the now-empty parent of '<outputPXEArtifactsDir>/<isoBootloaderDir>'.
+	isoEFIDir := filepath.Join(outputPXEArtifactsDir, filepath.Dir(isoBootloaderDir))
 	err = os.RemoveAll(isoEFIDir)
 	if err != nil {
 		return fmt.Errorf("failed to remove folder (%s):\n%w", isoEFIDir, err)

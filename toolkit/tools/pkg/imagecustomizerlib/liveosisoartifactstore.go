@@ -80,8 +80,8 @@ func (b *IsoArtifactsStore) cleanUp() error {
 	return nil
 }
 
-func containsGrubNoPrefix(filePaths []string) (bool, error) {
-	_, bootFilesConfig, err := getBootArchConfig()
+func containsGrubNoPrefix(filePaths []string, distroHandler DistroHandler) (bool, error) {
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return false, err
 	}
@@ -206,7 +206,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		return nil, fmt.Errorf("failed to scan /boot folder:\n%w", err)
 	}
 
-	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths)
+	usingGrubNoPrefix, err := containsGrubNoPrefix(bootFolderFilePaths, distroHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		// in them (i.e. user files that we do not manipulate - but copy as-is).
 		scheduleAdditionalFile := true
 
-		_, bootFilesConfig, err := getBootArchConfig()
+		bootFilesConfig, err := distroHandler.GetBootArchConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -353,7 +353,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		}
 	}
 
-	_, bootFilesConfig, err := getBootArchConfig()
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +434,13 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
 	filesStore.kdumpBootFiles = make(map[string]*KdumpBootFiles)
 
-	_, bootFilesConfig, err := getBootArchConfig()
+	initrdPath := filepath.Join(artifactsDir, isoInitrdPath)
+	distroHandler, err := NewDistroHandlerFromInitrd(initrdPath)
+	if err != nil {
+		return nil, err
+	}
+
+	bootFilesConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return nil, err
 	}

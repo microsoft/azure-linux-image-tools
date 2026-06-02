@@ -259,7 +259,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	if uki.Mode == imagecustomizerapi.UkiModeModify {
 		logger.Log.Infof("UKI mode is 'modify', skipping UKI preparation (will modify addon only)")
 
-		_, bootConfig, err := getBootArchConfig()
+		bootConfig, err := distroHandler.GetBootArchConfig()
 		if err != nil {
 			return err
 		}
@@ -296,7 +296,7 @@ func prepareUkiHelper(ctx context.Context, buildDir string, uki *imagecustomizer
 	}
 
 	// Detect system architecture.
-	_, bootConfig, err := getBootArchConfig()
+	bootConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return err
 	}
@@ -504,13 +504,13 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 }
 
 // createUkiInModifyMode modifies UKI addons without touching the main UKI files.
-func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig) error {
+func createUkiInModifyMode(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHandler) error {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_uki_modify_mode")
 	defer span.End()
 
 	var err error
 
-	_, bootConfig, err := getBootArchConfig()
+	bootConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return err
 	}
@@ -619,7 +619,7 @@ func modifyUkiAddon(ukiFilePath string, stubPath string, rc *ResolvedConfig) err
 	return nil
 }
 
-func createUki(ctx context.Context, rc *ResolvedConfig) error {
+func createUki(ctx context.Context, rc *ResolvedConfig, distroHandler DistroHandler) error {
 	logger.Log.Infof("Creating UKIs")
 
 	// If mode is 'passthrough', skip UKI creation to preserve existing UKIs
@@ -631,7 +631,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 	// If mode is 'modify', only modify UKI addons (preserve main UKI)
 	if rc.Uki != nil && rc.Uki.Mode == imagecustomizerapi.UkiModeModify {
 		logger.Log.Infof("UKI mode is 'modify', modifying UKI addons only")
-		err := createUkiInModifyMode(ctx, rc)
+		err := createUkiInModifyMode(ctx, rc, distroHandler)
 		if err != nil {
 			return fmt.Errorf("failed to modify UKI addons in modify mode:\n%w", err)
 		}
@@ -643,7 +643,7 @@ func createUki(ctx context.Context, rc *ResolvedConfig) error {
 
 	var err error
 
-	_, bootConfig, err := getBootArchConfig()
+	bootConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return err
 	}

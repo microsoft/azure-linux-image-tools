@@ -25,22 +25,55 @@ const (
 	TargetOsUbuntu2404           TargetOs = "ubuntu2404"
 )
 
+// osReleaseCandidates lists the on-rootfs paths to probe for the os-release(5) file, in preference order.
+var osReleaseCandidates = []string{
+	"etc/os-release",
+	"usr/lib/os-release",
+}
+
+// initrdReleaseCandidates lists the in-initrd paths to probe for the initrd-release(5) file, in preference order.
+var initrdReleaseCandidates = []string{
+	"etc/initrd-release",
+	"usr/lib/initrd-release",
+}
+
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
-	// Try /etc/os-release first, then fall back to /usr/lib/os-release.
-	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("failed to read /etc/os-release:\n%w", err)
-		}
-		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, "usr/lib/os-release"))
+	var fields map[string]string
+	for _, candidate := range osReleaseCandidates {
+		path := filepath.Join(rootfs, candidate)
+		parsed, err := envfile.ParseEnvFile(path)
 		if err != nil {
-			return "", fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return "", fmt.Errorf("failed to read (%s):\n%w", path, err)
 		}
+		fields = parsed
+		break
+	}
+	if fields == nil {
+		return "", fmt.Errorf("failed to find an os-release file under (%s): tried %v", rootfs, osReleaseCandidates)
+	}
+	return targetOsFromIds("os-release", fields["ID"], fields["VERSION_ID"], fields["VARIANT_ID"])
+}
+
+// GetInitrdTargetOs identifies the distribution that produced an initramfs image by reading the dracut-emitted
+// initrd-release file from inside the initrd cpio archive and resolving its ID / VERSION_ID fields to a TargetOs.
+func GetInitrdTargetOs(initrdPath string) (TargetOs, error) {
+	content, foundPath, err := readFirstFileFromInitrd(initrdPath, initrdReleaseCandidates)
+	if err != nil {
+		return "", err
 	}
 
-	distroId := fields["ID"]
-	versionId := fields["VERSION_ID"]
+	fields, err := envfile.ParseEnv(string(content))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse (%s) from initrd (%s):\n%w", foundPath, initrdPath, err)
+	}
+	return targetOsFromIds("initrd-release", fields["ID"], fields["VERSION_ID"], fields["VARIANT_ID"])
+}
 
+// targetOsFromIds maps the ID, VERSION_ID, and VARIANT_ID values of an os-release(5)-style file to a TargetOs constant.
+func targetOsFromIds(sourceLabel, distroId, versionId, variantId string) (TargetOs, error) {
 	switch distroId {
 	case "mariner":
 		switch versionId {
@@ -48,18 +81,16 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOsAzureLinux2, nil
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for CBL-Mariner in os-release", versionId)
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for CBL-Mariner in %s", versionId, sourceLabel)
 		}
 
 	case "azurelinux":
-		variantId := fields["VARIANT_ID"]
-
 		switch variantId {
 		case "azurecontainerlinux":
 			// ACL currently sets VERSION_ID to the full version string (e.g.
 			// "3.0.20260421") Accept any version that starts with "3."
 			if !strings.HasPrefix(versionId, "3.") {
-				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in os-release", versionId)
+				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Container Linux in %s", versionId, sourceLabel)
 			}
 			return TargetOsAzureContainerLinux3, nil
 
@@ -73,7 +104,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 				return TargetOsAzureLinux4, nil
 
 			default:
-				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in os-release", versionId)
+				return "", fmt.Errorf("unknown VERSION_ID (%s) for Azure Linux in %s", versionId, sourceLabel)
 			}
 		}
 
@@ -83,7 +114,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOsFedora42, nil
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in os-release", versionId)
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for Fedora in %s", versionId, sourceLabel)
 		}
 
 	case "ubuntu":
@@ -95,10 +126,10 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return TargetOsUbuntu2404, nil
 
 		default:
-			return "", fmt.Errorf("unknown VERSION_ID (%s) for Ubuntu in os-release", versionId)
+			return "", fmt.Errorf("unknown VERSION_ID (%s) for Ubuntu in %s", versionId, sourceLabel)
 		}
 
 	default:
-		return "", fmt.Errorf("unknown ID (%s) in os-release", distroId)
+		return "", fmt.Errorf("unknown ID (%s) in %s", distroId, sourceLabel)
 	}
 }

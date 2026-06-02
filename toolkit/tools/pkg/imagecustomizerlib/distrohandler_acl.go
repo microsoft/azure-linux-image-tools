@@ -220,3 +220,7 @@ func (d *aclDistroHandler) GrubEfiPackage() string {
 	// ACL does not use grub.
 	return ""
 }
+
+func (d *aclDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfig)
+}

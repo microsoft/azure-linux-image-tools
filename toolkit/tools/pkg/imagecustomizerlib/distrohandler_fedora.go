@@ -33,7 +33,47 @@ const (
 	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
 	shimPackageFedoraAmd64    = "shim-x64"
 	shimPackageFedoraArm64    = "shim-aa64"
+
+	isoBootloaderDirFedora = "/EFI/BOOT"
+	bootx64BinaryFedora    = "BOOTX64.EFI"
+	bootAA64BinaryFedora   = "BOOTAA64.EFI"
 )
+
+// bootloaderFilesConfigFedora is the boot-files map for Fedora-style ESPs (Azure Linux 4 and Fedora).
+var bootloaderFilesConfigFedora = map[string]BootFilesArchConfig{
+	"amd64": {
+		bootBinary:                  bootx64BinaryFedora,
+		grubBinary:                  grubx64Binary,
+		grubNoPrefixBinary:          grubx64NoPrefixBinary,
+		espBootBinaryPath:           espBootloaderDir + "/" + bootx64BinaryFedora,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubx64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootx64BinaryFedora,
+		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubx64Binary,
+		osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubx64NoPrefixBinary,
+		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootx64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubx64Binary,
+		ukiEfiStubBinary:            ukiEfiStubx64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubx64Binary,
+		ukiAddonStubBinary:          ukiAddonStubx64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubx64Binary,
+	},
+	"arm64": {
+		bootBinary:                  bootAA64BinaryFedora,
+		grubBinary:                  grubAA64Binary,
+		grubNoPrefixBinary:          grubAA64NoPrefixBinary,
+		espBootBinaryPath:           espBootloaderDir + "/" + bootAA64BinaryFedora,
+		espGrubBinaryPath:           espBootloaderDir + "/" + grubAA64Binary,
+		osEspBootBinaryPath:         osEspBootloaderDir + "/" + bootAA64BinaryFedora,
+		osEspGrubBinaryPath:         osEspBootloaderDir + "/" + grubAA64Binary,
+		osEspGrubNoPrefixBinaryPath: osEspBootloaderDir + "/" + grubAA64NoPrefixBinary,
+		isoBootBinaryPath:           isoBootloaderDirFedora + "/" + bootAA64BinaryFedora,
+		isoGrubBinaryPath:           isoBootloaderDirFedora + "/" + grubAA64Binary,
+		ukiEfiStubBinary:            ukiEfiStubAA64Binary,
+		ukiEfiStubBinaryPath:        ukiEfiStubDir + "/" + ukiEfiStubAA64Binary,
+		ukiAddonStubBinary:          ukiAddonStubAA64Binary,
+		ukiAddonStubBinaryPath:      ukiEfiStubDir + "/" + ukiAddonStubAA64Binary,
+	},
+}
 
 func newFedoraDistroHandler(version string) *fedoraDistroHandler {
 	return &fedoraDistroHandler{
@@ -211,4 +251,8 @@ func (d *fedoraDistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageFedoraArm64
 	}
+}
+
+func (d *fedoraDistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
 }

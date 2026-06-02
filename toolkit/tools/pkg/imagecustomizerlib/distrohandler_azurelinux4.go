@@ -229,3 +229,7 @@ func (d *azureLinux4DistroHandler) GrubEfiPackage() string {
 		return grubEfiPackageFedoraArm64
 	}
 }
+
+func (d *azureLinux4DistroHandler) GetBootArchConfig() (BootFilesArchConfig, error) {
+	return bootArchConfigFromMap(bootloaderFilesConfigFedora)
+}

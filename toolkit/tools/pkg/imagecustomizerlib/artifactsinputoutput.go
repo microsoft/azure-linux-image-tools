@@ -96,7 +96,7 @@ func outputArtifacts(ctx context.Context, items []imagecustomizerapi.OutputArtif
 	defer systemBootPartitionMount.Close()
 
 	// Detect system architecture
-	_, bootConfig, err := getBootArchConfig()
+	bootConfig, err := distroHandler.GetBootArchConfig()
 	if err != nil {
 		return err
 	}
