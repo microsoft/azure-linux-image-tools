@@ -496,17 +496,24 @@ func getFileSystemOptionsForTargetOs(targetOs targetos.TargetOs) (versionFileSys
 		return distroOptions[0], nil
 	}
 
-	// Find the cloest match older than or equal to the target version.
+	// Find the closest match older than or equal to the target version.
 	foundVerOptions := versionFileSystemsOptions{}
 	found := false
+
+loop:
 	for _, verOptions := range distroOptions {
 		cmp := verOptions.Version.Cmp(targetOs.Version)
 		switch {
+		case cmp > 0:
+			// Target OS is newer than this version (and all remaining versions).
+			break loop
+
 		case cmp == 0:
 			// Perfect match
 			return verOptions, nil
 
 		case cmp < 0:
+			// Target OS is older than this version.
 			foundVerOptions = verOptions
 			found = true
 		}

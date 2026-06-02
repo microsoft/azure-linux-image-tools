@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 )
 
 const (
@@ -131,8 +132,9 @@ func NewDistroHandler(targetOs targetos.TargetOs) (DistroHandler, error) {
 		return newFedoraDistroHandler(targetOs), nil
 
 	case targetos.AzureLinux:
-		switch targetOs.VersionId {
-		case "4.0":
+		// Future: Once AZL4 is out of preview, switch the unknown/invalid version handling to the AZL4 handler.
+		switch {
+		case targetOs.Version != nil && targetOs.Version.Ge(version.Version{4, 0}):
 			return newAzureLinux4DistroHandler(targetOs), nil
 
 		default:

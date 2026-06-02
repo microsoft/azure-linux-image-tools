@@ -117,7 +117,7 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 		switch variantId {
 		case "azurecontainerlinux":
 			return TargetOs{
-				Distro:    AzureLinux,
+				Distro:    AzureContainerLinux,
 				VersionId: versionId,
 				Version:   version,
 			}, nil

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	basicVersionRegex = regexp.MustCompile(`^(\d)+(\.(\d)+)*$`)
+	basicVersionRegex = regexp.MustCompile(`^\d+(\.\d+)*$`)
 )
 
 type Version []int

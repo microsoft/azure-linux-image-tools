@@ -47,10 +47,10 @@ const (
 	// PreviewFeatureCreate enables the create command for building new images from scratch.
 	PreviewFeatureCreate PreviewFeature = "create"
 
-	// PreviewFeatureAzureContainerLinux3 enables support for Azure Container Linux images.
+	// PreviewFeatureAzureContainerLinux enables support for Azure Container Linux images.
 	PreviewFeatureAzureContainerLinux PreviewFeature = "azure-container-linux"
 
-	// PreviewFeatureDistroVersion allows distro versions that are not supported yet.
+	// PreviewFeatureUnsupportedDistroVersion allows distro versions that are not supported yet.
 	PreviewFeatureUnsupportedDistroVersion PreviewFeature = "unsupported-distro-version"
 )
 

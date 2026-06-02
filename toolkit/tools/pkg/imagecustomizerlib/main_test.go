@@ -203,6 +203,7 @@ var (
 	defaultAzureLinuxPriorityList = []testBaseImageInfo{
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl3BareMetal,
+		// AZL4 is still in preview. So, prefer AZL3 until AZL4 has its first official release.
 		testBaseImageAzl4CoreEfi,
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl2BareMetal,

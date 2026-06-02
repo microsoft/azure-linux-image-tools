@@ -48,8 +48,9 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		// Supported versions
 
 	default:
-		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUnsupportedDistroVersion) {
-			return ErrUnsupportedDistroVersion
+		err := handleUnsupportedDistroVersion(rc, d.targetOs)
+		if err != nil {
+			return err
 		}
 	}
 

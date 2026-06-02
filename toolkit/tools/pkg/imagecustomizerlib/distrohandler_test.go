@@ -49,12 +49,12 @@ func testCustomizeImageDistroVersionInvalidHelper(t *testing.T, testName string,
 	options.InputImageFile = outImage1FilePath
 	options.OutputImageFile = outImage2FilePath
 
-	// Ensure 'distro-version' preview feature flag is enforced.
+	// Ensure 'unsupported-distro-version' preview feature flag is enforced.
 	configFile = filepath.Join(testDir, "nochange-config.yaml")
 	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrUnsupportedDistroVersion)
 
-	// Enable 'distro-version' preview feature flag.
+	// Enable 'unsupported-distro-version' preview feature flag.
 	configFile = filepath.Join(testDir, "distro-version-preview-feature.yaml")
 	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
@@ -101,12 +101,12 @@ func testCustomizeImageDistroVersionNewHelper(t *testing.T, testName string, bas
 	options.InputImageFile = outImage1FilePath
 	options.OutputImageFile = outImage2FilePath
 
-	// Ensure 'distro-version' preview feature flag is enforced.
+	// Ensure 'unsupported-distro-version' preview feature flag is enforced.
 	configFile = filepath.Join(testDir, "nochange-config.yaml")
 	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrUnsupportedDistroVersion)
 
-	// Enable 'distro-version' preview feature flag.
+	// Enable 'unsupported-distro-version' preview feature flag.
 	configFile = filepath.Join(testDir, "distro-version-preview-feature.yaml")
 	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
