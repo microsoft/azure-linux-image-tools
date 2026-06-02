@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/sirupsen/logrus"
 )
@@ -281,6 +282,31 @@ func checkSkipForCustomizeImage(t *testing.T, baseImage testBaseImageInfo) strin
 	}
 
 	return *baseImage.Param
+}
+
+// testBaseImageTargetOs maps a testBaseImageInfo to a targetOs. Mirrors
+// the (Distro, Version) → TargetOs mapping that production code derives at runtime from /etc/os-release.
+func testBaseImageTargetOs(t *testing.T, baseImage testBaseImageInfo) targetos.TargetOs {
+	switch baseImage.Distro {
+	case baseImageDistroAzureLinux:
+		switch baseImage.Version {
+		case baseImageVersionAzl2:
+			return targetos.TargetOsAzureLinux2
+		case baseImageVersionAzl3:
+			return targetos.TargetOsAzureLinux3
+		case baseImageVersionAzl4:
+			return targetos.TargetOsAzureLinux4
+		}
+	case baseImageDistroUbuntu:
+		switch baseImage.Version {
+		case baseImageVersionUbuntu2204:
+			return targetos.TargetOsUbuntu2204
+		case baseImageVersionUbuntu2404:
+			return targetos.TargetOsUbuntu2404
+		}
+	}
+	t.Fatalf("no TargetOs mapping for base image (distro=%s, version=%s)", baseImage.Distro, baseImage.Version)
+	return ""
 }
 
 func findFirstAvailableImage(priorityList []testBaseImageInfo) (testBaseImageInfo, bool) {
