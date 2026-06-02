@@ -23,4 +23,8 @@ type rpmPackageManagerHandler interface {
 	supportsSnapshotTime() bool
 
 	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
+
+	// getPackageInformation queries the package database for packageName and returns its parsed version,
+	// release, and distro fields.
+	getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
 }

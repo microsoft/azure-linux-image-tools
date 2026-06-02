@@ -75,6 +75,11 @@ func (d *azureLinuxDistroHandler) IsPackageInstalled(imageChroot safechroot.Chro
 	return d.packageManager.isPackageInstalled(imageChroot, packageName)
 }
 
+func (d *azureLinuxDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+) (*PackageVersionInformation, error) {
+	return d.packageManager.getPackageInformation(imageChroot, packageName)
+}
+
 func (d *azureLinuxDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	return getAllPackagesFromChrootRpm(imageChroot)
 }

@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -193,4 +194,25 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 		return false
 	}
 	return true
+}
+
+func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+) (*PackageVersionInformation, error) {
+	// Use `rpm -q --queryformat` rather than `dnf info --installed` here for the same reason as in isPackageInstalled:
+	// it queries the local rpm database directly without opening any log files for writing, so it works on read-only
+	// chroots and avoids the security concerns of pointing dnf's logdir at a fixed, predictable path inside the chroot.
+	// `rpm` is guaranteed to be present in any chroot that has dnf5 installed because dnf5 takes a hard dependency on
+	// rpm.
+	//
+	// Use `--queryformat` to get a single-line, parser-friendly output that matches what parsePackageInfoOutput
+	// already expects from `tdnf info` (Name/Version/Release labels), so we share the parser.
+	const queryFormat = "Name : %{NAME}\nVersion : %{VERSION}\nRelease : %{RELEASE}\n"
+	packageInfo, _, err := shell.NewExecBuilder("rpm", "-q", "--queryformat", queryFormat, "--", packageName).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query (%s) package information via rpm:\n%w", packageName, err)
+	}
+	return parsePackageInfoOutput(packageName, packageInfo)
 }

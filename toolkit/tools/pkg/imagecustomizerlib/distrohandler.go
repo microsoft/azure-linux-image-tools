@@ -48,6 +48,12 @@ type DistroHandler interface {
 
 	IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
 
+	// GetPackageInformation queries the installed-package database for packageName and returns its parsed
+	// version/release/distro fields. Distros backed by an RPM package manager (Azure Linux, ACL, Fedora)
+	// delegate to their package-manager-specific query (tdnf for AZL2/3/ACL, dnf for AZL4/Fedora). Ubuntu
+	// has no caller today and returns an error.
+	GetPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
+
 	// Get all installed packages from the chroot
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 

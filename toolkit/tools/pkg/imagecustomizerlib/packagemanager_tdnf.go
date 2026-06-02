@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -114,4 +115,16 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 		return false
 	}
 	return true
+}
+
+func (pm *tdnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+) (*PackageVersionInformation, error) {
+	packageInfo, _, err := shell.NewExecBuilder(packageManagerTDNF, "info", packageName, "--repo", "@system").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query (%s) package information via tdnf:\n%w", packageName, err)
+	}
+	return parsePackageInfoOutput(packageName, packageInfo)
 }

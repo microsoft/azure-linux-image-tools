@@ -102,6 +102,13 @@ func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootIn
 	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
+// GetPackageInformation is not implemented for Ubuntu: the PackageVersionInformation shape (with .azlN-style
+// release fields) is RPM-specific and has no Debian-version equivalent that callers consume.
+func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+) (*PackageVersionInformation, error) {
+	return nil, fmt.Errorf("Getting package information is not supported for Ubuntu images:\n%w", ErrUnsupportedUbuntuFeature)
+}
+
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	return getAllPackagesFromChrootDeb(imageChroot)
 }
