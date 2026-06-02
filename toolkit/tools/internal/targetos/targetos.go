@@ -31,14 +31,26 @@ var osReleaseCandidates = []string{
 	"usr/lib/os-release",
 }
 
-// initrdReleaseCandidates lists the in-initrd paths to probe for the initrd-release(5) file, in preference order.
+// initrdReleaseCandidates lists the in-initrd paths to probe for an os-release(5)-type file, in preference order.
+//
+// os-release is the canonical filename and is the only candidate present in full-OS initrds built by Image Customizer
+// (which pack the source rootfs directly, in which initrd-release does not exist at all).
+//
+// initrd-release is the dracut-runtime variant emitted by dracut's 99base module. os-release symlinks to this file in
+// such cases.
 var initrdReleaseCandidates = []string{
+	"etc/os-release",
+	"usr/lib/os-release",
 	"etc/initrd-release",
 	"usr/lib/initrd-release",
 }
 
+// GetInstalledTargetOs probes the rootfs for an os-release(5) file and resolves its fields to a TargetOs.
+//
+// Returns an error wrapping fs.ErrNotExist when none of the candidates exist on the rootfs.
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 	var fields map[string]string
+	var foundCandidate string
 	for _, candidate := range osReleaseCandidates {
 		path := filepath.Join(rootfs, candidate)
 		parsed, err := envfile.ParseEnvFile(path)
@@ -49,16 +61,20 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 			return "", fmt.Errorf("failed to read (%s):\n%w", path, err)
 		}
 		fields = parsed
+		foundCandidate = candidate
 		break
 	}
 	if fields == nil {
-		return "", fmt.Errorf("failed to find an os-release file under (%s): tried %v", rootfs, osReleaseCandidates)
+		return "", fmt.Errorf("failed to find an os-release file under (%s): tried %v: %w", rootfs, osReleaseCandidates,
+			fs.ErrNotExist)
 	}
-	return targetOsFromIds("os-release", fields["ID"], fields["VERSION_ID"], fields["VARIANT_ID"])
+	return targetOsFromIds(foundCandidate, fields["ID"], fields["VERSION_ID"], fields["VARIANT_ID"])
 }
 
-// GetInitrdTargetOs identifies the distribution that produced an initramfs image by reading the dracut-emitted
-// initrd-release file from inside the initrd cpio archive and resolving its ID / VERSION_ID fields to a TargetOs.
+// GetInitrdTargetOs probes the initrd for an os-release(5)-type file (os-release or dracut's initrd-release)
+// and resolves its fields to a TargetOs.
+//
+// Returns an error wrapping fs.ErrNotExist when none of the candidates exist in the initrd.
 func GetInitrdTargetOs(initrdPath string) (TargetOs, error) {
 	content, foundPath, err := readFirstFileFromInitrd(initrdPath, initrdReleaseCandidates)
 	if err != nil {
@@ -69,7 +85,7 @@ func GetInitrdTargetOs(initrdPath string) (TargetOs, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse (%s) from initrd (%s):\n%w", foundPath, initrdPath, err)
 	}
-	return targetOsFromIds("initrd-release", fields["ID"], fields["VERSION_ID"], fields["VARIANT_ID"])
+	return targetOsFromIds(foundPath, fields["ID"], fields["VERSION_ID"], fields["VARIANT_ID"])
 }
 
 // targetOsFromIds maps the ID, VERSION_ID, and VARIANT_ID values of an os-release(5)-style file to a TargetOs constant.

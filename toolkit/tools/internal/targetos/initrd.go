@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	"github.com/cavaliergopher/cpio"
@@ -29,7 +30,8 @@ var (
 )
 
 // readFirstFileFromInitrd scans an initramfs cpio archive once and returns the content of the first candidate path in
-// the provided list that exists as a regular file. Returns an error if none of the candidates is present.
+// the provided list that exists as a regular file. Returns an error wrapping fs.ErrNotExist if none of the candidates
+// is present.
 func readFirstFileFromInitrd(initrdPath string, candidates []string) (content []byte, foundPath string, err error) {
 	f, err := os.Open(initrdPath)
 	if err != nil {
@@ -82,7 +84,7 @@ func readFirstFileFromInitrd(initrdPath string, candidates []string) (content []
 		}
 	}
 
-	return nil, "", fmt.Errorf("failed to find any of %v in initrd (%s)", candidates, initrdPath)
+	return nil, "", fmt.Errorf("failed to find any of %v in initrd (%s): %w", candidates, initrdPath, fs.ErrNotExist)
 }
 
 // openInitrdDecompressor auto-detects the compression format of an initramfs stream from its leading magic bytes and
