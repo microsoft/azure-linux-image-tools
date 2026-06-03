@@ -89,9 +89,15 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	// ACL images do not ship the rpm CLI, so the standard in-chroot
-	// rpm -qa query would fail. Use the host's rpm binary with --root
-	// to query the image's RPM database instead.
-	return getAllPackagesFromChrootRpmViaHost(imageChroot)
+	// rpm -qa query would fail. Try the host's rpm binary with --root
+	// to query the image's RPM database. If the DB doesn't exist (common
+	// for minimal ACL images that strip the RPM DB), return an empty list.
+	packages, err := getAllPackagesFromChrootRpmViaHost(imageChroot)
+	if err != nil {
+		logger.Log.Warnf("Could not query RPM DB for ACL image, returning empty package list: %v", err)
+		return nil, nil
+	}
+	return packages, nil
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
