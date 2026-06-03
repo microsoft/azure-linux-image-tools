@@ -465,8 +465,13 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
+	// The convert path only reads files and queries the RPM database — it does
+	// not execute programs inside the chroot. Skip default mounts (/dev, /proc,
+	// /sys, etc.) since they require writable directories on the rootfs, which
+	// fails on images with a read-only root (e.g., ACL's btrfs+dm-verity).
+	includeDefaultMounts := false
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true, nil)
+		ctx, rawImageFile, buildDir, chrootDir, includeDefaultMounts, true, true, true, nil)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
