@@ -110,3 +110,19 @@ imagecustomizer convert \
   --output-image-format cosi \
   --cosi-compression-level 15
 ```
+
+### Convert Azure Container Linux to COSI
+
+ACL is supported only via `convert`. The base image's verity metadata, UKI
+boot configuration, and partition layout are preserved as-is. The
+`customize` subcommand is not yet supported for ACL.
+
+```bash
+imagecustomizer convert \
+  --build-dir ./build \
+  --image-file acl-base.vhd \
+  --output-image-file acl.cosi \
+  --output-image-format cosi
+```
+
+Added in v1.6.
