@@ -19,6 +19,7 @@ import (
 const (
 	baseImageDistroAzureLinux = "azurelinux"
 	baseImageDistroUbuntu     = "ubuntu"
+	baseImageDistroAcl        = "azurecontainerlinux"
 
 	// Azure Linux versions
 	baseImageVersionAzl2 = "2.0"
@@ -29,6 +30,9 @@ const (
 	baseImageVersionUbuntu2204 = "22.04"
 	baseImageVersionUbuntu2404 = "24.04"
 
+	// Azure Container Linux versions
+	baseImageVersionAcl3 = "3.0"
+
 	// Azure Linux variants
 	baseImageAzureLinuxVariantCoreEfi   = "core-efi"
 	baseImageAzureLinuxVariantBareMetal = "bare-metal"
@@ -36,10 +40,14 @@ const (
 	// Ubuntu variants
 	baseImageVariantUbuntuAzureCloud = "azure-cloud"
 
+	// ACL variants
+	baseImageAclVariantDefault = "default"
+
 	// Default shells
 	defaultShellAzureLinux = "/bin/bash"
 	defaultShellUbuntu2204 = "/bin/bash"
 	defaultShellUbuntu2404 = "/bin/sh"
+	defaultShellAcl        = "/bin/bash"
 
 	// Flag names
 	paramBaseImageAzl2CoreEfi          = "base-image-core-efi-azl2"
@@ -49,6 +57,7 @@ const (
 	paramBaseImageAzl3BareMetal        = "base-image-bare-metal-azl3"
 	paramBaseImageUbuntu2204AzureCloud = "base-image-azure-cloud-ubuntu2204"
 	paramBaseImageUbuntu2404AzureCloud = "base-image-azure-cloud-ubuntu2404"
+	paramBaseImageAcl3                 = "base-image-acl-3"
 	paramLogLevel                      = "log-level"
 )
 
@@ -96,6 +105,26 @@ var (
 			PartitionNum:   15,
 			Path:           "/boot/efi",
 			FileSystemType: "vfat",
+		},
+	}
+
+	// ACL's 5-partition layout: ESP (/boot), USR-A (/usr verity), USR-B (standby), OEM (/oem), ROOT (/).
+	// USR-B has no mountpoint (Trident-managed A/B standby slot).
+	aclMountPoints = []testutils.MountPoint{
+		{
+			PartitionNum:   5,
+			Path:           "/",
+			FileSystemType: "ext4",
+		},
+		{
+			PartitionNum:   1,
+			Path:           "/boot",
+			FileSystemType: "vfat",
+		},
+		{
+			PartitionNum:   4,
+			Path:           "/oem",
+			FileSystemType: "btrfs",
 		},
 	}
 
@@ -182,6 +211,22 @@ var (
 		},
 	}
 
+	// ACL test image. PreviewFeatures intentionally empty - the convert subcommand
+	// does not consult preview-features (it auto-detects the distro from the image),
+	// so this struct exists primarily to feed convert tests with a real ACL VHD via
+	// the --base-image-acl-3 flag. Tests that exercise the customize subcommand for
+	// ACL are out of scope of the convert-only enablement.
+	testBaseImageAcl3 = testBaseImageInfo{
+		Name:         "AzureContainerLinux3",
+		Distro:       baseImageDistroAcl,
+		Version:      baseImageVersionAcl3,
+		Variant:      baseImageAclVariantDefault,
+		ParamName:    paramBaseImageAcl3,
+		Param:        baseImageAcl3,
+		MountPoints:  aclMountPoints,
+		DefaultShell: defaultShellAcl,
+	}
+
 	baseImageAzureLinuxAll = []testBaseImageInfo{
 		testBaseImageAzl2CoreEfi,
 		testBaseImageAzl3CoreEfi,
@@ -198,6 +243,10 @@ var (
 	baseImageUbuntuAll = []testBaseImageInfo{
 		testBaseImageUbuntu2404AzureCloud,
 		testBaseImageUbuntu2204AzureCloud,
+	}
+
+	baseImageAclAll = []testBaseImageInfo{
+		testBaseImageAcl3,
 	}
 
 	defaultAzureLinuxPriorityList = []testBaseImageInfo{
@@ -218,6 +267,7 @@ var (
 	baseImageBareMetalAzl3        = flag.String(paramBaseImageAzl3BareMetal, "", "An Azure Linux 3.0 bare-metal image to use as a base image.")
 	baseImageUbuntuAzureCloud2204 = flag.String(paramBaseImageUbuntu2204AzureCloud, "", "An Ubuntu 22.04 Azure cloud image to use as a base image.")
 	baseImageUbuntuAzureCloud2404 = flag.String(paramBaseImageUbuntu2404AzureCloud, "", "An Ubuntu 24.04 Azure cloud image to use as a base image.")
+	baseImageAcl3                 = flag.String(paramBaseImageAcl3, "", "An Azure Container Linux 3.0 image to use as a base image (convert tests only).")
 	logLevel                      = flag.String(paramLogLevel, "info", "The log level (error, warning, info, debug, or trace)")
 )
 
@@ -323,6 +373,28 @@ func checkSkipForCustomizeDefaultImages(t *testing.T) []testBaseImageInfo {
 
 	if len(images) == 0 {
 		t.Skipf("--%s is required for this test", defaultAzureLinuxPriorityList[0].ParamName)
+	}
+
+	return images
+}
+
+// checkSkipForConvertDirectToCosiImages returns the set of base images that the
+// convert -> COSI path should be exercised against directly (no customize first).
+// Currently only Azure Container Linux 3.0 base images fit this profile: their
+// verity metadata is baked into the source image and they have no on-disk RPM DB
+// or rpm binary, so the standard "customize-then-convert" pattern doesn't apply.
+func checkSkipForConvertDirectToCosiImages(t *testing.T) []testBaseImageInfo {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
+	var images []testBaseImageInfo
+	for _, imageInfo := range baseImageAclAll {
+		if imageInfo.Param != nil && *imageInfo.Param != "" {
+			images = append(images, imageInfo)
+		}
+	}
+
+	if len(images) == 0 {
+		t.Skipf("--%s is required for this test", paramBaseImageAcl3)
 	}
 
 	return images

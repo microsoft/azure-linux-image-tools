@@ -289,6 +289,48 @@ func TestConvertImageInvalidInputFile(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidInputImageFileArg)
 }
 
+// TestConvertImageDirectToCosi exercises the convert subcommand against a base
+// image whose verity metadata is already present (no customize-first step).
+// This is the only supported convert -> COSI path for Azure Container Linux 3.0,
+// whose base image ships with /usr verity and an immutable rootfs scaffold.
+func TestConvertImageDirectToCosi(t *testing.T) {
+	for _, baseImageInfo := range checkSkipForConvertDirectToCosiImages(t) {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testConvertImageDirectToCosi(t, baseImageInfo)
+		})
+	}
+}
+
+func testConvertImageDirectToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTempDir := filepath.Join(tmpDir, fmt.Sprintf("TestConvertImageDirectToCosi_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTempDir)
+
+	buildDir := filepath.Join(testTempDir, "build")
+	outputImageFile := filepath.Join(testTempDir, "output.cosi")
+
+	options := ConvertImageOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    baseImage,
+		OutputImageFile:   outputImageFile,
+		OutputImageFormat: imagecustomizerapi.ImageFormatTypeCosi,
+	}
+
+	err := ConvertImage(t.Context(), options)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	exists, err := file.PathExists(outputImageFile)
+	assert.NoError(t, err)
+	assert.True(t, exists, "Expected output COSI file to exist")
+
+	cosiStat, err := os.Stat(outputImageFile)
+	assert.NoError(t, err)
+	assert.Greater(t, cosiStat.Size(), int64(100*diskutils.MiB), "COSI file should be at least 100 MiB")
+}
+
 func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {
 	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
