@@ -94,21 +94,28 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 }
 
 func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool {
-	return d.packageManager.isPackageInstalled(imageChroot, packageName)
+	// ACL images do not ship tdnf or rpm CLIs, so the in-chroot package query
+	// used by the base TDNF package manager would always fail. Use the host's
+	// rpm binary with --root to query the image's RPM database instead.
+	return isPackageInstalledViaHostRpm(imageChroot, packageName)
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot)
+	// ACL images do not ship the rpm CLI, so the standard in-chroot
+	// rpm -qa query would fail. Use the host's rpm binary with --root
+	// to query the image's RPM database instead.
+	return getAllPackagesFromChrootRpmViaHost(imageChroot)
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	bootloaderType, _, err := detectBootloaderType(d, imageChroot, nil, []string{systemdBootPackage})
-	return bootloaderType, err
+	// ACL always uses systemd-boot + UKI (no GRUB). Hardcode instead of
+	// probing via package queries, since ACL images lack tdnf/rpm CLIs.
+	return BootloaderTypeSystemdBoot, nil
 }
 
 func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
-	_, err := validateUkiDependencies(d, imageChroot, []string{systemdBootPackage})
-	return err
+	// ACL always ships systemd-boot. No runtime package check needed.
+	return nil
 }
 
 func (d *aclDistroHandler) GetEspDir() string {

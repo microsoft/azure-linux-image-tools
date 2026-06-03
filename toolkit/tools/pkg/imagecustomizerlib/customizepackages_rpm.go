@@ -342,7 +342,51 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPa
 		return nil, fmt.Errorf("failed to get RPM output from chroot:\n%w", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(out), "\n")
+	return parseRpmQueryOutput(out)
+}
+
+// getAllPackagesFromChrootRpmViaHost retrieves all installed packages by using
+// the host's rpm binary with --root to query the image's RPM database.
+// This is needed for distros like ACL whose images do not ship the rpm CLI
+// but still have an RPM database at /var/lib/rpm/.
+func getAllPackagesFromChrootRpmViaHost(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
+	out, _, err := shell.NewExecBuilder("rpm", "-qa",
+		"--root", imageChroot.ChrootDir(),
+		"--dbpath", "/var/lib/rpm",
+		"--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n").
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query RPM DB via host rpm (--root=%s):\n%w",
+			imageChroot.ChrootDir(), err)
+	}
+
+	return parseRpmQueryOutput(out)
+}
+
+// isPackageInstalledViaHostRpm checks whether a package is installed in the
+// image's RPM database by using the host's rpm binary with --root.
+func isPackageInstalledViaHostRpm(imageChroot safechroot.ChrootInterface, packageName string) bool {
+	err := shell.NewExecBuilder("rpm", "-q",
+		"--root", imageChroot.ChrootDir(),
+		"--dbpath", "/var/lib/rpm",
+		"--", packageName).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Execute()
+	if err != nil {
+		logger.Log.Debugf("Host rpm query for package (%s) in (%s) failed: %v",
+			packageName, imageChroot.ChrootDir(), err)
+	}
+	return err == nil
+}
+
+func parseRpmQueryOutput(out string) ([]OsPackage, error) {
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	lines := strings.Split(trimmed, "\n")
 	var packages []OsPackage
 	for _, line := range lines {
 		parts := strings.Fields(line)
