@@ -58,7 +58,7 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 		defer mounts.close()
 
 		// Refresh metadata
-		err = refreshRpmPackageMetadata(ctx, imageChroot, toolsChroot, pmHandler)
+		err = refreshRpmPackageMetadata(ctx, imageChroot, toolsChroot, pmHandler, mounts.chrootGpgKeys)
 		if err != nil {
 			return err
 		}
@@ -268,12 +268,17 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 
 // refreshRpmPackageMetadata refreshes package metadata
 func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler,
+	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler, gpgKeys []string,
 ) error {
 	logger.Log.Infof("Refreshing package metadata")
 
 	_, span := startRefreshPackageMetadataSpan(ctx)
 	defer span.End()
+
+	err := pmHandler.importGpgKeys(imageChroot, toolsChroot, gpgKeys)
+	if err != nil {
+		return fmt.Errorf("failed to import gpg keys:\n%w", err)
+	}
 
 	// --setopt=skip_if_unavailable=False ensures failures to fetch repo metadata are fatal. TDNF already does this by
 	// default, but DNF on some distros (e.g. Azure Linux 4.0) defaults to skip_if_unavailable=True, so we set it
@@ -294,7 +299,7 @@ func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chro
 		}, args...)
 	}
 
-	err := executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
+	err = executeRpmPackageManagerCommand(args, imageChroot, toolsChroot, pmHandler)
 	if err != nil {
 		// For DNF/TDNF check-update, exit code 100 means updates are available
 		var exitErr *exec.ExitError
