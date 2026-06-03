@@ -106,7 +106,6 @@ jobs:
         if [ "$HOST_ARCH" == "amd64" ]; then
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-2.0-$HOST_ARCH" azl-core-legacy-2.0
           ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-3.0-$HOST_ARCH" azl-core-legacy-3.0
-          ./repo/.github/workflows/scripts/download-image.sh "$AZURE_STORAGE" "$AZURE_CONTAINER" "azure-linux/core-legacy-vhd-4.0-$HOST_ARCH" azl-core-legacy-4.0
         fi
       env:
         HOST_ARCH: ${{ inputs.hostArch }}
@@ -162,11 +161,9 @@ jobs:
 
         CORE_LEGACY_AZL2=""
         CORE_LEGACY_AZL3=""
-        CORE_LEGACY_AZL4=""
         if [ "$HOST_ARCH" == "amd64" ]; then
           CORE_LEGACY_AZL2="../../../azl-core-legacy-2.0/image.vhd"
           CORE_LEGACY_AZL3="../../../azl-core-legacy-3.0/image.vhd"
-          CORE_LEGACY_AZL4="../../../azl-core-legacy-4.0/image.vhd"
         fi
 
         TEST_RPMS_DIR="../../toolkit/tools/internal/testutils/testrpms"
@@ -178,7 +175,6 @@ jobs:
           CORE_EFI_AZL4="../../../azl-core-efi-4.0/image.vhdx" \
           CORE_LEGACY_AZL2="$CORE_LEGACY_AZL2" \
           CORE_LEGACY_AZL3="$CORE_LEGACY_AZL3" \
-          CORE_LEGACY_AZL4="$CORE_LEGACY_AZL4" \
           RPM_SOURCES_AZL3="$TEST_RPMS_DIR/downloadedrpms/azurelinux/3.0" \
           RPM_SOURCES_AZL4="$TEST_RPMS_DIR/downloadedrpms/azurelinux/4.0" \
           RPM_SOURCES_FEDORA42="$TEST_RPMS_DIR/downloadedrpms/fedora/42" \

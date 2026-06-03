@@ -91,7 +91,6 @@ test-imagecustomizer:
 		--core-efi-azl4="${CORE_EFI_AZL4}" \
 		--core-legacy-azl2="${CORE_LEGACY_AZL2}" \
 		--core-legacy-azl3="${CORE_LEGACY_AZL3}" \
-		--core-legacy-azl4="${CORE_LEGACY_AZL4}" \
 		--rpm-sources-azl3="${RPM_SOURCES_AZL3}" \
 		--rpm-sources-azl4="${RPM_SOURCES_AZL4}" \
 		--rpm-sources-fedora42="${RPM_SOURCES_FEDORA42}" \
