@@ -116,6 +116,8 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 
 		switch variantId {
 		case "azurecontainerlinux":
+			versionId = cleanAclVersionId(versionId, version)
+
 			return TargetOs{
 				Distro:    AzureContainerLinux,
 				VersionId: versionId,
@@ -148,4 +150,16 @@ func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
 	default:
 		return TargetOs{}, fmt.Errorf("unknown ID (%s) in os-release", distroId)
 	}
+}
+
+func cleanAclVersionId(versionId string, version version.Version) string {
+	if version == nil {
+		return versionId
+	}
+
+	// ACL currently sets VERSION_ID to the full version string (e.g. "3.0.20260421"), instead of using VERSION.
+	// So, strip off the date to get the proper VERSION_ID.
+	cleanVersion := version[:min(2, len(version))]
+	versionId = cleanVersion.String()
+	return versionId
 }

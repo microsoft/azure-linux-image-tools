@@ -512,7 +512,7 @@ loop:
 		cmp := verOptions.Version.Cmp(targetOs.Version)
 		switch {
 		case cmp > 0:
-			// Target OS is newer than this version (and all remaining versions).
+			// Target OS is older than this version (and all remaining versions).
 			break loop
 
 		case cmp == 0:
@@ -520,7 +520,7 @@ loop:
 			return verOptions, nil
 
 		case cmp < 0:
-			// Target OS is older than this version.
+			// Target OS is newer than this version.
 			foundVerOptions = verOptions
 			found = true
 		}

@@ -39,7 +39,7 @@ func TestDistroFileSystemsOptionsOrdering(t *testing.T) {
 		for i := 0; i < len(verFsOptions)-1; i++ {
 			a := verFsOptions[i].Version
 			b := verFsOptions[i+1].Version
-			assert.Truef(t, a.Le(b), "%s not ordered correctly: %v must be <= %v", distro, a, b)
+			assert.Truef(t, a.Lt(b), "%s not ordered correctly: %v must be < %v", distro, a, b)
 		}
 	}
 }
