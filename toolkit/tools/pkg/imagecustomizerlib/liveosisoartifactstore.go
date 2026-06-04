@@ -456,7 +456,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 			}
 		}
 		if initrdPath == "" {
-			return nil, fmt.Errorf("bootstrap-mode ISO has no per-kernel initrd", squashfsPath)
+			return nil, fmt.Errorf("bootstrap-mode ISO has no per-kernel initrd under (%s)", artifactsDir)
 		}
 	case imagecustomizerapi.InitramfsImageTypeFullOS:
 		initrdPath = filepath.Join(artifactsDir, isoInitrdPath)
