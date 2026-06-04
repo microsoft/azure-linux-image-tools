@@ -452,14 +452,14 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 	// Case A0:
 	//       Input: base vhdx
 	//	       kdumpBootFiles=keep
-	//         boot/initramfs-6.6.65.1-2.azl3kdump.img exists
-	//         boot/vmlinuz-6.6.65.1-2.azl3 exists
+	//         boot/initramfs-6.6.65.1-2.npikdump.img exists
+	//         boot/vmlinuz-6.6.65.1-2.npi exists
 	//       Expected: {full-os}/boot/{initramfs + kernel}
 	//
 	// This test case ensures we can exclude the kdump files from the /boot folder clean-up.
 	//
-	kdumpInitrdRelPath := "boot/initramfs-6.6.65.1-2.azl3kdump.img"
-	kdumpVmlinuzRelPath := "boot/vmlinuz-6.6.65.1-2.azl3"
+	kdumpInitrdRelPath := "boot/initramfs-6.6.65.1-2.npikdump.img"
+	kdumpVmlinuzRelPath := "boot/vmlinuz-6.6.65.1-2.npi"
 	kudmpFilePaths := kdumpInitrdRelPath + ";" + kdumpVmlinuzRelPath
 	configA0 := createConfig(t, baseImageInfo.Version, kudmpFilePaths, "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
@@ -577,14 +577,14 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 	// Case B:
 	//       Input: base vhdx
 	//	       kdumpBootFiles=keep
-	//         boot/initramfs-6.6.65.1-2.azl3kdump.img does not exist
-	//         boot/vmlinuz-6.6.65.1-2.azl3 exists
+	//         boot/initramfs-6.6.65.1-2.npikdump.img does not exist
+	//         boot/vmlinuz-6.6.65.1-2.npi exists
 	//       Expected: no {full-os}/boot
 	//
 	// This test case ensures that if the kdump initramfs file is not present, the entire
 	// /boot folder will be deleted from the full-os.
 	//
-	configB := createConfig(t, baseImageInfo.Version, "a.txt;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
+	configB := createConfig(t, baseImageInfo.Version, "a.txt;boot/vmlinuz-6.6.65.1-2.npi", "rd.info", imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
@@ -603,13 +603,13 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 	// Case C:
 	//       Input: base vhdx
 	//         kdumpBootFiles=none
-	//         boot/initramfs-6.6.65.1-2.azl3kdump.img exists
-	//         boot/vmlinuz-6.6.65.1-2.azl3 exist
+	//         boot/initramfs-6.6.65.1-2.npikdump.img exists
+	//         boot/vmlinuz-6.6.65.1-2.npi exist
 	//       Expected: no {full-os}/boot
 	//
 	//
 	//
-	configC := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.azl3kdump.img;boot/vmlinuz-6.6.65.1-2.azl3", "rd.info",
+	configC := createConfig(t, baseImageInfo.Version, "boot/initramfs-6.6.65.1-2.npikdump.img;boot/vmlinuz-6.6.65.1-2.npi", "rd.info",
 		imagecustomizerapi.InitramfsImageTypeFullOS,
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)

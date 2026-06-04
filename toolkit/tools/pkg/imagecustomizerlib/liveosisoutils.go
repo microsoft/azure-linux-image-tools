@@ -43,9 +43,8 @@ const (
 
 	initrdImage = "initrd.img"
 
-	// In vhd(x)/qcow images, the kernel is named 'vmlinuz-<version>'.
-	// In the ISO image, the kernel is named 'vmlinuz'.
-	vmLinuzPrefix     = "vmlinuz"
+	// In vhd(x)/qcow/iso images, the kernel is named 'vmlinuz-<version>'.
+	vmLinuzPrefix     = "vmlinuz-"
 	initramfsPrefix   = "initramfs-"  // Azl3
 	initrdPrefix      = "initrd.img-" // CBL-Mariner
 	isoKernelDir      = "/boot"
