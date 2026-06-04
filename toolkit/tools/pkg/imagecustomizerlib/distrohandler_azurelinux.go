@@ -23,7 +23,7 @@ import (
 // azureLinuxDistroHandler implements DistroHandler for Azure Linux 2.0 and 3.0.
 // Azure Linux 4.0 is handled by azureLinux4DistroHandler.
 type azureLinuxDistroHandler struct {
-	version        string
+	targetOs       targetos.TargetOs
 	packageManager rpmPackageManagerHandler
 }
 
@@ -38,25 +38,29 @@ var (
 	systemdBootPackagesAzl3 = []string{systemdBootPackage}
 )
 
-func newAzureLinuxDistroHandler(version string) *azureLinuxDistroHandler {
+func newAzureLinuxDistroHandler(targetOs targetos.TargetOs) *azureLinuxDistroHandler {
 	return &azureLinuxDistroHandler{
-		version:        version,
-		packageManager: newTdnfPackageManager(version),
+		targetOs:       targetOs,
+		packageManager: newTdnfPackageManager(targetOs.VersionId),
 	}
 }
 
 func (d *azureLinuxDistroHandler) GetTargetOs() targetos.TargetOs {
-	switch d.version {
-	case "2.0":
-		return targetos.TargetOsAzureLinux2
-	case "3.0":
-		return targetos.TargetOsAzureLinux3
-	default:
-		panic("unsupported Azure Linux version: " + d.version)
-	}
+	return d.targetOs
 }
 
 func (d *azureLinuxDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
+	switch d.targetOs.VersionId {
+	case "2.0", "3.0":
+		// Supported versions
+
+	default:
+		err := handleUnsupportedDistroVersion(rc, d.targetOs)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -121,7 +125,7 @@ func (d *azureLinuxDistroHandler) SELinuxSupported() bool {
 
 func (d *azureLinuxDistroHandler) GetSELinuxModeFromLinuxArgs(args []grubConfigLinuxArg,
 ) (imagecustomizerapi.SELinuxMode, error) {
-	if d.version == "2.0" {
+	if d.targetOs.VersionId == "2.0" {
 		return getSELinuxModeFromLinuxArgs(args)
 	}
 
@@ -145,7 +149,7 @@ func (d *azureLinuxDistroHandler) RegenerateInitramfs(ctx context.Context, image
 	defer span.End()
 
 	var err error
-	if d.version == "2.0" {
+	if d.targetOs.VersionId == "2.0" {
 		// The 'mkinitrd' command was removed in Azure Linux 3.0 in favor of using 'dracut' directly.
 		err = shell.NewExecBuilder("mkinitrd").
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
@@ -174,7 +178,7 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 	// Azure Linux 3.0+ always uses grub2-mkconfig.
 	// The legacy grub config detection logic is only relevant for Azure Linux 2.0.
 	// And for new images, always use grub2-mkconfig.
-	forceGrubMkconfig := newImage || d.version != "2.0"
+	forceGrubMkconfig := newImage || d.targetOs.VersionId != "2.0"
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
 		currentSELinuxMode, forceGrubMkconfig, d, resources.AssetsGrubDefFileAzl3, installutils.FedoraGrubEnvRelPath,

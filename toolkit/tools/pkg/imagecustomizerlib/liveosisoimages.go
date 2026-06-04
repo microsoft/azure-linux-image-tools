@@ -570,6 +570,11 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 		return fmt.Errorf("failed to determine target OS of ISO squashfs:\n%w", err)
 	}
 
+	distroHandler, err := NewDistroHandler(targetOs)
+	if err != nil {
+		return err
+	}
+
 	// populate the newly created disk image with content from the squash fs
 	installOSFunc := func(imageChroot *safechroot.Chroot) error {
 		logger.Log.Infof("Installing files to empty image")
@@ -664,7 +669,7 @@ func createWriteableImageFromArtifacts(buildDir string, inputArtifactsStore *Iso
 
 	// create the new raw disk image
 	writeableChrootDir := "writeable-raw-image"
-	_, err = CreateNewImage(targetOs, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
+	_, err = CreateNewImage(distroHandler, rawImageFile, diskConfig, fileSystemConfigs, buildDir, writeableChrootDir,
 		installOSFunc)
 	if err != nil {
 		return fmt.Errorf("failed to copy squashfs into new writeable image (%s):\n%w", rawImageFile, err)

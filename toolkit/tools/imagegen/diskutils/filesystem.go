@@ -23,6 +23,11 @@ import (
 // However, when building Azure Linux images, the defaults should be as consistent as possible and should only contain
 // features that are supported on Azure Linux.
 
+type versionFileSystemsOptions struct {
+	Version   version.Version
+	FsOptions fileSystemsOptions
+}
+
 type btrfsOptions struct {
 	Features []string
 	Checksum string
@@ -237,49 +242,81 @@ var (
 		Features: []string{"bigtime", "crc", "finobt", "inobtcount", "reflink", "rmapbt", "sparse"},
 	}
 
-	targetOsFileSystemsOptions = map[targetos.TargetOs]fileSystemsOptions{
-		targetos.TargetOsAzureLinux2: {
-			Btrfs:    azl2BtrfsOptions,
-			Ext4:     azl2Ext4Options,
-			BootExt4: azl2Ext4Options,
-			Xfs:      azl2XfsOptions,
-			BootXfs:  azl2XfsOptions,
+	azlFileSystemsOptions = []versionFileSystemsOptions{
+		{
+			targetos.TargetOsAzureLinux2.Version,
+			fileSystemsOptions{
+				Btrfs:    azl2BtrfsOptions,
+				Ext4:     azl2Ext4Options,
+				BootExt4: azl2Ext4Options,
+				Xfs:      azl2XfsOptions,
+				BootXfs:  azl2XfsOptions,
+			},
 		},
-		targetos.TargetOsAzureLinux3: {
-			Btrfs:    azl3BtrfsOptions,
-			Ext4:     azl3Ext4Options,
-			BootExt4: azl3Ext4Options,
-			Xfs:      azl3XfsOptions,
-			BootXfs:  azl3BootXfsOptions,
+		{
+			targetos.TargetOsAzureLinux3.Version,
+			fileSystemsOptions{
+				Btrfs:    azl3BtrfsOptions,
+				Ext4:     azl3Ext4Options,
+				BootExt4: azl3Ext4Options,
+				Xfs:      azl3XfsOptions,
+				BootXfs:  azl3BootXfsOptions,
+			},
 		},
-		targetos.TargetOsAzureLinux4: {
-			Btrfs:    azl4BtrfsOptions,
-			Ext4:     azl4Ext4Options,
-			BootExt4: azl4BootExt4Options,
-			Xfs:      azl4XfsOptions,
-			BootXfs:  azl4BootXfsOptions,
+		{
+			targetos.TargetOsAzureLinux4.Version,
+			fileSystemsOptions{
+				Btrfs:    azl4BtrfsOptions,
+				Ext4:     azl4Ext4Options,
+				BootExt4: azl4BootExt4Options,
+				Xfs:      azl4XfsOptions,
+				BootXfs:  azl4BootXfsOptions,
+			},
 		},
-		targetos.TargetOsFedora42: {
-			Btrfs:    fedora42BtrfsOptions,
-			Ext4:     fedora42Ext4Options,
-			BootExt4: fedora42Ext4Options,
-			Xfs:      fedora42XfsOptions,
-			BootXfs:  fedora42XfsOptions,
+	}
+
+	fedoraFileSystemsOptions = []versionFileSystemsOptions{
+		{
+			targetos.TargetOsFedora42.Version,
+			fileSystemsOptions{
+				Btrfs:    fedora42BtrfsOptions,
+				Ext4:     fedora42Ext4Options,
+				BootExt4: fedora42Ext4Options,
+				Xfs:      fedora42XfsOptions,
+				BootXfs:  fedora42XfsOptions,
+			},
 		},
-		targetos.TargetOsUbuntu2204: {
-			Btrfs:    ubuntu2204BtrfsOptions,
-			Ext4:     ubuntu2204Ext4Options,
-			BootExt4: ubuntu2204Ext4Options,
-			Xfs:      ubuntu2204XfsOptions,
-			BootXfs:  ubuntu2204XfsOptions,
+	}
+
+	ubuntuFileSystemsOptions = []versionFileSystemsOptions{
+		{
+			targetos.TargetOsUbuntu2204.Version,
+			fileSystemsOptions{
+				Btrfs:    ubuntu2204BtrfsOptions,
+				Ext4:     ubuntu2204Ext4Options,
+				BootExt4: ubuntu2204Ext4Options,
+				Xfs:      ubuntu2204XfsOptions,
+				BootXfs:  ubuntu2204XfsOptions,
+			},
 		},
-		targetos.TargetOsUbuntu2404: {
-			Btrfs:    ubuntu2404BtrfsOptions,
-			Ext4:     ubuntu2404Ext4Options,
-			BootExt4: ubuntu2404Ext4Options,
-			Xfs:      ubuntu2404XfsOptions,
-			BootXfs:  ubuntu2404XfsOptions,
+		{
+			targetos.TargetOsUbuntu2404.Version,
+			fileSystemsOptions{
+				Btrfs:    ubuntu2404BtrfsOptions,
+				Ext4:     ubuntu2404Ext4Options,
+				BootExt4: ubuntu2404Ext4Options,
+				Xfs:      ubuntu2404XfsOptions,
+				BootXfs:  ubuntu2404XfsOptions,
+			},
 		},
+	}
+
+	// Note: Distro versions must be in order from oldest to newest.
+	distroFileSystemsOptions = map[targetos.Distro][]versionFileSystemsOptions{
+		targetos.AzureLinux:          azlFileSystemsOptions,
+		targetos.AzureContainerLinux: azlFileSystemsOptions,
+		targetos.Fedora:              fedoraFileSystemsOptions,
+		targetos.Ubuntu:              ubuntuFileSystemsOptions,
 	}
 
 	// A list of btrfs features and their minimum supported kernel versions.
@@ -413,10 +450,12 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		return nil, fmt.Errorf("host kernel version (%s) is too old (min: %s)", minKernelVersion, hostKernelVersion)
 	}
 
-	options, hasOptions := targetOsFileSystemsOptions[targetOs]
-	if !hasOptions {
-		return nil, fmt.Errorf("unknown target OS (%s)", targetOs)
+	verOptions, err := getFileSystemOptionsForTargetOs(targetOs)
+	if err != nil {
+		return nil, err
 	}
+
+	options := verOptions.FsOptions
 
 	switch filesystemType {
 	case "btrfs":
@@ -447,6 +486,55 @@ func getFileSystemOptions(targetOs targetos.TargetOs, filesystemType string, isB
 		args := []string{fmt.Sprintf("mkfs.%s", filesystemType), partDevPath}
 		return args, nil
 	}
+}
+
+func getFileSystemOptionsForTargetOs(targetOs targetos.TargetOs) (versionFileSystemsOptions, error) {
+	distroOptions, hasDistro := distroFileSystemsOptions[targetOs.Distro]
+	if !hasDistro || len(distroOptions) <= 0 {
+		return versionFileSystemsOptions{}, fmt.Errorf("unknown target OS (distro='%s', version='%s')",
+			targetOs.Distro, targetOs.Version)
+	}
+
+	if targetOs.Version == nil {
+		// The VERSION_ID field couldn't be parsed. So, pick the oldest supported distro version, since it is the
+		// most likely to be compatible, since it likely uses the fewest filesystem features.
+		logger.Log.Debugf("Unknown target OS version (%s). Using %s %s's filesystem options", targetOs.VersionId,
+			targetOs.Distro, distroOptions[0].Version)
+		return distroOptions[0], nil
+	}
+
+	// Find the closest match older than or equal to the target version.
+	foundVerOptions := versionFileSystemsOptions{}
+	found := false
+
+loop:
+	for _, verOptions := range distroOptions {
+		cmp := verOptions.Version.Cmp(targetOs.Version)
+		switch {
+		case cmp > 0:
+			// Target OS is older than this version (and all remaining versions).
+			break loop
+
+		case cmp == 0:
+			// Perfect match
+			return verOptions, nil
+
+		case cmp < 0:
+			// Target OS is newer than this version.
+			foundVerOptions = verOptions
+			found = true
+		}
+	}
+
+	if !found {
+		// Target OS is older than the oldest supported distro version. So, pick the oldest supported distro version,
+		// since it is the most likely to be compatible, since it likely uses the fewest filesystem features.
+		foundVerOptions = distroOptions[0]
+	}
+
+	logger.Log.Debugf("Unsupported target OS version (%s). Using %s %s's filesystem options", targetOs.VersionId,
+		targetOs.Distro, foundVerOptions.Version)
+	return foundVerOptions, nil
 }
 
 func getBtrfsFileSystemOptions(hostKernelVersion version.Version, options fileSystemsOptions, partDevPath string,

@@ -427,7 +427,10 @@ func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.Partitio
 		return nil, fmt.Errorf("failed to get installed target OS from rootfs partition:\n%w", err)
 	}
 
-	distroHandler := NewDistroHandlerFromTargetOs(detectedOs)
+	distroHandler, err := NewDistroHandler(detectedOs)
+	if err != nil {
+		return nil, err
+	}
 
 	for i := len(extraMounts) - 1; i >= 0; i-- {
 		if err := extraMounts[i].CleanClose(); err != nil {

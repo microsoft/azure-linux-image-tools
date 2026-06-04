@@ -5,10 +5,34 @@ package version
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
+var (
+	basicVersionRegex = regexp.MustCompile(`^\d+(\.\d+)*$`)
+)
+
 type Version []int
+
+func ParseBasicVersion(s string) (Version, error) {
+	if !basicVersionRegex.MatchString(s) {
+		return nil, fmt.Errorf("invalid version format (%s)", s)
+	}
+
+	result := Version(nil)
+	for partStr := range strings.SplitSeq(s, ".") {
+		partInt, err := strconv.Atoi(partStr)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, partInt)
+	}
+
+	return result, nil
+}
 
 func (v Version) Cmp(other Version) int {
 	count := len(v)

@@ -6,12 +6,14 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/version"
 )
 
 const (
@@ -22,15 +24,9 @@ const (
 	systemdBootPackage = "systemd-boot"
 )
 
-// PackageType represents the type of package format
-type PackageType string
-
-// DistroName represents the distribution name
-type DistroName string
-
-const (
-	distroNameAzureLinux DistroName = "azurelinux"
-	distroNameFedora     DistroName = "fedora"
+var (
+	ErrUnsupportedDistroVersion       = NewImageCustomizerError("Validation:UnsupportedDistroVersion", "base image has unsupported distro version")
+	ErrUnsupportedDistroVersionSuffix = fmt.Sprintf("preview feature '%s' may be specified to use unsupported versions", imagecustomizerapi.PreviewFeatureUnsupportedDistroVersion)
 )
 
 // DistroHandler represents the interface for distribution-specific configuration
@@ -129,40 +125,30 @@ type DistroHandler interface {
 	GrubEfiPackage() string
 }
 
-// NewDistroHandlerFromTargetOs creates a distro handler directly from TargetOs
-func NewDistroHandlerFromTargetOs(targetOs targetos.TargetOs) DistroHandler {
-	switch targetOs {
-	case targetos.TargetOsFedora42:
-		return newFedoraDistroHandler("42")
-	case targetos.TargetOsAzureLinux2:
-		return newAzureLinuxDistroHandler("2.0")
-	case targetos.TargetOsAzureLinux3:
-		return newAzureLinuxDistroHandler("3.0")
-	case targetos.TargetOsAzureLinux4:
-		return newAzureLinux4DistroHandler()
-	case targetos.TargetOsAzureContainerLinux3:
-		return newAclDistroHandler()
-	case targetos.TargetOsUbuntu2204:
-		return newUbuntuDistroHandler("22.04")
-	case targetos.TargetOsUbuntu2404:
-		return newUbuntuDistroHandler("24.04")
-	default:
-		panic("unsupported target OS: " + string(targetOs))
-	}
-}
+// NewDistroHandler creates a distro handler directly from TargetOs
+func NewDistroHandler(targetOs targetos.TargetOs) (DistroHandler, error) {
+	switch targetOs.Distro {
+	case targetos.Fedora:
+		return newFedoraDistroHandler(targetOs), nil
 
-// NewDistroHandler creates the appropriate distro handler with version support (legacy)
-func NewDistroHandler(distroName string, version string) DistroHandler {
-	switch distroName {
-	case string(distroNameFedora):
-		return newFedoraDistroHandler(version)
-	case string(distroNameAzureLinux):
-		if version == "4.0" {
-			return newAzureLinux4DistroHandler()
+	case targetos.AzureLinux:
+		// Future: Once AZL4 is out of preview, switch the unknown/invalid version handling to the AZL4 handler.
+		switch {
+		case targetOs.Version != nil && targetOs.Version.Ge(version.Version{4, 0}):
+			return newAzureLinux4DistroHandler(targetOs), nil
+
+		default:
+			return newAzureLinuxDistroHandler(targetOs), nil
 		}
-		return newAzureLinuxDistroHandler(version)
+
+	case targetos.AzureContainerLinux:
+		return newAclDistroHandler(targetOs), nil
+
+	case targetos.Ubuntu:
+		return newUbuntuDistroHandler(targetOs), nil
+
 	default:
-		panic("unsupported distro name: " + distroName)
+		return nil, fmt.Errorf("unsupported target OS: %s %s", targetOs.Distro, targetOs.Version)
 	}
 }
 
@@ -172,5 +158,20 @@ func NewDistroHandlerFromChroot(imageChroot safechroot.ChrootInterface) (DistroH
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
 	}
-	return NewDistroHandlerFromTargetOs(targetOs), nil
+
+	distroHandler, err := NewDistroHandler(targetOs)
+	if err != nil {
+		return nil, err
+	}
+
+	return distroHandler, nil
+}
+
+func handleUnsupportedDistroVersion(rc *ResolvedConfig, targetOs targetos.TargetOs) error {
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUnsupportedDistroVersion) {
+		return fmt.Errorf("%w (distro='%s', version='%s'):\n%s", ErrUnsupportedDistroVersion,
+			targetOs.Distro, targetOs.VersionId, ErrUnsupportedDistroVersionSuffix)
+	}
+
+	return nil
 }
