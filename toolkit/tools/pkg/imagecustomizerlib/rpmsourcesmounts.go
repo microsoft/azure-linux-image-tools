@@ -41,6 +41,7 @@ type rpmSourcesMounts struct {
 	mounts                    []*safemount.Mount
 	allReposConfigFilePath    string
 	chrootGpgKeys             []string
+	uriGpgKeys                []string
 }
 
 func mountRpmSources(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot, rpmsSources []string,
@@ -234,8 +235,12 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 
 					newValues = append(newValues, newValue)
 
-					if field == "gpgkey" && newValueChrootPath != "" {
-						m.chrootGpgKeys = append(m.chrootGpgKeys, newValueChrootPath)
+					if field == "gpgkey" {
+						if newValueChrootPath != "" {
+							m.chrootGpgKeys = append(m.chrootGpgKeys, newValueChrootPath)
+						} else {
+							m.uriGpgKeys = append(m.uriGpgKeys, value)
+						}
 					}
 				}
 

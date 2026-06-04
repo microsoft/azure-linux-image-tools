@@ -196,7 +196,7 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 }
 
 func (pm *dnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	gpgKeys []string,
+	gpgKeys []string, uriGpgKeys []string,
 ) error {
 	// dnf handles gpg import automatically.
 	// So, nothing to do.

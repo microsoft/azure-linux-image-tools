@@ -24,5 +24,7 @@ type rpmPackageManagerHandler interface {
 
 	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
 
-	importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, gpgKeys []string) error
+	importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, chrootGpgKeys []string,
+		uriGpgKeys []string,
+	) error
 }

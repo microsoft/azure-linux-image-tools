@@ -118,12 +118,16 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 }
 
 func (pm *tdnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
-	gpgKeys []string,
+	chrootGpgKeys []string, uriGpgKeys []string,
 ) error {
-	// tdnf doesn't do gpg import when dowloading repo metadata, only when installing packages.
+	// tdnf doesn't do gpg import when downloading repo metadata, only when installing packages.
 	// So, it has to be done manually. :-(
 
-	if len(gpgKeys) <= 0 {
+	if len(uriGpgKeys) > 0 {
+		logger.Log.Infof("GPG import not implemented yet for remote URIs (%v)", uriGpgKeys)
+	}
+
+	if len(chrootGpgKeys) <= 0 {
 		// No gpg keys to import.
 		return nil
 	}
@@ -133,7 +137,7 @@ func (pm *tdnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, tool
 		chroot = toolsChroot
 	}
 
-	for _, gpgKey := range gpgKeys {
+	for _, gpgKey := range chrootGpgKeys {
 		err := shell.NewExecBuilder("gpg", "--import", gpgKey).
 			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
 			ErrorStderrLines(2).

@@ -58,7 +58,8 @@ func managePackagesRpm(ctx context.Context, buildDir string, baseConfigPath stri
 		defer mounts.close()
 
 		// Refresh metadata
-		err = refreshRpmPackageMetadata(ctx, imageChroot, toolsChroot, pmHandler, mounts.chrootGpgKeys)
+		err = refreshRpmPackageMetadata(ctx, imageChroot, toolsChroot, pmHandler, mounts.chrootGpgKeys,
+			mounts.uriGpgKeys)
 		if err != nil {
 			return err
 		}
@@ -268,16 +269,16 @@ func removeRpmPackages(ctx context.Context, allPackagesToRemove []string, imageC
 
 // refreshRpmPackageMetadata refreshes package metadata
 func refreshRpmPackageMetadata(ctx context.Context, imageChroot *safechroot.Chroot,
-	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler, gpgKeys []string,
+	toolsChroot *safechroot.Chroot, pmHandler rpmPackageManagerHandler, chrootGpgKeys []string, uriGpgKeys []string,
 ) error {
 	logger.Log.Infof("Refreshing package metadata")
 
 	_, span := startRefreshPackageMetadataSpan(ctx)
 	defer span.End()
 
-	err := pmHandler.importGpgKeys(imageChroot, toolsChroot, gpgKeys)
+	err := pmHandler.importGpgKeys(imageChroot, toolsChroot, chrootGpgKeys, uriGpgKeys)
 	if err != nil {
-		return fmt.Errorf("failed to import gpg keys:\n%w", err)
+		return err
 	}
 
 	// --setopt=skip_if_unavailable=False ensures failures to fetch repo metadata are fatal. TDNF already does this by
