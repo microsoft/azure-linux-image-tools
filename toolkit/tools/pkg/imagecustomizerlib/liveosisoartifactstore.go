@@ -434,7 +434,33 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	filesStore.kernelBootFiles = make(map[string]*KernelBootFiles)
 	filesStore.kdumpBootFiles = make(map[string]*KdumpBootFiles)
 
-	initrdPath := filepath.Join(artifactsDir, isoInitrdPath)
+	// Resolve the distro from the ISO's initrd. Which initrd to read depends on the ISO's initramfsType.
+	squashfsPath := filepath.Join(artifactsDir, liveOSImagePath)
+	squashfsExists, err := file.PathExists(squashfsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for squashfs at (%s):\n%w", squashfsPath, err)
+	}
+	if squashfsExists {
+		filesStore.squashfsImagePath = squashfsPath
+	}
+	var initrdPath string
+	switch initramfsTypeFromFilesStore(filesStore) {
+	case imagecustomizerapi.InitramfsImageTypeBootstrap:
+		// Any of the per-kernel dracut initrds is fine for distro detection since they'll've been all from the same OS.
+		for _, f := range isoFiles {
+			base := filepath.Base(f)
+			isInitrd := strings.HasPrefix(base, initramfsPrefix) || strings.HasPrefix(base, initrdPrefix)
+			if isInitrd && strings.HasSuffix(base, ".img") {
+				initrdPath = f
+				break
+			}
+		}
+		if initrdPath == "" {
+			return nil, fmt.Errorf("bootstrap-mode ISO has no per-kernel initrd", squashfsPath)
+		}
+	case imagecustomizerapi.InitramfsImageTypeFullOS:
+		initrdPath = filepath.Join(artifactsDir, isoInitrdPath)
+	}
 	distroHandler, err := NewDistroHandlerFromInitrd(initrdPath)
 	if err != nil {
 		return nil, err
