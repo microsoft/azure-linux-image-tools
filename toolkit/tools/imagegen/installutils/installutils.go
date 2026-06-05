@@ -957,8 +957,11 @@ func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bo
 func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath string, encryptEnabled bool) (err error) {
 	const (
 		squashErrors     = false
+		bootDir          = "/boot"
+		bootDirArg       = "--boot-directory"
 		grub2BootDir     = "/boot/grub2"
 		grub2InstallName = "grub2-install"
+		grubInstallName  = "grub-install"
 	)
 
 	// Add grub cryptodisk settings
@@ -968,10 +971,29 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 			return
 		}
 	}
+	installBootDir := filepath.Join(installChroot.RootDir(), bootDir)
+	grub2InstallBootDirArg := fmt.Sprintf("%s=%s", bootDirArg, installBootDir)
 
-	err = shell.NewExecBuilder(grub2InstallName, "--target=i386-pc", "--boot-directory=/boot", bootDevPath).
-		Chroot(installChroot.ChrootDir()).
-		Execute()
+	installName := grub2InstallName
+	grub2InstallExists, err := file.CommandExists(grub2InstallName)
+	if err != nil {
+		return
+	}
+
+	if !grub2InstallExists {
+		grubInstallExists, err := file.CommandExists(grubInstallName)
+		if err != nil {
+			return err
+		}
+
+		if !grubInstallExists {
+			return fmt.Errorf("neither 'grub2-install' command nor 'grub-install' command found")
+		}
+
+		installName = grubInstallName
+	}
+
+	err = shell.ExecuteLive(squashErrors, installName, "--target=i386-pc", grub2InstallBootDirArg, bootDevPath)
 	if err != nil {
 		return
 	}
