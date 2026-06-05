@@ -137,7 +137,7 @@ func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string, ker
 	baseFileName := filepath.Base(targetPath)
 
 	kernelVersion, hasKernelVersion := sliceutils.FindValueFunc(kernelVersions, func(kernelVersion string) bool {
-		return strings.Contains(targetPath, kernelVersion)
+		return strings.Contains(baseFileName, kernelVersion)
 	})
 
 	if !hasKernelVersion {

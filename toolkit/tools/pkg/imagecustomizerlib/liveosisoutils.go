@@ -45,8 +45,8 @@ const (
 
 	// In vhd(x)/qcow/iso images, the kernel is named 'vmlinuz-<version>'.
 	vmLinuzPrefix     = "vmlinuz-"
-	initramfsPrefix   = "initramfs-"  // Azl3
-	initrdPrefix      = "initrd.img-" // CBL-Mariner
+	initramfsPrefix   = "initramfs-"  // AZL3, Fedora, etc.
+	initrdPrefix      = "initrd.img-" // AZL2, Ubuntu, etc.
 	isoKernelDir      = "/boot"
 	isoInitrdPath     = "/boot/" + initrdImage
 	isoBootloadersDir = "/efi/boot"
