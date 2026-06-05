@@ -15,7 +15,7 @@ func LogVersionsOfToolDeps() {
 		"--version": {
 			"qemu-img", "rpm", "dd", "lsblk", "losetup", "sfdisk", "udevadm",
 			"flock", "blkid", "sed", "createrepo", "genisoimage", "mkfs",
-			"fsck", "fatlabel", "zstd", "veritysetup", "objcopy",
+			"fsck", "fatlabel", "zstd", "veritysetup", "grub-install", "objcopy",
 		},
 		"-version": {
 			"mksquashfs",
