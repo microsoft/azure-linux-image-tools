@@ -4,7 +4,9 @@
 package imagecustomizerlib
 
 import (
+	"archive/tar"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConvertImageRawToVhd(t *testing.T) {
@@ -326,9 +329,68 @@ func testConvertImageDirectToCosi(t *testing.T, baseImageInfo testBaseImageInfo)
 	assert.NoError(t, err)
 	assert.True(t, exists, "Expected output COSI file to exist")
 
-	cosiStat, err := os.Stat(outputImageFile)
-	assert.NoError(t, err)
-	assert.Greater(t, cosiStat.Size(), int64(100*diskutils.MiB), "COSI file should be at least 100 MiB")
+	// Assert structural correctness of the COSI's metadata.json. A regression
+	// that produces a COSI of plausible size but missing/garbled metadata
+	// would slip past a size-only check; this is the load-bearing contract.
+	metadata := readCosiMetadataFromArchive(t, outputImageFile)
+
+	// ACL ships exactly 5 GPT regions: ESP, USR-A, USR-B, OEM, ROOT.
+	if baseImageInfo.Distro == baseImageDistroAcl {
+		// gptRegions includes the primary-gpt header plus one entry per partition.
+		assert.Len(t, metadata.Disk.GptRegions, 6, "expected 6 GPT regions (primary-gpt + 5 partitions)")
+	}
+
+	// The /usr verity block is the load-bearing contract for any installer
+	// (e.g. Trident) consuming this COSI. roothash must be present and the
+	// /usr image must be marked as verity-protected.
+	var foundUsrVerity bool
+	for _, img := range metadata.Images {
+		if img.MountPoint == "/usr" {
+			require.NotNil(t, img.Verity, "/usr image must have a verity block")
+			assert.NotEmpty(t, img.Verity.Roothash, "/usr verity roothash must be non-empty")
+			foundUsrVerity = true
+		}
+	}
+	assert.True(t, foundUsrVerity, "expected /usr image with verity in COSI metadata")
+
+	// systemd-boot + at least one UKI entry is the expected boot configuration.
+	if baseImageInfo.Distro == baseImageDistroAcl {
+		assert.Equal(t, BootloaderTypeSystemdBoot, metadata.Bootloader.Type)
+		require.NotNil(t, metadata.Bootloader.SystemdBoot, "systemd-boot block must be populated")
+		assert.NotEmpty(t, metadata.Bootloader.SystemdBoot.Entries, "expected at least one UKI/boot entry")
+	}
+
+	// osRelease must identify the distro.
+	if baseImageInfo.Distro == baseImageDistroAcl {
+		assert.Contains(t, metadata.OsRelease, "azurecontainerlinux",
+			"osRelease must identify Azure Container Linux")
+	}
+}
+
+// readCosiMetadataFromArchive opens a COSI tar archive, locates the
+// metadata.json entry, and delegates to the existing readCosiMetadata helper
+// to parse it. Test helper.
+func readCosiMetadataFromArchive(t *testing.T, cosiPath string) MetadataJson {
+	f, err := os.Open(cosiPath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	tr := tar.NewReader(f)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		if hdr.Name != CosiMetadataName {
+			continue
+		}
+		md, err := readCosiMetadata(tr)
+		require.NoError(t, err)
+		return md
+	}
+	t.Fatalf("metadata.json not found in COSI archive %s", cosiPath)
+	return MetadataJson{}
 }
 
 func TestConvertImageCosiCompressionInvalidFormat(t *testing.T) {

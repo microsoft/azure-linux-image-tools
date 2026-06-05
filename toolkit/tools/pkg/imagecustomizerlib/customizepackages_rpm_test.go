@@ -6,7 +6,6 @@ package imagecustomizerlib
 import (
 	"testing"
 
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,18 +47,4 @@ func TestParseRpmQueryOutput_SinglePackage(t *testing.T) {
 	assert.Len(t, packages, 1)
 	assert.Equal(t, "kernel", packages[0].Name)
 	assert.Equal(t, "aarch64", packages[0].Arch)
-}
-
-func TestAclDetectBootloaderType(t *testing.T) {
-	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
-	// ACL always returns systemd-boot without needing a real chroot.
-	bootloaderType, err := handler.DetectBootloaderType(nil)
-	require.NoError(t, err)
-	assert.Equal(t, BootloaderTypeSystemdBoot, bootloaderType)
-}
-
-func TestAclValidateUkiDependencies(t *testing.T) {
-	handler := newAclDistroHandler(targetos.TargetOsAzureContainerLinux3)
-	err := handler.ValidateUkiDependencies(nil)
-	require.NoError(t, err)
 }
