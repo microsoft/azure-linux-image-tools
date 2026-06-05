@@ -349,10 +349,19 @@ func getAllPackagesFromChrootRpm(imageChroot safechroot.ChrootInterface) ([]OsPa
 // the host's rpm binary with --root to query the image's RPM database.
 // This is needed for distros like ACL whose images do not ship the rpm CLI
 // but still have an RPM database at /var/lib/rpm/.
+//
+// Security: host rpm reads /etc/rpm/macros and /usr/lib/rpm/macros from the
+// image when --root is set. RPM macros support %(shell-command) which is
+// expanded by the host rpm at init time, before any query format is applied —
+// a crafted macro file in an untrusted image could execute arbitrary commands
+// on the host. We point --macros at /dev/null and pass --rcfile /dev/null to
+// suppress macro and rc loading from the rooted image.
 func getAllPackagesFromChrootRpmViaHost(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	out, _, err := shell.NewExecBuilder("rpm", "-qa",
 		"--root", imageChroot.ChrootDir(),
 		"--dbpath", "/var/lib/rpm",
+		"--macros", "/dev/null",
+		"--rcfile", "/dev/null",
 		"--queryformat", "%{NAME} %{VERSION} %{RELEASE} %{ARCH}\n").
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		ExecuteCaptureOutput()
@@ -366,10 +375,13 @@ func getAllPackagesFromChrootRpmViaHost(imageChroot safechroot.ChrootInterface) 
 
 // isPackageInstalledViaHostRpm checks whether a package is installed in the
 // image's RPM database by using the host's rpm binary with --root.
+// See getAllPackagesFromChrootRpmViaHost for the --macros/--rcfile rationale.
 func isPackageInstalledViaHostRpm(imageChroot safechroot.ChrootInterface, packageName string) bool {
 	err := shell.NewExecBuilder("rpm", "-q",
 		"--root", imageChroot.ChrootDir(),
 		"--dbpath", "/var/lib/rpm",
+		"--macros", "/dev/null",
+		"--rcfile", "/dev/null",
 		"--", packageName).
 		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
 		Execute()
@@ -402,4 +414,19 @@ func parseRpmQueryOutput(out string) ([]OsPackage, error) {
 	}
 
 	return packages, nil
+}
+
+// rpmDbExistsUnderChroot reports whether an RPM database appears to be present
+// under the given chroot at /var/lib/rpm. We check for any of the common backend
+// files (BerkeleyDB Packages, sqlite rpmdb.sqlite, ndb Packages.db). Used by
+// distros that strip the RPM DB from minimal images (e.g. ACL) to distinguish
+// "intentionally absent" from "query failure" without papering over either.
+func rpmDbExistsUnderChroot(imageChroot safechroot.ChrootInterface) bool {
+	dbDir := filepath.Join(imageChroot.ChrootDir(), "var/lib/rpm")
+	for _, candidate := range []string{"Packages", "rpmdb.sqlite", "Packages.db"} {
+		if _, err := os.Stat(filepath.Join(dbDir, candidate)); err == nil {
+			return true
+		}
+	}
+	return false
 }

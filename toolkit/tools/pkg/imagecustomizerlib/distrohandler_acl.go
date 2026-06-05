@@ -101,14 +101,23 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	// ACL images do not ship the rpm CLI, so the standard in-chroot
-	// rpm -qa query would fail. Try the host's rpm binary with --root
-	// to query the image's RPM database. If the DB doesn't exist (common
-	// for minimal ACL images that strip the RPM DB), return an empty list.
+	// ACL images do not ship the rpm CLI, so the standard in-chroot rpm -qa
+	// query would fail. Use the host's rpm binary with --root to query the
+	// image's RPM database.
+	//
+	// Some ACL images strip /var/lib/rpm entirely. We treat that case as
+	// "no package metadata available" (empty list, fine). But we do NOT
+	// silently swallow query errors when the DB does exist — that would make
+	// a regression (wrong dbpath, host rpm crash, future ACL ships an
+	// incompatible DB) indistinguishable in the COSI from "DB intentionally
+	// stripped." Probe for the DB first.
+	if !rpmDbExistsUnderChroot(imageChroot) {
+		logger.Log.Debugf("ACL image has no on-disk RPM database; returning empty package list")
+		return nil, nil
+	}
 	packages, err := getAllPackagesFromChrootRpmViaHost(imageChroot)
 	if err != nil {
-		logger.Log.Warnf("Could not query RPM DB for ACL image, returning empty package list: %v", err)
-		return nil, nil
+		return nil, fmt.Errorf("ACL image has an RPM database but the host-rpm query failed:\n%w", err)
 	}
 	return packages, nil
 }

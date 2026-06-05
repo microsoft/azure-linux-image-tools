@@ -465,10 +465,21 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
-	// The convert path only reads files and queries the RPM database — it does
-	// not execute programs inside the chroot. Skip default mounts (/dev, /proc,
-	// /sys, etc.) since they require writable directories on the rootfs, which
-	// fails on images with a read-only root (e.g., ACL's btrfs+dm-verity).
+	// Skip the chroot's default /dev, /proc, /sys, /run, /tmp, /dev/pts bind-mounts.
+	// They require mkdir-able mount points on the rootfs, which fails on images with
+	// a sparse rootfs scaffold (e.g. ACL inherits Flatcar's design: the ROOT partition
+	// contains only mount-point dirs and symlinks; /dev, /proc, /sys, /etc, /var, /run,
+	// /tmp are created dynamically at boot).
+	//
+	// This is safe across distros because the only in-chroot exec on the convert path
+	// is rpm/dpkg for package enumeration, which queries on-disk databases and doesn't
+	// require /dev/null, /proc, or /sys. Some distros (currently only ACL via
+	// aclDistroHandler) bypass in-chroot rpm entirely and use host rpm with --root.
+	//
+	// Important: if a future change adds a convert-time hook that DOES need to exec
+	// non-trivial programs inside the chroot, this assumption breaks. Either restore
+	// includeDefaultMounts=true here, or gate it via a DistroHandler-supplied flag so
+	// distros with read-only-root scaffolds (ACL) keep the skip.
 	includeDefaultMounts := false
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
 		ctx, rawImageFile, buildDir, chrootDir, includeDefaultMounts, true, true, true, nil)
