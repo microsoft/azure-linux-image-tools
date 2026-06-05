@@ -45,6 +45,7 @@ The container is published to both:
 
 - Linux host
 - Docker (or equivalent container engine) installed on your host
+- The required [host kernel modules](../concepts/host-kernel-modules.md) (the container shares the host's kernel)
 
 ## Instructions
 
