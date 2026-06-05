@@ -198,7 +198,11 @@ Can be one of:
 
   If the repo file's `baseurl` or `gpgkey` fields contain a `file://` URL, then the
   host's directories pointed to by the URL will be bind mounted into the chroot
-  environment and the URL will be replaced with the chroot equivalent URL.
+  environment and the URL will be replaced with the chroot equivalent URL. A
+  `file+rel://` URL is handled similarly but the host path is relative to the repo
+  file's parent directory. A `file+chroot://` URL refers to a file within the chroot
+  itself. If the tools chroot is being used (e.g. when using the [create](create.md)
+  subcommand), then this path is within the tools chroot instead of the OS chroot.
 
   GPG signature checking is enabled by default.
   If you wish to disable GPG checking, then set both `gpgcheck` and `repo_gpgcheck` to

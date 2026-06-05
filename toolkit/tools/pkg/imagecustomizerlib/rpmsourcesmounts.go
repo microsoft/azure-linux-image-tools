@@ -40,6 +40,8 @@ type rpmSourcesMounts struct {
 	rpmsMountParentDirCreated bool
 	mounts                    []*safemount.Mount
 	allReposConfigFilePath    string
+	chrootGpgKeys             []string
+	uriGpgKeys                []string
 }
 
 func mountRpmSources(ctx context.Context, buildDir string, imageChroot *safechroot.Chroot, rpmsSources []string,
@@ -180,6 +182,8 @@ func (m *rpmSourcesMounts) createRepoFromDirectory(rpmSource string, allReposCon
 func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConfig bool, allReposConfig *ini.File,
 	imageChroot *safechroot.Chroot,
 ) error {
+	rpmSourceDir := filepath.Dir(rpmSource)
+
 	// Parse the repo config file.
 	reposConfig, err := ini.Load(rpmSource)
 	if err != nil {
@@ -224,22 +228,19 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 
 				newValues := []string(nil)
 				for _, value := range values {
-					// Check if the value points to a local file/directory.
-					filePath, hasFilePrefix := strings.CutPrefix(value, "file://")
-					if hasFilePrefix {
-						// Bind mount the file/directory in the chroot.
-						rpmSourceName := path.Base(value)
-						mountTargetDirectoryInChroot, err := m.mountRpmsSource(field, rpmSourceName, filePath,
-							imageChroot)
-						if err != nil {
-							return fmt.Errorf("failed mount repo config local file/directory (%s):\n%w", filePath, err)
-						}
+					newValue, newValueChrootPath, err := m.redirectRepoUri(rpmSourceDir, value, imageChroot, field)
+					if err != nil {
+						return err
+					}
 
-						// Change the value to point to the bind mount file/directory.
-						newValue := fmt.Sprintf("file://%s", mountTargetDirectoryInChroot)
-						newValues = append(newValues, newValue)
-					} else {
-						newValues = append(newValues, value)
+					newValues = append(newValues, newValue)
+
+					if field == "gpgkey" {
+						if newValueChrootPath != "" {
+							m.chrootGpgKeys = append(m.chrootGpgKeys, newValueChrootPath)
+						} else {
+							m.uriGpgKeys = append(m.uriGpgKeys, value)
+						}
 					}
 				}
 
@@ -256,6 +257,49 @@ func (m *rpmSourcesMounts) createRepoFromRepoConfig(rpmSource string, isHostConf
 	}
 
 	return nil
+}
+
+// Redirect any file:// URIs to the host by using bind mounts.
+func (m *rpmSourcesMounts) redirectRepoUri(repoDirectory string, value string, imageChroot *safechroot.Chroot,
+	field string,
+) (string, string, error) {
+	// Check if the value points to a local file/directory.
+	filePath, hasFilePrefix := strings.CutPrefix(value, "file://")
+	fileRelPath, hasFileRelPrefix := strings.CutPrefix(value, "file+rel://")
+	fileChrootPath, hasFileChrootPrefix := strings.CutPrefix(value, "file+chroot://")
+
+	if !hasFilePrefix && !hasFileRelPrefix && !hasFileChrootPrefix {
+		// No redirection needed.
+		return value, "", nil
+	}
+
+	if hasFileChrootPrefix {
+		// Path is within chroot. So, passthrough as is.
+		newValue := fmt.Sprintf("file://%s", fileChrootPath)
+		return newValue, fileChrootPath, nil
+	}
+
+	if hasFileRelPrefix {
+		// Get the absolute filepath.
+		absFilePath, err := filepath.Abs(filepath.Join(repoDirectory, fileRelPath))
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get absolute path of repo URI (%s):\n%w", value, err)
+		}
+
+		filePath = absFilePath
+	}
+
+	// Bind mount the host file/directory in the chroot.
+	rpmSourceName := path.Base(value)
+	mountTargetDirectoryInChroot, err := m.mountRpmsSource(field, rpmSourceName, filePath,
+		imageChroot)
+	if err != nil {
+		return "", "", fmt.Errorf("failed mount repo config local file/directory (%s):\n%w", filePath, err)
+	}
+
+	// Change the value to point to the bind mount file/directory.
+	newValue := fmt.Sprintf("file://%s", mountTargetDirectoryInChroot)
+	return newValue, mountTargetDirectoryInChroot, nil
 }
 
 func (m *rpmSourcesMounts) mountRpmsSource(fieldName string, sourceName string, sourcePath string,

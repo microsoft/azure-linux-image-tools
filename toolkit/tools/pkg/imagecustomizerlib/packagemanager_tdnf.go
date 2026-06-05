@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -114,4 +115,38 @@ func (pm *tdnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootIn
 		return false
 	}
 	return true
+}
+
+func (pm *tdnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
+	chrootGpgKeys []string, uriGpgKeys []string,
+) error {
+	// tdnf doesn't do gpg import when downloading repo metadata, only when installing packages.
+	// So, it has to be done manually. :-(
+
+	if len(uriGpgKeys) > 0 {
+		logger.Log.Infof("GPG import not implemented yet for remote URIs (%v)", uriGpgKeys)
+	}
+
+	if len(chrootGpgKeys) <= 0 {
+		// No gpg keys to import.
+		return nil
+	}
+
+	chroot := imageChroot
+	if toolsChroot != nil {
+		chroot = toolsChroot
+	}
+
+	for _, gpgKey := range chrootGpgKeys {
+		err := shell.NewExecBuilder("gpg", "--import", gpgKey).
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(2).
+			Chroot(chroot.ChrootDir()).
+			Execute()
+		if err != nil {
+			return fmt.Errorf("failed to import GPG key (%s):\n%w", gpgKey, err)
+		}
+	}
+
+	return nil
 }
