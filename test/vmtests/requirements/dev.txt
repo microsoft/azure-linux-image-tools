@@ -7,5 +7,7 @@ flake8 == 7.3.0
 isort == 8.0.1
 mypy == 1.19.1
 types-docker == 7.1.0.20260109
-types-paramiko == 3.5.0.20250801
+# types-paramiko for v5 isn't available yet. v4 and v5 has mostly identical APIs. (v5 is mostly just removing deprecated
+# crypto algorithms.) So, using v4 types for now is fine.
+types-paramiko == 4.0.0.20260518
 types-PyYAML == 6.0.12.20250915
