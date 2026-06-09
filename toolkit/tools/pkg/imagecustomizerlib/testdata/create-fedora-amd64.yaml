@@ -1,6 +1,7 @@
 # Differs from create-azl4-amd64 in its addition of efibootmgr and initial-setup
 previewFeatures:
 - create
+- fedora
 
 storage:
   disks:

@@ -13,6 +13,7 @@ Note: Using the [Image Customizer container](../quick-start/quick-start.md) is t
 
 - Linux host
 - Image Customizer binary downloaded. Check out [Developers Guide](../developer-guide.md) to learn how.
+- The required [host kernel modules](../concepts/host-kernel-modules.md)
 
 ## Instructions
 

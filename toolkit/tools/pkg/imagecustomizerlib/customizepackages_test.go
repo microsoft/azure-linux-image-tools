@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -572,6 +573,48 @@ func testCustomizeImagePackagesUrlSourceHelper(t *testing.T, baseImageInfo testB
 	ensureFilesExist(t, imageConnection,
 		"/usr/bin/oras",
 	)
+}
+
+// Test RPM repo that uses a GPG different from the default.
+func TestCustomizeImagePackagesNewGpgKey(t *testing.T) {
+	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePackagesNewGpgKeyHelper(t, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePackagesNewGpgKeyHelper(t *testing.T, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCustomizeImagePackagesNewGpgKey_%s", baseImageInfo.Name))
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+	configFile := filepath.Join(testDir, "kernel-npi.yaml")
+	repoFile := filepath.Join(testDir, "repos/lsg-6.18.repo")
+
+	// Customize image.
+	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile},
+		outImageFilePath, "raw", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer imageConnection.Close()
+
+	// Ensure kernel-npi was installed.
+	kernels, err := os.ReadDir(filepath.Join(imageConnection.Chroot().RootDir(), "lib/modules"))
+	if assert.NoError(t, err) {
+		assert.True(t, slices.ContainsFunc(kernels, func(kernel os.DirEntry) bool {
+			return strings.Contains(kernel.Name(), ".npi")
+		}))
+	}
 }
 
 func TestCustomizeImagePackagesBadRepo(t *testing.T) {

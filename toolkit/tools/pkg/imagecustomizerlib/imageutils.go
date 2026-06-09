@@ -22,7 +22,6 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/sys/unix"
 )
@@ -160,14 +159,14 @@ func reconnectToExistingImageHelper(imageFilePath string, buildDir string, chroo
 	return imageConnection, readonlyPartUuids, nil
 }
 
-func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imagecustomizerapi.Disk,
+func CreateNewImage(distroHandler DistroHandler, filename string, diskConfig imagecustomizerapi.Disk,
 	fileSystems []imagecustomizerapi.FileSystem, buildDir string, chrootDirName string,
 	installOS installOSFunc,
 ) (map[string]string, error) {
 	imageConnection := imageconnection.NewImageConnection()
 	defer imageConnection.Close()
 
-	partIdToPartUuid, err := createNewImageHelper(targetOs, imageConnection, filename, diskConfig, fileSystems,
+	partIdToPartUuid, err := createNewImageHelper(distroHandler, imageConnection, filename, diskConfig, fileSystems,
 		buildDir, chrootDirName, installOS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new image:\n%w", err)
@@ -182,8 +181,8 @@ func CreateNewImage(targetOs targetos.TargetOs, filename string, diskConfig imag
 	return partIdToPartUuid, nil
 }
 
-func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconnection.ImageConnection, filename string,
-	diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
+func createNewImageHelper(distroHandler DistroHandler, imageConnection *imageconnection.ImageConnection,
+	filename string, diskConfig imagecustomizerapi.Disk, fileSystems []imagecustomizerapi.FileSystem, buildDir string,
 	chrootDirName string, installOS installOSFunc,
 ) (map[string]string, error) {
 	// Convert config to image config types, so that the imager's utils can be used.
@@ -198,7 +197,7 @@ func createNewImageHelper(targetOs targetos.TargetOs, imageConnection *imageconn
 	}
 
 	// Create imager boilerplate.
-	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(targetOs, imageConnection, filename, buildDir,
+	partIdToPartUuid, tmpFstabFile, err := createImageBoilerplate(distroHandler, imageConnection, filename, buildDir,
 		chrootDirName, imagerDiskConfig, imagerPartitionSettings, fileSystems)
 	if err != nil {
 		return nil, err
@@ -274,8 +273,8 @@ func configureDiskBootLoader(imageConnection *imageconnection.ImageConnection,
 	return nil
 }
 
-func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageconnection.ImageConnection, filename string,
-	buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
+func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imageconnection.ImageConnection,
+	filename string, buildDir string, chrootDirName string, imagerDiskConfig configuration.Disk,
 	imagerPartitionSettings []configuration.PartitionSetting, fileSystems []imagecustomizerapi.FileSystem,
 ) (map[string]string, string, error) {
 	// Create raw disk image file.
@@ -292,7 +291,8 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageco
 
 	// Set up partitions.
 	partIDToDevPathMap, partIDToFsTypeMap, _, err := diskutils.CreatePartitions(
-		targetOs, imageConnection.Loopback().DevicePath(), imagerDiskConfig, configuration.RootEncryption{})
+		distroHandler.GetTargetOs(), imageConnection.Loopback().DevicePath(), imagerDiskConfig,
+		configuration.RootEncryption{})
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create partitions on disk (%s):\n%w", imageConnection.Loopback().DevicePath(), err)
 	}
@@ -350,8 +350,6 @@ func createImageBoilerplate(targetOs targetos.TargetOs, imageConnection *imageco
 	if err != nil {
 		return nil, "", err
 	}
-
-	distroHandler := NewDistroHandlerFromTargetOs(targetOs)
 
 	partitionsLayout, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false, nil, "",
 		distroHandler)

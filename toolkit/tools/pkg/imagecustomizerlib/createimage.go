@@ -12,6 +12,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 )
 
 const (
@@ -78,10 +79,19 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Creating new image with parameters: %+v\n", rc)
 
 	// Create distro config from distro name and version
-	distroHandler := NewDistroHandler(distro, distroVersion)
+	distroHandler, err := NewDistroHandler(targetos.New(distro, distroVersion))
+	if err != nil {
+		return err
+	}
+
+	// Validate distro specific settings.
+	err = distroHandler.ValidateConfig(rc)
+	if err != nil {
+		return fmt.Errorf("invalid config for image distro:\n%w", err)
+	}
 
 	partIdToPartUuid, err := CreateNewImage(
-		distroHandler.GetTargetOs(), rc.RawImageFile,
+		distroHandler, rc.RawImageFile,
 		diskConfig, rc.Storage.FileSystems,
 		rc.BuildDirAbs, setupRoot, installOSFunc)
 	if err != nil {

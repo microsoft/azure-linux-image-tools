@@ -16,3 +16,4 @@ following scenarios:
 * ISO: Live-ISO creation. More details in [ISO Support](./iso.md)
 * PXE: Creating a PXE bootable image. More details in [PXE Support](./pxe.md)
 * Verity protected images: [Guidelines for creating a verity-protected root filesystem](./verity/verity.md)
+* Host kernel modules: [Kernel modules the host must provide](./host-kernel-modules.md)

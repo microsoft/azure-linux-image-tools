@@ -11,6 +11,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -308,17 +309,17 @@ func calcDiff(t *testing.T, oldPath string, newContent string) string {
 
 func createBootCustomizerFor20(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg20Path),
-		filepath.Join(testDir, sampleDefaultGrub20Path), false, newAzureLinuxDistroHandler("2.0"))
+		filepath.Join(testDir, sampleDefaultGrub20Path), false, newAzureLinuxDistroHandler(targetos.TargetOsAzureLinux2))
 }
 
 func createBootCustomizerFor30(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg30Path),
-		filepath.Join(testDir, sampleDefaultGrub30Path), true, newAzureLinuxDistroHandler("3.0"))
+		filepath.Join(testDir, sampleDefaultGrub30Path), true, newAzureLinuxDistroHandler(targetos.TargetOsAzureLinux3))
 }
 
 func createBootCustomizerFor40(t *testing.T) *BootCustomizer {
 	return createBootCustomizer(t, filepath.Join(testDir, sampleGrubCfg40Path),
-		filepath.Join(testDir, sampleDefaultGrub40Path), true, newAzureLinux4DistroHandler())
+		filepath.Join(testDir, sampleDefaultGrub40Path), true, newAzureLinux4DistroHandler(targetos.TargetOsAzureLinux4))
 }
 
 func createBootCustomizer(t *testing.T, sampleGrubCfgPath string, sampleDefaultGrubFilePath string, isGrubMkconfig bool,

@@ -26,14 +26,11 @@ const (
 	// PreviewFeatureKdumpBootFiles enables support for crash dump configuration.
 	PreviewFeatureKdumpBootFiles PreviewFeature = "kdump-boot-files"
 
-	// PreviewFeatureFedora42 enables support for Fedora 42 images.
-	PreviewFeatureFedora42 PreviewFeature = "fedora-42"
+	// PreviewFeatureFedora enables support for Fedora images.
+	PreviewFeatureFedora PreviewFeature = "fedora"
 
-	// PreviewFeatureUbuntu2204 enables support for Ubuntu 22.04 images.
-	PreviewFeatureUbuntu2204 PreviewFeature = "ubuntu-22.04"
-
-	// PreviewFeatureUbuntu2404 enables support for Ubuntu 24.04 images.
-	PreviewFeatureUbuntu2404 PreviewFeature = "ubuntu-24.04"
+	// PreviewFeatureUbuntu enables support for Ubuntu images.
+	PreviewFeatureUbuntu PreviewFeature = "ubuntu"
 
 	// PreviewFeatureBaseConfigs enables support for base configuration.
 	PreviewFeatureBaseConfigs PreviewFeature = "base-configs"
@@ -50,17 +47,21 @@ const (
 	// PreviewFeatureCreate enables the create command for building new images from scratch.
 	PreviewFeatureCreate PreviewFeature = "create"
 
-	// PreviewFeatureAzureContainerLinux3 enables support for Azure Container Linux 3 images.
-	PreviewFeatureAzureContainerLinux3 PreviewFeature = "azure-container-linux-3"
+	// PreviewFeatureAzureContainerLinux enables support for Azure Container Linux images.
+	PreviewFeatureAzureContainerLinux PreviewFeature = "azure-container-linux"
+
+	// PreviewFeatureUnsupportedDistroVersion allows distro versions that are not supported yet.
+	PreviewFeatureUnsupportedDistroVersion PreviewFeature = "unsupported-distro-version"
 )
 
 func (pf PreviewFeature) IsValid() error {
 	switch pf {
 	case PreviewFeatureUki, PreviewFeatureOutputArtifacts, PreviewFeatureInjectFiles, PreviewFeatureReinitializeVerity,
-		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora42,
-		PreviewFeatureUbuntu2204, PreviewFeatureUbuntu2404, PreviewFeatureBaseConfigs,
+		PreviewFeaturePackageSnapshotTime, PreviewFeatureKdumpBootFiles, PreviewFeatureFedora,
+		PreviewFeatureUbuntu, PreviewFeatureBaseConfigs,
 		PreviewFeatureInputImageOci, PreviewFeatureOutputSelinuxPolicy,
-		PreviewFeatureBtrfs, PreviewFeatureCreate, PreviewFeatureAzureContainerLinux3:
+		PreviewFeatureBtrfs, PreviewFeatureCreate, PreviewFeatureAzureContainerLinux,
+		PreviewFeatureUnsupportedDistroVersion:
 		return nil
 	default:
 		return fmt.Errorf("invalid preview feature: %s", pf)

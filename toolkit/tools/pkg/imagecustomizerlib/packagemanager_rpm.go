@@ -23,4 +23,8 @@ type rpmPackageManagerHandler interface {
 	supportsSnapshotTime() bool
 
 	isPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
+
+	importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot, chrootGpgKeys []string,
+		uriGpgKeys []string,
+	) error
 }

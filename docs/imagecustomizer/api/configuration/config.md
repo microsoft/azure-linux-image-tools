@@ -147,17 +147,22 @@ Supported options:
 
   Added in v1.2.
 
-- `fedora-42`: Enables support for creating Fedora 42 images using the [create subcommand](../cli/create.md).
+- `fedora`: Enables support for creating Fedora images using the [create subcommand](../cli/create.md).
 
-  Added in v1.1.
+  Added in v1.5.
 
-- `ubuntu-22.04`: Enables support for customizing Ubuntu 22.04 images using the [customize subcommand](../cli/customize.md).
+- `ubuntu`: Enables support for customizing Ubuntu images using the [customize subcommand](../cli/customize.md).
 
-  Added in v1.2.
+  Added in v1.5.
 
-- `ubuntu-24.04`: Enables support for customizing Ubuntu 24.04 images using the [customize subcommand](../cli/customize.md).
+- `azure-container-linux`: Enables support for customizing Azure Container Linux images.
 
-  Added in v1.2.
+  Added in v1.5.
+
+- `unsupported-distro-version`: Enables support for customizing an unsupported distro
+  version.
+
+  Added in v1.5.
 
 ## output [[output](./output.md)]
 

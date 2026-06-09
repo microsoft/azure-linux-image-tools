@@ -24,7 +24,7 @@ import (
 
 // fedoraDistroHandler implements distroHandler for Fedora
 type fedoraDistroHandler struct {
-	version        string
+	targetOs       targetos.TargetOs
 	packageManager rpmPackageManagerHandler
 }
 
@@ -35,31 +35,31 @@ const (
 	shimPackageFedoraArm64    = "shim-aa64"
 )
 
-func newFedoraDistroHandler(version string) *fedoraDistroHandler {
+func newFedoraDistroHandler(targetOs targetos.TargetOs) *fedoraDistroHandler {
 	return &fedoraDistroHandler{
-		version:        version,
-		packageManager: newDnfPackageManager(version),
+		targetOs:       targetOs,
+		packageManager: newDnfPackageManager(targetOs.VersionId),
 	}
 }
 
 func (d *fedoraDistroHandler) GetTargetOs() targetos.TargetOs {
-	switch d.version {
-	case "42":
-		return targetos.TargetOsFedora42
-	default:
-		panic("unsupported Fedora version: " + d.version)
-	}
+	return d.targetOs
 }
 
 func (d *fedoraDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	switch d.version {
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora) {
+		return ErrFedoraPreviewFeatureRequired
+	}
+
+	switch d.targetOs.VersionId {
 	case "42":
-		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureFedora42) {
-			return ErrFedora42PreviewFeatureRequired
-		}
+		// Supported versions.
 
 	default:
-		panic("unsupported Fedora version: " + d.version)
+		err := handleUnsupportedDistroVersion(rc, d.targetOs)
+		if err != nil {
+			return err
+		}
 	}
 
 	if rc.HasPackageSnapshotTime() {

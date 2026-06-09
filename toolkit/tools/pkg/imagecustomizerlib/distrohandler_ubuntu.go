@@ -23,7 +23,7 @@ import (
 
 // ubuntuDistroHandler implements distroHandler for Ubuntu
 type ubuntuDistroHandler struct {
-	version string
+	targetOs targetos.TargetOs
 }
 
 const (
@@ -31,36 +31,30 @@ const (
 	grubEfiPackageDebianArm64 = "grub-efi-arm64"
 )
 
-func newUbuntuDistroHandler(version string) *ubuntuDistroHandler {
+func newUbuntuDistroHandler(targetOs targetos.TargetOs) *ubuntuDistroHandler {
 	return &ubuntuDistroHandler{
-		version: version,
+		targetOs: targetOs,
 	}
 }
 
 func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
-	switch d.version {
-	case "22.04":
-		return targetos.TargetOsUbuntu2204
-	case "24.04":
-		return targetos.TargetOsUbuntu2404
-	default:
-		panic("unsupported Ubuntu version: " + d.version)
-	}
+	return d.targetOs
 }
 
 func (d *ubuntuDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	switch d.version {
-	case "22.04":
-		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2204) {
-			return ErrUbuntu2204PreviewFeatureRequired
-		}
-	case "24.04":
-		if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu2404) {
-			return ErrUbuntu2404PreviewFeatureRequired
-		}
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu) {
+		return ErrUbuntuPreviewFeatureRequired
+	}
+
+	switch d.targetOs.VersionId {
+	case "22.04", "24.04":
+		// Supported versions
 
 	default:
-		panic("unsupported Ubuntu version: " + d.version)
+		err := handleUnsupportedDistroVersion(rc, d.targetOs)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Check if Ubuntu is being used with bootloader hard-reset.
