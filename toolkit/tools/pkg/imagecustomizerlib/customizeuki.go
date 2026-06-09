@@ -47,7 +47,6 @@ const (
 	BootDir           = "boot"
 	EspDir            = "boot/efi"
 	UkiKernelInfoJson = "uki-kernel-info.json"
-	KernelPrefix      = "vmlinuz-"
 	UkiBuildDir       = "UkiBuildDir"
 	UkiOutputDir      = "EFI/Linux"
 )
@@ -475,7 +474,7 @@ func findKernelsAndInitramfs(bootDir string) (map[string]string, error) {
 	}
 
 	for _, entry := range dirEntries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "vmlinuz-") {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), vmLinuzPrefix) {
 			kernelName := entry.Name()
 			kernelVersion, err := getKernelVersion(kernelName)
 			if err != nil {
@@ -1033,11 +1032,11 @@ func removeVerityArgsFromCmdline(cmdline string) string {
 }
 
 func getKernelVersion(kernelName string) (string, error) {
-	if !strings.HasPrefix(kernelName, KernelPrefix) {
-		return "", fmt.Errorf("invalid kernel name: (%s), expected to start with prefix: (%s)", kernelName, KernelPrefix)
+	if !strings.HasPrefix(kernelName, vmLinuzPrefix) {
+		return "", fmt.Errorf("invalid kernel name: (%s), expected to start with prefix: (%s)", kernelName, vmLinuzPrefix)
 	}
 
-	kernelVersion := strings.TrimPrefix(kernelName, "vmlinuz-")
+	kernelVersion := strings.TrimPrefix(kernelName, vmLinuzPrefix)
 	return kernelVersion, nil
 }
 
@@ -1076,7 +1075,7 @@ func getKernelNameFromUki(ukiPath string) (string, error) {
 	matches := ukiNamePattern.FindStringSubmatch(fileName)
 	if len(matches) == 2 {
 		// Standard UKI naming: vmlinuz-<version>.efi → vmlinuz-<version>
-		return "vmlinuz-" + matches[1], nil
+		return vmLinuzPrefix + matches[1], nil
 	}
 
 	// Non-standard UKI naming (e.g., acl.efi): use filename without .efi extension
@@ -1244,8 +1243,8 @@ func defaultCleanBootDirectory(imageChroot *safechroot.Chroot, espDir string, pr
 				continue
 			}
 			name := entry.Name()
-			isKernelOrInitramfs := strings.HasPrefix(name, "vmlinuz-") ||
-				strings.HasPrefix(name, "initramfs-") ||
+			isKernelOrInitramfs := strings.HasPrefix(name, vmLinuzPrefix) ||
+				strings.HasPrefix(name, initramfsPrefix) ||
 				strings.HasPrefix(name, "initrd-")
 			if !isKernelOrInitramfs {
 				continue

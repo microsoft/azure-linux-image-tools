@@ -35,7 +35,6 @@ const (
 add_drivers+=" overlay "
 hostonly="no"
 `
-	vmlinuzPrefix = "vmlinuz-"
 
 	// the total size of a collection of files is multiplied by the
 	// expansionSafetyFactor to estimate a disk size sufficient to hold those

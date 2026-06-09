@@ -5,15 +5,18 @@ package imagecustomizerlib
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
 )
 
 const (
@@ -27,8 +30,6 @@ const (
 	savedConfigsFileName     = "saved-configs.yaml"
 	savedConfigsFileNamePath = "/" + savedConfigsDir + "/" + savedConfigsFileName
 )
-
-var kernelVersionRegEx = regexp.MustCompile(`\b(\d+\.\d+\.\d+\.\d+-\d+\.(azl|cm)\d)(\b|kdump)`)
 
 type IsoInfoStore struct {
 	seLinuxMode              imagecustomizerapi.SELinuxMode
@@ -112,25 +113,36 @@ func getSELinuxMode(buildDir string, imageChroot *safechroot.Chroot, distroHandl
 }
 
 func getKernelVersions(filesStore *IsoFilesStore) []string {
-	var kernelVersions []string
-	for k := range filesStore.kernelBootFiles {
-		kernelVersions = append(kernelVersions, k)
-	}
-
-	return kernelVersions
+	return slices.Collect(maps.Keys(filesStore.kernelBootFiles))
 }
 
-func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string) bool {
+func collectKernelVersions(filepaths []string) []string {
+	result := []string(nil)
+
+	for _, path := range filepaths {
+		filename := filepath.Base(path)
+
+		version, hasPrefix := strings.CutPrefix(filename, vmLinuzPrefix)
+		if hasPrefix {
+			result = append(result, version)
+		}
+	}
+
+	return result
+}
+
+func storeIfKernelSpecificFile(filesStore *IsoFilesStore, targetPath string, kernelVersions []string) bool {
 	scheduleAdditionalFile := true
 
 	baseFileName := filepath.Base(targetPath)
 
-	matches := kernelVersionRegEx.FindStringSubmatch(baseFileName)
-	if len(matches) <= 1 {
+	kernelVersion, hasKernelVersion := sliceutils.FindValueFunc(kernelVersions, func(kernelVersion string) bool {
+		return strings.Contains(baseFileName, kernelVersion)
+	})
+
+	if !hasKernelVersion {
 		return scheduleAdditionalFile
 	}
-
-	kernelVersion := matches[1]
 
 	if strings.Contains(baseFileName, "kdump.img") {
 		// Ensure we have an entry in the map for it
@@ -211,6 +223,8 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 		return nil, err
 	}
 
+	kernelVersions := collectKernelVersions(bootFolderFilePaths)
+
 	for _, sourcePath := range bootFolderFilePaths {
 
 		excluded := false
@@ -282,7 +296,7 @@ func createIsoFilesStoreFromMountedImage(inputArtifactsStore *IsoArtifactsStore,
 			filesStore.initrdImagePath = targetPath
 			scheduleAdditionalFile = false
 		default:
-			scheduleAdditionalFile = storeIfKernelSpecificFile(filesStore, targetPath)
+			scheduleAdditionalFile = storeIfKernelSpecificFile(filesStore, targetPath, kernelVersions)
 		}
 
 		err = file.NewFileCopyBuilder(sourcePath, targetPath).
@@ -441,6 +455,8 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 	isoBootBinaryPath := bootFilesConfig.isoBootBinaryPath
 	isoGrubBinaryPath := bootFilesConfig.isoGrubBinaryPath
 
+	kernelVersions := collectKernelVersions(isoFiles)
+
 	for _, isoFile := range isoFiles {
 		relativeFilePath := strings.TrimPrefix(isoFile, artifactsDir)
 
@@ -479,7 +495,7 @@ func createIsoFilesStoreFromIsoImage(isoImageFile, storeDir string) (filesStore 
 			filesStore.isoBootImagePath = isoFile
 			scheduleAdditionalFile = false
 		default:
-			scheduleAdditionalFile = storeIfKernelSpecificFile(filesStore, isoFile)
+			scheduleAdditionalFile = storeIfKernelSpecificFile(filesStore, isoFile, kernelVersions)
 		}
 
 		if scheduleAdditionalFile {
