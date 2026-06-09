@@ -36,6 +36,8 @@ const (
 var systemdBootPackagesAzl4 = []string{systemdBootPackage, systemdBootUnsignedPackageAzl4}
 
 func newAzureLinux4DistroHandler(targetOs targetos.TargetOs) *azureLinux4DistroHandler {
+	logger.Log.Debugf("Distro handler: Azure Linux 4+ (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
+
 	return &azureLinux4DistroHandler{
 		targetOs:       targetOs,
 		packageManager: newDnfPackageManager("4.0"),
@@ -247,4 +249,8 @@ func (d *azureLinux4DistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageFedoraArm64
 	}
+}
+
+func (d *azureLinux4DistroHandler) RootMissingMountDirectories() bool {
+	return false
 }

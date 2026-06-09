@@ -24,6 +24,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var (
+	// The directories required on the root directory (/) for the default mounts.
+	DefaultMountRootDirectories = []string{"/dev", "/proc", "/sys", "/run", "/tmp"}
+)
+
 // BindMountPointFlags is a set of flags to do a bind mount.
 const BindMountPointFlags = unix.MS_BIND | unix.MS_MGC_VAL
 

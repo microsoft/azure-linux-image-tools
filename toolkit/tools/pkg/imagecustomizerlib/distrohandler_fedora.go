@@ -36,6 +36,8 @@ const (
 )
 
 func newFedoraDistroHandler(targetOs targetos.TargetOs) *fedoraDistroHandler {
+	logger.Log.Debugf("Distro handler: Fedora (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
+
 	return &fedoraDistroHandler{
 		targetOs:       targetOs,
 		packageManager: newDnfPackageManager(targetOs.VersionId),
@@ -211,4 +213,8 @@ func (d *fedoraDistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageFedoraArm64
 	}
+}
+
+func (d *fedoraDistroHandler) RootMissingMountDirectories() bool {
+	return false
 }

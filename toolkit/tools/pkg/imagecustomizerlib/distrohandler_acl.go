@@ -28,6 +28,8 @@ type aclDistroHandler struct {
 }
 
 func newAclDistroHandler(targetOs targetos.TargetOs) *aclDistroHandler {
+	logger.Log.Debugf("Distro handler: ACL (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
+
 	return &aclDistroHandler{
 		targetOs:       targetOs,
 		packageManager: newTdnfPackageManager("3.0"),
@@ -232,4 +234,8 @@ func (d *aclDistroHandler) ShimPackage() string {
 func (d *aclDistroHandler) GrubEfiPackage() string {
 	// ACL does not use grub.
 	return ""
+}
+
+func (d *aclDistroHandler) RootMissingMountDirectories() bool {
+	return true
 }

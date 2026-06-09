@@ -39,6 +39,8 @@ var (
 )
 
 func newAzureLinuxDistroHandler(targetOs targetos.TargetOs) *azureLinuxDistroHandler {
+	logger.Log.Debugf("Distro handler: Azure Linux (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
+
 	return &azureLinuxDistroHandler{
 		targetOs:       targetOs,
 		packageManager: newTdnfPackageManager(targetOs.VersionId),
@@ -209,4 +211,8 @@ func (d *azureLinuxDistroHandler) ShimPackage() string {
 
 func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
 	return grubEfiPackageAzl3
+}
+
+func (d *azureLinuxDistroHandler) RootMissingMountDirectories() bool {
+	return false
 }

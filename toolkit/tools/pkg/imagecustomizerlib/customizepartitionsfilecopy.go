@@ -23,7 +23,7 @@ var (
 func customizePartitionsUsingFileCopy(ctx context.Context, buildDir string, storage imagecustomizerapi.Storage,
 	buildImageFile string, newBuildImageFile string, distroHandler DistroHandler,
 ) (map[string]string, error) {
-	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
+	existingImageConnection, _, _, _, _, err := connectToExistingImage(ctx, buildImageFile, buildDir, "imageroot", false,
 		true, false, false, distroHandler)
 	if err != nil {
 		return nil, err
