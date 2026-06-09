@@ -412,7 +412,9 @@ var (
 
 	// The maximum version of mkfs.xfs that is currently supported.
 	// This is used to prevent issues with newer versions of mkfs.xfs default enabling new features.
-	maxMkfsXfsVersion = version.Version{6, 15}
+	// Note: If you want to update this value and want to know if there are any new features that need to be accounted
+	// for, then check the /usr/share/xfsprogs/mkfs/lts_*.conf files on your build host.
+	maxMkfsXfsVersion = version.Version{7, 0}
 
 	// The minimum supported kernel version. This helps avoid versions complexity for features that are old and therefore
 	// basically universal.
@@ -661,7 +663,8 @@ func getXfsFileSystemOptions(hostKernelVersion version.Version, options fileSyst
 		return nil, err
 	}
 
-	if mkfsXfsVersion.Gt(maxMkfsXfsVersion) {
+	mkfsXfsVersionMinorVer := mkfsXfsVersion[:min(2, len(mkfsXfsVersion))]
+	if mkfsXfsVersionMinorVer.Gt(maxMkfsXfsVersion) {
 		// New versions of mkfs.xfs might add new default-enabled features in the future.
 		// So, block newer versions of mkfs.xfs until we have verified there aren't any new XFS features that need to
 		// set in the CLI args.
