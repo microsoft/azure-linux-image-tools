@@ -596,7 +596,6 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
 		}
 
-		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
 			mountPoint := safechroot.NewPreDefaultsMountPoint(
 				sourcePath, fstabEntry.Target, fsType,
@@ -616,7 +615,7 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 
 			foundRoot = true
 		} else {
-			mountPoint = safechroot.NewMountPoint(
+			mountPoint := safechroot.NewMountPoint(
 				sourcePath, fstabEntry.Target, fsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
 

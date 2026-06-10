@@ -518,7 +518,7 @@ func getInstalledTargetOsFromPartitionLayout(diskPartitions []diskutils.Partitio
 		osReleasePath := filepath.Join(mountDir, relativePath)
 		osReleaseFileExists, err := file.PathExists(osReleasePath)
 		if err != nil {
-			return targetos.TargetOs{}, fmt.Errorf("failed to check if os-release file exists (path='%s):\n%w",
+			return targetos.TargetOs{}, fmt.Errorf("failed to check if os-release file exists (path='%s'):\n%w",
 				osReleasePath, err)
 		}
 
@@ -533,7 +533,7 @@ func getInstalledTargetOsFromPartitionLayout(diskPartitions []diskutils.Partitio
 
 		fields, err := envfile.ParseEnvFile(osReleasePath)
 		if err != nil {
-			return targetos.TargetOs{}, fmt.Errorf("failed to read os-relase file (path='%s):\n%w", osReleasePath,
+			return targetos.TargetOs{}, fmt.Errorf("failed to read os-release file (path='%s'):\n%w", osReleasePath,
 				err)
 		}
 
