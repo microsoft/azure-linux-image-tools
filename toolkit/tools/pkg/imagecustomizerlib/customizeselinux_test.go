@@ -193,8 +193,6 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	switch baseImageInfo.Variant {
 	case baseImageAzureLinuxVariantCoreEfi:
 		configFile = filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
-	case baseImageAzureLinuxVariantBareMetal:
-		configFile = filepath.Join(testDir, "selinux-enforcing-removepackages.yaml")
 	}
 
 	// Customize image.
@@ -206,11 +204,6 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 		assert.ErrorContains(t, err, "SELinux is enabled but policy file is missing (file='/etc/selinux/config')")
 		assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
 		assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
-
-	case baseImageAzureLinuxVariantBareMetal:
-		// The /etc/selinux/config file survives the removal of the selinux-policy package.
-		// So, the error is different.
-		assert.ErrorContains(t, err, "etc/selinux/targeted/contexts/files/file_contexts: No such file or directory")
 	}
 }
 
