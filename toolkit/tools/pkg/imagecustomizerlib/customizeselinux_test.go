@@ -188,12 +188,7 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.qcow2")
-
-	configFile := ""
-	switch baseImageInfo.Variant {
-	case baseImageAzureLinuxVariantCoreEfi:
-		configFile = filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
-	}
+	configFile := filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
 
 	// Customize image.
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
