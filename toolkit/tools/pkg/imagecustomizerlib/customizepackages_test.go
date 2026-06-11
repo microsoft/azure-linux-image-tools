@@ -211,6 +211,9 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 		UseBaseImageRpmRepos: false,
 		PreviewFeatures:      baseImageInfo.PreviewFeatures,
 	})
+	if !assert.NoError(t, err) {
+		return
+	}
 
 	imageConnection, err := connectToAzureLinuxCoreEfiImage(buildDir, outImageFilePath)
 	if !assert.NoError(t, err) {
