@@ -163,7 +163,7 @@ var (
 		testBaseImageAzl4CoreEfi,
 	}
 
-	baseImageAzureLinuxCoreEfiAll = []testBaseImageInfo{
+	baseImageAzureLinux3Plus = []testBaseImageInfo{
 		testBaseImageAzl3CoreEfi,
 		testBaseImageAzl4CoreEfi,
 	}

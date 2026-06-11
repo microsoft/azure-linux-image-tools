@@ -193,13 +193,9 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 	// Customize image.
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
 		baseImageInfo.PreviewFeatures)
-
-	switch baseImageInfo.Variant {
-	case baseImageAzureLinuxVariantCoreEfi:
-		assert.ErrorContains(t, err, "SELinux is enabled but policy file is missing (file='/etc/selinux/config')")
-		assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
-		assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
-	}
+	assert.ErrorContains(t, err, "SELinux is enabled but policy file is missing (file='/etc/selinux/config')")
+	assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
+	assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
 }
 
 func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, hasUkis bool,
