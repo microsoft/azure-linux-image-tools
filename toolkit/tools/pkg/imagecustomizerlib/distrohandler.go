@@ -123,6 +123,9 @@ type DistroHandler interface {
 
 	// GrubEfiPackage returns the package that provides the grub EFI binary for this distro on the current architecture.
 	GrubEfiPackage() string
+
+	// Distro has a root partition that is missing placeholder directories for special mounts like /dev.
+	RootMissingMountDirectories() bool
 }
 
 // NewDistroHandler creates a distro handler directly from TargetOs

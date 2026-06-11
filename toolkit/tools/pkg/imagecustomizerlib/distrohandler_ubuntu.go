@@ -32,6 +32,8 @@ const (
 )
 
 func newUbuntuDistroHandler(targetOs targetos.TargetOs) *ubuntuDistroHandler {
+	logger.Log.Debugf("Distro handler: Ubuntu (distro='%s', versionid='%s')", targetOs.Distro, targetOs.VersionId)
+
 	return &ubuntuDistroHandler{
 		targetOs: targetOs,
 	}
@@ -217,4 +219,8 @@ func (d *ubuntuDistroHandler) GrubEfiPackage() string {
 	default:
 		return grubEfiPackageDebianArm64
 	}
+}
+
+func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {
+	return false
 }

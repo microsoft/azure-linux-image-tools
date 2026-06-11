@@ -49,7 +49,7 @@ func readSelinuxType(chrootDir string) (string, error) {
 }
 
 func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string, buildImage string,
-	partitionsLayout []fstabEntryPartNum,
+	partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
 ) error {
 	logger.Log.Infof("Extracting SELinux policy from image")
 
@@ -64,7 +64,7 @@ func outputSelinuxPolicy(ctx context.Context, outputDir string, buildDir string,
 	// Connect to the image with read-only mounts.
 	// Use connectToExistingImage which automatically mounts all partitions based on fstab.
 	imageConnection, _, err := reconnectToExistingImage(ctx, buildImage, buildDir, "selinux-extract",
-		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout)
+		false /*includeDefaultMounts*/, true /*readonly*/, true /*readOnlyVerity*/, partitionsLayout, distroHandler)
 	if err != nil {
 		return fmt.Errorf("%w:\n%w", ErrSelinuxPolicyImageConnection, err)
 	}

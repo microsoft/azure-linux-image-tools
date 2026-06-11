@@ -197,19 +197,13 @@ func createLiveOSFromRawHelper(ctx context.Context, buildDir string, inputArtifa
 	}()
 
 	logger.Log.Debugf("Connecting to raw image (%s)", rawImageFile)
-	rawImageConnection, _, _, _, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
+	rawImageConnection, _, _, _, distroHandler, err := connectToExistingImage(ctx, rawImageFile, isoBuildDir, "readonly-rootfs-mount",
 		false /*includeDefaultMounts*/, false /*readonly*/, false /*readonlyVerity*/, false, /*ignoreOverlays*/
 		distroHandler)
 	if err != nil {
 		return err
 	}
 	defer rawImageConnection.Close()
-
-	// Detect the distro handler for the image.
-	distroHandler, err = NewDistroHandlerFromChroot(rawImageConnection.Chroot())
-	if err != nil {
-		return fmt.Errorf("failed to detect distribution:\n%w", err)
-	}
 
 	// Check if the base image is a UKI image
 	hasUkis, err := baseImageHasUkis(rawImageConnection.Chroot(), distroHandler)

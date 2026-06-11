@@ -5,6 +5,8 @@ package imageconnection
 
 import (
 	"fmt"
+	"os"
+	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
@@ -14,6 +16,7 @@ type ImageConnection struct {
 	loopback            *safeloopback.Loopback
 	chroot              *safechroot.Chroot
 	chrootIsExistingDir bool
+	ownedDirectories    []string
 }
 
 func NewImageConnection() *ImageConnection {
@@ -51,6 +54,10 @@ func (c *ImageConnection) ConnectChroot(rootDir string, isExistingDir bool, extr
 	return nil
 }
 
+func (c *ImageConnection) AddOwnedDirectories(dirs ...string) {
+	c.ownedDirectories = append(c.ownedDirectories, dirs...)
+}
+
 func (c *ImageConnection) Chroot() *safechroot.Chroot {
 	return c.chroot
 }
@@ -64,6 +71,10 @@ func (c *ImageConnection) Close() {
 		c.chroot.Close(c.chrootIsExistingDir)
 	}
 
+	for _, dir := range slices.Backward(c.ownedDirectories) {
+		os.RemoveAll(dir)
+	}
+
 	if c.loopback != nil {
 		c.loopback.Close()
 	}
@@ -73,6 +84,16 @@ func (c *ImageConnection) CleanClose() error {
 	err := c.chroot.Close(c.chrootIsExistingDir)
 	if err != nil {
 		return err
+	}
+
+	for len(c.ownedDirectories) > 0 {
+		dir := c.ownedDirectories[len(c.ownedDirectories)-1]
+		err = os.RemoveAll(dir)
+		if err != nil {
+			return fmt.Errorf("failed to remove image connection directory (%s):\n%w", dir, err)
+		}
+
+		c.ownedDirectories = c.ownedDirectories[:len(c.ownedDirectories)-1]
 	}
 
 	err = c.loopback.CleanClose()

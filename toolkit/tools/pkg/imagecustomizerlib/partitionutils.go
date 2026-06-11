@@ -395,7 +395,7 @@ func detectDistroFromRootfs(buildDir string, rootfsPartition *diskutils.Partitio
 	}()
 
 	mountedTargets := map[string]bool{}
-	for _, osReleasePath := range []string{"/etc/os-release", "/usr/lib/os-release"} {
+	for _, osReleasePath := range targetos.OsReleaseFileCandidates {
 		index, _, found := getMostSpecificPath(osReleasePath, slices.All(fstabEntries),
 			func(entry diskutils.FstabEntry) string { return entry.Target })
 		if !found {
@@ -473,7 +473,7 @@ func mountFstabPartitionReadonly(rootDir string, mountTarget string, mountSubdir
 func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions []diskutils.PartitionInfo,
 	buildDir string, ignoreOverlays bool, rootfsPartition *diskutils.PartitionInfo, rootfsPath string,
 	distroHandler DistroHandler,
-) ([]fstabEntryPartNum, []verityDeviceMetadata, error) {
+) ([]fstabEntryPartNum, []verityDeviceMetadata, DistroHandler, error) {
 	filteredFstabEntries := filterOutSpecialPartitions(fstabEntries)
 
 	// Defer reading kernel cmdline until we know it is needed.
@@ -514,7 +514,7 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 
 		_, partition, _, verityMetadata, err := findSourcePartition(fstabEntry.Source, diskPartitions, getKernelCmdline)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		partUuid := ""
@@ -535,16 +535,22 @@ func discoverPartitionLayout(fstabEntries []diskutils.FstabEntry, diskPartitions
 		}
 	}
 
-	return entries, verityMetadataList, nil
+	return entries, verityMetadataList, distroHandler, nil
 }
 
 func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []diskutils.PartitionInfo,
-	readonly bool, readOnlyVerity bool,
-) ([]*safechroot.MountPoint, []string, error) {
+	readonly bool, readOnlyVerity bool, distroHandler DistroHandler, buildDir string, includeDefaultMounts bool,
+) ([]*safechroot.MountPoint, []string, []string, error) {
 	// Convert fstab entries into mount points.
 	var mountPoints []*safechroot.MountPoint
 	var foundRoot bool
 	readonlyPartUuids := []string(nil)
+	tempDirectories := []string(nil)
+	defer func() {
+		for _, dir := range tempDirectories {
+			os.RemoveAll(dir)
+		}
+	}()
 
 	for _, entry := range layout {
 		fstabEntry := entry.FstabEntry
@@ -564,7 +570,7 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 				return entry.PartUuid == partition.PartUuid
 			})
 			if !partitionFound {
-				return nil, nil, fmt.Errorf("failed to find partition (partuuid='%s')", entry.PartUuid)
+				return nil, nil, nil, fmt.Errorf("failed to find partition (partuuid='%s')", entry.PartUuid)
 			}
 
 			readOnlyPartition = readOnlyVerity && entry.IsVerity
@@ -576,8 +582,10 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 			fsType = fstabEntry.FsType
 		}
 
+		setReadOnly := readonly || readOnlyPartition
+
 		var vfsOptions diskutils.MountFlags
-		if readonly || readOnlyPartition {
+		if setReadOnly {
 			// In scenarios where the image has completed customization (e.g. when the image is re-mounted for injection),
 			// force read-only mount. Since we're only reading data, execution and write permissions aren't needed.
 			vfsOptions = fstabEntry.VfsOptions | diskutils.MountFlags(unix.MS_RDONLY)
@@ -588,27 +596,90 @@ func partitionLayoutToMountPoints(layout []fstabEntryPartNum, diskPartitions []d
 			vfsOptions = fstabEntry.VfsOptions & ^diskutils.MountFlags(unix.MS_RDONLY|unix.MS_NOEXEC)
 		}
 
-		var mountPoint *safechroot.MountPoint
 		if fstabEntry.Target == "/" {
-			mountPoint = safechroot.NewPreDefaultsMountPoint(
+			mountPoint := safechroot.NewPreDefaultsMountPoint(
 				sourcePath, fstabEntry.Target, fsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
+
+			mountPoints = append(mountPoints, mountPoint)
+
+			if setReadOnly && distroHandler.RootMissingMountDirectories() {
+				mountPoint, tempDir, err := createMountsDirOverlay(buildDir, includeDefaultMounts, layout)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+
+				mountPoints = append(mountPoints, mountPoint)
+				tempDirectories = append(tempDirectories, tempDir)
+			}
 
 			foundRoot = true
 		} else {
-			mountPoint = safechroot.NewMountPoint(
+			mountPoint := safechroot.NewMountPoint(
 				sourcePath, fstabEntry.Target, fsType,
 				uintptr(vfsOptions), fstabEntry.FsOptions)
-		}
 
-		mountPoints = append(mountPoints, mountPoint)
+			mountPoints = append(mountPoints, mountPoint)
+		}
 	}
 
 	if !foundRoot {
-		return nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
+		return nil, nil, nil, fmt.Errorf("image has invalid fstab file: no root partition found")
 	}
 
-	return mountPoints, readonlyPartUuids, nil
+	outTempDirectories := tempDirectories
+	tempDirectories = nil
+
+	return mountPoints, readonlyPartUuids, outTempDirectories, nil
+}
+
+func createMountsDirOverlay(buildDir string, includeDefaultMounts bool, layout []fstabEntryPartNum,
+) (*safechroot.MountPoint, string, error) {
+	// The Azure Container Linux image doesn't create empty directories for some of the standard Linux
+	// mounts (e.g. /dev) or even its own mounts (e.g. /oem). So, when mounting as read-only, we have to
+	// create these directories for it, using an overlay. :-(
+
+	ok := false
+
+	// Create a directory that contains placeholders for all the special directories.
+	mountDirsDir := filepath.Join(buildDir, "rootmountdirsdir")
+	err := os.MkdirAll(mountDirsDir, os.ModePerm)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create mount directories directory:\n%w", err)
+	}
+	defer func() {
+		if !ok {
+			os.RemoveAll(mountDirsDir)
+		}
+	}()
+
+	mountDirs := []string(nil)
+	if includeDefaultMounts {
+		mountDirs = append(mountDirs, safechroot.DefaultMountRootDirectories...)
+	}
+
+	for _, entry := range layout {
+		targetDir := entry.FstabEntry.Target
+		if targetDir == "/" || slices.Contains(mountDirs, targetDir) {
+			continue
+		}
+
+		mountDirs = append(mountDirs, targetDir)
+	}
+
+	for _, mountDir := range mountDirs {
+		err := os.Mkdir(filepath.Join(mountDirsDir, mountDir), os.ModePerm)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create mount directory (%s):\n%w", mountDir, err)
+		}
+	}
+
+	// Overlay the ACL root on top of the special directories directory.
+	mountPoint := safechroot.NewPreDefaultsMountPoint("overlay", "/", "overlay", unix.MS_RDONLY,
+		fmt.Sprintf("lowerdir=%s:/", mountDirsDir))
+
+	ok = true
+	return mountPoint, mountDirsDir, nil
 }
 
 func filterOutSpecialPartitions(fstabEntries []diskutils.FstabEntry) []diskutils.FstabEntry {

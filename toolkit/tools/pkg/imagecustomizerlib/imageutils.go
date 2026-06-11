@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -16,12 +17,15 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/configuration"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/envfile"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/sliceutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"go.opentelemetry.io/otel"
 	"golang.org/x/sys/unix"
 )
@@ -31,87 +35,108 @@ type installOSFunc func(imageChroot *safechroot.Chroot) error
 func connectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, ignoreOverlays bool,
 	distroHandler DistroHandler,
-) (*imageconnection.ImageConnection, []fstabEntryPartNum, []verityDeviceMetadata, []string, error) {
+) (*imageconnection.ImageConnection, []fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "connect_to_existing_image")
 	defer span.End()
 	imageConnection := imageconnection.NewImageConnection()
 
-	partitionsLayout, verityMetadata, readonlyPartUuids, err := connectToExistingImageHelper(imageConnection,
+	partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, err := connectToExistingImageHelper(imageConnection,
 		imageFilePath, buildDir, chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, ignoreOverlays,
 		distroHandler)
 	if err != nil {
 		imageConnection.Close()
-		return nil, nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
+		return nil, nil, nil, nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
 	}
 
-	return imageConnection, partitionsLayout, verityMetadata, readonlyPartUuids, nil
+	return imageConnection, partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, nil
 }
 
 func connectToExistingImageHelper(imageConnection *imageconnection.ImageConnection, imageFilePath string,
 	buildDir string, chrootDirName string, includeDefaultMounts bool, readonly bool, readOnlyVerity bool,
 	ignoreOverlays bool, distroHandler DistroHandler,
-) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, error) {
+) ([]fstabEntryPartNum, []verityDeviceMetadata, []string, DistroHandler, error) {
 	// Connect to image file using loopback device.
 	err := imageConnection.ConnectLoopback(imageFilePath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	partitionTable, err := diskutils.ReadDiskPartitionTable(imageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read image's partition table:\n%w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to read image's partition table:\n%w", err)
 	}
 
 	if partitionTable == nil {
-		return nil, nil, nil, fmt.Errorf("image does not contain a partition table")
+		return nil, nil, nil, nil, fmt.Errorf("image does not contain a partition table")
 	}
 
 	partitions, err := diskutils.GetDiskPartitions(imageConnection.Loopback().DevicePath())
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	rootfsPartition, rootfsPath, err := findRootfsPartition(partitions, buildDir)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to find rootfs partition:\n%w", err)
 	}
 
 	fstabEntries, err := readFstabEntriesFromRootfs(rootfsPartition, buildDir, rootfsPath)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to read fstab entries from rootfs partition:\n%w", err)
 	}
 
-	partitionsLayout, verityMetadata, err := discoverPartitionLayout(fstabEntries, partitions, buildDir, ignoreOverlays,
-		rootfsPartition, rootfsPath, distroHandler)
+	partitionsLayout, verityMetadata, distroHandler, err := discoverPartitionLayout(fstabEntries, partitions, buildDir,
+		ignoreOverlays, rootfsPartition, rootfsPath, distroHandler)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
 
-	mountPoints, readonlyPartUuids, err := partitionLayoutToMountPoints(partitionsLayout, partitions, readonly,
-		readOnlyVerity)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
+	if distroHandler == nil {
+		// The Azure Container Linux image doesn't create empty directories for some of the standard Linux partitions,
+		// like /dev. Hence, the `ConnectChroot` call below would fail when mounting as read-only. To workaround this
+		// issue, we need to know which distro we are dealing with here, so that we can add a workaround for ACL.
+		//
+		// But for the ACL image, we could do the distro check after `ConnectChroot` and drastically simplify the code.
+		// :-(
+		targetOs, err := getInstalledTargetOsFromPartitionLayout(partitions, partitionsLayout, buildDir)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to determine the target OS:\n%w", err)
+		}
+
+		distroHandler, err = NewDistroHandler(targetOs)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
 	}
+
+	mountPoints, readonlyPartUuids, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, partitions,
+		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
+	}
+
+	imageConnection.AddOwnedDirectories(tempDirectories...)
 
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
 
 	err = imageConnection.ConnectChroot(imageChrootDir, false, []string(nil), mountPoints, includeDefaultMounts)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	return partitionsLayout, verityMetadata, readonlyPartUuids, nil
+	return partitionsLayout, verityMetadata, readonlyPartUuids, distroHandler, nil
 }
 
 func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDir string, chrootDirName string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, partitionsLayout []fstabEntryPartNum,
+	distroHandler DistroHandler,
 ) (*imageconnection.ImageConnection, []string, error) {
 	_, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "reconnect_to_existing_image")
 	defer span.End()
 
 	imageConnection, readonlyPartUuids, err := reconnectToExistingImageHelper(imageFilePath, buildDir,
-		chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, partitionsLayout)
+		chrootDirName, includeDefaultMounts, readonly, readOnlyVerity, partitionsLayout, distroHandler)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to OS image file:\n%w", err)
 	}
@@ -120,6 +145,7 @@ func reconnectToExistingImage(ctx context.Context, imageFilePath string, buildDi
 
 func reconnectToExistingImageHelper(imageFilePath string, buildDir string, chrootDirName string,
 	includeDefaultMounts bool, readonly bool, readOnlyVerity bool, partitionsLayout []fstabEntryPartNum,
+	distroHandler DistroHandler,
 ) (*imageconnection.ImageConnection, []string, error) {
 	ok := false
 
@@ -141,11 +167,13 @@ func reconnectToExistingImageHelper(imageFilePath string, buildDir string, chroo
 		return nil, nil, err
 	}
 
-	mountPoints, readonlyPartUuids, err := partitionLayoutToMountPoints(partitionsLayout, partitions, readonly,
-		readOnlyVerity)
+	mountPoints, readonlyPartUuids, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, partitions,
+		readonly, readOnlyVerity, distroHandler, buildDir, includeDefaultMounts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
+
+	imageConnection.AddOwnedDirectories(tempDirectories...)
 
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
@@ -351,16 +379,19 @@ func createImageBoilerplate(distroHandler DistroHandler, imageConnection *imagec
 		return nil, "", err
 	}
 
-	partitionsLayout, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false, nil, "",
+	partitionsLayout, _, _, err := discoverPartitionLayout(fstabEntries, diskPartitions, buildDir, false, nil, "",
 		distroHandler)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to discover partitions from fstab entries:\n%w", err)
 	}
 
-	mountPoints, _, err := partitionLayoutToMountPoints(partitionsLayout, diskPartitions, false, false)
+	mountPoints, _, tempDirectories, err := partitionLayoutToMountPoints(partitionsLayout, diskPartitions, false, false,
+		distroHandler, buildDir, false)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to find mount info for disk:\n%w", err)
 	}
+
+	imageConnection.AddOwnedDirectories(tempDirectories...)
 
 	// Create chroot environment.
 	imageChrootDir := filepath.Join(buildDir, chrootDirName)
@@ -446,4 +477,78 @@ func clearBtrfsReadOnlyProperties(imageConnection *imageconnection.ImageConnecti
 	}
 
 	return nil
+}
+
+// Get the target OS from the partition layout.
+// Note: This function primarily exists as part of a workaround for the ACL image.
+// Note: This function is similar to `detectDistroFromRootfs` but `detectDistroFromRootfs` has to run pre verity
+// resolution. Whereas this function is post verity resolution. So it can also scan verity partitions, making it more
+// robust.
+func getInstalledTargetOsFromPartitionLayout(diskPartitions []diskutils.PartitionInfo,
+	partitionsLayout []fstabEntryPartNum, buildDir string,
+) (targetos.TargetOs, error) {
+	for _, candidate := range targetos.OsReleaseFileCandidates {
+		entryIndex, relativePath, found := getMostSpecificPath(candidate, slices.All(partitionsLayout),
+			func(entry fstabEntryPartNum) string { return entry.FstabEntry.Target })
+		if !found {
+			return targetos.TargetOs{}, fmt.Errorf("failed to find fstab entry for path (path='%s')", candidate)
+		}
+
+		entry := partitionsLayout[entryIndex]
+		fstabEntry := entry.FstabEntry
+
+		diskPartition, foundDiskPartition := sliceutils.FindValueFunc(diskPartitions,
+			func(diskPartition diskutils.PartitionInfo) bool {
+				return diskPartition.PartUuid == entry.PartUuid
+			})
+		if !foundDiskPartition {
+			err := fmt.Errorf("failed to find partition for fstab entry (partuuid='%s')", entry.PartUuid)
+			return targetos.TargetOs{}, err
+		}
+
+		mountDir := filepath.Join(buildDir, tmpPartitionDirName)
+
+		mount, err := safemount.NewMount(diskPartition.Path, mountDir, diskPartition.FileSystemType,
+			uintptr(fstabEntry.VfsOptions), fstabEntry.FsOptions, true /*makeAndDeleteDir*/)
+		if err != nil {
+			return targetos.TargetOs{}, err
+		}
+		defer mount.Close()
+
+		osReleasePath := filepath.Join(mountDir, relativePath)
+		osReleaseFileExists, err := file.PathExists(osReleasePath)
+		if err != nil {
+			return targetos.TargetOs{}, fmt.Errorf("failed to check if os-release file exists (path='%s'):\n%w",
+				osReleasePath, err)
+		}
+
+		if !osReleaseFileExists {
+			err = mount.CleanClose()
+			if err != nil {
+				return targetos.TargetOs{}, err
+			}
+
+			continue
+		}
+
+		fields, err := envfile.ParseEnvFile(osReleasePath)
+		if err != nil {
+			return targetos.TargetOs{}, fmt.Errorf("failed to read os-release file (path='%s'):\n%w", osReleasePath,
+				err)
+		}
+
+		err = mount.CleanClose()
+		if err != nil {
+			return targetos.TargetOs{}, err
+		}
+
+		targetOs, err := targetos.GetInstalledTargetOsFromEnvFields(fields)
+		if err != nil {
+			return targetos.TargetOs{}, err
+		}
+
+		return targetOs, nil
+	}
+
+	return targetos.TargetOs{}, fmt.Errorf("failed to determine OS distro:\ncould not find os-release file")
 }

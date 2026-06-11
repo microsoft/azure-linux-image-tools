@@ -465,8 +465,8 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 ) ([]fstabEntryPartNum, []verityDeviceMetadata, string,
 	[]OsPackage, [randomization.UuidSize]byte, string, *CosiBootloader, []string, error,
 ) {
-	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
-		ctx, rawImageFile, buildDir, chrootDir, true, true, true, true, nil)
+	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, distroHandler, err :=
+		connectToExistingImage(ctx, rawImageFile, buildDir, chrootDir, true, true, true, true, nil)
 	if err != nil {
 		err = fmt.Errorf("%w:\n%w", ErrArtifactImageConnectionForExtraction, err)
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
@@ -476,11 +476,6 @@ func prepareImageConversionData(ctx context.Context, rawImageFile string, buildD
 	osRelease, err := extractOSRelease(imageConnection)
 	if err != nil {
 		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, err
-	}
-
-	distroHandler, err := NewDistroHandlerFromChroot(imageConnection.Chroot())
-	if err != nil {
-		return nil, nil, "", nil, [randomization.UuidSize]byte{}, "", nil, nil, fmt.Errorf("failed to detect distribution:\n%w", err)
 	}
 
 	osPackages, cosiBootMetadata, err := collectOSInfoHelper(ctx, buildDir, imageConnection, distroHandler)

@@ -73,6 +73,11 @@ var (
 		VersionId: "24.04",
 		Version:   []int{24, 4},
 	}
+
+	OsReleaseFileCandidates = []string{
+		"/etc/os-release",
+		"/usr/lib/os-release",
+	}
 )
 
 func New(distroId string, versionId string) TargetOs {
@@ -86,18 +91,36 @@ func New(distroId string, versionId string) TargetOs {
 }
 
 func GetInstalledTargetOs(rootfs string) (TargetOs, error) {
-	// Try /etc/os-release first, then fall back to /usr/lib/os-release.
-	fields, err := envfile.ParseEnvFile(filepath.Join(rootfs, "etc/os-release"))
-	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return TargetOs{}, fmt.Errorf("failed to read /etc/os-release:\n%w", err)
+	var err error
+	var fields map[string]string
+
+	found := false
+	for _, candidate := range OsReleaseFileCandidates {
+		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, candidate))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
 		}
-		fields, err = envfile.ParseEnvFile(filepath.Join(rootfs, "usr/lib/os-release"))
 		if err != nil {
-			return TargetOs{}, fmt.Errorf("failed to read os-release (tried /etc/os-release and /usr/lib/os-release):\n%w", err)
+			return TargetOs{}, fmt.Errorf("failed to read os-release file (%s):\n%w", candidate, err)
 		}
+
+		found = true
+		break
 	}
 
+	if !found {
+		return TargetOs{}, fmt.Errorf("no os-release file found (candidates=%s):\n%w", OsReleaseFileCandidates, err)
+	}
+
+	targetOs, err := GetInstalledTargetOsFromEnvFields(fields)
+	if err != nil {
+		return TargetOs{}, err
+	}
+
+	return targetOs, err
+}
+
+func GetInstalledTargetOsFromEnvFields(fields map[string]string) (TargetOs, error) {
 	distroId := fields["ID"]
 	versionId := fields["VERSION_ID"]
 

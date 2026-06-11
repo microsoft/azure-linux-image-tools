@@ -278,7 +278,8 @@ func customizeImageOptionsHelper(ctx context.Context, baseConfigPath string, con
 	}
 
 	if rc.OutputSelinuxPolicyPath != "" {
-		err = outputSelinuxPolicy(ctx, rc.OutputSelinuxPolicyPath, rc.BuildDirAbs, rc.RawImageFile, im.partitionsLayout)
+		err = outputSelinuxPolicy(ctx, rc.OutputSelinuxPolicyPath, rc.BuildDirAbs, rc.RawImageFile, im.partitionsLayout,
+			im.distroHandler)
 		if err != nil {
 			return fmt.Errorf("%w:\n%w", ErrOutputSelinuxPolicy, err)
 		}
@@ -702,7 +703,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
-	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, err := connectToExistingImage(
+	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
 		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
@@ -766,7 +767,7 @@ func collectOSInfo(ctx context.Context, buildDir string, rawImageFile string, pa
 ) ([]OsPackage, *CosiBootloader, error) {
 	var err error
 	imageConnection, _, err := reconnectToExistingImage(ctx, rawImageFile, buildDir, "imageroot", true, true, false,
-		partitionsLayout)
+		partitionsLayout, distroHandler)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -896,18 +897,13 @@ func CheckEnvironmentVars() error {
 // features enabled. Returns the detected target OS.
 func validateTargetOs(ctx context.Context, rc *ResolvedConfig,
 ) (DistroHandler, error) {
-	existingImageConnection, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
+	existingImageConnection, _, _, _, distroHandler, err := connectToExistingImage(ctx, rc.RawImageFile, rc.BuildDirAbs,
 		"imageroot", false /* include-default-mounts */, true, /* read-only */
 		false /* read-only-verity */, false /* ignore-overlays */, nil /* distroHandler */)
 	if err != nil {
 		return nil, err
 	}
 	defer existingImageConnection.Close()
-
-	distroHandler, err := NewDistroHandlerFromChroot(existingImageConnection.Chroot())
-	if err != nil {
-		return nil, err
-	}
 
 	err = distroHandler.ValidateConfig(rc)
 	if err != nil {
