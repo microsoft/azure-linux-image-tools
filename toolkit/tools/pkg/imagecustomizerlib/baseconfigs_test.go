@@ -83,8 +83,8 @@ func TestBaseConfigsFullRun(t *testing.T) {
 
 	currentConfigFile := filepath.Join(testDir, hierarchicalConfigFile(t, baseImageInfo))
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFilePath, "raw", true, "")
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage,
+		outImageFilePath, "raw", baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -297,7 +297,7 @@ func hierarchicalConfigFile(t *testing.T, baseImageInfo testBaseImageInfo) strin
 }
 
 func TestBaseConfigsStorageInBaseConfig(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestBaseConfigsStorageInBaseConfig")
 	defer os.RemoveAll(testTmpDir)
@@ -307,7 +307,7 @@ func TestBaseConfigsStorageInBaseConfig(t *testing.T) {
 
 	currentConfigFile := filepath.Join(testDir, "storage-in-base-config.yaml")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage, nil,
-		outImageFilePath, "raw", true, "")
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, currentConfigFile, baseImage,
+		outImageFilePath, "raw", baseImageInfo.PreviewFeatures)
 	assert.ErrorIs(t, err, ErrStorageInBaseConfig)
 }

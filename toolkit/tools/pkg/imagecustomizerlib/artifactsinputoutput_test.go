@@ -49,8 +49,8 @@ func TestOutputAndInjectArtifacts(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Customize image
-	err = CustomizeImageWithConfigFile(t.Context(), buildDirCustomize, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDirCustomize, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -157,8 +157,8 @@ func TestOutputAndInjectArtifactsCosi(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}

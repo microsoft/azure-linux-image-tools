@@ -466,8 +466,8 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA0, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -496,8 +496,8 @@ func testCustomizeImageLiveOSKeepKdumpFilesA(t *testing.T, baseImageInfo testBas
 		},
 	}
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, configA1, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, configA1, outImageFilePath, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -588,8 +588,8 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeKeep, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, configB, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -614,8 +614,8 @@ func testCustomizeImageLiveOSKeepKdumpFilesBC(t *testing.T, baseImageInfo testBa
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, configC, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, configC, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -653,8 +653,8 @@ func testCustomizeImageLiveOSMultiKernel(t *testing.T, baseImageInfo testBaseIma
 		"" /*pxe url*/, true /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, true, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	switch baseImageInfo.Version {
 	case baseImageVersionAzl2:
 		// Azl2 should fail.
@@ -700,8 +700,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
 	// vhdx {raw} to ISO {bootstrap}, selinux enforcing + bootstrap prereqs
-	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -717,8 +717,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, false /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDefault)
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -730,8 +730,8 @@ func TestCustomizeImageLiveOSInitramfs1(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -759,8 +759,8 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -776,8 +776,8 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, nil, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, configB, outImageFilePath, outImageFilePath, string(imagecustomizerapi.ImageFormatTypeIso),
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -796,8 +796,8 @@ func TestCustomizeImageLiveOSInitramfs2(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, selinuxMode)
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, configC, outImageFilePath, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -821,8 +821,8 @@ func TestCustomizeImageLiveOSInitramfs3(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, configA, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -850,8 +850,8 @@ func TestCustomizeImageLiveOSPxe1(t *testing.T) {
 		pxeBootstrapUrl, false /*enlarge disk*/, true /*enable os config*/, true /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeEnforcing)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -878,8 +878,8 @@ func TestCustomizeImageLiveOSPxe2(t *testing.T) {
 		"" /*pxe url*/, false /*enlarge disk*/, true /*enable os config*/, false /*bootstrap prereqs*/, false, /*2 kernels*/
 		imagecustomizerapi.KdumpBootFilesTypeNone, imagecustomizerapi.SELinuxModeDisabled)
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypePxeTar), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypePxeTar), baseImageInfo.PreviewFeatures)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
 		return
@@ -925,8 +925,8 @@ func testCustomizeImageLiveOSIsoNoShimEfi(t *testing.T, testName string, baseIma
 	}
 
 	// Customize image.
-	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	assert.Error(t, err)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)
@@ -980,8 +980,8 @@ func TestCustomizeImageLiveOSIsoNoGrubEfi(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(t.Context(), buildDir, testDir, config, baseImage, nil, outImageFilePath,
-		string(imagecustomizerapi.ImageFormatTypeIso), true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, config, baseImage, outImageFilePath,
+		string(imagecustomizerapi.ImageFormatTypeIso), baseImageInfo.PreviewFeatures)
 	assert.Error(t, err)
 	if baseImageInfo.Version == baseImageVersionAzl4 {
 		assert.ErrorContains(t, err, azl4IsoPxeUnsupportedError)

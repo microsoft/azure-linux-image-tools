@@ -34,7 +34,7 @@ func testCustomizeImageServicesEnableDisable(t *testing.T, baseImageInfo testBas
 
 	// Customize image.
 	configFile := filepath.Join(testDir, "services-config.yaml")
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -93,8 +93,8 @@ func testCustomizeImageServicesEnableUnknown(t *testing.T, baseImageInfo testBas
 		},
 	}
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "failed to enable service (service='chocolate-chip-muffin')")
 	assert.ErrorContains(t, err, "chocolate-chip-muffin.service does not exist")
 }
@@ -128,7 +128,7 @@ func testCustomizeImageServicesDisableUnknown(t *testing.T, baseImageInfo testBa
 		},
 	}
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "failed to disable service (service='chocolate-chip-muffin')")
 }

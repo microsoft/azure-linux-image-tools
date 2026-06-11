@@ -42,8 +42,8 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -57,8 +57,8 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-nop.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -90,8 +90,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -104,8 +104,8 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-usr-uki.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -201,8 +201,8 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 	outImageFilePath := filepath.Join(testTempDir, "image.raw")
 	configFile := filepath.Join(testDir, verityUsrUkiConfigFile(t, baseImageInfo))
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -215,8 +215,8 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 	outImageFilePath2 := filepath.Join(testTempDir, "image-passthrough.raw")
 	configFile2 := filepath.Join(testDir, "verity-usr-uki-passthrough.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -261,8 +261,8 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 	configFile := filepath.Join(testDir, verityRootUkiConfigFile(t, baseImageInfo))
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -276,8 +276,8 @@ func testCustomizeImageVerityRootUkiHelper(t *testing.T, baseImageInfo testBaseI
 	outImageFilePath2 := filepath.Join(testTempDir, "image2.raw")
 	configFile2 := filepath.Join(testDir, "verity-reinit-root-nop.yaml")
 
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, nil, outImageFilePath2, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile2, outImageFilePath, outImageFilePath2, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}

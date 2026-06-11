@@ -34,7 +34,7 @@ func testCustomizeImageRunScripts(t *testing.T, baseImageInfo testBaseImageInfo)
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -108,7 +108,7 @@ func testCustomizeImageRunScriptsFunkyInterpreter(t *testing.T, baseImageInfo te
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,

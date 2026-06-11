@@ -65,9 +65,13 @@ func testCreateImageRaw(t *testing.T, name string, version string, configFile st
 	assert.Equal(t, expectedVirtualSize, imageInfo.VirtualSize)
 
 	// Customize image to vhd.
-	err = CustomizeImageWithConfigFile(
-		t.Context(), buildDir, noChangeConfigFile, outputImageFilePath, rpmSources,
-		vhdFixedImageFilePath, "vhd", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImageWithConfigFile(t.Context(), noChangeConfigFile, ImageCustomizerOptions{
+		BuildDir:          buildDir,
+		InputImageFile:    outputImageFilePath,
+		RpmsSources:       rpmSources,
+		OutputImageFile:   vhdFixedImageFilePath,
+		OutputImageFormat: "vhd",
+	})
 	if !assert.NoError(t, err) {
 		return
 	}

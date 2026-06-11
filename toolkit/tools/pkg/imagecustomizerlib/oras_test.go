@@ -32,12 +32,12 @@ func TestCustomizeImageOciBaseImageInvalid(t *testing.T) {
 	}
 
 	// No image cache directory.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrOciDownloadMissingCacheDir)
 
 	// Image cache directory points to a file.
 	options.ImageCacheDir = configFile
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrOciDownloadCreateCacheDir)
 }
 
@@ -64,7 +64,7 @@ func TestCustomizeImageOciBaseImageValid(t *testing.T) {
 	defer logMessagesHook.Close()
 
 	// Customize image, with empty cache.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -78,7 +78,7 @@ func TestCustomizeImageOciBaseImageValid(t *testing.T) {
 	assert.Contains(t, logMessages, expectedDownloadLogMessage)
 
 	// Customize image, with populated cache.
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -119,18 +119,18 @@ func TestCustomizeImageOciBaseImageCliInvalid(t *testing.T) {
 	}
 
 	// Bad string format
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrInvalidInputImageStringFormat)
 
 	// Bad URI
 	options.InputImage = "oci:mcr.microsoft.com"
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrInvalidInputImageStringFormat)
 
 	// No image cache directory.
 	options.ImageCacheDir = ""
 	options.InputImage = "oci:mcr.microsoft.com/azurelinux/3.0/image/minimal-os:latest"
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrOciDownloadMissingCacheDir)
 }
 
@@ -154,7 +154,7 @@ func TestCustomizeImageOciBaseImageCliValid(t *testing.T) {
 	}
 
 	// Customize image, with empty cache.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}

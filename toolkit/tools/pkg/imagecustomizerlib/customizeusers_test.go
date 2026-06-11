@@ -99,8 +99,8 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -165,7 +165,7 @@ func testCustomizeImageUsers(t *testing.T, baseImageInfo testBaseImageInfo) {
 }
 
 func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserHomeDir")
 	defer os.RemoveAll(testTmpDir)
@@ -185,13 +185,13 @@ func TestCustomizeImageUsersExitingUserHomeDir(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "cannot set home directory on a user that already exists (homeDir='/home/root', user='root')")
 }
 
 func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserUid")
 	defer os.RemoveAll(testTmpDir)
@@ -211,13 +211,13 @@ func TestCustomizeImageUsersExitingUserUid(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "cannot set UID on a user that already exists (UID='1', user='root')")
 }
 
 func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersMissingSshPublicKeyFile")
 	defer os.RemoveAll(testTmpDir)
@@ -239,13 +239,13 @@ func TestCustomizeImageUsersMissingSshPublicKeyFile(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "failed to find SSH public key file (path='does-not-exist')")
 }
 
 func TestCustomizeImageUsersAddFiles(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersAddFiles")
 	defer os.RemoveAll(testTmpDir)
@@ -255,8 +255,8 @@ func TestCustomizeImageUsersAddFiles(t *testing.T) {
 	configFile := filepath.Join(testDir, "add-user-files.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -343,7 +343,7 @@ func verifyPassword(t *testing.T, encryptedPassword string, plainTextPassword st
 }
 
 func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageUsersExitingUserPassword")
 	defer os.RemoveAll(testTmpDir)
@@ -367,8 +367,8 @@ func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
 		},
 	}
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, &configWithPassword, baseImage, nil, outImageFilePath, "raw",
-		false, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &configWithPassword, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -385,8 +385,8 @@ func TestCustomizeImageUsersExitingUserPassword(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, &configWithoutPassword, outImageFilePath, nil, outImageFilePath, "raw",
-		false, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testDir, &configWithoutPassword, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
