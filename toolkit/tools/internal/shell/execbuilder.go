@@ -194,10 +194,9 @@ func (b ExecBuilder) executeHelper(captureOutput bool) (string, string, error) {
 	// Note: 'exec.Command' only does a path lookup when 'filepath.Base(command) == command'.
 	if b.chrootDir != "" && filepath.Base(command) == command {
 		// Resolve the command's path relative to the chroot directory.
-		resolvedCmd, err := chrootLookPath(command, b.chrootDir, chrootPathDirs)
+		resolvedCmd, err := LookPathChroot(command, b.chrootDir)
 		if err != nil {
-			err = fmt.Errorf("failed to resolve command path:\n%w", err)
-			return "", "", err
+			return "", "", fmt.Errorf("failed to resolve command path:\n%w", err)
 		}
 
 		command = resolvedCmd

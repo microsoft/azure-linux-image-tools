@@ -158,6 +158,12 @@ func MustExecuteLive(command string, args ...string) {
 	}
 }
 
+// Tries to find a commnad within a chroot.
+// Returns an error iff. the command is not found.
+func LookPathChroot(command string, rootDir string) (string, error) {
+	return chrootLookPath(command, rootDir, chrootPathDirs)
+}
+
 func trackAndStartProcess(cmd *exec.Cmd, capabilities []uintptr) (err error) {
 	logger.Log.Debugf("Executing: %v", cmd.Args)
 
