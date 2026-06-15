@@ -95,7 +95,7 @@ func TestCustomizeImageAZLBaseImageConfigValid(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -132,7 +132,7 @@ func TestCustomizeImageAZLBaseImageCliValid(t *testing.T) {
 	}
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}

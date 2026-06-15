@@ -41,7 +41,7 @@ func testCustomizeImageDistroVersionInvalidHelper(t *testing.T, testName string,
 	}
 
 	// Corrupt the distro version.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -51,12 +51,12 @@ func testCustomizeImageDistroVersionInvalidHelper(t *testing.T, testName string,
 
 	// Ensure 'unsupported-distro-version' preview feature flag is enforced.
 	configFile = filepath.Join(testDir, "nochange-config.yaml")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrUnsupportedDistroVersion)
 
 	// Enable 'unsupported-distro-version' preview feature flag.
 	configFile = filepath.Join(testDir, "distro-version-preview-feature.yaml")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -93,7 +93,7 @@ func testCustomizeImageDistroVersionNewHelper(t *testing.T, testName string, bas
 	}
 
 	// Set the distro version to a very large number.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -103,12 +103,12 @@ func testCustomizeImageDistroVersionNewHelper(t *testing.T, testName string, bas
 
 	// Ensure 'unsupported-distro-version' preview feature flag is enforced.
 	configFile = filepath.Join(testDir, "nochange-config.yaml")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	assert.ErrorIs(t, err, ErrUnsupportedDistroVersion)
 
 	// Enable 'unsupported-distro-version' preview feature flag.
 	configFile = filepath.Join(testDir, "distro-version-preview-feature.yaml")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, options)
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, options)
 	if !assert.NoError(t, err) {
 		return
 	}

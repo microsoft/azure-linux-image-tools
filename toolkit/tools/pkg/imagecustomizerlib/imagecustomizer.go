@@ -114,22 +114,7 @@ type imageMetadata struct {
 	partitionOriginalSizes map[string]uint64
 }
 
-func CustomizeImageWithConfigFile(ctx context.Context, buildDir string, configFile string, inputImageFile string,
-	rpmsSources []string, outputImageFile string, outputImageFormat string,
-	useBaseImageRpmRepos bool, packageSnapshotTime string,
-) error {
-	return CustomizeImageWithConfigFileOptions(ctx, configFile, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       inputImageFile,
-		RpmsSources:          rpmsSources,
-		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
-		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
-	})
-}
-
-func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string, options ImageCustomizerOptions) error {
+func CustomizeImageWithConfigFile(ctx context.Context, configFile string, options ImageCustomizerOptions) error {
 	var err error
 
 	var config imagecustomizerapi.Config
@@ -146,7 +131,7 @@ func CustomizeImageWithConfigFileOptions(ctx context.Context, configFile string,
 		return fmt.Errorf("%w:\n%w", ErrGetAbsoluteConfigPath, err)
 	}
 
-	err = CustomizeImageOptions(ctx, absBaseConfigPath, &config, options)
+	err = CustomizeImage(ctx, absBaseConfigPath, &config, options)
 	if err != nil {
 		return err
 	}
@@ -163,22 +148,7 @@ func cleanUp(rc *ResolvedConfig) error {
 	return nil
 }
 
-func CustomizeImage(ctx context.Context, buildDir string, baseConfigPath string, config *imagecustomizerapi.Config,
-	inputImageFile string, rpmsSources []string, outputImageFile string, outputImageFormat string,
-	useBaseImageRpmRepos bool, packageSnapshotTime string,
-) (err error) {
-	return CustomizeImageOptions(ctx, baseConfigPath, config, ImageCustomizerOptions{
-		BuildDir:             buildDir,
-		InputImageFile:       inputImageFile,
-		RpmsSources:          rpmsSources,
-		OutputImageFile:      outputImageFile,
-		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
-		UseBaseImageRpmRepos: useBaseImageRpmRepos,
-		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
-	})
-}
-
-func CustomizeImageOptions(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
+func CustomizeImage(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
 	options ImageCustomizerOptions,
 ) (err error) {
 	ctx, span := otel.GetTracerProvider().Tracer(OtelTracerName).Start(ctx, "customize_image")

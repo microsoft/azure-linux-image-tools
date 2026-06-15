@@ -49,8 +49,8 @@ func testCustomizeImagePartitionsToEfi(t *testing.T, testName string, baseImageI
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -157,8 +157,8 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -243,8 +243,8 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Convert to legacy image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -252,8 +252,8 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
 
 	// Recustomize legacy image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, legacybootConfigFile, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -261,8 +261,8 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 	verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
 
 	// Convert back to EFI image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, efiConfigFile, outImageFilePath, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, efiConfigFile, outImageFilePath, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -318,8 +318,8 @@ func testCustomizeImageKernelCommandLineHelper(t *testing.T, testName string, ba
 	outImageFilePath := filepath.Join(buildDir, "image.qcow2")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -411,8 +411,8 @@ func testCustomizeImageNewUUIDsHelper(t *testing.T, testName string, baseImageIn
 	os.Remove(tempRawBaseImage)
 
 	// Customize image.
-	err = CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -528,8 +528,8 @@ func testCustomizeImagePartitionsXfsBootHelper(t *testing.T, testName string, ba
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -593,8 +593,8 @@ func testCustomizeImagePartitionsBtrfsBootHelper(t *testing.T, testName string, 
 	configFile := filepath.Join(testDir, "partitions-btrfs-boot.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -644,8 +644,8 @@ func testCustomizeImagePartitionsBtrfsSubvolumesBasicHelper(t *testing.T, testNa
 	configFile := filepath.Join(testDir, "partitions-btrfs-subvolumes-basic.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -704,8 +704,8 @@ func testCustomizeImagePartitionsBtrfsSubvolumesNestedHelper(t *testing.T, testN
 	configFile := filepath.Join(testDir, "partitions-btrfs-subvolumes-nested.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -770,8 +770,8 @@ func testCustomizeImagePartitionsBtrfsUnmountedHelper(t *testing.T, testName str
 	configFile := filepath.Join(testDir, "partitions-btrfs-unmounted.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -842,7 +842,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	// Create image with Azure data disk entry in /etc/fstab file.
 	configFile := filepath.Join(testDir, "azure-data-disk.yaml")
 	outImageFilePath1 := filepath.Join(testTmpDir, "image1.raw")
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath1,
@@ -857,7 +857,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	// Try recustomizing the image but try to write to the read-only data disk placeholder directory.
 	configFile = filepath.Join(testDir, "addfiles-config.yaml")
 	outImageFilePath2 := filepath.Join(testTmpDir, "image2.raw")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       outImageFilePath1,
 		OutputImageFile:      outImageFilePath2,
@@ -870,7 +870,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 
 	// Recustomize image, writing to locations that are not read-only.
 	configFile = filepath.Join(testDir, "adddirs-config.yaml")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       outImageFilePath1,
 		OutputImageFile:      outImageFilePath2,
@@ -887,7 +887,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	if baseImageInfo.Distro != baseImageDistroUbuntu {
 		// Recustomize image with partition customization.
 		configFile = filepath.Join(testDir, "partitions-config.yaml")
-		err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+		err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 			BuildDir:             buildDir,
 			InputImageFile:       outImageFilePath1,
 			OutputImageFile:      outImageFilePath2,
@@ -905,7 +905,7 @@ func testCustomizeImageAzureDataDiskHelper(t *testing.T, testName string,
 	// Recustomize and convert to COSI.
 	configFile = filepath.Join(testDir, "adddirs-config.yaml")
 	outImageCosiFilePath := filepath.Join(testTmpDir, "image.cosi")
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       outImageFilePath1,
 		OutputImageFile:      outImageCosiFilePath,

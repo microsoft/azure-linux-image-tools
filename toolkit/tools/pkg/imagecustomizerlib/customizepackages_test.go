@@ -58,8 +58,15 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImage(t.Context(), testDir, &config, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		RpmsSources:          []string{downloadedRpmsTmpDir},
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: false,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -108,8 +115,15 @@ func TestCustomizeImagePackagesAddOfflineDir(t *testing.T) {
 		},
 	}
 
-	err = CustomizeImage(t.Context(), buildDir, testDir, &config, outImageFilePath, []string{downloadedRpmsTmpDir}, outImageFilePath,
-		"raw", false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = CustomizeImage(t.Context(), testDir, &config, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       outImageFilePath,
+		RpmsSources:          []string{downloadedRpmsTmpDir},
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: false,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -188,8 +202,15 @@ func testCustomizeImagePackagesAddOfflineLocalRepoHelper(t *testing.T, testName 
 	configFile := filepath.Join(testDir, packagesAddConfigFile(t, baseImageInfo))
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, rpmSources, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		RpmsSources:          rpmSources,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: false,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -245,7 +266,7 @@ func testCustomizeImagePackagesUpdateAfterInstall(t *testing.T, baseImageInfo te
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, packagesUpdateConfigFile(t, baseImageInfo))
 
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -320,7 +341,7 @@ func testCustomizeImagePackagesUpdateExisting(t *testing.T, baseImageInfo testBa
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, "packages-update-existing-config.yaml")
 
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -368,7 +389,7 @@ func testCustomizeImagePackagesRemove(t *testing.T, baseImageInfo testBaseImageI
 		removedListBinary = "/usr/bin/nano"
 	}
 
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -502,8 +523,15 @@ func TestCustomizeImagePackagesDiskSpace(t *testing.T) {
 	configFile := filepath.Join(testDir, installPackageDiskSpaceConfigFile(t, baseImageInfo))
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		RpmsSources:          nil,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	assert.ErrorContains(t, err, "failed to customize OS")
 	assert.ErrorContains(t, err, "failed to install packages ([gcc])")
 }
@@ -557,8 +585,15 @@ func testCustomizeImagePackagesUrlSourceHelper(t *testing.T, baseImageInfo testB
 	configFile := filepath.Join(testDir, "packages-add-oras.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		RpmsSources:          []string{repoFile},
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -596,8 +631,15 @@ func testCustomizeImagePackagesNewGpgKeyHelper(t *testing.T, baseImageInfo testB
 	repoFile := filepath.Join(testDir, "repos/lsg-6.18.repo")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile},
-		outImageFilePath, "raw", true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		RpmsSources:          []string{repoFile},
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -639,8 +681,15 @@ func testCustomizeImagePackagesBadRepoHelper(t *testing.T, baseImageInfo testBas
 	repoFile := filepath.Join(testDir, "repos/bad-repo.repo")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, []string{repoFile}, outImageFilePath, "raw",
-		true /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		RpmsSources:          []string{repoFile},
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	assert.ErrorIs(t, err, ErrPackageRepoMetadataRefresh)
 }
 
@@ -716,8 +765,8 @@ func testCustomizeImagePackagesSnapshotTimeHelper(t *testing.T, baseImageInfo te
 		},
 	}
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
-		"raw", true, "")
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath,
+		"raw", baseImageInfo.PreviewFeatures)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -781,8 +830,15 @@ func testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t *testi
 	}
 
 	// Set the snapshot time in CLI to a date before unzip-6.0-22 (2025-04-16) was published
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
-		"raw", true, snapshotTimeCLI)
+	err := CustomizeImage(t.Context(), testDir, &config, ImageCustomizerOptions{
+		BuildDir:             buildDir,
+		InputImageFile:       baseImage,
+		OutputImageFile:      outImageFilePath,
+		OutputImageFormat:    "raw",
+		UseBaseImageRpmRepos: true,
+		PackageSnapshotTime:  imagecustomizerapi.PackageSnapshotTime(snapshotTimeCLI),
+		PreviewFeatures:      baseImageInfo.PreviewFeatures,
+	})
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -840,8 +896,8 @@ func testCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFailsHelper(t *test
 		},
 	}
 
-	err := CustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, nil, outImageFilePath,
-		"raw", true, "")
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath,
+		"raw", baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "snapshotTime")
 	assert.ErrorContains(t, err, "preview feature")
 }
@@ -864,7 +920,7 @@ func testCustomizeImagePackagesInstallOnline(t *testing.T, baseImageInfo testBas
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 	configFile := filepath.Join(testDir, packagesAddConfigFile(t, baseImageInfo))
 
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,

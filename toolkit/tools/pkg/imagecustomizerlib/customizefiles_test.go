@@ -95,7 +95,7 @@ func testCustomizeImageAdditionalFiles(t *testing.T, baseImageInfo testBaseImage
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -143,7 +143,7 @@ func verifyAddFiles(t *testing.T, buildDir string, outImageFilePath string, base
 }
 
 func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalFilesInfiniteFile")
 	defer os.RemoveAll(testTmpDir)
@@ -153,8 +153,8 @@ func TestCustomizeImageAdditionalFilesInfiniteFile(t *testing.T) {
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "failed to copy (/dev/zero)")
 	assert.ErrorContains(t, err, "no space left on device")
 }
@@ -242,7 +242,7 @@ func testCustomizeImageAdditionalDirs(t *testing.T, baseImageInfo testBaseImageI
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -273,7 +273,7 @@ func verifyAddDirs(t *testing.T, baseImageInfo testBaseImageInfo, buildDir strin
 }
 
 func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
-	baseImage, _ := checkSkipForCustomizeDefaultAzureLinuxImage(t)
+	baseImage, baseImageInfo := checkSkipForCustomizeDefaultAzureLinuxImage(t)
 
 	testTmpDir := filepath.Join(tmpDir, "TestCustomizeImageAdditionalDirsInfiniteFile")
 	defer os.RemoveAll(testTmpDir)
@@ -310,8 +310,8 @@ func TestCustomizeImageAdditionalDirsInfiniteFile(t *testing.T) {
 	}
 
 	// Customize image.
-	err = CustomizeImage(t.Context(), buildDir, testTmpDir, &config, baseImage, nil, outImageFilePath, "raw",
-		false /*useBaseImageRpmRepos*/, "" /*packageSnapshotTime*/)
+	err = basicCustomizeImage(t.Context(), buildDir, testTmpDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
 	assert.ErrorContains(t, err, "failed to copy directory")
 	assert.ErrorContains(t, err, "failed to copy file")
 	assert.ErrorContains(t, err, "no space left on device")

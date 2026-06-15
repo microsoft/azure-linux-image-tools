@@ -112,7 +112,7 @@ func testConvertImageRawToCosi(t *testing.T, baseImageInfo testBaseImageInfo) {
 	customizedImage := filepath.Join(testTempDir, "customized.raw")
 	configFile := filepath.Join(testDir, "verity-config.yaml")
 
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      customizedImage,
@@ -186,7 +186,7 @@ func testConvertImageRawToCosiWithCompression(t *testing.T, baseImageInfo testBa
 	customizedImage := filepath.Join(testTempDir, "customized.raw")
 	configFile := filepath.Join(testDir, "verity-config.yaml")
 
-	err = CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err = CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      customizedImage,

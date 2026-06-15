@@ -166,7 +166,7 @@ func runCommand(ctx context.Context, command string, cli *RootCmd) error {
 }
 
 func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
-	err := imagecustomizerlib.CustomizeImageWithConfigFileOptions(ctx, cmd.ConfigFile,
+	err := imagecustomizerlib.CustomizeImageWithConfigFile(ctx, cmd.ConfigFile,
 		imagecustomizerlib.ImageCustomizerOptions{
 			BuildDir:                cmd.BuildDir,
 			InputImageFile:          cmd.InputImageFile,

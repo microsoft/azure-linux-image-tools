@@ -33,7 +33,7 @@ func testCustomizeImageGroupsExistingGid(t *testing.T, baseImageInfo testBaseIma
 	configFile := filepath.Join(testDir, "user-group-root-gid.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -63,7 +63,7 @@ func testCustomizeImageGroupsNewGid(t *testing.T, baseImageInfo testBaseImageInf
 	configFile := filepath.Join(testDir, "user-group-new-gid.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
@@ -112,7 +112,7 @@ func testCustomizeImageGroupsNew(t *testing.T, baseImageInfo testBaseImageInfo) 
 	configFile := filepath.Join(testDir, "user-group-new.yaml")
 
 	// Customize image.
-	err := CustomizeImageWithConfigFileOptions(t.Context(), configFile, ImageCustomizerOptions{
+	err := CustomizeImageWithConfigFile(t.Context(), configFile, ImageCustomizerOptions{
 		BuildDir:             buildDir,
 		InputImageFile:       baseImage,
 		OutputImageFile:      outImageFilePath,
