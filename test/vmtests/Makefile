@@ -95,9 +95,9 @@ test-imagecustomizer:
 		--rpm-sources-azl3="${RPM_SOURCES_AZL3}" \
 		--rpm-sources-azl4="${RPM_SOURCES_AZL4}" \
 		--rpm-sources-fedora42="${RPM_SOURCES_FEDORA42}" \
-		--tools-file-azl3="${TOOLS_FILE_AZL3}" \
-		--tools-file-azl4="${TOOLS_FILE_AZL4}" \
-		--tools-file-fedora42="${TOOLS_FILE_FEDORA42}" \
+		--tools-dir-azl3="${TOOLS_DIR_AZL3}" \
+		--tools-dir-azl4="${TOOLS_DIR_AZL4}" \
+		--tools-dir-fedora42="${TOOLS_DIR_FEDORA42}" \
 		--ssh-private-key="${SSH_PRIVATE_KEY_FILE}" \
 		$(if $(filter y,$(KEEP_ENVIRONMENT)),--keep-environment) \
 		--log-cli-level=DEBUG \
