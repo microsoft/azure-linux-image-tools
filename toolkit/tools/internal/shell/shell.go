@@ -158,7 +158,7 @@ func MustExecuteLive(command string, args ...string) {
 	}
 }
 
-// Tries to find a commnad within a chroot.
+// Tries to find a command within a chroot.
 // Returns an error iff. the command is not found.
 func LookPathChroot(command string, rootDir string) (string, error) {
 	return chrootLookPath(command, rootDir, chrootPathDirs)

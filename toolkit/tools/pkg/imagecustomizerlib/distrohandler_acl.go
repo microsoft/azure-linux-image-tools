@@ -115,7 +115,7 @@ func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.Chroo
 	// Check if the rpm database is available.
 	exists, err := file.PathExists(filepath.Join(imageChroot.RootDir(), "/var/lib/rpm"))
 	if err != nil {
-		// RPM command is not found.
+		// RPM database is not found.
 		return nil, fmt.Errorf("failed to check if rpm db exists:\n%w", err)
 	}
 
