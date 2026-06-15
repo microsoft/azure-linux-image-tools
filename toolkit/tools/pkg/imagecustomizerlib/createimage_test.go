@@ -48,7 +48,7 @@ func testCreateImageRaw(t *testing.T, name string, version string, configFile st
 	// get RPM sources
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
+	toolsFile := testutils.GetDownloadedToolsDir(t, testutilsDir, "azurelinux", version, true)
 
 	err := basicCreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
@@ -114,7 +114,7 @@ func testCreateImageBtrfs(t *testing.T, name string, version string, configFile 
 
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
+	toolsFile := testutils.GetDownloadedToolsDir(t, testutilsDir, "azurelinux", version, true)
 
 	err := basicCreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
@@ -171,8 +171,6 @@ func TestCreateImageRawNoTar(t *testing.T) {
 }
 
 func testCreateImageRawNoTar(t *testing.T, name string, version string, configFile string) {
-	testutils.CheckSkipForCustomizeImageRequirements(t)
-
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageRawNoTar_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
@@ -180,14 +178,14 @@ func testCreateImageRawNoTar(t *testing.T, name string, version string, configFi
 	partitionsConfigFile := filepath.Join(testDir, configFile)
 	outputImageFilePath := filepath.Join(testTmpDir, "image1.raw")
 
-	// get RPM sources
-	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
-	rpmSources := []string{downloadedRpmsRepoFile}
+	// Use testDir as a dummy RPM source — validation rejects missing tools dir before
+	// any RPM resolution occurs, so the source does not need to be a real repo.
+	rpmSources := []string{testDir}
 
 	err := basicCreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
 		outputImageFilePath, "raw", "azurelinux", version)
 
-	assert.ErrorContains(t, err, "tools tar file is required for image creation")
+	assert.ErrorContains(t, err, "tools directory is required for image creation")
 }
 
 func TestCreateImageEmptyConfig(t *testing.T) {
@@ -236,7 +234,7 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 	assert.NoError(t, err)
 
 	rpmSources := []string{testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)}
-	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
+	toolsFile := testutils.GetDownloadedToolsDir(t, testutilsDir, "azurelinux", version, true)
 	outputImageFileAbsolute := filepath.Join(buildDir, "image1.raw")
 
 	cwd, err := os.Getwd()
@@ -273,12 +271,12 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 }
 
 func basicCreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string, rpmsSources []string,
-	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
+	toolsDir string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
 ) error {
 	return CreateImageWithConfigFile(ctx, configFile, ImageCreateOptions{
 		BuildDir:          buildDir,
 		RpmsSources:       rpmsSources,
-		ToolsTar:          toolsTar,
+		ToolsDir:          toolsDir,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: imagecustomizerapi.ImageFormatType(outputImageFormat),
 		Distro:            targetos.Distro(distro),
@@ -287,13 +285,13 @@ func basicCreateImageWithConfigFile(ctx context.Context, buildDir string, config
 }
 
 func basicCreateImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
-	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsDir string, distro string,
 	distroVersion string,
 ) error {
 	return CreateImage(ctx, baseConfigPath, config, ImageCreateOptions{
 		BuildDir:          buildDir,
 		RpmsSources:       rpmsSources,
-		ToolsTar:          toolsTar,
+		ToolsDir:          toolsDir,
 		OutputImageFile:   outputImageFile,
 		OutputImageFormat: imagecustomizerapi.ImageFormatType(outputImageFormat),
 		Distro:            targetos.Distro(distro),

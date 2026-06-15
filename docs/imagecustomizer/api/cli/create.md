@@ -119,13 +119,15 @@ RPMs from an existing RPM repo (such as packages.microsoft.com). Using a cloned 
 
 Added in v1.2.
 
-## --tools-file=PATH
+## --tools-dir=DIRECTORY-PATH
 
 Required.
 
-Specifies the path to a tools file in `.tar.gz` format.
+Specifies the path to a directory that provides the tools (tdnf/dnf and their
+dependencies) needed to install packages during image creation.
 
-This file should contain the TDNF tar package (or an equivalent), which is used to manage package dependencies and facilitate installation workflows.
+For instructions on how to create this directory, see:
+[How to create the tools directory](../../how-to/create-tools-dir.md)
 
 Added in v1.2.
 

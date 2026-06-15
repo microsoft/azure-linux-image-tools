@@ -77,10 +77,10 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
 			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
 			pkgs.UpdateExistingPackages {
-			if rc.Options.ToolsTar == "" {
-				return fmt.Errorf("ACL package operations require --tools-file: " +
+			if rc.Options.ToolsDir == "" {
+				return fmt.Errorf("ACL package operations require --tools-dir: " +
 					"ACL images do not include a package manager; " +
-					"provide a tools tarball via --tools-file")
+					"provide a tools directory via --tools-dir")
 			}
 		}
 

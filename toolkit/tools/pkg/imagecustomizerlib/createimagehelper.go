@@ -6,6 +6,7 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -13,18 +14,24 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
-func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile string,
+func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDir string,
 	distroHandler DistroHandler,
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
 	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
-	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
-	err := toolsChroot.Initialize(tarFile, nil, nil, true)
-	if err != nil {
-		return nil, "", err
+	if err := os.MkdirAll(toolsChrootDir, os.ModePerm); err != nil {
+		return nil, "", fmt.Errorf("failed to create tools chroot directory:\n%w", err)
+	}
+	if _, _, err := shell.Execute("cp", "-a", toolsDir+"/.", toolsChrootDir); err != nil {
+		return nil, "", fmt.Errorf("failed to copy tools directory (%s):\n%w", toolsDir, err)
+	}
+	toolsChroot := safechroot.NewChroot(toolsChrootDir, true)
+	if err := toolsChroot.Initialize("", nil, nil, true); err != nil {
+		return nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", toolsDir, err)
 	}
 	defer toolsChroot.Close(false)
 

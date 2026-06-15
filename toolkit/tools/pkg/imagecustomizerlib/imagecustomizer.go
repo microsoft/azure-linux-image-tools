@@ -674,16 +674,21 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
-	// If a tools tarball is provided, initialize a tools chroot from it.
+	// If a tools directory is provided, copy it to the build directory and initialize a tools chroot from it.
 	var toolsChroot *safechroot.Chroot
 	mountBaseDir := rc.BuildDirAbs
 	mountPointName := "imageroot"
-	if rc.Options.ToolsTar != "" {
+	if rc.Options.ToolsDir != "" {
 		toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
-		toolsChroot = safechroot.NewChroot(toolsChrootDir, false)
-		err := toolsChroot.Initialize(rc.Options.ToolsTar, nil, nil, true)
-		if err != nil {
-			return nil, nil, nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", rc.Options.ToolsTar, err)
+		if err := os.MkdirAll(toolsChrootDir, os.ModePerm); err != nil {
+			return nil, nil, nil, "", fmt.Errorf("failed to create tools chroot directory:\n%w", err)
+		}
+		if _, _, err := shell.Execute("cp", "-a", rc.Options.ToolsDir+"/.", toolsChrootDir); err != nil {
+			return nil, nil, nil, "", fmt.Errorf("failed to copy tools directory (%s):\n%w", rc.Options.ToolsDir, err)
+		}
+		toolsChroot = safechroot.NewChroot(toolsChrootDir, true)
+		if err := toolsChroot.Initialize("", nil, nil, true); err != nil {
+			return nil, nil, nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", rc.Options.ToolsDir, err)
 		}
 		// toolsChroot must be closed AFTER imageConnection so the image unmounts
 		// before the tools chroot directory is torn down.

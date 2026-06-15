@@ -23,7 +23,7 @@ type CreateCmd struct {
 	BuildDir            string   `name:"build-dir" help:"Directory to run build out of." required:""`
 	ConfigFile          string   `name:"config-file" help:"Path of the image creation config file." required:""`
 	RpmSources          []string `name:"rpm-source" help:"Path to a RPM repo config file or a directory containing RPMs." required:""`
-	ToolsTar            string   `name:"tools-file" help:"Path to tdnf/dnf worker tarball" required:""`
+	ToolsDir            string   `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies." required:""`
 	OutputImageFile     string   `name:"output-image-file" aliases:"output-path" help:"Path to write the customized image to."`
 	OutputImageFormat   string   `name:"output-image-format" placeholder:"(vhd|vhd-fixed|vhdx|qcow2|raw)" help:"Format of output image." enum:"${imageformatcreate}" default:""`
 	Distro              string   `name:"distro" help:"Target distribution for the image." enum:"azurelinux,fedora" default:"azurelinux"`
@@ -44,7 +44,7 @@ type CustomizeCmd struct {
 	PackageSnapshotTime      string   `name:"package-snapshot-time" help:"Only packages published before this snapshot time will be available during customization. Supports 'YYYY-MM-DD' or full RFC3339 timestamp (e.g., 2024-05-20T23:59:59Z)."`
 	ImageCacheDir            string   `name:"image-cache-dir" help:"The directory to use as the image download cache"`
 	CosiCompressionLevel     *int     `name:"cosi-compression-level" help:"Zstd compression level for COSI output (1-22, default: 9)."`
-	ToolsTar                 string   `name:"tools-file" help:"Path to tools tarball providing tdnf/dnf. Required for package operations on images that do not include a package manager (e.g. ACL)."`
+	ToolsDir                 string   `name:"tools-dir" help:"Path to a directory containing tdnf/dnf and its dependencies. Required for package operations on images that do not include a package manager (e.g. ACL)."`
 }
 
 type InjectFilesCmd struct {
@@ -181,7 +181,7 @@ func customizeImage(ctx context.Context, cmd CustomizeCmd) error {
 			PackageSnapshotTime:     imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
 			ImageCacheDir:           cmd.ImageCacheDir,
 			CosiCompressionLevel:    cmd.CosiCompressionLevel,
-			ToolsTar:                cmd.ToolsTar,
+			ToolsDir:                cmd.ToolsDir,
 		})
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func createImage(ctx context.Context, cmd CreateCmd) error {
 		BuildDir:            cmd.BuildDir,
 		Distro:              targetos.Distro(cmd.Distro),
 		DistroVersion:       cmd.DistroVersion,
-		ToolsTar:            cmd.ToolsTar,
+		ToolsDir:            cmd.ToolsDir,
 		RpmsSources:         cmd.RpmSources,
 		OutputImageFile:     cmd.OutputImageFile,
 		OutputImageFormat:   imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),

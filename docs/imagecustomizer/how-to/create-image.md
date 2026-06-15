@@ -174,23 +174,19 @@ As such, the example configuration files below must specify `create` in the [pre
    For documentation on the supported configuration options, see:
    [Supported configuration](../api/configuration/configuration.md)
 
-2. Download the tools file.
+2. Create the tools directory.
 
-   The tools file contains bootstrap utilities needed to create an image from scratch.
+   The tools directory contains the bootstrap utilities (tdnf and its dependencies)
+   needed to install packages during image creation.
 
-   To create a tools file for a new Azure Linux 3.0:
+   For step-by-step instructions, see:
+   [How to create the tools directory](../how-to/create-tools-dir.md)
 
-    ```bash
-    ./toolkit/tools/internal/testutils/testrpms/create-tools-file.sh \
-      "mcr.microsoft.com/azurelinux/base/core:3.0" "$HOME/staging/azure-linux-3.0-tools.tar.gz"
-    ```
+   For Azure Linux 3.0, the tools directory should be created from the
+   `mcr.microsoft.com/azurelinux/base/core:3.0` container image.
 
-   To create a tools file for a new Fedora 42:
-
-    ```bash
-    ./toolkit/tools/internal/testutils/testrpms/create-tools-file.sh \
-      "quay.io/fedora/fedora:42" "$HOME/staging/fedora-42-tools.tar.gz"
-    ```
+   For Fedora 42, the tools directory should be created from the
+   `quay.io/fedora/fedora:42` container image.
 
 3. Create a repository configuration file and, if needed, a GPG key file.
 
@@ -246,7 +242,7 @@ As such, the example configuration files below must specify `create` in the [pre
       mcr.microsoft.com/azurelinux/imagecustomizer:latest create \
         --distro azurelinux \
         --distro-version 3.0 \
-        --tools-file /mnt/staging/azure-linux-3.0-tools.tar.gz \
+        --tools-dir /mnt/staging/tools-azurelinux-3.0 \
         --rpm-source /mnt/staging/azure-linux-3.0-rpms.repo \
         --config-file /mnt/staging/config-azl3.yaml \
         --build-dir /build \
@@ -265,7 +261,7 @@ As such, the example configuration files below must specify `create` in the [pre
       mcr.microsoft.com/azurelinux/imagecustomizer:latest create \
         --distro fedora \
         --distro-version 42 \
-        --tools-file /mnt/staging/fedora-42-tools.tar.gz \
+        --tools-dir /mnt/staging/tools-fedora-42 \
         --rpm-source /mnt/staging/fedora-42-rpms.repo \
         --config-file /mnt/staging/config-fedora.yaml \
         --build-dir /build \
@@ -302,8 +298,8 @@ As such, the example configuration files below must specify `create` in the [pre
 
     - `--distro-version 42`: Specify the Fedora version to create the image for.
 
-    - `--tools-file /mnt/staging/fedora-42-tools.tar.gz`: Use the host's
-      `$HOME/staging/fedora-42-tools.tar.gz` file as the bootstrapping tools file.
+    - `--tools-dir /mnt/staging/tools-fedora-42`: Use the host's
+      `$HOME/staging/tools-fedora-42` directory as the bootstrapping tools directory.
 
     - `--rpm-source /mnt/staging/fedora-42-rpms.repo`: Use the host's
       `$HOME/staging/fedora-42-rpms.repo` file for installing packages.
