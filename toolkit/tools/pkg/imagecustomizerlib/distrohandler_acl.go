@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
@@ -100,12 +102,40 @@ func (d *aclDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootInter
 }
 
 func (d *aclDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
-	return getAllPackagesFromChrootRpm(imageChroot)
+	// This function is only used for metadata within a COSI file.
+	// So, it doesn't matter too much if the package list can't be provided.
+
+	// Check if the rpm command is available.
+	_, err := shell.LookPathChroot("rpm", imageChroot.ChrootDir())
+	if err != nil {
+		// RPM command is not found.
+		return nil, nil
+	}
+
+	// Check if the rpm database is available.
+	exists, err := file.PathExists(filepath.Join(imageChroot.RootDir(), "/var/lib/rpm"))
+	if err != nil {
+		// RPM database is not found.
+		return nil, fmt.Errorf("failed to check if rpm db exists:\n%w", err)
+	}
+
+	if !exists {
+		// RPM database doesn't exist.
+		return nil, nil
+	}
+
+	// Get the list of packages.
+	packages, err := getAllPackagesFromChrootRpm(imageChroot)
+	if err != nil {
+		return nil, err
+	}
+
+	return packages, nil
 }
 
 func (d *aclDistroHandler) DetectBootloaderType(imageChroot safechroot.ChrootInterface) (BootloaderType, error) {
-	bootloaderType, _, err := detectBootloaderType(d, imageChroot, nil, []string{systemdBootPackage})
-	return bootloaderType, err
+	// ACL always uses systemd-boot.
+	return BootloaderTypeSystemdBoot, nil
 }
 
 func (d *aclDistroHandler) ValidateUkiDependencies(imageChroot safechroot.ChrootInterface) error {
