@@ -13,6 +13,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/exekong"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/telemetry"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/timestamp"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/pkg/imagecustomizerlib"
@@ -220,9 +221,16 @@ func convertImage(ctx context.Context, cmd ConvertCmd) error {
 }
 
 func createImage(ctx context.Context, cmd CreateCmd) error {
-	err := imagecustomizerlib.CreateImageWithConfigFile(ctx, cmd.BuildDir, cmd.ConfigFile, cmd.RpmSources,
-		cmd.ToolsTar, cmd.OutputImageFile, cmd.OutputImageFormat, cmd.Distro, cmd.DistroVersion,
-		cmd.PackageSnapshotTime)
+	err := imagecustomizerlib.CreateImageWithConfigFile(ctx, cmd.ConfigFile, imagecustomizerlib.ImageCreateOptions{
+		BuildDir:            cmd.BuildDir,
+		Distro:              targetos.Distro(cmd.Distro),
+		DistroVersion:       cmd.DistroVersion,
+		ToolsTar:            cmd.ToolsTar,
+		RpmsSources:         cmd.RpmSources,
+		OutputImageFile:     cmd.OutputImageFile,
+		OutputImageFormat:   imagecustomizerapi.ImageFormatType(cmd.OutputImageFormat),
+		PackageSnapshotTime: imagecustomizerapi.PackageSnapshotTime(cmd.PackageSnapshotTime),
+	})
 	if err != nil {
 		return err
 	}

@@ -329,5 +329,5 @@ func checkSkipForCustomizeDefaultImages(t *testing.T) []testBaseImageInfo {
 }
 
 func (i *testBaseImageInfo) TargetOs() targetos.TargetOs {
-	return targetos.New(i.Distro, i.Version)
+	return targetos.New(targetos.Distro(i.Distro), i.Version)
 }

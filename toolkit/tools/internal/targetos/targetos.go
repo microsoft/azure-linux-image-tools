@@ -80,11 +80,11 @@ var (
 	}
 )
 
-func New(distroId string, versionId string) TargetOs {
+func New(distroId Distro, versionId string) TargetOs {
 	version, _ := version.ParseBasicVersion(versionId)
 
 	return TargetOs{
-		Distro:    Distro(distroId),
+		Distro:    distroId,
 		VersionId: versionId,
 		Version:   version,
 	}
