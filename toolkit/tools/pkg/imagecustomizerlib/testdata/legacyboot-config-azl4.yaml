@@ -23,7 +23,3 @@ storage:
 os:
   bootloader:
     resetType: hard-reset
-
-  packages:
-    install:
-      - grub2-pc

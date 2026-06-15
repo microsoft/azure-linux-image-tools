@@ -207,7 +207,8 @@ func (d *azureLinux4DistroHandler) ConfigureDiskBootLoader(imageConnection *imag
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
 		currentSELinuxMode, true /*forceGrubMkconfig*/, d, resources.AssetsGrubDefFileAzl4,
-		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4)
+		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsAzl4,
+		false /*allowHostGrubInstallFallback*/, grubToolsPackageFedora, grubPcModulesPackageFedora)
 }
 
 func (d *azureLinux4DistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {

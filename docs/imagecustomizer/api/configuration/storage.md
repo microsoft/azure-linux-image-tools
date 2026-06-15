@@ -50,6 +50,15 @@ Supported options:
 
 - `legacy`: Support booting from BIOS firmware.
 
+  The `grub2-install` command must be installed in the target image.
+
+  Install the following package (using the `os.packages.install` API):
+
+  - Fedora, Azure Linux: `grub2-pc`
+  - Ubuntu: `grub2-common`
+
+  For Azure Linux 2.0 and 3.0, if the `grub2-install` command is not available in the target OS, then the `grub2-install` command from the container (or build host) is used instead. However, this behavior is deprecated and will be removed in a future version.
+
   When this option is specified, the partition layout must contain a partition with the
   `bios-grub` flag.
 

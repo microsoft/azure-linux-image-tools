@@ -106,8 +106,12 @@ const (
 )
 
 const (
-	rootMountPoint = "/"
-	bootMountPoint = "/boot"
+	rootMountPoint   = "/"
+	bootMountPoint   = "/boot"
+	grub2BootDir     = "/boot/grub2"
+	grub2InstallName = "grub2-install"
+	grubInstallName  = "grub-install"
+	grubModulesDir   = "/usr/lib/grub/i386-pc"
 
 	// /boot directory should be only accesible by root. The directories need the execute bit as well.
 	bootDirectoryFileMode = 0400
@@ -403,7 +407,8 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 	rootMountIdentifier configuration.MountIdentifier, kernelCommandLine configuration.KernelCommandLine,
 	installChroot *safechroot.Chroot, diskDevPath string, mountPointMap map[string]string,
 	encryptedRoot diskutils.EncryptedRootDevice, enableGrubMkconfig bool, assetGrubDefFile,
-	grubEnvRelPath, assetGrubStubFile string, grubStubDirs []string,
+	grubEnvRelPath, assetGrubStubFile string, grubStubDirs []string, allowHostGrubInstallFallback bool,
+	grubInstallPackage string, grubModulesPackage string,
 ) (err error) {
 	// Add bootloader. Prefer a separate boot partition if one exists.
 	bootDevice, isBootPartitionSeparate := mountPointMap[bootMountPoint]
@@ -427,7 +432,7 @@ func ConfigureDiskBootloaderWithRootMountIdType(bootType string, encryptionEnabl
 	}
 
 	err = InstallBootloader(installChroot, encryptionEnable, bootType, bootUUID, bootPrefix, diskDevPath,
-		assetGrubStubFile, grubStubDirs)
+		assetGrubStubFile, grubStubDirs, allowHostGrubInstallFallback, grubInstallPackage, grubModulesPackage)
 	if err != nil {
 		err = fmt.Errorf("failed to install bootloader: %s", err)
 		return
@@ -920,7 +925,8 @@ func sed(find, replace, delimiter, file string) (err error) {
 // Note: this boot partition could be different than the boot partition specified in the main grub config.
 // This boot partition specifically indicates where to find the main grub cfg
 func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bootType, bootUUID, bootPrefix,
-	bootDevPath, grubAssetFileName string, grubFinalDirs []string,
+	bootDevPath, grubAssetFileName string, grubFinalDirs []string, allowHostGrubInstallFallback bool,
+	grubInstallPackage string, grubModulesPackage string,
 ) (err error) {
 	const (
 		efiMountPoint  = "/boot/efi"
@@ -933,7 +939,8 @@ func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bo
 
 	switch bootType {
 	case legacyBootType:
-		err = installLegacyBootloader(installChroot, bootDevPath, encryptEnabled)
+		err = installLegacyBootloader(installChroot, bootDevPath, encryptEnabled, allowHostGrubInstallFallback,
+			grubInstallPackage, grubModulesPackage)
 		if err != nil {
 			return
 		}
@@ -952,18 +959,17 @@ func InstallBootloader(installChroot *safechroot.Chroot, encryptEnabled bool, bo
 	return
 }
 
+// installLegacyBootloader installs the legacy grub2 bootloader to the target image by either using the target's own
+// grub2-install command and modules, or by falling back to using the build host's grub2-install if the target is
+// missing either of those and the fallback is allowed. Set allowHostGrubInstallFallback to true for scenarios in which
+// not falling back would cause a backwards compatibility issue for older distro versions, and set it to false for all
+// other scenarios to encourage using the correct path (grub2-install within the target image).
+//
 // Note: We assume that the /boot directory is present. Whether it is backed by an explicit "boot" partition or present
 // as part of a general "root" partition is assumed to have been done already.
-func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath string, encryptEnabled bool) (err error) {
-	const (
-		squashErrors     = false
-		bootDir          = "/boot"
-		bootDirArg       = "--boot-directory"
-		grub2BootDir     = "/boot/grub2"
-		grub2InstallName = "grub2-install"
-		grubInstallName  = "grub-install"
-	)
-
+func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath string, encryptEnabled bool,
+	allowHostGrubInstallFallback bool, grubInstallPackage string, grubModulesPackage string,
+) (err error) {
 	// Add grub cryptodisk settings
 	if encryptEnabled {
 		err = enableCryptoDisk()
@@ -971,9 +977,76 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 			return
 		}
 	}
-	installBootDir := filepath.Join(installChroot.RootDir(), bootDir)
-	grub2InstallBootDirArg := fmt.Sprintf("%s=%s", bootDirArg, installBootDir)
 
+	// Installing the legacy bootloader from the target's own grub requires BOTH the grub2-install command and the
+	// i386-pc platform modules that it installs.
+	grubInstallExists := grubInstallCommandExistsInChroot(installChroot, grub2InstallName)
+	grubModulesExist, err := grubLegacyModulesExistInChroot(installChroot)
+	if err != nil {
+		return fmt.Errorf("failed to check for grub modules in chroot: %w", err)
+	}
+
+	missingPackages := []string{}
+	if !grubInstallExists {
+		missingPackages = append(missingPackages, grubInstallPackage)
+	}
+	if !grubModulesExist && grubModulesPackage != grubInstallPackage {
+		missingPackages = append(missingPackages, grubModulesPackage)
+	}
+
+	switch {
+	case grubInstallExists && grubModulesExist:
+		// Install the bootloader from inside the chroot using the target's own grub2-install.
+		err = shell.NewExecBuilder(grub2InstallName, "--target=i386-pc", "--boot-directory=/boot", bootDevPath).
+			Chroot(installChroot.ChrootDir()).
+			Execute()
+		if err != nil {
+			return
+		}
+	case allowHostGrubInstallFallback:
+		if err = installLegacyBootloaderFromHost(installChroot, bootDevPath, missingPackages); err != nil {
+			return
+		}
+	default:
+		package_s := "package"
+		if len(missingPackages) > 1 {
+			package_s = "packages"
+		}
+		return fmt.Errorf("the target image must have the following %s installed to build a legacy-boot image "+
+			"(they can be added to os.packages.install): '%s'", package_s, strings.Join(missingPackages, "', '"))
+	}
+
+	installGrub2BootDir := filepath.Join(installChroot.RootDir(), grub2BootDir)
+	err = shell.ExecuteLive(false /*squashErrors*/, "chmod", "-R", "go-rwx", installGrub2BootDir)
+	return
+}
+
+// grubLegacyModulesExistInChroot reports whether the target image contains the i386-pc grub modules that
+// grub2-install --target=i386-pc installs from.
+func grubLegacyModulesExistInChroot(installChroot *safechroot.Chroot) (bool, error) {
+	modulesDir := filepath.Join(installChroot.RootDir(), grubModulesDir)
+	entries, err := os.ReadDir(modulesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".mod") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// installLegacyBootloaderFromHost installs the legacy bootloader using the build host's grub2-install
+// (or grub-install), pointed at the target image's /boot. This is the historical behavior and should only be used as a
+// fallback for out-of-preview distro versions, and only when the target image does not ship the packages needed to
+// install the bootloader from the target itself. It risks introducing copmatibility issues between the host's grub
+// and the target image's grub configuration.
+func installLegacyBootloaderFromHost(installChroot *safechroot.Chroot, bootDevPath string, missingPackages []string,
+) (err error) {
 	installName := grub2InstallName
 	grub2InstallExists, err := file.CommandExists(grub2InstallName)
 	if err != nil {
@@ -987,20 +1060,33 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 		}
 
 		if !grubInstallExists {
-			return fmt.Errorf("neither 'grub2-install' command nor 'grub-install' command found")
+			return fmt.Errorf("neither '%s' command nor '%s' command found on the build host", grub2InstallName,
+				grubInstallName)
 		}
 
 		installName = grubInstallName
 	}
 
-	err = shell.ExecuteLive(squashErrors, installName, "--target=i386-pc", grub2InstallBootDirArg, bootDevPath)
-	if err != nil {
-		return
+	package_s := "package"
+	if len(missingPackages) > 1 {
+		package_s = "packages"
 	}
+	logger.Log.Warnf("Installing the legacy bootloader using the build host's '%s' because the target image is "+
+		"missing the following %s: '%s'. The resulting image may fail to boot if the host's grub differs from the "+
+		"target's in a significant way. Add the %s to the image's package list (os.packages.install) to install the "+
+		"bootloader from the target itself.", installName, package_s, strings.Join(missingPackages, "', '"), package_s)
 
-	installGrub2BootDir := filepath.Join(installChroot.RootDir(), grub2BootDir)
-	err = shell.ExecuteLive(squashErrors, "chmod", "-R", "go-rwx", installGrub2BootDir)
-	return
+	installBootDir := filepath.Join(installChroot.RootDir(), "/boot")
+	bootDirArg := fmt.Sprintf("%s=%s", "--boot-directory", installBootDir)
+	return shell.ExecuteLive(false /*squashErrors*/, installName, "--target=i386-pc", bootDirArg, bootDevPath)
+}
+
+func grubInstallCommandExistsInChroot(installChroot *safechroot.Chroot, command string) bool {
+	err := shell.NewExecBuilder(command, "--version").
+		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+		Chroot(installChroot.ChrootDir()).
+		Execute()
+	return err == nil
 }
 
 // GetUUID queries the UUID of the given partition

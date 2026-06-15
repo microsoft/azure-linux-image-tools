@@ -12,14 +12,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/file"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/kernelversion"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/ptrutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safeloopback"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safemount"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -218,6 +221,123 @@ func TestCustomizeImagePartitionsSizeOnly(t *testing.T) {
 	assert.Equal(t, uint64(2*diskutils.GiB), partitions[3].SizeInBytes)
 }
 
+func TestCustomizeImagePartitionsLegacy_TargetMissingPackages(t *testing.T) {
+	// Skip this test on arm64 because the legacy bootloader is not supported.
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping legacy test for arm64")
+	}
+
+	for _, baseImageInfo := range baseImageAzureLinuxAll {
+		// Azure Linux 4.0 is intentionally not covered here. Its grub2 packages (grub2-tools and grub2-pc-modules) are
+		// dnf-protected and/or required by other protected packages (e.g. shim -> grub2-efi-x64 -> grub2-tools), so the
+		// "target missing the legacy-boot packages" scenario cannot be set up via os.packages.remove without forcibly
+		// bypassing the package manager.
+		if baseImageInfo.Version == baseImageVersionAzl4 {
+			continue
+		}
+
+		t.Run(baseImageInfo.Name, func(t *testing.T) {
+			testCustomizeImagePartitionsLegacy_TargetMissingPackages(t,
+				"TestCustomizeImagePartitionsLegacy_TargetMissingPackages"+baseImageInfo.Name, baseImageInfo)
+		})
+	}
+}
+
+func testCustomizeImagePartitionsLegacy_TargetMissingPackages(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
+	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
+
+	testTmpDir := filepath.Join(tmpDir, testName)
+	defer os.RemoveAll(testTmpDir)
+
+	buildDir := filepath.Join(testTmpDir, "build")
+
+	config := imagecustomizerapi.Config{
+		Storage: imagecustomizerapi.Storage{
+			BootType: imagecustomizerapi.BootTypeLegacy,
+			Disks: []imagecustomizerapi.Disk{
+				{
+					PartitionTableType: imagecustomizerapi.PartitionTableTypeGpt,
+					MaxSize:            ptrutils.PtrTo(imagecustomizerapi.DiskSize(4 * diskutils.GiB)),
+					Partitions: []imagecustomizerapi.Partition{
+						{
+							Id:    "boot",
+							Type:  imagecustomizerapi.PartitionTypeBiosGrub,
+							Start: ptrutils.PtrTo(imagecustomizerapi.DiskSize(1 * diskutils.MiB)),
+							Size: imagecustomizerapi.PartitionSize{
+								Type: imagecustomizerapi.PartitionSizeTypeExplicit,
+								Size: 1023 * diskutils.MiB,
+							},
+						},
+						{
+							Id:    "rootfs",
+							Start: ptrutils.PtrTo(imagecustomizerapi.DiskSize(1 * diskutils.GiB)),
+							Size: imagecustomizerapi.PartitionSize{
+								Type: imagecustomizerapi.PartitionSizeTypeGrow,
+							},
+						},
+					},
+				},
+			},
+			FileSystems: []imagecustomizerapi.FileSystem{
+				{
+					DeviceId: "rootfs",
+					Type:     imagecustomizerapi.FileSystemTypeExt4,
+					MountPoint: &imagecustomizerapi.MountPoint{
+						Path: "/",
+					},
+				},
+			},
+		},
+		OS: &imagecustomizerapi.OS{
+			BootLoader: imagecustomizerapi.BootLoader{
+				ResetType: imagecustomizerapi.ResetBootLoaderTypeHard,
+			},
+		},
+	}
+
+	// Azure Linux 2.0/3.0 ship neither grub2-install nor the i386-pc modules, so they take the build host's grub
+	// fallback without any package removal.
+	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
+
+	// Capture log messages so the azl2/azl3 cases can assert that the host-grub fallback warning was emitted.
+	logSubHook := logMessagesHook.AddSubHook()
+	defer logSubHook.Close()
+
+	err := basicCustomizeImage(t.Context(), buildDir, testDir, &config, baseImage, outImageFilePath, "raw",
+		baseImageInfo.PreviewFeatures)
+
+	switch baseImageInfo.Version {
+	case baseImageVersionAzl2, baseImageVersionAzl3:
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		warningSeen := false
+		expectedWarningPrefix := "Installing the legacy bootloader using the build host's"
+		for _, message := range logSubHook.ConsumeMessages() {
+			if message.Level != logrus.WarnLevel {
+				continue
+			}
+			if !strings.Contains(message.Message, expectedWarningPrefix) {
+				continue
+			}
+			assert.Contains(t, message.Message, "'grub2'", "warning doesn't mention grub2 package")
+			assert.Contains(t, message.Message, "'grub2-pc'", "warning doesn't mention grub2-pc package")
+			warningSeen = true
+			break
+		}
+
+		if !warningSeen {
+			assert.Failf(t, "missing host-grub fallback warning",
+				"expected a warning containing %q, but it was not logged", expectedWarningPrefix)
+		}
+
+		verifyLegacyBootImage(t, outImageFilePath, baseImageInfo, buildDir)
+	default:
+		assert.Failf(t, "unsupported Azure Linux version", "version %q", baseImageInfo.Version)
+	}
+}
+
 func TestCustomizeImagePartitionsLegacy(t *testing.T) {
 	// Skip this test on arm64 because the legacy bootloader is not supported.
 	if runtime.GOARCH == "arm64" {
@@ -239,6 +359,10 @@ func testCustomizeImagePartitionsLegacy(t *testing.T, testName string, baseImage
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	legacybootConfigFile := filepath.Join(testDir, "legacyboot-config.yaml")
+	if baseImageInfo.Version == baseImageVersionAzl4 {
+		legacybootConfigFile = filepath.Join(testDir, "legacyboot-config-azl4.yaml")
+	}
+
 	efiConfigFile := filepath.Join(testDir, "partitions-config.yaml")
 	outImageFilePath := filepath.Join(testTmpDir, "image.raw")
 

@@ -29,10 +29,12 @@ type fedoraDistroHandler struct {
 }
 
 const (
-	grubEfiPackageFedoraAmd64 = "grub2-efi-x64"
-	grubEfiPackageFedoraArm64 = "grub2-efi-aa64"
-	shimPackageFedoraAmd64    = "shim-x64"
-	shimPackageFedoraArm64    = "shim-aa64"
+	grubEfiPackageFedoraAmd64  = "grub2-efi-x64"
+	grubEfiPackageFedoraArm64  = "grub2-efi-aa64"
+	shimPackageFedoraAmd64     = "shim-x64"
+	shimPackageFedoraArm64     = "shim-aa64"
+	grubToolsPackageFedora     = "grub2-tools"
+	grubPcModulesPackageFedora = "grub2-pc-modules"
 )
 
 func newFedoraDistroHandler(targetOs targetos.TargetOs) *fedoraDistroHandler {
@@ -178,7 +180,8 @@ func (d *fedoraDistroHandler) ConfigureDiskBootLoader(imageConnection *imageconn
 ) error {
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
 		currentSELinuxMode, true /* forceGrubMkconfig */, d, resources.AssetsGrubDefFileAzl4,
-		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsFedora)
+		installutils.FedoraGrubEnvRelPath, resources.AssetsGrubStubFileAzl4, installutils.GrubStubDirsFedora,
+		false /* allowHostGrubInstallFallback */, grubToolsPackageFedora, grubPcModulesPackageFedora)
 }
 
 func (d *fedoraDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {
