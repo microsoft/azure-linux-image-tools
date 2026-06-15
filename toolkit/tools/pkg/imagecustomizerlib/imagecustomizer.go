@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
@@ -673,8 +674,26 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
+	// If a tools tarball is provided, initialize a tools chroot from it.
+	var toolsChroot *safechroot.Chroot
+	mountBaseDir := rc.BuildDirAbs
+	mountPointName := "imageroot"
+	if rc.Options.ToolsTar != "" {
+		toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
+		toolsChroot = safechroot.NewChroot(toolsChrootDir, false)
+		err := toolsChroot.Initialize(rc.Options.ToolsTar, nil, nil, true)
+		if err != nil {
+			return nil, nil, nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", rc.Options.ToolsTar, err)
+		}
+		// toolsChroot must be closed AFTER imageConnection so the image unmounts
+		// before the tools chroot directory is torn down.
+		defer toolsChroot.Close(false)
+		mountBaseDir = toolsChrootDir
+		mountPointName = toolsRootImageDir
+	}
+
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
+		ctx, rc.RawImageFile, mountBaseDir, mountPointName, true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -708,7 +727,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler)
+	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler, toolsChroot)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
