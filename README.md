@@ -30,7 +30,7 @@ detailed instructions on getting started and building.
 ## Getting Help
 
 Have questions, found a bug, or need a new feature? Open an issue in our [GitHub
-repository](https://github.com/microsoft/azure-linux-image-tools/issues/new?template=Blank+issue).
+repository](https://github.com/microsoft/azure-linux-image-tools/issues/new/choose).
 
 ## Telemetry
 
