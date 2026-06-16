@@ -607,3 +607,163 @@ def test_min_change_legacy_azl4_iso_output(
         libvirt_conn,
         close_list,
     )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+def test_legacy_bootloader_reset_azl2(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl2: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 2
+    config_path = TEST_CONFIGS_DIR.joinpath("legacyboot-reset.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl2,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+def test_legacy_bootloader_reset_azl3(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 3
+    config_path = TEST_CONFIGS_DIR.joinpath("legacyboot-reset.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+def test_legacy_bootloader_reset_azl4(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl4: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 4
+    config_path = TEST_CONFIGS_DIR.joinpath("legacyboot-reset.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl4,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+def test_legacy_bootloader_reset_fallback_azl2(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl2: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 2
+    config_path = TEST_CONFIGS_DIR.joinpath("legacyboot-reset-fallback.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl2,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )
+
+
+@pytest.mark.skipif(platform.machine() != "x86_64", reason="no arm64 legacy boot input images are available")
+def test_legacy_bootloader_reset_fallback_azl3(
+    docker_client: DockerClient,
+    image_customizer_container_url: str,
+    core_legacy_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    azl_release = 3
+    config_path = TEST_CONFIGS_DIR.joinpath("legacyboot-reset-fallback.yaml")
+    output_format = "qcow2"
+
+    run_min_change_test(
+        docker_client,
+        image_customizer_container_url,
+        core_legacy_azl3,
+        azl_release,
+        config_path,
+        output_format,
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+    )

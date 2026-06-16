@@ -31,6 +31,8 @@ const (
 	shimPackageAzl3            = "shim"
 	grubEfiPackageAzl3         = "grub2-efi-binary"
 	grubEfiNoPrefixPackageAzl3 = "grub2-efi-binary-noprefix"
+	grubInstallPackageAzl3     = "grub2"
+	grubModulesPackageAzl3     = "grub2-pc"
 )
 
 var (
@@ -184,7 +186,8 @@ func (d *azureLinuxDistroHandler) ConfigureDiskBootLoader(imageConnection *image
 
 	return configureDiskBootLoader(imageConnection, rootMountIdType, bootType, selinuxConfig, kernelCommandLine,
 		currentSELinuxMode, forceGrubMkconfig, d, resources.AssetsGrubDefFileAzl3, installutils.FedoraGrubEnvRelPath,
-		resources.AssetsGrubStubFileAzl3, installutils.GrubStubDirsAzl3)
+		resources.AssetsGrubStubFileAzl3, installutils.GrubStubDirsAzl3, true, /*allowHostGrubInstallFallback*/
+		grubInstallPackageAzl3, grubModulesPackageAzl3)
 }
 
 func (d *azureLinuxDistroHandler) ReadGrubConfigLinuxArgs(bootDir string) (map[string][]grubConfigLinuxArg, error) {

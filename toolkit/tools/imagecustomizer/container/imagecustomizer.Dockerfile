@@ -12,7 +12,7 @@ ENV AZURE_MONITOR_CONNECTION_STRING=${AZ_MON_CONN_STR}
 RUN tdnf update -y && \
    tdnf install -y azurelinux-repos-cloud-native && \
    tdnf update -y && \
-   tdnf install -y qemu-img rpm coreutils util-linux systemd openssl \
+   tdnf install -y qemu-img rpm coreutils util-linux systemd systemd-udev openssl \
       sed createrepo_c squashfs-tools cdrkit parted e2fsprogs dosfstools \
       xfsprogs btrfs-progs zstd veritysetup grub2 grub2-pc systemd-ukify binutils lsof \
       python3 python3-pip jq oras tar pigz && \

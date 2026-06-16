@@ -1,0 +1,13 @@
+os:
+  bootloader:
+    resetType: hard-reset
+
+  packages:
+    install:
+      - grub2-pc
+
+  additionalFiles:
+    # Enable DHCP client on all of the physical NICs, so the VM test can obtain
+    # an IP and connect over SSH.
+  - source: files/89-ethernet.network
+    destination: /etc/systemd/network/89-ethernet.network
