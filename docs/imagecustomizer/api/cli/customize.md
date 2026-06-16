@@ -284,3 +284,27 @@ For instructions on how to create this directory, see:
 [How to create the tools directory](../../how-to/create-tools-dir.md)
 
 Added in v1.5.
+
+## --setfiles-context
+
+The SELinux context to use when running the `setfiles` command.
+
+This option is useful when running on a build system with SELinux enabled.
+
+Added in v1.5.
+
+### Fedora
+
+When running on a Fedora system, use the value: `system_u:system_r:setfiles_mac_t:s0`
+
+The `setfiles_mac_t` label allows SELinux labels to be applied that aren't present in
+the build host's SELinux rules, which is super useful when customizing images that have
+a different distro / distro version than the build host.
+
+Also, you need to run the commands:
+
+1. `sudo semanage permissive -a setfiles_mac_t`
+
+   This allows transitions from `unconfined_t` to `setfiles_mac_t`.
+
+2. `sudo semanage permissive -a systemd_hwdb_t`

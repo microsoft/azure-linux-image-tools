@@ -1133,6 +1133,7 @@ func basicCustomizeImageWithConfigFile(ctx context.Context, buildDir string, con
 		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: true,
 		PreviewFeatures:      previewFeatures,
+		SetFilesContext:      *setfilesContext,
 	})
 }
 
@@ -1147,5 +1148,6 @@ func basicCustomizeImage(ctx context.Context, buildDir string, baseConfigPath st
 		OutputImageFormat:    imagecustomizerapi.ImageFormatType(outputImageFormat),
 		UseBaseImageRpmRepos: true,
 		PreviewFeatures:      previewFeatures,
+		SetFilesContext:      *setfilesContext,
 	})
 }

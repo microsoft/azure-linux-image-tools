@@ -29,6 +29,7 @@ type ImageCustomizerOptions struct {
 	ImageCacheDir           string
 	CosiCompressionLevel    *int
 	ToolsDir                string
+	SetFilesContext         string
 
 	// Not provided via the command line. Only used in tests.
 	PreviewFeatures []imagecustomizerapi.PreviewFeature
