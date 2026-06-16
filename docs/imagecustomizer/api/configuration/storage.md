@@ -54,7 +54,7 @@ Supported options:
 
   Install the following packages (using the `os.packages.install` API):
 
-  - Fedora, Azure Linux 4.0: `grub2-tools`, `grub-pc-modules`
+  - Fedora, Azure Linux 4.0: `grub2-tools`, `grub2-pc-modules`
   - Azure Linux 2.0, 3.0: `grub2`, `grub2-pc`
 
   For Azure Linux 2.0 and 3.0, if the `grub2-install` command is not available in the
