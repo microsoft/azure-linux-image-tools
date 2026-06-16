@@ -252,7 +252,7 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 
 	// Pass the output image file relative to the current working directory through the argument.
 	// This will create the file at the absolute path.
-	err = basicCreateNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+	err = basicCreateImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
 		outputImageFormat, toolsFile, "azurelinux", version)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
@@ -264,7 +264,7 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 
 	// Pass the output image file relative to the config file through the config. This will create
 	// the file at the absolute path.
-	err = basicCreateNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+	err = basicCreateImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
 		outputImageFormat, toolsFile, "azurelinux", version)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
@@ -286,7 +286,7 @@ func basicCreateImageWithConfigFile(ctx context.Context, buildDir string, config
 	})
 }
 
-func basicCreateNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
+func basicCreateImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
 	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
 	distroVersion string,
 ) error {
