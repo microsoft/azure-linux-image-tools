@@ -1040,7 +1040,7 @@ func grubLegacyModulesExistInChroot(installChroot *safechroot.Chroot) (bool, err
 // installLegacyBootloaderFromHost installs the legacy bootloader using the build host's grub2-install
 // (or grub-install), pointed at the target image's /boot. This is the historical behavior and should only be used as a
 // fallback for out-of-preview distro versions, and only when the target image does not ship the packages needed to
-// install the bootloader from the target itself. It risks introducing copmatibility issues between the host's grub
+// install the bootloader from the target itself. It risks introducing compatibility issues between the host's grub
 // and the target image's grub configuration.
 func installLegacyBootloaderFromHost(installChroot *safechroot.Chroot, bootDevPath string, missingPackages []string,
 ) (err error) {

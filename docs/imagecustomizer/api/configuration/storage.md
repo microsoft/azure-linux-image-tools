@@ -52,10 +52,10 @@ Supported options:
 
   The `grub2-install` command must be installed in the target image.
 
-  Install the following package (using the `os.packages.install` API):
+  Install the following packages (using the `os.packages.install` API):
 
-  - Fedora, Azure Linux: `grub2-pc`
-  - Ubuntu: `grub2-common`
+  - Fedora, Azure Linux 4.0: `grub2-tools`, `grub-pc-modules`
+  - Azure Linux 2.0, 3.0: `grub2`, `grub2-pc`
 
   For Azure Linux 2.0 and 3.0, if the `grub2-install` command is not available in the
   target OS, then the `grub2-install` command from the container (or build host) is
