@@ -58,6 +58,16 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 		}
 	}
 
+	err := d.checkForUnsupportedApis(rc)
+	if err != nil {
+		return fmt.Errorf("%w (distro='%s', versionid='%s'):\n%w", ErrUnsupportedDistroApi, d.targetOs.Distro,
+			d.targetOs.VersionId, err)
+	}
+
+	return nil
+}
+
+func (d *aclDistroHandler) checkForUnsupportedApis(rc *ResolvedConfig) error {
 	if rc.Storage.CustomizePartitions() {
 		return fmt.Errorf("storage repartitioning is not yet supported for ACL")
 	}
