@@ -20,15 +20,24 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, tarFile
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
-	toolsChroot := safechroot.NewChroot(toolsChrootDir, false)
-	err := toolsChroot.Initialize(tarFile, nil, nil, true)
-	if err != nil {
-		return nil, "", err
+	var toolsChroot *safechroot.Chroot
+	if tarFile != "" {
+		toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
+		toolsChroot = safechroot.NewChroot(toolsChrootDir, false)
+		err := toolsChroot.Initialize(tarFile, nil, nil, true)
+		if err != nil {
+			return nil, "", err
+		}
+	} else {
+		var err error
+		toolsChroot, err = setupToolsChroot(ctx, rc, distroHandler)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 	defer toolsChroot.Close(false)
 
-	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
+	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChroot.RootDir(),
 		toolsRootImageDir, true, false, false, false, distroHandler)
 	if err != nil {
 		return nil, "", err

@@ -224,3 +224,7 @@ func (d *ubuntuDistroHandler) GrubEfiPackage() string {
 func (d *ubuntuDistroHandler) RootMissingMountDirectories() bool {
 	return false
 }
+
+func (d *ubuntuDistroHandler) NeedsToolsChroot() bool {
+	return false
+}

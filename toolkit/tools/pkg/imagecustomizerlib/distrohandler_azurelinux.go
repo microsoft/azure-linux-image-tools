@@ -219,3 +219,7 @@ func (d *azureLinuxDistroHandler) GrubEfiPackage() string {
 func (d *azureLinuxDistroHandler) RootMissingMountDirectories() bool {
 	return false
 }
+
+func (d *azureLinuxDistroHandler) NeedsToolsChroot() bool {
+	return false
+}

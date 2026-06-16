@@ -184,8 +184,7 @@ func testCreateImageRawNoTar(t *testing.T, name string, version string, configFi
 
 	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
 		outputImageFilePath, "raw", "azurelinux", version, "")
-
-	assert.ErrorContains(t, err, "tools tar file is required for image creation")
+	assert.NoError(t, err)
 }
 
 func TestCreateImageEmptyConfig(t *testing.T) {

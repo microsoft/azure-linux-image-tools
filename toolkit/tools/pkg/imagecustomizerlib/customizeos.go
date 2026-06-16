@@ -13,6 +13,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 )
 
 const (
@@ -25,7 +26,8 @@ var ErrUkiKernelModified = NewImageCustomizerError("UKI:KernelModified",
 		"Use 'mode: create' to regenerate UKIs with updated kernels")
 
 func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection *imageconnection.ImageConnection,
-	partitionsCustomized bool, partitionsLayout []fstabEntryPartNum, distroHandler DistroHandler,
+	toolsChroot *safechroot.Chroot, partitionsCustomized bool, partitionsLayout []fstabEntryPartNum,
+	distroHandler DistroHandler,
 ) error {
 	var err error
 
@@ -36,6 +38,17 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
+	}
+
+	// When packages are managed from a host-side tools chroot (e.g. ACL, where
+	// the image has no tdnf), tdnf runs inside the tools chroot and resolves
+	// repo hostnames using its /etc/resolv.conf. Override it with the host's so
+	// DNS works. The tools chroot is ephemeral, so we don't need to capture the
+	// prior state for restore.
+	if toolsChroot != nil {
+		if _, err := overrideResolvConf(toolsChroot); err != nil {
+			return err
+		}
 	}
 
 	// If UKI mode is 'create' and base image has UKIs, extract kernel and
@@ -78,7 +91,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		}
 
 		err = addRemoveAndUpdatePackages(ctx, rc.BuildDirAbs, configWithBase.BaseConfigPath, configWithBase.Config.OS,
-			imageChroot, nil, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
+			imageChroot, toolsChroot, rc.Options.RpmsSources, rc.Options.UseBaseImageRpmRepos, distroHandler,
 			snapshotTime)
 		if err != nil {
 			return err
@@ -205,6 +218,17 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 	err = restoreResolvConf(ctx, resolvConf, imageChroot)
 	if err != nil {
 		return err
+	}
+
+	if toolsChroot != nil {
+		// The tools chroot is ephemeral and may lack systemctl, so the full
+		// restore path which checks systemd-resolved is not applicable. Just
+		// remove the overridden host resolv.conf so the chroot doesn't keep a
+		// stale copy of the build host's DNS config.
+		toolsResolvConfPath := filepath.Join(toolsChroot.RootDir(), resolvConfPath)
+		if err := os.RemoveAll(toolsResolvConfPath); err != nil {
+			return fmt.Errorf("failed to remove overridden tools chroot resolv.conf:\n%w", err)
+		}
 	}
 
 	err = selinuxSetFiles(ctx, selinuxMode, imageChroot, distroHandler.GetSELinuxConfigFile())

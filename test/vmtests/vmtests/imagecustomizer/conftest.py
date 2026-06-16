@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Optional
 
 import pytest
 
@@ -98,24 +98,18 @@ def rpm_sources_fedora42(request: pytest.FixtureRequest) -> Generator[Path, None
 
 
 @pytest.fixture(scope="session")
-def tools_file_azl3(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+def tools_file_azl3(request: pytest.FixtureRequest) -> Generator[Optional[Path], None, None]:
     tar_path = request.config.getoption("--tools-file-azl3")
-    if not tar_path:
-        pytest.skip("--tools-file-azl3 is required for test")
-    yield Path(tar_path)
+    yield Path(tar_path) if tar_path else None
 
 
 @pytest.fixture(scope="session")
-def tools_file_azl4(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+def tools_file_azl4(request: pytest.FixtureRequest) -> Generator[Optional[Path], None, None]:
     tar_path = request.config.getoption("--tools-file-azl4")
-    if not tar_path:
-        pytest.skip("--tools-file-azl4 is required for test")
-    yield Path(tar_path)
+    yield Path(tar_path) if tar_path else None
 
 
 @pytest.fixture(scope="session")
-def tools_file_fedora42(request: pytest.FixtureRequest) -> Generator[Path, None, None]:
+def tools_file_fedora42(request: pytest.FixtureRequest) -> Generator[Optional[Path], None, None]:
     tar_path = request.config.getoption("--tools-file-fedora42")
-    if not tar_path:
-        pytest.skip("--tools-file-fedora42 is required for test")
-    yield Path(tar_path)
+    yield Path(tar_path) if tar_path else None

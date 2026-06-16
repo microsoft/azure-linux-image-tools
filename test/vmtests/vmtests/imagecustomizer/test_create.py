@@ -5,7 +5,7 @@ import logging
 import os
 import platform
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import libvirt  # type: ignore
 from docker import DockerClient
@@ -127,7 +127,7 @@ def run_create_image_test(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources: List[Path],
-    tools_file: Path,
+    tools_file: Optional[Path],
     config_path: Path,
     output_format: str,
     ssh_key: Tuple[str, Path],
@@ -289,7 +289,7 @@ def test_create_image_efi_qcow_output_azl3(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources_azl3: Path,
-    tools_file_azl3: Path,
+    tools_file_azl3: Optional[Path],
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -319,7 +319,7 @@ def test_create_image_efi_qcow_output_azl4(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources_azl4: Path,
-    tools_file_azl4: Path,
+    tools_file_azl4: Optional[Path],
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -354,7 +354,7 @@ def test_create_image_efi_qcow_output_fedora(
     image_customizer_container_url: str,
     docker_client: DockerClient,
     rpm_sources_fedora42: Path,
-    tools_file_fedora42: Path,
+    tools_file_fedora42: Optional[Path],
     ssh_key: Tuple[str, Path],
     test_temp_dir: Path,
     test_instance_name: str,
@@ -382,4 +382,33 @@ def test_create_image_efi_qcow_output_fedora(
         close_list,
         "fedora",
         "42",
+    )
+
+
+def test_create_image_efi_qcow_output_azl3_no_tools_file(
+    image_customizer_container_url: str,
+    docker_client: DockerClient,
+    rpm_sources_azl3: Path,
+    ssh_key: Tuple[str, Path],
+    test_temp_dir: Path,
+    test_instance_name: str,
+    logs_dir: Path,
+    libvirt_conn: libvirt.virConnect,
+    close_list: List[Closeable],
+) -> None:
+    run_create_image_test(
+        image_customizer_container_url,
+        docker_client,
+        [rpm_sources_azl3],
+        None,
+        TEST_CONFIGS_DIR.joinpath("create-minimal-os.yaml"),
+        "qcow2",
+        ssh_key,
+        test_temp_dir,
+        test_instance_name,
+        logs_dir,
+        libvirt_conn,
+        close_list,
+        "azurelinux",
+        "3.0",
     )

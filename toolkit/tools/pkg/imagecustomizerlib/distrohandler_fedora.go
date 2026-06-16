@@ -221,3 +221,7 @@ func (d *fedoraDistroHandler) GrubEfiPackage() string {
 func (d *fedoraDistroHandler) RootMissingMountDirectories() bool {
 	return false
 }
+
+func (d *fedoraDistroHandler) NeedsToolsChroot() bool {
+	return false
+}

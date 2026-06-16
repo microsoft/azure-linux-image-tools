@@ -126,6 +126,9 @@ type DistroHandler interface {
 
 	// Distro has a root partition that is missing placeholder directories for special mounts like /dev.
 	RootMissingMountDirectories() bool
+
+	// Reports whether package operations require a host-side tools chroot (e.g. ACL's read-only /usr).
+	NeedsToolsChroot() bool
 }
 
 // NewDistroHandler creates a distro handler directly from TargetOs

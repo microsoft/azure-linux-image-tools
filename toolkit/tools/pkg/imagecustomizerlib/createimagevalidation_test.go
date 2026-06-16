@@ -309,3 +309,16 @@ func TestValidateCreateImageConfig_InvalidFieldsOverlaysConfig(t *testing.T) {
 		outputImageFormat, packageSnapshotTime, buildDir)
 	assert.ErrorContains(t, err, "overlay field is not supported by the create subcommand")
 }
+
+// An empty --tools-file path is allowed; the create path falls back to
+// auto-provisioning the tools chroot via OCI pull.
+func TestValidateToolsTarFile_EmptyAllowed(t *testing.T) {
+	assert.NoError(t, validateToolsTarFile(""))
+}
+
+// When --tools-file IS supplied, the on-disk validation (existence + tar.gz
+// structure) must still run.
+func TestValidateToolsTarFile_MissingPath(t *testing.T) {
+	err := validateToolsTarFile("/definitely/not/a/real/path/tools.tar.gz")
+	assert.ErrorContains(t, err, "does not exist")
+}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
@@ -72,14 +73,6 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 			continue
 		}
 
-		pkgs := os.Packages
-		if len(pkgs.Install) > 0 || len(pkgs.InstallLists) > 0 ||
-			len(pkgs.Remove) > 0 || len(pkgs.RemoveLists) > 0 ||
-			len(pkgs.Update) > 0 || len(pkgs.UpdateLists) > 0 ||
-			pkgs.UpdateExistingPackages {
-			return fmt.Errorf("package operations are not yet supported for ACL")
-		}
-
 		if os.Overlays != nil {
 			return fmt.Errorf("overlays are not yet supported for ACL")
 		}
@@ -92,6 +85,57 @@ func (d *aclDistroHandler) ManagePackages(ctx context.Context, buildDir string, 
 	config *imagecustomizerapi.OS, imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,
 	rpmsSources []string, useBaseImageRpmRepos bool, snapshotTime imagecustomizerapi.PackageSnapshotTime,
 ) error {
+	if !needPackageCleanup(config) {
+		return managePackagesRpm(
+			ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
+			snapshotTime, d.packageManager)
+	}
+
+	// AZL's tdnf is built with HISTORY_DB_DIR=/usr/lib/sysimage/tdnf, so by
+	// default it writes its history db under /usr — which on ACL is a read-only
+	// dm-verity btrfs volume. Override persistdir to /var/lib/tdnf via the
+	// image's tdnf.conf (persistdir can't be set via --setopt). tdnf with
+	// --installroot prefers <installroot>/etc/tdnf/tdnf.conf over the host's,
+	// so patching the image's config is sufficient.
+	imgTdnfConf := filepath.Join(imageChroot.RootDir(), "etc/tdnf/tdnf.conf")
+	if err := os.MkdirAll(filepath.Dir(imgTdnfConf), 0o755); err != nil {
+		return fmt.Errorf("failed to create tdnf conf dir:\n%w", err)
+	}
+	if _, err := os.Stat(imgTdnfConf); os.IsNotExist(err) {
+		if err := os.WriteFile(imgTdnfConf, []byte("[main]\n"), 0o644); err != nil {
+			return fmt.Errorf("failed to create image tdnf.conf:\n%w", err)
+		}
+	}
+	if err := overrideTdnfPersistDir(imgTdnfConf, "/var/lib/tdnf"); err != nil {
+		return fmt.Errorf("failed to override tdnf persistdir in image:\n%w", err)
+	}
+
+	if toolsChroot != nil {
+		// AZL3's tdnf RPM has a post-install scriptlet that runs
+		// `tdnf-history-util init` to create history.db, because tdnf >= 3.4.1
+		// fails (Error 1802, "history database does not exist") if the DB is
+		// absent. ACL ships without tdnf, so that scriptlet never ran on the
+		// image. Replicate it here against the install target. The util's -r
+		// flag only sets the rpm root (not the history-db path), and the
+		// underlying sqlite3_open does not mkdir parents — so we pass the full
+		// in-chroot path via -f and pre-create the directory.
+		histDir := filepath.Join(imageChroot.RootDir(), "var/lib/tdnf")
+		if err := os.MkdirAll(histDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create tdnf history dir (%s):\n%w", histDir, err)
+		}
+		err := shell.NewExecBuilder("/usr/lib/tdnf/tdnf-history-util",
+			"-r", "/"+toolsRootImageDir,
+			"-f", "/"+toolsRootImageDir+"/var/lib/tdnf/history.db",
+			"init").
+			LogLevel(logrus.DebugLevel, logrus.DebugLevel).
+			ErrorStderrLines(20).
+			Chroot(toolsChroot.ChrootDir()).
+			Execute()
+		if err != nil {
+			return fmt.Errorf("failed to initialize tdnf history db in image:\n%w", err)
+		}
+	}
+
 	return managePackagesRpm(
 		ctx, buildDir, baseConfigPath, config, imageChroot, toolsChroot, rpmsSources, useBaseImageRpmRepos,
 		snapshotTime, d.packageManager)
@@ -268,4 +312,43 @@ func (d *aclDistroHandler) GrubEfiPackage() string {
 
 func (d *aclDistroHandler) RootMissingMountDirectories() bool {
 	return true
+}
+
+func (d *aclDistroHandler) NeedsToolsChroot() bool {
+	return true
+}
+
+// overrideTdnfPersistDir ensures tdnf.conf has a `persistdir=<dir>` line in its
+// [main] section, replacing any existing `persistdir=` line.
+func overrideTdnfPersistDir(confPath, dir string) error {
+	data, err := os.ReadFile(confPath)
+	if err != nil {
+		return fmt.Errorf("failed to read tdnf.conf (%s):\n%w", confPath, err)
+	}
+	want := "persistdir=" + dir
+	lines := strings.Split(string(data), "\n")
+	mainIdx := -1
+	persistIdx := -1
+	for i, l := range lines {
+		t := strings.TrimSpace(l)
+		if t == "[main]" {
+			mainIdx = i
+		}
+		if strings.HasPrefix(t, "persistdir=") {
+			persistIdx = i
+		}
+	}
+	switch {
+	case persistIdx >= 0:
+		if strings.TrimSpace(lines[persistIdx]) == want {
+			return nil
+		}
+		lines[persistIdx] = want
+	case mainIdx >= 0:
+		lines = append(lines[:mainIdx+1], append([]string{want}, lines[mainIdx+1:]...)...)
+	default:
+		lines = append([]string{"[main]", want}, lines...)
+	}
+	logger.Log.Infof("ACL: setting %s in (%s)", want, confPath)
+	return os.WriteFile(confPath, []byte(strings.Join(lines, "\n")), 0o644)
 }

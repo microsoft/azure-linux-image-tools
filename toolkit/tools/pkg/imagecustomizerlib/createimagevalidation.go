@@ -135,9 +135,10 @@ func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecust
 }
 
 func validateToolsTarFile(toolsTar string) error {
-	// Check if the tools tar file exists
+	// An empty path means auto-provision the tools chroot from the public
+	// OCI image for the target distro+version. Skip the on-disk checks.
 	if toolsTar == "" {
-		return fmt.Errorf("tools tar file is required for image creation")
+		return nil
 	}
 	if _, err := os.Stat(toolsTar); os.IsNotExist(err) {
 		return fmt.Errorf("tools tar file (%s) does not exist", toolsTar)

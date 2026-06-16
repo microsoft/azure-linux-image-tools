@@ -121,11 +121,14 @@ Added in v1.2.
 
 ## --tools-file=PATH
 
-Required.
+Optional.
 
 Specifies the path to a tools file in `.tar.gz` format.
 
 This file should contain the TDNF tar package (or an equivalent), which is used to manage package dependencies and facilitate installation workflows.
+
+If omitted, a default tools rootfs is auto-provisioned by pulling the public
+container image that matches the target `--distro` and `--distro-version`.
 
 Added in v1.2.
 

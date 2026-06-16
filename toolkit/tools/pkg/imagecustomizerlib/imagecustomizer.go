@@ -17,6 +17,7 @@ import (
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/osinfo"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/vhdutils"
 	"go.opentelemetry.io/otel"
@@ -673,8 +674,38 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
+	// Distros with an immutable /usr (e.g. ACL) need a host-side tools chroot
+	// so that package operations can run as `tdnf --installroot=/_imageroot`.
+	// For these distros, mount the image inside the tools chroot at
+	// /<toolsRootImageDir>/; for everything else, keep the existing behavior of
+	// mounting the image directly under the build dir.
+	var (
+		toolsChroot      *safechroot.Chroot
+		connectBuildDir  = rc.BuildDirAbs
+		connectChrootDir = "imageroot"
+	)
+	if distroHandler.NeedsToolsChroot() {
+		var err error
+		toolsChroot, err = setupToolsChroot(ctx, rc, distroHandler)
+		if err != nil {
+			return nil, nil, nil, "", err
+		}
+		// toolsChroot must outlive imageConnection because the image is mounted
+		// inside the toolsChroot's rootfs. Close it after imageConnection below.
+		defer func() {
+			if toolsChroot != nil {
+				if closeErr := toolsChroot.Close(false); closeErr != nil {
+					logger.Log.Warnf("failed to close tools chroot: %s", closeErr)
+				}
+			}
+		}()
+
+		connectBuildDir = toolsChroot.RootDir()
+		connectChrootDir = toolsRootImageDir
+	}
+
 	imageConnection, partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, _, err := connectToExistingImage(
-		ctx, rc.RawImageFile, rc.BuildDirAbs, "imageroot", true, false, readOnlyVerity, false, distroHandler)
+		ctx, rc.RawImageFile, connectBuildDir, connectChrootDir, true, false, readOnlyVerity, false, distroHandler)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
@@ -708,7 +739,7 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 	}
 
 	// Do the actual customizations.
-	err = doOsCustomizations(ctx, rc, imageConnection, partitionsCustomized, partitionsLayout, distroHandler)
+	err = doOsCustomizations(ctx, rc, imageConnection, toolsChroot, partitionsCustomized, partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
