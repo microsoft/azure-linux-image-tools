@@ -1008,12 +1008,8 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 			return
 		}
 	default:
-		package_s := "package"
-		if len(missingPackages) > 1 {
-			package_s = "packages"
-		}
-		return fmt.Errorf("the target image must have the following %s installed to build a legacy-boot image "+
-			"(they can be added to os.packages.install): '%s'", package_s, strings.Join(missingPackages, "', '"))
+		return fmt.Errorf("the target image must have the following package(s) installed to build a legacy-boot image "+
+			"(they can be added to os.packages.install): '%s'", strings.Join(missingPackages, "', '"))
 	}
 
 	installGrub2BootDir := filepath.Join(installChroot.RootDir(), grub2BootDir)
@@ -1067,14 +1063,10 @@ func installLegacyBootloaderFromHost(installChroot *safechroot.Chroot, bootDevPa
 		installName = grubInstallName
 	}
 
-	package_s := "package"
-	if len(missingPackages) > 1 {
-		package_s = "packages"
-	}
 	logger.Log.Warnf("Installing the legacy bootloader using the build host's '%s' because the target image is "+
-		"missing the following %s: '%s'. The resulting image may fail to boot if the host's grub differs from the "+
-		"target's in a significant way. Add the %s to the image's package list (os.packages.install) to install the "+
-		"bootloader from the target itself.", installName, package_s, strings.Join(missingPackages, "', '"), package_s)
+		"missing the following package(s): '%s'. The resulting image may fail to boot if the host's grub differs from "+
+		"the target's in a significant way. Add the package(s) to the image's package list (os.packages.install) to "+
+		"install the bootloader from the target itself.", installName, strings.Join(missingPackages, "', '"))
 
 	installBootDir := filepath.Join(installChroot.RootDir(), "/boot")
 	bootDirArg := fmt.Sprintf("%s=%s", "--boot-directory", installBootDir)
