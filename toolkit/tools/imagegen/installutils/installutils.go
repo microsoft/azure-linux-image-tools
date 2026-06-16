@@ -980,7 +980,8 @@ func installLegacyBootloader(installChroot *safechroot.Chroot, bootDevPath strin
 
 	// Installing the legacy bootloader from the target's own grub requires BOTH the grub2-install command and the
 	// i386-pc platform modules that it installs.
-	grubInstallExists := grubInstallCommandExistsInChroot(installChroot, grub2InstallName)
+	_, err = shell.LookPathChroot(grub2InstallName, installChroot.ChrootDir())
+	grubInstallExists := err == nil
 	grubModulesExist, err := grubLegacyModulesExistInChroot(installChroot)
 	if err != nil {
 		return fmt.Errorf("failed to check for grub modules in chroot: %w", err)
@@ -1071,14 +1072,6 @@ func installLegacyBootloaderFromHost(installChroot *safechroot.Chroot, bootDevPa
 	installBootDir := filepath.Join(installChroot.RootDir(), "/boot")
 	bootDirArg := fmt.Sprintf("%s=%s", "--boot-directory", installBootDir)
 	return shell.ExecuteLive(false /*squashErrors*/, installName, "--target=i386-pc", bootDirArg, bootDevPath)
-}
-
-func grubInstallCommandExistsInChroot(installChroot *safechroot.Chroot, command string) bool {
-	err := shell.NewExecBuilder(command, "--version").
-		LogLevel(logrus.DebugLevel, logrus.DebugLevel).
-		Chroot(installChroot.ChrootDir()).
-		Execute()
-	return err == nil
 }
 
 // GetUUID queries the UUID of the given partition
