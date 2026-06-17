@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagecustomizerapi"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/diskutils"
+	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/targetos"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -48,9 +50,9 @@ func testCreateImageRaw(t *testing.T, name string, version string, configFile st
 	rpmSources := []string{downloadedRpmsRepoFile}
 	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
 
-	err := CreateImageWithConfigFile(
+	err := basicCreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
-		outputImageFilePath, outputImageFormat, "azurelinux", version, "")
+		outputImageFilePath, outputImageFormat, "azurelinux", version)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -114,9 +116,9 @@ func testCreateImageBtrfs(t *testing.T, name string, version string, configFile 
 	rpmSources := []string{downloadedRpmsRepoFile}
 	toolsFile := testutils.GetDownloadedToolsFile(t, testutilsDir, "azurelinux", version, true)
 
-	err := CreateImageWithConfigFile(
+	err := basicCreateImageWithConfigFile(
 		t.Context(), buildDir, partitionsConfigFile, rpmSources, toolsFile,
-		outputImageFilePath, outputImageFormat, "azurelinux", version, "")
+		outputImageFilePath, outputImageFormat, "azurelinux", version)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -182,8 +184,8 @@ func testCreateImageRawNoTar(t *testing.T, name string, version string, configFi
 	downloadedRpmsRepoFile := testutils.GetDownloadedRpmsRepoFile(t, testutilsDir, "azurelinux", version, false, true)
 	rpmSources := []string{downloadedRpmsRepoFile}
 
-	err := CreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
-		outputImageFilePath, "raw", "azurelinux", version, "")
+	err := basicCreateImageWithConfigFile(t.Context(), buildDir, partitionsConfigFile, rpmSources, "",
+		outputImageFilePath, "raw", "azurelinux", version)
 
 	assert.ErrorContains(t, err, "tools tar file is required for image creation")
 }
@@ -198,12 +200,12 @@ func TestCreateImageEmptyConfig(t *testing.T) {
 	// create an empty config file
 	emptyConfigFile := filepath.Join(testDir, "empty-config.yaml")
 
-	err := CreateImageWithConfigFile(t.Context(), buildDir, "", []string{}, "", outputImageFilePath, "raw",
-		"azurelinux", "3.0", "")
+	err := basicCreateImageWithConfigFile(t.Context(), buildDir, "", []string{}, "", outputImageFilePath, "raw",
+		"azurelinux", "3.0")
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 
-	err = CreateImageWithConfigFile(t.Context(), buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw",
-		"azurelinux", "3.0", "")
+	err = basicCreateImageWithConfigFile(t.Context(), buildDir, emptyConfigFile, []string{}, "", outputImageFilePath, "raw",
+		"azurelinux", "3.0")
 	assert.ErrorContains(t, err, "failed to unmarshal config file")
 }
 
@@ -250,8 +252,8 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 
 	// Pass the output image file relative to the current working directory through the argument.
 	// This will create the file at the absolute path.
-	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "azurelinux", version, "")
+	err = basicCreateImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+		outputImageFormat, toolsFile, "azurelinux", version)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
@@ -262,10 +264,39 @@ func testCreateImage_OutputImageFileAsRelativePath(t *testing.T, name string, ve
 
 	// Pass the output image file relative to the config file through the config. This will create
 	// the file at the absolute path.
-	err = createNewImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
-		outputImageFormat, toolsFile, "azurelinux", version, "")
+	err = basicCreateImage(t.Context(), buildDir, baseConfigPath, config, rpmSources, outputImageFile,
+		outputImageFormat, toolsFile, "azurelinux", version)
 	assert.NoError(t, err)
 	assert.FileExists(t, outputImageFileAbsolute)
 	err = os.Remove(outputImageFileAbsolute)
 	assert.NoError(t, err)
+}
+
+func basicCreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string, rpmsSources []string,
+	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
+) error {
+	return CreateImageWithConfigFile(ctx, configFile, ImageCreateOptions{
+		BuildDir:          buildDir,
+		RpmsSources:       rpmsSources,
+		ToolsTar:          toolsTar,
+		OutputImageFile:   outputImageFile,
+		OutputImageFormat: imagecustomizerapi.ImageFormatType(outputImageFormat),
+		Distro:            targetos.Distro(distro),
+		DistroVersion:     distroVersion,
+	})
+}
+
+func basicCreateImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
+	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
+	distroVersion string,
+) error {
+	return CreateImage(ctx, baseConfigPath, config, ImageCreateOptions{
+		BuildDir:          buildDir,
+		RpmsSources:       rpmsSources,
+		ToolsTar:          toolsTar,
+		OutputImageFile:   outputImageFile,
+		OutputImageFormat: imagecustomizerapi.ImageFormatType(outputImageFormat),
+		Distro:            targetos.Distro(distro),
+		DistroVersion:     distroVersion,
+	})
 }

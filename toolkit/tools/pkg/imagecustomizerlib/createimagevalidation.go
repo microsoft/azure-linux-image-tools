@@ -70,8 +70,7 @@ func validateCreateImageSupportedOsFields(osConfig *imagecustomizerapi.OS) error
 }
 
 func validateCreateImageConfig(ctx context.Context, baseConfigPath string, config *imagecustomizerapi.Config,
-	rpmsSources []string, toolsTar string, outputImageFile, outputImageFormat string, packageSnapshotTime string,
-	buildDir string,
+	options ImageCreateOptions,
 ) (*ResolvedConfig, error) {
 	if !slices.Contains(config.PreviewFeatures, imagecustomizerapi.PreviewFeatureCreate) {
 		return nil, fmt.Errorf(
@@ -84,7 +83,7 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 	}
 
 	// Validate mandatory fields for creating a seed image
-	err = validateCreateImageMandatoryFields(baseConfigPath, config, rpmsSources, toolsTar)
+	err = validateCreateImageMandatoryFields(baseConfigPath, config, options.RpmsSources, options.ToolsTar)
 	if err != nil {
 		return nil, err
 	}
@@ -95,11 +94,12 @@ func validateCreateImageConfig(ctx context.Context, baseConfigPath string, confi
 			imagecustomizerapi.ValidateResourceTypeAll,
 		},
 		ImageCustomizerOptions{
-			RpmsSources:         rpmsSources,
-			OutputImageFile:     outputImageFile,
-			OutputImageFormat:   imagecustomizerapi.ImageFormatType(outputImageFormat),
-			PackageSnapshotTime: imagecustomizerapi.PackageSnapshotTime(packageSnapshotTime),
-			BuildDir:            buildDir,
+			RpmsSources:         options.RpmsSources,
+			OutputImageFile:     options.OutputImageFile,
+			OutputImageFormat:   options.OutputImageFormat,
+			PackageSnapshotTime: options.PackageSnapshotTime,
+			BuildDir:            options.BuildDir,
+			PreviewFeatures:     options.PreviewFeatures,
 		})
 	if err != nil {
 		return nil, err

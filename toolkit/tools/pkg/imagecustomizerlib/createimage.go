@@ -19,10 +19,21 @@ const (
 	setupRoot = "/setuproot"
 )
 
-func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile string, rpmsSources []string,
-	toolsTar string, outputImageFile string, outputImageFormat string, distro string, distroVersion string,
-	packageSnapshotTime string,
-) error {
+type ImageCreateOptions struct {
+	BuildDir            string
+	Distro              targetos.Distro
+	DistroVersion       string
+	ToolsTar            string
+	RpmsSources         []string
+	OutputImageFile     string
+	OutputImageFormat   imagecustomizerapi.ImageFormatType
+	PackageSnapshotTime imagecustomizerapi.PackageSnapshotTime
+
+	// Not provided via the command line. Only used in tests.
+	PreviewFeatures []imagecustomizerapi.PreviewFeature
+}
+
+func CreateImageWithConfigFile(ctx context.Context, configFile string, options ImageCreateOptions) error {
 	var config imagecustomizerapi.Config
 	err := imagecustomizerapi.UnmarshalYamlFile(configFile, &config)
 	if err != nil {
@@ -36,9 +47,7 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 		return fmt.Errorf("failed to get absolute path of config file directory:\n%w", err)
 	}
 
-	err = createNewImage(
-		ctx, buildDir, absBaseConfigPath, config, rpmsSources, outputImageFile,
-		outputImageFormat, toolsTar, distro, distroVersion, packageSnapshotTime)
+	err = CreateImage(ctx, absBaseConfigPath, config, options)
 	if err != nil {
 		return err
 	}
@@ -46,13 +55,10 @@ func CreateImageWithConfigFile(ctx context.Context, buildDir string, configFile 
 	return nil
 }
 
-func createNewImage(ctx context.Context, buildDir string, baseConfigPath string, config imagecustomizerapi.Config,
-	rpmsSources []string, outputImageFile string, outputImageFormat string, toolsTar string, distro string,
-	distroVersion string, packageSnapshotTime string,
+func CreateImage(ctx context.Context, baseConfigPath string, config imagecustomizerapi.Config,
+	options ImageCreateOptions,
 ) error {
-	rc, err := validateCreateImageConfig(
-		ctx, baseConfigPath, &config, rpmsSources, toolsTar, outputImageFile,
-		outputImageFormat, packageSnapshotTime, buildDir)
+	rc, err := validateCreateImageConfig(ctx, baseConfigPath, &config, options)
 	if err != nil {
 		return err
 	}
@@ -79,7 +85,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Infof("Creating new image with parameters: %+v\n", rc)
 
 	// Create distro config from distro name and version
-	distroHandler, err := NewDistroHandler(targetos.New(distro, distroVersion))
+	distroHandler, err := NewDistroHandler(targetos.New(options.Distro, options.DistroVersion))
 	if err != nil {
 		return err
 	}
@@ -101,7 +107,7 @@ func createNewImage(ctx context.Context, buildDir string, baseConfigPath string,
 	logger.Log.Debugf("Part id to part uuid map %v\n", partIdToPartUuid)
 	logger.Log.Infof("Image UUID: %s", rc.ImageUuidStr)
 
-	partUuidToFstabEntry, osRelease, err := CustomizeImageHelperCreate(ctx, rc, toolsTar,
+	partUuidToFstabEntry, osRelease, err := CustomizeImageHelperCreate(ctx, rc, options.ToolsTar,
 		distroHandler)
 	if err != nil {
 		return err
