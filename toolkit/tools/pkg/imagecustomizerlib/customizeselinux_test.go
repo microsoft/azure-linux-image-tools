@@ -188,30 +188,14 @@ func TestCustomizeImageSELinuxNoPolicy(t *testing.T) {
 
 	buildDir := filepath.Join(testTmpDir, "build")
 	outImageFilePath := filepath.Join(testTmpDir, "image.qcow2")
-
-	configFile := ""
-	switch baseImageInfo.Variant {
-	case baseImageAzureLinuxVariantCoreEfi:
-		configFile = filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
-	case baseImageAzureLinuxVariantBareMetal:
-		configFile = filepath.Join(testDir, "selinux-enforcing-removepackages.yaml")
-	}
+	configFile := filepath.Join(testDir, "selinux-enforcing-nopackages.yaml")
 
 	// Customize image.
 	err := basicCustomizeImageWithConfigFile(t.Context(), buildDir, configFile, baseImage, outImageFilePath, "raw",
 		baseImageInfo.PreviewFeatures)
-
-	switch baseImageInfo.Variant {
-	case baseImageAzureLinuxVariantCoreEfi:
-		assert.ErrorContains(t, err, "SELinux is enabled but policy file is missing (file='/etc/selinux/config')")
-		assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
-		assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
-
-	case baseImageAzureLinuxVariantBareMetal:
-		// The /etc/selinux/config file survives the removal of the selinux-policy package.
-		// So, the error is different.
-		assert.ErrorContains(t, err, "etc/selinux/targeted/contexts/files/file_contexts: No such file or directory")
-	}
+	assert.ErrorContains(t, err, "SELinux is enabled but policy file is missing (file='/etc/selinux/config')")
+	assert.ErrorContains(t, err, "please ensure an SELinux policy is installed")
+	assert.ErrorContains(t, err, "the 'selinux-policy' package provides the default policy")
 }
 
 func verifyKernelCommandLine(t *testing.T, imageConnection *imageconnection.ImageConnection, hasUkis bool,
