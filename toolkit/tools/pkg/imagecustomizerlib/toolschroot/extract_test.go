@@ -133,3 +133,35 @@ func TestExtractRejectsAbsoluteAndTraversalPaths(t *testing.T) {
 		})
 	}
 }
+
+// Symlink is stored verbatim, but a later write that would traverse it
+// outside destDir must be rejected by os.Root.
+func TestExtractSymlinkChainEscapeBlocked(t *testing.T) {
+	cases := []struct {
+		name     string
+		linkname string
+	}{
+		{"AbsoluteEscape", "/etc"},
+		{"RelativeEscape", "../../../etc"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			destDir := t.TempDir()
+			canary := filepath.Join(destDir, "..", "canary-"+tc.name)
+			defer os.Remove(canary)
+
+			data := writeTar(t, []tarEntry{
+				{header: tar.Header{Name: "evil", Typeflag: tar.TypeSymlink, Linkname: tc.linkname}},
+				{header: tar.Header{Name: "evil/passwd", Typeflag: tar.TypeReg, Mode: 0o644}, body: []byte("pwn")},
+			})
+			err := extractTarLayer(bytes.NewReader(data), destDir)
+			require.Error(t, err, "extraction must fail when escape is attempted")
+			assert.ErrorIs(t, err, ErrExtractFailed)
+
+			_, statErr := os.Stat(canary)
+			assert.True(t, errors.Is(statErr, os.ErrNotExist),
+				"unexpected file outside destDir at %s", canary)
+		})
+	}
+}

@@ -21,9 +21,16 @@ const (
 	opaqueWhiteoutName = ".wh..wh..opq"
 )
 
-// extractTarLayer applies a tar stream onto destDir with OCI/Docker whiteout handling.
-// The caller handles decompression. destDir must exist.
+// extractTarLayer applies a tar stream onto destDir with OCI/Docker whiteout
+// handling. destDir must exist; caller handles decompression. All filesystem
+// ops go through os.Root to block Zip Slip and symlink-chain escapes.
 func extractTarLayer(reader io.Reader, destDir string) error {
+	root, err := os.OpenRoot(destDir)
+	if err != nil {
+		return fmt.Errorf("%w: opening destination root (%s):\n%w", ErrExtractFailed, destDir, err)
+	}
+	defer root.Close()
+
 	tr := tar.NewReader(reader)
 
 	for {
@@ -35,13 +42,13 @@ func extractTarLayer(reader io.Reader, destDir string) error {
 			return fmt.Errorf("%w: reading tar header:\n%w", ErrExtractFailed, err)
 		}
 
-		if err := applyTarEntry(tr, hdr, destDir); err != nil {
+		if err := applyTarEntry(tr, hdr, root); err != nil {
 			return err
 		}
 	}
 }
 
-func applyTarEntry(tr *tar.Reader, hdr *tar.Header, destDir string) error {
+func applyTarEntry(tr *tar.Reader, hdr *tar.Header, root *os.Root) error {
 	cleanRel, err := safeJoinRel(hdr.Name)
 	if err != nil {
 		return fmt.Errorf("%w: unsafe entry path (%q):\n%w", ErrExtractFailed, hdr.Name, err)
@@ -55,29 +62,32 @@ func applyTarEntry(tr *tar.Reader, hdr *tar.Header, destDir string) error {
 
 	switch {
 	case base == opaqueWhiteoutName:
-		parent := filepath.Join(destDir, filepath.FromSlash(dirRel))
-		return removeDirChildren(parent)
+		parent := filepath.FromSlash(dirRel)
+		if parent == "" {
+			parent = "."
+		}
+		return removeDirChildren(root, parent)
 
 	case strings.HasPrefix(base, whiteoutPrefix):
 		realName := strings.TrimPrefix(base, whiteoutPrefix)
-		target := filepath.Join(destDir, filepath.FromSlash(dirRel), realName)
-		return removePathAll(target)
+		target := filepath.Join(filepath.FromSlash(dirRel), realName)
+		return removePathAll(root, target)
 	}
 
-	target := filepath.Join(destDir, filepath.FromSlash(cleanRel))
+	target := filepath.FromSlash(cleanRel)
 
 	switch hdr.Typeflag {
 	case tar.TypeDir:
-		return writeDir(target, hdr)
+		return writeDir(root, target, hdr)
 
 	case tar.TypeReg, tar.TypeRegA:
-		return writeRegularFile(target, hdr, tr)
+		return writeRegularFile(root, target, hdr, tr)
 
 	case tar.TypeSymlink:
-		return writeSymlink(target, hdr)
+		return writeSymlink(root, target, hdr)
 
 	case tar.TypeLink:
-		return writeHardlink(target, hdr, destDir)
+		return writeHardlink(root, target, hdr)
 
 	default:
 		// Skip device/fifo/PAX/sparse entries; tools chroot doesn't need them.
@@ -86,7 +96,7 @@ func applyTarEntry(tr *tar.Reader, hdr *tar.Header, destDir string) error {
 }
 
 // safeJoinRel cleans a tar entry name to a slash-separated relative path,
-// rejecting absolute paths and ".." traversal.
+// rejecting empty names and ".." that escapes after cleaning.
 func safeJoinRel(name string) (string, error) {
 	if name == "" {
 		return "", errors.New("empty entry name")
@@ -106,26 +116,26 @@ func safeJoinRel(name string) (string, error) {
 	return clean, nil
 }
 
-func writeDir(target string, hdr *tar.Header) error {
+func writeDir(root *os.Root, target string, hdr *tar.Header) error {
 	mode := os.FileMode(hdr.Mode & 0o7777)
 
-	info, err := os.Lstat(target)
+	info, err := root.Lstat(target)
 	switch {
 	case err == nil && info.IsDir():
-		if err := os.Chmod(target, mode); err != nil {
+		if err := root.Chmod(target, mode); err != nil {
 			return fmt.Errorf("%w: chmod dir (%s):\n%w", ErrExtractFailed, target, err)
 		}
 
 	case err == nil:
-		if err := os.RemoveAll(target); err != nil {
+		if err := root.RemoveAll(target); err != nil {
 			return fmt.Errorf("%w: removing conflicting entry (%s):\n%w", ErrExtractFailed, target, err)
 		}
-		if err := os.MkdirAll(target, mode); err != nil {
+		if err := root.MkdirAll(target, mode); err != nil {
 			return fmt.Errorf("%w: mkdir (%s):\n%w", ErrExtractFailed, target, err)
 		}
 
 	case errors.Is(err, os.ErrNotExist):
-		if err := os.MkdirAll(target, mode); err != nil {
+		if err := root.MkdirAll(target, mode); err != nil {
 			return fmt.Errorf("%w: mkdir (%s):\n%w", ErrExtractFailed, target, err)
 		}
 
@@ -133,20 +143,20 @@ func writeDir(target string, hdr *tar.Header) error {
 		return fmt.Errorf("%w: stat (%s):\n%w", ErrExtractFailed, target, err)
 	}
 
-	applyOwnership(target, hdr, false)
+	applyOwnership(root, target, hdr, false)
 	return nil
 }
 
-func writeRegularFile(target string, hdr *tar.Header, tr io.Reader) error {
-	if err := ensureParentDir(target); err != nil {
+func writeRegularFile(root *os.Root, target string, hdr *tar.Header, tr io.Reader) error {
+	if err := ensureParentDir(root, target); err != nil {
 		return err
 	}
-	if err := removeIfNotMatching(target, false); err != nil {
+	if err := removeIfNotMatching(root, target, false); err != nil {
 		return err
 	}
 
 	mode := os.FileMode(hdr.Mode & 0o7777)
-	out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	out, err := root.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return fmt.Errorf("%w: create file (%s):\n%w", ErrExtractFailed, target, err)
 	}
@@ -160,32 +170,34 @@ func writeRegularFile(target string, hdr *tar.Header, tr io.Reader) error {
 		return fmt.Errorf("%w: close file (%s):\n%w", ErrExtractFailed, target, err)
 	}
 
-	if err := os.Chmod(target, mode); err != nil {
+	if err := root.Chmod(target, mode); err != nil {
 		return fmt.Errorf("%w: chmod file (%s):\n%w", ErrExtractFailed, target, err)
 	}
 
-	applyOwnership(target, hdr, false)
+	applyOwnership(root, target, hdr, false)
 	return nil
 }
 
-func writeSymlink(target string, hdr *tar.Header) error {
-	if err := ensureParentDir(target); err != nil {
+func writeSymlink(root *os.Root, target string, hdr *tar.Header) error {
+	if err := ensureParentDir(root, target); err != nil {
 		return err
 	}
-	if err := removePathAll(target); err != nil {
+	if err := removePathAll(root, target); err != nil {
 		return err
 	}
 
-	if err := os.Symlink(hdr.Linkname, target); err != nil {
+	// Store linkname verbatim. os.Root blocks any later op that would traverse
+	// a symlink escaping destDir, so malicious linknames cannot redirect writes.
+	if err := root.Symlink(hdr.Linkname, target); err != nil {
 		return fmt.Errorf("%w: symlink (%s -> %s):\n%w", ErrExtractFailed, target, hdr.Linkname, err)
 	}
 
-	applyOwnership(target, hdr, true)
+	applyOwnership(root, target, hdr, true)
 	return nil
 }
 
-func writeHardlink(target string, hdr *tar.Header, destDir string) error {
-	if err := ensureParentDir(target); err != nil {
+func writeHardlink(root *os.Root, target string, hdr *tar.Header) error {
+	if err := ensureParentDir(root, target); err != nil {
 		return err
 	}
 
@@ -193,28 +205,33 @@ func writeHardlink(target string, hdr *tar.Header, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("%w: hardlink target (%q):\n%w", ErrExtractFailed, hdr.Linkname, err)
 	}
-	linkSrc := filepath.Join(destDir, filepath.FromSlash(linkRel))
+	linkSrc := filepath.FromSlash(linkRel)
 
-	if err := removePathAll(target); err != nil {
+	if err := removePathAll(root, target); err != nil {
 		return err
 	}
-	if err := os.Link(linkSrc, target); err != nil {
+	if err := root.Link(linkSrc, target); err != nil {
 		return fmt.Errorf("%w: hardlink (%s -> %s):\n%w", ErrExtractFailed, target, linkSrc, err)
 	}
 
 	return nil
 }
 
-func ensureParentDir(target string) error {
+func ensureParentDir(root *os.Root, target string) error {
 	parent := filepath.Dir(target)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
+	if parent == "." || parent == "" {
+		return nil
+	}
+	if err := root.MkdirAll(parent, 0o755); err != nil {
 		return fmt.Errorf("%w: mkdir parent (%s):\n%w", ErrExtractFailed, parent, err)
 	}
 	return nil
 }
 
-func removeIfNotMatching(target string, wantDir bool) error {
-	info, err := os.Lstat(target)
+// removeIfNotMatching removes a pre-existing entry whose file type does not
+// match the entry being written, including any symlink when wantDir is false.
+func removeIfNotMatching(root *os.Root, target string, wantDir bool) error {
+	info, err := root.Lstat(target)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -222,48 +239,54 @@ func removeIfNotMatching(target string, wantDir bool) error {
 		return fmt.Errorf("%w: stat (%s):\n%w", ErrExtractFailed, target, err)
 	}
 
-	if wantDir == info.IsDir() {
+	isSymlink := info.Mode()&os.ModeSymlink != 0
+	if !isSymlink && wantDir == info.IsDir() {
 		return nil
 	}
 
-	if err := os.RemoveAll(target); err != nil {
+	if err := root.RemoveAll(target); err != nil {
 		return fmt.Errorf("%w: removing conflicting entry (%s):\n%w", ErrExtractFailed, target, err)
 	}
 	return nil
 }
 
-func removePathAll(target string) error {
-	if err := os.RemoveAll(target); err != nil {
+func removePathAll(root *os.Root, target string) error {
+	if err := root.RemoveAll(target); err != nil {
 		return fmt.Errorf("%w: removing (%s):\n%w", ErrExtractFailed, target, err)
 	}
 	return nil
 }
 
-func removeDirChildren(dir string) error {
-	entries, err := os.ReadDir(dir)
+func removeDirChildren(root *os.Root, dir string) error {
+	dirFile, err := root.Open(dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("%w: read dir (%s):\n%w", ErrExtractFailed, dir, err)
+		return fmt.Errorf("%w: open dir (%s):\n%w", ErrExtractFailed, dir, err)
+	}
+	entries, readErr := dirFile.ReadDir(-1)
+	dirFile.Close()
+	if readErr != nil {
+		return fmt.Errorf("%w: read dir (%s):\n%w", ErrExtractFailed, dir, readErr)
 	}
 
 	for _, entry := range entries {
 		child := filepath.Join(dir, entry.Name())
-		if err := os.RemoveAll(child); err != nil {
+		if err := root.RemoveAll(child); err != nil {
 			return fmt.Errorf("%w: removing (%s):\n%w", ErrExtractFailed, child, err)
 		}
 	}
 	return nil
 }
 
-func applyOwnership(target string, hdr *tar.Header, isSymlink bool) {
+func applyOwnership(root *os.Root, target string, hdr *tar.Header, isSymlink bool) {
 	if hdr.Uid < 0 || hdr.Gid < 0 {
 		return
 	}
 	if isSymlink {
-		_ = os.Lchown(target, hdr.Uid, hdr.Gid)
+		_ = root.Lchown(target, hdr.Uid, hdr.Gid)
 	} else {
-		_ = os.Chown(target, hdr.Uid, hdr.Gid)
+		_ = root.Chown(target, hdr.Uid, hdr.Gid)
 	}
 }
