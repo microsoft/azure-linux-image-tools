@@ -79,8 +79,7 @@ func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
 			pkgs.UpdateExistingPackages {
 			if rc.Options.ToolsDir == "" {
 				return fmt.Errorf("ACL package operations require --tools-dir: " +
-					"ACL images do not include a package manager; " +
-					"provide a tools directory via --tools-dir")
+					"ACL images do not include a package manager")
 			}
 		}
 
