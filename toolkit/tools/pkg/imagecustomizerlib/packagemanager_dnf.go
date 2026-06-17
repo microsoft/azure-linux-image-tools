@@ -210,7 +210,12 @@ func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroo
 	if err != nil {
 		return nil, fmt.Errorf("failed to query (%s) package information via rpm:\n%w", packageName, err)
 	}
-	return parsePackageInfoOutput(packageName, packageInfo)
+
+	info, err := parsePackageInfoOutput(packageName, packageInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse (%s) package information from rpm:\n%w", packageName, err)
+	}
+	return info, nil
 }
 
 func (pm *dnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,

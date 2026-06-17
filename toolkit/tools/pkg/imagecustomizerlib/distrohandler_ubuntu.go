@@ -100,7 +100,7 @@ func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootIn
 
 func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
 ) (*PackageVersionInformation, error) {
-	return nil, fmt.Errorf("Getting package information is not supported for Ubuntu images:\n%w",
+	return nil, fmt.Errorf("Getting package information is not supported yet for Ubuntu images:\n%w",
 		ErrUnsupportedUbuntuFeature)
 }
 
