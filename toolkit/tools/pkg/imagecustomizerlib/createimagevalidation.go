@@ -124,6 +124,9 @@ func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecust
 		return fmt.Errorf("rpm sources must be specified for creating a seed image")
 	}
 
+	if toolsDir == "" {
+		return fmt.Errorf("tools directory is required for image creation")
+	}
 	err := validateToolsDir(toolsDir)
 	if err != nil {
 		return err
@@ -133,10 +136,6 @@ func validateCreateImageMandatoryFields(baseConfigPath string, config *imagecust
 }
 
 func validateToolsDir(toolsDir string) error {
-	if toolsDir == "" {
-		return fmt.Errorf("tools directory is required for image creation")
-	}
-
 	info, err := os.Stat(toolsDir)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("tools directory (%s) does not exist", toolsDir)

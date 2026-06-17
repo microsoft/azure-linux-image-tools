@@ -19,25 +19,13 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChrootDir := toolsDir
-	toolsChroot := safechroot.NewChroot(toolsChrootDir, true)
-	if err := toolsChroot.Initialize("", nil, nil, true); err != nil {
-		return nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", toolsDir, err)
-	}
-	defer toolsChroot.Close(false)
-
-	toolsResolvConf, err := overrideResolvConf(toolsChroot)
+	toolsChroot, cleanup, err := initToolsChroot(ctx, toolsDir)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to override resolv.conf in tools chroot:\n%w", err)
+		return nil, "", err
 	}
-	defer func() {
-		if restoreErr := restoreResolvConf(ctx, toolsResolvConf, toolsChroot); restoreErr != nil {
-			logger.Log.Warnf("Failed to restore resolv.conf in tools chroot (%s): %v",
-				toolsChrootDir, restoreErr)
-		}
-	}()
+	defer cleanup()
 
-	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
+	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsDir,
 		toolsRootImageDir, true, false, false, false, distroHandler)
 	if err != nil {
 		return nil, "", err
@@ -61,12 +49,6 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	}
 
 	err = imageConnection.CleanClose()
-	if err != nil {
-		return nil, "", err
-	}
-
-	// Close the tools chroot and image connection.
-	err = toolsChroot.Close(false)
 	if err != nil {
 		return nil, "", err
 	}
