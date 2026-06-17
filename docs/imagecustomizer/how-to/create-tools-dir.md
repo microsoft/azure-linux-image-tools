@@ -1,19 +1,18 @@
 ---
-title: Create Tools Directory
+title: Tools Directory
 parent: How To
 nav_order: 9
 has_toc: false
 ---
 
-# Creating the Tools Directory
+# Tools Directory
 
-The `--tools-dir` flag used by the Image Customizer
-[create](../api/cli/create.md) and [customize](../api/cli/customize.md) subcommands
-requires a directory that contains a package manager (tdnf or dnf) and its runtime
-dependencies.
+Both the `create` and `customize` subcommands of the Image Customizer accept a
+`--tools-dir` flag. The directory it points to must contain a package manager
+(tdnf or dnf) and its runtime dependencies.
 
-This directory is used as a bootstrap environment to install packages into the target
-image. It is not added to the image itself.
+Image Customizer uses this directory as a chroot to run utilities needed during
+image customization.
 
 ## Prerequisites
 

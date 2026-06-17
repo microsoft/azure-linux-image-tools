@@ -182,12 +182,6 @@ As such, the example configuration files below must specify `create` in the [pre
    For step-by-step instructions, see:
    [How to create the tools directory](../how-to/create-tools-dir.md)
 
-   For Azure Linux 3.0, the tools directory should be created from the
-   `mcr.microsoft.com/azurelinux/base/core:3.0` container image.
-
-   For Fedora 42, the tools directory should be created from the
-   `quay.io/fedora/fedora:42` container image.
-
 3. Create a repository configuration file and, if needed, a GPG key file.
 
    The repository configuration file (`.repo` file) tells the Image Customizer where to download RPM packages from.

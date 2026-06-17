@@ -6,15 +6,12 @@ package imagecustomizerlib
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/imagegen/installutils"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/imageconnection"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/logger"
 	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
 )
 
 func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDir string,
@@ -22,18 +19,23 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
-	if err := os.MkdirAll(toolsChrootDir, os.ModePerm); err != nil {
-		return nil, "", fmt.Errorf("failed to create tools chroot directory:\n%w", err)
-	}
-	if _, _, err := shell.Execute("cp", "-a", toolsDir+"/.", toolsChrootDir); err != nil {
-		return nil, "", fmt.Errorf("failed to copy tools directory (%s):\n%w", toolsDir, err)
-	}
+	toolsChrootDir := toolsDir
 	toolsChroot := safechroot.NewChroot(toolsChrootDir, true)
 	if err := toolsChroot.Initialize("", nil, nil, true); err != nil {
 		return nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", toolsDir, err)
 	}
 	defer toolsChroot.Close(false)
+
+	toolsResolvConf, err := overrideResolvConf(toolsChroot)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to override resolv.conf in tools chroot:\n%w", err)
+	}
+	defer func() {
+		if restoreErr := restoreResolvConf(ctx, toolsResolvConf, toolsChroot); restoreErr != nil {
+			logger.Log.Warnf("Failed to restore resolv.conf in tools chroot (%s): %v",
+				toolsChrootDir, restoreErr)
+		}
+	}()
 
 	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsChrootDir,
 		toolsRootImageDir, true, false, false, false, distroHandler)
@@ -83,7 +85,7 @@ func doOsCustomizationsCreate(
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)
 
-	resolvConf, err := overrideResolvConf(toolsChroot)
+	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
 	}

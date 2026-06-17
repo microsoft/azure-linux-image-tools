@@ -95,7 +95,6 @@ const (
 	diskFreeWarnThresholdBytes   = 500 * diskutils.MiB
 	diskFreeWarnThresholdPercent = 0.05
 	toolsRootImageDir            = "_imageroot"
-	toolsRoot                    = "toolsroot"
 
 	OtelTracerName = "imagecustomizerlib"
 )
@@ -674,18 +673,14 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 
 	readOnlyVerity := rc.Storage.ReinitializeVerity != imagecustomizerapi.ReinitializeVerityTypeAll
 
-	// If a tools directory is provided, copy it to the build directory and initialize a tools chroot from it.
+	// Use the user-supplied tools directory directly as the tools chroot to avoid
+	// the cost of copying it into the build directory. The resolv.conf override
+	// is restored on exit so the directory remains reusable across invocations.
 	var toolsChroot *safechroot.Chroot
 	mountBaseDir := rc.BuildDirAbs
 	mountPointName := "imageroot"
 	if rc.Options.ToolsDir != "" {
-		toolsChrootDir := filepath.Join(rc.BuildDirAbs, toolsRoot)
-		if err := os.MkdirAll(toolsChrootDir, os.ModePerm); err != nil {
-			return nil, nil, nil, "", fmt.Errorf("failed to create tools chroot directory:\n%w", err)
-		}
-		if _, _, err := shell.Execute("cp", "-a", rc.Options.ToolsDir+"/.", toolsChrootDir); err != nil {
-			return nil, nil, nil, "", fmt.Errorf("failed to copy tools directory (%s):\n%w", rc.Options.ToolsDir, err)
-		}
+		toolsChrootDir := rc.Options.ToolsDir
 		toolsChroot = safechroot.NewChroot(toolsChrootDir, true)
 		if err := toolsChroot.Initialize("", nil, nil, true); err != nil {
 			return nil, nil, nil, "", fmt.Errorf("failed to initialize tools chroot from %s:\n%w", rc.Options.ToolsDir, err)
@@ -693,6 +688,16 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		// toolsChroot must be closed AFTER imageConnection so the image unmounts
 		// before the tools chroot directory is torn down.
 		defer toolsChroot.Close(false)
+		toolsResolvConf, err := overrideResolvConf(toolsChroot)
+		if err != nil {
+			return nil, nil, nil, "", fmt.Errorf("failed to override resolv.conf in tools chroot:\n%w", err)
+		}
+		defer func() {
+			if restoreErr := restoreResolvConf(ctx, toolsResolvConf, toolsChroot); restoreErr != nil {
+				logger.Log.Warnf("Failed to restore resolv.conf in tools chroot (%s): %v",
+					toolsChrootDir, restoreErr)
+			}
+		}()
 		mountBaseDir = toolsChrootDir
 		mountPointName = toolsRootImageDir
 	}

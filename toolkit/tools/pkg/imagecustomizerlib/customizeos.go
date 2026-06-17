@@ -35,14 +35,10 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 
 	buildTime := time.Now().Format(buildTimeFormat)
 
-	// When a tools chroot is used, network access (for package downloads) runs
-	// inside it, so resolv.conf must be overridden there. Without a tools chroot,
-	// the package manager runs inside the image chroot directly.
-	resolvConfChroot := imageChroot
-	if toolsChroot != nil {
-		resolvConfChroot = toolsChroot
-	}
-	resolvConf, err := overrideResolvConf(resolvConfChroot)
+	// The toolsChroot (when present) has its own resolv.conf overridden at chroot
+	// initialization time; here we override the imageChroot's so that user scripts
+	// (e.g. postCustomization) have network access.
+	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
 	}
@@ -211,7 +207,7 @@ func doOsCustomizations(ctx context.Context, rc *ResolvedConfig, imageConnection
 		return err
 	}
 
-	err = restoreResolvConf(ctx, resolvConf, resolvConfChroot)
+	err = restoreResolvConf(ctx, resolvConf, imageChroot)
 	if err != nil {
 		return err
 	}

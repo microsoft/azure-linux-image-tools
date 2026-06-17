@@ -103,18 +103,6 @@ func GetDownloadedRpmsDir(t *testing.T, testutilsDir string, distro string, dist
 	return downloadedRpmsDir
 }
 
-func GetDownloadedToolsFile(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
-) string {
-	toolsFileName := fmt.Sprintf("tools-%s-%s.tar.gz", distro, distroVersion)
-	toolsFilePath := filepath.Join(testutilsDir, "testrpms/build", toolsFileName)
-	if _, err := os.Stat(toolsFilePath); os.IsNotExist(err) {
-		t.Skipf("test requires downloaded tools file: %s;\n"+
-			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			toolsFilePath, distro, distroVersion, createImage)
-	}
-	return toolsFilePath
-}
-
 func GetDownloadedToolsDir(t *testing.T, testutilsDir string, distro string, distroVersion string, createImage bool,
 ) string {
 	toolsDirName := fmt.Sprintf("tools-%s-%s-dir", distro, distroVersion)
