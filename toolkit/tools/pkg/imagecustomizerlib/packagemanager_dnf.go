@@ -4,6 +4,7 @@
 package imagecustomizerlib
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -193,6 +194,23 @@ func (pm *dnfPackageManager) isPackageInstalled(imageChroot safechroot.ChrootInt
 		return false
 	}
 	return true
+}
+
+func (pm *dnfPackageManager) getPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+) (*PackageVersionInformation, error) {
+	// Use `rpm -q --queryformat` rather than `dnf info --installed` here for the same reason as in isPackageInstalled.
+	//
+	// Use `--queryformat` to get a single-line, parser-friendly output that matches what parsePackageInfoOutput
+	// already expects from `tdnf info` (Name/Version/Release labels), so we share the parser.
+	packageInfo, _, err := shell.NewExecBuilder("rpm", "-q", "--queryformat",
+		"Name : %{NAME}\nVersion : %{VERSION}\nRelease : %{RELEASE}\n", "--", packageName).
+		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
+		Chroot(imageChroot.ChrootDir()).
+		ExecuteCaptureOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to query (%s) package information via rpm:\n%w", packageName, err)
+	}
+	return parsePackageInfoOutput(packageName, packageInfo)
 }
 
 func (pm *dnfPackageManager) importGpgKeys(imageChroot *safechroot.Chroot, toolsChroot *safechroot.Chroot,

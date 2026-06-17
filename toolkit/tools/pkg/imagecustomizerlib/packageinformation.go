@@ -8,10 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/safechroot"
-	"github.com/microsoft/azure-linux-image-tools/toolkit/tools/internal/shell"
-	"github.com/sirupsen/logrus"
 )
 
 type PackageVersionInformation struct {
@@ -139,23 +135,16 @@ func parseVersionString(version string) ([]uint64, error) {
 	return versionComponents, nil
 }
 
-func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (info *PackageVersionInformation, err error) {
-	packageInfo, _, err := shell.NewExecBuilder("tdnf", "info", packageName, "--repo", "@system").
-		LogLevel(logrus.TraceLevel, logrus.DebugLevel).
-		Chroot(imageChroot.ChrootDir()).
-		ExecuteCaptureOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to query (%s) package information:\n%w", packageName, err)
-	}
-
+// parsePackageInfoOutput extracts the package version, release, distro name, and distro version from the
+// `Name: ... / Version: ... / Release: ...` text emitted by `tdnf info`.
+func parsePackageInfoOutput(packageName, packageInfo string) (*PackageVersionInformation, error) {
 	// Regular expressions to match Version and Release
 	versionRegex := regexp.MustCompile(`(?m)^Version\s+:\s+(\S+)`)
 	versionMatch := versionRegex.FindStringSubmatch(packageInfo)
-	var packageVersion string
 	if len(versionMatch) != 2 {
-		return nil, fmt.Errorf("failed to extract version information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
+		return nil, fmt.Errorf("failed to extract version information from the (%s) package information (\n%s\n)", packageName, packageInfo)
 	}
-	packageVersion = versionMatch[1]
+	packageVersion := versionMatch[1]
 
 	versionComponents, err := parseVersionString(packageVersion)
 	if err != nil {
@@ -165,24 +154,21 @@ func getPackageInformation(imageChroot *safechroot.Chroot, packageName string) (
 	// Extract Release
 	releaseRegex := regexp.MustCompile(`(?m)^Release\s+:\s+(\S+)`)
 	releaseMatch := releaseRegex.FindStringSubmatch(packageInfo)
-	var releaseInfo string
 	if len(releaseMatch) != 2 {
-		return nil, fmt.Errorf("failed to extract release information from the (%s) package information (\n%s\n):\n%w", packageName, packageInfo, err)
+		return nil, fmt.Errorf("failed to extract release information from the (%s) package information (\n%s\n)", packageName, packageInfo)
 	}
-	releaseInfo = releaseMatch[1]
+	releaseInfo := releaseMatch[1]
 
 	packageRelease, distroName, distroVersion, err := parseReleaseString(releaseInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse release information for package (%s)\n%w", packageName, err)
 	}
 
-	// Set return values
-	info = &PackageVersionInformation{
+	info := &PackageVersionInformation{
 		PackageVersionComponents: versionComponents,
 		PackageRelease:           packageRelease,
 		DistroName:               distroName,
 		DistroVersion:            distroVersion,
 	}
-
 	return info, nil
 }
