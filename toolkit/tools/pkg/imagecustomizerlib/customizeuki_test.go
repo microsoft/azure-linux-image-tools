@@ -18,7 +18,7 @@ import (
 )
 
 func TestCustomizeImageVerityUsrUki(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityUsrUkiHelper(t, baseImageInfo)
 		})
@@ -67,7 +67,7 @@ func testCustomizeImageVerityUsrUkiHelper(t *testing.T, baseImageInfo testBaseIm
 }
 
 func TestCustomizeImageVerityUsrUkiRecustomize(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityUsrUkiRecustomizeHelper(t, baseImageInfo)
 		})
@@ -178,7 +178,7 @@ func testCustomizeImageVerityUsrUkiRecustomizeHelper(t *testing.T, baseImageInfo
 }
 
 func TestCustomizeImageVerityUsrUkiPassthrough(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityUsrUkiPassthroughHelper(t, baseImageInfo)
 		})
@@ -237,7 +237,7 @@ func testCustomizeImageVerityUsrUkiPassthroughHelper(t *testing.T, baseImageInfo
 }
 
 func TestCustomizeImageVerityRootUki(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImageVerityRootUkiHelper(t, baseImageInfo)
 		})

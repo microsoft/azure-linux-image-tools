@@ -551,7 +551,7 @@ func installPackageDiskSpaceConfigFile(t *testing.T, baseImageInfo testBaseImage
 }
 
 func TestCustomizeImagePackagesUrlSource(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesUrlSourceHelper(t, baseImageInfo)
 		})
@@ -612,7 +612,7 @@ func testCustomizeImagePackagesUrlSourceHelper(t *testing.T, baseImageInfo testB
 
 // Test RPM repo that uses a GPG different from the default.
 func TestCustomizeImagePackagesNewGpgKey(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesNewGpgKeyHelper(t, baseImageInfo)
 		})
@@ -660,7 +660,7 @@ func testCustomizeImagePackagesNewGpgKeyHelper(t *testing.T, baseImageInfo testB
 }
 
 func TestCustomizeImagePackagesBadRepo(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesBadRepoHelper(t, baseImageInfo)
 		})
@@ -730,7 +730,7 @@ func ensureRpmCacheCleanup(t *testing.T, imageConnection *imageconnection.ImageC
 }
 
 func TestCustomizeImagePackagesSnapshotTime(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesSnapshotTimeHelper(t, baseImageInfo)
 		})
@@ -795,7 +795,7 @@ func testCustomizeImagePackagesSnapshotTimeHelper(t *testing.T, baseImageInfo te
 }
 
 func TestCustomizeImagePackagesCliSnapshotTimeOverridesConfigFile(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t, baseImageInfo)
 		})
@@ -867,7 +867,7 @@ func testCustomizeImagePackagesCliSnapshotTimeOverridesConfigFileHelper(t *testi
 }
 
 func TestCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFails(t *testing.T) {
-	for _, baseImageInfo := range baseImageAzureLinuxCoreEfiAll {
+	for _, baseImageInfo := range baseImageAzureLinux3Plus {
 		t.Run(baseImageInfo.Name, func(t *testing.T) {
 			testCustomizeImagePackagesSnapshotTimeWithoutPreviewFlagFailsHelper(t, baseImageInfo)
 		})
