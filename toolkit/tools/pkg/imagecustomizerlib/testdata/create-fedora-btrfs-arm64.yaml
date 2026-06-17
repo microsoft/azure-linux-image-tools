@@ -1,7 +1,7 @@
 # Differs from create-fedora-btrfs-amd64 in its use of create-fedora-arm64-packages (not create-fedora-amd64-packages)
 previewFeatures:
 - create
-- fedora
+- preview-distro-version
 - btrfs
 
 storage:

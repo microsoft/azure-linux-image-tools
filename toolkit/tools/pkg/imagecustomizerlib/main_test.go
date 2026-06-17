@@ -127,6 +127,9 @@ var (
 		Param:        baseImageCoreEfiAzl4,
 		MountPoints:  azureLinuxCoreEfiMountPoints,
 		DefaultShell: defaultShellAzureLinux,
+		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
+			imagecustomizerapi.PreviewFeatureDistroVersion,
+		},
 	}
 
 	testBaseImageUbuntu2204AzureCloud = testBaseImageInfo{
@@ -139,7 +142,7 @@ var (
 		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: defaultShellUbuntu2204,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureUbuntu,
+			imagecustomizerapi.PreviewFeatureDistroVersion,
 		},
 	}
 
@@ -153,7 +156,7 @@ var (
 		MountPoints:  ubuntuAzureCloudMountPoints,
 		DefaultShell: defaultShellUbuntu2404,
 		PreviewFeatures: []imagecustomizerapi.PreviewFeature{
-			imagecustomizerapi.PreviewFeatureUbuntu,
+			imagecustomizerapi.PreviewFeatureDistroVersion,
 		},
 	}
 

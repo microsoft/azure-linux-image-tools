@@ -138,6 +138,7 @@ def run_create_image_test(
     close_list: List[Closeable],
     distro: str,
     version: str,
+    is_preview_distro_version: bool,
 ) -> None:
 
     ssh_public_key, ssh_private_key_path = ssh_key
@@ -162,7 +163,7 @@ def run_create_image_test(
 
     final_config_path = config_path
     if distro.lower() == "fedora":
-        final_config_path = add_preview_features_to_config(config_path, "fedora", close_list)
+        final_config_path = add_preview_features_to_config(config_path, "preview-distro-version", close_list)
 
     run_image_customizer(
         docker_client,
@@ -186,9 +187,12 @@ def run_create_image_test(
     base_ssh_config_path = TEST_CONFIGS_DIR.joinpath("ssh-base-config.yaml")
     customizer_config_path_obj = add_ssh_to_config(base_ssh_config_path, username, ssh_public_key, close_list)
 
-    # Add Fedora preview features if needed
-    if distro.lower() == "fedora":
-        customizer_config_path_obj = add_preview_features_to_config(customizer_config_path_obj, "fedora", close_list)
+    if is_preview_distro_version:
+        customizer_config_path_obj = add_preview_features_to_config(
+            customizer_config_path_obj,
+            "preview-distro-version",
+            close_list,
+        )
 
     run_image_customizer(
         docker_client,
@@ -312,6 +316,7 @@ def test_create_image_efi_qcow_output_azl3(
         close_list,
         "azurelinux",
         "3.0",
+        False,
     )
 
 
@@ -347,6 +352,7 @@ def test_create_image_efi_qcow_output_azl4(
         close_list,
         "azurelinux",
         "4.0",
+        True,
     )
 
 
@@ -382,4 +388,5 @@ def test_create_image_efi_qcow_output_fedora(
         close_list,
         "fedora",
         "42",
+        True,
     )

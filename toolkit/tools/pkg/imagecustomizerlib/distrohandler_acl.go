@@ -43,8 +43,8 @@ func (d *aclDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *aclDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureAzureContainerLinux) {
-		return ErrAzureContainerLinuxPreviewFeatureRequired
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
+		return ErrPreviewDistroVersionFeatureRequired
 	}
 
 	switch d.targetOs.VersionId {

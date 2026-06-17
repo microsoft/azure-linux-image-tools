@@ -147,15 +147,9 @@ Supported options:
 
   Added in v1.2.
 
-- `fedora`: Enables support for creating Fedora images using the [create subcommand](../cli/create.md).
-
-  Added in v1.5.
-
-- `ubuntu`: Enables support for customizing Ubuntu images using the [customize subcommand](../cli/customize.md).
-
-  Added in v1.5.
-
-- `azure-container-linux`: Enables support for customizing Azure Container Linux images.
+- `preview-distro-version`: Enables support for distros and distro versions that are still in
+  preview, including Fedora and Ubuntu (via the [customize](../cli/customize.md) and
+  [create](../cli/create.md) subcommands), Azure Container Linux, and Azure Linux 4.0.
 
   Added in v1.5.
 

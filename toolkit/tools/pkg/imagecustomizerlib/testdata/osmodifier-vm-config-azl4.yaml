@@ -1,4 +1,7 @@
 # Differs from osmodifier-vm-config-azl3 in its removal of selinux-policy-modules
+previewFeatures:
+- preview-distro-version
+
 os:
   additionalFiles:
     # Enable DHCP client on all of the physical NICs.

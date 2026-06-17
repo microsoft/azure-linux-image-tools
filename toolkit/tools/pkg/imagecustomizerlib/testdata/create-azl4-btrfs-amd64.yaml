@@ -1,6 +1,7 @@
 # Differs from create-azl4-amd64 in the btrfs preview feature being enabled, its use of btrfs (not ext4) for the rootfs filesystem, and its use of btrfs-progs (not e2fsprogs)
 previewFeatures:
 - create
+- preview-distro-version
 - btrfs
 
 storage:

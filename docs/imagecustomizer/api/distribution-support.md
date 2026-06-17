@@ -8,9 +8,15 @@ nav_order: 4
 
 The following tables show which APIs are supported for each distribution.
 
-APIs marked as **Preview** require the distribution's
-[previewFeatures](./configuration/config.md#previewfeatures-string) value to be set
-(e.g. `ubuntu`, `azure-container-linux`, `unsupported-distro-version`).
+APIs marked as **Preview** indicate a distribution (or distribution version) that is
+still in preview. Customizing such a distribution requires the
+[`preview-distro-version`](./configuration/config.md#previewfeatures-string) preview feature
+to be set.
+
+The separate
+[`unsupported-distro-version`](./configuration/config.md#previewfeatures-string)
+preview feature applies to a distribution version that is not yet recognized.
+Customizing such a version requires this feature to be set.
 
 ## Command line
 
@@ -80,6 +86,6 @@ APIs marked as **Preview** require the distribution's
 | [os.imageHistory](./configuration/os.md#imagehistory-string)                             | Yes                   | Yes                   | Preview             | Preview                   |
 | [scripts](./configuration/config.md#scripts-scripts)                                     | Yes                   | Yes                   | Preview             | Preview                   |
 | [output.image](./configuration/output.md#image-outputimage)                              | Yes                   | Yes                   | Preview             | Preview                   |
-| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes                   | No                    | No                  | Preview                   |
+| [output.artifacts](./configuration/output.md#artifacts-outputartifacts)                  | Yes                   | Yes                   | No                  | Preview                   |
 | [output.selinuxPolicyPath](./configuration/output.md#selinuxpolicypath-string)           | Yes                   | Yes                   | No                  | No                        |
 | [previewFeatures](./configuration/config.md#previewfeatures-string)                      | Yes                   | Yes                   | Yes                 | Yes                       |

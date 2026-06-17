@@ -49,8 +49,8 @@ func (d *ubuntuDistroHandler) GetTargetOs() targetos.TargetOs {
 }
 
 func (d *ubuntuDistroHandler) ValidateConfig(rc *ResolvedConfig) error {
-	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureUbuntu) {
-		return ErrUbuntuPreviewFeatureRequired
+	if !slices.Contains(rc.PreviewFeatures, imagecustomizerapi.PreviewFeatureDistroVersion) {
+		return ErrPreviewDistroVersionFeatureRequired
 	}
 
 	switch d.targetOs.VersionId {
