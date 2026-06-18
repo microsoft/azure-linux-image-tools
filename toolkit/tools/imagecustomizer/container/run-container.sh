@@ -90,7 +90,6 @@ docker run --rm \
    -v $inputImageDir:$containerInputImageDir:z \
    -v $inputConfigDir:$containerInputConfigDir:z \
    -v $outputImageDir:$containerOutputDir:z \
-   -v /dev:/dev \
    "$containerTag" \
       --image-file $containerInputImage \
       --config-file $containerInputConfig \

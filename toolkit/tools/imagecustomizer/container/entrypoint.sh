@@ -26,4 +26,8 @@ if [[ "$ENABLE_TELEMETRY" == "true" ]] && [[ -n "$AZURE_MONITOR_CONNECTION_STRIN
     sleep 1
 fi
 
+# containerd by default creates /dev as a tmpfs and populates it with a copy of the host's /dev at the time of container
+# creation. Replace it with a real devtmpfs so that partitions are populated when a virtual disk is mounted.
+mount -t devtmpfs devtmpfs /dev
+
 imagecustomizer "$@"

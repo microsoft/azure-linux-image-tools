@@ -62,7 +62,6 @@ def run_image_customizer(
     volumes = [
         f"{config_dir}:{container_config_dir}:z",
         f"{output_image_dir}:{container_output_image_dir}:z",
-        "/dev:/dev",
     ]
 
     if image_file:
