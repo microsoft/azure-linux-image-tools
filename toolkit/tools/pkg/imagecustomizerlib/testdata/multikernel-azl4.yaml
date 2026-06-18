@@ -29,7 +29,7 @@ os:
 
   packages:
     install:
-    - kernel-6.18.5-1.8.azl4~20260420
+    - kernel-6.18.5-1.8.azl4
 
   kernelCommandLine:
     extraCommandLine:

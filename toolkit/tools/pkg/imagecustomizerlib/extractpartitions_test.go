@@ -58,12 +58,12 @@ var (
 		},
 	}
 
-	// Azure Linux 4.0 core-efi base image has a 12 GiB virtual disk and tags the
+	// Azure Linux 4.0 core-efi base image has a 15 GiB virtual disk and tags the
 	// rootfs with the discoverable-partitions arch-specific root GUID instead of
 	// the legacy linux-filesystem GUID used by AzL2/AzL3.
 	expectedCosiMetadataForAzl4CoreEfi = MetadataJson{
 		Disk: Disk{
-			Size:       12 * diskutils.GiB,
+			Size:       15 * diskutils.GiB,
 			GptRegions: newTestCosiGptSections([]int{1, 2}),
 		},
 		Images: []FileSystem{

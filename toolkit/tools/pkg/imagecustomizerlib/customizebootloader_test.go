@@ -23,10 +23,6 @@ func TestCustomizeImageMultiKernel(t *testing.T) {
 }
 
 func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo testBaseImageInfo) {
-	if baseImageInfo.Version == baseImageVersionAzl4 {
-		t.Skip("AZL4 repos currently only have one kernel version available")
-	}
-
 	baseImage := checkSkipForCustomizeImage(t, baseImageInfo)
 
 	testTmpDir := filepath.Join(tmpDir, testName)
@@ -78,8 +74,13 @@ func testCustomizeImageMultiKernel(t *testing.T, testName string, baseImageInfo 
 		assert.GreaterOrEqual(t, len(matches), 2, "grub.cfg:\n%s", grubCfgContents)
 
 	case baseImageVersionAzl4:
-		// AZL4 uses BLS (Boot Loader Specification) entries instead of inline linux lines in grub.cfg.
-		assert.GreaterOrEqual(t, len(matches), 1, "grub.cfg:\n%s", grubCfgContents)
+		// AZL4 uses BLS (Boot Loader Specification) entries instead of inline linux
+		// lines in grub.cfg, so there are no `linux ... console=...` lines to match.
+		// The kernel command line instead lives in the grub.cfg `kernelopts` fallback
+		// and in each per-kernel BLS entry (checked below). Verify the extraCommandLine
+		// made it into kernelopts.
+		kernelOptsRegex := regexp.MustCompile(`(?m)^\s*set kernelopts=.* console=tty0 console=ttyS0`)
+		assert.Regexp(t, kernelOptsRegex, grubCfgContents, "grub.cfg:\n%s", grubCfgContents)
 
 		// One BLS entry per kernel.
 		blsEntriesDir := filepath.Join(imageConnection.Chroot().RootDir(), "/boot/loader/entries")
