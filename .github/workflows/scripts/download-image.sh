@@ -34,7 +34,6 @@ CONTAINERS_JSON=$(
 LATEST_IMAGE=$(
     jq \
     -r \
-    --arg image "$IMAGE_NAME" \
     '[.[].name | select(endswith("/image.vhdx") or endswith("/image.vhd"))] | sort | last' \
     <<< "$CONTAINERS_JSON" \
 )
