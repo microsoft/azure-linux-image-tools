@@ -44,6 +44,9 @@ type DistroHandler interface {
 
 	IsPackageInstalled(imageChroot safechroot.ChrootInterface, packageName string) bool
 
+	// GetPackageInformation queries the installed-package database for packageName and returns its parsed information.
+	GetPackageInformation(imageChroot *safechroot.Chroot, packageName string) (*PackageVersionInformation, error)
+
 	// Get all installed packages from the chroot
 	GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error)
 

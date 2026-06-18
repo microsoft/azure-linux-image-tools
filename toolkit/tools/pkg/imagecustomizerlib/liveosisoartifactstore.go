@@ -408,7 +408,7 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	}
 	infoStore.seLinuxMode = imageSELinuxMode
 
-	infoStore.dracutPackageInfo, err = getPackageInformation(chroot, "dracut")
+	infoStore.dracutPackageInfo, err = distroHandler.GetPackageInformation(chroot, "dracut")
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine package information for dracut under (%s):\n%w", imageRootDir, err)
 	}
@@ -417,7 +417,7 @@ func createIsoInfoStoreFromMountedImage(buildDir string, imageRootDir string, di
 	// So, the absence of selinux-policy does not mean that there are no selinux
 	// policy packages.
 	if distroHandler.IsPackageInstalled(chroot, "selinux-policy") {
-		infoStore.selinuxPolicyPackageInfo, err = getPackageInformation(chroot, "selinux-policy")
+		infoStore.selinuxPolicyPackageInfo, err = distroHandler.GetPackageInformation(chroot, "selinux-policy")
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine package information for selinux-policy under (%s):\n%w", imageRootDir, err)
 		}

@@ -98,6 +98,12 @@ func (d *ubuntuDistroHandler) IsPackageInstalled(imageChroot safechroot.ChrootIn
 	return isPackageInstalledDeb(imageChroot, packageName)
 }
 
+func (d *ubuntuDistroHandler) GetPackageInformation(imageChroot *safechroot.Chroot, packageName string,
+) (*PackageVersionInformation, error) {
+	return nil, fmt.Errorf("Getting package information is not supported yet for Ubuntu images:\n%w",
+		ErrUnsupportedUbuntuFeature)
+}
+
 func (d *ubuntuDistroHandler) GetAllPackagesFromChroot(imageChroot safechroot.ChrootInterface) ([]OsPackage, error) {
 	return getAllPackagesFromChrootDeb(imageChroot)
 }
