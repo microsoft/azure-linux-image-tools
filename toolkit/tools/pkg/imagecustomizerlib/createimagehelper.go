@@ -19,11 +19,11 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 ) ([]fstabEntryPartNum, string, error) {
 	logger.Log.Debugf("Customizing OS image")
 
-	toolsChroot, cleanup, err := initToolsChroot(ctx, toolsDir)
+	toolsChroot, err := initToolsChroot(toolsDir)
 	if err != nil {
 		return nil, "", err
 	}
-	defer cleanup()
+	defer toolsChroot.Close(ctx)
 
 	imageConnection, partitionsLayout, _, _, _, err := connectToExistingImage(ctx, rc.RawImageFile, toolsDir,
 		toolsRootImageDir, true, false, false, false, distroHandler)
@@ -33,7 +33,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 	defer imageConnection.Close()
 
 	// Do the actual customizations.
-	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot, partitionsLayout, distroHandler)
+	err = doOsCustomizationsCreate(ctx, rc, imageConnection, toolsChroot.Chroot(), partitionsLayout, distroHandler)
 
 	// Out of disk space errors can be difficult to diagnose.
 	// So, warn about any partitions with low free space.
@@ -53,7 +53,7 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 		return nil, "", err
 	}
 
-	err = toolsChroot.Close(false)
+	err = toolsChroot.CleanClose(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -72,6 +72,9 @@ func doOsCustomizationsCreate(
 	imageChroot := imageConnection.Chroot()
 	buildTime := time.Now().Format(buildTimeFormat)
 
+	// Override resolv.conf inside the image chroot so user scripts and RPM
+	// scriptlets, run via tdnf --installroot, have DNS. The tools chroot's own
+	// resolv.conf is handled separately by initToolsChroot.
 	resolvConf, err := overrideResolvConf(imageChroot)
 	if err != nil {
 		return err
