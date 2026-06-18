@@ -287,7 +287,12 @@ Added in v1.5.
 
 ## --setfiles-context
 
-The SELinux context to use when running the `setfiles` command.
+The SELinux context to use when running the `setfiles` command, which is used to apply
+the security context labels on all the files in the OS when SELinux is enabled in the
+target OS.
+
+If omitted, the `setfiles` command is run in the default security context chosen by the
+kernel.
 
 This option is useful when running on a build system with SELinux enabled.
 
