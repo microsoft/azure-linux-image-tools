@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -108,26 +107,10 @@ func GetDownloadedToolsDir(t *testing.T, testutilsDir string, distro string, dis
 	toolsDirName := fmt.Sprintf("tools-%s-%s-dir", distro, distroVersion)
 	toolsDirPath := filepath.Join(testutilsDir, "testrpms/build", toolsDirName)
 
-	if _, err := os.Stat(toolsDirPath); err == nil {
-		return toolsDirPath
-	}
-
-	toolsFileName := fmt.Sprintf("tools-%s-%s.tar.gz", distro, distroVersion)
-	toolsFilePath := filepath.Join(testutilsDir, "testrpms/build", toolsFileName)
-	if _, err := os.Stat(toolsFilePath); os.IsNotExist(err) {
-		t.Skipf("test requires downloaded tools file: %s;\n"+
+	if _, err := os.Stat(toolsDirPath); os.IsNotExist(err) {
+		t.Skipf("test requires downloaded tools dir: %s;\n"+
 			"please run toolkit/tools/internal/testutils/testrpms/download-test-utils.sh -d %s -t %s -s %t",
-			toolsFilePath, distro, distroVersion, createImage)
-	}
-
-	if err := os.MkdirAll(toolsDirPath, os.ModePerm); err != nil {
-		t.Fatalf("failed to create tools directory (%s): %v", toolsDirPath, err)
-	}
-
-	cmd := exec.Command("tar", "-x", "-z", "-f", toolsFilePath, "-C", toolsDirPath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		_ = os.RemoveAll(toolsDirPath)
-		t.Fatalf("failed to extract tools tarball (%s): %v\n%s", toolsFilePath, err, out)
+			toolsDirPath, distro, distroVersion, createImage)
 	}
 
 	return toolsDirPath

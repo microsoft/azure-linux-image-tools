@@ -129,7 +129,7 @@ dependencies) needed to install packages during image creation.
 For instructions on how to create this directory, see:
 [How to create the tools directory](../../how-to/create-tools-dir.md)
 
-Added in v1.2. Renamed from `--tools-file` in v1.5.
+Added in v1.5.
 
 ## --distro=DISTRO
 

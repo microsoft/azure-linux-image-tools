@@ -752,6 +752,13 @@ func customizeImageHelper(ctx context.Context, rc *ResolvedConfig, partitionsCus
 		return nil, nil, nil, "", err
 	}
 
+	if toolsChroot != nil {
+		err = toolsChroot.Close(false)
+		if err != nil {
+			return nil, nil, nil, "", err
+		}
+	}
+
 	return partitionsLayout, baseImageVerityMetadata, readonlyPartUuids, osRelease, nil
 }
 

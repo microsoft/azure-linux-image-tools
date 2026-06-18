@@ -53,6 +53,11 @@ func CustomizeImageHelperCreate(ctx context.Context, rc *ResolvedConfig, toolsDi
 		return nil, "", err
 	}
 
+	err = toolsChroot.Close(false)
+	if err != nil {
+		return nil, "", err
+	}
+
 	return partitionsLayout, osRelease, nil
 }
 

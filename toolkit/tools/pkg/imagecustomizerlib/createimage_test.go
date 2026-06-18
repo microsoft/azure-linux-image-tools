@@ -171,6 +171,8 @@ func TestCreateImageRawNoTar(t *testing.T) {
 }
 
 func testCreateImageRawNoTar(t *testing.T, name string, version string, configFile string) {
+	testutils.CheckSkipForCustomizeImageRequirements(t)
+
 	testTmpDir := filepath.Join(tmpDir, fmt.Sprintf("TestCreateImageRawNoTar_%s", name))
 	defer os.RemoveAll(testTmpDir)
 
