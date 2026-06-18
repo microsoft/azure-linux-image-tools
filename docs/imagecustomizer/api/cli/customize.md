@@ -308,3 +308,5 @@ Also, you need to run the commands:
    This allows transitions from `unconfined_t` to `setfiles_mac_t`.
 
 2. `sudo semanage permissive -a systemd_hwdb_t`
+
+   `setfiles_mac_t` doesn't have the correct permissions to label `/etc/udev/hwdb.bin`.

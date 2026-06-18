@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -901,17 +900,6 @@ func SELinuxRelabelFiles(installChroot safechroot.ChrootInterface, mountPointToF
 func callSetFiles(targetRootPath string, fileContextPath string, targetPath string, chrootDir string,
 	setFilesContext string,
 ) error {
-	if setFilesContext != "" {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-		err := setSELinuxExecContext(setFilesContext)
-		if err != nil {
-			return fmt.Errorf("failed to set setfiles exec context (%s)", setFilesContext)
-		}
-
-		defer resetSELinuxExecContext()
-	}
-
 	// We only want to print basic info, filter out the real output unless at trace level (Execute call handles that)
 	files := 0
 	onStdout := func(line string) {
@@ -925,6 +913,7 @@ func callSetFiles(targetRootPath string, fileContextPath string, targetPath stri
 		LogLevel(logrus.TraceLevel, logrus.WarnLevel).
 		ErrorStderrLines(1).
 		Chroot(chrootDir).
+		SELinuxContext(setFilesContext).
 		Execute()
 	if err != nil {
 		return fmt.Errorf("setfiles failed:\n%w", err)
